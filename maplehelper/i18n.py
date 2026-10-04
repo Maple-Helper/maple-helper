@@ -694,7 +694,7 @@ STRINGS = {
                      "en": "Tell me about the map {map}: how to get there, which monsters live there, and whether it's a good place for me to train."},
     "calc_hits_basic": {"he": "לפי מכה רגילה מחלון ה-Stat, בלי סקילים. עם סקילים הורגים מהר יותר.", "en": "For a basic attack from the Stat window, without skills. Skills kill faster."},
     "calc_hits_mage": {"he": "לקוסמים זו מכת המטה מחלון ה-Stat, לא כישוף. כישופים פוגעים הרבה יותר חזק.", "en": "For a Magician this is the staff swing from the Stat window, not a spell. Spells hit much harder."},
-    "calc_need_stats": {"he": "מלאו ACC ונזק למטה כדי לראות סיכוי פגיעה ומכות להריגה.", "en": "Add your ACC and damage below to see hit chance and hits to kill."},
+    "calc_need_stats": {"he": "מלאו ACC ונזק למעלה כדי לראות סיכוי פגיעה ומכות להריגה.", "en": "Add your ACC and damage above to see hit chance and hits to kill."},
     "build_head": {"he": "התוכנית ל-**{job}** **ברמה {n}**, מתוך המדריך.\nהשורה המסומנת בכתום היא איפה שאתם עכשיו.", "en": "The plan for **{job}** at **Lv. {n}**, from the guide.\nThe orange row is where you are now."},
     "build_none": {"he": "לג'וב הזה אין עדיין טבלאות בילד במדריכים.", "en": "No build tables for this job in the guides yet."},
     "build_open_guide": {"he": "פתיחת המדריך המלא", "en": "Open the full guide"},
