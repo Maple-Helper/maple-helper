@@ -740,12 +740,11 @@ class ToolsDialog(GlassDialog):
             ref = kills and sources.exp_source(self.kb, c.level) == sources.REFERENCE
             col.addLayout(chip_row([source_tag(t, sources.REFERENCE)], label, lead=True) if ref else _alone(label))
         row.addLayout(col, 1)
-        # its own row under the tags, at the reading start: beside them it took the room the tags needed
-        ask = QPushButton(self._p(t("ask_short")), objectName="Link")
-        ask.setCursor(Qt.PointingHandCursor)
-        ask.setAutoDefault(False)
-        ask.clicked.connect(lambda _=False, k=m.key: self.tag_requested.emit(k))
-        col.addWidget(ask, 0, Qt.AlignLeft)          # AlignLeft is the leading edge (mirrored in Hebrew)
+        # its own row under the tags, at the reading start: the way there, its hit & damage, a grind session on it
+        col.addLayout(self._links_row([("farm_route", lambda: self._farm_route(s.map)),
+                                       ("tool_calc", lambda n=m.name: self._go_calc(n)),
+                                       ("go_track", lambda n=m.name: self._go_track(n)),
+                                       ("ask_short", lambda k=m.key: self.tag_requested.emit(k))]))
         return card
 
     # calculator ----------------------------------------------------------
@@ -871,7 +870,10 @@ class ToolsDialog(GlassDialog):
             self._row(sec, t("calc_mesos"), tag(self._p(t("mesos_none")), "Tag"))
         if not (acc and dmg):
             sec.add_widget(self._label(t("calc_need_stats"), "RowHint"))
-        sec.add_widget(self._ask_link(lambda: self.tag_requested.emit(m.key)))
+        acts = [("farm_route", lambda n=m.name: self._go_route(n))] if self._mob_map(m.name) else []
+        acts += [("farm_hunt", lambda n=m.name: self._go_farm_hunt(n)),
+                 ("ask_short", lambda k=m.key: self.tag_requested.emit(k))]
+        sec.add_widget(self._links_box(acts))
         self.calc_box.addWidget(sec)
         levels = [lv for lv in (c.level - 5, c.level, c.level + 5) if lv >= 1]
         needs = [combat.acc_needed(lv, m.level, m.avoid) for lv in levels]
@@ -917,7 +919,7 @@ class ToolsDialog(GlassDialog):
         self.build_view.setOpenLinks(False)
         # a skill's "Changed in COT2" chip in the table: its changes on hover, and on a click (touch, keyboard)
         self.build_view.highlighted.connect(lambda url: self._skill_change_tip(url.toString()))
-        self.build_view.anchorClicked.connect(lambda url: self._skill_change_tip(url.toString()))
+        self.build_view.anchorClicked.connect(lambda url: self._build_link(url.toString()))
         self.build_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.build_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.build_view.document().documentLayout().documentSizeChanged.connect(
@@ -985,7 +987,8 @@ class ToolsDialog(GlassDialog):
                 cells.append("<tr>" + "".join(
                     f"<{tagname}{bg}><p {'dir=rtl align=right' if he and bidi._RTL.search(x) else ''} style='margin:0;{weight}'>"
                     f"{self._with_skill_icon(x, names) if tb.kind == 'sp' and n else ''}"
-                    f"{guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}{chips.get((n, i), '')}</p></{tagname}>"
+                    f"{self._gear_links(x, guides._rich(x, he and bool(bidi._RTL.search(x)), 18)) if tb.kind == 'gear' and n else guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}"
+                    f"{chips.get((n, i), '')}</p></{tagname}>"
                     for i, x in enumerate(row)) + "</tr>")
             out.append(f"<table {side} width='100%' cellspacing='0' cellpadding='5' border='1' "
                        f"style='border-color: {col['line']}; border-style: solid; margin: 4px 0 12px 0;'>{''.join(cells)}</table>")
@@ -1016,6 +1019,42 @@ class ToolsDialog(GlassDialog):
                         f" <a href='change:{ch.key}' style='text-decoration: none;'><span style='color: {fg}; "
                         f"background-color: {bg}; font-size: small; font-weight: 700;'>&nbsp;{label}&nbsp;</span></a>")
         return out
+
+    _GEAR_NAME = re.compile(r"\[\[img:[^\]]+\]\]\s*([^\[]+?)(?=\s+[+\d(]|\s*,|\s*\[\[|$)")
+
+    def _gear_links(self, raw: str, rendered: str) -> str:
+        """A gear table cell with each item it names a link: a tap offers its price and who drops it (the owner)."""
+        from urllib.parse import quote
+        color = theme.accent_text()
+        for m in self._GEAR_NAME.finditer(raw):
+            name = m.group(1).strip()
+            if not self.kb._item_by_name.get(name.lower()):
+                continue
+            for shown in (html.escape(name, quote=False), html.escape(name)):
+                at = rendered.find(shown)
+                if at >= 0 and rendered.rfind("<", 0, at) <= rendered.rfind(">", 0, at):      # text, not a tag
+                    rendered = (rendered[:at] + f"<a href='item:{quote(name)}' style='color:{color}; "
+                                f"text-decoration:none'>{shown}</a>" + rendered[at + len(shown):])
+                    break
+        return rendered
+
+    def _build_link(self, link: str) -> None:
+        """A tap in the build tables: a skill's change, or an item (its price, who drops it)."""
+        if not link.startswith("item:"):
+            self._skill_change_tip(link)
+            return
+        from urllib.parse import unquote
+
+        from PySide6.QtGui import QCursor
+        from PySide6.QtWidgets import QMenu
+        name = unquote(link[5:])
+        key = self.kb._item_by_name.get(name.lower())
+        menu = QMenu(self)
+        menu.setLayoutDirection(Qt.RightToLeft if self.t.rtl else Qt.LeftToRight)
+        menu.addAction(self._p(self.t("go_price")), lambda: self._farm_price(name))
+        if key and self.kb.droppers.get(key):
+            menu.addAction(self._p(self.t("go_get")), lambda: self._go_farm_item(name))
+        menu.exec(QCursor.pos())
 
     def _skill_change_tip(self, link: str) -> None:
         if not link.startswith("change:"):
@@ -1354,15 +1393,23 @@ class ToolsDialog(GlassDialog):
                 + html.escape(note or ""))
 
     def _things_label(self, head: str, things: list[str], extra: str = "") -> QLabel:
-        """A heading, then one thing per line: its picture beside its own name, never split by a wrap."""
+        """A heading, then one thing per line: its picture beside its own name, never split by a wrap. A monster to
+        defeat has its way there and its hit & damage after it."""
         side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
         lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(head)}</b></p>"]
-        lines += [f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>" for x in things]
+        for x in things:
+            more = ""
+            mob = re.fullmatch(r"Defeat (.+?) x [\d,]+", x.strip())
+            if mob and self._mob_map(mob.group(1)):
+                more = " · " + self._nav_html([("farm_route", "route", mob.group(1)),
+                                               ("tool_calc", "calc", mob.group(1))])
+            lines.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}{more}</p>")
         if extra:
             lines.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(extra)}{bidi.PDF}</p>")
         lb = QLabel("".join(lines), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
+        lb.linkActivated.connect(self._nav)
         return self._zoomable(lb)
 
     def _droppers_label(self, needs: list[str]) -> QLabel | None:
@@ -1381,14 +1428,21 @@ class ToolsDialog(GlassDialog):
             made = crafting.made_from(self.kb, name) if not mons else []
             if not mons and not made:
                 continue
+            # the item's farm page (every dropper, its map and level) and its price, a tap away
+            go = [("tool_farm", "farm", name)] if mons else []
+            go.append(("go_price", "price", name))
             rows = [f"<p {side} style='margin:4px 0 2px 0;'>{bidi.LRE}<u>{html.escape(name)}</u>{bidi.PDF}"
-                    f"{bidi.RLM}:</p>"]
+                    f"{bidi.RLM}: {self._nav_html(go)}</p>"]
             for m in mons:
                 path = self.kb.picture(m)
                 img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
-                who = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
+                mob = (self.kb.get(m) or {}).get('name', m)
+                who = html.escape(f"{mob} (Lv. {lv(m)})")
+                # the way to it and its hit & damage
+                more = (" · " + self._nav_html([("farm_route", "route", mob), ("tool_calc", "calc", mob)])
+                        if self._mob_map(mob) else "")
                 rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
-                            f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span></p>")
+                            f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span>{more}</p>")
             if made:
                 # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
                 # in one line read backwards)
@@ -1407,6 +1461,7 @@ class ToolsDialog(GlassDialog):
         lb = QLabel(head + "".join(blocks), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
+        lb.linkActivated.connect(self._nav)
         return self._zoomable(lb)
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
@@ -1439,7 +1494,16 @@ class ToolsDialog(GlassDialog):
         col.addLayout(top)
         where = [x for x in (q.npc, q.area) if x]
         if where:
-            col.addWidget(self._label(" · ".join(where), "CardSub"))
+            text = html.escape(" · ".join(where))
+            if q.npc and routes.of(self.kb).find(q.npc):
+                text += " · " + self._nav_html([("farm_route", "route", q.npc)])
+            side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+            lb = QLabel(f"<p {side} style='margin:0'>{text}</p>", objectName="CardSub")
+            lb.setTextFormat(Qt.RichText)
+            lb.setWordWrap(True)
+            lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)
+            lb.linkActivated.connect(self._nav)
+            col.addWidget(lb)
         if q.needs:
             # the whole card, nothing cut ("and 2 more" hid what was needed and who drops it: the owner)
             col.addWidget(self._things_label(t("q_needs_head"), q.needs))
@@ -1760,7 +1824,10 @@ class ToolsDialog(GlassDialog):
                                         towns=(" וב-" if t.rtl else ", ").join(i.station_towns)),
                                       "RowLabel"))
         name = crafting.NAMES[prof]
-        col.addWidget(self._ask_link(lambda: self.ask_requested.emit(t("craft_ask", prof=name), False)))
+        acts = [("craft_go_teacher", lambda n=i.teacher: self._go_route(n))] \
+            if i.teacher and routes.of(self.kb).find(i.teacher) else []
+        acts.append(("ask_short", lambda: self.ask_requested.emit(t("craft_ask", prof=name), False)))
+        col.addLayout(self._links_row(acts))
         return card
 
     def _recipe_card(self, r: crafting.Recipe, best: bool) -> QFrame:
@@ -2019,6 +2086,12 @@ class ToolsDialog(GlassDialog):
         web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
             market.item_page(i) if i else market.page_url(n)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+        # who drops it (Farm), the way to the cheapest shop
+        acts = [("go_get", lambda n=name: self._go_farm_item(n))] if self.kb.droppers.get(key) else []
+        if shops and routes.of(self.kb).find(shops[0][0]):
+            acts.append(("go_shop", lambda n=shops[0][0]: self._go_route(n)))
+        if acts:
+            col.addLayout(self._links_row(acts))
         self.price_box.addWidget(card)
         self._price_for = name
         import threading
@@ -2131,6 +2204,10 @@ class ToolsDialog(GlassDialog):
         self.grind_monster.textChanged.connect(lambda text: None if text.strip() else self._grind_pick_monster())
         ml.addWidget(self.grind_monster)
         ml.addWidget(self._gl(t("grind_monster_hint"), "RowHint"))
+        # the way to the picked monster's map, and its hit & damage
+        ml.addLayout(self._links_row([
+            ("farm_route", lambda: self.grind_monster.text().strip() and self._go_route(self.grind_monster.text())),
+            ("tool_calc", lambda: self.grind_monster.text().strip() and self._go_calc(self.grind_monster.text()))]))
         sec.add_widget(mon)
         cells = QWidget()
         grid = QGridLayout(cells)
@@ -2855,24 +2932,93 @@ class ToolsDialog(GlassDialog):
 
     def _farm_links(self, key: str, name: str, map_name: str, boss: bool = False) -> QHBoxLayout:
         """A monster's actions: farm it (the session's monster), the way to its map, ask the chat about it."""
+        acts = [] if boss else [("farm_hunt", lambda n=name: self._farm_hunt(n))]
+        if map_name:
+            acts.append(("farm_route", lambda m=map_name: self._farm_route(m)))
+        acts.append(("ask_short", lambda k=key: self.tag_requested.emit(k)))
+        return self._links_row(acts)
+
+    # links between the pages ----------------------------------------------
+    # what a card shows, a tap from the page about it: a monster's map, its hit & damage, a grind session on it;
+    # an item's droppers and its price; an NPC's map (the owner)
+
+    def _links_row(self, acts: list) -> QHBoxLayout:
+        """(text key, action) as orange links in the reading order, a dot between them (as on the farm cards)."""
         t = self.t
         links = QHBoxLayout()
         links.setContentsMargins(0, 2, 0, 0)
         links.setSpacing(14)
-        acts = [] if boss else [("farm_hunt", lambda _=False, n=name: self._farm_hunt(n))]
-        if map_name:
-            acts.append(("farm_route", lambda _=False, m=map_name: self._farm_route(m)))
-        acts.append(("ask_short", lambda _=False, k=key: self.tag_requested.emit(k)))
         for i, (text, then) in enumerate(acts):
             if i:
-                links.addWidget(self._fl("·", "RowHint"))
+                links.addWidget(QLabel("·", objectName="RowHint"))
             b = QPushButton(self._p(t(text)), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
             b.setAutoDefault(False)
-            b.clicked.connect(then)
+            b.clicked.connect(lambda _=False, f=then: f())
             links.addWidget(b)
         links.addStretch(1)
         return links
+
+    def _links_box(self, acts: list) -> QWidget:
+        box = QWidget()
+        box.setLayout(self._links_row(acts))
+        return box
+
+    def _mob_map(self, name: str) -> str:
+        """The map a monster (by name) is hunted on: its busiest open one."""
+        n = name.strip().lower()
+        m = next((m for m in combat.monsters(self.kb) if m.name.lower() == n), None)
+        return farm._home(self.kb, m.key) if m else ""
+
+    def _go_route(self, place: str):
+        """The way to a map, a monster's map or an NPC's map (How to get there)."""
+        mob = self._mob_map(place)
+        self._farm_route(mob or place)
+
+    def _go_calc(self, name: str):
+        """A monster's hit & damage for the character (Hit & damage)."""
+        self.show_page(PAGES.index("calc"))
+        self.calc_input.setText(name)
+        self.calc_input.setCursorPosition(0)
+        self._fill_calc()
+
+    def _go_track(self, name: str):
+        """A grind session on a monster (the Grind tracker's monster)."""
+        self.show_page(PAGES.index("exp"))
+        self.grind_monster.setText(name)
+        self.grind_monster.setCursorPosition(0)
+        self._grind_pick_monster()
+
+    def _go_farm_item(self, name: str):
+        """Who drops an item, where and at what level (Farm)."""
+        key = farm.item_key(self.kb, name)
+        if not key:
+            return
+        self.show_page(PAGES.index("farm"))
+        self._farm_choose(key)
+
+    def _go_farm_hunt(self, name: str):
+        """A farm session on a monster (Farm, its session)."""
+        self.show_page(PAGES.index("farm"))
+        self._farm_hunt(name)
+
+    def _nav(self, href: str):
+        """A link in a card's text: "route:Henesys", "calc:Stirge", "track:Stirge", "farm:Garnet Ore",
+        "price:Garnet Ore" (a picture's "zoom:" is its hover)."""
+        from urllib.parse import unquote
+        kind, _, arg = href.partition(":")
+        arg = unquote(arg)
+        go = {"route": self._go_route, "calc": self._go_calc, "track": self._go_track, "farm": self._go_farm_item,
+              "price": self._farm_price}.get(kind)
+        if go and arg:
+            go(arg)
+
+    def _nav_html(self, links: list[tuple[str, str, str]]) -> str:
+        """(text key, kind, argument) as links in a card's text, a dot between them."""
+        from urllib.parse import quote
+        color = theme.accent_text()
+        return " · ".join(f"<a href='{kind}:{quote(arg)}' style='color:{color}; text-decoration:none'>"
+                          f"{html.escape(bidi.plain(self.t(text), self.t.rtl))}</a>" for text, kind, arg in links)
 
     def _farm_route(self, map_name: str):
         """The way to a monster's map, from the character's map (the How to get there tab)."""
@@ -3084,6 +3230,8 @@ class ToolsDialog(GlassDialog):
         self.shop_map = EntityPicker(maps, self._p(t("shop_map_ph", n=len(maps))), icon=40, rtl=t.rtl)
         self.shop_map.setMinimumWidth(280)
         shop.add_row(t("shop_where"), self.shop_map)
+        shop.add_widget(self._links_box([
+            ("farm_route", lambda: self.shop_map.text().strip() and self._go_route(self.shop_map.text()))]))
         self.shop_len = Segmented([("30", 30), ("60", 60), ("120", 120)], 60, t.rtl)
         shop.add_row(t("shop_minutes"), self.shop_len)
         go2 = QPushButton(self._p(t("shop_go")), objectName="Primary")
@@ -3160,11 +3308,14 @@ class ToolsDialog(GlassDialog):
         head.setSpacing(8)
         head.addWidget(QLabel(bidi.ltr_name(p.name, t.rtl), objectName="CardName"), 0, Qt.AlignVCenter)
         head.addStretch(1)
-        ask = QPushButton(self._p(t("ask_short")), objectName="Link")
-        ask.setCursor(Qt.PointingHandCursor)
-        ask.setAutoDefault(False)
-        ask.clicked.connect(lambda _=False, k=p.key: self.tag_requested.emit(k))
-        head.addWidget(ask, 0, Qt.AlignVCenter)
+        # its price (the Free Market's too), then the chat
+        for text, then in (("go_price", lambda _=False, n=p.name: self._farm_price(n)),
+                           ("ask_short", lambda _=False, k=p.key: self.tag_requested.emit(k))):
+            b = QPushButton(self._p(t(text)), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.clicked.connect(then)
+            head.addWidget(b, 0, Qt.AlignVCenter)
         col.addLayout(head)
         parts = pet_parts(t, self.kb, p.key)
         tags = FlowLayout(spacing=5)

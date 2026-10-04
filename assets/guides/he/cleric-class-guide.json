@@ -31,7 +31,7 @@
    "h2": "מתחילים ברמה 30"
   },
   {
-   "p": "המדריך הזה ממשיך מאיפה שעצר מדריך ה-Magician שלנו לרמה 1 עד 30, שמשווה בילדים של ג'וב ראשון לפי עלות במסוס. כל אחד מהם עובד ל-Cleric."
+   "p": "המדריך הזה ממשיך מאיפה שעצר מדריך ה-Magician שלנו לרמה 1 עד 30, שמשווה בילדים של ג'וב ראשון לפי עלות ב-mesos. כל אחד מהם עובד ל-Cleric."
   },
   {
    "img": "99e84bf639b337.png",
@@ -44,7 +44,7 @@
      "סקיל ג'וב ראשון",
      "חסכוני",
      "בטוח יותר",
-     "חוסך מסוס",
+     "חוסך mesos",
      "רמה 70 של Grummash"
     ],
     [
@@ -92,12 +92,12 @@
    ]
   },
   {
-   "p": "הבטוח יותר מעביר 12 SP מ-Magic Armor ל-Magic Guard. חוסך המסוס הוא הבילד של רמה 30 מ-Cleric Meso Management Guide של Grummash ומתאים לסדר המשחק הסולו למטה. הבילד של Grummash לרמה 70 מכוון לבוסים באנדגיים ומשתמש ב-Magic Claw ברמות 10 עד 40."
+   "p": "הבטוח יותר מעביר 12 SP מ-Magic Armor ל-Magic Guard. חוסך ה-mesos הוא הבילד של רמה 30 מ-Cleric Meso Management Guide של Grummash ומתאים לסדר המשחק הסולו למטה. הבילד של Grummash לרמה 70 מכוון לבוסים באנדגיים ומשתמש ב-Magic Claw ברמות 10 עד 40."
   },
   {
    "ul": [
     "[[img:32b086d39a1fbe.png]]Magic Armor **קחו אותו קודם.** רמה 14 נותן +92 Weapon ו-Magic Defense ל-495 שניות; רמה 16 נותן +100 ל-525 שניות.",
-    "[[img:211a115f0a6318.png]]Magic Guard **תעלו אותו מאוחר יותר.** רמה 13 מעביר 74% מהמכה ל-MP ולבל 15 מעביר 80%. תעלו אותו כשמכות בודדות נהיות גדולות מספיק כדי לאיים עליכם. העברת נזק ל-MP עולה יותר מסוס למלא מחדש, אז הוא קונה ביטחון."
+    "[[img:211a115f0a6318.png]]Magic Guard **תעלו אותו מאוחר יותר.** רמה 13 מעביר 74% מהמכה ל-MP ולבל 15 מעביר 80%. תעלו אותו כשמכות בודדות נהיות גדולות מספיק כדי לאיים עליכם. העברת נזק ל-MP עולה יותר mesos למלא מחדש, אז הוא קונה ביטחון."
    ]
   },
   {
@@ -187,7 +187,7 @@
    "p": "[[img:9a7face47a910e.png]] **Magician Job Instructor** מריץ את מבחן ה-Dark Marble צפונית ל-Ellinia."
   },
   {
-   "note": "**בילד פארטי: התחילו Holy Arrow ברמה 31, אבל תמשיכו לתקוף עם Energy Bolt עד בערך רמה 38.** הגלגול הנמוך ביותר של Holy Arrow עוקף את Energy Bolt 20 ברמה סקיל 18 (רמה 37) מול Zombie Mushrooms ו-Jr. Wraith, ובלבל סקיל 24 (רמה 39) מול Horny Mushrooms. ברמה 40, Holy Arrow 28 מגיע לבערך 4,860 EXP/min ב-Training Advisor מול 3,240 של Energy Bolt. סדר המשחק הסולו שומר על Energy Bolt עד רמה 41 כדי לחסוך מסוס."
+   "note": "**בילד פארטי: התחילו Holy Arrow ברמה 31, אבל תמשיכו לתקוף עם Energy Bolt עד בערך רמה 38.** הגלגול הנמוך ביותר של Holy Arrow עוקף את Energy Bolt 20 ברמה סקיל 18 (רמה 37) מול Zombie Mushrooms ו-Jr. Wraith, ובלבל סקיל 24 (רמה 39) מול Horny Mushrooms. ברמה 40, Holy Arrow 28 מגיע לבערך 4,860 EXP/min ב-Training Advisor מול 3,240 של Energy Bolt. סדר המשחק הסולו שומר על Energy Bolt עד רמה 41 כדי לחסוך mesos."
   },
   {
    "h3": "יעד הסקילים ברמה 70 (בילד פארטי)"
@@ -332,7 +332,7 @@
    "h3": "חלוקת SP ל-Cleric סולו: רמות 30-70"
   },
   {
-   "p": "ל-Cleric שבעיקר מגרנד לבד, מבוסס על Cleric Meso Management Guide של Grummash בלי איפוס ה-SP שלו ברמה 41. מתחיל מבילד הג'וב הראשון של חוסך המסוס."
+   "p": "ל-Cleric שבעיקר מגרנד לבד, מבוסס על Cleric Meso Management Guide של Grummash בלי איפוס ה-SP שלו ברמה 41. מתחיל מבילד הג'וב הראשון של חוסך ה-mesos."
   },
   {
    "ul": [
@@ -813,25 +813,25 @@
    "h": 139
   },
   {
-   "note": "**Heal עדיף על כל פוט HP.** Grummash מדד ש-Heal 2 מחזיר בערך 110 HP תמורת 12 MP, בערך 12 מסוס. אותם 110 HP עולים בערך 55 מסוס בפוטים. לכן פוטי ה-HP למטה הם למקרי חירום."
+   "note": "**Heal עדיף על כל פוט HP.** Grummash מדד ש-Heal 2 מחזיר בערך 110 HP תמורת 12 MP, בערך 12 mesos. אותם 110 HP עולים בערך 55 mesos בפוטים. לכן פוטי ה-HP למטה הם למקרי חירום."
   },
   {
    "p": "**הכי שווה לקנות** הכי הרבה HP או MP לכל מסו"
   },
   {
-   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 מסוס · 100 HP 2 HP לכל מסו [[img:39a28ad40190a6.png]] **Fried Chicken** 60 מסוס · 120 HP 2 HP לכל מסו [[img:51e2250795d8f6.png]] **Meat** 80 מסוס · 160 HP 2 HP לכל מסו [[img:da1e5c881a1df6.png]] **Orange** 50 מסוס · 50 MP 1 MP לכל מסו [[img:d59bc967011b87.png]] **Lemon** 150 מסוס · 150 MP 1 MP לכל מסו"
+   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל מסו [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל מסו [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל מסו [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל מסו [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל מסו"
   },
   {
    "p": "**לפי מצב** קנו רק כשהבאף מגיע לנקודת שבירה שימושית"
   },
   {
-   "p": "[[img:01a2e09235af46.png]] **Magic Potion** 500 מסוס · +10 M.ATK ל-10 דקות לנקודת שבירה בנזק [[img:4e15182d2a8a6e.png]] **Sniper Potion** 500 מסוס · +5 ACC ל-10 דקות כדי לבטל פספוסים [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** 600 מסוס · +7 ACC ל-15 דקות באף ה-ACC הכי טוב בחנות"
+   "p": "[[img:01a2e09235af46.png]] **Magic Potion** 500 mesos · +10 M.ATK ל-10 דקות לנקודת שבירה בנזק [[img:4e15182d2a8a6e.png]] **Sniper Potion** 500 mesos · +5 ACC ל-10 דקות כדי לבטל פספוסים [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** 600 mesos · +7 ACC ל-15 דקות באף ה-ACC הכי טוב בחנות"
   },
   {
    "p": "**לא לקנות** שחזור גרוע יותר לכל מסו מהאפשרויות למעלה"
   },
   {
-   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 מסוס · 500 HP 1.43 HP לכל מסו [[img:d19cbf8225851d.png]] **Blue Potion** 220 מסוס · 200 MP 0.91 MP לכל מסו"
+   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל מסו [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל מסו"
   },
   {
    "h2": "טעויות נפוצות של Cleric"
@@ -844,7 +844,7 @@
   {
    "ol": [
     "**לבחור את הקלאס ולצפות לעשות הרבה נזק.** זה פשוט לא קורה. הנזק של Heal נמוך משמעותית ממה שהיה ב-MapleStory של לפני Big Bang.",
-    "**להשתמש בפוטי HP במקום ב-Heal.** Heal חוסך מסוס."
+    "**להשתמש בפוטי HP במקום ב-Heal.** Heal חוסך mesos."
    ]
   },
   {

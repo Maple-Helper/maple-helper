@@ -271,3 +271,41 @@ def test_a_misspelt_search_offers_the_names_close_to_it():
     p._chosen()
     assert p.text() == "Steely Throwing Knives"           # the name, not the misspelling it was found by
     p.close()
+
+
+@needs_kb
+def test_the_pages_link_to_each_other(monkeypatch, tmp_path):
+    # what a card shows, a tap from the page about it (the owner): a monster's map and hit & damage, a grind
+    # session on it, an item's droppers and price, an NPC's map
+    from PySide6.QtWidgets import QApplication, QPushButton
+    app = QApplication.instance() or QApplication(sys.argv)
+    from maplehelper import store
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.tools import PAGES, ToolsDialog
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
+    p = store.Profiles()
+    p.add("Kiwi", "Bowman", "Bowman", 20)
+    d = ToolsDialog(KnowledgeBase(REAL_KB), p, store.Settings(), "en", "", {}, page="train")
+    try:
+        app.processEvents()
+        card = next(w for i in range(d.train_list.count()) if (w := d.train_list.itemAt(i).widget())
+                    and w.objectName() == "Card")
+        links = [b.text().replace("&&", "&") for b in card.findChildren(QPushButton) if b.objectName() == "Link"]
+        assert links[:3] == ["How to get there", "Hit & damage", "Grind tracker"]
+        d._nav("calc:Stirge")
+        assert PAGES[d.stack.currentIndex()] == "calc" and d.calc_input.text() == "Stirge"
+        d._nav("track:Stirge")
+        assert PAGES[d.stack.currentIndex()] == "exp" and d.grind_monster.text() == "Stirge"
+        d._nav("farm:Stirge%20Wing")
+        assert PAGES[d.stack.currentIndex()] == "farm"
+        d._nav("price:Stirge%20Wing")
+        assert PAGES[d.stack.currentIndex()] == "prices" and d.price_input.text() == "Stirge Wing"
+        d._nav("route:Mrs.%20Ming%20Ming")              # an NPC: its map
+        assert PAGES[d.stack.currentIndex()] == "route" and d.route_to.text()
+        d._nav("route:Stirge")                          # a monster: its busiest map
+        assert d.route_to.text() and d.route_to.text() != "Stirge"
+        assert "item:" in d._gear_links("[[img:x.png]]Hunter's Bow 42 W.ATK", "<img src='x.png'> Hunter's Bow 42 W.ATK")
+    finally:
+        d.close()
