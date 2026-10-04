@@ -290,11 +290,13 @@ def test_quest_search_filters_the_list_for_the_level(tmp_path, monkeypatch):
     p = store.Profiles()
     c = p.add("Kiwi", "Thief", "Assassin", 32)
     d = ToolsDialog(kb, p, store.Settings(), "en", "", {}, "quests")
-    level_list = quests.for_level(kb, c.level, c.base_class, c.job, c.quests_done)["now"]
+    d.q_mode.group.buttons()[1].click()          # the quests skipped from earlier levels: a long list
+    level_list = quests.for_level(kb, c.level, c.base_class, c.job, c.quests_done)["missed"]
     assert len(level_list) > 1
 
-    def cards():
-        return sum(1 for i in range(d.q_list.count()) if d.q_list.itemAt(i).widget() is not None)
+    def cards():                                 # quest cards only, not the headings over them
+        return sum(1 for i in range(d.q_list.count()) if (w := d.q_list.itemAt(i).widget()) is not None
+                   and w.objectName() == "Card")
     d._fill_quests()
     everything = cards()
     target = level_list[1]
@@ -304,7 +306,8 @@ def test_quest_search_filters_the_list_for_the_level(tmp_path, monkeypatch):
     assert cards() == sum(1 for q in level_list if q.matches(target.name))     # only from the level's list
     d.q_search.setText("zzzz-no-such-quest")
     d._fill_quests()
-    assert cards() == 1 and "No quest like that in the list for your level." in d.q_list.itemAt(0).widget().text()
+    assert cards() == 0 and any("No quest like that" in (w.text() if hasattr(w, "text") else "")
+                                for i in range(d.q_list.count()) if (w := d.q_list.itemAt(i).widget()))
     d.q_search.clear()
     d._fill_quests()
     assert cards() == everything

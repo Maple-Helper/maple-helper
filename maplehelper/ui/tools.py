@@ -623,6 +623,8 @@ class ToolsDialog(GlassDialog):
             # (a Magician's hits are spells: "too many basic hits" and "skills make it faster" don't apply)
             self.train_list.addWidget(self._label(t("train_stretch_magician" if magic else "train_stretch"), "RowHint"))
         most = self._most_mesos(rows)
+        # a heading over every list of cards, as over the quests (the owner)
+        self.train_list.addWidget(self._label(t("list_monsters"), "SectionHeader"))
         for i, s in enumerate(rows):
             self.train_list.addWidget(self._spot_card(s, best=(i == 0), most_mesos=s is most))
 
@@ -1164,6 +1166,8 @@ class ToolsDialog(GlassDialog):
         elif not rows:
             self.q_list.addWidget(self._label(t("q_none"), "RowHint"))
         last = None
+        if rows and mode not in ("missed", "later"):           # (those two have a heading a level)
+            self.q_list.addWidget(self._label(t("list_quests"), "SectionHeader"))
         for q in rows[:self._q_limit]:
             if mode in ("missed", "later") and q.opens_at() != last:
                 last = q.opens_at()          # the quests not done, level by level (the owner)
@@ -1605,6 +1609,8 @@ class ToolsDialog(GlassDialog):
             self.craft_list.addWidget(self._label(t("craft_none"), "RowHint"))
             return
         last = None
+        if not every:
+            self.craft_list.addWidget(self._label(t("list_recipes"), "SectionHeader"))
         for i, r in enumerate(recipes):
             if every and r.level != last:
                 last = r.level            # all the recipes, level by level
@@ -1756,6 +1762,8 @@ class ToolsDialog(GlassDialog):
             return
         if not rows:
             self.town_list.addWidget(self._label(t("q_none"), "RowHint"))
+        if rows:
+            self.town_list.addWidget(self._label(t("list_quests"), "SectionHeader"))
         for q in rows[:self._town_limit]:
             self.town_list.addWidget(self._quest_card(q))
         self._more_quests(self.town_list, len(rows), self._town_limit, "_town_limit")
