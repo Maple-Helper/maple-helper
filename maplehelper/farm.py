@@ -160,6 +160,33 @@ def needs(kb, level: int, base_class: str = "", job: str = "", done: list[str] |
     return out
 
 
+def _target(kb, m, level: int, wanted: dict, per_monster: int) -> Target | None:
+    """One monster as a farming target: its drops that are worth something or needed, needed first."""
+    drops = []
+    for k in kb.monster_drops(m.key):
+        e = kb.get(k)
+        if e:
+            drops.append(Drop(k, e["name"], value(kb, k), kb.drop_source(m.key, k) or sources.MSEA,
+                              wanted.get(e["name"].lower())))
+    drops = [d for d in drops if d.value or d.need]
+    if not drops or not m.maps:
+        return None
+    drops.sort(key=lambda d: (not d.need, -(d.value.price if d.value else 0), d.source != sources.COMMUNITY, d.name))
+    return Target(m.key, m.name, m.level, m.maps[0][0], fit(level, m.level), drops[:per_monster],
+                  kb.community_mesos(m.key))
+
+
+def target_for(kb, name: str, level: int, wanted: dict | None = None, per_monster: int = 6) -> Target | None:
+    """A monster picked by name ("farm it" from another page): its card, whatever its level."""
+    n = name.strip().lower()
+    for m in combat.monsters(kb):
+        if m.name.lower() == n:
+            t = _target(kb, m, level, wanted or {}, per_monster)
+            if t is not None:
+                return t
+    return None
+
+
 def targets(kb, level: int, n: int = 8, below: int = FARM_BELOW, above: int = combat.SPOT_ABOVE,
             per_monster: int = 3, wanted: dict[str, tuple[str, str]] | None = None) -> list[Target]:
     """The monsters around the player's level worth farming, best first: the ones that drop what the player needs
@@ -174,19 +201,9 @@ def targets(kb, level: int, n: int = 8, below: int = FARM_BELOW, above: int = co
             continue
         if not open_.monster_key_open(m.key):
             continue
-        drops = []
-        for k in kb.monster_drops(m.key):
-            e = kb.get(k)
-            if e:
-                drops.append(Drop(k, e["name"], value(kb, k), kb.drop_source(m.key, k) or sources.MSEA,
-                                  wanted.get(e["name"].lower())))
-        drops = [d for d in drops if d.value or d.need]
-        if not drops:
+        t = _target(kb, m, level, wanted, per_monster)
+        if t is None:
             continue
-        drops.sort(key=lambda d: (not d.need, -(d.value.price if d.value else 0), d.source != sources.COMMUNITY,
-                                  d.name))
-        t = Target(m.key, m.name, m.level, m.maps[0][0], fit(level, m.level), drops[:per_monster],
-                   kb.community_mesos(m.key))
         # the same monster twice (another version of it): the one on more maps, as the training spots keep it
         if m.name not in out or (t.needed, t.best) > (out[m.name].needed, out[m.name].best):
             out[m.name] = t

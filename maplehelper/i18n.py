@@ -1298,6 +1298,7 @@ STRINGS = {
                    "en": "**Farming: hunting for the drop, not just the EXP.**\n• Pick an item to see **who drops it**, where it lives and whether it's your level\n• **Worth farming at your level**: monsters that drop what your quests and recipes need, and the items you starred (to sell on the Free Market or to use), then the drops an NPC pays most for"},
     "farm_session_about": {"he": "הסשן קורא את התיק (בלשונית **Etc** או **Equip**) בהתחלה ובסוף וסופר מה נוסף. את מספר ההריגות הוא מעריך לפי ה-EXP שצברתם חלקי ה-EXP של המפלצת, וכך יוצא בערך כל כמה הריגות נפל כל פריט.\nבמאגר אין סיכויי דרופ, אז הקצב היחיד כאן הוא מה שהסשנים שלכם מדדו.",
                            "en": "The session reads your bag (on the **Etc** or **Equip** tab) at the start and the end and counts what was added. It estimates the kills from the EXP you gained over the monster's EXP, so you see about how many kills each item took.\nThe database has no drop chances, so the only rate here is what your own sessions measured."},
+    "farm_mob_head": {"he": "המפלצת שבחרתם", "en": "The monster you picked"},
     "farm_want": {"he": "מה אתם רוצים להשיג?", "en": "What do you want to get?"},
     "farm_placeholder": {"he": "{n} פריטים שמפלצות מפילות", "en": "{n} items monsters drop"},
     "farm_from_wishlist": {"he": "מהפריטים במעקב (⭐):", "en": "From your tracked items (⭐):"},

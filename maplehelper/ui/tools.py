@@ -937,7 +937,7 @@ class ToolsDialog(GlassDialog):
             lv_sec = Section(t("calc_acc_by_level_head"), t.rtl)
             strip = QHBoxLayout()
             for lv, need in zip(levels, needs):
-                strip.addLayout(self._big(str(need), f"Lv. {lv}", explain=False))
+                strip.addLayout(self._big(str(need), self._p(t("lv_short", n=lv)), explain=False))
             holder2 = QWidget()
             holder2.setLayout(strip)
             lv_sec.add_widget(holder2)
@@ -1980,6 +1980,8 @@ class ToolsDialog(GlassDialog):
             empty(self.craft_search)
         elif name == "more":
             empty(self.shop_map)
+        elif name == "farm":
+            self._farm_mob_pick = None
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -3014,11 +3016,13 @@ class ToolsDialog(GlassDialog):
             self._set_farm_target(None)
             self._fill_farm(missing=name)
             return
+        self._farm_mob_pick = None
         self._set_farm_target(key)
         self.refresh("farm")
 
     def _farm_choose(self, key: str):
         """An item picked from a list on the page (a wishlist chip, a drop of a monster worth farming)."""
+        self._farm_mob_pick = None
         self._set_farm_target(key)
         self.refresh("farm")
         try:
@@ -3069,7 +3073,17 @@ class ToolsDialog(GlassDialog):
                 b.setCursor(Qt.PointingHandCursor)
                 b.clicked.connect(lambda _=False, k=k: self._farm_choose(k))
                 self.farm_wished.addWidget(b)
-        if missing:
+        mob = self.__dict__.get("_farm_mob_pick")
+        target = None
+        if mob and not missing:
+            from .. import wishlist as _w
+            wanted = farm.needs(self.kb, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                                _w.items(self.settings, c.id))
+            target = farm.target_for(self.kb, mob, c.level, wanted)
+        if target is not None:
+            self.farm_item.addWidget(self._fl(t("farm_mob_head"), "SectionHeader"))
+            self.farm_item.addWidget(self._target_card(target))
+        elif missing:
             self.farm_item.addWidget(self._fl(t("farm_none", name=bidi.ltr_block(missing, t.rtl)), "RowHint"))
         elif key:
             self._fill_farm_item(key)
@@ -3239,9 +3253,13 @@ class ToolsDialog(GlassDialog):
         self._farm_choose(key)
 
     def _go_farm_hunt(self, name: str):
-        """A farm session on a monster (Farm, its session)."""
+        """A farm session on a monster (Farm, its session), and the monster itself on top: what it drops, where
+        (the page showed nothing of it: the owner)."""
         self.show_page(PAGES.index("farm"))
+        self._farm_mob_pick = name
         self._farm_hunt(name)
+        self._fill_farm()
+        self.pages["farm"].verticalScrollBar().setValue(0)
 
     def _nav(self, href: str):
         """A link in a card's text: "route:Henesys", "calc:Stirge", "track:Stirge", "farm:Garnet Ore",

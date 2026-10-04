@@ -306,6 +306,12 @@ def test_the_pages_link_to_each_other(monkeypatch, tmp_path):
         assert PAGES[d.stack.currentIndex()] == "route" and d.route_to.text()
         d._nav("route:Stirge")                          # a monster: its busiest map
         assert d.route_to.text() and d.route_to.text() != "Stirge"
+        d._go_farm_hunt("Stirge")                       # "farm it" from hit & damage: the monster on top
+        from PySide6.QtWidgets import QLabel
+        assert PAGES[d.stack.currentIndex()] == "farm"
+        top = [d.farm_item.itemAt(i).widget() for i in range(d.farm_item.count())]
+        assert any(w is not None and any("Stirge" in lb.text() for lb in w.findChildren(QLabel, "CardName"))
+                   for w in top)
         assert "item:" in d._gear_links("[[img:x.png]]Hunter's Bow 42 W.ATK", "<img src='x.png'> Hunter's Bow 42 W.ATK")
     finally:
         d.close()
