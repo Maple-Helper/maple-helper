@@ -4,9 +4,9 @@ from __future__ import annotations
 import html
 import time
 
-from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRect, QRectF,
+from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF,
                             Qt, QThread, QTimer, Signal)
-from PySide6.QtGui import QGuiApplication, QIcon, QPainterPath, QPixmap
+from PySide6.QtGui import QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
@@ -62,6 +62,40 @@ class GrindReadWorker(AskWorker):
             except Exception:      # noqa: BLE001 - the AI still has the screenshot
                 pass
         super().run()
+
+
+class ControllerButton(QToolButton):
+    """The play tools' header button: a game controller drawn as a vector, in the header icons' colors (the icon
+    font's own controller, U+E7FC, read as a smudge at 14 px: the owner's report)."""
+
+    def __init__(self):
+        super().__init__(objectName="Icon")
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)            # the hover / pressed background from the stylesheet; no text
+        from . import theme
+        color = theme.qcolor(theme.P()["text" if self.underMouse() else "muted"])     # as the stylesheet's icons
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        side = 19.0
+        p.translate((self.width() - side) / 2, (self.height() - side) / 2)
+        p.scale(side / 24, side / 24)
+        p.setPen(QPen(color, 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        body = QPainterPath()
+        body.addRoundedRect(QRectF(2.5, 7, 19, 9), 4.5, 4.5)
+        for cx in (6.5, 17.5):            # the two grips
+            grip = QPainterPath()
+            grip.addEllipse(QPointF(cx, 15.2), 3.6, 3.6)
+            body = body.united(grip)
+        p.drawPath(body.simplified())
+        p.drawLine(QPointF(5.2, 11.5), QPointF(9.2, 11.5))      # the d-pad
+        p.drawLine(QPointF(7.2, 9.5), QPointF(7.2, 13.5))
+        p.setPen(Qt.NoPen)
+        p.setBrush(color)
+        p.drawEllipse(QPointF(16.2, 10.4), 1.15, 1.15)          # two buttons
+        p.drawEllipse(QPointF(18.4, 12.6), 1.15, 1.15)
+        p.end()
 
 
 class TitleBar(QWidget):
@@ -469,7 +503,7 @@ class Overlay(QWidget):
         self.wish_btn = self._icon_button(theme.ICON["star"])
         self.wish_btn.clicked.connect(self.wishlist_requested.emit)
         tb.addWidget(self.wish_btn)
-        self.tools_btn = self._icon_button(theme.ICON["game"])       # a game controller: the play tools
+        self.tools_btn = ControllerButton()                           # a game controller: the play tools
         self.tools_btn.clicked.connect(self.tools_requested.emit)
         tb.addWidget(self.tools_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])

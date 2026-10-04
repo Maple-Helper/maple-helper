@@ -47,6 +47,18 @@ def _contrast(c: dict) -> dict:
     return {**c, "muted": c["text"], "faint": c["muted"], "stroke": f"rgba({rgb},0.60)", "hair": f"rgba({rgb},0.35)"}
 
 
+def qcolor(css: str):
+    """A palette color as a QColor: "#RRGGBB" or "rgba(r,g,b,a)" with a 0-1 alpha (QColor can't read the latter)."""
+    import re
+
+    from PySide6.QtGui import QColor
+    m = re.fullmatch(r"\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)\s*", css or "")
+    if not m:
+        return QColor(css)
+    r, g, b, a = m.groups()
+    return QColor(int(r), int(g), int(b), round(float(a if a is not None else 1) * 255))
+
+
 def P() -> dict:
     c = PALETTES.get(MODE, PALETTES["dark"])
     return _contrast(c) if HIGH_CONTRAST else c
@@ -75,12 +87,12 @@ BORDER = "rgba(255,149,51,0.55)"
 
 FONT_FAMILY = "Rubik"
 ICON_FONT = "Segoe Fluent Icons"
-ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue82d", "search": "\ue721", "tools": "\ue90f", "game": "\ue7fc", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707"}
+ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707"}
 # the same keys without an icon font (a trailing U+FE0E asks for the plain glyph, not the color emoji)
 SYMBOL_ICONS = {"open": "\u2197", "refresh": "\u21bb", "info": "\u24d8", "edit": "\u270e", "delete": "\u232b", "add": "+", "minimize": "\u2013",
                 "close": "\u2715", "settings": "\u2699\ufe0e", "camera": "\ud83d\udcf7\ufe0e", "mic": "\ud83c\udf99\ufe0e", "send": "\u27a4", "stop": "\u25a0",
                 "copy": "\u29c9", "star": "\u2606", "star_on": "\u2605", "plan": "\u2261", "book": "\u2630", "search": "\u2315",
-                "tools": "\u2692\ufe0e", "game": "\U0001F3AE\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
+                "tools": "\u2692\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
                 "route": "\u2316"}
 
 
