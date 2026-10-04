@@ -571,6 +571,9 @@ class ToolsDialog(GlassDialog):
         sc, lay = scroll_page(self.t.rtl)
         self.train_head = self._label("", "ToolHeader")
         lay.addWidget(self.train_head)
+        # one short line, the whole why behind its "?" (four lines of it were too much: the owner)
+        self.train_why = self._label("", "RowHint")
+        lay.addWidget(self.train_why)
         # the stats first: the spots below are ranked by them, and at the end of a long list nobody found them
         lay.addWidget(self._stats_section())
         self.train_list = QVBoxLayout()
@@ -592,16 +595,26 @@ class ToolsDialog(GlassDialog):
         rows = combat.spots(self.kb, c.level, acc, dmg, magic, n=6)
         # what the list is for, not the stats again (they are in "My stats" right below: the owner's report)
         head = t("train_for_level", n=c.level)
-        # why these monsters (the owner): the level range, the maps in the game, and what ranks them
-        lo, hi = max(1, c.level - combat.SPOT_BELOW), c.level + combat.SPOT_ABOVE
-        head += "\n" + t("train_why_stats" if acc and dmg and not magic else "train_why", lo=lo, hi=hi)
         if not (acc and dmg):
             head += "\n" + t("train_need_stats")
-        elif magic:
-            head += "\n" + t("train_mage_note")       # the stat window's range is the staff swing, not a spell
-        else:
-            head += "\n" + t("train_basic_note")
         self._set(self.train_head, head)
+        # why these monsters: the levels actually shown, in a line; the rule and the stat window's note on hover
+        why = ""
+        if rows:
+            levels = [s.monster.level for s in rows]
+            lo, hi = min(levels), max(levels)
+            span = str(lo) if lo == hi else bidi.ltr_block(f"{lo}–{hi}", t.rtl)     # (read "27–23" in Hebrew)
+            rule = t("train_why_stats" if acc and dmg and not magic else "train_why",
+                     lo=max(1, c.level - combat.SPOT_BELOW), hi=c.level + combat.SPOT_ABOVE)
+            if acc and dmg:
+                rule += "\n" + t("train_mage_note" if magic else "train_basic_note")
+            badge = terms._badge_uri()
+            why = html.escape(bidi.plain(t("train_shown", n=len(rows), span=span), t.rtl))
+            if badge:
+                why += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+            self.train_why.setToolTip(tip_html(rule, t.rtl))
+        self.train_why.setText(why)
+        self.train_why.setVisible(bool(why))
         if not rows:
             self.train_list.addWidget(self._label(t("train_none"), "RowHint"))
             return
