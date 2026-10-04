@@ -14,6 +14,7 @@ Usage:
     python tools/scrape_meowdb.py --limit 5  # quick test, 5 pages per category
     python tools/scrape_meowdb.py --refresh  # re-download everything
     python tools/scrape_meowdb.py --changed  # nightly: only pages changed on meowdb, plus new ones
+    python tools/scrape_meowdb.py --community  # players' drop and mesos reports -> community.json (scrape_community.py)
 """
 from __future__ import annotations
 
@@ -349,9 +350,13 @@ if __name__ == "__main__":
     ap.add_argument("--changed", action="store_true", help="only pages whose sitemap lastmod is newer, plus new pages")
     ap.add_argument("--stamp", action="store_true", help="record sitemap lastmod and content hash for the current copy")
     ap.add_argument("--images", action="store_true", help="fetch missing NPC portraits and map minimaps")
+    ap.add_argument("--community", action="store_true", help="players' drop and mesos reports (community.json)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
-    if args.stamp:
+    if args.community:
+        import scrape_community    # (its own module: the monster pages load these lists in the browser)
+        sys.exit(scrape_community.main(["--limit", str(args.limit)] if args.limit else []))
+    elif args.stamp:
         stamp()
     elif args.images:
         fill_images()

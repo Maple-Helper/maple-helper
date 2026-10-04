@@ -278,6 +278,9 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     /* where a datum comes from (sources.py): quieter than the tags above, an outline beside the data */
     #SourceTag {{ font-size: {s - 4}px; font-weight: 600; color: {c['muted']}; background: transparent;
                   border: 1px solid {c['stroke']}; border-radius: 7px; padding: 1px 5px; }}
+    /* a community drop's votes: "16 ✓" in green, "single report" (one player alone) in the warning colour */
+    #VoteTag {{ font-size: {s - 4}px; font-weight: 600; color: {good}; background: transparent; padding: 0 1px; }}
+    #VoteTag[single="true"] {{ color: #C9620A; }}
     #UpdatedTag {{ font-size: {s - 4}px; font-weight: 700; color: {otd}; background: rgba(255,149,51,0.14);
                    border: 1px solid rgba(255,149,51,0.45); border-radius: 7px; padding: 1px 5px; }}
     #BigStat {{ font-size: {s + 10}px; font-weight: 700; letter-spacing: -0.4px; color: {c['text']}; }}

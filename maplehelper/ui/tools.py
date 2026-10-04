@@ -18,7 +18,7 @@ from ..i18n import I18n
 from . import terms, theme
 from .controls import FlowLayout, Section, Segmented, Stepper, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import chip_row, source_tag, source_tags, updated_tag
+from .widgets import chip_row, mesos_text, mesos_tip, source_tag, source_tags, updated_tag
 from .patchnotes import gutter
 
 PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more")
@@ -540,10 +540,18 @@ class ToolsDialog(GlassDialog):
             # nothing passes the miss / hits limits: still the best options, with why they're shown
             # (a Magician's hits are spells: "too many basic hits" and "skills make it faster" don't apply)
             self.train_list.addWidget(self._label(t("train_stretch_magician" if magic else "train_stretch"), "RowHint"))
+        most = self._most_mesos(rows)
         for i, s in enumerate(rows):
-            self.train_list.addWidget(self._spot_card(s, best=(i == 0)))
+            self.train_list.addWidget(self._spot_card(s, best=(i == 0), most_mesos=s is most))
 
-    def _spot_card(self, s: combat.Spot, best: bool) -> QFrame:
+    def _most_mesos(self, rows: list[combat.Spot]) -> combat.Spot | None:
+        """The spot that brings the most mesos per swing by the players' reports (a kill's mesos x hit chance /
+        hits), labelled on its card: a second ranking beside the EXP one, not a reorder. None unless at least two
+        of the spots have reports to compare."""
+        rated = [(s, m * s.hit / (s.avg_hits or 1)) for s in rows if (m := self.kb.mesos_per_kill(s.monster.key))]
+        return max(rated, key=lambda r: r[1])[0] if len(rated) >= 2 else None
+
+    def _spot_card(self, s: combat.Spot, best: bool, most_mesos: bool = False) -> QFrame:
         t, c, m = self.t, self.c, s.monster
         card = QFrame(objectName="Card")
         row = QHBoxLayout(card)
@@ -573,12 +581,22 @@ class ToolsDialog(GlassDialog):
             why.addWidget(tag(self._p(t("spot_best")), "TagAccent"))
         if s.recommended:
             why.addWidget(tag(self._p(t("spot_guide")), "TagGood"))
+        if most_mesos:
+            most = tag(self._p(t("spot_most_mesos")), "TagAccent")
+            most.setToolTip(bidi.to_html(t("spot_most_mesos_tip"), "rtl" if t.rtl else "ltr"))
+            why.addWidget(most)
         if self._stats()[0]:
             why.addWidget(tag(self._p(t("spot_hit", pct=round(s.hit * 100))), "TagGood" if s.hit >= 0.999 else "TagWarn"))
         if s.hits:
             nums.addWidget(tag(self._p(t("spot_hits", n=s.hits)), "Tag"))
         nums.addWidget(tag(self._p(t("spot_exp", n=m.exp)), "Tag"))
         nums.addWidget(tag(self._p(t("spot_crowd", n=m.maps[0][1])), "Tag"))
+        # the mesos players reported, with its own source in the text: the chip below is the page's stats' source
+        mesos = self.kb.community_mesos(m.key)
+        if mesos:
+            mt = tag(self._p(mesos_text(t, mesos)), "Tag")
+            mt.setToolTip(bidi.to_html(mesos_tip(t, mesos), "rtl" if t.rtl else "ltr"))
+            nums.addWidget(mt)
         # the monster's numbers come from its page: its build ("COT2") or MeowDB's own; a KB update this week
         # that changed it says so
         stamp = sources.stat_source(self.kb, m.key)
@@ -707,6 +725,18 @@ class ToolsDialog(GlassDialog):
             if avg < hits - 0.05:
                 hint = t("calc_hits_avg", n=f"{avg:.1f}") + "\n" + hint
             self._row(sec, t("calc_hits", n=hits), hint=hint)
+        # the mesos players reported for it (community.json), with its source chip; or that nobody reported any
+        mesos = self.kb.community_mesos(m.key)
+        if mesos:
+            lo, hi = mesos[0], mesos[1]
+            value = tag(f"{lo:,}" if lo == hi else f"‪{lo:,}–{hi:,}‬", "TagAccent")
+            value.setToolTip(bidi.to_html(mesos_tip(t, mesos), "rtl" if t.rtl else "ltr"))
+            holder3 = QWidget()
+            holder3.setLayout(chip_row([source_tag(t, sources.COMMUNITY), value], spacing=6))
+            avg = self.kb.mesos_per_kill(m.key)
+            self._row(sec, t("calc_mesos"), holder3, hint=t("calc_mesos_avg", n=f"{avg:,.0f}") if avg else "")
+        else:
+            self._row(sec, t("calc_mesos"), tag(self._p(t("mesos_none")), "Tag"))
         if not (acc and dmg):
             sec.add_widget(self._label(t("calc_need_stats"), "RowHint"))
         sec.add_widget(self._ask_link(lambda: self.tag_requested.emit(m.key)))

@@ -11,7 +11,7 @@ from ..kb import KnowledgeBase
 from .controls import rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag
+from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag
 
 SHOWN_DROPPERS = 5
 
@@ -73,7 +73,7 @@ class WishlistDialog(GlassDialog):
             # each dropper as a row with its picture, level, map and a way to ask the chat about it (live feedback:
             # a small text list was hard to read and led nowhere)
             for m in droppers[:SHOWN_DROPPERS]:
-                lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None))
+                lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None, kb.community_vote(m, k)))
             if len(droppers) > SHOWN_DROPPERS:
                 more = QLabel(bidi.plain(t("pn_more", n=len(droppers) - SHOWN_DROPPERS), rtl), objectName="RowHint")
                 more.setAlignment(self._align)
@@ -93,7 +93,7 @@ class WishlistDialog(GlassDialog):
         outer.addLayout(row)
         rtl_buttons(self, rtl)
 
-    def _dropper(self, m: str, item: str, source: str | None = None) -> QFrame:
+    def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None) -> QFrame:
         t, kb = self.t, self.kb
         e = kb.get(m) or {}
         name = e.get("name", m)
@@ -119,8 +119,9 @@ class WishlistDialog(GlassDialog):
         col.setSpacing(2)
         title = QLabel(bidi.ltr_name(name + (f" · Lv. {lvl}" if lvl else ""), t.rtl), objectName="CardName")
         title.setAlignment(self._align)
-        # this row's own drop list when the droppers mix them, and a KB update this week that changed the monster
-        chips = ([source_tag(t, source)] if source else []) + [c for c in [updated_tag(t, kb, m)] if c]
+        # this row's own drop list when the droppers mix them, the players' votes when players reported it ("16 ✓"),
+        # and a KB update this week that changed the monster
+        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else [])             + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
             col.addLayout(chip_row(chips, title))
         else:

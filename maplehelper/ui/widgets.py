@@ -328,6 +328,37 @@ def updated_tag(t, kb, key: str) -> QLabel | None:
     return lb
 
 
+def vote_tag(t, vote: dict) -> QLabel:
+    """A community drop's votes beside it: "16 ✓" (players who confirmed it), or "single report" when one player
+    alone reported it; the tooltip gives confirmed and denied (kb.community_drops)."""
+    single = bool(vote.get("single"))
+    text = t("votes_single") if single else t("votes_up", n=vote.get("up", 0))
+    # "16 ✓" one left-to-right block in Hebrew too (run by run, the mark went before the number: "✓16")
+    lb = QLabel(bidi.plain(text, t.rtl) if single else bidi.ltr_name(text, t.rtl), objectName="VoteTag")
+    lb.setProperty("single", "true" if single else "false")
+    lb.setAlignment(Qt.AlignCenter)
+    lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+    tip = t("votes_single_tip") if single else t("votes_tip", up=vote.get("up", 0), down=vote.get("down", 0))
+    lb.setToolTip(tip_html(tip, t.rtl))
+    lb.setAccessibleName(f"{text}: {tip}")
+    return lb
+
+
+def mesos_text(t, mesos) -> str:
+    """ "מזו 18–23 (קהילה)" / "Mesos 18–23 (Community)" (sources.mesos_line)."""
+    from .. import sources
+    return sources.mesos_line(t, mesos)
+
+
+def mesos_tip(t, mesos) -> str:
+    """What the mesos numbers are: the median of the players' reports, and how often a kill drops mesos."""
+    _, _, chance, n = mesos
+    tip = t("mesos_tip", n=n)
+    if chance is not None:
+        tip += " " + t("mesos_chance", pct=f"{chance:g}")
+    return tip
+
+
 def chip_row(chips: list[QWidget], text: QWidget | None = None, spacing: int = 6, lead: bool = False) -> QHBoxLayout:
     """[text] [chip] [chip], anchored at the reading start (mirrored in Hebrew): the chips follow the data they
     label, never pushed to the far edge. lead=True puts the chips first, before a long line that wraps (the line
@@ -494,6 +525,14 @@ class EntityCard(Selectable, QFrame):
                 pill.setLayoutDirection(Qt.LeftToRight)
                 flow.addWidget(pill)
             col.addWidget(pills)
+        # a monster's mesos, as players reported them: "מזו 18–23 (קהילה)", its own line (it isn't the page's stat
+        # and doesn't share the stat line's source)
+        mesos = kb.community_mesos(key) if key.startswith("monster/") else None
+        if mesos:
+            self.mesos_label = _label(bidi.plain(mesos_text(t, mesos), he), "CardSub")
+            self.mesos_label.setAlignment(side)
+            self.mesos_label.setToolTip(tip_html(mesos_tip(t, mesos), he))
+            col.addWidget(self.mesos_label)
         # the credit line is the card's source line: where the stat line's numbers come from (the page's build,
         # "COT2", else MeowDB's own) and, for an entity a KB update changed this week, "Updated", at its start
         from .. import sources
@@ -947,7 +986,8 @@ def stat_parts(e: dict, tile: bool = False) -> tuple[list[str], list[str]]:
 class EntityTile(Selectable, QFrame):
     """Compact item tile for lists (drops, rewards): picture + official name. Tap to ask about it."""
 
-    def __init__(self, kb, key: str, t=None):
+    def __init__(self, kb, key: str, t=None, vote: dict | None = None):
+        """vote: a community drop's votes (kb.community_vote), shown under the name."""
         super().__init__(objectName="Tile")
         e = kb.get(key) or {}
         if t is None:
@@ -985,6 +1025,9 @@ class EntityTile(Selectable, QFrame):
         self.stats.setMinimumWidth(48)
         self.stats.setVisible(bool(stats))
         col.addWidget(self.stats)
+        self.vote = vote_tag(t, vote) if vote else None
+        if self.vote is not None:
+            col.addLayout(chip_row([self.vote]))       # at the reading start, under the name
         row.addLayout(col, 1)
         self._align_name()
 
@@ -1007,7 +1050,9 @@ class EntityTile(Selectable, QFrame):
 class TileGrid(QFrame):
     """Two-column grid of item tiles with a credit line."""
 
-    def __init__(self, kb, keys: list[str], title: str = "", rtl: bool | None = None, t=None, srcs=()):
+    def __init__(self, kb, keys: list[str], title: str = "", rtl: bool | None = None, t=None, srcs=(),
+                 monster: str | None = None):
+        """monster: the monster whose drops these are; its community drops then show their players' votes."""
         super().__init__(objectName="TileGrid")
         from PySide6.QtWidgets import QApplication, QGridLayout
         from .. import bidi
@@ -1033,7 +1078,7 @@ class TileGrid(QFrame):
         grid = QGridLayout()
         grid.setSpacing(6)
         for i, k in enumerate(keys):
-            grid.addWidget(EntityTile(kb, k, t), i // 2, i % 2)
+            grid.addWidget(EntityTile(kb, k, t, kb.community_vote(monster, k) if monster else None), i // 2, i % 2)
         outer.addLayout(grid)
         credit = QLabel("NiaMeowDB (meowdb.com)", objectName="CardCredit")
         outer.addWidget(credit)
@@ -1090,7 +1135,8 @@ class DropGroupCard(QFrame):
         grid.setSpacing(6)
         mixed = len(set(srcs.get(i) for i in items)) > 1
         for i, k in enumerate(items):
-            tile = EntityTile(kb, k, t)
+            # a community drop with its players' votes ("16 ✓", "single report")
+            tile = EntityTile(kb, k, t, kb.community_vote(monster, k))
             if mixed and t is not None:
                 tile.setToolTip(f"{tile.toolTip()} · {sources.tag(t, srcs.get(k) or sources.MSEA)}")
             grid.addWidget(tile, i // 2, i % 2)

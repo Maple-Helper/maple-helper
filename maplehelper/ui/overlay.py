@@ -10,7 +10,7 @@ from PySide6.QtGui import QGuiApplication, QIcon, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
-from .. import __version__, bidi, osapi, quick, telemetry
+from .. import __version__, bidi, osapi, quick, sources, telemetry
 from ..brain import Answer, Brain
 from ..i18n import STRINGS, I18n
 from ..kb import KnowledgeBase
@@ -1527,8 +1527,10 @@ class Overlay(QWidget):
             groups.setdefault(title, []).append(k)
         for (key, name, src), ks in groups.items():
             if ks:
+                # (a community drop's tile shows its players' votes)
                 self._add_redrawn(lambda t, key=key, name=name, ks=ks, src=src: TileGrid(
-                    self.kb, ks, t(key, name=name) if name else t(key), t.rtl, t=t, srcs=[src] if src else ()))
+                    self.kb, ks, t(key, name=name) if name else t(key), t.rtl, t=t, srcs=[src] if src else (),
+                    monster=monster if src == sources.COMMUNITY else None))
 
     def _add_redrawn(self, make) -> QWidget:
         """A feed row built by make(t), built again in the new language on a switch (cards and tile groups kept
@@ -1744,7 +1746,6 @@ class Overlay(QWidget):
         rl.setContentsMargins(4, 0, 4, 0)
         rl.addWidget(QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine"))
         # where the answer's data comes from ("COT2" stats, "MSEA" drops, a shop's "COT2" price), beside the badge
-        from .. import sources
         stamp = sources.stat_source(self.kb, qa.entities[0]) if qa.entities else None
         for chip in source_tags(self.t, getattr(qa, "sources", ()), stamp):
             rl.addWidget(chip)

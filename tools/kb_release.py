@@ -32,6 +32,11 @@ MAX_LISTED = 300       # per list in one update; the rest is only counted
 # the app can't tell released content from unreleased, so a KB lacking it is never published
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
 RELEASE_GUIDE_SECTIONS = ("Confirmed content", "Not at launch")
+# players' drop and mesos reports per monster (tools/scrape_community.py); optional, but checked when present
+COMMUNITY = "community.json"
+# a community drop is shown when more players confirmed it than denied it: the app's rule too
+# (maplehelper/kb.py COMMUNITY_MIN_SCORE), repeated here because CI runs this file without the app's packages
+COMMUNITY_MIN_SCORE = 1
 
 
 class InvalidKB(Exception):
@@ -83,9 +88,66 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
         if lost:
             problems.append(f"the release guide lost its section(s): {', '.join(lost)}")
 
+    if (kb / COMMUNITY).exists():
+        try:
+            validate_community(json.loads((kb / COMMUNITY).read_text(encoding="utf-8")),
+                               {e.get("key") for e in index if isinstance(e, dict)})
+        except (OSError, ValueError) as e:
+            problems.append(f"{COMMUNITY} unreadable: {e}")
+        except InvalidKB as e:
+            problems.append(str(e))
+
     if problems:
         raise InvalidKB("; ".join(problems))
     return {"count": count, "categories": sorted(seen)}
+
+
+def validate_community(data, keys: set[str]) -> None:
+    """community.json's shape, and that every monster and item it names is in this KB; raise InvalidKB."""
+    problems: list[str] = []
+    monsters = data.get("monsters") if isinstance(data, dict) else None
+    if not isinstance(monsters, dict):
+        raise InvalidKB(f"{COMMUNITY}: no 'monsters' object")
+
+    def num(v) -> bool:
+        return isinstance(v, (int, float)) and not isinstance(v, bool)
+    for mkey, entry in monsters.items():
+        where = f"{COMMUNITY} {mkey}"
+        if not mkey.startswith("monster/") or mkey not in keys:
+            problems.append(f"{where}: not a monster of the KB")
+        if not isinstance(entry, dict) or not isinstance(entry.get("drops"), list):
+            problems.append(f"{where}: no drops list")
+            continue
+        for d in entry["drops"]:
+            if not (isinstance(d, dict) and str(d.get("item", "")).startswith("item/") and d["item"] in keys
+                    and all(num(d.get(f)) for f in ("up", "down", "score"))):
+                problems.append(f"{where}: bad drop {str(d)[:80]}")
+        m = entry.get("mesos")
+        if m is not None and not (isinstance(m, dict) and num(m.get("min")) and num(m.get("max"))
+                                  and 0 <= m["min"] <= m["max"] and num(m.get("count")) and m["count"] > 0
+                                  and (m.get("chance") is None or num(m["chance"]) and 0 <= m["chance"] <= 100)):
+            problems.append(f"{where}: bad mesos {str(m)[:80]}")
+        if len(problems) > 20:
+            break
+    if problems:
+        raise InvalidKB("; ".join(problems[:20]))
+
+
+def _shown(entry: dict | None) -> set[str]:
+    """The community drops of one monster a player sees (COMMUNITY_MIN_SCORE)."""
+    return {d["item"] for d in (entry or {}).get("drops") or [] if d.get("score", 0) >= COMMUNITY_MIN_SCORE}
+
+
+def _mesos_range(entry: dict | None) -> str | None:
+    m = (entry or {}).get("mesos")
+    return f"{m['min']}-{m['max']}" if m else None
+
+
+def community_changes(old: dict, new: dict) -> int:
+    """How many monsters' community data changed in a way the patch notes show: a drop shown or hidden, or the
+    mesos range moved. Votes alone don't count, or every night would publish a new KB."""
+    return sum(1 for k in old.keys() | new.keys()
+               if _shown(old.get(k)) != _shown(new.get(k)) or _mesos_range(old.get(k)) != _mesos_range(new.get(k)))
 
 
 # ---------------------------------------------------------------- patch notes
@@ -110,15 +172,27 @@ def _drops(kb: Path) -> dict[str, dict[str, str]]:
     return out
 
 
+def _community(kb: Path) -> dict[str, dict]:
+    try:
+        return json.loads((kb / COMMUNITY).read_text(encoding="utf-8")).get("monsters") or {}
+    except (OSError, ValueError, AttributeError):
+        return {}
+
+
 def _brief(e: dict) -> dict:
     return {"key": e["key"], "name": e.get("name") or e["key"], "category": e.get("category", "")}
 
 
 def diff_kb(old: Path, new: Path) -> dict:
     """What a player would notice between two KBs: entries added/removed, stats and drops changed,
-    and entries whose page text changed without a stat change ("updated")."""
+    and entries whose page text changed without a stat change ("updated").
+    Community reports (community.json) count as changes of their monster: "community_added" / "community_removed"
+    (the drops shown, by name) and "mesos" [old range, new range] ("18-23", None for no reports)."""
     a, b = _index(old), _index(new)
     da, db = _drops(old), _drops(new)
+    ca, cb = _community(old), _community(new)
+    if not (old / COMMUNITY).exists():
+        cb = ca     # the first KB with players' reports: every monster's would read as a new drop, none is a change
     added = [_brief(b[k]) for k in sorted(b.keys() - a.keys())]
     removed = [_brief(a[k]) for k in sorted(a.keys() - b.keys())]
     changed, updated = [], []
@@ -129,7 +203,13 @@ def diff_kb(old: Path, new: Path) -> dict:
         drops_added = sorted(ob[i] for i in ob.keys() - oa.keys())
         drops_removed = sorted(oa[i] for i in oa.keys() - ob.keys())
         renamed = a[k].get("name") != b[k].get("name")
-        if props or drops_added or drops_removed or renamed:
+        sa, sb = _shown(ca.get(k)), _shown(cb.get(k))
+        item = lambda i: (b.get(i) or a.get(i) or {}).get("name") or i  # noqa: E731
+        community_added = sorted(item(i) for i in sb - sa)
+        community_removed = sorted(item(i) for i in sa - sb)
+        mesos = [_mesos_range(ca.get(k)), _mesos_range(cb.get(k))]
+        mesos = mesos if mesos[0] != mesos[1] else None
+        if props or drops_added or drops_removed or renamed or community_added or community_removed or mesos:
             c = _brief(b[k])
             if renamed:
                 c["old_name"] = a[k].get("name")
@@ -139,6 +219,12 @@ def diff_kb(old: Path, new: Path) -> dict:
                 c["drops_added"] = drops_added
             if drops_removed:
                 c["drops_removed"] = drops_removed
+            if community_added:
+                c["community_added"] = community_added
+            if community_removed:
+                c["community_removed"] = community_removed
+            if mesos:
+                c["mesos"] = mesos
             changed.append(c)
         elif a[k].get("hash") != b[k].get("hash"):
             updated.append(_brief(b[k]))

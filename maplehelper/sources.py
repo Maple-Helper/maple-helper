@@ -310,6 +310,12 @@ def price_note(t, label: str) -> str:
     return t("price_build", label=tag(t, label))
 
 
+def mesos_line(t, mesos) -> str:
+    """ "מזו 18–23 (קהילה)" / "Mesos 18–23 (Community)" for kb.community_mesos's (min, max, chance, reports)."""
+    lo, hi = mesos[0], mesos[1]
+    return t("mesos_line", range=f"{lo:,}" if lo == hi else f"{lo:,}–{hi:,}", src=tag(t, COMMUNITY))
+
+
 def change_line(stat: str, old, new, before: str = "", after: str = "") -> str:
     """ "ACC 62 → 64 (COT1 → COT2)" as one left-to-right block (bidi.ltr_block's isolate): in a Hebrew line the
     arrow still points from the old value to the new one and the parentheses stay around the labels."""

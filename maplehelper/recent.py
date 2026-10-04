@@ -2,7 +2,8 @@
 the player's own changes first, and the "Recent KB change" lines the AI gets.
 
 Read from the KB's changelog.json (tools/kb_release.record_changes: every update's added / removed / changed
-entries, with props old → new and drops added / removed). "Lately" is the update's own date, not when this app
+entries, with props old → new, drops added / removed, and the players' reports: community drops shown / hidden and
+the mesos range). "Lately" is the update's own date, not when this app
 downloaded it: a player who opens the app days after an update still sees what it changed that week.
 """
 from __future__ import annotations
@@ -29,6 +30,9 @@ class Recent:
     drops_added: list[str] = field(default_factory=list)
     drops_removed: list[str] = field(default_factory=list)
     old_name: str = ""
+    community_added: list[str] = field(default_factory=list)       # community drops now shown (players' reports)
+    community_removed: list[str] = field(default_factory=list)
+    mesos: list = field(default_factory=list)                       # [old range, new range] ("18-23", None)
 
 
 def changelog(kb) -> list[dict]:
@@ -92,6 +96,11 @@ def recent(kb, days: int = DAYS, today: date | None = None, log: list[dict] | No
             rc.drops_added += [d for d in r.get("drops_added") or [] if d not in rc.drops_added]
             rc.drops_removed += [d for d in r.get("drops_removed") or [] if d not in rc.drops_removed]
             rc.old_name = rc.old_name or r.get("old_name") or ""
+            rc.community_added += [d for d in r.get("community_added") or [] if d not in rc.community_added]
+            rc.community_removed += [d for d in r.get("community_removed") or [] if d not in rc.community_removed]
+            m = r.get("mesos")
+            if isinstance(m, list) and len(m) == 2:
+                rc.mesos = [rc.mesos[0] if rc.mesos else m[0], m[1]]     # the oldest range in the window, the newest
     return out
 
 
@@ -116,7 +125,19 @@ def lines(t, kb, r: Recent) -> list[str]:
         out.append(t("pn_drops_removed", items=", ".join(r.drops_removed)))
     if r.old_name:
         out.append(t("pn_renamed", name=bidi.ltr_block(r.old_name, t.rtl)))
+    if r.community_added:
+        out.append(t("pn_community_added", items=", ".join(r.community_added)))
+    if r.community_removed:
+        out.append(t("pn_community_removed", items=", ".join(r.community_removed)))
+    if r.mesos and r.mesos[0] != r.mesos[1]:
+        # "18-23 → 20-25" one left-to-right block: in a Hebrew line the arrow still points from old to new
+        change = f"{_mesos(r.mesos[0])} → {_mesos(r.mesos[1])}"
+        out.append(t("pn_mesos", change=f"{bidi.LRI}{change}{bidi.PDI}"))
     return out
+
+
+def _mesos(v) -> str:
+    return str(v).replace("-", "–") if v else "—"
 
 
 def _value(v) -> str:
@@ -149,6 +170,10 @@ def ai_lines(kb, keys, today: date | None = None, limit: int = 8) -> list[str]:
             before, after = _labels(kb, k, f, new)
             bits.append(f"{f} {_value(old)} -> {_value(new)}" + (f" ({before} -> {after})" if before else ""))
         bits += [f"new drop {d}" for d in r.drops_added] + [f"drop removed {d}" for d in r.drops_removed]
+        bits += [f"new community drop {d}" for d in r.community_added]
+        bits += [f"community drop removed {d}" for d in r.community_removed]
+        if r.mesos and r.mesos[0] != r.mesos[1]:
+            bits.append(f"community mesos {r.mesos[0] or 'none'} -> {r.mesos[1] or 'none'}")
         if r.old_name:
             bits.append(f"formerly {r.old_name}")
         if bits:
@@ -176,7 +201,9 @@ def why(kb, row: dict, char, wished: set[str]) -> str | None:
     from . import combat
     key = row.get("key") or ""
     names = {(kb.get(k) or {}).get("name") for k in wished}
-    if key in wished or names & set((row.get("drops_added") or []) + (row.get("drops_removed") or [])):
+    dropped = [*(row.get("drops_added") or []), *(row.get("drops_removed") or []),
+               *(row.get("community_added") or []), *(row.get("community_removed") or [])]
+    if key in wished or names & set(dropped):
         return "wish"
     if not char or not getattr(char, "level", 0):
         return None

@@ -1,0 +1,15 @@
+{
+ "reports": [],
+ "summary": {
+  "count": 0,
+  "trustedCount": 0,
+  "medianMin": 0,
+  "medianMax": 0,
+  "medianDropChancePct": 0
+ },
+ "isLoggedIn": false,
+ "userRole": null,
+ "userReportId": null,
+ "locked": false,
+ "lockReason": null
+}

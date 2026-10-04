@@ -202,7 +202,8 @@ def test_wishlist_shows_only_droppers_and_maps_in_the_game(real_kb):
     assert not [x for x in texts if "Crimson Balrog" in x or "Tick-Tock" in x]
     assert not [x for x in texts if "Orbis" in x or "El Nath" in x]
     assert any("Green Mushroom" in x for x in texts)
-    assert sum("reference data" in x for x in texts) == 2          # the MSEA reference caveat under each list
+    # under each list, which list its drops are on: the MSEA reference caveat, or players' own reports
+    assert sum("reference data" in x or "Players saw these drops" in x for x in texts) == 2
     d.close()
 
 
