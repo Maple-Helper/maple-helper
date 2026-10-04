@@ -283,6 +283,12 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QPushButton#SubChip {{ background: transparent; border: 1px solid {c['stroke']}; border-radius: 10px;
                            min-height: 26px; max-height: 26px; padding: 0 10px; font-size: {s - 3}px; font-weight: 500;
                            color: {c['muted']}; }}
+    QPushButton#ProfChip {{ background: transparent; border: 1px solid {c['stroke']}; border-radius: 10px;
+                            min-height: 26px; max-height: 26px; padding: 0 4px; font-size: {s - 4}px; font-weight: 500;
+                            color: {c['muted']}; }}
+    QPushButton#ProfChip:hover {{ background: {c['fill3']}; color: {c['text']}; }}
+    QPushButton#ProfChip:checked {{ background: rgba(255,149,51,0.14); border: 1.5px solid {ORANGE}; color: {otd};
+                                    font-weight: 700; }}
     QPushButton#SubChip:hover {{ background: {c['fill3']}; color: {c['text']}; }}
     QPushButton#SubChip:checked {{ background: rgba(255,149,51,0.14); border: 1.5px solid {ORANGE}; color: {otd};
                                    font-weight: 700; }}

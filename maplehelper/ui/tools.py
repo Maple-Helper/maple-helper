@@ -18,7 +18,7 @@ from .. import (availability, bidi, buildplan, combat, crafting, farm, glossary,
                routes, sitedata, sources)
 from ..i18n import I18n
 from . import terms, theme
-from .controls import FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
+from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag,
                       vote_tag)
@@ -1514,19 +1514,20 @@ class ToolsDialog(GlassDialog):
         sc, lay = scroll_page(self.t.rtl)
         # the professions live inside this tab's own card, in a lighter style than the main tabs
         sec = Section(t("craft_profession"), t.rtl)
-        grid = FlowLayout(spacing=6)            # wraps: three long names on one row were wider than the window
+        # the six on one row when they fit, else two rows of three (one alone on a second row looked broken: the
+        # owner)
+        chips = []
         self.craft_pick = QButtonGroup(self)
         for i, prof in enumerate(crafting.PROFESSIONS):
-            b = QPushButton(crafting.NAMES[prof], objectName="SubChip")
+            b = QPushButton(crafting.NAMES[prof], objectName="ProfChip")
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("prof", prof)
             self.craft_pick.addButton(b, i)
-            grid.addWidget(b)
+            chips.append(b)
         self.craft_pick.button(0).setChecked(True)
         self.craft_pick.idClicked.connect(lambda *_: self._fill_crafting())
-        holder = QWidget()
-        holder.setLayout(grid)
+        holder = BalancedRow(chips)
         sec.add_widget(holder)
         self.craft_level = Stepper(1, 10, 1)
         self.craft_level.valueChanged.connect(self._set_craft_level)

@@ -120,6 +120,47 @@ class Segmented(QFrame):
             b.setAccessibleDescription(label)
 
 
+class BalancedRow(QWidget):
+    """Buttons on one row when they fit at their own widths, else in equal rows (six: two of three): never one
+    left alone on a second row, never cut (the crafting professions, the owner)."""
+
+    def __init__(self, buttons: list, spacing: int = 4):
+        super().__init__()
+        from PySide6.QtWidgets import QGridLayout
+        self._buttons = list(buttons)
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setHorizontalSpacing(spacing)
+        self._grid.setVerticalSpacing(spacing)
+        self._spacing = spacing
+        self._per_row = 0
+        self._place(len(self._buttons))
+
+    def _need(self) -> int:
+        return sum(b.sizeHint().width() for b in self._buttons) + self._spacing * (len(self._buttons) - 1)
+
+    def _place(self, per_row: int) -> None:
+        if per_row == self._per_row:
+            return
+        self._per_row = per_row
+        for b in self._buttons:
+            self._grid.removeWidget(b)
+        for i, b in enumerate(self._buttons):
+            self._grid.addWidget(b, i // per_row, i % per_row)
+        for c in range(len(self._buttons)):
+            self._grid.setColumnStretch(c, 1 if c < per_row else 0)
+
+    def minimumSizeHint(self):
+        from PySide6.QtCore import QSize
+        widest = max((b.sizeHint().width() for b in self._buttons), default=0)
+        return QSize(widest * 3 + self._spacing * 2, super().minimumSizeHint().height())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        n = len(self._buttons)
+        self._place(n if e.size().width() >= self._need() else (n + 1) // 2)
+
+
 class Section(QFrame):
     """A grouped card of rows (iOS Settings): label on the leading side, control on the trailing side."""
 
