@@ -240,32 +240,28 @@ def _quest(kb, key: str) -> Quest | None:
     return q
 
 
-# when a daily / weekly quest comes back: the GMS servers' reset, 00:00 UTC, the week's on Thursday. Not in the KB:
-# the owner's choice (2026-10-04)
-WEEKLY_RESET_DAY = 3        # Monday = 0
+# when a daily / weekly quest comes back: the KB names no reset time, so nothing here claims one. A daily quest
+# marked done is back the next calendar day on the player's clock, a weekly one seven days after it was marked
+# (the owner: "be airtight, don't make things up")
 
 
-def last_reset(cycle: str, now: float | None = None) -> float:
-    """The last daily (00:00 UTC) or weekly (Thursday 00:00 UTC) reset, as a timestamp."""
-    import time
-    from datetime import datetime, timedelta, timezone
-    t = datetime.fromtimestamp(time.time() if now is None else now, timezone.utc)
-    day = t.replace(hour=0, minute=0, second=0, microsecond=0)
+def back_at(cycle: str, done_at: float) -> float:
+    """When a daily / weekly quest marked done at done_at is on the list again."""
+    from datetime import datetime, timedelta
     if cycle == "weekly":
-        day -= timedelta(days=(day.weekday() - WEEKLY_RESET_DAY) % 7)
-    return day.timestamp()
-
-
-def next_reset(cycle: str, now: float | None = None) -> float:
-    return last_reset(cycle, now) + (7 if cycle == "weekly" else 1) * 86400
+        return done_at + 7 * 86400
+    day = datetime.fromtimestamp(done_at).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (day + timedelta(days=1)).timestamp()
 
 
 def expire_cycles(kb, c, now: float | None = None) -> bool:
-    """A daily / weekly quest marked done before its last reset is to do again: off the done list. True if any."""
+    """A daily / weekly quest marked done whose time is up is to do again: off the done list. True if any."""
+    import time
+    now = time.time() if now is None else now
     changed = False
     for key, when in list((c.cycle_done or {}).items()):
         q = quest(kb, key)
-        if q is None or not q.cycle or not isinstance(when, (int, float)) or when < last_reset(q.cycle, now):
+        if q is None or not q.cycle or not isinstance(when, (int, float)) or now >= back_at(q.cycle, when):
             c.cycle_done.pop(key, None)
             if key in c.quests_done:
                 c.quests_done.remove(key)
@@ -292,8 +288,27 @@ def task_text(q: Quest, lang: str) -> str:
     return row.get("he") if row.get("en") == q.task and row.get("he") else q.task
 
 
+def _required(kb) -> set[str]:
+    """Every quest name another quest asks to be done first ("Quest Complete First Greeting with Rina")."""
+    got = kb.__dict__.get("_quests_required")
+    if got is None:
+        got = set()
+        for k, e in kb.entities.items():
+            if e.get("category") == "quest":
+                q = _quest(kb, k)
+                if q:
+                    got.update(" ".join(a.split()) for a in q.afters)
+        kb.__dict__["_quests_required"] = got
+    return got
+
+
 def quest(kb, key: str) -> Quest | None:
-    return _quest(kb, key)
+    q = _quest(kb, key)
+    # the board's "Daily" tag on a quest another one asks for first is a step done once ("First Greeting with
+    # Rina" opens the repeatable "Asking After Rina"), not one to do again every day (the owner)
+    if q is not None and q.cycle and " ".join(q.name.split()).rstrip(".") in _required(kb):
+        q.cycle = ""
+    return q
 
 
 def job_fits(q: Quest, base_class: str, job: str) -> bool:

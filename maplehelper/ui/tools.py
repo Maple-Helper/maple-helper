@@ -1604,10 +1604,8 @@ class ToolsDialog(GlassDialog):
         # the level it can be done at: one taken at 12 but finished only at 32 is a Lv. 32 quest ("soon" at 31)
         top.addWidget(tag(self._p(t("lv_short", n=q.opens_at())), "Tag"))
         if q.cycle:
-            # done again every day / week: when it comes back, in the player's own time
-            back = self._reset_text(q.cycle)
-            cyc = info_tag(t, t(f"q_{q.cycle}"), t(f"q_{q.cycle}_tip", when=back), "TagAccent")
-            top.addWidget(cyc)
+            # the page's "Daily" / "Weekly"; the KB names no reset time, the tip says so
+            top.addWidget(info_tag(t, t(f"q_{q.cycle}"), t(f"q_{q.cycle}_tip"), "TagAccent"))
         if q.exp:
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
@@ -1705,8 +1703,10 @@ class ToolsDialog(GlassDialog):
             col.addWidget(self._label("\n".join(hints), "RowHint"))
         acts = QHBoxLayout()
         acts.setSpacing(16)        # the link has no padding of its own: apart from the button, not glued to it
-        if done and q.cycle:
-            col.addWidget(self._label(t("q_back_at", when=self._reset_text(q.cycle)), "RowHint"))
+        if done and q.cycle and self.c and isinstance((self.c.cycle_done or {}).get(q.key), (int, float)):
+            from datetime import datetime
+            back = datetime.fromtimestamp(quests.back_at(q.cycle, self.c.cycle_done[q.key]))
+            col.addWidget(self._label(t("q_back_at", when=f"{back.day}.{back.month}"), "RowHint"))
         if done:
             # marked done by mistake (or a repeatable donation to do again): back to the list
             btn = QPushButton(self._p(t("q_undo")), objectName="Secondary")
@@ -1943,15 +1943,6 @@ class ToolsDialog(GlassDialog):
                 last = r.level            # level by level, as the quests are
                 self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
             self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every and not query)))
-
-    def _reset_text(self, cycle: str) -> str:
-        """The next reset in the player's own clock: "03:00" (daily), "יום חמישי ב-03:00" (weekly)."""
-        from datetime import datetime
-        at = datetime.fromtimestamp(quests.next_reset(cycle))
-        clock = at.strftime("%H:%M")
-        if cycle != "weekly":
-            return clock
-        return self.t("q_reset_weekly", day=self.t(f"weekday_{at.weekday()}"), time=clock)
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""

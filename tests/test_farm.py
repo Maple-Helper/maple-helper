@@ -418,15 +418,15 @@ def test_a_citizenship_quest_jump_stays_on_citizenship(monkeypatch, tmp_path):
         d.close()
 
 
-def test_daily_and_weekly_resets():
-    # daily at 00:00 UTC, weekly on Thursday 00:00 UTC (the GMS servers' reset: the owner's choice)
-    from datetime import datetime, timezone
+def test_a_done_daily_or_weekly_quest_comes_back_without_an_invented_reset():
+    # the KB names no reset time (the owner: don't make things up): a daily one is back the next calendar day,
+    # a weekly one seven days after it was marked
+    from datetime import datetime
 
     from maplehelper import quests
-    sat = datetime(2026, 10, 3, 15, 30, tzinfo=timezone.utc).timestamp()          # a Saturday afternoon
-    assert quests.last_reset("daily", sat) == datetime(2026, 10, 3, tzinfo=timezone.utc).timestamp()
-    assert quests.last_reset("weekly", sat) == datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp()   # Thu
-    assert quests.next_reset("weekly", sat) == datetime(2026, 10, 8, tzinfo=timezone.utc).timestamp()
+    done = datetime(2026, 10, 3, 15, 30).timestamp()
+    assert quests.back_at("daily", done) == datetime(2026, 10, 4).timestamp()
+    assert quests.back_at("weekly", done) == done + 7 * 86400
 
 
 @needs_kb
@@ -437,10 +437,11 @@ def test_a_daily_quest_comes_back_after_the_reset():
     from maplehelper import quests
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
-    rina = quests.quest(kb, "quest/506001")
-    assert rina.cycle == "daily" and quests.quest(kb, "quest/506000").cycle == ""
-    reset = quests.last_reset("daily")
-    c = SimpleNamespace(quests_done=["quest/506001", "quest/506000"], cycle_done={"quest/506001": reset - 60})
+    # "Asking After Rina" is daily; "First Greeting with Rina", tagged Daily too, is what it asks for first: once
+    assert quests.quest(kb, "quest/506002").cycle == "daily" and quests.quest(kb, "quest/506001").cycle == ""
+    import time
+    now = time.time()
+    c = SimpleNamespace(quests_done=["quest/506002", "quest/506000"], cycle_done={"quest/506002": now - 2 * 86400})
     assert quests.expire_cycles(kb, c) and c.quests_done == ["quest/506000"] and not c.cycle_done
-    c = SimpleNamespace(quests_done=["quest/506001"], cycle_done={"quest/506001": reset + 60})
-    assert not quests.expire_cycles(kb, c) and c.quests_done == ["quest/506001"]
+    c = SimpleNamespace(quests_done=["quest/506002"], cycle_done={"quest/506002": now})
+    assert not quests.expire_cycles(kb, c) and c.quests_done == ["quest/506002"]
