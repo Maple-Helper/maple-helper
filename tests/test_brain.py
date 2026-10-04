@@ -201,7 +201,7 @@ def test_the_cli_default_model_is_named(kb_copy, monkeypatch):
 def test_grind_is_a_noun_spelled_the_owners_way():
     """"לגרינד" in an answer reads "לעשות גריינד"; the spelling is "גריינד" (the owner, 2026-10-04)."""
     from maplehelper.brain import drop_keys
-    assert drop_keys("לא מתאים לגרינד בלבל 31") == "לא מתאים לעשות גריינד בלבל 31"
+    assert drop_keys("לא מתאים לגרינד בלבל 31") == "לא מתאים לעשות גריינד ברמה 31"
     assert drop_keys("כדאי לגריינד על Ligator") == "כדאי לעשות גריינד על Ligator"
     assert drop_keys("הגרינד שלכם") == "הגריינד שלכם" and drop_keys("grind spot") == "grind spot"
 
@@ -221,9 +221,9 @@ def test_a_monster_details_question_shows_every_drop(kb_copy, q):
 def test_the_players_level_is_named_as_one():
     """"אתם ב-31" reads "אתם בלבל 31" (the owner: the word for level before the number)."""
     from maplehelper.brain import drop_keys
-    assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם בלבל 31)"
-    assert drop_keys("אתם ב31 עכשיו") == "אתם בלבל 31 עכשיו"
-    assert drop_keys("אתם בלבל 31") == "אתם בלבל 31"
+    assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם ברמה 31)"
+    assert drop_keys("אתם ב31 עכשיו") == "אתם ברמה 31 עכשיו"
+    assert drop_keys("אתם בלבל 31") == "אתם ברמה 31" and drop_keys("עוד 3 לבלים") == "עוד 3 רמות"
     assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
 
 

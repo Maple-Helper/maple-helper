@@ -1136,7 +1136,7 @@ class ToolsDialog(GlassDialog):
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
         mode = self.q_mode.value()
         rows = r[mode]
-        self.q_mode.set_text(0, self._p(t("q_level", lv=c.level)))       # "קווסטים ללבל 31"
+        self.q_mode.set_text(0, self._p(t("q_level", lv=c.level)))       # "קווסטים לרמה 31"
         if new_list or not getattr(self, "_q_rows_for", None) == (c.id, c.level, mode):
             self._q_rows_for = (c.id, c.level, mode)
             self.q_search.set_rows([(f"{q.name}  ·  Lv. {q.opens_at()}", q.name,
@@ -1206,7 +1206,7 @@ class ToolsDialog(GlassDialog):
             return
         if self._q_level not in levels:
             self._q_level = None
-        # "לבל 22", the count on hover and in the header once picked ("22 (3)" read as a riddle: the owner)
+        # "רמה 22", the count on hover and in the header once picked ("22 (3)" read as a riddle: the owner)
         options = [(None, self.t("q_all_levels"))] + [(lv, self.t("q_level_group", lv=lv)) for lv in levels]
         for lv, text in options:
             b = QPushButton(self._p(text), objectName="Chip")
@@ -1561,6 +1561,15 @@ class ToolsDialog(GlassDialog):
         clear(self.craft_list)
         clear(self.craft_info)
         self.craft_info.addWidget(self._craft_info_card(self._prof()))
+        # the profession's quests as full quest cards, as on the quests page (just their names said too little: the
+        # owner): what they need, where to get it, what they give
+        i = crafting.info(self.kb, self._prof())
+        for name, lv, head in ((i.start_quest, i.start_level, "craft_start"), (i.master_quest, i.master_level, "craft_master")):
+            q = self._quest_by_name(name)
+            if q is None:
+                continue
+            self.craft_info.addWidget(self._label(t(head, lv=lv or q.opens_at()), "SectionHeader"))
+            self.craft_info.addWidget(self._quest_card(q, done=bool(c and q.key in c.quests_done)))
         if not c:
             self._no_character(self.craft_list)
             return
@@ -1576,13 +1585,24 @@ class ToolsDialog(GlassDialog):
         recipes = crafting.up_to(self.kb, prof, min(lv, top))
         head = t("craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
         if nxt and nxt.needs_exp:
-            head += "\n" + t("craft_next", lv=nxt.level, exp=f"{nxt.needs_exp:,}", char=nxt.char_level or "?")
+            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
+                              char=nxt.char_level or "?")
         self._set(self.craft_head, head)
         if not recipes:
             self.craft_list.addWidget(self._label(t("craft_none"), "RowHint"))
             return
         for i, r in enumerate(recipes):
             self.craft_list.addWidget(self._recipe_card(r, best=(i == 0)))
+
+    def _quest_by_name(self, name: str):
+        """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
+        want = (name or "").rstrip("!").strip().lower()
+        if not want:
+            return None
+        for k, e in self.kb.entities.items():
+            if e.get("category") == "quest" and e.get("name", "").rstrip("!").strip().lower() == want:
+                return quests.quest(self.kb, k)
+        return None
 
     def _craft_info_card(self, prof: str) -> QFrame:
         """The profession explained: what it makes, its teacher (and town), the quests, the work stations."""
@@ -1608,10 +1628,6 @@ class ToolsDialog(GlassDialog):
         col.addWidget(self._label(t(f"craft_makes_{prof}"), "RowLabel"))
         if i.teacher:
             col.addWidget(self._label(t("craft_teacher", npc=i.teacher, town=i.teacher_town or "?"), "RowLabel"))
-        if i.start_quest:
-            col.addWidget(self._label(t("craft_start", quest=i.start_quest.rstrip("!"), lv=i.start_level or "?"), "RowLabel"))
-        if i.master_quest:
-            col.addWidget(self._label(t("craft_master", quest=i.master_quest.rstrip("!"), lv=i.master_level or "?"), "RowLabel"))
         if i.station_towns:
             col.addWidget(self._label(t("craft_station", station=i.station, towns=" · ".join(i.station_towns)),
                                       "RowLabel"))

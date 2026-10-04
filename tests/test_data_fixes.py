@@ -391,7 +391,7 @@ def test_below_level_8_the_plan_stays_on_maple_island(real):
 
 def test_glossary_sp_and_acc():
     assert "1 per level up" in glossary.explain("SP", "en") and "3 per level" in glossary.explain("SP", "en")
-    assert "נקודה אחת בכל עליית לבל" in glossary.explain("SP", "he")
+    assert "נקודה אחת בכל עליית רמה" in glossary.explain("SP", "he")
     assert "3x its Avoid" in glossary.explain("ACC", "en") and "פי 3" in glossary.explain("ACC", "he")
 
 

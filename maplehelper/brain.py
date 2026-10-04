@@ -89,11 +89,11 @@ not even briefly: reply in one short line, in the question's language, that you 
 invite a game question. Entities stay empty.
 
 Style:
-- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (גריינד, דרופ, לעשות ג'וב, לבל).
+- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (גריינד, דרופ, לעשות ג'וב, רמה).
   "גריינד" (spelled so) is a noun, never with ל- before it: "לא שווה גריינד", "מקום טוב לעשות גריינד"; never
   "לגרינד" or "לגריינד".
   Address the player in the plural, as the app does ("קחו", "לכו", "דברו"), never "קח" or "קחי". The currency is
-  "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "לבל", never "רמה".
+  "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "רמה" ("ברמה 31", "הרמה הבאה"), never "לבל".
   Source tags in Hebrew too: "(קהילה)", never "(community)". A Hebrew prefix joins an English name
   with a hyphen ("ל-Henesys", "מ-Henesys"), never a Hebrew spelling ("להניסיס").
 - In-game names (items, monsters, maps, NPCs, skills, quests, jobs) always in English, exactly as in the data.
@@ -153,7 +153,8 @@ REPLY_RULES = """<reply_rules>
 - A Hebrew answer reads as if a fluent Israeli gamer wrote it: plain, short sentences in natural Hebrew word order,
   never English sentence structure in Hebrew words. Before replying, reread it once as a Hebrew reader would.
   * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מונסטר בסיסי", never "מונסטר בסיס").
-  * A level always says so: "אתם בלבל 31", "נשק לבל 20", never "(31)", "ב-31" or "רמה".
+  * A level always says so: "אתם ברמה 31", "נשק לרמה 20", never "(31)", "ב-31" or "לבל"; "רמה" is feminine
+    ("הרמה הבאה", "רמה גבוהה").
   * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
     letters (never "מזו", "מזוס", "מסוס", "מסות").
   * English only for game names and stat names, joined to a Hebrew prefix with a hyphen ("ל-Henesys",
@@ -161,7 +162,7 @@ REPLY_RULES = """<reply_rules>
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
-    Right: "Iron Mace הוא נשק חד-ידני בסיסי לבל 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin בלבל 31."
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin ברמה 31."
   * Jobs and classes in English, always ("Warrior", "Mage", "Assassin"), never "וריור" or "מג'".
   * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
@@ -438,19 +439,23 @@ _KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|clas
 
 
 # "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
-# "אתם ב-31": the player's level with no word for it (the owner: say "לבל" before the number)
+# "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number)
 _BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
                          r"(?![\d%.,:]\d|\d|%)")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
 _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
+# the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner)
+_LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])(?:בלבלים|לבלים|בלבל|ללבל|הלבל|מלבל|לבל)(?![\u0590-\u05FF])")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
 
 
 def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
-    named as one ("אתם בלבל 31", not "אתם ב-31")."""
+    named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
     text = _KEY_IN_TEXT.sub("", text)
-    text = _BARE_LEVEL.sub(r"\1 בלבל \2", text)
+    text = _BARE_LEVEL.sub(r"\1 ברמה \2", text)
+    text = _LEVEL_WORD.sub(lambda m: {"לבל": "רמה", "בלבל": "ברמה", "ללבל": "לרמה", "הלבל": "הרמה", "מלבל": "מרמה",
+                                      "לבלים": "רמות", "בלבלים": "ברמות"}[m.group(0)], text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
