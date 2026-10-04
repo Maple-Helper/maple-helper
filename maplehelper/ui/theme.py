@@ -182,6 +182,7 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QToolButton#Icon:hover {{ background: {c['fill2']}; color: {c['text']}; }}
     QToolButton#Icon:pressed {{ background: {c['fill3']}; }}
     QToolButton#Icon[active="true"] {{ color: #FF453A; }}
+    QToolButton#Icon[unread="true"] {{ color: {ORANGE}; }}
     QToolButton#Icon[wished="true"] {{ color: {ot}; }}
     QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {c['muted']}; background: transparent;
                              border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}

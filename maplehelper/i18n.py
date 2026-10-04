@@ -44,6 +44,9 @@ STRINGS = {
     "server_notice_open": {"he": "ההודעה של Nexon", "en": "Nexon's notice"},
 
     # MapleStory Classic news (news.py: the chat's news strip, the News tab of the patch notes window)
+    "news_title": {"he": "חדשות MapleStory Classic", "en": "MapleStory Classic news"},
+    "news_btn": {"he": "חדשות", "en": "News"},
+    "news_btn_new": {"he": "חדשות: {n} חדשות שלא קראתם", "en": "News: {n} unread"},
     "news_strip_head": {"he": "חדשות · {date}", "en": "News · {date}"},
     "news_strip_more": {"he": "ועוד {n}", "en": "{n} more"},
     "news_dismiss": {"he": "הסתרת הידיעה", "en": "Hide this news"},
@@ -803,6 +806,7 @@ STRINGS = {
     "shop_minutes": {"he": "דקות", "en": "Minutes"},
     "shop_go": {"he": "להכין רשימה", "en": "Make my list"},
     # how to get from one map to another (ui/tools.py, routes.py)
+    "tool_pets": {"he": "חיות מחמד", "en": "Pets"},
     "tool_route": {"he": "איך מגיעים", "en": "How to get there"},
     "route_title": {"he": "מאיפה לאן", "en": "From where to where"},
     "route_from": {"he": "מאיפה", "en": "From"},
@@ -1161,6 +1165,7 @@ STRINGS = {
     "skf_damage_over_time": {"he": "נזק מתמשך", "en": "Damage over time"},
     "skf_range": {"he": "טווח", "en": "Range"},
     "pets_title": {"he": "חיות מחמד", "en": "Pets"},
+    "pets_empty": {"he": "רשימת חיות המחמד תגיע בעדכון המאגר הבא.", "en": "The pet list comes with the next knowledge base update."},
     "pets_intro": {"he": "כמה זמן כל חיה חיה, כמה מהר היא נהיית רעבה, וכמה פקודות צריך כדי להגיע איתה ל-Lv 30.",
                    "en": "How long each pet lives, how fast it gets hungry, and how many commands it takes to reach Lv 30."},
     "pets_all": {"he": "הכל", "en": "All"},

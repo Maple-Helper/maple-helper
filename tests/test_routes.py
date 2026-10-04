@@ -287,7 +287,7 @@ def test_route_page(world, qt, isolated_store, lang):
         d.close()
 
 
-def test_the_last_tool_chip_takes_the_whole_row(world, qt, isolated_store):
+def test_a_shorter_last_row_of_tool_chips_fills_the_width(world, qt, isolated_store):
     from maplehelper.ui.tools import PAGES, ToolsDialog
     kb, _ = world
     d = ToolsDialog(kb, isolated_store.Profiles(), isolated_store.Settings(), "en", "", {}, "train")
@@ -296,7 +296,8 @@ def test_the_last_tool_chip_takes_the_whole_row(world, qt, isolated_store):
         d.show()
         qt.processEvents()
         first, last = d.nav.button(0), d.nav.button(len(PAGES) - 1)
-        assert last.width() > 2.5 * first.width() and last.y() > d.nav.button(len(PAGES) - 2).y()
+        alone = len(PAGES) % 3 or 3                  # chips on the last row
+        assert last.width() > (3 / alone - 0.2) * first.width() and last.y() > d.nav.button(len(PAGES) - alone - 1).y()
     finally:
         d.close()
 

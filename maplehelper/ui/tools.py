@@ -21,7 +21,7 @@ from .glass import GlassDialog, no_default_buttons
 from .widgets import chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag
 from .patchnotes import gutter
 
-PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more", "route")
+PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more", "route", "pets")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -2128,13 +2128,20 @@ class ToolsDialog(GlassDialog):
         go2.clicked.connect(self._shopping)
         shop.add_widget(go2)
         lay.addWidget(shop)
+        lay.addStretch(1)
+        return sc
+
+    def _page_pets(self):
+        sc, lay = scroll_page(self.t.rtl)
         lay.addWidget(self._pets_section())
+        if not sitedata.pets(self.kb):        # a KB from before the pets page
+            lay.addWidget(self._label(self.t("pets_empty"), "RowHint"))
         lay.addStretch(1)
         return sc
 
     def _pets_section(self) -> Section:
         """Every pet: lifespan, hunger rate, commands to Lv 30, and whether the Cash Shop sells it now (sitedata.py).
-        Twelve pets are a section of the bag page, not a page of their own; sold now is shown first."""
+        Its own page of the play tools (Pets); sold now is shown first."""
         t = self.t
         sec = Section(t("pets_title"), t.rtl)
         sec.add_widget(self._label(t("pets_intro"), "RowLabel"))

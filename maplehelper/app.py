@@ -171,7 +171,7 @@ class MapleHelperApp:
         from .ui.widgets import ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
 
-        self.overlay.news_requested.connect(lambda: self.show_patch_notes(tab="news"))
+        self.overlay.news_requested.connect(self.show_news_page)
         self.overlay.profile_changed.connect(self.on_profile_changed)
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
@@ -812,6 +812,17 @@ class MapleHelperApp:
             dlg.guide_requested.connect(self.show_guides)
             return dlg
         return self.open_window("tools", make)
+
+    def show_news_page(self):
+        """The News window: the megaphone in the chat's header, or the news strip tapped."""
+        from .ui.newsview import news_dialog
+
+        def make():
+            unread = [i["id"] for i in news.unread(self.kb, self.settings[news.SETTING])]
+            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread)
+            dlg.news_seen.connect(self._news_seen)
+            return dlg
+        return self.open_window("news", make)
 
     def show_route(self, key: str):
         """Play tools on the way to a map, from the character's map."""

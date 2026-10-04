@@ -350,7 +350,7 @@ class Overlay(QWidget):
     inventory_read = Signal(object)    # (question, shown, character id, tiles, slots, description), worker thread
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
-    news_requested = Signal()          # the news strip was tapped: the patch notes window's News tab
+    news_requested = Signal()          # the megaphone or the news strip: the News window
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, brain: Brain):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -437,11 +437,10 @@ class Overlay(QWidget):
         self.beta_badge.setAlignment(Qt.AlignCenter)
         self.beta_badge.setFixedHeight(17)
         tb.addWidget(self.beta_badge, 0, Qt.AlignVCenter)
-        # the game servers' state, beside BETA. Live from MeowDB, not the KB (a nightly copy can't follow a
+        # the game servers' state, in the footer beside the version. Live from MeowDB, not the KB (a nightly copy can't follow a
         # maintenance): polled only while the chat is open (showEvent / hideEvent), see serverdot.py
         from .serverdot import ServerDot, StatusPoller
         self.server_dot = ServerDot()
-        tb.addWidget(self.server_dot, 0, Qt.AlignVCenter)
         self.server_poller = StatusPoller(parent=self)
         self.server_poller.status.connect(self._on_server_status)
         self._server = None            # the last status the site gave (None: none yet this session)
@@ -456,6 +455,11 @@ class Overlay(QWidget):
         for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
+        # MapleStory Classic news: its own window; orange while there is news the player hasn't read
+        from .newsview import glyph as news_glyph
+        self.news_btn = self._icon_button(news_glyph())
+        self.news_btn.clicked.connect(self.news_requested.emit)
+        tb.addWidget(self.news_btn)
         self.history_btn = self._icon_button(theme.ICON["search"])
         self.history_btn.clicked.connect(self.history_requested.emit)
         tb.addWidget(self.history_btn)
@@ -624,7 +628,10 @@ class Overlay(QWidget):
         foot = QHBoxLayout()
         foot.setContentsMargins(0, 0, 0, 0)
         foot.addWidget(self.scope_note, 1)
-        foot.addWidget(self.version_label, 0, Qt.AlignBottom)
+        foot.addSpacing(6)
+        foot.addWidget(self.server_dot, 0, Qt.AlignVCenter)      # the servers' status, beside the version
+        foot.addSpacing(4)
+        foot.addWidget(self.version_label, 0, Qt.AlignVCenter)
         lay.addLayout(foot)
 
         # every edge and corner resizes (a single grip in one bottom corner was the only way before)
@@ -712,7 +719,7 @@ class Overlay(QWidget):
         self.saver_badge.setVisible(self._saver_on)
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.history_btn, self.tools_btn, self.guides_btn, self.wish_btn, self.settings_btn, self.min_btn,
+        buttons = (self.news_btn, self.history_btn, self.tools_btn, self.guides_btn, self.wish_btn, self.settings_btn, self.min_btn,
                    self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
@@ -904,7 +911,12 @@ class Overlay(QWidget):
     def show_news(self) -> None:
         """The news strip: the newest Global news the player hasn't read or dismissed (news.unread)."""
         from .. import news
-        self.news_strip.show_news(news.unread(self.kb, self.settings[news.SETTING]), self.t)
+        unread = news.unread(self.kb, self.settings[news.SETTING])
+        self.news_strip.show_news(unread, self.t)
+        self.news_btn.setProperty("unread", "true" if unread else "false")
+        self.news_btn.style().unpolish(self.news_btn)
+        self.news_btn.style().polish(self.news_btn)
+        set_tip(self.news_btn, self.t("news_btn_new", n=len(unread)) if unread else self.t("news_btn"))
 
     def _dismiss_news(self, nid: str) -> None:
         from .. import news

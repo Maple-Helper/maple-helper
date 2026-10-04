@@ -400,3 +400,27 @@ def test_the_first_kb_with_news_lists_none_as_new(tmp_path):
     assert "news" not in kb_release.diff_kb(old, new)["counts"]          # no news.json before: the list starts
     (old / "news.json").write_text(json.dumps({"items": []}), encoding="utf-8")
     assert kb_release.diff_kb(old, new)["counts"]["news"] == 1
+
+
+def test_the_megaphone_opens_the_news_window_and_marks_it_read(chat, news_kb):
+    from PySide6.QtWidgets import QApplication
+    qt = QApplication.instance()
+    """News has its own place: a header button (orange while there is unread news) and its own window."""
+    from maplehelper import news
+    from maplehelper.ui.newsview import NewsCard, news_dialog
+    assert chat.news_btn.property("unread") == "true"
+    asked = []
+    chat.news_requested.connect(lambda: asked.append(True))
+    chat.news_btn.click()
+    assert asked == [True]
+    kb = chat.kb
+    unread = [i["id"] for i in news.unread(kb, chat.settings[news.SETTING])]
+    dlg = news_dialog("he", "", kb, unread)
+    seen = []
+    dlg.news_seen.connect(seen.append)
+    qt.processEvents()
+    assert seen == [unread] and dlg.findChildren(NewsCard)
+    news.mark_read(chat.settings, unread)
+    chat.show_news()
+    assert chat.news_btn.property("unread") == "false"
+    dlg.close()

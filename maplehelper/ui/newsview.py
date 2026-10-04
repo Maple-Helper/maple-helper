@@ -214,3 +214,40 @@ def news_page(t, kb, unread_ids=()) -> QWidget:
             more.clicked.connect(lambda: webbrowser.open(news.NEWS_PAGE))
             lay.addWidget(more, 0, _align(rtl))
     return page
+
+
+def news_dialog(lang: str, stylesheet: str, kb, unread=()):
+    """The News window (the megaphone in the chat's header, or the news strip tapped): every news item, newest
+    first; the unread ones are marked "New" and count as read once it shows (news_seen)."""
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QScrollArea
+
+    from ..i18n import I18n
+    from .glass import GlassDialog
+    from .patchnotes import gutter
+
+    class NewsDialog(GlassDialog):
+        news_seen = Signal(list)
+
+        def __init__(self):
+            self.t = t = I18n(lang or "he")
+            super().__init__(t("news_title"), t.rtl)
+            self.unread = list(unread or ())
+            self.setStyleSheet(stylesheet)
+            self.resize(520, 680)
+            outer = QVBoxLayout(self.content)
+            outer.setContentsMargins(0, 0, 0, 0)
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+            body = QWidget(objectName="Feed")
+            lay = QVBoxLayout(body)
+            lay.setContentsMargins(*gutter(t.rtl))
+            lay.addWidget(news_page(t, kb, self.unread))
+            lay.addStretch(1)
+            scroll.setWidget(body)
+            outer.addWidget(scroll, 1)
+            if self.unread:      # once the opener has connected news_seen
+                QTimer.singleShot(0, lambda: self.news_seen.emit(list(self.unread)))
+
+    return NewsDialog()
