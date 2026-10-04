@@ -1492,13 +1492,16 @@ class ToolsDialog(GlassDialog):
         if q.exp:
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
-        where = [x for x in (q.npc, q.area) if x]
-        if where:
-            text = html.escape(" · ".join(where))
+        # the town, under its heading, with the way there (the NPC's name said nothing: the owner)
+        npc_key = self.kb._npc_by_name.get((q.npc or "").lower())
+        town = (crafting._town(self.kb, npc_key) if npc_key else "") or q.area
+        if town:
+            text = f"{bidi.LRE}{html.escape(town)}{bidi.PDF}"
             if q.npc and routes.of(self.kb).find(q.npc):
                 text += " · " + self._nav_html([("farm_route", "route", q.npc)])
             side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
-            lb = QLabel(f"<p {side} style='margin:0'>{text}</p>", objectName="CardSub")
+            lb = QLabel(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_town_head'))}</b></p>"
+                        f"<p {side} style='margin:0'>{text}</p>", objectName="CardSub")
             lb.setTextFormat(Qt.RichText)
             lb.setWordWrap(True)
             lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)

@@ -730,6 +730,7 @@ STRINGS = {
     "q_after_done": {"he": "את {name} כבר סימנתם כגמור.", "en": "{name} is already marked done."},
     "q_after_missing": {"he": "{name} לא ברשימות שלכם (אולי הוא לא מתאים לג'וב שלכם).", "en": "{name} isn't in your lists (it may not fit your job)."},
     "q_needs_head": {"he": "צריך:", "en": "Needs:"},
+    "q_town_head": {"he": "עיר:", "en": "Town:"},
     "q_gets_head": {"he": "מקבלים:", "en": "Rewards:"},
     "q_mark_done": {"he": "סיימתי", "en": "Done"},
     "q_undo": {"he": "החזרה לרשימה", "en": "Back to the list"},
