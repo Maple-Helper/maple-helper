@@ -493,9 +493,9 @@ STRINGS = {
     "wishlist": {"he": "פריטים במעקב", "en": "Tracked items"},
     "wish_add": {"he": "הוספה לפריטים במעקב", "en": "Add to tracked items"},
     "wish_remove": {"he": "הסרה מהפריטים במעקב", "en": "Remove from tracked items"},
-    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. לחצו על ☆ בכרטיס של פריט כדי לעקוב אחריו: תראו כאן מי מפיל "
+    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. לחצו על ☆ ליד פריט (בכרטיס שלו או ברשימת דרופים) כדי לעקוב אחריו: תראו כאן מי מפיל "
                              "אותו ואיפה, ותקבלו הודעה כשעדכון מאגר משנה אותו.",
-                       "en": "No items yet. Click ☆ on an item's card to follow it: see here who drops it and where, "
+                       "en": "No items yet. Click ☆ beside an item (on its card or in a drop list) to follow it: see here who drops it and where, "
                              "and get a note when a database update changes it."},
     "inv_found": {"he": "זיהיתי {n} פריטים בתיק:", "en": "I recognized {n} items in the inventory:"},
     "inv_found_one": {"he": "זיהיתי פריט אחד בתיק:", "en": "I recognized 1 item in the inventory:"},

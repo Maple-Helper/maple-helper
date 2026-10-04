@@ -1106,7 +1106,33 @@ class EntityTile(Selectable, QFrame):
         if self.vote is not None:
             col.addLayout(chip_row([self.vote]))       # at the reading start, under the name
         row.addLayout(col, 1)
+        # an item in a list (a monster's drops, rewards) can go on the wishlist too: the star was only on a full
+        # item card, so the drops in an answer couldn't be followed (the owner's report)
+        if key.startswith("item/"):
+            from PySide6.QtWidgets import QToolButton
+            self._t = t
+            self.key = key
+            self._star = QToolButton(objectName="Icon")
+            self._star.setFixedSize(26, 26)
+            self._star.setCursor(Qt.PointingHandCursor)
+            self._star.clicked.connect(lambda: WISHLIST.toggle(self.key))
+            WISHLIST.changed.connect(self._refresh_star)
+            self._refresh_star()
+            row.addWidget(self._star, 0, Qt.AlignTop)
         self._align_name()
+
+    def _refresh_star(self):
+        from . import theme
+        try:
+            on = WISHLIST.has(self.key)
+            self._star.setText(theme.ICON["star_on" if on else "star"])
+        except RuntimeError:          # the tile was deleted (a cleared chat) while the wishlist changed
+            return
+        self._star.setProperty("wished", "true" if on else "false")
+        self._star.style().unpolish(self._star)
+        self._star.style().polish(self._star)
+        self._star.setToolTip(self._t("wish_remove" if on else "wish_add"))
+        self._star.setAccessibleName(self._t("wish_remove" if on else "wish_add"))
 
     def _align_name(self):
         """The (English) name sits right beside its picture: on the right in a Hebrew chat. Qt resolves "leading"
@@ -1158,7 +1184,16 @@ class TileGrid(QFrame):
             grid.addWidget(EntityTile(kb, k, t, kb.community_vote(monster, k) if monster else None), i // 2, i % 2)
         outer.addLayout(grid)
         credit = QLabel("NiaMeowDB (meowdb.com)", objectName="CardCredit")
-        outer.addWidget(credit)
+        # the title's chip says where the list is from (community, MSEA); the tiles' stat lines carry their own
+        # build ("COT2"), beside the credit as on a card: under a "Community" title they read as players' numbers
+        from .. import sources
+        builds = [sources.source_of(kb, k) for k in keys
+                  if (e := kb.get(k)) and any(stat_parts(e, tile=True)) and sources.stat_source(kb, k)]
+        stat_chips = source_tags(t, builds) if t is not None else []
+        if stat_chips:
+            outer.addLayout(chip_row(stat_chips, credit))
+        else:
+            outer.addWidget(credit)
 
 
 class DropGroupCard(QFrame):

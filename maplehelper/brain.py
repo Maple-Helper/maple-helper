@@ -619,6 +619,7 @@ class Brain:
         low = text.lower()
         entities = [k for k in entities if str((self.kb.get(k) or {}).get("name", "")).lower() in low]
         groups = []
+        every_drop = False
         for g in meta.get("drop_groups") or []:
             # a group of the wrong shape ("items": 5) is skipped: it must never turn a good answer into an error
             if isinstance(g, dict) and kb_has(self.kb, str(g.get("monster", ""))) and isinstance(g.get("items"), list):
@@ -640,6 +641,7 @@ class Brain:
             if monsters:
                 drops = self.kb.monster_drops(monsters[0])
                 entities = [monsters[0]] + drops
+                every_drop = True       # all of them: at 12 cards, 18 community drops left no room for the MSEA list
         if not groups:
             # cards for every in-game name the answer itself mentions, after the ones the AI listed (it listed only
             # Snail Shell for an answer naming Brown Skullcap, Green Skullcap and Snail, seen live)
@@ -656,7 +658,7 @@ class Brain:
             box = None
         if result.model:
             self.last_model = result.model
-        return Answer(text=text, entities=entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
+        return Answer(text=text, entities=entities if every_drop else entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
                       grind=meta.get("grind") or {}, avatar_box=box if screenshot_jpeg else None, cost_usd=result.cost_usd,
                       limits=result.limits, model=result.model)
 

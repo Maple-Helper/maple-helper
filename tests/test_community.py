@@ -394,3 +394,24 @@ def test_real_community_json_loads_and_maps_to_kb_keys():
     assert kb.community_drops(snail) and "Snail Shell" in [kb.get(d["item"])["name"] for d in kb.community_drops(snail)]
     shown = [m for m in monsters if kb.community_drops(m)]
     assert all(availability.of(kb).monster_key_open(m) for m in shown)
+
+
+def test_an_item_tile_has_the_wishlist_star_and_the_tiles_name_their_stats_build(ckb, app, isolated_store):
+    """The drops in an answer are tiles: their items can be starred there too, and the tiles' stat lines carry their
+    build beside the credit (under a "Community" title they read as players' numbers, the owner's report)."""
+    from PySide6.QtWidgets import QLabel
+    from maplehelper.ui.widgets import WISHLIST, EntityTile, TileGrid
+    profiles = isolated_store.Profiles()
+    profiles.set_active(profiles.add("Kiwi", "Thief", "Assassin", 24).id)
+    WISHLIST.bind(isolated_store.Settings(), profiles)
+    tile = EntityTile(ckb, "item/709", I18n("he"))
+    assert tile._star.toolTip() == I18n("he")("wish_add")
+    had = WISHLIST.has("item/709")
+    tile._star.click()
+    assert WISHLIST.has("item/709") != had and tile._star.property("wished") == ("false" if had else "true")
+    tile._star.click()
+    grid = TileGrid(ckb, ["item/413", "item/709"], "x", True, t=I18n("he"), srcs=[sources.COMMUNITY])
+    tags = [lb.text() for lb in grid.findChildren(QLabel) if lb.objectName() == "SourceTag"]
+    builds = {sources.source_of(ckb, k) for k in ("item/413", "item/709") if sources.stat_source(ckb, k)}
+    assert all(any(b in bidi_free(x) for x in tags) for b in builds)
+    WISHLIST.bind(None, None)
