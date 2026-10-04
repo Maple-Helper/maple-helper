@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.9.1",
+  "he": [
+   "פתיחת חלון הכלים כבר לא מקפיצה חלונות קטנים שמהבהבים ברקע.",
+   "הריחוף על כפתור הרענון מסביר מה צריך כדי שהצילום יצליח: המשחק גלוי, תג השם של הדמות על המסך, ומרחק משחקנים אחרים."
+  ],
+  "en": [
+   "Opening the play tools no longer flashes small windows in the background.",
+   "Hovering the refresh button now explains what a good capture needs: the game in view, your name tag on screen, and some distance from other players."
+  ]
+ },
+ {
   "version": "0.9.0",
   "he": [
    "כלי משחק חדשים: פארם (מי מפיל כל פריט ומה משתלם לעשות עליו פארם), למכור או לשמור (האפליקציה מזהה את התיק ואומרת מה לעשות עם כל פריט), וחיות מחמד עם הסקילים שלהן.",

@@ -317,7 +317,7 @@ def set_tip(w: QWidget, text: str) -> None:
     """Tooltip and accessible name together: an icon button's text is an icon-font glyph (a private-use
     character), which a screen reader reads as nothing; its name is what the tooltip says."""
     w.setToolTip(text)
-    w.setAccessibleName(text)
+    w.setAccessibleName(text.split("\n", 1)[0])    # a long tip's how-to lines are for the eye
 
 
 def windows_over(rect: tuple[int, int, int, int]) -> list[QWidget]:
