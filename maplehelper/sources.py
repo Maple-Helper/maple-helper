@@ -324,7 +324,9 @@ def price_note(t, label: str) -> str:
 def mesos_line(t, mesos) -> str:
     """ "mesos 18–23 (קהילה)" / "Mesos 18–23 (Community)" for kb.community_mesos's (min, max, chance, reports)."""
     lo, hi = mesos[0], mesos[1]
-    return t("mesos_line", range=f"{lo:,}" if lo == hi else f"{lo:,}–{hi:,}", src=tag(t, COMMUNITY))
+    span = f"{lo:,}" if lo == hi else f"{lo:,}–{hi:,}"
+    # Hebrew: "19–23 mesos" as one left-to-right block, the number left of the word (the owner)
+    return t("mesos_line", amount=f"{bidi.LRI}{span} mesos{bidi.PDI}", src=tag(t, COMMUNITY))
 
 
 def change_line(stat: str, old, new, before: str = "", after: str = "") -> str:

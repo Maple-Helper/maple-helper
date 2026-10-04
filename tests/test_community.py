@@ -301,9 +301,10 @@ def test_ai_prefetch_and_prompt(ckb):
 
 
 def test_instant_drops_answer_says_the_mesos(ckb):
-    for lang, line in (("en", "Mesos 18–23 (Community)"), ("he", "mesos 18–23 (קהילה)")):
+    # Hebrew: the number left of the word, "18–23 mesos" one left-to-right block (the owner)
+    for lang, line in (("en", "18–23 mesos (Community)"), ("he", "18–23 mesos (קהילה)")):
         a = quick.answer("what does Snail drop" if lang == "en" else "מה Snail מפיל", ckb, I18n(lang))
-        assert line in a.text and a.entities[:3] == [SNAIL, "item/413", "item/348"]
+        assert line in bidi_free(a.text) and a.entities[:3] == [SNAIL, "item/413", "item/348"]
     who = quick.answer("who drops Bronze Ore", ckb, I18n("en"))
     assert who.drop_groups[0]["votes"] == {"item/413": (16, 1)}
 
@@ -316,7 +317,7 @@ def _texts(w) -> list[str]:
 
 def test_cards_tiles_and_groups_show_votes_and_mesos(ckb, app):
     from maplehelper.ui.widgets import DropGroupCard, EntityCard, TileGrid
-    for lang, mesos, single in (("he", "mesos 18–23 (קהילה)", "דיווח יחיד"), ("en", "Mesos 18–23 (Community)",
+    for lang, mesos, single in (("he", "18–23 mesos (קהילה)", "דיווח יחיד"), ("en", "18–23 mesos (Community)",
                                                                            "Single report")):
         t = I18n(lang)
         card = EntityCard(ckb, SNAIL, lang)
@@ -375,7 +376,7 @@ def test_training_spots_label_the_most_mesos(ckb, app, tmp_path, monkeypatch):
         pytest.skip("the fixture's spots don't have two monsters with mesos")
     d._fill_train()
     texts = [bidi_free(x) for x in _texts(d)]
-    assert "Most mesos" in texts and "Mesos 18–23 (Community)" in texts
+    assert "Most mesos" in texts and "18–23 mesos (Community)" in texts
     assert d._most_mesos(rows).monster.key == SNAIL
     d.close()
 
