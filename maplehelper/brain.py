@@ -51,8 +51,7 @@ not in the game, so never name it as a source.
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
-which list each drop is on; a monster players reported drops for has no MSEA list any more (the game's own drops
-supersede the old table). The community list comes from players' reports on MeowDB, each with its votes (players
+which list each drop is on. The community list comes from players' reports on MeowDB, each with its votes (players
 who confirmed / denied it); the app hides drops more players denied than confirmed. Name a community drop's votes
 briefly the first time: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
 "(קהילה, דיווח יחיד)" / "(community, single report)": it is not confirmed yet. Mesos: the pre-fetched "Mesos of"
@@ -188,11 +187,9 @@ def _cut(body: str, head: str) -> str:
 
 
 def without_superseded(kb: KnowledgeBase, key: str, body: str) -> str:
-    """What the game's own data replaces, out of a page for the AI (the owner's rule, 2026-10-04): a monster's MSEA
-    reference drops once players reported its drops, and the test builds' change table once its values are from
-    the released game."""
-    if key.startswith("monster/") and kb.drop_lists(key)[sources.COMMUNITY]:
-        body = _cut(body, "MSEA reference drops")
+    """What the game's official data replaces, out of a page for the AI (the owner's rule, 2026-10-04: once an
+    official value is out, only it and the community's data count): the test builds' change table once a page's
+    values are from the released game."""
     stamp = sources.stat_source(kb, key)
     if stamp and not sources.test_build(stamp.source):
         body = _cut(body, "Change history")

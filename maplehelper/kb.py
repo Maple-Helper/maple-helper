@@ -351,9 +351,8 @@ class KnowledgeBase:
         in Classic themselves, then "MSEA reference drops", old MapleSEA's table that the KB calls historical
         reference. Read as one list, an MSEA drop was shown as if confirmed for Classic (and the other way).
         The community list is community.json's reports first (community_drops: best confirmed first), then the
-        page's own; a drop on both lists is shown once, on the community one.
-        Once players have reported a monster's drops, the MSEA list is gone: what the game itself drops supersedes
-        old MapleSEA's table (the owner's rule, 2026-10-04: only the game's own data and the community's count)."""
+        page's own; a drop on both lists is shown once, on the community one. (Players' reports don't replace the
+        MSEA list: only the game's official data would, the owner's rule.)"""
         memo = self.__dict__.setdefault("_drop_lists", {})
         if key in memo:
             return memo[key]
@@ -378,8 +377,6 @@ class KnowledgeBase:
                     k = self._drop_item(line.strip().lower(), lines[n + 1].strip() if n + 1 < len(lines) else "", name)
                     if k and k not in out[src] and not (src == sources.MSEA and k in out[sources.COMMUNITY]):
                         out[src].append(k)
-        if out[sources.COMMUNITY]:
-            out[sources.MSEA] = []
         memo[key] = out
         return out
 

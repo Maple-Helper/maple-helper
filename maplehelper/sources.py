@@ -127,9 +127,9 @@ def stat_source(kb, key: str) -> Stamp | None:
 
 
 def test_build(source: str) -> bool:
-    """A closed test's build ("COT2"). Once values come from the released game, what a test build had no longer
-    matters (the owner's rule, 2026-10-04): the card and the AI say the change between two tests, not a test's
-    values next to the game's own."""
+    """A closed test's build ("COT2"). Once the game's official values are out, they replace everything else (the
+    owner's rule, 2026-10-04: official data and the community's, nothing older): the card and the AI say the change
+    between two tests, never a test's values next to the game's own."""
     return bool(re.fullmatch(r"COT\d+", source or ""))
 
 
@@ -366,11 +366,7 @@ def page_note(kb, key: str) -> str:
     elif key.partition("/")[0] in ("monster", "item", "skill"):
         bits.append("stats: MeowDB (no build label)")
     seen = set()
-    # a monster players reported drops for has no MSEA list any more (kb.drop_lists)
-    superseded = key.startswith("monster/") and bool(kb.drop_lists(key)[COMMUNITY])
     for m in markers(kb, key):
-        if m.kind == "drops" and superseded:
-            continue
         what = {"prices": f"shop prices are {m.source} prices",
                 "respawn": f"respawn timer from {m.source} map data" + (", unconfirmed" if "unconfirmed" in m.line else ""),
                 "drops": "the drop list is the MSEA reference list (old MapleSEA, not confirmed for Classic)",

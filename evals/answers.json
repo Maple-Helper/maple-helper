@@ -230,11 +230,12 @@
    "kind": "drops",
    "checks": {
     "must_mention": [
-     "Rainbow-colored Snail Shell"
+     "Subi Throwing Stars",
+     "Gold Burgernet Helm"
     ],
     "entities_include": [
      "monster/700004",
-     "item/277"
+     "item/294"
     ],
     "instant": true
    }
@@ -246,7 +247,8 @@
    "kind": "drops",
    "checks": {
     "must_mention": [
-     "Orange Mushroom Cap"
+     "Orange Mushroom Cap",
+     "Hunter's Bow"
     ],
     "entities_include": [
      "monster/9",
@@ -278,12 +280,11 @@
    "kind": "drops",
    "checks": {
     "must_mention": [
-     "White Potion",
-     "Elixir"
+     "Doombringer",
+     "Red Katana"
     ],
     "entities_include": [
-     "monster/700001",
-     "item/274"
+     "monster/700001"
     ],
     "instant": true
    }
@@ -295,12 +296,12 @@
    "kind": "drops",
    "checks": {
     "must_mention": [
-     "Tobi Throwing Stars",
-     "Stone Golem Rubble"
+     "Kumbi Throwing Stars",
+     "Elixir"
     ],
     "entities_include": [
      "monster/48",
-     "item/298"
+     "item/297"
     ],
     "instant": true
    }
@@ -338,17 +339,17 @@
    }
   },
   {
-   "id": "who-drops-tobi-he",
-   "question": "מי מפיל Tobi Throwing Stars",
+   "id": "who-drops-subi-he",
+   "question": "מי מפיל Subi Throwing Stars",
    "lang": "he",
    "kind": "who_drops",
    "checks": {
     "must_mention": [
-     "Stone Golem"
+     "Mano"
     ],
     "entities_include": [
-     "item/298",
-     "monster/48"
+     "item/294",
+     "monster/700004"
     ],
     "instant": true
    }
