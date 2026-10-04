@@ -1,14 +1,16 @@
 """Patch notes for knowledge-base updates: exactly what changed, so players know what's new."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
+                               QWidget)
 
 from .. import bidi, recent
 from ..i18n import NBSP, STRINGS, I18n
 from ..kb import KnowledgeBase
-from .controls import Section, rtl_buttons
+from . import newsview
+from .controls import Section, Segmented, rtl_buttons
 from .glass import GlassDialog
 from .widgets import EntityCard, Selectable
 
@@ -21,7 +23,8 @@ KINDS = ("added", "changed", "updated", "removed")
 def summary(t: I18n, entries: list[dict]) -> str:
     """'3 new, 12 changed' over one or more updates."""
     total = totals(entries)
-    return ", ".join(t(f"pn_n_{k}", n=total[k]) for k in KINDS if total[k])
+    news = sum(int((e.get("counts") or {}).get("news") or 0) for e in entries)       # new news items (scrape_news)
+    return ", ".join([t(f"pn_n_{k}", n=total[k]) for k in KINDS if total[k]] + ([t("pn_n_news", n=news)] if news else []))
 
 
 def update_notice(t: I18n, entries: list[dict], kb, char=None, wished=()) -> str:
@@ -165,12 +168,17 @@ class WhatsNewDialog(GlassDialog):
 
 class PatchNotesDialog(GlassDialog):
     """char / wished: the active character and its wishlist. The changes that matter to them (recent.split: gear for
-    their class and level, monsters in their training range, wished items) come first, the rest under them."""
+    their class and level, monsters in their training range, wished items) come first, the rest under them.
+    A second tab lists MapleStory Classic news (the KB's news.json, ui/newsview.py); tab: the one it opens on,
+    unread: the news ids the chat hasn't shown as read yet (marked "New")."""
+
+    news_seen = Signal(list)       # the News tab was shown: these unread ids are read now
 
     def __init__(self, entries: list[dict], lang: str, stylesheet: str, kb: KnowledgeBase, char=None,
-                 wished=()):
+                 wished=(), tab: str = "changes", unread=()):
         self.entries = entries        # (opened again as it is after a language or theme switch)
         self.char, self.wished = char, list(wished or ())
+        self.unread = list(unread or ())
         self.t = t = I18n(lang or "he")
         super().__init__(t("patch_notes"), t.rtl)
         self.kb = kb
@@ -178,6 +186,14 @@ class PatchNotesDialog(GlassDialog):
         self.resize(520, 680)
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(12)
+        # database changes | news, one window: both are "what's new" since the player last looked
+        self.tabs = Segmented([(t("pn_tab_changes"), "changes"), (t("pn_tab_news"), "news")],
+                              tab if tab in ("changes", "news") else "changes", t.rtl)
+        self.tabs.set_label(t("pn_tabs_a11y"))
+        outer.addWidget(self.tabs)
+        self.stack = QStackedWidget()
+        outer.addWidget(self.stack, 1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -186,7 +202,21 @@ class PatchNotesDialog(GlassDialog):
         lay.setContentsMargins(*gutter(t.rtl))
         lay.setSpacing(18)
         scroll.setWidget(body)
-        outer.addWidget(scroll, 1)
+        self.stack.addWidget(scroll)
+        news_scroll = QScrollArea()
+        news_scroll.setWidgetResizable(True)
+        news_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        news_body = QWidget(objectName="Feed")
+        nl = QVBoxLayout(news_body)
+        nl.setContentsMargins(*gutter(t.rtl))
+        nl.addWidget(newsview.news_page(t, kb, self.unread))
+        nl.addStretch(1)
+        news_scroll.setWidget(news_body)
+        self.stack.addWidget(news_scroll)
+        self.tabs.changed.connect(self._show_tab)
+        self.stack.setCurrentIndex(1 if self.tabs.value() == "news" else 0)
+        if self.tabs.value() == "news":
+            QTimer.singleShot(0, lambda: self._show_tab("news"))      # once the opener has connected news_seen
 
         if not entries:
             empty = QLabel(bidi.plain(t("patch_notes_empty"), t.rtl), objectName="DialogBody")
@@ -218,6 +248,15 @@ class PatchNotesDialog(GlassDialog):
         row.addStretch(1)
         outer.addLayout(row)
         rtl_buttons(self, t.rtl)
+
+    @property
+    def tab(self) -> str:
+        return "news" if self.stack.currentIndex() == 1 else "changes"
+
+    def _show_tab(self, tab) -> None:
+        self.stack.setCurrentIndex(1 if tab == "news" else 0)
+        if tab == "news" and self.unread:
+            self.news_seen.emit(list(self.unread))      # the "New" chips stay until the window closes
 
     def _card(self, kind: str, r: dict, reason: str = "") -> QWidget:
         """A changed entry's card: what changed in it; a new, updated or removed entry's own card."""

@@ -26,6 +26,7 @@ REPO = "Maple-Helper/maple-helper"
 CATEGORIES = ["monster", "item", "map", "quest", "npc", "skill", "class", "guide", "shop", "crafting", "formula"]
 MIN_KEEP_RATIO = 0.9   # an update may not lose more than 10% of the previous entities
 CHANGELOG = "changelog.json"
+NEWS = "news.json"           # MapleStory Classic news (tools/scrape_news.py); optional, but never broken
 CHANGELOG_KEEP = 30    # updates kept, so a player who skipped a few still sees everything they missed
 MAX_LISTED = 300       # per list in one update; the rest is only counted
 # maplehelper/availability.py reads what is in the live game from this guide: without it (or its two sections)
@@ -112,6 +113,16 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
         problems += _section_problems(kb, name, keys)
 
     problems += _route_problems(kb, {e.get("key") for e in index if isinstance(e, dict)})
+
+    news = kb / NEWS
+    if news.exists():
+        try:
+            items = json.loads(news.read_text(encoding="utf-8")).get("items")
+            if not isinstance(items, list) or not all(isinstance(n, dict) and n.get("id") and n.get("title")
+                                                      and n.get("date") for n in items):
+                problems.append("news.json: items without an id, a title or a date")
+        except (OSError, ValueError, AttributeError) as e:
+            problems.append(f"news.json unreadable: {e}")
 
     if problems:
         raise InvalidKB("; ".join(problems))
@@ -318,8 +329,25 @@ def diff_kb(old: Path, new: Path) -> dict:
     updated = [u for u in updated if u["key"] not in by_key]
     changed.sort(key=lambda c: c["key"])
     counts = {"added": len(added), "removed": len(removed), "changed": len(changed), "updated": len(updated)}
-    return {"counts": counts, "added": added[:MAX_LISTED], "removed": removed[:MAX_LISTED],
-            "changed": changed[:MAX_LISTED], "updated": updated[:MAX_LISTED]}
+    out = {"counts": counts, "added": added[:MAX_LISTED], "removed": removed[:MAX_LISTED],
+           "changed": changed[:MAX_LISTED], "updated": updated[:MAX_LISTED]}
+    # news items new since the previous KB (tools/scrape_news.py): the patch notes' News tab and the chat's news
+    # card read news.json itself; the changelog says an update brought news, so a news-only night is an update too
+    na, nb = _news(old), _news(new)
+    fresh = [nb[i] for i in nb if i not in na]
+    if fresh:
+        counts["news"] = len(fresh)
+        out["news"] = [{k: n.get(k) for k in ("id", "title", "date", "region", "official")} for n in fresh[:MAX_LISTED]]
+    return out
+
+
+def _news(kb: Path) -> dict[str, dict]:
+    """news.json's items by id, newest first; {} without one."""
+    try:
+        items = json.loads((kb / NEWS).read_text(encoding="utf-8")).get("items", [])
+        return {n["id"]: n for n in items if isinstance(n, dict) and n.get("id")}
+    except (OSError, ValueError, AttributeError, TypeError):
+        return {}
 
 
 def _section(kb: Path, name: str) -> dict | None:

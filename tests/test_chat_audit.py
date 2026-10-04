@@ -477,18 +477,18 @@ def test_windows_reopen_where_the_player_was():
     fake = SimpleNamespace(
         profiles=SimpleNamespace(active=chars[1], characters=chars),
         show_tools=lambda page: calls.append(("tools", page)), show_guides=lambda key: calls.append(("guides", key)),
-        show_patch_notes=lambda e: calls.append(("notes", e)), show_whats_new=lambda n: calls.append(("new", n)),
+        show_patch_notes=lambda e, tab: calls.append(("notes", e, tab)), show_whats_new=lambda n: calls.append(("new", n)),
         show_history=lambda cid: calls.append(("history", cid)), show_wishlist=lambda cid: calls.append(("wish", cid)))
     fake._character = lambda cid: MapleHelperApp._character(fake, cid)
     reopen = lambda kind, dlg: MapleHelperApp._reopen_call(fake, kind, dlg)  # noqa: E731
     reopen("tools", SimpleNamespace(stack=SimpleNamespace(currentIndex=lambda: 2)))()
     reopen("guides", SimpleNamespace(_reading="guide/x"))()
-    reopen("patch_notes", SimpleNamespace(entries=["e"]))()
+    reopen("patch_notes", SimpleNamespace(entries=["e"], tab="news"))()     # on the tab it was on
     reopen("whats_new", SimpleNamespace(notes=["n"]))()
     reopen("history:A", None)()
     reopen("wishlist:A", None)()
     assert reopen("history:gone", None) is None
-    assert calls == [("tools", "build"), ("guides", "guide/x"), ("notes", ["e"]), ("new", ["n"]),
+    assert calls == [("tools", "build"), ("guides", "guide/x"), ("notes", ["e"], "news"), ("new", ["n"]),
                      ("history", "A"), ("wish", "A")]
 
 

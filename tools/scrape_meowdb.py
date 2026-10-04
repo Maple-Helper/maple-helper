@@ -294,6 +294,11 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     # so a night that only moves a pet's lifespan still publishes
     import meowdb_sections
     changes[0] += meowdb_sections.scrape(KB, fetch, DELAY_SECONDS)
+
+    if not limit:
+        # the news page too (one request: tools/scrape_news.py); a new item counts as a change, so it gets published
+        import scrape_news
+        changes[0] += scrape_news.update(KB, fetch)
     meta_path = KB / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     meta.update({"source": "NiaMeowDB (meowdb.com)", "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),

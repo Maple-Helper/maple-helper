@@ -1,0 +1,158 @@
+"""MapleStory Classic news from NiaMeowDB (meowdb.com/msclassic/news) into the knowledge base: data/kb/news.json.
+
+Used with NiaMeowDB's permission, like the rest of the KB. One request a night: the news page carries every
+article as structured data (slug, date, region, publisher, headline, summary, highlights) in its Next.js payload,
+the same records the article pages render, so the ~52 article pages are never fetched one by one.
+
+news.json = {"source", "fetched_at", "items": [{id, date, title, summary, highlights, commentary, region, official,
+publisher, source_url, url, tags, mentions, hash, summary_he?}]}, newest first.
+
+- official: the publisher is a game's operator (Nexon for Global, Shengqu for China, Gamania for Taiwan), on its
+  site or social channels; NiaMeowDB's own analysis and press articles are community news.
+- mentions: regions and content the item names (Ossyria, Orbis, 3rd job…). Only a hint for the AI and the owner:
+  availability.py reads the release guide, never the news (an announcement is not the game).
+- summary_he: the Hebrew summary from assets/news/he.json (tools/translate_news.py), kept only while it was made from
+  this very English text (hash): a summary NiaMeowDB rewrote shows in English until it is translated again.
+
+    python tools/scrape_news.py            # refresh data/kb/news.json alone (the nightly scrape calls update())
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+import sys
+import time
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+NEWS_URL = "https://meowdb.com/msclassic/news"
+TRANSLATIONS = ROOT / "assets" / "news"
+OFFICIAL_PUBLISHERS = {"Nexon", "Shengqu", "Gamania"}       # the operators of Global, China and Taiwan Classic
+# content whose opening news may announce: a hint list, matched as whole words (case-insensitive)
+MENTIONS = ("Victoria Island", "Ossyria", "Orbis", "El Nath", "Ludibrium", "Aqua Road", "Leafre", "Mu Lung",
+            "Nihal Desert", "Forgotten Hollow", "Sleepywood", "Masteria", "3rd job", "4th job", "level cap", "Zakum",
+            "Papulatus", "Horntail", "Cash Shop", "Hired Merchant")
+_PUSH = re.compile(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)</script>', re.S)
+
+
+class NewsError(Exception):
+    pass
+
+
+def payload(page: str) -> str:
+    """The page's React Server Components payload, as one string (the chunks Next.js streams into the HTML)."""
+    out = []
+    for chunk in _PUSH.findall(page):
+        try:
+            out.append(json.loads('"' + chunk + '"'))
+        except json.JSONDecodeError:
+            continue
+    return "".join(out)
+
+
+def entries(page: str) -> list[dict]:
+    """The news list the page renders: {"entries": [{slug, date_published, headline, ...}], "locale": "en"}."""
+    text = payload(page)
+    at = text.find('{"entries":[')
+    if at < 0:
+        raise NewsError("no news list in the page (the site's layout changed?)")
+    try:
+        data, _ = json.JSONDecoder().raw_decode(text, at)
+    except json.JSONDecodeError as e:
+        raise NewsError(f"news list unreadable: {e}") from e
+    found = data.get("entries") if isinstance(data, dict) else None
+    if not isinstance(found, list):
+        raise NewsError("news list is not a list")
+    return [e for e in found if isinstance(e, dict)]
+
+
+def _hash(title: str, summary: str) -> str:
+    return hashlib.sha1(f"{title}\n{summary}".encode("utf-8")).hexdigest()[:16]
+
+
+def mentions(*texts: str) -> list[str]:
+    blob = "\n".join(t for t in texts if t)
+    return [m for m in MENTIONS if re.search(rf"(?<![A-Za-z]){re.escape(m)}(?![A-Za-z])", blob, re.I)]
+
+
+def item(e: dict) -> dict | None:
+    """One news.json item from a site entry; None when it lacks what every item needs."""
+    slug, title, date = str(e.get("slug") or ""), str(e.get("headline") or "").strip(), str(e.get("date_published") or "")
+    if not (slug and title and re.fullmatch(r"\d{4}-\d{2}-\d{2}", date[:10])):
+        return None
+    summary = str(e.get("summary") or "").strip()
+    highlights = [str(h).strip() for h in e.get("highlights") or [] if str(h).strip()]
+    publisher = str(e.get("source_label") or "").strip()
+    out = {
+        "id": slug, "date": date[:10], "title": title, "summary": summary, "highlights": highlights,
+        "commentary": str(e.get("commentary") or "").strip(),
+        "region": str(e.get("region") or "").lower(),                      # gms (Global) | cms (China) | tms (Taiwan)
+        "official": publisher in OFFICIAL_PUBLISHERS,
+        "publisher": publisher, "source_url": str(e.get("source_url") or ""),
+        "url": f"{NEWS_URL}/{slug}", "tags": [str(t) for t in e.get("tags") or []],
+        "mentions": mentions(title, summary, *highlights),
+        "hash": _hash(title, summary),
+    }
+    return out
+
+
+def translations(lang: str = "he") -> dict[str, dict]:
+    try:
+        data = json.loads((TRANSLATIONS / f"{lang}.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
+    """news.json's items, newest first, each with its Hebrew summary when one was made from its current text."""
+    he = translations() if he is None else he
+    items = [i for i in (item(e) for e in entries(page)) if i]
+    for i in items:
+        tr = he.get(i["id"])
+        if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and str(tr.get("summary") or "").strip():
+            i["summary_he"] = tr["summary"].strip()
+    if not items:
+        raise NewsError("the news list is empty")
+    return sorted(items, key=lambda i: (i["date"], i["id"]), reverse=True)
+
+
+def update(kb: Path, fetch) -> int:
+    """Refresh kb/news.json with fetch(url) -> str | None (the scraper's polite fetch). Returns how many items are
+    new or changed (0 when nothing changed). A failed fetch or an unreadable page keeps the news.json there is:
+    a site hiccup must not wipe the news, or the next good night announce all of it again."""
+    path = kb / "news.json"
+    try:
+        old = {i["id"]: i for i in json.loads(path.read_text(encoding="utf-8")).get("items", [])}
+    except (OSError, json.JSONDecodeError, AttributeError, KeyError, TypeError):
+        old = {}
+    page = fetch(NEWS_URL)
+    if not page:
+        print("news: the news page could not be fetched; keeping the news there is", flush=True)
+        return 0
+    try:
+        items = build(page)
+    except NewsError as e:
+        print(f"news: {e}; keeping the news there is", flush=True)
+        return 0
+    changed = sum(1 for i in items if old.get(i["id"]) != i)
+    removed = len(old.keys() - {i["id"] for i in items})
+    if changed or removed:
+        path.write_text(json.dumps({"source": "NiaMeowDB (meowdb.com/msclassic/news)",
+                                    "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                    "items": items}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    for i in items:
+        if i["id"] not in old and i["official"] and i["mentions"]:
+            # for the owner, in the nightly run's log: official news that may mean content opens (availability is
+            # never changed from news; the release guide stays the source)
+            print(f"::notice::official news names {', '.join(i['mentions'])}: {i['title']} ({i['url']})", flush=True)
+    print(f"news: {len(items)} items, {changed} new or changed", flush=True)
+    return changed + removed
+
+
+if __name__ == "__main__":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.path.insert(0, str(ROOT / "tools"))
+    import scrape_meowdb
+    update(scrape_meowdb.KB, scrape_meowdb.fetch)

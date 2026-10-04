@@ -1570,16 +1570,25 @@ class ToolsDialog(GlassDialog):
         self.fm_label = self._label(t("price_fm_loading"), "RowLabel", seen=set(seen))
         self.fm_chip = source_tag(t, sources.COMMUNITY)
         col.addLayout(chip_row([self.fm_chip], self.fm_label, lead=True))
+        # the rest of the item's Free Market (offers, trend, newest listings) under it, once it's in (_on_market)
+        self.fm_more = QVBoxLayout()
+        self.fm_more.setSpacing(4)
+        col.addLayout(self.fm_more)
+        slug = key.split("/", 1)[1]
+        item_id = int(slug) if slug.isdigit() else None        # the KB's item ids are NiaMeowDB's
         web = QPushButton(self._p(t("price_open_site")), objectName="Link")
         web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda _=False, n=name: __import__("webbrowser").open(market.page_url(n)))
+        web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
+            market.item_page(i) if i else market.page_url(n)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         self.price_box.addWidget(card)
         self._price_for = name
         import threading
 
-        def lookup(n=name):
-            found = market.free_market(n)          # up to 10 s on a slow connection
+        def lookup(n=name, i=item_id):
+            # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
+            # without one. Up to 10 s on a slow connection
+            found = market.item_market(i) if i else market.free_market(n)
             try:
                 self.market_ready.emit((n, found))
             except RuntimeError:
@@ -1593,16 +1602,61 @@ class ToolsDialog(GlassDialog):
         name, m = result
         if name != getattr(self, "_price_for", None) or not hasattr(self, "fm_label"):
             return                      # an older lookup, the player picked another item since
+        more: list[str] = []
         if m is None:
             text = t("price_fm_offline")
+        elif isinstance(m, market.ItemMarket):
+            text, more = self._fm_lines(m)
         elif not m.count:
             text = t("price_fm_empty")
         else:
             text = t("price_fm", median=f"{m.median:,}", n=m.count, low=f"{m.low:,}", high=f"{m.high:,}")
+        seen = set(getattr(self, "_card_seen", ()))
         try:
-            self._set(self.fm_label, text, set(getattr(self, "_card_seen", ())))
+            self._set(self.fm_label, text, seen)
+            clear(self.fm_more)
+            for line in more:
+                self.fm_more.addWidget(self._label(line, "RowHint", seen=seen))
         except RuntimeError:
             pass                        # the card was redrawn meanwhile
+
+    def _fm_lines(self, m) -> tuple[str, list[str]]:
+        """An item's Free Market in words: the usual price (the line beside the community chip), then the offers
+        now, the trend and volume, and the newest listings (smaller, under it)."""
+        t = self.t
+        if m.empty:
+            return t("price_fm_empty"), []
+        if m.usual:
+            n = m.checks + m.trades
+            head = t("price_fm_usual", price=f"{m.usual:,}", n=n, days=m.window)
+        else:
+            head = t("price_fm_no_usual", days=m.window)
+        more = []
+        offers = []
+        if m.cheapest_sell:
+            offers.append(t("price_fm_cheapest", price=f"{m.cheapest_sell:,}"))
+        if m.best_buy:
+            offers.append(t("price_fm_best_buy", price=f"{m.best_buy:,}"))
+        if m.for_sale:
+            offers.append(t("price_fm_for_sale", n=m.for_sale))
+        if offers:
+            more.append(" · ".join(offers))
+        if m.trend_pct is not None and m.trend_days:
+            arrow = "▲" if m.trend_pct > 0 else "▼" if m.trend_pct < 0 else "="
+            more.append(t("price_fm_trend", trend=f"{arrow} {abs(m.trend_pct)}%", days=m.trend_days, n=m.volume,
+                          window=market.TREND_DAYS))
+        elif m.volume:
+            more.append(t("price_fm_volume", n=m.volume, window=market.TREND_DAYS))
+        if m.listings:
+            more.append(t("price_fm_listings"))
+            for x in m.listings:
+                where = [t("price_fm_ch", n=x.channel)] if x.channel is not None else []
+                if x.room is not None:
+                    where.append(t("price_fm_entrance") if x.room == 0 else t("price_fm_room", n=x.room))
+                bits = [t("price_fm_selling" if x.side == "sell" else "price_fm_buying", n=x.quantity,
+                          price=f"{x.price:,}")] + where + ([market_ago(t, x.created)] if x.created else [])
+                more.append("• " + " · ".join(bits))
+        return head, more
 
     # EXP meter -----------------------------------------------------------
 
@@ -2040,3 +2094,13 @@ class ToolsDialog(GlassDialog):
         pic.setPixmap(pm)
         pic.setAccessibleName(self.route_graph.name(mid))
         return pic
+
+
+def market_ago(t, ts: float) -> str:
+    """How long ago a listing went up: "5 min ago", "3 h ago", "2 days ago"."""
+    mins = int(max(0, time.time() - ts) // 60)
+    if mins < 60:
+        return t("price_fm_ago_min", n=max(1, mins))
+    if mins < 24 * 60:
+        return t("price_fm_ago_h", n=mins // 60)
+    return t("price_fm_ago_d", n=mins // (24 * 60))

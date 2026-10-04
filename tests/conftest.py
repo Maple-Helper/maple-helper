@@ -64,7 +64,7 @@ def no_real_world():
     import shutil
     import socket
 
-    from maplehelper import market
+    from maplehelper import market, serverstatus
     from maplehelper.providers import codex
 
     mp = pytest.MonkeyPatch()
@@ -73,6 +73,9 @@ def no_real_world():
                else which(name, *a, **k))
     mp.setattr(codex, "store_apps", lambda: [])           # the Microsoft Store copy, found through the registry
     mp.setattr(market, "free_market", lambda name, timeout=10: None)
+    mp.setattr(market, "item_market", lambda item_id, timeout=8: None)
+    # the chat's server-status dot (live from MeowDB): "can't reach it", without asking
+    mp.setattr(serverstatus, "fetch", lambda timeout=8: None)
 
     connect = socket.socket.connect
 
