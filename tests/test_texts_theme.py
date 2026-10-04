@@ -160,3 +160,17 @@ def test_no_default_key_letters_the_kb_does_not_give():
     texts = [v[lang] for k in ("inv_not_found", "my_stats_hint", "sell_body") for v in [STRINGS[k]] for lang in v]
     texts += list(glossary.APP["ACC"])
     assert not any(re.search(r"\(\**[SI]\** key\)|מקש \**[SI]\b", s) for s in texts)
+
+
+def test_every_text_key_the_code_asks_for_exists():
+    """A string lost while editing i18n.py showed its key on screen ("calc_default", the owner's report)."""
+    import re
+    from pathlib import Path
+
+    from maplehelper.i18n import STRINGS
+    root = Path(__file__).resolve().parent.parent / "maplehelper"
+    asked = set()
+    for f in root.rglob("*.py"):
+        asked |= set(re.findall(r'(?<![\w.])(?:self\.)?t\(\s*"([a-z][a-z0-9_]*)"', f.read_text(encoding="utf-8")))
+    missing = sorted(k for k in asked if k not in STRINGS)
+    assert missing == []
