@@ -603,6 +603,7 @@ STRINGS = {
     "craft_teacher": {"he": "המורה: **{npc}** ב-**{town}**. מדברים איתו כדי ללמוד את המקצוע.", "en": "Teacher: **{npc}** in **{town}**. Talk to them to learn the profession."},
     "craft_start": {"he": "קווסט פתיחה · מרמה {lv}", "en": "First quest · from level {lv}"},
     "craft_master": {"he": "קווסט מומחה · מרמה {lv}", "en": "Master quest · from level {lv}"},
+    "craft_teacher_head": {"he": "מורה", "en": "Teacher"},
     "craft_mode_now": {"he": "מה אפשר להכין עכשיו", "en": "What I can make now"},
     "craft_mode_all": {"he": "כל המתכונים", "en": "All recipes"},
     "craft_head_all": {"he": "**{n} מתכונים** ב-{prof}, לפי הרמה שבה הם נפתחים.", "en": "**{n} recipes** in {prof}, by the level that opens them."},

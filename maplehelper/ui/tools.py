@@ -1569,6 +1569,7 @@ class ToolsDialog(GlassDialog):
         t, c = self.t, self.c
         clear(self.craft_list)
         clear(self.craft_info)
+        self.craft_info.addWidget(self._label(t("craft_teacher_head"), "SectionHeader"))     # as over the quests
         self.craft_info.addWidget(self._craft_info_card(self._prof()))
         # the profession's quests as full quest cards, as on the quests page (just their names said too little: the
         # owner): what they need, where to get it, what they give
