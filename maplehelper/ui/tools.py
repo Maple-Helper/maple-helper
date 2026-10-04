@@ -1,5 +1,5 @@
-"""Play tools: where to train, hit/damage calculator, build plan, quests, EXP meter, two
-quick checks (what to sell, what to buy) and how to get from one map to another. Everything reads the KB and the character; nothing touches
+"""Play tools: where to train, hit/damage calculator, build plan, quests, grind tracker, two quick checks (what to
+sell, what to buy) and how to get from one map to another. Everything reads the KB and the character; nothing touches
 the game. The window is non-modal, so it can stay open beside the chat."""
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem,
 from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, routes, sitedata, sources
+from .. import availability, bidi, buildplan, combat, crafting, glossary, grind, guides, market, plan, quests, routes, sitedata, sources
 from ..i18n import I18n
 from . import terms, theme
 from .controls import FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
@@ -243,16 +243,25 @@ def route_rows(kb, graph) -> list[tuple[str, str, object]]:
 
 class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
+    grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
     ask_requested = Signal(str, bool)          # question for the chat, with a fresh screenshot?
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
 
-    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, exp_meter: dict, page: str = "train"):
+    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tools"), t.rtl)
-        self.kb, self.profiles, self.settings, self.meter = kb, profiles, settings, exp_meter
+        self.kb, self.profiles, self.settings = kb, profiles, settings
+        # the grind tracker's reads and its session: the app's (they go on with this window closed), or its own
+        from .grindrunner import GrindRunner
+        self._own_runner = not isinstance(runner, GrindRunner)
+        self.runner = GrindRunner(kb, profiles, settings) if self._own_runner else runner
+        if self._own_runner:
+            self.runner.setParent(self)         # its timer goes with this window
+        self.grind = self.runner.store
+        self.runner.changed.connect(self.grind_changed)
         self.setStyleSheet(stylesheet)
         self.fit_screen(580, 800)
         rtl = t.rtl
@@ -373,14 +382,10 @@ class ToolsDialog(GlassDialog):
         self.refresh()
 
     def sync_done(self, ok: bool):
-        """A screenshot read ended: an EXP reading waiting for it takes the profile as it is now."""
+        """A screenshot read ended: a grind tracker read waiting for it takes it (a failed one says so)."""
         self.setWindowOpacity(1.0)
-        if self.meter.get("pending"):
-            if ok:
-                self._meter_reading()
-            else:
-                self.meter.pop("pending")
-                self._set(self.exp_status, self.t("exp_failed"))
+        if self._own_runner:
+            self.runner.sync_done(ok)
         self.refresh()
 
     def _step_aside(self, then) -> None:
@@ -1658,115 +1663,444 @@ class ToolsDialog(GlassDialog):
                 more.append("• " + " · ".join(bits))
         return head, more
 
-    # EXP meter -----------------------------------------------------------
+    # grind tracker ---------------------------------------------------------
+    # A session measured from screenshot reads at Start, Update and End (each read costs the player's AI plan, so
+    # nothing reads on its own). grind.py does the math; this page shows what is measured as a plain number and
+    # what is estimated with "~" and a tooltip saying how.
+
+    GRIND_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "net", "kills", "kills_h", "potions")
 
     def _page_exp(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
-        sec = Section(t("exp_title"), t.rtl)
-        self.exp_now = self._label("", "RowLabel")
-        sec.add_widget(self.exp_now)
-        grid = QHBoxLayout()
-        self.exp_cells = {}
-        for key in ("per_hour", "pct_hour", "to_level"):
-            box = self._big("–", self._p(t(f"exp_{key}")))
-            grid.addLayout(box)
-            self.exp_cells[key] = box.itemAt(0).widget()
-        holder = QWidget()
-        holder.setLayout(grid)
-        sec.add_widget(holder)
-        self.exp_status = self._label("", "RowHint")
-        sec.add_widget(self.exp_status)
-        src = QWidget()
-        self.exp_src = QHBoxLayout(src)
-        self.exp_src.setContentsMargins(0, 0, 0, 0)
-        sec.add_widget(src)
+        # a term gets its "?" once on this page, in the intro (as on the prices page)
+        self._grind_seen: set = set()
+        lay.addWidget(self._label(t("grind_intro"), "ToolHeader", seen=self._grind_seen))
+        sec = Section(t("grind_current"), t.rtl)
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.grind_tag = tag("", "TagGood")
+        self.grind_state = self._gl("", "RowLabel")
+        tl.addLayout(chip_row([self.grind_tag], self.grind_state, lead=True))
+        self.grind_map = self._gl("", "CardSub")
+        tl.addWidget(self.grind_map)
+        sec.add_widget(top)
+        mon = QWidget()
+        ml = QVBoxLayout(mon)
+        ml.setContentsMargins(0, 8, 0, 8)
+        ml.setSpacing(4)
+        ml.addWidget(self._gl(t("grind_monster"), "RowLabel"))
+        rows = monster_rows(self.kb)
+        self.grind_monster = EntityPicker(rows, self._p(t("grind_monster_ph", n=len(rows))), rtl=t.rtl)
+        self.grind_monster.picked.connect(self._grind_pick_monster)
+        self.grind_monster.textChanged.connect(lambda text: None if text.strip() else self._grind_pick_monster())
+        ml.addWidget(self.grind_monster)
+        ml.addWidget(self._gl(t("grind_monster_hint"), "RowHint"))
+        sec.add_widget(mon)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.grind_cells = {}
+        for i, key in enumerate(self.GRIND_CELLS):
+            box = QWidget()
+            bl = self._big("–", self._p(t(f"grind_{key}")), explain=False)      # the tooltip explains it
+            bl.setContentsMargins(0, 0, 0, 0)
+            box.setLayout(bl)
+            grid.addWidget(box, i // 3, i % 3)
+            grid.setColumnStretch(i % 3, 1)
+            self.grind_cells[key] = (box, bl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.grind_lines = QVBoxLayout(lines)
+        self.grind_lines.setContentsMargins(0, 8, 0, 8)
+        self.grind_lines.setSpacing(6)
+        sec.add_widget(lines)
+        auto = QWidget()
+        arow = QHBoxLayout(auto)
+        arow.setContentsMargins(0, 8, 0, 8)
+        arow.setSpacing(10)
+        acol = QVBoxLayout()
+        acol.setSpacing(1)
+        acol.addWidget(self._gl(t("grind_auto"), "RowLabel"))
+        acol.addWidget(self._gl(t("grind_auto_hint"), "RowHint"))
+        self.grind_auto_state = self._gl("", "RowHint")
+        acol.addWidget(self.grind_auto_state)
+        arow.addLayout(acol, 1)
+        self.grind_auto = Switch(self.runner.auto)
+        self.grind_auto.setAccessibleName(t("grind_auto"))
+        self.grind_auto.setAccessibleDescription(t("grind_auto_hint"))
+        self.grind_auto.toggled.connect(self._grind_set_auto)
+        arow.addWidget(self.grind_auto, 0, Qt.AlignVCenter)
+        sec.add_widget(auto)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.grind_status = self._gl("", "RowHint")
+        fl.addWidget(self.grind_status)
         btns = QHBoxLayout()
-        self.exp_start = QPushButton(self._p(t("exp_start")), objectName="Primary")
-        self.exp_start.setCursor(Qt.PointingHandCursor)
-        self.exp_start.clicked.connect(self._meter_start)
-        self.exp_measure = QPushButton(self._p(t("exp_measure")), objectName="Secondary")
-        self.exp_measure.setCursor(Qt.PointingHandCursor)
-        self.exp_measure.clicked.connect(self._meter_measure)
-        btns.addWidget(self.exp_start)
-        btns.addWidget(self.exp_measure)
+        btns.setSpacing(8)
+        self.grind_start = QPushButton(self._p(t("grind_start")), objectName="Primary")
+        self.grind_update = QPushButton(self._p(t("grind_update")), objectName="Primary")
+        self.grind_end = QPushButton(self._p(t("grind_end")), objectName="Secondary")
+        for b, then in ((self.grind_start, "start"), (self.grind_update, "update"), (self.grind_end, "end")):
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, w=then: self._grind_read(w))
+            btns.addWidget(b)
         btns.addStretch(1)
-        holder2 = QWidget()
-        holder2.setLayout(btns)
-        sec.add_widget(holder2)
-        sec.add_widget(self._label(t("exp_hint"), "RowHint"))
+        fl.addLayout(btns)
+        sec.add_widget(foot)
         lay.addWidget(sec)
+        recent = Section(t("grind_recent"), t.rtl)
+        box = QWidget()
+        self.grind_table = QGridLayout(box)
+        self.grind_table.setContentsMargins(0, 8, 0, 8)
+        self.grind_table.setHorizontalSpacing(10)
+        self.grind_table.setVerticalSpacing(6)
+        recent.add_widget(box)
+        self.grind_ask = QPushButton(self._p(t("grind_ask")), objectName="Link")
+        self.grind_ask.setCursor(Qt.PointingHandCursor)
+        self.grind_ask.setAutoDefault(False)
+        self.grind_ask.clicked.connect(self._grind_ask)
+        ask = self.grind_ask_row = QWidget()
+        al = QHBoxLayout(ask)
+        al.setContentsMargins(0, 0, 0, 0)
+        al.addWidget(self.grind_ask, 0, Qt.AlignLeft)       # AlignLeft is the leading edge (mirrored in Hebrew)
+        al.addStretch(1)
+        recent.add_widget(ask)
+        lay.addWidget(recent)
         lay.addStretch(1)
+        self._grind_choice = ""            # a monster picked before the session starts
+        # the session time and "updated 20 s ago" move on between reads (only the clock: the numbers change at a read)
+        self._grind_clock = QTimer(self, interval=10_000, timeout=self._grind_tick)
+        self._grind_clock.start()
         return sc
 
-    def _meter_start(self):
+    def _gl(self, text: str, obj: str) -> QLabel:
+        """A grind tracker label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._grind_seen))
+
+    def _gs(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._grind_seen))
+
+    def _grind_read(self, what: str):
+        """Start / Update / End: a screenshot read (the chat runs it), then the runner takes it into the session. An
+        Update or End pressed while the minute's automatic read is on its way rides on that read."""
         c = self.c
         if not c:
             return
-        self.meter[c.id] = {"start": None, "result": None}
-        self.meter["pending"] = ("start", c.id)
-        self._set(self.exp_status, self.t("exp_reading"))
-        self._read_screen()
-
-    def _meter_measure(self):
-        c = self.c
-        if not c or not (self.meter.get(c.id) or {}).get("start"):
+        how = self.runner.ask(what, c.id, self._grind_choice if what == "start" else "")
+        if not how:
             return
-        self.meter["pending"] = ("end", c.id)
-        self._set(self.exp_status, self.t("exp_reading"))
-        self._read_screen()
+        self._gs(self.grind_status, self.t("grind_reading"))
+        self._grind_buttons(busy=True)
+        if how == "read":
+            self._step_aside(self.grind_sync_requested.emit)
 
-    def _meter_reading(self):
-        """A fresh level/EXP reading arrived (after the screenshot read the chat ran)."""
-        what, cid = self.meter.pop("pending")
+    def grind_read(self, r):
+        """The AI's reply to a grind read (character id, profile_update, grind), just before sync_done (a window
+        with its own runner: the app's gets it from the chat itself)."""
+        if self._own_runner:
+            self.runner.grind_read(r)
+
+    def grind_changed(self):
+        """A read landed, failed or was skipped: the page follows, once it is built."""
+        try:
+            if "exp" not in self.__dict__.get("_pending", ()):
+                self.refresh("exp")
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _grind_set_auto(self, on: bool):
+        self.runner.set_auto(on)
+        self._fill_auto_state()
+
+    def _asked_read(self) -> bool:
+        """A read the player asked for is on its way (the buttons wait for it; the minute's own read doesn't)."""
+        p = self.runner.busy()
+        return bool(p and p[0] != "auto")
+
+    def _grind_pick_monster(self):
         c = self.c
-        if not c or c.id != cid or c.exp_pct is None:
-            return
-        sample = (time.time(), c.level, c.exp_pct)
-        m = self.meter.setdefault(cid, {"start": None, "result": None})
-        if what == "start":
-            m["start"], m["result"] = sample, None
+        name = self.grind_monster.text().strip()
+        if name and not plan.monster_exp(self.kb, name):
+            # a name typed part way ("horny"): the closest monster, as the calculator takes it
+            q = name.lower()
+            part = sorted((r[1] for r in monster_rows(self.kb) if q in r[1].lower()), key=len)
+            name = part[0] if part else name
+            self.grind_monster.setText(name)
+            self.grind_monster.setCursorPosition(0)
+        if c and self.grind.running(c.id):
+            self.grind.set_monster(c.id, name)
         else:
-            m["result"] = plan.exp_rate(self.kb, m["start"], sample)
-            m["end"] = sample
+            self._grind_choice = name           # for the next session
+        self.refresh("exp")
+
+    def _grind_buttons(self, busy: bool = False):
+        c = self.c
+        running = bool(c and self.grind.running(c.id))
+        self.grind_start.setVisible(not running)
+        self.grind_update.setVisible(running)
+        self.grind_end.setVisible(running)
+        for b in (self.grind_start, self.grind_update, self.grind_end):
+            b.setEnabled(bool(c) and not busy)
+
+    def _grind_tick(self):
+        try:
+            if self.stack.currentIndex() == PAGES.index("exp") and self.isVisible() and not self._asked_read():
+                self._fill_exp_clock()
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _num(self, n: int | float | None, sign: bool = False, approx: bool = False) -> str:
+        """A number for a big cell: in full up to 99,999, then 123.4K / 1.23M (the exact one is in the tooltip).
+        One left-to-right block in Hebrew, so "-1,200" and "~45K" keep their sign on the left."""
+        if n is None:
+            return "–"
+        a = abs(n)
+        text = f"{a:,.0f}" if a < 100_000 else f"{a / 1000:.1f}K" if a < 1_000_000 else f"{a / 1_000_000:.2f}M"
+        text = ("-" if n < 0 else "+" if sign and n > 0 else "") + text
+        return bidi.ltr_block(("~" if approx else "") + text, self.t.rtl)
+
+    def _clock(self, seconds: float | None) -> str:
+        """A duration: "47 min" under an hour, "1:12 h" from one (a bare "0:47" read like seconds)."""
+        if seconds is None:
+            return "–"
+        m = int(seconds) // 60
+        return self.t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else self.t("grind_minutes", m=m)
+
+    def _cell(self, key: str, value: str, tip: str = ""):
+        box, label = self.grind_cells[key]
+        label.setText(value)
+        box.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'grind_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _fill_exp_clock(self):
+        """The session's age and the time since its last read (every 30 s, between reads)."""
+        t, c = self.t, self.c
+        s = self.grind.session(c.id) if c else None
+        if not s:
+            self.grind_tag.hide()
+            self.grind_auto_state.hide()
+            self._gs(self.grind_state, t("grind_idle_state"))
+            self._cell("time", "–")
+            return
+        self.grind_tag.show()
+        self.grind_tag.setObjectName("Tag" if s.ended else "TagGood")
+        self.grind_tag.setText(self._p(t("grind_tag_ended" if s.ended else "grind_tag_running")))
+        self.grind_tag.style().unpolish(self.grind_tag)
+        self.grind_tag.style().polish(self.grind_tag)
+        end = s.ended or time.time()
+        self._cell("time", self._p(self._clock(end - s.start)), t("grind_tip_time"))
+        if s.ended:
+            self.grind_auto_state.hide()
+            self._gs(self.grind_state, t("grind_ended_state", time=self._clock(end - s.start)))
+            return
+        self._gs(self.grind_state, t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        self._fill_auto_state(s)
+
+    def _fill_auto_state(self, s=None):
+        """Under the auto-update switch: when the numbers were last read, or why they wait."""
+        t, c, r = self.t, self.c, self.runner
+        s = s or (self.grind.running(c.id) if c else None)
+        if not s or s.ended:
+            self.grind_auto_state.hide()
+            return
+        p = r.busy()
+        if p and p[0] == "auto":
+            text = t("grind_auto_reading")
+        elif r.auto and r.waiting:
+            text = t("grind_waiting_covered" if r.waiting == "covered" else "grind_waiting")
+        elif r.auto and r.idle(s):
+            text = t("grind_auto_idle")
+        else:
+            ago = max(0, round(time.time() - s.reads[-1].t))
+            text = t("grind_last_now") if ago < 10 else t("grind_last_secs", n=ago) if ago < 60 else \
+                t("grind_last_mins", n=ago // 60)
+        self._gs(self.grind_auto_state, text)
+        self.grind_auto_state.show()
 
     def _fill_exp(self):
         t, c = self.t, self.c
+        clear(self.grind_lines)
         if not c:
-            self._set(self.exp_now, t("tool_no_char"))
+            self.grind_tag.hide()
+            self._gs(self.grind_state, t("tool_no_char"))
+            self.grind_map.hide()
+            self.grind_lines.parentWidget().hide()
+            self._fill_cells(None, "")
+            self._cell("time", "–")
+            self._grind_buttons()
+            self._fill_recent()
             return
-        # no reading yet: say so, a lone "?" read like a broken value
-        self._set(self.exp_now, t("exp_now", lv=c.level, pct=f"{c.exp_pct:.1f}%") if c.exp_pct is not None
-                  else t("exp_now_unknown", lv=c.level))
-        m = self.meter.get(c.id) or {}
-        r = m.get("result")
-        for key, cell in self.exp_cells.items():
-            v = (r or {}).get(key)
-            if v is None:
-                cell.setText("–")
-            elif key == "per_hour":
-                cell.setText(f"{v:,}")
-            elif key == "pct_hour":
-                cell.setText(f"{v}%")
-            else:
-                h, rest = divmod(int(v), 3600)
-                cell.setText(f"{h}:{rest // 60:02d}")
-        self.exp_measure.setEnabled(bool(m.get("start")))
-        # the % and the time to level come from the EXP table: MeowDB's confirmed levels, then a historical reference
-        self._source_line(self.exp_src, sources.exp_source(self.kb, c.level))
-        if self.meter.get("pending"):
-            return
-        if r:
-            self._set(self.exp_status, t("exp_result", n=r["minutes"]))
-        elif m.get("start") and m.get("end"):
-            # a check gave no rate: either no EXP really came in, or a reading is past the KB's EXP table (Lv. 100+)
-            known = all(plan.exp_position(self.kb, lv, pct) is not None for _, lv, pct in (m["start"], m["end"]))
-            self._set(self.exp_status, t("exp_no_gain") if known else t("exp_no_table"))
-        elif m.get("start"):
-            mins = max(0, round((time.time() - m["start"][0]) / 60))
-            self._set(self.exp_status, t("exp_started", n=mins, pct=f"{m['start'][2]:.1f}%"))
+        s = self.grind.session(c.id)
+        self._grind_buttons(busy=self._asked_read())
+        self._fill_exp_clock()
+        sm = grind.summarize(self.kb, s) if s else None
+        where = sm.map if sm else ""
+        self.grind_map.setVisible(bool(s))
+        self._gs(self.grind_map, t("grind_map", map=bidi.ltr_block(where, t.rtl)) if where else t("grind_map_unknown"))
+        # a finished session shows its monster until the player picks one for the next session
+        mob = s.monster if s and not (s.ended and self._grind_choice) else self._grind_choice
+        if not self.grind_monster.hasFocus() and self.grind_monster.text() != mob:
+            self.grind_monster.blockSignals(True)          # the AI's pick shown, not taken as the player's
+            self.grind_monster.setText(mob)
+            self.grind_monster.setCursorPosition(0)
+            self.grind_monster.blockSignals(False)
+        self._fill_cells(sm, mob)
+        if sm:
+            self._fill_lines(sm)
+        self.grind_lines.parentWidget().setVisible(self.grind_lines.count() > 0)     # no empty row in the card
+        if self._asked_read():
+            self._gs(self.grind_status, t("grind_reading"))
+        elif self.runner.note:
+            self._gs(self.grind_status, "\n".join(t(k) for k in self.runner.note))
+        elif s and not s.ended:
+            self._gs(self.grind_status, t("grind_running_hint"))
         else:
-            self._set(self.exp_status, t("exp_idle"))
+            self._gs(self.grind_status, t("grind_idle"))
+        self._fill_recent()
+
+    def _fill_cells(self, sm, mob: str):
+        t = self.t
+        wait = t("grind_tip_wait")
+        if sm is None:
+            for key in self.GRIND_CELLS[1:]:
+                self._cell(key, "–")
+            return
+        mob = sm.monster or mob          # the session's own monster: its kills are worked out from it
+        exp_tip = {"no_table": t("exp_no_table"), "no_gain": t("exp_no_gain"), "no_exp": t("grind_no_exp")}.get(
+            sm.exp_note, wait)
+        self._cell("exp", self._num(sm.exp, sign=bool(sm.exp)), f"{sm.exp:,} EXP" if sm.exp else exp_tip)
+        self._cell("exp_h", self._num(sm.exp_h), "" if sm.exp_h else exp_tip)
+        no_mesos = t("grind_tip_no_mesos")
+        self._cell("mesos", self._num(sm.mesos, sign=True),
+                   t("grind_tip_mesos", n=f"{sm.mesos:,}") if sm.mesos is not None else no_mesos)
+        self._cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else
+                   (wait if sm.mesos is not None else no_mesos))
+        self._cell("net", self._num(sm.net, sign=True), t("grind_tip_net") if sm.net is not None else
+                   t("grind_tip_no_net"))
+        if sm.kills is not None:
+            how = t("grind_tip_kills", mob=bidi.ltr_block(mob, t.rtl), n=f"{sm.monster_exp:,}")
+            self._cell("kills", self._num(sm.kills, approx=True), how)
+            self._cell("kills_h", self._num(sm.kills_h, approx=True), how if sm.kills_h is not None else wait)
+        else:
+            why = t("grind_tip_no_monster") if not mob else \
+                t("grind_tip_unknown_monster", mob=bidi.ltr_block(mob, t.rtl)) if not sm.monster_exp else exp_tip
+            self._cell("kills", "–", why)
+            self._cell("kills_h", "–", why)
+        self._cell("potions", self._num(sm.potions_cost),
+                   t("grind_tip_potions") if sm.potions_read else t("grind_tip_no_potions"))
+
+    def _fill_lines(self, sm):
+        """Under the numbers: the EXP rate in levels, the potions behind the cost, the community's mesos estimate."""
+        t, add = self.t, self.grind_lines.addWidget
+        if sm.exp:
+            bits = []
+            if sm.level_to and sm.level_from and sm.level_to > sm.level_from:
+                bits.append(t("grind_levelup", b=sm.level_to))
+            if sm.pct_h is not None:
+                bits.append(t("grind_pct_h", pct=f"{sm.pct_h}%"))
+            if sm.to_level:
+                bits.append(t("grind_to_level", time=self._clock(sm.to_level)))
+            if bits:
+                # the % and the time to level come from the EXP table: MeowDB's confirmed levels, then a reference
+                chip = source_tag(t, sources.exp_source(self.kb, sm.exp_level or 1))
+                self.grind_lines.addLayout(chip_row([chip], self._gl(" · ".join(bits), "RowHint"), lead=True))
+        if sm.potions_read:
+            if sm.potions:
+                used = ", ".join(bidi.ltr_block(f"{name} ×{n}", t.rtl) for name, n, _, _ in sm.potions)
+                srcs = [src for _, _, price, src in sm.potions if price]
+                text = t("grind_potions_used", list=used)
+                unpriced = [bidi.ltr_block(name, t.rtl) for name, _, price, _ in sm.potions if not price]
+                if unpriced:
+                    text += "\n" + t("grind_unpriced", names=", ".join(unpriced))
+                label = self._gl(text, "RowHint")
+                self.grind_lines.addLayout(chip_row(source_tags(t, srcs), label, lead=True) if srcs else _alone(label))
+            else:
+                add(self._gl(t("grind_potions_none"), "RowHint"))
+            if sm.restocked:
+                add(self._gl(t("grind_restocked", names=", ".join(bidi.ltr_block(n, t.rtl) for n in sm.restocked)),
+                                "RowHint"))
+        if sm.expected:
+            text = t("grind_expected", n=f"{sm.expected:,}", k=f"{sm.kills:,}", r=sm.reports)
+            self.grind_lines.addLayout(chip_row([source_tag(t, sources.COMMUNITY)], self._gl(text, "RowHint"),
+                                                lead=True))
+        if sm.kills is not None or sm.expected:
+            add(self._gl(t("grind_approx"), "RowHint"))
+
+    def _fill_recent(self):
+        t, c = self.t, self.c
+        grid = self.grind_table
+        clear(grid)
+        rows = self.grind.recent(c.id) if c else []
+        self.grind_ask_row.setVisible(bool(rows))
+        if not rows:
+            grid.addWidget(self._gl(t("grind_recent_none"), "RowHint"), 0, 0, 1, 4)
+            return
+        heads = ("grind_col_spot", "grind_col_time", "grind_col_exp", "grind_col_mesos")
+        for col, key in enumerate(heads):
+            h = QLabel(self._p(t(key)), objectName="RowHint")
+            h.setAlignment((Qt.AlignLeading if col == 0 else Qt.AlignHCenter) | Qt.AlignVCenter)
+            grid.addWidget(h, 0, col)
+        grid.setColumnStretch(0, 1)
+        best = max((r.get("exp_h") or 0 for r in rows), default=0)
+        for i, r in enumerate(rows, 1):
+            line = QFrame(objectName="Separator")
+            line.setFixedHeight(1)
+            grid.addWidget(line, 2 * i - 1, 0, 1, 4)
+            spot = QWidget()
+            sl = QVBoxLayout(spot)
+            sl.setContentsMargins(0, 0, 0, 0)
+            sl.setSpacing(0)
+            name = QLabel(bidi.ltr_name(r.get("map") or t("grind_unknown_map"), t.rtl), objectName="RowLabel")
+            name.setWordWrap(True)
+            sl.addWidget(name)
+            sub = [r.get("monster") or "", self._day(r.get("start"))]
+            sl.addWidget(QLabel(self._p(" · ".join(bidi.ltr_block(b, t.rtl) for b in sub if b)), objectName="CardSub"))
+            grid.addWidget(spot, 2 * i, 0)
+            exp_h = r.get("exp_h")
+            top = bool(exp_h) and exp_h == best and len(rows) > 1        # the best EXP/h stands out
+            for col, text in ((1, self._p(self._clock(r.get("seconds")))), (2, self._num(exp_h)),
+                              (3, self._num(r.get("mesos_h")))):
+                grid.addWidget(tag(text, "TagGood" if col == 2 and top else "CardStat"), 2 * i, col, Qt.AlignCenter)
+
+    def _day(self, ts) -> str:
+        if not isinstance(ts, (int, float)):
+            return ""
+        import datetime
+        d = datetime.date.fromtimestamp(ts)
+        today = datetime.date.today()
+        if d == today:
+            return self.t("grind_today")
+        if d == today - datetime.timedelta(days=1):
+            return self.t("grind_yesterday")
+        return f"{d.day}.{d.month}" if self.t.rtl else f"{d:%b} {d.day}"        # 2.10 / Oct 2
+
+    def _grind_ask(self):
+        """"Which spot paid more?": the saved sessions as the question's lines, so the chat compares real numbers."""
+        t, c = self.t, self.c
+        rows = self.grind.recent(c.id)[:6] if c else []
+        if not rows:
+            return
+        lines = []
+        for r in rows:
+            bits = [self._clock(r.get("seconds"))]
+            if r.get("exp_h"):
+                bits.append(t("grind_q_exp", n=f"{r['exp_h']:,}"))
+            if r.get("mesos_h") is not None:
+                bits.append(t("grind_q_mesos", n=f"{r['mesos_h']:,}"))
+            if r.get("potions_cost"):
+                bits.append(t("grind_q_pots", n=f"{r['potions_cost']:,}"))
+            spot = r.get("map") or t("grind_unknown_map")
+            if r.get("monster"):
+                spot += f" ({r['monster']})"
+            lines.append(f"• {spot}: " + ", ".join(bits))
+        self.ask_requested.emit(t("grind_ask_q", lines="\n".join(lines)), False)
 
     # quick checks --------------------------------------------------------
 

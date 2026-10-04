@@ -128,6 +128,7 @@ DEFAULT_SETTINGS = {
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
     "telemetry": False,           # anonymous usage stats, opt-in (see telemetry.py)
     "install_id": "",             # random id for those stats, created on first use
+    "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
 }
 
 
@@ -391,6 +392,8 @@ class Profiles:
         if c.avatar:
             (AVATAR_DIR / c.avatar).unlink(missing_ok=True)
         History(cid).clear()
+        from .grind import Store as GrindStore
+        GrindStore().forget(cid)            # its grind sessions go with it
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

@@ -1,4 +1,4 @@
-"""Play tools: combat math (checked against NiaMeowDB's own numbers), quests, build tables, EXP meter."""
+"""Play tools: combat math (checked against NiaMeowDB's own numbers), quests, build tables, grind tracker."""
 from pathlib import Path
 
 import pytest
@@ -226,6 +226,8 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     from maplehelper.ui.tools import PAGES, ToolsDialog
     monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
     monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    from maplehelper import grind
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
     p = store.Profiles()
     c = p.add("Kiwi", "Magician", "Cleric", 30)
     c.stats = {"acc": 70, "dmg_min": 40, "dmg_max": 15}
@@ -251,9 +253,11 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     d._quest_undo(first)
     assert first not in c.quests_done and d.q_done_toggle.isHidden()
     d.show_page(PAGES.index("exp"))
-    d.meter[c.id] = {"start": (0, 99, 90.0), "result": None, "end": (60, 100, 1.0)}   # across 99 -> 100
+    from maplehelper.grind import Reading
+    d.grind.start(c.id, Reading(0, 99, 90.0))
+    d.grind.add(c.id, Reading(600, 100, 1.0))          # across 99 -> 100: past the KB's EXP table
     d._fill_exp()
-    assert "past Lv. 99" in d.exp_status.text()
+    assert "past Lv. 99" in d.grind_cells["exp"][0].toolTip()
     d.close()
     app.processEvents()
 
