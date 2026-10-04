@@ -44,6 +44,10 @@ SECTIONS = {"skill_changes.json": ("skills", ("key", "name", "changes"), 10),
             "pets.json": ("pets", ("key", "name", "lifespan", "sold"), 5),
             "tiers.json": ("rows", ("key", "name", "cells"), 5)}
 
+# the map connections maplehelper/routes.py finds the way with (tools/scrape_meowdb.py): optional, but never broken
+ROUTES = "routes.json"
+MIN_ROUTED_MAPS = 0.9   # routes.json must cover nearly every map page
+
 
 class InvalidKB(Exception):
     pass
@@ -106,6 +110,8 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
     keys = {e.get("key") for e in index if isinstance(e, dict)}
     for name in SECTIONS:
         problems += _section_problems(kb, name, keys)
+
+    problems += _route_problems(kb, {e.get("key") for e in index if isinstance(e, dict)})
 
     if problems:
         raise InvalidKB("; ".join(problems))
@@ -180,6 +186,31 @@ def _section_problems(kb: Path, name: str, keys: set) -> list[str]:
         return [f"{name}: {len(lost)} of {len(rows)} {field} name no KB entry, e.g. {', '.join(lost[:3])}"]
     return []
 
+def _route_problems(kb: Path, keys: set) -> list[str]:
+    """routes.json, when there is one: readable, its maps the KB's own, every portal leading to one of them."""
+    path = kb / ROUTES
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        maps = {str(m["id"]): m for m in data["maps"]}
+        taxi = list(data.get("taxi") or [])
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        return [f"{ROUTES} unreadable: {e}"]
+    problems = []
+    pages = {k.partition("/")[2] for k in keys if str(k).startswith("map/")}
+    unknown = sorted(set(maps) - pages)
+    if unknown:
+        problems.append(f"{ROUTES}: {len(unknown)} maps without a map page, e.g. {', '.join(unknown[:5])}")
+    if pages and len(set(maps) & pages) < len(pages) * MIN_ROUTED_MAPS:
+        problems.append(f"{ROUTES} covers only {len(set(maps) & pages)} of {len(pages)} maps")
+    dangling = sorted({p.get("to") for m in maps.values() for p in m.get("portals") or []} - set(maps))
+    if dangling:
+        problems.append(f"{ROUTES}: portals to unknown maps, e.g. {', '.join(map(str, dangling[:5]))}")
+    if set(taxi) - set(maps):
+        problems.append(f"{ROUTES}: taxi towns that are no maps: {', '.join(sorted(set(taxi) - set(maps)))}")
+    return problems
+
 
 # ---------------------------------------------------------------- patch notes
 
@@ -210,6 +241,16 @@ def _community(kb: Path) -> dict[str, dict]:
         return {}
 
 
+def _exits(kb: Path) -> dict[str, list[str]]:
+    """map key -> the names of the maps its portals lead to (routes.json), for the patch notes."""
+    try:
+        maps = json.loads((kb / ROUTES).read_text(encoding="utf-8"))["maps"]
+        names = {m["id"]: m.get("name") or m["id"] for m in maps}
+        return {f"map/{m['id']}": sorted({names.get(p["to"], p["to"]) for p in m.get("portals") or []}) for m in maps}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
 def _brief(e: dict) -> dict:
     return {"key": e["key"], "name": e.get("name") or e["key"], "category": e.get("category", "")}
 
@@ -224,12 +265,17 @@ def diff_kb(old: Path, new: Path) -> dict:
     ca, cb = _community(old), _community(new)
     if not (old / COMMUNITY).exists():
         cb = ca     # the first KB with players' reports: every monster's would read as a new drop, none is a change
+
+    # a map whose portals now lead elsewhere: "Connected maps: A, B → A, B, C" (no routes.json on a side: no change)
+    xa, xb = _exits(old), _exits(new)
     added = [_brief(b[k]) for k in sorted(b.keys() - a.keys())]
     removed = [_brief(a[k]) for k in sorted(a.keys() - b.keys())]
     changed, updated = [], []
     for k in sorted(a.keys() & b.keys()):
         pa, pb = a[k].get("props") or {}, b[k].get("props") or {}
         props = [[f, pa.get(f), pb.get(f)] for f in sorted(pa.keys() | pb.keys()) if pa.get(f) != pb.get(f)]
+        if k in xa and k in xb and xa[k] != xb[k]:
+            props.append(["Connected maps", ", ".join(xa[k]) or None, ", ".join(xb[k]) or None])
         oa, ob = da.get(k, {}), db.get(k, {})
         drops_added = sorted(ob[i] for i in ob.keys() - oa.keys())
         drops_removed = sorted(oa[i] for i in oa.keys() - ob.keys())

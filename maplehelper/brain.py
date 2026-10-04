@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, providers, sitedata, sources
+from . import availability, providers, routes, sitedata, sources
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -68,6 +68,11 @@ prices or stats, name their source in a word or two right after them: "(MSEA)", 
 nothing, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
 point the change out briefly (old → new). "Skill change COT1 -> COT2" lines give a skill's values before and after the
 latest test: build advice uses the newer values. The "Community tier list" is community opinion: say so when you cite it.
+
+Routes: a "Route" block in the context is the way between two maps, worked out by the app from the knowledge base's
+map connections, taxis and boats, through maps that are in the game only. For "how do I get to ..." give it as
+numbered steps, map and NPC names exactly as written; never add maps, shortcuts or transport it doesn't list, and never
+state a fare (the KB lists none; say the step costs mesos).
 
 Advice must fit the player's level and job. If the profile lacks level or job, ask for it before recommending.
 
@@ -171,7 +176,7 @@ def _site_context(kb: KnowledgeBase, question: str, character: Character | None,
     about, and the community tier list when the question compares jobs."""
     out = []
     skills = [k for k in shown if k.startswith("skill/")]
-    if character and character.job and BUILD_WORDS.search(question):
+    if character and getattr(character, "job", None) and BUILD_WORDS.search(question):
         skills += [c.key for c in sitedata.changes_for(kb, character.base_class, character.job)]
     lines = sitedata.ai_skill_lines(kb, skills)
     if lines:
@@ -262,6 +267,10 @@ def build_prompt(question: str, character: Character | None, history: History | 
             elif k.startswith("item/"):
                 sel.append(kb.droppers_digest(k))
         ctx.append("<selected>\n" + "\n".join(x for x in sel if x) + "\n</selected>")
+    # "how do I get to Sleepywood?": the way there, worked out from the KB's map connections (no tool call for it)
+    way = routes.ai_context(kb, question, character, tagged)
+    if way:
+        ctx.append(way)
     if is_reverse(question, kb):
         items = item_keys_for_question(question, kb)
         groups = kb.drop_groups(items, limit=10)

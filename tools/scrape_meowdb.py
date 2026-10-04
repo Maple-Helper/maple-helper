@@ -9,6 +9,7 @@ Output (under data/kb/):
     index.json                   compact index: id, name, category, url, image, props
     skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
+    routes.json                  every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
 
 Usage:
     python tools/scrape_meowdb.py            # full run (resumes)
@@ -16,6 +17,7 @@ Usage:
     python tools/scrape_meowdb.py --refresh  # re-download everything
     python tools/scrape_meowdb.py --changed  # nightly: only pages changed on meowdb, plus new ones
     python tools/scrape_meowdb.py --community  # players' drop and mesos reports -> community.json (scrape_community.py)
+    python tools/scrape_meowdb.py --routes   # only routes.json, the map connections (every run refreshes it too)
 """
 from __future__ import annotations
 
@@ -297,6 +299,7 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     meta.update({"source": "NiaMeowDB (meowdb.com)", "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                  "count": len(index)})
     meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    changes[0] += scrape_routes()      # one file a night: the map connections the app routes with
     (KB / "last_run.json").write_text(json.dumps({"checked": len(jobs), "changed": changes[0]}), encoding="utf-8")
     print(f"Done. {len(index)} entities, {len(jobs)} checked, {changes[0]} changed.")
 
@@ -333,6 +336,90 @@ def fill_images() -> None:
     print(f"pictures added: {got}/{len(todo)}")
 
 
+# ---------------------------------------------------------------- map connections (routes.json)
+# The site's Pathfinder and World Map read one data file, /_data/maps.json: every map with its portals (the map each
+# leads to, by id) and NPCs. The map pages say the same in prose ("Connected Maps ( 9 )" on one line, names only:
+# two maps called "Mushroom Town" can't be told apart there, and nothing says which way a portal goes), so the route
+# graph comes from that file. The Pathfinder's taxi towns are written in its own script, read from there.
+
+ROUTES = "routes.json"
+MAPS_DATA = f"{BASE}/_data/maps.json"
+PATHFINDER = f"{BASE}/msclassic/pathfinder"
+_MAP_ID = re.compile(r"^\d{9}$")
+_ID_LIST = re.compile(r'\[(?:"\d{9}",)+"\d{9}"\]')
+
+
+def routes_data(maps: list[dict], taxi: list[str]) -> dict:
+    """What the app routes with, from the site's map data: ids, names, portals and NPCs with their minimap spots."""
+    out, ids = [], {str(m.get("id") or "") for m in maps}
+    for m in maps:
+        mid = str(m.get("id") or "")
+        if not _MAP_ID.match(mid):
+            continue
+        mm = None
+        if m.get("hasMinimapImage") and m.get("minimapWidth") and m.get("minimapHeight"):
+            mm = [m["minimapWidth"], m["minimapHeight"], m.get("miniMapCenterX") or 0, m.get("miniMapCenterY") or 0]
+        portals = [{"to": p["toMapId"], "name": p.get("name") or "", "x": p.get("x") or 0, "y": p.get("y") or 0}
+                   for p in m.get("portals") or [] if str(p.get("toMapId") or "") in ids and p["toMapId"] != mid]
+        npcs = [{"id": str(n.get("id")), "name": n.get("name") or "", "x": n.get("x") or 0, "y": n.get("y") or 0}
+                for n in m.get("npcs") or [] if n.get("id")]
+        out.append({"id": mid, "name": m.get("name") or mid, "street": m.get("streetName") or "",
+                    "region": m.get("region") or "", "town": bool(m.get("isTown")), "return": m.get("returnMap") or "",
+                    "minimap": mm, "portals": portals, "npcs": npcs})
+    out.sort(key=lambda m: m["id"])
+    return {"source": "NiaMeowDB (meowdb.com) map data, as its Pathfinder reads it", "taxi": taxi, "maps": out}
+
+
+def taxi_towns(map_ids: set[str]) -> list[str] | None:
+    """The towns the Pathfinder's taxi option links, read from its page script; None when it can't be read."""
+    page = fetch(PATHFINDER)
+    time.sleep(DELAY_SECONDS)
+    chunk = re.search(r'src="(/_next/static/chunks/app/msclassic/[^"]*pathfinder/page-[^"]+\.js)"', page or "")
+    if not chunk:
+        return None
+    js = fetch(BASE + chunk.group(1))
+    time.sleep(DELAY_SECONDS)
+    lists = [json.loads(s) for s in _ID_LIST.findall(js or "")]
+    lists = [ids for ids in lists if len(ids) >= 2 and set(ids) <= map_ids]
+    return lists[0] if len(lists) == 1 else None
+
+
+def write_routes(path: Path, data: dict) -> None:
+    """One map per line, like index.json: the AI greps the KB folder."""
+    head = json.dumps({k: v for k, v in data.items() if k != "maps"}, ensure_ascii=False)[:-1]
+    path.write_text(head + ', "maps": [\n' + ",\n".join(json.dumps(m, ensure_ascii=False) for m in data["maps"])
+                    + "\n]}\n", encoding="utf-8")
+
+
+def scrape_routes() -> int:
+    """Refresh routes.json; 1 when it changed. A failed download keeps the copy we have."""
+    raw = fetch(MAPS_DATA)
+    time.sleep(DELAY_SECONDS)
+    try:
+        maps = json.loads(raw) if raw else None
+    except json.JSONDecodeError:
+        maps = None
+    if not isinstance(maps, list) or not maps:
+        print("routes: map data not available, keeping the previous routes.json")
+        return 0
+    path = KB / ROUTES
+    try:
+        old = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        old = {}
+    ids = {str(m.get("id")) for m in maps}
+    taxi = taxi_towns(ids)
+    if taxi is None:
+        taxi = [t for t in old.get("taxi") or [] if t in ids]
+        print("routes: taxi towns not read from the Pathfinder, keeping", taxi)
+    data = routes_data(maps, taxi)
+    if data == old:
+        return 0
+    write_routes(path, data)
+    print(f"routes: {len(data['maps'])} maps, taxi {', '.join(taxi) or 'none'}")
+    return 1
+
+
 def stamp() -> None:
     """Mark the existing copy with sitemap lastmod + content hashes (baseline for --changed)."""
     entity_urls()   # fills LASTMOD from the sitemap
@@ -356,11 +443,14 @@ if __name__ == "__main__":
     ap.add_argument("--stamp", action="store_true", help="record sitemap lastmod and content hash for the current copy")
     ap.add_argument("--images", action="store_true", help="fetch missing NPC portraits and map minimaps")
     ap.add_argument("--community", action="store_true", help="players' drop and mesos reports (community.json)")
+    ap.add_argument("--routes", action="store_true", help="only refresh routes.json (map connections)")
     args = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
     if args.community:
         import scrape_community    # (its own module: the monster pages load these lists in the browser)
         sys.exit(scrape_community.main(["--limit", str(args.limit)] if args.limit else []))
+    if args.routes:
+        scrape_routes()
     elif args.stamp:
         stamp()
     elif args.images:
