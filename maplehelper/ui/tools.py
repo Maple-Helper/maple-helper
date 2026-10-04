@@ -69,6 +69,18 @@ def scroll_page(rtl: bool) -> tuple[QScrollArea, QVBoxLayout]:
 
 NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
+FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
+
+
+def _close(typed: str, name: str) -> bool:
+    """A misspelt word of the search is close to a word of the name ("stelly" -> "Steely Throwing Knives")."""
+    from difflib import SequenceMatcher
+    words = [w for w in re.split(r"[\s:'().,-]+", name.lower()) if len(w) >= 3]
+    asked = [w for w in re.split(r"\s+", typed.lower()) if w]
+    if not asked or not words:
+        return False
+    return all(any(w.startswith(a) or (len(a) >= 4 and SequenceMatcher(None, a, w[:len(a) + 1]).ratio() >= 0.8)
+                   or (len(a) >= 4 and SequenceMatcher(None, a, w).ratio() >= 0.8) for w in words) for a in asked)
 
 
 class _LazyIcons(QStandardItemModel):
@@ -105,7 +117,7 @@ class EntityPicker(QLineEdit):
         self._icon = icon
         model = self._model(rows)
         comp = QCompleter(self)
-        comp.setCompletionRole(NAME_ROLE)
+        comp.setCompletionRole(FIND_ROLE)
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
         comp.setMaxVisibleItems(9)
@@ -131,6 +143,8 @@ class EntityPicker(QLineEdit):
         for sig in (cm.modelReset, cm.layoutChanged, cm.rowsInserted, cm.rowsRemoved):
             sig.connect(lambda *_: QTimer.singleShot(0, self._fit_popup))
         self.returnPressed.connect(self.picked.emit)
+        # a misspelt name ("stelly") found nothing: the names close to it are offered (the owner)
+        self.textEdited.connect(self._near_names)
         # a chevron says "this opens a list" before anyone clicks
         arrow = self.addAction(self._chevron(), QLineEdit.TrailingPosition)
         arrow.triggered.connect(self.open_list)
@@ -142,6 +156,7 @@ class EntityPicker(QLineEdit):
         for shown, name, path in rows:
             item = QStandardItem(shown)
             item.setData(name, NAME_ROLE)
+            item.setData(name, FIND_ROLE)
             if path:
                 item.setData(str(path), PATH_ROLE)      # the picture itself: when its row is first shown
             item.setEditable(False)
@@ -164,7 +179,25 @@ class EntityPicker(QLineEdit):
         p.end()
         return QIcon(pm)
 
+    def _near_names(self, text: str) -> None:
+        """No name holds what was typed: the names close to it hold it too, so the list shows them."""
+        model = self.completer().model()
+        typed = text.strip()
+        rows = [model.item(i) for i in range(model.rowCount())]
+        for it in rows:
+            if it.data(FIND_ROLE) != it.data(NAME_ROLE):
+                it.setData(it.data(NAME_ROLE), FIND_ROLE)
+        if len(typed) < 4 or any(typed.lower() in str(it.data(NAME_ROLE)).lower() for it in rows):
+            return
+        for it in rows:
+            if _close(typed, str(it.data(NAME_ROLE))):
+                it.setData(f"{it.data(NAME_ROLE)}\u2063{typed}", FIND_ROLE)
+
     def _chosen(self):
+        # a close name picked: the box holds the name itself, not the misspelling it was found by
+        text = self.text()
+        if "\u2063" in text:
+            self.setText(text.split("\u2063", 1)[0])
         self.setCursorPosition(0)              # a long name shows from its start
         self.picked.emit()
 
@@ -723,6 +756,8 @@ class ToolsDialog(GlassDialog):
         rows = monster_rows(self.kb)
         self.calc_input = EntityPicker(rows, self._p(t("calc_placeholder", n=len(rows))), rtl=t.rtl)
         self.calc_input.picked.connect(self._fill_calc)
+        # an emptied box goes back to the default monster, as the farm and grind boxes do (the owner)
+        self.calc_input.textChanged.connect(lambda text: None if text.strip() else self._fill_calc())
         lay.addWidget(self.calc_input)
         # the stats first, as on "Where to train": every number below comes from them
         lay.addWidget(self._stats_section())
@@ -1892,6 +1927,8 @@ class ToolsDialog(GlassDialog):
         rows = item_rows(self.kb)
         self.price_input = EntityPicker(rows, self._p(t("price_placeholder", n=f"{len(rows):,}")), icon=32, rtl=t.rtl)
         self.price_input.picked.connect(self._fill_prices)
+        # an emptied box empties the page: the last item stayed on it (the owner)
+        self.price_input.textChanged.connect(lambda text: None if text.strip() else self._fill_prices())
         lay.addWidget(self.price_input)
         self.price_box = QVBoxLayout()
         self.price_box.setSpacing(12)
@@ -2853,7 +2890,10 @@ class ToolsDialog(GlassDialog):
     def _fill_farm_targets(self):
         """Monsters around the level whose drops pay most at an NPC (no drop rates in the KB: by the best drop)."""
         t, c = self.t, self.c
-        rows = farm.targets(self.kb, c.level, n=6)
+        from .. import wishlist
+        wanted = farm.needs(self.kb, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                            wishlist.items(self.settings, c.id))
+        rows = farm.targets(self.kb, c.level, n=6, wanted=wanted)
         self.farm_worth_head.show()
         self._fs(self.farm_worth_head, t("farm_worth_hint", lo=max(1, c.level - farm.FARM_BELOW),
                                           hi=c.level + combat.SPOT_ABOVE))
@@ -2885,12 +2925,21 @@ class ToolsDialog(GlassDialog):
         col.addLayout(chips)
         # its best-paying drops, each a link that makes it the wanted item, with the list it is on
         for d in r.drops:
-            b = QPushButton(bidi.ltr_name(f"{d.name} · {d.value.price:,} mesos", t.rtl), objectName="Link")
+            text = f"{d.name} · {d.value.price:,} mesos" if d.value else d.name
+            b = QPushButton(bidi.ltr_name(text, t.rtl), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
             b.setAutoDefault(False)
             b.setToolTip(tip_html(t("farm_drop_tip", item=d.name), t.rtl))
             b.clicked.connect(lambda _=False, k=d.key: self._farm_choose(k))
-            col.addLayout(chip_row([source_tag(t, d.source)], b))     # the chip right after its drop
+            chips_ = [source_tag(t, d.source)]          # the chip right after its drop
+            if d.need:
+                # what you need it for: a quest you can do, a recipe of your profession, your wishlist
+                kind, what = d.need
+                need = tag(self._p(t(f"farm_need_{kind}")), "TagGood")
+                if what:
+                    need.setToolTip(tip_html(t(f"farm_need_{kind}_tip", name=what), t.rtl))
+                chips_.insert(0, need)
+            col.addLayout(chip_row(chips_, b))
         col.addLayout(self._farm_links(r.key, r.name, r.map))
         row.addLayout(col, 1)
         return card

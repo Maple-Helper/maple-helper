@@ -111,6 +111,7 @@ class Drop:
     name: str
     value: Value | None
     source: str                 # the list it is on
+    need: tuple[str, str] | None = None     # what the player needs it for: ("quest", name) / ("recipe", name) / ("wish", "")
 
 
 @dataclass
@@ -128,12 +129,44 @@ class Target:
     def best(self) -> int:
         return max((d.value.price for d in self.drops if d.value), default=0)
 
+    @property
+    def needed(self) -> int:
+        return sum(1 for d in self.drops if d.need)
+
+
+def needs(kb, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
+          crafts: dict | None = None, wished: list[str] | None = None) -> dict[str, tuple[str, str]]:
+    """What the player wants an item for, by item name (lower case): a quest they can do now, a recipe of a
+    profession they work, their wishlist. Farming isn't only for an NPC's price (the owner)."""
+    from . import crafting, quests
+    out: dict[str, tuple[str, str]] = {}
+    for k in wished or []:
+        e = kb.get(k)
+        if e:
+            out.setdefault(e["name"].lower(), ("wish", ""))
+    for q in quests.for_level(kb, level, base_class, job, done, crafts=crafts or None)["now"]:
+        for line in q.needs:
+            m = quests._ITEM.fullmatch(line.strip())
+            if m and not m.group(1).startswith(("Defeat ", "Collect ")):
+                out.setdefault(m.group(1).strip().lower(), ("quest", q.name))
+    for prof, lv in (crafts or {}).items():
+        try:
+            recipes = crafting.up_to(kb, prof, int(lv))
+        except (KeyError, ValueError, TypeError):
+            continue
+        for r in recipes:
+            for _, name in r.ingredients:
+                out.setdefault(name.lower(), ("recipe", r.name))
+    return out
+
 
 def targets(kb, level: int, n: int = 8, below: int = FARM_BELOW, above: int = combat.SPOT_ABOVE,
-            per_monster: int = 3) -> list[Target]:
-    """The monsters around the player's level whose drops pay the most at an NPC, best first: each with its
-    best-paying drops (both lists, each said for which it is on). Ranked by its single best drop, since the KB
-    has no drop rates to weigh them by; a monster players saw drop it (community list) wins a tie."""
+            per_monster: int = 3, wanted: dict[str, tuple[str, str]] | None = None) -> list[Target]:
+    """The monsters around the player's level worth farming, best first: the ones that drop what the player needs
+    (wanted: needs()) first, then by what an NPC pays for their best drop. Each with its drops that count, needed
+    first (both lists, each said for which it is on). The KB has no drop rates to weigh them by; a monster
+    players saw drop it (community list) wins a tie."""
+    wanted = wanted or {}
     out: dict[str, Target] = {}
     open_ = availability.of(kb)
     for m in combat.monsters(kb):
@@ -145,18 +178,20 @@ def targets(kb, level: int, n: int = 8, below: int = FARM_BELOW, above: int = co
         for k in kb.monster_drops(m.key):
             e = kb.get(k)
             if e:
-                drops.append(Drop(k, e["name"], value(kb, k), kb.drop_source(m.key, k) or sources.MSEA))
-        drops = [d for d in drops if d.value]
+                drops.append(Drop(k, e["name"], value(kb, k), kb.drop_source(m.key, k) or sources.MSEA,
+                                  wanted.get(e["name"].lower())))
+        drops = [d for d in drops if d.value or d.need]
         if not drops:
             continue
-        drops.sort(key=lambda d: (-d.value.price, d.source != sources.COMMUNITY, d.name))
+        drops.sort(key=lambda d: (not d.need, -(d.value.price if d.value else 0), d.source != sources.COMMUNITY,
+                                  d.name))
         t = Target(m.key, m.name, m.level, m.maps[0][0], fit(level, m.level), drops[:per_monster],
                    kb.community_mesos(m.key))
         # the same monster twice (another version of it): the one on more maps, as the training spots keep it
-        if m.name not in out or t.best > out[m.name].best:
+        if m.name not in out or (t.needed, t.best) > (out[m.name].needed, out[m.name].best):
             out[m.name] = t
     seen = lambda t: any(d.source == sources.COMMUNITY for d in t.drops)  # noqa: E731
-    return sorted(out.values(), key=lambda t: (-t.best, not seen(t), t.level))[:n]
+    return sorted(out.values(), key=lambda t: (-t.needed, -t.best, not seen(t), t.level))[:n]
 
 
 # ---------------------------------------------------------------- the player's own drop counts

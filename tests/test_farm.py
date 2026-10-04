@@ -236,3 +236,38 @@ def test_farm_tab_flow(tmp_path, monkeypatch):
     d.grind_changed()
     assert "Horny Mushroom: Horny Mushroom Cap ×10" in texts(page)
     d.close()
+
+
+@pytest.mark.skipif(not (REAL_KB / "index.json").exists(), reason="no real knowledge base")
+def test_worth_farming_puts_what_the_player_needs_first():
+    # farming isn't only for an NPC's price (the owner): a drop a quest of the player's needs comes first, tagged
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    wanted = farm.needs(kb, 20, "Bowman", "Bowman", [], None, [])
+    assert wanted.get("stirge wing", ("", ""))[0] == "quest"
+    rows = farm.targets(kb, 20, n=6, wanted=wanted)
+    assert rows and rows[0].needed >= 1 and rows[0].drops[0].need
+    assert [r.needed for r in rows] == sorted((r.needed for r in rows), reverse=True)
+    plain = farm.targets(kb, 20, n=6)                   # nothing wanted: by the NPC price, as before
+    assert all(not d.need for r in plain for d in r.drops)
+
+
+def test_a_misspelt_search_offers_the_names_close_to_it():
+    # "stelly" found nothing in a list holding Steely Throwing Knives (the owner)
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    qapp = QApplication.instance() or QApplication(sys.argv)
+
+    from maplehelper.ui.tools import EntityPicker
+    names = ["Steely Throwing Knives", "Steel Ore", "Subi Throwing-Stars", "Blue Snail Shell"]
+    p = EntityPicker([(n, n, None) for n in names], "x")
+    p.show()
+    p.setFocus()
+    QTest.keyClicks(p, "stelly")
+    qapp.processEvents()
+    c = p.completer()
+    assert [c.completionModel().index(i, 0).data() for i in range(c.completionCount())] == ["Steely Throwing Knives"]
+    p.setText(c.completionModel().index(0, 0).data(c.completionRole()))
+    p._chosen()
+    assert p.text() == "Steely Throwing Knives"           # the name, not the misspelling it was found by
+    p.close()
