@@ -27,6 +27,9 @@ PET_WORDS = re.compile(r"(?<![א-ת])(?:ה|ל|ב)?(?:חיית|חיות|חיה|פ
 TIER_WORDS = re.compile(r"טייר|דירוג|(?:איזה|איזו)\s+(?:ג'וב|מקצוע|קלאס)|ג'וב\s+הכי|\btier|\bbest\s+(?:class|job)|"
                         r"\bwhich\s+(?:class|job)|\bstrongest\s+(?:class|job)", re.I)
 BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskills?\b|\bbuild\b", re.I)
+# "tell me about Blue Snail": the monster's card and every drop as tiles, as for a drops question. The answer no longer
+# repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report)
+DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
                   "what the player worked on, decisions, open goals. Same language as the conversation.")
@@ -147,6 +150,7 @@ REPLY_RULES = """<reply_rules>
   "Tell me about X" gets 2-3 lines of what the cards can't say: who it suits (against the player's level), where it
   is best, what is worth it, a recent change; at most one notable drop by name. A question for one number ("how much
   HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
+- Correct Hebrew grammar: an adjective agrees with its noun ("מונסטר בסיסי", never "מונסטר בסיס").
 - Hebrew words: "לבל", never "רמה"; "mesos" in English letters, never "מזו", "מזוס", "מסוס" or "מסות".
 - In a Hebrew answer only game names and stat names stay in English; every other word is Hebrew ("קווסט", not
   "quest"; "קהילה", not "community"; never "This", "drop" or "and" in a Hebrew sentence). Write stat bonuses one
@@ -629,8 +633,8 @@ class Brain:
             groups = self.kb.drop_groups(items)
         if groups:
             entities = []          # the grouped view replaces the flat cards
-        elif DROP_WORDS.search(question):
-            # a drops question: the monster card + every drop as a tile, straight from the database
+        elif DROP_WORDS.search(question) or DETAIL_WORDS.search(question):
+            # a drops question (or "tell me about" a monster): the monster card + every drop as a tile, from the KB
             monsters = [k for k in entities if k.startswith("monster/")] or \
                 [k for k in self.kb.find_mentions(question, 4) if k.startswith("monster/")]
             if monsters:

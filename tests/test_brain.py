@@ -204,3 +204,14 @@ def test_grind_is_a_noun_spelled_the_owners_way():
     assert drop_keys("לא מתאים לגרינד בלבל 31") == "לא מתאים לעשות גריינד בלבל 31"
     assert drop_keys("כדאי לגריינד על Ligator") == "כדאי לעשות גריינד על Ligator"
     assert drop_keys("הגרינד שלכם") == "הגריינד שלכם" and drop_keys("grind spot") == "grind spot"
+
+
+@pytest.mark.parametrize("q", ["תן לי פרטים על Red Snail", "שלח לי מידע על Red Snail", "tell me about Red Snail"])
+def test_a_monster_details_question_shows_every_drop(kb_copy, q):
+    """The answer names one drop at most (it doesn't repeat the cards), so the tiles came from that one name; for
+    "details about X" the app shows the monster's card and every drop from the KB, as for a drops question."""
+    b = _brain(kb_copy, 'Red Snail is an early monster.\n@@META@@\n{"entities": ["monster/130101"]}')
+    items = [k for k, e in b.kb.entities.items() if e["category"] == "item"][:3]
+    b.kb.monster_drops = lambda key: items if key == "monster/130101" else []      # (the fixture's has none)
+    ans = b.ask(q, None, None, None)
+    assert ans.entities[:4] == ["monster/130101"] + items
