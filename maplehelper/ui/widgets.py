@@ -407,6 +407,15 @@ class _Wishlist(QObject):
 WISHLIST = _Wishlist()
 
 
+class _RouteRequests(QObject):
+    """A map card's "How to get here from my map": the app opens Play tools on the way there."""
+
+    requested = Signal(str)       # the map's KB key
+
+
+ROUTE_REQUESTS = _RouteRequests()
+
+
 class Selectable:
     """Mixin: a tap selects this entity (orange border); every selectable follows the shared selection."""
 
@@ -532,6 +541,15 @@ class EntityCard(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             bl.addWidget(self._star)
+        if key.startswith("map/"):
+            from .. import routes
+            if routes.of(kb).of_key(key):          # a map in the game the route graph has
+                way = QToolButton(objectName="Icon", text=theme.ICON["route"])
+                way.setCursor(Qt.PointingHandCursor)
+                way.setToolTip(t("card_route"))
+                way.setAccessibleName(t("card_route"))
+                way.clicked.connect(lambda: ROUTE_REQUESTS.requested.emit(self.key))
+                bl.addWidget(way)
         copy = QToolButton(objectName="Icon", text=theme.ICON["copy"])
         copy.setCursor(Qt.PointingHandCursor)
         copy.setToolTip(self._t("copy_card"))

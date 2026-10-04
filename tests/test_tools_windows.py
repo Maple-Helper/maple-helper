@@ -110,8 +110,9 @@ def test_citizenship_list_past_40_has_more_too(tools):
 def test_opening_on_the_build_page_keeps_the_other_pages_for_later(tools):
     """_skill_icons' hasattr("_skills") went through __getattr__, which built all eight other pages at once."""
     d, _ = tools("Thief", "Assassin", 34, "build")
+    from maplehelper.ui.tools import PAGES
     assert d._skill_icons()                        # the build tables have their icons
-    assert len(d._pending) == 8
+    assert len(d._pending) == len(PAGES) - 1       # every other page, still to come
     end = time.time() + 10
     while d._pending and time.time() < end:
         pump()

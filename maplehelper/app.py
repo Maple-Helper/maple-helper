@@ -161,6 +161,8 @@ class MapleHelperApp:
         # play tools: the EXP meter lives as long as the app (the window may close in between)
         self.exp_meter: dict = {}
         self.overlay.tools_requested.connect(lambda: self.show_tools())
+        from .ui.widgets import ROUTE_REQUESTS
+        ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         self.overlay.profile_changed.connect(self.on_profile_changed)
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
@@ -796,7 +798,11 @@ class MapleHelperApp:
             dlg.tag_requested.connect(self.ask_about_guide)
             dlg.guide_requested.connect(self.show_guides)
             return dlg
-        self.open_window("tools", make)
+        return self.open_window("tools", make)
+
+    def show_route(self, key: str):
+        """Play tools on the way to a map, from the character's map."""
+        self.show_tools("route").route_to_map(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
         if not self.overlay.isVisible():

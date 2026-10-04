@@ -1,5 +1,5 @@
-"""Play tools: where to train, hit/damage calculator, build plan, quests, EXP meter, and two
-quick checks (what to sell, what to buy). Everything reads the KB and the character; nothing touches
+"""Play tools: where to train, hit/damage calculator, build plan, quests, EXP meter, two
+quick checks (what to sell, what to buy) and how to get from one map to another. Everything reads the KB and the character; nothing touches
 the game. The window is non-modal, so it can stay open beside the chat."""
 from __future__ import annotations
 
@@ -9,19 +9,19 @@ import re
 import time
 
 from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel, QTextOption
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
 from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, sources
+from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, routes, sources
 from ..i18n import I18n
 from . import terms, theme
-from .controls import FlowLayout, Section, Segmented, Stepper, WrapLink, follow_typing, rtl_buttons
+from .controls import FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .widgets import chip_row, source_tag, source_tags, updated_tag
 from .patchnotes import gutter
 
-PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more")
+PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more", "route")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 
@@ -222,6 +222,24 @@ def map_rows(kb) -> list[tuple[str, str, object]]:
     return [r[2] for r in rows]
 
 
+def _whole(name: str) -> str:
+    """A short name with no-break spaces, so a line wraps before it rather than inside it."""
+    return name.replace(" ", " ") if len(name) <= bidi.KEEP_TOGETHER else name
+
+
+def route_rows(kb, graph) -> list[tuple[str, str, object]]:
+    """Every map a route can start or end on (in the game, on the route graph), towns first, each name once."""
+    rows = {}
+    for m in graph.maps.values():
+        if m.name in rows:
+            continue
+        info = "  ·  ".join(x for x in ("Town" if m.town else "", m.street or m.continent) if x)
+        mid = graph.exact(m.name) or m.id
+        shown = f"{m.name}\n{info}" if info else m.name          # the name on its own line, never cut
+        rows[m.name] = (not m.town, m.name.lower(), (shown, m.name, kb.picture(f"map/{mid}")))
+    return [r[2] for r in sorted(rows.values(), key=lambda r: r[:2])]
+
+
 class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
@@ -240,7 +258,8 @@ class ToolsDialog(GlassDialog):
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(10)
-        # the pages as chips, three rows of three so every label stays readable
+        # the pages as chips, three a row so every label stays readable; a shorter last row fills the width
+        # (on a grid of six columns: a chip of a full row spans two, the one chip of a last row all six)
         grid = QGridLayout()
         grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(6)
@@ -251,7 +270,11 @@ class ToolsDialog(GlassDialog):
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("page", name)
             self.nav.addButton(b, i)
-            grid.addWidget(b, i // 3, i % 3)
+            row, col = divmod(i, 3)
+            span = 6 // min(3, len(PAGES) - row * 3)
+            grid.addWidget(b, row, col * span, 1, span)
+        for col in range(6):
+            grid.setColumnStretch(col, 1)
         self.nav.idClicked.connect(self.show_page)
         outer.addLayout(grid)
         self.stack = QStackedWidget()
@@ -1620,3 +1643,200 @@ class ToolsDialog(GlassDialog):
         # with a fresh screenshot: the HUD shows max HP/MP as they are right now (and the potions already in the
         # bag when the inventory is open), so the list fits the character at this moment (live feedback)
         self._step_aside(lambda: self.ask_requested.emit(q, True))
+
+    # how to get there ----------------------------------------------------
+
+    def _page_route(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        self.route_graph = routes.of(self.kb)
+        sec = Section(t("route_title"), t.rtl)
+        rows = route_rows(self.kb, self.route_graph)
+        self.route_from = EntityPicker(rows, self._p(t("route_map_ph", n=len(rows))), icon=40, rtl=t.rtl)
+        self.route_to = EntityPicker(rows, self._p(t("route_map_ph", n=len(rows))), icon=40, rtl=t.rtl)
+        for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
+            picker.setMinimumWidth(280)
+            picker.picked.connect(self._find_route)
+            sec.add_row(t(label), picker)
+        self.route_taxi = Switch(True)
+        self.route_taxi.toggled.connect(lambda *_: self._find_route())
+        sec.add_row(t("route_taxi"), self.route_taxi, hint=t("route_taxi_hint"))
+        go = QPushButton(self._p(t("route_go")), objectName="Primary")
+        go.setCursor(Qt.PointingHandCursor)
+        go.clicked.connect(self._find_route)
+        swap = QPushButton(self._p(t("route_swap")), objectName="Link")
+        swap.setCursor(Qt.PointingHandCursor)
+        swap.setAutoDefault(False)
+        swap.clicked.connect(self._swap_route)
+        buttons = QWidget()
+        bl = QHBoxLayout(buttons)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.addWidget(go, 1)
+        bl.addWidget(swap)
+        sec.add_widget(buttons)
+        lay.addWidget(sec)
+        self.route_out = QVBoxLayout()
+        self.route_out.setSpacing(10)
+        lay.addLayout(self.route_out)
+        lay.addStretch(1)
+        self._route_auto = ""          # the start filled in from the character's map (followed when it moves)
+        return sc
+
+    def _fill_route(self):
+        c = self.c
+        here = (c.map if c else "") or ""
+        mid = self.route_graph.find(here) if here else None
+        start = self.route_from.text().strip()
+        if mid and (not start or start == self._route_auto):
+            self._route_auto = self.route_graph.name(mid)
+            self.route_from.setText(self._route_auto)
+            self.route_from.setCursorPosition(0)
+        self._find_route()
+
+    def route_to_map(self, key: str) -> None:
+        """Open on the way to this map (a map card's "How to get here"), from the character's map."""
+        self.show_page(PAGES.index("route"))
+        mid = self.route_graph.of_key(key)
+        if mid:
+            self.route_to.setText(self.route_graph.name(mid))
+            self.route_to.setCursorPosition(0)
+        self._find_route()
+
+    def _swap_route(self):
+        a, b = self.route_from.text(), self.route_to.text()
+        self.route_from.setText(b)
+        self.route_to.setText(a)
+        self._find_route()
+
+    def _route_hint(self, text: str) -> None:
+        self.route_out.addWidget(self._label(text, "RowHint"))
+
+    def _find_route(self):
+        t, g, rtl = self.t, self.route_graph, self.t.rtl
+        clear(self.route_out)
+        if not g.maps:
+            self._route_hint(t("route_no_data"))
+            return
+        texts = (self.route_from.text().strip(), self.route_to.text().strip())
+        if not texts[1]:
+            self._route_hint(t("route_pick"))
+            return
+        found = [g.find(x) if x else None for x in texts]
+        for text, mid in zip(texts, found):
+            if text and not mid:
+                # a map the KB has but doesn't confirm in the game (Orbis) is "not out yet", not "no such map"
+                why = "route_not_out" if g.not_in_game(text) else "route_unknown"
+                self._route_hint(t(why, name=bidi.ltr_block(text, rtl)))
+                return
+        a, b = found
+        if not a:
+            self._route_hint(t("route_pick_from"))
+            return
+
+        def name(mid: str) -> str:
+            return bidi.ltr_block(g.name(mid), rtl)
+        r = g.route(a, b, taxi=self.route_taxi.isChecked())
+        if r is None:
+            self._route_hint(t("route_none", a=name(a), b=name(b)))
+            self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+            return
+        if not r.legs:
+            self._route_hint(t("route_same"))
+            return
+        self.route_out.addWidget(self._label(t("route_head", a=name(a), b=name(b)), "ToolHeader"))
+        tags = FlowLayout(spacing=5)
+        tags.addWidget(tag(self._p(t("route_steps", n=len(r.legs))), "TagAccent"))
+        kinds = {leg.kind for leg in r.legs}
+        for kind in ("taxi", "boat"):
+            if kind in kinds:
+                tags.addWidget(tag(self._p(t(f"route_tag_{kind}")), "Tag"))
+        if not r.paid:
+            tags.addWidget(tag(self._p(t("route_tag_walk")), "TagGood"))
+        tags.addWidget(source_tag(t, sources.MEOWDB))
+        self.route_out.addLayout(tags)
+        notes = []
+        if "taxi" in kinds and (walk := g.route(a, b, taxi=False)):
+            notes.append(t("route_walk_alt", n=len(walk.legs)))
+        if r.paid:
+            paid = {leg.kind for leg in r.paid}
+            notes.append(t("route_fares" if len(paid) > 1 else f"route_fares_{paid.pop()}"))
+        notes.append(t("route_ring"))
+        self.route_out.addWidget(self._label("\n".join(notes), "RowHint"))
+        self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+        for i, leg in enumerate(r.legs, 1):
+            self.route_out.addWidget(self._route_step(str(i), leg.frm, leg))
+        self.route_out.addWidget(self._route_step("✓", b, None))
+
+    def _ask_route(self, a: str, b: str) -> None:
+        g = self.route_graph
+        self.ask_requested.emit(self.t("route_q", a=g.name(a), b=g.name(b)), False)
+
+    def _route_says(self, leg: routes.Leg | None) -> str:
+        t, rtl = self.t, self.t.rtl
+        if leg is None:
+            return t("route_arrive")
+        # a map name of a few words stays on one line: wrapped inside, "The Road to the" ended one line and
+        # "Dungeon" began the next
+        to = bidi.ltr_block(_whole(self.route_graph.name(leg.to)), rtl)
+        if leg.kind == "portal":
+            where = routes.side(leg.spot)
+            return t(f"route_portal_{where}" if where in ("left", "right") else "route_portal", to=to)
+        return t(f"route_by_{leg.kind}", npc=bidi.ltr_block(leg.via, rtl), to=to)
+
+    def _route_step(self, number: str, mid: str, leg: routes.Leg | None) -> QFrame:
+        """One map of the way: its name, what to do there, and its minimap with the spot to go to ringed."""
+        g, rtl = self.route_graph, self.t.rtl
+        card = QFrame(objectName="Card")
+        col = QVBoxLayout(card)
+        col.setContentsMargins(12, 10, 12, 10)
+        col.setSpacing(6)
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        num = tag(number, "TagAccent" if leg else "TagGood")
+        num.setMinimumWidth(26)
+        top.addWidget(num, 0, Qt.AlignTop)
+        names = QVBoxLayout()
+        names.setSpacing(1)
+        title = QLabel(bidi.ltr_name(g.name(mid), rtl), objectName="CardName")
+        title.setWordWrap(True)
+        names.addWidget(title)
+        m = g.maps[mid]
+        where = "  ·  ".join(x for x in (m.street, m.continent) if x)
+        if where:
+            names.addWidget(self._label(bidi.ltr_block(where, rtl), "CardSub"))
+        top.addLayout(names, 1)
+        col.addLayout(top)
+        col.addWidget(self._label(self._route_says(leg), "RowLabel"))
+        pic = self._minimap(mid, leg)
+        if pic is not None:
+            col.addWidget(pic, 0, Qt.AlignHCenter)
+        return card
+
+    MINIMAP_W, MINIMAP_H = 360, 170       # the most a step's minimap takes (small ones grow, pixel for pixel)
+
+    def _minimap(self, mid: str, leg: routes.Leg | None) -> QLabel | None:
+        path = self.route_graph.minimap(mid)
+        pm = QPixmap(str(path)) if path else QPixmap()
+        if pm.isNull():
+            return None
+        grow = max(1, min(3, self.MINIMAP_W // max(1, pm.width()), self.MINIMAP_H // max(1, pm.height())))
+        if grow > 1:
+            pm = pm.scaled(pm.width() * grow, pm.height() * grow, Qt.KeepAspectRatio, Qt.FastTransformation)
+        if pm.width() > self.MINIMAP_W or pm.height() > self.MINIMAP_H:
+            pm = pm.scaled(self.MINIMAP_W, self.MINIMAP_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if leg is not None and leg.spot:
+            # the portal (orange) or the NPC to talk to (green), ringed where it is on the map
+            x, y = round(leg.spot[0] * pm.width()), round(leg.spot[1] * pm.height())
+            color = QColor(theme.ORANGE if leg.kind == "portal" else theme.GOOD_TEXT_LIGHT)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(0, 0, 0, 170), 5))
+            p.drawEllipse(QPoint(x, y), 11, 11)
+            p.setPen(QPen(color, 2.6))
+            p.drawEllipse(QPoint(x, y), 11, 11)
+            p.end()
+        pic = QLabel()
+        pic.setPixmap(pm)
+        pic.setAccessibleName(self.route_graph.name(mid))
+        return pic
