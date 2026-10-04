@@ -246,8 +246,8 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
 
 
 def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool) -> bytes | None:
-    """The player's own sprite as a 128 px PNG portrait: on their name tag (found in the pixels, near the AI's rough
-    box), else the AI's box itself when it looks like a sprite and there's no portrait yet. None: no change.
+    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels, near the AI's rough
+    box). None: no change (no tag found; have_portrait is kept for the callers).
     Pure (no Qt), so it runs in a worker thread."""
     import io
 
@@ -272,25 +272,9 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
             buf = io.BytesIO()
             square.save(buf, "PNG")
             return buf.getvalue()
-        if not box or have_portrait:
-            return None     # no tag found: the AI's box alone is too often off to replace a portrait
-        W, H = img.size
-        x, y, w, h = box
-        if not (0 <= x < 1 and 0 <= y < 1 and 0.005 < w < 0.15 and 0.01 < h < 0.3):
-            return None     # far bigger than a character sprite: a misread
-        if not 0.6 <= (h * H) / (w * W) <= 4:
-            return None     # sprites stand upright: not a wide strip of scenery
-        pad_w, pad_h = w * 0.25, h * 0.12
-        left, top = max(0, (x - pad_w) * W), max(0, (y - pad_h) * H)
-        right, bottom = min(W, (x + w + pad_w) * W), min(H, (y + h + pad_h) * H)
-        crop = img.crop((int(left), int(top), int(right), int(bottom)))
-        side = max(crop.size)
-        square = Image.new("RGB", (side, side), crop.getpixel((0, 0)))
-        square.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
-        square = square.resize((128, 128), Image.LANCZOS)
-        buf = io.BytesIO()
-        square.save(buf, "PNG")
-        return buf.getvalue()
+        # no name tag: no portrait. The AI's box alone cropped scenery (live, 2026-10-04: the lamp beside Nana(H) and an
+        # HP bar, for a new character with no portrait yet); the job's picture stays until a read finds the tag
+        return None
     except Exception:      # noqa: BLE001
         return None
 
