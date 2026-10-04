@@ -149,7 +149,9 @@ class NoticeCard(QFrame):
     clicked = Signal()
     clicked2 = Signal()        # the second action, when there is one
 
-    def __init__(self, text: str, action: str, rtl: bool, stacked: bool = False, action2: str = ""):
+    def __init__(self, text: str, action: str, rtl: bool, stacked: bool = False, action2: str = "",
+                 closable: bool = True):
+        """closable: an ✕ at the far edge takes the note out of the chat (a KB update's note stayed for good)."""
         super().__init__(objectName="InfoNote")
         from . import theme
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
@@ -191,14 +193,31 @@ class NoticeCard(QFrame):
             self._row2.addWidget(self.btn)
             self._row2.addWidget(self.btn2)
             self._col.addWidget(holder)
+        self.close_btn = None
+        if closable:
+            from PySide6.QtWidgets import QToolButton
+            self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
+            self.close_btn.setCursor(Qt.PointingHandCursor)
+            self.close_btn.setFixedSize(24, 24)
+            self.close_btn.clicked.connect(self._dismiss)
+            lay.addWidget(self.close_btn, 0, Qt.AlignTop)
         self._below = None
         self.set_texts(text, action, rtl, action2)
+
+    def _dismiss(self):
+        self.hide()
+        self.deleteLater()
 
     def set_texts(self, text: str, action: str, rtl: bool, action2: str = ""):
         """Shown again in a new language when the player switches it."""
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
         self.msg.setText(bidi.plain(text, rtl))
         self.btn.setText(bidi.plain(action, rtl))
+        if self.close_btn is not None:
+            from ..i18n import I18n
+            label = I18n("he" if rtl else "en")("notice_close")
+            self.close_btn.setToolTip(label)
+            self.close_btn.setAccessibleName(label)
         if self.btn2 is not None and action2:
             self.btn2.setText(bidi.plain(action2, rtl))
         self._place_button()

@@ -273,3 +273,17 @@ def test_every_edge_and_corner_resizes_the_chat(overlay):
     assert ov._edge_cursor(Qt.TopEdge) == Qt.SizeVerCursor and ov._edge_cursor(Qt.Edge(0)) is None
     # the rim is free of controls: the header and the input start inside it
     assert ov.title_bar.geometry().top() >= z and ov.title_bar.geometry().left() >= z
+
+
+def test_a_notice_in_the_chat_can_be_closed():
+    """A KB update's note ("33 changes that affect you…") had no way out of the chat (the owner's report)."""
+    from PySide6.QtWidgets import QApplication
+    from maplehelper.ui.widgets import NoticeCard
+    app = QApplication.instance() or QApplication([])
+    card = NoticeCard("33 שינויים במאגר נוגעים לכם", "מה השתנה?", True)
+    card.show()
+    assert card.close_btn is not None and card.close_btn.toolTip() == "סגירה"
+    card.close_btn.click()
+    app.processEvents()
+    assert not card.isVisible()
+    assert NoticeCard("", "", True, stacked=True, closable=False).close_btn is None

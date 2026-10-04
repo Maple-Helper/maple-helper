@@ -552,6 +552,11 @@ class Overlay(QWidget):
         self.update_btn.setCursor(Qt.PointingHandCursor)
         self.update_btn.clicked.connect(self.update_requested.emit)
         ub.addWidget(self.update_btn)
+        # ✕: out of the way until the app opens again (every note in the chat can be closed: the owner)
+        self.update_close = self._icon_button(theme.ICON["close"])
+        self.update_close.setFixedSize(24, 24)
+        self.update_close.clicked.connect(self.update_bar.hide)
+        ub.addWidget(self.update_close, 0, Qt.AlignTop)
         self.update_bar.hide()
         lay.addWidget(self.update_bar)
 
@@ -569,7 +574,7 @@ class Overlay(QWidget):
         self.profile_card.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.profile_card)
         # no character (the last one deleted, then "Add character" cancelled): the way back, where the card was
-        self.no_char_card = NoticeCard("", "", True, stacked=True)     # Hebrew and English look the same
+        self.no_char_card = NoticeCard("", "", True, stacked=True, closable=False)     # Hebrew and English alike
         self.no_char_card.clicked.connect(self.add_character_requested.emit)
         self.no_char_card.hide()
         lay.addWidget(self.no_char_card)
@@ -846,6 +851,7 @@ class Overlay(QWidget):
                              getattr(self, "_update_pct", None))
         set_tip(self.profile_card, self.t("switch_character"))
         set_tip(self.min_btn, self.t("minimize"))
+        set_tip(self.update_close, self.t("notice_close"))
         set_tip(self.close_btn, self.t("close_chat").replace("F9", self.settings["hotkey_toggle"]))
         set_tip(self.mic_btn, self.t("mic_tip", key=hk_voice))
         self._on_text(self.input.text())
