@@ -463,16 +463,13 @@ class Overlay(QWidget):
         self._server = None            # the last status the site gave (None: none yet this session)
         self._server_answer = None     # the last answer, None when the site couldn't be reached
         self._server_asked = False     # an answer came this session (before it: "checking", not "unreachable")
-        self.version_label = QLabel(f"v{__version__}", objectName="Version")
-        self.version_label.setLayoutDirection(Qt.LeftToRight)
-        tb.addWidget(self.version_label)
         self.saver_badge = QLabel(objectName="SaverBadge")
         self.saver_badge.hide()
         self._saver_on = False
         tb.addWidget(self.saver_badge)
-        # the version and the saver badge never hold the window wide: _fit_header hides / shortens them when
-        # the header has no room (at 470 px with a large font the chat could not get that narrow)
-        for w in (self.version_label, self.saver_badge, self.beta_badge):
+        # the saver badge and BETA never hold the window wide: _fit_header shortens them when the header has no
+        # room (at 470 px with a large font the chat could not get that narrow)
+        for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
         self.history_btn = self._icon_button(theme.ICON["search"])
@@ -636,8 +633,15 @@ class Overlay(QWidget):
         self.scope_note = QLabel(objectName="ScopeNote")
         self.scope_note.setTextFormat(Qt.RichText)
         self.scope_note.setWordWrap(True)
-        self.scope_note.setAlignment(Qt.AlignHCenter)
-        lay.addWidget(self.scope_note)
+        self.scope_note.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)     # mirrored: the right side in Hebrew
+        # the line on the reading side (right in Hebrew), the version on the far side: the row mirrors with the language
+        self.version_label = QLabel(f"v{__version__}", objectName="Version")
+        self.version_label.setLayoutDirection(Qt.LeftToRight)
+        foot = QHBoxLayout()
+        foot.setContentsMargins(0, 0, 0, 0)
+        foot.addWidget(self.scope_note, 1)
+        foot.addWidget(self.version_label, 0, Qt.AlignBottom)
+        lay.addLayout(foot)
 
         # every edge and corner resizes (a single grip in one bottom corner was the only way before)
         self.setMouseTracking(True)
@@ -715,15 +719,13 @@ class Overlay(QWidget):
         super().leaveEvent(e)
 
     def _fit_header(self):
-        """Version and saver badge only when the header has room: first the buttons move closer, then the version
-        goes, then the badge shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at
-        the narrowest width with the largest font does it step aside. (Closer buttons first: with BETA beside the
-        name the version went at the default size.)"""
+        """The saver badge in full only when the header has room: first the buttons move closer, then the badge
+        shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at the narrowest width
+        with the largest font does it step aside. (The version sits in the footer, beside the scope line.)"""
         tb = self.title_bar.layout()
         room = self.title_bar.width()
         self.saver_badge.setText("🍃 " + self.t("saver_on_badge"))
         self.saver_badge.setVisible(self._saver_on)
-        self.version_label.show()
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
         buttons = (self.history_btn, self.tools_btn, self.guides_btn, self.wish_btn, self.settings_btn, self.min_btn,
@@ -733,15 +735,13 @@ class Overlay(QWidget):
             b.setMinimumWidth(24)
             b.setMaximumWidth(16777215)
         tb.setSpacing(8)
-        for step in ("tight", "version", "badge", "beta", "nobeta", "done"):
+        for step in ("tight", "badge", "beta", "nobeta", "done"):
             tb.invalidate()
             if tb.sizeHint().width() <= room or step == "done":
                 return
-            if step == "version":
-                self.version_label.hide()
-            elif step == "tight":
-                tb.setSpacing(3)          # the header's buttons closer together, and a little narrower: at the
-                for b in buttons:         # chat's narrowest (470 px) the version then stays beside BETA
+            if step == "tight":
+                tb.setSpacing(3)          # the header's buttons closer together, and a little narrower
+                for b in buttons:
                     b.setFixedWidth(26)
             elif step == "badge":
                 self.saver_badge.setText("🍃")

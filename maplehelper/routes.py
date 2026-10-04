@@ -25,8 +25,11 @@ from . import availability
 ROUTES_FILE = "routes.json"
 # what a step costs in the search: a short walk beats a cab ride, a long one doesn't
 COST = {"portal": 1, "npc": 2, "boat": 3, "taxi": 4}
-PAID = ("taxi", "boat")         # steps a player pays mesos for (the KB doesn't say how many)
+PAID = ("taxi", "boat")         # steps a player pays mesos for (how many only when a guide says: Leg.fare)
+# "take the boat from Shanks at the dock to Lith Harbor", or "Shanks at the dock sails you to Lith Harbor for 300 mesos"
 _BOAT = re.compile(r"take the (?:boat|ship) from ((?:[A-Z][\w.'-]*\s?)+?)\b[^.]{0,40}? to ((?:[A-Z][\w'-]*\s?)+)")
+_SAILS = re.compile(r"([^.\n]{1,60}?) (?:sails|ferries) you to ((?:[A-Z][\w'-]*\s?)+)")   # the captain: an NPC named in group 1
+_FARE = re.compile(r"\s*for (\d[\d,]*) mesos\b")
 # an NPC offering a trip ("Want to head over to Florina Beach?"), and the one who brings you back
 _OFFER = re.compile(r"[Ww]ant to (?:head|go|travel) (?:over |off )?to ((?:[A-Z][\w'-]*\s?)+)")
 _BACK = re.compile(r"\bback to where you were\b", re.I)
@@ -42,6 +45,7 @@ class Leg:
     via: str = ""                        # the portal's or the NPC's name
     npc: str = ""                        # the NPC's KB key ("npc/112")
     spot: tuple[float, float] | None = None     # (0-1, 0-1) on the first map's minimap
+    fare: int | None = None              # mesos, when a KB guide names the price ("... for 300 mesos")
 
 
 @dataclass
@@ -142,18 +146,28 @@ class Graph:
         return hits[0].id if hits else None
 
     def _boats(self) -> None:
-        """"take the boat from Shanks at the dock to Lith Harbor": the KB's guides, one way."""
+        """"take the boat from Shanks at the dock to Lith Harbor" / "Shanks ... sails you to Lith Harbor for 300
+        mesos": the KB's guides, one way. Only a captain who stands on a map in routes.json counts."""
         for key, e in self.kb.entities.items():
             if e.get("category") != "guide":
                 continue
-            for m in _BOAT.finditer(self.kb.page(key)):
-                captain, to = m.group(1).strip(), self.find_town(m.group(2))
+            page = self.kb.page(key)
+            for m in [*_BOAT.finditer(page), *_SAILS.finditer(page)]:
+                said, to = m.group(1).strip(), self.find_town(m.group(2).strip())
                 if not to:
                     continue
+                fare = _FARE.match(page, m.end())
+                fare = int(fare.group(1).replace(",", "")) if fare else None
+                if m.re is _BOAT:
+                    def is_captain(n, c=said):
+                        return n == c
+                else:                   # "Shanks at the dock sails you to": the NPC whose name the sentence holds
+                    def is_captain(n, c=said):
+                        return bool(n) and re.search(r"(?<![\w])" + re.escape(n) + r"(?![\w])", c) is not None
                 for mid in self.maps:
-                    npc = self._npc_on(mid, lambda n, c=captain: n == c)
+                    npc = self._npc_on(mid, is_captain)
                     if npc and mid != to:
-                        self._add(Leg(mid, to, "boat", npc["name"], self._npc_key(npc), self._spot(mid, npc)))
+                        self._add(Leg(mid, to, "boat", npc["name"], self._npc_key(npc), self._spot(mid, npc), fare))
 
     def _says(self, npc_key: str) -> str:
         page = self.kb.page(npc_key)
@@ -363,7 +377,8 @@ def describe(graph: Graph, r: Route) -> list[str]:
         elif leg.kind == "taxi":
             bit = f"talk to {leg.via} and take the taxi to {to} (costs mesos)"
         elif leg.kind == "boat":
-            bit = f"talk to {leg.via} and take the boat to {to} (costs mesos)"
+            cost = f"{leg.fare:,} mesos, by the knowledge base's guide" if leg.fare else "costs mesos"
+            bit = f"talk to {leg.via} and take the boat to {to} ({cost})"
         else:
             bit = f"talk to {leg.via}, who takes you to {to}"
         out.append(f"{i}. In {at}: {bit}.")

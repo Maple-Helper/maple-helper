@@ -100,6 +100,19 @@ def test_boats_and_npc_trips_come_from_the_kb_text(world):
     assert trip.via == "Pason" and trip.npc == "npc/9004"
     assert _path(g, g.route(FLORINA, HENESYS)) == [("npc", "Henesys")]            # Pison, "back to where you were"
     assert g.route(HENESYS, SOUTHPERRY) is None                                     # the boat goes one way
+    assert g.route(SOUTHPERRY, HENESYS).legs[0].fare is None                        # this guide names no price
+
+
+def test_a_guide_that_says_sails_you_to_with_a_price(world):
+    """NiaMeowDB rewrote the guide (Oct 2026): "Shanks at the dock sails you to ... for 300 mesos"."""
+    kb, _ = world
+    _page(kb.root, "guide/first-steps", "First Steps", "Shanks at the dock sails you to Henesys for 300 mesos once "
+                                                       "you reach level 7. The boat is one-way.")
+    from maplehelper.kb import KnowledgeBase
+    g = routes.of(KnowledgeBase(kb.root))
+    boat = g.route(SOUTHPERRY, HENESYS).legs[0]
+    assert (boat.kind, boat.via, boat.fare) == ("boat", "Shanks", 300)
+    assert "300 mesos" in routes.describe(g, g.route(SOUTHPERRY, HENESYS))[0]
 
 
 def test_names_and_the_ai_context(world):
@@ -209,7 +222,7 @@ def real():
 @needs_routes
 @pytest.mark.parametrize("a,b,first", [
     ("Henesys", "Kerning City", "taxi"), ("Lith Harbor", "Sleepywood", "taxi"), ("Ellinia", "Perion", "taxi"),
-    ("Southperry", "Henesys", "boat"), ("Henesys", "Florina Beach", "taxi"),
+    ("Southperry", "Lith Harbor", "boat"), ("Henesys", "Florina Beach", "taxi"),
 ])
 def test_real_routes(real, a, b, first):
     from maplehelper import availability

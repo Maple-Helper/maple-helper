@@ -163,9 +163,7 @@ def test_the_chat_fits_470_with_a_large_font_and_the_saver_badge(overlay, app):
     assert overlay.minimumSizeHint().width() <= 470
     assert overlay.width() == 470 and overlay.saver_badge.isVisible()
     assert overlay.title_bar.layout().sizeHint().width() <= overlay.title_bar.width()
-    overlay.resize(700, 640)
-    app.processEvents()
-    assert overlay.version_label.isVisible()               # back when there is room
+    assert overlay.version_label.isVisible()               # in the footer, at any width
 
 
 def test_no_character_shows_the_way_to_add_one(overlay, app):
@@ -198,3 +196,16 @@ def test_update_progress_survives_a_language_switch(overlay):
     overlay.settings["language"] = "en"
     overlay.apply_language()
     assert "42%" in overlay.update_label.text() and overlay.update_progress.value() == 424
+
+
+def test_the_version_sits_opposite_the_scope_line(overlay, app):
+    """Hebrew: the line on the right, the version at the bottom left; English mirrors it."""
+    from PySide6.QtCore import QPoint
+    app.processEvents()
+    def x(w):
+        return w.mapTo(overlay, QPoint(0, 0)).x()
+    assert x(overlay.version_label) < x(overlay.scope_note)
+    overlay.settings["language"] = "en"
+    overlay.apply_language()
+    app.processEvents()
+    assert x(overlay.version_label) > x(overlay.scope_note)

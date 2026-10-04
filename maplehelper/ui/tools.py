@@ -2240,8 +2240,10 @@ class ToolsDialog(GlassDialog):
         self.route_graph = routes.of(self.kb)
         sec = Section(t("route_title"), t.rtl)
         rows = route_rows(self.kb, self.route_graph)
-        self.route_from = EntityPicker(rows, self._p(t("route_map_ph", n=len(rows))), icon=40, rtl=t.rtl)
-        self.route_to = EntityPicker(rows, self._p(t("route_map_ph", n=len(rows))), icon=40, rtl=t.rtl)
+        # no map list before the KB carries routes.json (an app on an older KB): say so, not "Pick a map (0)"
+        ph = self._p(t("route_map_ph", n=len(rows)) if rows else t("route_no_maps"))
+        self.route_from = EntityPicker(rows, ph, icon=40, rtl=t.rtl)
+        self.route_to = EntityPicker(rows, ph, icon=40, rtl=t.rtl)
         for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
             picker.setMinimumWidth(280)
             picker.picked.connect(self._find_route)
@@ -2345,8 +2347,8 @@ class ToolsDialog(GlassDialog):
         notes = []
         if "taxi" in kinds and (walk := g.route(a, b, taxi=False)):
             notes.append(t("route_walk_alt", n=len(walk.legs)))
-        if r.paid:
-            paid = {leg.kind for leg in r.paid}
+        if unpriced := [leg for leg in r.paid if not leg.fare]:
+            paid = {leg.kind for leg in unpriced}
             notes.append(t("route_fares" if len(paid) > 1 else f"route_fares_{paid.pop()}"))
         notes.append(t("route_ring"))
         self.route_out.addWidget(self._label("\n".join(notes), "RowHint"))
@@ -2369,7 +2371,8 @@ class ToolsDialog(GlassDialog):
         if leg.kind == "portal":
             where = routes.side(leg.spot)
             return t(f"route_portal_{where}" if where in ("left", "right") else "route_portal", to=to)
-        return t(f"route_by_{leg.kind}", npc=bidi.ltr_block(leg.via, rtl), to=to)
+        said = t(f"route_by_{leg.kind}", npc=bidi.ltr_block(leg.via, rtl), to=to)
+        return said + (" " + t("route_fare", n=f"{leg.fare:,}") if leg.fare else "")
 
     def _route_step(self, number: str, mid: str, leg: routes.Leg | None) -> QFrame:
         """One map of the way: its name, what to do there, and its minimap with the spot to go to ringed."""
