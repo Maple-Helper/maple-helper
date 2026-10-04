@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QProgress
 
 from .. import bidi, pins
 from ..i18n import I18n
+from . import theme
 from .controls import follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
@@ -48,7 +49,7 @@ def _answer_label(text: str) -> QLabel:
 
 
 class PinsBar(QFrame):
-    """'📌 Pinned (2) ▾': tap to open the pinned answers, ✕ on one to unpin it."""
+    """'(pin) Pinned (2) ▾': tap to open the pinned answers, ✕ on one to unpin it."""
 
     unpin = Signal(str)
 
@@ -112,7 +113,8 @@ class PinsBar(QFrame):
 
     def _refresh_head(self):
         arrow = "▴" if self.scroll.isVisible() else "▾"
-        self.head.setText(bidi.plain(f"📌 {self._t('pinned', n=len(self._items))} {arrow}", getattr(self, "_rtl", True)))
+        self.head.setText(bidi.plain(f"{self._t('pinned', n=len(self._items))} {arrow}", getattr(self, "_rtl", True)))
+        self.head.setIcon(theme.glyph_icon("pin", theme.P()["text"], 14))          # the icon font's pin, not 📌
 
     def _toggle(self):
         self.scroll.setVisible(not self.scroll.isVisible())
@@ -166,7 +168,6 @@ def draw_focus(w: QWidget) -> None:
     from PySide6.QtCore import QRectF
     from PySide6.QtGui import QColor, QPainter, QPen
 
-    from . import theme
     p = QPainter(w)
     p.setRenderHint(QPainter.Antialiasing)
     color = QColor(theme.ORANGE if theme.MODE == "dark" else theme.ORANGE_DEEP)
@@ -382,7 +383,8 @@ class HistoryDialog(GlassDialog):
                                                                                 list(p.get("entities") or [])))
                 actions.addWidget(go)
                 actions.addStretch(1)
-                pin = QPushButton(bidi.plain("📌 " + t("pin"), rtl), objectName="Link")
+                pin = QPushButton(bidi.plain(t("pin"), rtl), objectName="Link")
+                pin.setIcon(theme.glyph_icon("pin", theme.accent_text(), 14))     # in the link's orange
                 pin.setCursor(Qt.PointingHandCursor)
                 pin.setAutoDefault(False)
                 pin.clicked.connect(lambda _=False, b=pin: (self.pin_requested.emit(question, p["a"]), b.setEnabled(False)))

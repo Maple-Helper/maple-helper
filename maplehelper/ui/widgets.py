@@ -93,11 +93,12 @@ class Bubble(QFrame):
         self.label.setText(body)
 
     def add_pin(self, on_pin, tip: str) -> None:
-        """A small 📌 under a finished answer."""
+        """A small pin under a finished answer (the icon font's, like the header's icons; it was the 📌 emoji)."""
         from PySide6.QtWidgets import QToolButton
         row = QHBoxLayout()
         row.addStretch(1)
-        b = QToolButton(objectName="Icon", text="📌")
+        from . import theme
+        b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
         b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
