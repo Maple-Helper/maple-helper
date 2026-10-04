@@ -599,7 +599,7 @@ STRINGS = {
     "craft_makes_tailoring": {"he": "תופרים בגדים: כובעים, חולצות ואוברולים.", "en": "Sew clothes: hats, tops and overalls."},
     "craft_makes_woodcrafting": {"he": "מכינים נשק מעץ: קשתות, קרוסבואים, שרביטים ומטות.", "en": "Make wooden weapons: bows, crossbows, wands and staves."},
     "craft_makes_leatherworking": {"he": "מכינים מעור: נעליים, כפפות וגלימות.", "en": "Make leather gear: shoes, gloves and capes."},
-    "craft_makes_arcforge": {"he": "מקצוע הקסם: מזקקים אבני חן, ומכינים Scrolls לשדרוג ציוד ונשק קסם (מטות ושרביטים).", "en": "The magic craft: refine gems, and make scrolls for your gear and magic weapons (staves and wands)."},
+    "craft_makes_arcforge": {"he": "מקצוע הקסם: מזקקים אבני חן, ומכינים Scrolls לשדרוג ציוד ונשק.", "en": "The magic craft: refine gems, and make scrolls to upgrade gear and weapons."},
     "craft_teacher": {"he": "המורה: **{npc}** ב-**{town}**. מדברים איתו כדי ללמוד את המקצוע.", "en": "Teacher: **{npc}** in **{town}**. Talk to them to learn the profession."},
     "craft_start": {"he": "קווסט פתיחה · מרמה {lv}", "en": "First quest · from level {lv}"},
     "craft_master": {"he": "קווסט מומחה · מרמה {lv}", "en": "Master quest · from level {lv}"},
