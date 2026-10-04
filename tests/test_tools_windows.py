@@ -157,6 +157,7 @@ def test_closing_during_a_free_market_lookup_logs_nothing(tools, monkeypatch):
     from maplehelper import market
     release, errors = threading.Event(), []
     monkeypatch.setattr(market, "free_market", lambda n: release.wait(5) and None)
+    monkeypatch.setattr(market, "item_market", lambda i: release.wait(5) and None)
     monkeypatch.setattr(threading, "excepthook", lambda a: errors.append(a.exc_value))
     d, _ = tools("Thief", "Assassin", 34, "prices")
     before = set(threading.enumerate())

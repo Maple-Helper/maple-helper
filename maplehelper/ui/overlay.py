@@ -314,6 +314,7 @@ class Overlay(QWidget):
     inventory_read = Signal(object)    # (question, shown, character id, tiles, slots, description), worker thread
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
+    news_requested = Signal()          # the news strip was tapped: the patch notes window's News tab
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, brain: Brain):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -400,6 +401,16 @@ class Overlay(QWidget):
         self.beta_badge.setAlignment(Qt.AlignCenter)
         self.beta_badge.setFixedHeight(17)
         tb.addWidget(self.beta_badge, 0, Qt.AlignVCenter)
+        # the game servers' state, beside BETA. Live from MeowDB, not the KB (a nightly copy can't follow a
+        # maintenance): polled only while the chat is open (showEvent / hideEvent), see serverdot.py
+        from .serverdot import ServerDot, StatusPoller
+        self.server_dot = ServerDot()
+        tb.addWidget(self.server_dot, 0, Qt.AlignVCenter)
+        self.server_poller = StatusPoller(parent=self)
+        self.server_poller.status.connect(self._on_server_status)
+        self._server = None            # the last status the site gave (None: none yet this session)
+        self._server_answer = None     # the last answer, None when the site couldn't be reached
+        self._server_asked = False     # an answer came this session (before it: "checking", not "unreachable")
         self.version_label = QLabel(f"v{__version__}", objectName="Version")
         self.version_label.setLayoutDirection(Qt.LeftToRight)
         tb.addWidget(self.version_label)
@@ -462,6 +473,13 @@ class Overlay(QWidget):
         ub.addWidget(self.update_btn)
         self.update_bar.hide()
         lay.addWidget(self.update_bar)
+
+        # unread MapleStory Classic news (the KB's news.json): tap for the News tab, ✕ to dismiss that item
+        from .newsview import NewsStrip
+        self.news_strip = NewsStrip()
+        self.news_strip.opened.connect(self.news_requested.emit)
+        self.news_strip.dismissed.connect(self._dismiss_news)
+        lay.addWidget(self.news_strip)
 
         # the character, pinned at the top of the conversation
         self.profile_card = ProfileCard()
@@ -727,6 +745,8 @@ class Overlay(QWidget):
         self._fit_header()
         self.show_scope()
         set_tip(self.wish_btn, self.t("wishlist"))
+        self.server_dot.set_status(self._server_answer, self.t, asked=self._server_asked)
+        self.show_news()
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
@@ -842,6 +862,50 @@ class Overlay(QWidget):
         self.profile_card.exp.show_progress(plan.progress(self.kb, c.level, c.exp_pct), self.t, self.t.rtl)
         dismissed = (self.settings["tips_dismissed"] or {}).get(c.id, {})
         self.tip_strip.show_tip(plan.tip(self.kb, c, self.t, dismissed), self.t, self.t.rtl)
+
+    # ------------------------------------------------------------------ news and server status
+
+    def show_news(self) -> None:
+        """The news strip: the newest Global news the player hasn't read or dismissed (news.unread)."""
+        from .. import news
+        self.news_strip.show_news(news.unread(self.kb, self.settings[news.SETTING]), self.t)
+
+    def _dismiss_news(self, nid: str) -> None:
+        from .. import news
+        news.mark_read(self.settings, [nid])
+        self.show_news()                # the next unread item, if any
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.server_poller.start()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.server_poller.stop()        # closed or minimized: no polling
+
+    def _on_server_status(self, st) -> None:
+        """A server-status answer: the dot, and one chat notice when a maintenance starts or ends. An unreachable
+        site turns the dot grey but says nothing (a network blip isn't maintenance)."""
+        from .. import serverstatus
+        self._server_answer, self._server_asked = st, True
+        self.server_dot.set_status(st, self.t)
+        if st is None:
+            return
+        change = serverstatus.transition(self._server, st)
+        self._server = st
+        if change == "started":
+            from .serverdot import when
+            until = when(st.notice_end) if st.notice_end and not st.notice_done else ""
+
+            def text(t, until=until):
+                return t("server_maint_started_until", time=until) if until else t("server_maint_started")
+            if st.notice_url:
+                self.add_notice(text, lambda t: t("server_notice_open"),
+                                lambda url=st.notice_url: __import__("webbrowser").open(url))
+            else:
+                self.add_system(text)
+        elif change == "ended":
+            self.add_system(lambda t: t("server_maint_ended"))
 
     def _dismiss_tip(self, kind: str):
         c = self.profiles.active
@@ -1158,6 +1222,7 @@ class Overlay(QWidget):
     def open_overlay(self, shot: bytes | None, game_hwnd: int | None):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
         self._update_shot_hint()
+        self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
             self.place_default(game_hwnd)
         if self._session_started is None:
@@ -1290,7 +1355,7 @@ class Overlay(QWidget):
         pins, the conversation, the tagged cards, then the input row. (Qt's own chain is creation order: the chips
         and the chat's buttons, made later, came after the header, and the header after the input.)"""
         from PySide6.QtWidgets import QAbstractScrollArea
-        sections = [self.title_bar, self.update_bar, self.profile_card, self.no_char_card, self.tip_strip,
+        sections = [self.title_bar, self.update_bar, self.news_strip, self.profile_card, self.no_char_card, self.tip_strip,
                     self.pins_bar, self.feed, self.focus_bar, self.capsule]
         rtl = self.t.rtl
         found = []

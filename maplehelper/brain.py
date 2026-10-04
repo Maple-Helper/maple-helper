@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, providers, sources
+from . import availability, news, providers, sources
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -61,7 +61,7 @@ Advice must fit the player's level and job. If the profile lacks level or job, a
 
 Scope: you help only with MapleStory Classic (the game, the player's characters) and with Maple Helper itself (what it
 can do, its settings, which AI and model answers). Anything else
-(news, real people, politics, general knowledge, other games, coding, homework, writing or file tasks) you do not answer,
+(news not about MapleStory Classic, real people, politics, general knowledge, other games, coding, homework, writing or file tasks) you do not answer,
 not even briefly: reply in one short line, in the question's language, that you only help with MapleStory Classic, and
 invite a game question. Entities stay empty.
 
@@ -247,6 +247,10 @@ def build_prompt(question: str, character: Character | None, history: History | 
     changes = kb_changes.ai_lines(kb, shown)
     if changes:
         ctx.append("\n".join(changes))
+    # the KB's news (NiaMeowDB's news section) for a question about news, launch or maintenance: what was
+    # announced, never what is released (the game scope says that)
+    if news.asks_news(question) and (announced := news.ai_lines(kb)):
+        ctx.append("\n".join(announced))
     if ctx:
         parts.append("<kb_context>\n" + "\n\n".join(ctx) + "\n</kb_context>")
     if has_screenshot is True:
