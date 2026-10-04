@@ -138,5 +138,8 @@ if what in ("all", "tools"):
         d.show_page(PAGES.index(page))
         if page == "crafting":
             d.craft_pick.button(3).click()          # Woodcrafting: Vicious in Henesys Market
+        if page == "quests":
+            d.q_mode.group.buttons()[1].click()     # the ones not done yet: a full list (the level's tab can be empty)
+            pump(1.0)
         grab(d, f"tools-{page}-{MODE}{SUF}.png")
     d.close()
