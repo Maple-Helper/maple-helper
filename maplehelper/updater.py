@@ -30,6 +30,9 @@ from .store import DATA_DIR, USER_KB, kb_dir
 # Set when the GitHub repository exists (see README, "Publishing").
 GITHUB_REPO = "Maple-Helper/maple-helper"
 MANIFEST_URL = f"https://github.com/{GITHUB_REPO}/releases/latest/download/kb-manifest.json" if GITHUB_REPO else ""
+# the same repository under its owner before it moved to the Maple-Helper organization: GitHub redirects its release
+# links here, and a manifest carried forward from back then still names it (0.8.3 refused it: no KB updates)
+FORMER_REPOS = ("Amitaflalo1995/maple-helper",)
 
 
 _TAG = re.compile(r"v?\d{1,4}(\.\d{1,4}){1,2}")        # "v0.9.2": also safe in a file name
@@ -40,7 +43,8 @@ def release_url_ok(url, tag: str | None = None, name: str | None = None) -> bool
     """A download from this repository's releases over HTTPS (for that tag and file name, when given)."""
     if not isinstance(url, str) or not GITHUB_REPO:
         return False
-    m = re.fullmatch(rf"https://github\.com/{re.escape(GITHUB_REPO)}/releases/(?:download/([^/]+)|latest/download)/([^/?#]+)",
+    repos = "|".join(re.escape(r) for r in (GITHUB_REPO, *FORMER_REPOS))
+    m = re.fullmatch(rf"https://github\.com/(?:{repos})/releases/(?:download/([^/]+)|latest/download)/([^/?#]+)",
                      url)
     if not m:
         return False

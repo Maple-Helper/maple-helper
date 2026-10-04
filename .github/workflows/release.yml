@@ -89,6 +89,9 @@ jobs:
             echo "$want  kb-in/kb.zip" | sha256sum -c - || { echo "::error::published kb.zip does not match kb-manifest.json"; exit 1; }
             python -m zipfile -e kb-in/kb.zip data/kb
             cp kb-in/kb.zip kb-in/kb-manifest.json dist-kb/
+            # ...but always pointing at THIS repository: a manifest carried forward from before the repository moved
+            # to the Maple-Helper organization named the old owner, and 0.8.3's updater refuses any other repo
+            python -c "import json,os;p='dist-kb/kb-manifest.json';m=json.load(open(p));m['url']='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/latest/download/kb.zip';json.dump(m,open(p,'w'))"
             echo "Carrying forward KB $(python -c 'import json; print(json.load(open("kb-in/kb-manifest.json"))["version"])')"
           else
             # first release ever: build the KB (NiaMeowDB, used with permission; polite single-site scrape)

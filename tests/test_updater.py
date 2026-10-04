@@ -360,3 +360,10 @@ def test_release_url_check():
     assert not updater.release_url_ok(ok, "v1.2.4", "MapleHelper-Setup.exe")
     assert not updater.release_url_ok(ok + "?x=1")
     assert not updater.release_url_ok(None)
+
+
+def test_a_manifest_naming_the_repository_before_it_moved_is_accepted():
+    from maplehelper import updater
+    assert updater.release_url_ok("https://github.com/Maple-Helper/maple-helper/releases/latest/download/kb.zip")
+    assert updater.release_url_ok("https://github.com/Amitaflalo1995/maple-helper/releases/latest/download/kb.zip")
+    assert not updater.release_url_ok("https://github.com/someone-else/maple-helper/releases/latest/download/kb.zip")
