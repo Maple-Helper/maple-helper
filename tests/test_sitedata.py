@@ -21,8 +21,8 @@ needs_kb = pytest.mark.skipif(not (REAL_KB / "index.json").exists(), reason="no 
 
 
 def bare(text: str) -> str:
-    """A label's text without its direction marks."""
-    return "".join(ch for ch in text if ch not in "\u200e\u200f\u202a\u202b\u202c\u2066\u2067\u2069")
+    """A label's text without its direction marks (and the word joiner that keeps "\u05d1-" with what follows)."""
+    return "".join(ch for ch in text if ch not in "\u200e\u200f\u202a\u202b\u202c\u2066\u2067\u2069\u2060")
 
 
 def page(name: str) -> str:

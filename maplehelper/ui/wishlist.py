@@ -1,7 +1,7 @@
 """The wishlist window: each wished item, who drops it (lowest level first) and where they live."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
@@ -98,12 +98,25 @@ class WishlistDialog(GlassDialog):
             lay.addSpacing(10)
         lay.addStretch(1)
 
+    @Slot()
     def _refill(self) -> None:
+        """After the wishlist's signal, not inside it: rebuilding while the signal ran (the star that sent it is in
+        here) crashed the app later, when the old cards were deleted."""
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self, self._refill_now)
+
+    def _refill_now(self) -> None:
+        from .widgets import WISHLIST
+        if self.isVisible():
+            self._fill(WISHLIST.keys())
+
+    def done(self, r: int) -> None:
         from .widgets import WISHLIST
         try:
-            self._fill(WISHLIST.keys())
-        except RuntimeError:          # the window was closed and deleted meanwhile
+            WISHLIST.changed.disconnect(self._refill)       # a closed window stays out of the wishlist's changes
+        except (RuntimeError, TypeError):
             pass
+        super().done(r)
 
     def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None) -> QFrame:
         t, kb = self.t, self.kb

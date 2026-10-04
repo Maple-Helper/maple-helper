@@ -51,6 +51,9 @@ _GUIDE_DATA = re.compile(r"\buse current (?P<label>[A-Z0-9]\S*) data\b")       #
 _SOURCE_LINE = re.compile(r"^Source ?: (?P<who>.+)$")
 _CLOSED_PRICE = re.compile(r"^Closed-test price\b(?P<rest>.*)$")
 _EXP_REFERENCE = re.compile(r"Levels (\d+) to (\d+) reproduce a historical reference")
+# the Free Market's player price reports on an item page; NiaMeowDB renamed the section on 2026-10-04 ("Community price
+# check" became "Free Market / Player reported ... Saw it in a shop? Add a price"), and the nightly test stopped the KB
+FM_REPORTS = ("Community price check", "Player reported", "Saw it in a shop? Add a price")
 _MSEA_DROPS = re.compile(r"^MSEA reference drops$", re.I)
 EXP_GUIDE = "guide/exp-table-level-1-to-100"
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
@@ -255,7 +258,7 @@ def markers(kb, key: str) -> list[Marker]:
             out.append(Marker("drops", MSEA, ln))
         elif ln.startswith("Community sourced"):
             out.append(Marker("community_list", COMMUNITY, ln))
-        elif ln == "Community price check":
+        elif ln in FM_REPORTS:
             out.append(Marker("fm_reports", COMMUNITY, ln))
         elif (m := _SOURCE_LINE.match(ln)):
             who = m.group("who")

@@ -429,8 +429,10 @@ def test_a_star_taken_off_leaves_the_open_wishlist_at_once(ckb, app, isolated_st
     dlg = WishlistDialog(WISHLIST.keys(), ckb, "he", "")
     try:
         def shown():
-            app.processEvents()
+            for _ in range(3):           # the refill runs after the signal, and new widgets show a pass later
+                app.processEvents()
             return sorted(c.key for c in dlg.findChildren(EntityCard) if c.isVisibleTo(dlg))
+        dlg.show()
         assert shown() == ["item/413", "item/709"]
         WISHLIST.toggle("item/709")                  # the star off
         assert shown() == ["item/413"]

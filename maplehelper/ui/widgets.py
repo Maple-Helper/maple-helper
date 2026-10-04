@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import webbrowser
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
                                QWidgetAction)
@@ -658,6 +658,7 @@ class EntityCard(Selectable, QFrame):
         bl.addStretch(1)
         row.addWidget(self._buttons, 0, Qt.AlignTop)
 
+    @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
     def _refresh_star(self):
         from . import theme
         on = WISHLIST.has(self.key)
@@ -1122,6 +1123,7 @@ class EntityTile(Selectable, QFrame):
             row.addWidget(self._star, 0, Qt.AlignTop)
         self._align_name()
 
+    @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
     def _refresh_star(self):
         from . import theme
         try:
