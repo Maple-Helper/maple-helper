@@ -1271,8 +1271,8 @@ STRINGS = {
     "tier_col_range_tip": {"he": "מאיזה מרחק אפשר לתקוף", "en": "How far away you can attack from"},
     # play tools: farming (farm.py, the Farm tab)
     "tool_farm": {"he": "פארם", "en": "Farm"},
-    "farm_intro": {"he": "**פארם: ציד בשביל הדרופ, לא בשביל ה-EXP.**\n• בוחרים פריט ורואים **מי מפיל אותו**, איפה הוא נמצא והאם הוא ברמה שלכם\n• **משתלם ברמה שלכם**: מפלצות שה-NPC משלם הכי הרבה על הדרופים שלהן\n• **סשן פארם** סופר מה נוסף לתיק (בלשונית **Etc** או **Equip**), כמה זה שווה וכל כמה הריגות זה נפל\nבמאגר אין סיכויי דרופ, אז הקצב היחיד כאן הוא מה שהסשנים שלכם מדדו.",
-                   "en": "**Farming: hunting for the drop, not the EXP.**\n• Pick an item to see **who drops it**, where it lives and whether it's your level\n• **Worth farming at your level**: monsters whose drops an NPC pays most for\n• A **farm session** counts what lands in your bag (on the **Etc** or **Equip** tab), what it's worth and how many kills each took\nThe database has no drop chances, so the only rate here is what your own sessions measured."},
+    "farm_intro": {"he": "**פארם: ציד בשביל הדרופ, לא רק בשביל ה-EXP.**\n• בוחרים פריט ורואים **מי מפיל אותו**, איפה הוא נמצא והאם הוא ברמה שלכם\n• **משתלם ברמה שלכם**: מפלצות שה-NPC משלם הכי הרבה על הדרופים שלהן\n• **סשן פארם** סופר מה נוסף לתיק (בלשונית **Etc** או **Equip**), כמה זה שווה וכל כמה הריגות זה נפל\nבמאגר אין סיכויי דרופ, אז הקצב היחיד כאן הוא מה שהסשנים שלכם מדדו.",
+                   "en": "**Farming: hunting for the drop, not just the EXP.**\n• Pick an item to see **who drops it**, where it lives and whether it's your level\n• **Worth farming at your level**: monsters whose drops an NPC pays most for\n• A **farm session** counts what lands in your bag (on the **Etc** or **Equip** tab), what it's worth and how many kills each took\nThe database has no drop chances, so the only rate here is what your own sessions measured."},
     "farm_want": {"he": "מה אתם רוצים להשיג?", "en": "What do you want to get?"},
     "farm_placeholder": {"he": "{n} פריטים שמפלצות מפילות", "en": "{n} items monsters drop"},
     "farm_from_wishlist": {"he": "מרשימת המשאלות:", "en": "From your wishlist:"},
