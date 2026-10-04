@@ -574,9 +574,6 @@ class ToolsDialog(GlassDialog):
         sc, lay = scroll_page(self.t.rtl)
         self.train_head = self._label("", "ToolHeader")
         lay.addWidget(self.train_head)
-        # one short line, the whole why behind its "?" (four lines of it were too much: the owner)
-        self.train_why = self._label("", "RowHint")
-        lay.addWidget(self.train_why)
         # the stats first: the spots below are ranked by them, and at the end of a long list nobody found them
         lay.addWidget(self._stats_section())
         self.train_list = QVBoxLayout()
@@ -589,6 +586,9 @@ class ToolsDialog(GlassDialog):
     def _fill_train(self):
         t, c = self.t, self.c
         clear(self.train_list)
+        # one short line, the whole why behind its "?" (four lines of it were too much), under the monsters'
+        # heading: it says why these monsters (the owner)
+        self.train_why = self._label("", "RowHint")
         if not c:
             self.train_head.setText("")
             self._no_character(self.train_list)
@@ -628,6 +628,7 @@ class ToolsDialog(GlassDialog):
         most = self._most_mesos(rows)
         # a heading over every list of cards, as over the quests (the owner)
         self.train_list.addWidget(self._label(t("list_monsters"), "SectionHeader"))
+        self.train_list.addWidget(self.train_why)
         for i, s in enumerate(rows):
             self.train_list.addWidget(self._spot_card(s, best=(i == 0), most_mesos=s is most))
 
