@@ -2,13 +2,16 @@
 what they pay. Done quests are kept per character (Character.quests_done)."""
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 
 from . import availability
 
-WINDOW_BELOW = 12     # quests this many levels under you still show (cheap EXP you may have skipped)
+WINDOW_BELOW = 200    # every quest under you that isn't done (a Lv. 13 one skipped at 31 must still show: the
+                      # owner); best EXP first, so the old cheap ones sit at the end
 WINDOW_ABOVE = 4      # and these coming soon
 
 
@@ -40,6 +43,10 @@ class Quest:
     accept_cost: int = 0                # "Pay 1,000 mesos to accept." (pages/quest/10303.md)
     # any other pre-requisite line, kept word for word so it is never lost ("Must not already have: ...")
     notes: list[str] = field(default_factory=list)
+    self_start: bool = False            # "Self-Starting": it opens on its own, no NPC hands it out
+    task: str = ""                      # what to do, the game's quest journal ("Arthur asked me to greet Rina ...")
+    turn_in: str = ""                   # who it is finished with, when not its giver ("Start: Arthur · Turn in: Roxy")
+    cycle: str = ""                     # "daily" / "weekly": done again every day / week (the page's "Daily")
 
     def matches(self, query: str) -> bool:
         """The quest search: every word of the query in its name, NPC, area, what it asks or what it gives."""
@@ -182,6 +189,27 @@ def _quest(kb, key: str) -> Quest | None:
             q.notes.append(ln)
     for ln in _section(lines, "Requirements"):
         q.needs += [f"{name.strip()} x {n}" for name, n in _ITEM.findall(ln)] or [ln]
+    head = lines[:lines.index("Pre-requisites")] if "Pre-requisites" in lines else lines[:12]
+    q.self_start = "Self-Starting" in head
+    q.cycle = "daily" if "Daily" in head else "weekly" if "Weekly" in head else ""
+    for ln in head:
+        m = re.search(r"Turn in: (.+?)(?:\s+·|$)", ln)
+        if m:
+            q.turn_in = m.group(1).strip()
+        m = re.search(r"Start: (.+?)(?:\s+·|$)", ln)
+        if m and not q.npc:
+            q.npc = m.group(1).strip()
+    # the journal's step that says what to do ("02 ..."), else the description's first line ("01 ...")
+    for ln in lines:
+        if ln.startswith("Quest journal"):
+            m = re.search(r"\b02 (.+?)$", ln)
+            if m:
+                q.task = m.group(1).strip()
+            break
+    if not q.task:
+        first = next((ln for ln in lines if ln.startswith("01 ")), "")
+        q.task = first[3:].strip()
+    q.task = re.sub(r"^(?:⌄\s*)?(?:\d\d\s+)?", "", q.task).strip()      # "⌄ 02 I met Heena": the page's markers
     pick = False                     # inside "Pick one (class-specific):"
     for ln in _section(lines, "Rewards"):
         fame = re.search(r"\+ ?(\d+) Fame", ln)
@@ -212,17 +240,93 @@ def _quest(kb, key: str) -> Quest | None:
     return q
 
 
+# when a daily / weekly quest comes back: the KB names no reset time, so nothing here claims one. A daily quest
+# marked done is back the next calendar day on the player's clock, a weekly one seven days after it was marked
+# (the owner: "be airtight, don't make things up")
+
+
+def back_at(cycle: str, done_at: float) -> float:
+    """When a daily / weekly quest marked done at done_at is on the list again."""
+    from datetime import datetime, timedelta
+    if cycle == "weekly":
+        return done_at + 7 * 86400
+    day = datetime.fromtimestamp(done_at).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (day + timedelta(days=1)).timestamp()
+
+
+def expire_cycles(kb, c, now: float | None = None) -> bool:
+    """A daily / weekly quest marked done whose time is up is to do again: off the done list. True if any."""
+    import time
+    now = time.time() if now is None else now
+    changed = False
+    for key, when in list((c.cycle_done or {}).items()):
+        q = quest(kb, key)
+        if q is None or not q.cycle or not isinstance(when, (int, float)) or now >= back_at(q.cycle, when):
+            c.cycle_done.pop(key, None)
+            if key in c.quests_done:
+                c.quests_done.remove(key)
+            changed = True
+    return changed
+
+
+_TASKS_HE: dict | None = None
+
+
+def task_text(q: Quest, lang: str, kb=None) -> str:
+    """What to do, in the player's language: the Hebrew of assets/quest_tasks/he.json while its English is still
+    the page's (a changed journal line falls back to the English until it is translated again)."""
+    global _TASKS_HE
+    if lang != "he" or not q.task:
+        return q.task
+    from . import translations
+    made = translations.he(getattr(kb, "root", None), "quest_tasks", q.key, q.task)
+    if made:
+        return made
+    if _TASKS_HE is None:
+        path = Path(__file__).resolve().parent.parent / "assets" / "quest_tasks" / "he.json"
+        try:
+            _TASKS_HE = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _TASKS_HE = {}
+    row = _TASKS_HE.get(q.key) or {}
+    return row.get("he") if row.get("en") == q.task and row.get("he") else q.task
+
+
+def _required(kb) -> set[str]:
+    """Every quest name another quest asks to be done first ("Quest Complete First Greeting with Rina")."""
+    got = kb.__dict__.get("_quests_required")
+    if got is None:
+        got = set()
+        for k, e in kb.entities.items():
+            if e.get("category") == "quest":
+                q = _quest(kb, k)
+                if q:
+                    got.update(" ".join(a.split()) for a in q.afters)
+        kb.__dict__["_quests_required"] = got
+    return got
+
+
 def quest(kb, key: str) -> Quest | None:
-    return _quest(kb, key)
+    q = _quest(kb, key)
+    # the board's "Daily" tag on a quest another one asks for first is a step done once ("First Greeting with
+    # Rina" opens the repeatable "Asking After Rina"), not one to do again every day (the owner)
+    if q is not None and q.cycle and " ".join(q.name.split()).rstrip(".") in _required(kb):
+        q.cycle = ""
+    return q
 
 
 def job_fits(q: Quest, base_class: str, job: str) -> bool:
+    beginner = base_class == "Beginner" or (job or "") == "Beginner"
+    # Maple Island is behind a one-way boat: once a job is taken its quests can't be done (one of them stayed in
+    # the list of a Lv. 31 Assassin's skipped quests, the owner)
+    if q.area == "Maple Island" and base_class and not beginner:
+        return False
     if not q.job:
         return True
     j = q.job.lower()
     if "beginner" in j:
         # a character still a Beginner, whatever class they plan (the profile's class can be set ahead)
-        return base_class == "Beginner" or (job or "") == "Beginner"
+        return beginner
     return base_class.lower() in j or (job or "").lower() in j
 
 
@@ -236,13 +340,14 @@ def craft_fits(q: Quest, crafts: dict | None) -> bool:
 
 def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
               crafts: dict | None = None) -> dict:
-    """{"now": quests you can take (best EXP first), "soon": unlocking in the next levels,
+    """{"now": quests you can take (best EXP first), "level": those opening at this level, "missed": those from
+    earlier levels not done, "soon": unlocking at the next level, "later": every one after it,
     "town": the citizenship donations (repeatable, 100 items each), "done": count}.
 
     A quest finished only from a higher level ("Level 52+ to complete") counts at that level; one that asks a
     profession level the character doesn't have (crafts given) is left out."""
     done_set = set(done or [])
-    now, soon, town = [], [], []
+    now, future, town = [], [], []
     open_ = availability.of(kb)
     for k, e in kb.entities.items():
         # only quests the KB confirms are in the game: none in Ossyria, no event the KB marks "Ended"
@@ -256,12 +361,34 @@ def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[st
         lv = q.opens_at()
         if level - WINDOW_BELOW <= lv <= level:
             (town if q.area == "Citizenship" else now).append(q)
-        elif level < lv <= level + WINDOW_ABOVE:
-            soon.append(q)
+        elif lv > level and q.area != "Citizenship":
+            future.append(q)
     now.sort(key=lambda q: (-q.exp, q.level))
-    soon.sort(key=lambda q: (q.opens_at(), -q.exp))
+    future.sort(key=lambda q: (q.opens_at(), -q.exp))
+    # the play tools' tabs (the owner's): the next level alone is "coming up", every level after it "later"; one
+    # level up, each list moves along (32's become this level's, 33's come up next)
+    soon = [q for q in future if q.opens_at() == level + 1]
+    later = [q for q in future if q.opens_at() > level + 1]
     town.sort(key=lambda q: -q.exp)
-    return {"now": now, "soon": soon, "town": town, "done": len(done_set)}
+    # the play tools' two lists (the owner's): the quests that open at this very level, and every one from a level
+    # before it that isn't done, newest level first (a Lv. 31 quest left undone moves there at 32)
+    at_level = [q for q in now if q.opens_at() == level]
+    missed = sorted((q for q in now if q.opens_at() < level), key=lambda q: (-q.opens_at(), -q.exp))
+    return {"now": now, "level": at_level, "missed": missed, "soon": soon, "later": later, "town": town,
+            "done": len(done_set)}
+
+
+def closed_areas(kb) -> list[str]:
+    """The areas whose quests the KB doesn't confirm are in the game yet ("El Nath"), most quests first."""
+    from collections import Counter
+    open_ = availability.of(kb)
+    found = Counter()
+    for k, e in kb.entities.items():
+        if e.get("category") == "quest" and not open_.quest_open(k):
+            q = quest(kb, k)
+            if q and q.area and "event" not in q.area.lower():      # an ended event is no area to open
+                found[q.area] += 1
+    return [a for a, _ in found.most_common()]
 
 
 # ------------------------------------------------------------------ citizenship

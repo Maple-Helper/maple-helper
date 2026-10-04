@@ -1,5 +1,5 @@
-"""Play tools: where to train, hit/damage calculator, build plan, quests, EXP meter, and two
-quick checks (what to sell, what to buy). Everything reads the KB and the character; nothing touches
+"""Play tools: where to train, hit/damage calculator, build plan, quests, grind tracker, two quick checks (what to
+sell, what to buy) and how to get from one map to another. Everything reads the KB and the character; nothing touches
 the game. The window is non-modal, so it can stay open beside the chat."""
 from __future__ import annotations
 
@@ -7,23 +7,27 @@ import html
 import math
 import re
 import time
+from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel, QTextOption
-from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
+from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, sources
+from .. import (availability, bidi, buildplan, combat, crafting, farm, glossary, grind, guides, market, plan, quests, quick,
+               routes, sitedata, sources)
 from ..i18n import I18n
 from . import terms, theme
-from .controls import FlowLayout, Section, Segmented, Stepper, WrapLink, follow_typing, rtl_buttons
+from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import chip_row, source_tag, source_tags, updated_tag
+from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html, updated_tag,
+                      vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more")
+PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
+CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
 
 
 def clear(layout):
@@ -65,6 +69,18 @@ def scroll_page(rtl: bool) -> tuple[QScrollArea, QVBoxLayout]:
 
 NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
+FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
+
+
+def _close(typed: str, name: str) -> bool:
+    """A misspelt word of the search is close to a word of the name ("stelly" -> "Steely Throwing Knives")."""
+    from difflib import SequenceMatcher
+    words = [w for w in re.split(r"[\s:'().,-]+", name.lower()) if len(w) >= 3]
+    asked = [w for w in re.split(r"\s+", typed.lower()) if w]
+    if not asked or not words:
+        return False
+    return all(any(w.startswith(a) or (len(a) >= 4 and SequenceMatcher(None, a, w[:len(a) + 1]).ratio() >= 0.8)
+                   or (len(a) >= 4 and SequenceMatcher(None, a, w).ratio() >= 0.8) for w in words) for a in asked)
 
 
 class _LazyIcons(QStandardItemModel):
@@ -97,17 +113,10 @@ class EntityPicker(QLineEdit):
         super().__init__()
         self.setPlaceholderText(placeholder)
         self.setAccessibleName(placeholder)         # a placeholder isn't read as the field's name
-        self.setClearButtonEnabled(True)
-        model = _LazyIcons(self, icon)
-        for shown, name, path in rows:
-            item = QStandardItem(shown)
-            item.setData(name, NAME_ROLE)
-            if path:
-                item.setData(str(path), PATH_ROLE)      # the picture itself: when its row is first shown
-            item.setEditable(False)
-            model.appendRow(item)
+        self._icon = icon
+        model = self._model(rows)
         comp = QCompleter(self)
-        comp.setCompletionRole(NAME_ROLE)
+        comp.setCompletionRole(FIND_ROLE)
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
         comp.setMaxVisibleItems(9)
@@ -127,12 +136,40 @@ class EntityPicker(QLineEdit):
         comp.setModel(model)          # after the style: polishing a full list measured every row
         comp.activated.connect(lambda *_: QTimer.singleShot(0, self._chosen))
         self.setCompleter(comp)
+        # as tall as its rows: two quests opened a nine-row box with a scrollbar into blank space (the owner)
+        comp.popup().installEventFilter(self)
+        cm = comp.completionModel()       # typing narrows the list: the box follows
+        for sig in (cm.modelReset, cm.layoutChanged, cm.rowsInserted, cm.rowsRemoved):
+            sig.connect(lambda *_: QTimer.singleShot(0, self._fit_popup))
         self.returnPressed.connect(self.picked.emit)
+        # a misspelt name ("stelly") found nothing: the names close to it are offered (the owner)
+        self.textEdited.connect(self._near_names)
         # a chevron says "this opens a list" before anyone clicks
         arrow = self.addAction(self._chevron(), QLineEdit.TrailingPosition)
         arrow.triggered.connect(self.open_list)
+        # an orange X beside it while something is typed: Qt's own clear button didn't show (the owner)
+        self._clear = self.addAction(self._cross(), QLineEdit.TrailingPosition)
+        self._clear.triggered.connect(lambda: (self.clear(), self.setFocus()))
+        self._clear.setVisible(False)
+        self.textChanged.connect(lambda text: self._clear.setVisible(bool(text)))
         self.setMinimumHeight(34)
         follow_typing(self, rtl)
+
+    def _model(self, rows: list[tuple[str, str, object]]):
+        model = _LazyIcons(self, self._icon)
+        for shown, name, path in rows:
+            item = QStandardItem(shown)
+            item.setData(name, NAME_ROLE)
+            item.setData(name, FIND_ROLE)
+            if path:
+                item.setData(str(path), PATH_ROLE)      # the picture itself: when its row is first shown
+            item.setEditable(False)
+            model.appendRow(item)
+        return model
+
+    def set_rows(self, rows: list[tuple[str, str, object]]) -> None:
+        """A new list to pick from (the quests change with the level and the Available / Coming up switch)."""
+        self.completer().setModel(self._model(rows))
 
     @staticmethod
     def _chevron() -> QIcon:
@@ -146,7 +183,47 @@ class EntityPicker(QLineEdit):
         p.end()
         return QIcon(pm)
 
+    def _near_names(self, text: str) -> None:
+        """No name holds what was typed: the names close to it hold it too, so the list shows them."""
+        model = self.completer().model()
+        typed = text.strip()
+        rows = [model.item(i) for i in range(model.rowCount())]
+        for it in rows:
+            if it.data(FIND_ROLE) != it.data(NAME_ROLE):
+                it.setData(it.data(NAME_ROLE), FIND_ROLE)
+        if len(typed) < 4 or any(typed.lower() in str(it.data(NAME_ROLE)).lower() for it in rows):
+            return
+        for it in rows:
+            if _close(typed, str(it.data(NAME_ROLE))):
+                it.setData(f"{it.data(NAME_ROLE)}\u2063{typed}", FIND_ROLE)
+
+    def setText(self, text: str) -> None:
+        # set from a page's button with its signals held back (an item picked from a card): the X still shows
+        super().setText(text)
+        self._clear.setVisible(bool(text))
+
+    def clear(self) -> None:
+        super().clear()
+        self._clear.setVisible(False)
+
+    @staticmethod
+    def _cross() -> QIcon:
+        from PySide6.QtGui import QColor, QPainter, QPen
+        pm = QPixmap(20, 20)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor(theme.ORANGE_DEEP), 2.2, Qt.SolidLine, Qt.RoundCap))
+        p.drawLine(QPoint(6, 6), QPoint(14, 14))
+        p.drawLine(QPoint(14, 6), QPoint(6, 14))
+        p.end()
+        return QIcon(pm)
+
     def _chosen(self):
+        # a close name picked: the box holds the name itself, not the misspelling it was found by
+        text = self.text()
+        if "\u2063" in text:
+            self.setText(text.split("\u2063", 1)[0])
         self.setCursorPosition(0)              # a long name shows from its start
         self.picked.emit()
 
@@ -160,11 +237,46 @@ class EntityPicker(QLineEdit):
         super().mousePressEvent(e)
         self.open_list()                      # a click shows the whole list, not only after typing
 
+    def eventFilter(self, obj, e):
+        comp = self.completer()
+        if comp is not None and obj is comp.popup() and e.type() in (QEvent.Show, QEvent.Resize):
+            QTimer.singleShot(0, self._fit_popup)
+        return super().eventFilter(obj, e)
+
+    def _fit_popup(self) -> None:
+        comp = self.completer()
+        pop = comp.popup() if comp else None
+        if pop is None or not pop.isVisible():
+            return
+        n = min(comp.completionCount(), comp.maxVisibleItems())
+        if n <= 0:
+            return
+        rows = sum(pop.sizeHintForRow(i) for i in range(n))
+        chrome = pop.height() - pop.viewport().height()       # frame, padding: what the rows don't fill
+        h = rows + max(chrome, 2 * pop.frameWidth())
+        if abs(pop.height() - h) > 1:
+            pop.setFixedHeight(h)
+        pop.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if comp.completionCount() > n else Qt.ScrollBarAlwaysOff)
+
     def event(self, e):
         if e.type() == QEvent.KeyPress and e.key() == Qt.Key_Down and not self.completer().popup().isVisible():
             self.open_list()
             return True
         return super().event(e)
+
+
+class _WheelToPage(QObject):
+    """A box that grows to its text inside a scrolling page: the wheel over it scrolls the page."""
+
+    def __init__(self, page):
+        super().__init__(page)
+        self._page = page
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Wheel:
+            QApplication.sendEvent(self._page.viewport(), e)
+            return True
+        return False
 
 
 CITIZEN_GRADES = ("Helpful Stranger", "Distinguished Citizen", "Guardian of the Village")
@@ -193,9 +305,12 @@ def monster_rows(kb) -> list[tuple[str, str, object]]:
 
 def item_rows(kb) -> list[tuple[str, str, object]]:
     """Every item once, by name."""
+    from .. import sitedata
     seen = {}
     for k, e in kb.entities.items():
         if e.get("category") == "item" and e["name"].strip() and e["name"] not in seen:
+            if str(e.get("type") or "").startswith("Cash") and sitedata.untradeable(kb, k):
+                continue          # a pet: the Cash Shop's NX only, no price to look up (the owner)
             seen[e["name"]] = k
     return [(name, name, kb.picture(k)) for name, k in sorted(seen.items(), key=lambda x: x[0].lower())]
 
@@ -222,25 +337,55 @@ def map_rows(kb) -> list[tuple[str, str, object]]:
     return [r[2] for r in rows]
 
 
+def _whole(name: str) -> str:
+    """A short name with no-break spaces, so a line wraps before it rather than inside it."""
+    return name.replace(" ", " ") if len(name) <= bidi.KEEP_TOGETHER else name
+
+
+def route_rows(kb, graph) -> list[tuple[str, str, object]]:
+    """Every map a route can start or end on (in the game, on the route graph), towns first, each name once."""
+    rows = {}
+    for m in graph.maps.values():
+        if m.name in rows:
+            continue
+        info = "  ·  ".join(x for x in ("Town" if m.town else "", m.street or m.continent) if x)
+        mid = graph.exact(m.name) or m.id
+        shown = f"{m.name}\n{info}" if info else m.name          # the name on its own line, never cut
+        rows[m.name] = (not m.town, m.name.lower(), (shown, m.name, kb.picture(f"map/{mid}")))
+    return [r[2] for r in sorted(rows.values(), key=lambda r: r[:2])]
+
+
 class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
+    grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
+    inventory_ready = Signal(object)          # the inventory slots a sell-or-keep read found (or None: no shot)
+    sell_market_ready = Signal(object)        # (read id, key -> the usual Free Market price) for those items
     ask_requested = Signal(str, bool)          # question for the chat, with a fresh screenshot?
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
 
-    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, exp_meter: dict, page: str = "train"):
+    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tools"), t.rtl)
-        self.kb, self.profiles, self.settings, self.meter = kb, profiles, settings, exp_meter
+        self.kb, self.profiles, self.settings = kb, profiles, settings
+        # the grind tracker's reads and its session: the app's (they go on with this window closed), or its own
+        from .grindrunner import GrindRunner
+        self._own_runner = not isinstance(runner, GrindRunner)
+        self.runner = GrindRunner(kb, profiles, settings) if self._own_runner else runner
+        if self._own_runner:
+            self.runner.setParent(self)         # its timer goes with this window
+        self.grind = self.runner.store
+        self.runner.changed.connect(self.grind_changed)
         self.setStyleSheet(stylesheet)
         self.fit_screen(580, 800)
         rtl = t.rtl
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(10)
-        # the pages as chips, three rows of three so every label stays readable
+        # the pages as chips, three a row so every label stays readable; a shorter last row fills the width
+        # (on a grid of six columns: a chip of a full row spans two, the one chip of a last row all six)
         grid = QGridLayout()
         grid.setHorizontalSpacing(6)
         grid.setVerticalSpacing(6)
@@ -251,7 +396,11 @@ class ToolsDialog(GlassDialog):
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("page", name)
             self.nav.addButton(b, i)
-            grid.addWidget(b, i // 3, i % 3)
+            row, col = divmod(i, 3)
+            span = 6 // min(3, len(PAGES) - row * 3)
+            grid.addWidget(b, row, col * span, 1, span)
+        for col in range(6):
+            grid.setColumnStretch(col, 1)
         self.nav.idClicked.connect(self.show_page)
         outer.addLayout(grid)
         self.stack = QStackedWidget()
@@ -260,6 +409,7 @@ class ToolsDialog(GlassDialog):
         # (all nine at once held the window back for a second or more). A page another one reaches into
         # before then is built on the spot (__getattr__).
         self.pages = {}
+        self._grind_choice = ""            # a monster picked before the session starts (grind tracker, farm page)
         self._pending = list(PAGES)
         for _ in PAGES:
             self.stack.addWidget(QWidget())
@@ -287,11 +437,17 @@ class ToolsDialog(GlassDialog):
     def _build_next(self) -> None:
         """One more page per turn of the event loop, so the window stays responsive while they are made."""
         try:
+            if self.__dict__.get("_closed"):
+                return              # closed meanwhile: no pages built behind a window that's gone
             if self._pending:
                 self._build_page(self._pending[0])
                 QTimer.singleShot(0, self._build_next)
         except RuntimeError:      # the window closed meanwhile
             pass
+
+    def closeEvent(self, e):
+        self._closed = True
+        super().closeEvent(e)
 
     def _build_rest(self) -> None:
         while self._pending:
@@ -315,11 +471,16 @@ class ToolsDialog(GlassDialog):
         return self.profiles.active
 
     def show_page(self, i: int):
+        # leaving the quests page: back on "Quests for level N" next time, every level (the owner)
+        was = PAGES[self.stack.currentIndex()] if self.__dict__.get("stack") is not None else ""
+        if was != PAGES[i] and was in self.pages:
+            self._leave(was)
         self._build_page(PAGES[i])
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
         # the quest pages rebuild up to 40 cards (~0.3 s): a tab switch back to one that would show the same thing
         # keeps it as it is. Every other redraw (a quest marked done, a new reading, the search) still fills.
+        self._expire_cycles()
         state = self._page_state(PAGES[i])
         if state is not None and state == self.__dict__.get("_filled", {}).get(PAGES[i]):
             return
@@ -332,12 +493,20 @@ class ToolsDialog(GlassDialog):
             return None
         common = (c.id, c.level, c.base_class, c.job, tuple(c.quests_done), theme.MODE)
         if name == "quests":
-            return common + (tuple(sorted((c.crafts or {}).items())), self.q_mode.value(),
+            return common + (tuple(sorted((c.crafts or {}).items())), self.q_mode.value(), self.__dict__.get("_q_level"),
                              self.q_search.text().strip(), self._q_limit, self.q_done_toggle.isChecked())
-        return common + (c.town, self._town_limit, self.town_done_toggle.isChecked())
+        return common + (c.town, self._town_limit, self.town_done_toggle.isChecked(), self.__dict__.get("_town_grade_pick"),
+                         self.town_search.text().strip())
+
+    def _expire_cycles(self) -> None:
+        """Daily / weekly quests done before the last reset come back (quests.expire_cycles)."""
+        c = self.c
+        if c and c.cycle_done and quests.expire_cycles(self.kb, c):
+            self.profiles.save()
 
     def refresh(self, name: str | None = None):
         """Redraw a page (or the current one) from the character and the KB."""
+        self._expire_cycles()
         name = name or PAGES[self.stack.currentIndex()]
         getattr(self, f"_fill_{name}", lambda: None)()
         if name in ("quests", "town"):
@@ -349,14 +518,10 @@ class ToolsDialog(GlassDialog):
         self.refresh()
 
     def sync_done(self, ok: bool):
-        """A screenshot read ended: an EXP reading waiting for it takes the profile as it is now."""
+        """A screenshot read ended: a grind tracker read waiting for it takes it (a failed one says so)."""
         self.setWindowOpacity(1.0)
-        if self.meter.get("pending"):
-            if ok:
-                self._meter_reading()
-            else:
-                self.meter.pop("pending")
-                self._set(self.exp_status, self.t("exp_failed"))
+        if self._own_runner:
+            self.runner.sync_done(ok)
         self.refresh()
 
     def _step_aside(self, then) -> None:
@@ -432,14 +597,18 @@ class ToolsDialog(GlassDialog):
         bl.addStretch(1)
         return box
 
-    def _big(self, value: str, label: str, explain: bool = True) -> QVBoxLayout:
-        """A big number with its (explained) name under it."""
+    def _big(self, value: str, label: str, explain: bool = True, term: str | None = None) -> QVBoxLayout:
+        """A big number with its (explained) name under it. term: the explanation to use instead of the label's own
+        ("Monster HP" for a monster's HP: the glossary's "HP" is the player's HP / MP)."""
         box = QVBoxLayout()
         box.setSpacing(0)
         v = QLabel(value, objectName="BigStat")
         v.setAlignment(Qt.AlignCenter)
         text = html.escape(label)
-        lb = QLabel(glossary.annotate(text, self.t.lang) if explain else text, objectName="BigStatLabel")
+        if term:
+            text += (f"<a href='g:{html.escape(term)}' style='color:#F07A12; text-decoration:none;'>"
+                     f"&nbsp;{glossary.MARK}</a>")
+        lb = QLabel(glossary.annotate(text, self.t.lang) if explain and not term else text, objectName="BigStatLabel")
         lb.setAlignment(Qt.AlignCenter)
         terms.watch(lb, self.t.lang)
         box.addWidget(v)
@@ -513,6 +682,9 @@ class ToolsDialog(GlassDialog):
     def _fill_train(self):
         t, c = self.t, self.c
         clear(self.train_list)
+        # one short line, the whole why behind its "?" (four lines of it were too much), under the monsters'
+        # heading: it says why these monsters (the owner)
+        self.train_why = self._label("", "RowHint")
         if not c:
             self.train_head.setText("")
             self._no_character(self.train_list)
@@ -520,19 +692,28 @@ class ToolsDialog(GlassDialog):
         acc, dmg = self._stats()
         magic = c.base_class == combat.MAGE
         rows = combat.spots(self.kb, c.level, acc, dmg, magic, n=6)
-        bits = [t("lv_short", n=c.level)]
-        if acc:
-            bits.append(f"ACC {acc}")
-        if dmg:
-            bits.append(t("dmg_short", lo=dmg[0], hi=dmg[1]))
-        head = " · ".join(bits)
+        # what the list is for, not the stats again (they are in "My stats" right below: the owner's report)
+        head = t("train_for_level", n=c.level)
         if not (acc and dmg):
             head += "\n" + t("train_need_stats")
-        elif magic:
-            head += "\n" + t("train_mage_note")       # the stat window's range is the staff swing, not a spell
-        else:
-            head += "\n" + t("train_basic_note")
         self._set(self.train_head, head)
+        # why these monsters: the levels actually shown, in a line; the rule and the stat window's note on hover
+        why = ""
+        if rows:
+            levels = [s.monster.level for s in rows]
+            lo, hi = min(levels), max(levels)
+            span = str(lo) if lo == hi else bidi.ltr_block(f"{lo}–{hi}", t.rtl)     # (read "27–23" in Hebrew)
+            rule = t("train_why_stats" if acc and dmg and not magic else "train_why",
+                     lo=max(1, c.level - combat.SPOT_BELOW), hi=c.level + combat.SPOT_ABOVE)
+            if acc and dmg:
+                rule += "\n" + t("train_mage_note" if magic else "train_basic_note")
+            badge = terms._badge_uri()
+            why = html.escape(bidi.plain(t("train_shown", n=len(rows), span=span), t.rtl))
+            if badge:
+                why += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+            self.train_why.setToolTip(tip_html(rule, t.rtl))
+        self.train_why.setText(why)
+        self.train_why.setVisible(bool(why))
         if not rows:
             self.train_list.addWidget(self._label(t("train_none"), "RowHint"))
             return
@@ -540,10 +721,21 @@ class ToolsDialog(GlassDialog):
             # nothing passes the miss / hits limits: still the best options, with why they're shown
             # (a Magician's hits are spells: "too many basic hits" and "skills make it faster" don't apply)
             self.train_list.addWidget(self._label(t("train_stretch_magician" if magic else "train_stretch"), "RowHint"))
+        most = self._most_mesos(rows)
+        # a heading over every list of cards, as over the quests (the owner)
+        self.train_list.addWidget(self._label(t("list_monsters"), "SectionHeader"))
+        self.train_list.addWidget(self.train_why)
         for i, s in enumerate(rows):
-            self.train_list.addWidget(self._spot_card(s, best=(i == 0)))
+            self.train_list.addWidget(self._spot_card(s, best=(i == 0), most_mesos=s is most))
 
-    def _spot_card(self, s: combat.Spot, best: bool) -> QFrame:
+    def _most_mesos(self, rows: list[combat.Spot]) -> combat.Spot | None:
+        """The spot that brings the most mesos per swing by the players' reports (a kill's mesos x hit chance /
+        hits), labelled on its card: a second ranking beside the EXP one, not a reorder. None unless at least two
+        of the spots have reports to compare."""
+        rated = [(s, m * s.hit / (s.avg_hits or 1)) for s in rows if (m := self.kb.mesos_per_kill(s.monster.key))]
+        return max(rated, key=lambda r: r[1])[0] if len(rated) >= 2 else None
+
+    def _spot_card(self, s: combat.Spot, best: bool, most_mesos: bool = False) -> QFrame:
         t, c, m = self.t, self.c, s.monster
         card = QFrame(objectName="Card")
         row = QHBoxLayout(card)
@@ -557,6 +749,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(52, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(3)
@@ -573,12 +766,22 @@ class ToolsDialog(GlassDialog):
             why.addWidget(tag(self._p(t("spot_best")), "TagAccent"))
         if s.recommended:
             why.addWidget(tag(self._p(t("spot_guide")), "TagGood"))
+        if most_mesos:
+            most = tag(self._p(t("spot_most_mesos")), "TagAccent")
+            most.setToolTip(bidi.to_html(t("spot_most_mesos_tip"), "rtl" if t.rtl else "ltr"))
+            why.addWidget(most)
         if self._stats()[0]:
             why.addWidget(tag(self._p(t("spot_hit", pct=round(s.hit * 100))), "TagGood" if s.hit >= 0.999 else "TagWarn"))
         if s.hits:
             nums.addWidget(tag(self._p(t("spot_hits", n=s.hits)), "Tag"))
         nums.addWidget(tag(self._p(t("spot_exp", n=m.exp)), "Tag"))
         nums.addWidget(tag(self._p(t("spot_crowd", n=m.maps[0][1])), "Tag"))
+        # the mesos players reported, with its own source in the text: the chip below is the page's stats' source
+        mesos = self.kb.community_mesos(m.key)
+        if mesos:
+            mt = tag(self._p(mesos_text(t, mesos)), "Tag")
+            mt.setToolTip(bidi.to_html(mesos_tip(t, mesos), "rtl" if t.rtl else "ltr"))
+            nums.addWidget(mt)
         # the monster's numbers come from its page: its build ("COT2") or MeowDB's own; a KB update this week
         # that changed it says so
         stamp = sources.stat_source(self.kb, m.key)
@@ -601,12 +804,11 @@ class ToolsDialog(GlassDialog):
             ref = kills and sources.exp_source(self.kb, c.level) == sources.REFERENCE
             col.addLayout(chip_row([source_tag(t, sources.REFERENCE)], label, lead=True) if ref else _alone(label))
         row.addLayout(col, 1)
-        # its own row under the tags, at the reading start: beside them it took the room the tags needed
-        ask = QPushButton(self._p(t("ask_short")), objectName="Link")
-        ask.setCursor(Qt.PointingHandCursor)
-        ask.setAutoDefault(False)
-        ask.clicked.connect(lambda _=False, k=m.key: self.tag_requested.emit(k))
-        col.addWidget(ask, 0, Qt.AlignLeft)          # AlignLeft is the leading edge (mirrored in Hebrew)
+        # its own row under the tags, at the reading start: the way there, its hit & damage, a grind session on it
+        col.addLayout(self._links_row([("farm_route", lambda: self._farm_route(s.map)),
+                                       ("tool_calc", lambda n=m.name: self._go_calc(n)),
+                                       ("go_track", lambda n=m.name: self._go_track(n)),
+                                       ("ask_short", lambda k=m.key: self.tag_requested.emit(k))]))
         return card
 
     # calculator ----------------------------------------------------------
@@ -617,6 +819,8 @@ class ToolsDialog(GlassDialog):
         rows = monster_rows(self.kb)
         self.calc_input = EntityPicker(rows, self._p(t("calc_placeholder", n=len(rows))), rtl=t.rtl)
         self.calc_input.picked.connect(self._fill_calc)
+        # an emptied box goes back to the default monster, as the farm and grind boxes do (the owner)
+        self.calc_input.textChanged.connect(lambda text: None if text.strip() else self._fill_calc())
         lay.addWidget(self.calc_input)
         # the stats first, as on "Where to train": every number below comes from them
         lay.addWidget(self._stats_section())
@@ -630,7 +834,12 @@ class ToolsDialog(GlassDialog):
     def _calc_monster(self) -> combat.Monster | None:
         q = self.calc_input.text().strip().lower()
         if not q:
-            spots = combat.spots(self.kb, self.c.level, n=1) if self.c else []
+            # the first of the "Grind spots" page, with the same stats, so the two pages agree (they didn't: the
+            # calculator ranked without the player's ACC and damage)
+            if not self.c:
+                return None
+            acc, dmg = self._stats()
+            spots = combat.spots(self.kb, self.c.level, acc, dmg, self.c.base_class == combat.MAGE, n=1)
             return spots[0].monster if spots else None
         # only monsters the KB confirms are in the game, like the list: a typed "Star Pixie" (Orbis) or "Ratz" (no
         # map at all) got a full hits-to-kill card as if it could be met
@@ -656,6 +865,9 @@ class ToolsDialog(GlassDialog):
             return
         acc, dmg = self._stats()
         magic = c.base_class == combat.MAGE
+        if not self.calc_input.text().strip():
+            # why this monster when nothing was typed (the owner)
+            self.calc_box.addWidget(self._label(t("calc_default", name=bidi.ltr_block(m.name, t.rtl)), "RowHint"))
         sec = Section(bidi.ltr_block(f"{m.name} · Lv. {m.level}", t.rtl), t.rtl)
         nums = QHBoxLayout()
         # the monster's picture leads the row (the start side), as on the training-spot cards
@@ -666,10 +878,12 @@ class ToolsDialog(GlassDialog):
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
             pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(pic, path)
             nums.addWidget(pic, 0, Qt.AlignVCenter)
         # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
-        for value, label in ((f"{m.hp:,}", "HP"), (f"{m.exp:,}", "EXP"), (str(m.avoid), "Avoid"), (str(m.pdef), "P.DEF")):
-            nums.addLayout(self._big(value, label))
+        for value, label, term in ((f"{m.hp:,}", "HP", "Monster HP"), (f"{m.exp:,}", "EXP", None),
+                                   (str(m.avoid), "Avoid", None), (str(m.pdef), "P.DEF", "Monster P.DEF")):
+            nums.addLayout(self._big(value, label, term=term))
         holder = QWidget()
         both = QVBoxLayout(holder)
         both.setContentsMargins(0, 0, 0, 0)
@@ -707,17 +921,34 @@ class ToolsDialog(GlassDialog):
             if avg < hits - 0.05:
                 hint = t("calc_hits_avg", n=f"{avg:.1f}") + "\n" + hint
             self._row(sec, t("calc_hits", n=hits), hint=hint)
+        # the mesos players reported for it (community.json), with its source chip; or that nobody reported any
+        mesos = self.kb.community_mesos(m.key)
+        if mesos:
+            lo, hi = mesos[0], mesos[1]
+            value = tag(f"{lo:,}" if lo == hi else f"‪{lo:,}–{hi:,}‬", "TagAccent")
+            value.setToolTip(bidi.to_html(mesos_tip(t, mesos), "rtl" if t.rtl else "ltr"))
+            holder3 = QWidget()
+            holder3.setLayout(chip_row([source_tag(t, sources.COMMUNITY), value], spacing=6))
+            avg = self.kb.mesos_per_kill(m.key)
+            self._row(sec, t("calc_mesos"), holder3, hint=t("calc_mesos_avg", n=f"{avg:,.0f}") if avg else "")
+        else:
+            self._row(sec, t("calc_mesos"), tag(self._p(t("mesos_none")), "Tag"))
         if not (acc and dmg):
             sec.add_widget(self._label(t("calc_need_stats"), "RowHint"))
-        sec.add_widget(self._ask_link(lambda: self.tag_requested.emit(m.key)))
+        acts = [("farm_route", lambda n=m.name: self._go_route(n))] if self._mob_map(m.name) else []
+        acts += [("farm_hunt", lambda n=m.name: self._go_farm_hunt(n)),
+                 ("ask_short", lambda k=m.key: self.tag_requested.emit(k))]
+        sec.add_widget(self._links_box(acts))
         self.calc_box.addWidget(sec)
-        if m.avoid > 0:
-            # ACC to never miss as your level changes: three big numbers, not a list
+        levels = [lv for lv in (c.level - 5, c.level, c.level + 5) if lv >= 1]
+        needs = [combat.acc_needed(lv, m.level, m.avoid) for lv in levels]
+        if m.avoid > 0 and len(set(needs)) > 1:
+            # ACC to never miss as your level changes: three big numbers, not a list. Only when the level changes
+            # it: at or above the monster's level it doesn't, and three equal numbers read as nonsense (the owner)
             lv_sec = Section(t("calc_acc_by_level_head"), t.rtl)
             strip = QHBoxLayout()
-            for lv in (c.level - 5, c.level, c.level + 5):
-                if lv >= 1:
-                    strip.addLayout(self._big(str(combat.acc_needed(lv, m.level, m.avoid)), f"Lv. {lv}", explain=False))
+            for lv, need in zip(levels, needs):
+                strip.addLayout(self._big(str(need), self._p(t("lv_short", n=lv)), explain=False))
             holder2 = QWidget()
             holder2.setLayout(strip)
             lv_sec.add_widget(holder2)
@@ -738,31 +969,48 @@ class ToolsDialog(GlassDialog):
     # build ---------------------------------------------------------------
 
     def _page_build(self):
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(0, 0, 0, 0)
+        # one scrolling page: the build text grows to its full height under the ranking card (it had the space
+        # left over and scrolled inside itself, a small box of its own: the owner's report)
+        w, lay = scroll_page(self.t.rtl)
         lay.setSpacing(8)
         self.build_head = self._label("", "ToolHeader")
         lay.addWidget(self.build_head)
         self.build_src = QHBoxLayout()
         lay.addLayout(self.build_src)
+        # the community tier list's row for the player's job (before the 2nd job: the branches to pick from)
+        self.build_tier = QVBoxLayout()
+        lay.addLayout(self.build_tier)
         self.build_view = QTextBrowser(objectName="GuideText")
         self.build_view.setOpenLinks(False)
+        # a skill's "Changed in COT2" chip in the table: its changes on hover, and on a click (touch, keyboard)
+        self.build_view.highlighted.connect(lambda url: self._skill_change_tip(url.toString()))
+        self.build_view.anchorClicked.connect(lambda url: self._build_link(url.toString()))
         self.build_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.build_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.build_view.document().documentLayout().documentSizeChanged.connect(
+            lambda size: self.build_view.setFixedHeight(int(size.height()) + 12))
+        # the wheel scrolls the page, never the text inside its box: it moved the text up and cut the first
+        # heading (the owner)
+        self.build_view.verticalScrollBar().valueChanged.connect(
+            lambda v: v and self.build_view.verticalScrollBar().setValue(0))
+        self._build_wheel = _WheelToPage(w)
+        self.build_view.viewport().installEventFilter(self._build_wheel)
         # breaks between words only, a wide table in a smaller font, as in the guides reader ("crafti" / "ng 1")
         self.build_view.setWordWrapMode(QTextOption.WordWrap)
         from .guides import ImageZoom
         self.build_zoom = ImageZoom(self.build_view)
-        lay.addWidget(self.build_view, 1)
+        lay.addWidget(self.build_view)
         self.build_guide_btn = QPushButton(self._p(self.t("build_open_guide")), objectName="Link")
         self.build_guide_btn.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.build_guide_btn, 0, (Qt.AlignRight if self.t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         self._build_key = None
         self.build_guide_btn.clicked.connect(lambda: self._build_key and self.guide_requested.emit(self._build_key))
+        lay.addStretch(1)
         return w
 
     def _fill_build(self):
         t, c = self.t, self.c
+        clear(self.build_tier)
         if not c:
             self._set(self.build_head, t("tool_no_char"))
             self._source_line(self.build_src, None)
@@ -776,16 +1024,22 @@ class ToolsDialog(GlassDialog):
         self._set(self.build_head, t("build_head", job=c.job_label or c.base_class, n=c.level))
         # the class guide's numbers: "use current COT2 data" on its page, else MeowDB's own
         self._source_line(self.build_src, (sources.guide_source(self.kb, key) or sources.MEOWDB) if tables else None)
+        tier = self._tier_card(sitedata.tiers_for(self.kb, c.base_class, c.job))
+        if tier:
+            self.build_tier.addWidget(tier)
         if not tables:
             self.build_view.setHtml(f"<p>{t('build_none')}</p>")
             return
         he = t.lang != "en"
         icons = self._skill_icons()
+        changed = sitedata.changes_for(self.kb, c.base_class, c.job)
         col = guides.NOTE_COLORS.get(theme.MODE, guides.NOTE_COLORS["light"])
         side = "dir='rtl' align='right'" if he else ""
         out = []
-        for tb in tables:
-            out.append(f"<h3 {side}>{guides._rich(tb.heading, he and bool(bidi._RTL.search(tb.heading)))}</h3>")
+        split = [(path, part) for tb in tables for path, part in buildplan.split_paths(self.kb, tb)]
+        for path, tb in split:
+            heading = f"{tb.heading} · {path}" if path else tb.heading      # one table a 2nd-job path (the owner)
+            out.append(f"<h3 {side}>{guides._rich(heading, he and bool(bidi._RTL.search(heading)))}</h3>")
             cells = []
             rows = tb.rows
             if tb.kind == "sp" and he:
@@ -794,6 +1048,7 @@ class ToolsDialog(GlassDialog):
             # a cell may name a skill short ("Booster 9" beside "Claw Booster +2"): the table's own full names
             # give those their icons too
             names = icons + self._short_skill_icons(rows, icons) if tb.kind == "sp" else icons
+            chips = self._change_chips(rows, changed) if tb.kind == "sp" else {}
             for n, row in enumerate(rows):
                 # the player's row: a clear orange, bold (the guides' cream note color was too faint here)
                 now = n == tb.current
@@ -803,7 +1058,8 @@ class ToolsDialog(GlassDialog):
                 cells.append("<tr>" + "".join(
                     f"<{tagname}{bg}><p {'dir=rtl align=right' if he and bidi._RTL.search(x) else ''} style='margin:0;{weight}'>"
                     f"{self._with_skill_icon(x, names) if tb.kind == 'sp' and n else ''}"
-                    f"{guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}</p></{tagname}>"
+                    f"{self._gear_links(x, guides._rich(x, he and bool(bidi._RTL.search(x)), 18)) if tb.kind == 'gear' and n else guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}"
+                    f"{chips.get((n, i), '')}</p></{tagname}>"
                     for i, x in enumerate(row)) + "</tr>")
             out.append(f"<table {side} width='100%' cellspacing='0' cellpadding='5' border='1' "
                        f"style='border-color: {col['line']}; border-style: solid; margin: 4px 0 12px 0;'>{''.join(cells)}</table>")
@@ -814,6 +1070,133 @@ class ToolsDialog(GlassDialog):
         self.build_view.setHtml("\n".join(out))
         from .guides import fit_tables
         fit_tables(self.build_view)
+
+    def _change_chips(self, rows: list[list[str]], changed: list) -> dict[tuple[int, int], str]:
+        """(row, column) -> the "Changed in COT2" chips of the skills a SP table cell names, each skill only where
+        the table first names it (a chip on every "Final Attack: Axe +n" row was noise). Only the "spend" and
+        "result" columns (1 and 2, in either language's order) name skills; the reasons are prose."""
+        fg, bg = CHANGED_CHIP.get(theme.MODE, CHANGED_CHIP["dark"])
+        out: dict[tuple[int, int], str] = {}
+        done: set[str] = set()
+        for n, row in enumerate(rows[1:], start=1):
+            for i in (1, 2):
+                cell = row[i] if i < len(row) else ""
+                for ch in changed:
+                    if ch.key in done or not re.search(rf"(?<![\w:]){re.escape(ch.name)}(?![\w:])", cell):
+                        continue
+                    done.add(ch.key)
+                    label = html.escape(sitedata.chip_label(self.t, ch)).replace(" ", "&nbsp;")
+                    out[(n, i)] = out.get((n, i), "") + (
+                        f" <a href='change:{ch.key}' style='text-decoration: none;'><span style='color: {fg}; "
+                        f"background-color: {bg}; font-size: small; font-weight: 700;'>&nbsp;{label}&nbsp;</span></a>")
+        return out
+
+    _GEAR_NAME = re.compile(r"\[\[img:[^\]]+\]\]\s*([^\[]+?)(?=\s+[+\d(]|\s*,|\s*\[\[|$)")
+
+    def _gear_links(self, raw: str, rendered: str) -> str:
+        """A gear table cell with each item it names a link: a tap offers its price and who drops it (the owner)."""
+        from urllib.parse import quote
+        color = theme.accent_text()
+        for m in self._GEAR_NAME.finditer(raw):
+            name = m.group(1).strip()
+            if not self.kb._item_by_name.get(name.lower()):
+                continue
+            for shown in (html.escape(name, quote=False), html.escape(name)):
+                at = rendered.find(shown)
+                if at >= 0 and rendered.rfind("<", 0, at) <= rendered.rfind(">", 0, at):      # text, not a tag
+                    rendered = (rendered[:at] + f"<a href='item:{quote(name)}' style='color:{color}; "
+                                f"text-decoration:none'>{shown}</a>" + rendered[at + len(shown):])
+                    break
+        return rendered
+
+    def _build_link(self, link: str) -> None:
+        """A tap in the build tables: a skill's change, or an item (its price, who drops it)."""
+        if not link.startswith("item:"):
+            self._skill_change_tip(link)
+            return
+        from urllib.parse import unquote
+
+        from PySide6.QtGui import QCursor
+        from PySide6.QtWidgets import QMenu
+        name = unquote(link[5:])
+        key = self.kb._item_by_name.get(name.lower())
+        menu = QMenu(self)
+        menu.setLayoutDirection(Qt.RightToLeft if self.t.rtl else Qt.LeftToRight)
+        menu.addAction(self._p(self.t("go_price")), lambda: self._farm_price(name))
+        if key and self.kb.droppers.get(key):
+            menu.addAction(self._p(self.t("go_get")), lambda: self._go_farm_item(name))
+        menu.exec(QCursor.pos())
+
+    def _skill_change_tip(self, link: str) -> None:
+        if not link.startswith("change:"):
+            terms.hide()
+            return
+        ch = sitedata.skill_change(self.kb, link.partition(":")[2])
+        if ch:
+            terms.show_html(bidi.to_html(sitedata.change_tip(self.t, ch, self.kb), "rtl" if self.t.rtl else "ltr"), self.t.rtl)
+
+    def _tier_card(self, rows: list) -> QWidget | None:
+        """The community tier list for the player's job: one grade chip per column (S / A / B: the upper, middle
+        and lower third of the ten 2nd jobs), the value and its place among them on hover. Compact: the build
+        table under it is the page's own content."""
+        if not rows:
+            return None
+        # a list in plain words, one row a category: a grid of eight letters under short column names read as
+        # a code nobody could crack ("what does this even mean?", the owner)
+        t, data = self.t, sitedata.tier_data(self.kb)
+        level = data.get("level") or ""
+        # a card a 2nd job: a first job's two paths in one card read as one (the owner)
+        holder = QWidget()
+        cards = QVBoxLayout(holder)
+        cards.setContentsMargins(0, 0, 0, 0)
+        cards.setSpacing(8)
+        cols = list(data.get("columns") or [])
+        for n, r in enumerate(rows):
+            card = QFrame(objectName="Card")
+            lay = QVBoxLayout(card)
+            lay.setContentsMargins(12, 8, 12, 10)
+            lay.setSpacing(6)
+            cards.addWidget(card)
+            title = QLabel(self._p(t("tier_title", job=bidi.ltr_name(r.name, t.rtl))), objectName="CardName")
+            src = source_tag(t, sources.COMMUNITY)
+            src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
+            lay.addLayout(chip_row([src], title))
+            if n == 0:
+                lay.addWidget(self._label(t("tier_legend", n=level), "RowHint"))
+            for col in cols:
+                cell = r.cells.get(col) or {}
+                grade, value = cell.get("grade") or "", cell.get("value") or ""
+                name, tip = self._tier_column(col)
+                place = r.ranks.get(col)
+                kind = {"S": "TagGood", "A": "TagWarn"}.get(grade, "Tag")
+                # (info_tag lays its tip out itself: a tip given as HTML showed its tags as text)
+                shown = value if value and value != "N/A" else t("tier_none")
+                chip = info_tag(t, grade or "—", f"{name}: {shown}", kind)
+                chip.setFixedWidth(30)
+                # the name with an orange "?" that explains it on hover, as the other explained terms
+                badge = terms._badge_uri()
+                text = html.escape(bidi.plain(name, t.rtl))
+                if tip and badge:
+                    text += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+                what = QLabel(text, objectName="RowLabel")
+                what.setTextFormat(Qt.RichText)
+                if tip:
+                    what.setToolTip(tip_html(tip, t.rtl))
+                where = QLabel(self._p(t("tier_place", place=place[0], total=place[1]) if place
+                                       else t("tier_none")), objectName="RowHint")
+                row = QHBoxLayout()
+                row.setSpacing(8)
+                row.addWidget(chip)
+                row.addWidget(what, 1)
+                row.addWidget(where)
+                lay.addLayout(row)
+        return holder
+
+    def _tier_column(self, col: str) -> tuple[str, str]:
+        """A tier list column's short name and what it measures, in the UI language ("ST DPS" -> "DPS יחיד")."""
+        k = "tier_col_" + re.sub(r"[^a-z0-9]+", "_", col.lower()).strip("_")
+        t = self.t
+        return (t(k) if t(k) != k else col), (t(k + "_tip") if t(k + "_tip") != k + "_tip" else "")
 
     def _skill_icons(self) -> list[tuple[str, str]]:
         """(skill name, picture file URI), longest names first so "Power Strike" wins over "Power"."""
@@ -857,14 +1240,14 @@ class ToolsDialog(GlassDialog):
     def _page_quests(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
-        self.q_mode = Segmented([(t("q_now"), "now"), (t("q_soon"), "soon")], "now", t.rtl)
-        self.q_mode.changed.connect(lambda *_: self._fill_quests(new_list=True))
+        self.q_mode = Segmented([(t("q_level", lv=""), "level"), (t("q_missed"), "missed"), (t("q_soon"), "soon"),
+                                 (t("q_later"), "later")], "level", t.rtl)
+        self.q_mode.changed.connect(lambda *_: (setattr(self, "_q_level", None), self._fill_quests(new_list=True)))
         lay.addWidget(self.q_mode, 0, Qt.AlignHCenter)
         # search within the list shown (the quests that fit the character's level), not all quests
-        self.q_search = QLineEdit()
-        self.q_search.setPlaceholderText(t("q_search"))
-        self.q_search.setAccessibleName(t("q_search"))        # a placeholder isn't read as the field's name
-        self.q_search.setClearButtonEnabled(True)
+        # a list of the quests to pick from opens on a click, as the map and monster pickers do; typing still filters
+        # by name, NPC, monster or item (a bare box opened nothing: the owner)
+        self.q_search = EntityPicker([], self._p(t("q_search")), icon=32, rtl=t.rtl)
         self._q_search_timer = QTimer(self, singleShot=True, interval=200)     # rebuild once typing pauses
         self._q_search_timer.timeout.connect(lambda: self._fill_quests(new_list=True))
         self.q_search.textChanged.connect(lambda *_: self._q_search_timer.start())
@@ -872,6 +1255,13 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(self.q_search)
         self.q_head = self._label("", "ToolHeader")
         lay.addWidget(self.q_head)
+        # the skipped and the later quests by level: a chip per level jumps to it (a Lv. 13 quest sat at the end of a
+        # long scroll: the owner)
+        self.q_levels_box = QWidget()
+        self.q_levels = FlowLayout(self.q_levels_box, spacing=6, per_row=6)      # six a line (the owner)
+        self.q_levels_box.hide()
+        lay.addWidget(self.q_levels_box)
+        self._q_level = None              # the level picked there; None: every level
         self.q_src = QHBoxLayout()
         lay.addLayout(self.q_src)
         self._source_line(self.q_src, sources.MEOWDB)
@@ -903,8 +1293,24 @@ class ToolsDialog(GlassDialog):
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
         mode = self.q_mode.value()
         rows = r[mode]
+        self.q_mode.set_text(0, self._p(t("q_level", lv=c.level)))       # "קווסטים לרמה 31"
+        if new_list or not getattr(self, "_q_rows_for", None) == (c.id, c.level, mode):
+            self._q_rows_for = (c.id, c.level, mode)
+            self.q_search.set_rows([(f"{q.name}  ·  {t('craft_level_group', n=q.opens_at())}", q.name,
+                                     self._quest_picture(q)) for q in rows])
         # how many are marked done is on the toggle right under the header, not here again
         self._set(self.q_head, t(f"q_head_{mode}", n=len(rows), lv=c.level))
+        if self._q_level is not None and mode in ("missed", "later"):
+            picked = sum(1 for q in rows if q.opens_at() == self._q_level)
+            self._set(self.q_head, t(f"q_head_{mode}_at", n=picked, lv=self._q_level))
+        self._level_chips(rows if mode in ("missed", "later") else [])
+        if mode == "later":
+            # the quests above are where the game hasn't opened yet: said, not just missing (the owner)
+            closed = quests.closed_areas(self.kb)
+            if closed:
+                self.q_list.addWidget(self._label(t("q_closed_note", areas=", ".join(closed)), "RowHint"))
+        if self._q_level is not None:
+            rows = [q for q in rows if q.opens_at() == self._q_level]
         query = self.q_search.text().strip()
         if query:
             found = [q for q in rows if q.matches(query)]
@@ -914,10 +1320,100 @@ class ToolsDialog(GlassDialog):
                 self.q_list.addWidget(self._label(t("q_no_match"), "RowHint"))
         elif not rows:
             self.q_list.addWidget(self._label(t("q_none"), "RowHint"))
+        last = None
+        if rows and mode not in ("missed", "later"):           # (those two have a heading a level)
+            self.q_list.addWidget(self._label(t("list_quests"), "SectionHeader"))
         for q in rows[:self._q_limit]:
+            if mode in ("missed", "later") and q.opens_at() != last:
+                last = q.opens_at()          # the quests not done, level by level (the owner)
+                self.q_list.addWidget(self._label(t("q_level_group", lv=last), "SectionHeader"))
             self.q_list.addWidget(self._quest_card(q))
         self._more_quests(self.q_list, len(rows), self._q_limit, "_q_limit")
         self._add_done(self.q_done_toggle, self.q_done, list(c.quests_done))
+        # what is on screen now (a tab or a search changed it here, not through refresh): a switch back keeps it
+        self.__dict__.setdefault("_filled", {})["quests"] = self._page_state("quests")
+
+    def _goto_quest(self, name: str) -> None:
+        """Show one quest by its name: the tab it is on, the whole level range, the search set to its name."""
+        c, t = self.c, self.t
+        if not c:
+            return
+        # on the crafting page, a profession's quest is right there: its card (the owner)
+        if PAGES[self.stack.currentIndex()] == "crafting":
+            for i in range(self.craft_info.count()):
+                w = self.craft_info.itemAt(i).widget()
+                head = w.findChild(QLabel, "CardName") if w is not None else None
+                if head is not None and bidi.plain(name, False) in head.text():
+                    self.pages["crafting"].ensureWidgetVisible(w, 0, 40)
+                    return
+        # a citizenship quest: on the citizenship page, its town picked, every grade, searched by its name
+        cq = next((q for k, e in self.kb.entities.items() if e.get("category") == "quest" and e.get("name") == name
+                   for q in [quests.quest(self.kb, k)] if q and q.area == "Citizenship"), None)
+        if cq is not None:
+            self.show_page(PAGES.index("town"))
+            town = quests.town_of(self.kb, cq)
+            if town and town != self.town_pick.value():
+                for b in self.town_pick.group.buttons():
+                    if b.property("value") == town:
+                        b.setChecked(True)
+                c.town = town
+                self.profiles.save()
+            self._town_grade_pick = None
+            self.town_search.blockSignals(True)
+            self.town_search.setText(name)
+            self.town_search.blockSignals(False)
+            self._fill_town()
+            self.pages["town"].verticalScrollBar().setValue(0)
+            self.pages["town"].setFocus(Qt.OtherFocusReason)
+            return
+        if PAGES[self.stack.currentIndex()] != "quests":
+            self.show_page(PAGES.index("quests"))
+        r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
+        modes = ("level", "missed", "soon", "later")
+        mode = next((m for m in modes if any(q.name == name for q in r[m])), None)
+        if mode is None:
+            done = any((self.kb.get(k) or {}).get("name") == name for k in c.quests_done)
+            self._set(self.q_head, t("q_after_done" if done else "q_after_missing", name=name))
+            return
+        self._q_level = None
+        self.q_mode.group.buttons()[modes.index(mode)].setChecked(True)
+        self.q_search.blockSignals(True)
+        self.q_search.setText(name)
+        self.q_search.blockSignals(False)
+        self._fill_quests(new_list=True)
+        self.pages["quests"].verticalScrollBar().setValue(0)
+        # the link's card was rebuilt: focus on the page, not on the window's close button (the owner)
+        self.pages["quests"].setFocus(Qt.OtherFocusReason)
+
+    def _level_chips(self, rows: list) -> None:
+        """ "הכל" and one chip per level with its count ("13 (4)"): a tap shows that level's quests only."""
+        clear(self.q_levels)
+        levels: dict[int, int] = {}
+        for q in rows:
+            levels[q.opens_at()] = levels.get(q.opens_at(), 0) + 1
+        self.q_levels_box.setVisible(len(levels) > 1)
+        if len(levels) <= 1:
+            self._q_level = None
+            return
+        if self._q_level not in levels:
+            self._q_level = None
+        # "רמה 22", the count on hover and in the header once picked ("22 (3)" read as a riddle: the owner)
+        options = [(None, self.t("q_all_levels"))] + [(lv, self.t("q_level_group", lv=lv)) for lv in levels]
+        for lv, text in options:
+            b = QPushButton(self._p(text), objectName="Chip")
+            b.setCheckable(True)
+            b.setChecked(lv == self._q_level)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            tip = text if lv is None else self.t("q_level_count", n=levels[lv], lv=lv)
+            b.setAccessibleName(tip)
+            b.setToolTip(tip)
+            b.clicked.connect(lambda _=False, lv=lv: self._pick_level(lv))
+            self.q_levels.addWidget(b)
+
+    def _pick_level(self, lv) -> None:
+        self._q_level = lv
+        self._fill_quests(new_list=True)
 
     def _more_quests(self, layout: QVBoxLayout, total: int, shown: int, limit: str):
         """Under a list cut at `shown` cards: "Showing 40 of 56 quests" and "Show more quests". The header counts
@@ -937,6 +1433,39 @@ class ToolsDialog(GlassDialog):
         more.clicked.connect(lambda *_: show_more())
         layout.addWidget(more, 0, Qt.AlignHCenter)
 
+    def _journal_npc(self, q) -> str:
+        """The first NPC a quest's page names ("Arthur, the Town Clerk I met at Henesys Town Hall"), with a picture."""
+        for name in re.findall(r"[A-Z][\w'.]+(?: [A-Z][\w'.]+)*", self.kb.page(q.key).split("NPC Dialogue")[0]):
+            for n in (name, name.split(" ")[0]):
+                if self.kb._npc_by_name.get(n.lower()) and self._picture_path("npc", n):
+                    return n
+        return ""
+
+    def _finish_with(self, q) -> str:
+        """Who a quest is finished with, when that's not who gives it: its page's "Turn in", else (a quest that
+        starts on its own) the NPC its journal names."""
+        if q.turn_in and q.turn_in != q.npc:
+            return q.turn_in
+        if q.self_start or not q.npc:
+            return self._journal_npc(q)
+        return ""
+
+    def _quest_picture(self, q):
+        """The quest's NPC, or the quest picture when the KB names none ("To Henesys" showed a blank)."""
+        path = self._picture_path("npc", q.npc) if q.npc else None
+        if path:
+            return path
+        n = self._journal_npc(q)
+        if n:
+            return self._picture_path("npc", n)
+        from ..kb import FALLBACK_DIR
+        quest = FALLBACK_DIR / "quest.png"
+        return str(quest) if quest.exists() else None
+
+    def _picture_path(self, kind: str, name: str):
+        uri = self._picture_uri(kind, name)
+        return QUrl(uri).toLocalFile() if uri else None
+
     def _picture_uri(self, kind: str, name: str) -> str | None:
         """The KB picture of a monster / item / NPC by its name, as a file URI."""
         n = name.strip().lower()
@@ -951,6 +1480,26 @@ class ToolsDialog(GlassDialog):
             return self._picture_uri(kind, re.sub(r" x ?[\d,]+$", "", n))
         return path.as_uri() if path else None
 
+    @staticmethod
+    def _zoom_img(uri: str, height: int = 24) -> str:
+        """A picture that shows large on hover (_zoomable): pictures this small hid what they show (the owner)."""
+        return (f"<a href='zoom:{uri}' style='text-decoration:none'>"
+                f"<img src='{uri}' height='{height}' style='vertical-align: middle'></a>&nbsp;")
+
+    @staticmethod
+    def _zoomable(lb: QLabel) -> QLabel:
+        from PySide6.QtGui import QCursor
+        from PySide6.QtWidgets import QToolTip
+        lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
+
+        def hovered(href: str):
+            if href.startswith("zoom:"):
+                QToolTip.showText(QCursor.pos(), f"<img src='{href[5:]}' height='96'>", lb)
+            else:
+                QToolTip.hideText()
+        lb.linkHovered.connect(hovered)
+        return lb
+
     def _thing_html(self, text: str) -> str:
         """ "Defeat Blue Snail x 10" / "Red Potion x 20" -> its picture, then the name (kept as one English block)."""
         m = re.fullmatch(r"(Defeat |Collect )?(.+?) x ([\d,]+)( \([\d.]+%\))?( \(.+\))?", text.strip())
@@ -960,23 +1509,83 @@ class ToolsDialog(GlassDialog):
         n += odds or ""                 # a random reward keeps its odds: "Bronze Ore x7 (16.7%)"
         uri = self._picture_uri("monster" if verb == "Defeat " else "item", name) or \
             self._picture_uri("item" if verb == "Defeat " else "monster", name)
-        img = f"<img src='{uri}' height='24' style='vertical-align: middle'>&nbsp;" if uri else ""
+        img = self._zoom_img(uri) if uri else ""
         # picture and name in one left-to-right unit, so in Hebrew the picture stays beside its own name
         # a note in the player's language after it ("(male character)", Quest.rewards_gender), outside the block
         return (f"<span style='white-space: nowrap'>{bidi.LRE}{img}{html.escape(name)} x{n}{bidi.PDF}{bidi.RLM}</span>"
                 + html.escape(note or ""))
 
     def _things_label(self, head: str, things: list[str], extra: str = "") -> QLabel:
-        """A heading, then one thing per line: its picture beside its own name, never split by a wrap."""
+        """A heading, then one thing per line: its picture beside its own name, never split by a wrap. A monster to
+        defeat has its way there and its hit & damage after it."""
         side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
         lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(head)}</b></p>"]
-        lines += [f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>" for x in things]
+        for x in things:
+            more = ""
+            mob = re.fullmatch(r"Defeat (.+?) x [\d,]+", x.strip())
+            if mob and self._mob_map(mob.group(1)):
+                more = " · " + self._nav_html([("farm_route", "route", mob.group(1)),
+                                               ("tool_calc", "calc", mob.group(1))])
+            lines.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}{more}</p>")
         if extra:
             lines.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(extra)}{bidi.PDF}</p>")
         lb = QLabel("".join(lines), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
-        return lb
+        lb.linkActivated.connect(self._nav)
+        return self._zoomable(lb)
+
+    def _droppers_label(self, needs: list[str]) -> QLabel | None:
+        """ "מאיפה משיגים:" under "צריך:", item by item: the monsters that drop it, one a line with its picture
+        (lowest level first), or the recipe that makes it ("Woodcrafting: 10 x Tree Branch"). By monster, one item
+        repeated down the list; and a crafted one said nothing at all (the owner)."""
+        def lv(m):
+            return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
+        t = self.t
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        blocks = []
+        for x in needs:
+            name = re.sub(r"\s*x\s*[\d,]+$", "", x).strip()
+            key = self.kb._item_by_name.get(name.lower())
+            mons = sorted(self.kb.droppers.get(key, []) if key else [], key=lv)
+            made = crafting.made_from(self.kb, name) if not mons else []
+            if not mons and not made:
+                continue
+            # the item's farm page (every dropper, its map and level) and its price, a tap away
+            go = [("tool_farm", "farm", name)] if mons else []
+            go.append(("go_price", "price", name))
+            rows = [f"<p {side} style='margin:4px 0 2px 0;'>{bidi.LRE}<u>{html.escape(name)}</u>{bidi.PDF}"
+                    f"{bidi.RLM}: {self._nav_html(go)}</p>"]
+            for m in mons:
+                path = self.kb.picture(m)
+                img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
+                mob = (self.kb.get(m) or {}).get('name', m)
+                who = html.escape(f"{mob} (Lv. {lv(m)})")
+                # the way to it and its hit & damage
+                more = (" · " + self._nav_html([("farm_route", "route", mob), ("tool_calc", "calc", mob)])
+                        if self._mob_map(mob) else "")
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
+                            f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span>{more}</p>")
+            if made:
+                # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
+                # in one line read backwards)
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'>{html.escape(bidi.plain(t('q_made_from'), t.rtl))}</p>")
+                for prof, plv, what in made[:2]:
+                    # the profession, then each ingredient on its own line with its picture (one long line of
+                    # five ingredients wrapped in the middle of a name: the owner)
+                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{bidi.LRE}<b>{html.escape(f'{prof} Lv. {plv}')}"
+                                f"</b>{bidi.PDF}{bidi.RLM}:</p>")       # (italics leaned and clipped the "5")
+                    for n, part in re.findall(r"(\d[\d,]*) x (.+?)(?=\s+\d[\d,]* x |$)", what):
+                        rows.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(f'{part.strip()} x {n}')}</p>")
+            blocks.append("".join(rows))
+        if not blocks:
+            return None
+        head = f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_droppers_head'))}</b></p>"
+        lb = QLabel(head + "".join(blocks), objectName="CardSub")
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        lb.linkActivated.connect(self._nav)
+        return self._zoomable(lb)
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
         t = self.t
@@ -987,11 +1596,12 @@ class ToolsDialog(GlassDialog):
         npc = QLabel()
         npc.setFixedSize(52, 60)
         npc.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        uri = self._picture_uri("npc", q.npc) if q.npc else None
-        if uri:
-            pm = QPixmap(QUrl(uri).toLocalFile())
+        path = self._quest_picture(q)
+        if path:
+            pm = QPixmap(str(path))
             if not pm.isNull():
                 npc.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(npc, path)
         outer.addWidget(npc, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(4)
@@ -1003,15 +1613,73 @@ class ToolsDialog(GlassDialog):
         top.addWidget(name, 1)
         # the level it can be done at: one taken at 12 but finished only at 32 is a Lv. 32 quest ("soon" at 31)
         top.addWidget(tag(self._p(t("lv_short", n=q.opens_at())), "Tag"))
+        if q.cycle:
+            # the page's "Daily" / "Weekly"; the KB names no reset time, the tip says so
+            top.addWidget(info_tag(t, t(f"q_{q.cycle}"), t(f"q_{q.cycle}_tip"), "TagAccent"))
+
         if q.exp:
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
-        where = [x for x in (q.npc, q.area) if x]
-        if where:
-            col.addWidget(self._label(" · ".join(where), "CardSub"))
+        when = (self.c.cycle_done or {}).get(q.key) if done and q.cycle and self.c else None
+        if isinstance(when, (int, float)):
+            # marked done: when it's back, right under its name (a line at the bottom was missed: the owner)
+            from datetime import datetime
+            back = datetime.fromtimestamp(quests.back_at(q.cycle, when))
+            col.addLayout(chip_row([tag(self._p(t("q_back_at", when=f"{back.day}.{back.month}")), "TagAccent")],
+                                   lead=True))
+        # the town, under its heading, with the way there (the NPC's name said nothing: the owner)
+        npc_key = self.kb._npc_by_name.get(re.sub(r"\s*\(.*\)$", "", q.npc or "").lower())
+        town = (crafting._town(self.kb, npc_key) if npc_key else "") or quests.town_of(self.kb, q) or \
+            (q.area if q.area not in ("Citizenship", "Crafting") else "")
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        parts = []
+        if town:
+            text = f"{bidi.LRE}{html.escape(town)}{bidi.PDF}"
+            if q.npc and routes.of(self.kb).find(q.npc):
+                text += " · " + self._nav_html([("farm_route", "route", q.npc)])
+            elif routes.of(self.kb).find(town):
+                text += " · " + self._nav_html([("farm_route", "route", town)])
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_town_head'))}</b></p>"
+                         f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
+        # how you get it: an NPC hands it out, or it opens on its own (the owner: "how do I get it?")
+        board = re.match(r"Community Board", q.npc or "")      # a board in front of the town hall, not someone
+        who = t("q_self_start") if q.self_start or not q.npc else t("q_from_board") if board else \
+            t("q_from_npc", npc=f"{bidi.LRE}{q.npc}{bidi.PDF}")
+        parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_get_head'))}</b></p>"
+                     f"<p {side} style='margin:0 0 4px 0;'>{html.escape(who)}</p>")
+        # who it's finished with, when someone else (the opener's Arthur, the Town Clerk; Roxy in Kerning City)
+        end = self._finish_with(q)
+        if end:
+            key = self.kb._npc_by_name.get(end.lower())
+            role = re.search(r"^(Town Clerk|City Clerk)$", self.kb.page(key), re.M) if key else None
+            text = f"{bidi.LRE}{html.escape(end)}{bidi.PDF}"
+            if role:
+                text += f", {html.escape(t('q_role_clerk'))}"
+            if routes.of(self.kb).find(end):
+                text += " · " + self._nav_html([("farm_route", "route", end)])
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_finish_head'))}</b></p>"
+                         f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
+        # what to do, when there is nothing to bring: the game's own quest journal
+        if q.task and not q.needs:
+            task = quests.task_text(q, t.lang, self.kb)
+            hebrew = task != q.task
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_task_head'))}</b></p>"
+                         + (f"<p {side} style='margin:0'>{html.escape(bidi.plain(task, True))}</p>" if hebrew else
+                            f"<p dir='ltr' align='{'right' if t.rtl else 'left'}' style='margin:0'>{html.escape(task)}</p>"))
+        if parts:
+            lb = QLabel("".join(parts), objectName="CardSub")
+            lb.setTextFormat(Qt.RichText)
+            lb.setWordWrap(True)
+            lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)
+            lb.linkActivated.connect(self._nav)
+            col.addWidget(lb)
         if q.needs:
-            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4]))
-        gets = q.rewards[:3]
+            # the whole card, nothing cut ("and 2 more" hid what was needed and who drops it: the owner)
+            col.addWidget(self._things_label(t("q_needs_head"), q.needs))
+            who = self._droppers_label(q.needs)
+            if who is not None:
+                col.addWidget(who)
+        gets = q.rewards
         extra = " · ".join(x for x in (f"{q.mesos:,} mesos" if q.mesos else "", f"+{q.fame} Fame" if q.fame else "") if x)
         if gets or extra:
             col.addWidget(self._things_label(t("q_gets_head"), gets, extra))
@@ -1019,15 +1687,29 @@ class ToolsDialog(GlassDialog):
         base = self.c.base_class if self.c else ""
         for head, things in (("q_pick_head", q.rewards_pick(base)), ("q_random_head", q.rewards_random(base))):
             if things:
-                shown = things[:4] + ([t("pn_more", n=len(things) - 4)] if len(things) > 4 else [])
+                shown = things
                 col.addWidget(self._things_label(t(head), shown))
         # a reward that depends on the character's gender: both listed, each marked (the profile has no gender)
         by_gender = q.rewards_gender(t)
         if by_gender:
             col.addWidget(self._things_label(t("q_gender_head"), by_gender))
         hints = []
-        if q.after:
-            hints.append(t("q_after", name=bidi.ltr_block(q.after, t.rtl)))
+        finished = {(self.kb.get(k) or {}).get("name") for k in (self.c.quests_done if self.c else [])}
+        for name in q.afters:
+            if name in finished:
+                continue                 # done already: nothing left to say about it (the owner)
+            # the quest that opens this one, a tap away (the owner): its tab, it alone. A label that wraps, not a
+            # button: a long name held the card wider than the page and every tab switch shifted it sideways
+            side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+            text = html.escape(bidi.plain(t("q_after", name=bidi.ltr_block(name, t.rtl)), t.rtl))
+            go = html.escape(t("q_go_after"))
+            hint = QLabel(f"<p {side} style='margin:0'>{text} · <a href='go' style='color:{theme.accent_text()};"
+                          f" text-decoration:none'>{go}</a></p>", objectName="RowHint")
+            hint.setTextFormat(Qt.RichText)
+            hint.setWordWrap(True)
+            hint.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)
+            hint.linkActivated.connect(lambda _href, n=name: self._goto_quest(n))
+            col.addWidget(hint)
         if q.complete_level > q.level:
             hints.append(t("q_complete_lv", n=q.complete_level, take=q.level))
         if q.grade:
@@ -1061,6 +1743,9 @@ class ToolsDialog(GlassDialog):
         c = self.c
         if c and key not in c.quests_done:
             c.quests_done.append(key)
+            q = quests.quest(self.kb, key)
+            if q and q.cycle:
+                c.cycle_done[key] = time.time()        # back on the list after the next reset
             # done here is done for the chat too: the started quest leaves "Active quests" in the AI's prompt
             q = quests.quest(self.kb, key)
             if q:
@@ -1072,6 +1757,7 @@ class ToolsDialog(GlassDialog):
         c = self.c
         if c and key in c.quests_done:
             c.quests_done.remove(key)
+            c.cycle_done.pop(key, None)
             self.profiles.save()
         self._refresh_in_place()
 
@@ -1084,7 +1770,20 @@ class ToolsDialog(GlassDialog):
         self.refresh()
         if bar:
             bar.setValue(at)
-            QTimer.singleShot(0, lambda: bar.setValue(at))      # again once the new cards have their size
+            # again whenever the new cards get their size (the range grows over a few layout passes; set once
+            # before it had, the page stayed at the top: the owner)
+
+            def keep(_lo=0, hi=0):
+                if bar.value() != at and hi >= at:
+                    bar.setValue(at)
+            bar.rangeChanged.connect(keep)
+
+            def stop():
+                try:
+                    bar.rangeChanged.disconnect(keep)
+                except (RuntimeError, TypeError):         # the window closed meanwhile
+                    pass
+            QTimer.singleShot(400, self, stop)
 
     def _done_toggle(self) -> QPushButton:
         """The "show quests marked done (n)" toggle; open, _add_done lists those quests under it."""
@@ -1092,7 +1791,8 @@ class ToolsDialog(GlassDialog):
         b.setCheckable(True)
         b.setCursor(Qt.PointingHandCursor)
         b.setAutoDefault(False)
-        b.toggled.connect(lambda *_: self.refresh())
+        # where the player is reading: a redraw from the top jumped the page up (the owner)
+        b.toggled.connect(lambda *_: self._refresh_in_place())
         return b
 
     def _add_done(self, toggle: QPushButton, layout: QVBoxLayout, keys: list[str]):
@@ -1127,28 +1827,51 @@ class ToolsDialog(GlassDialog):
         sc, lay = scroll_page(self.t.rtl)
         # the professions live inside this tab's own card, in a lighter style than the main tabs
         sec = Section(t("craft_profession"), t.rtl)
-        grid = FlowLayout(spacing=6)            # wraps: three long names on one row were wider than the window
+        # the six on one row when they fit, else two rows of three (one alone on a second row looked broken: the
+        # owner)
+        chips = []
         self.craft_pick = QButtonGroup(self)
         for i, prof in enumerate(crafting.PROFESSIONS):
-            b = QPushButton(crafting.NAMES[prof], objectName="SubChip")
+            b = QPushButton(crafting.NAMES[prof], objectName="ProfChip")
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("prof", prof)
             self.craft_pick.addButton(b, i)
-            grid.addWidget(b)
+            chips.append(b)
         self.craft_pick.button(0).setChecked(True)
         self.craft_pick.idClicked.connect(lambda *_: self._fill_crafting())
-        holder = QWidget()
-        holder.setLayout(grid)
+        holder = BalancedRow(chips)
         sec.add_widget(holder)
         self.craft_level = Stepper(1, 10, 1)
         self.craft_level.valueChanged.connect(self._set_craft_level)
         self._row(sec, t("craft_my_level"), self.craft_level, hint=t("craft_level_hint"))
         lay.addWidget(sec)
-        self.craft_info = QVBoxLayout()           # who teaches the profession, where you work it
+        # under the profession, as on the quests page (the owner): its teacher and quests, what you can make now,
+        # or every recipe by level (how a later one is made, Arcforge's scrolls, was nowhere to see)
+        # two tabs, quests and recipes; the recipes split again into what you can make now and all of them (the
+        # owner's order)
+        self.craft_mode = Segmented([(t("craft_mode_teacher"), "teacher"), (t("craft_mode_recipes"), "recipes")],
+                                    "teacher", t.rtl)
+        self.craft_mode.changed.connect(lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
+        lay.addWidget(self.craft_mode, 0, Qt.AlignHCenter)
+        self.craft_recipe_mode = Segmented([(t("craft_mode_now"), "now"), (t("craft_mode_all"), "all")], "now", t.rtl)
+        self.craft_recipe_mode.changed.connect(
+            lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
+        lay.addWidget(self.craft_recipe_mode, 0, Qt.AlignHCenter)
+        self.craft_search = EntityPicker([], self._p(t("craft_search")), icon=32, rtl=t.rtl)
+        self._craft_search_timer = QTimer(self, singleShot=True, interval=200)
+        self._craft_search_timer.timeout.connect(self._fill_crafting)
+        self.craft_search.textChanged.connect(lambda *_: self._craft_search_timer.start())
+        lay.addWidget(self.craft_search)
+        self.craft_info = QVBoxLayout()           # who teaches the profession, where you work it, its quests
         lay.addLayout(self.craft_info)
         self.craft_head = self._label("", "ToolHeader")
         lay.addWidget(self.craft_head)
+        self.craft_levels_box = QWidget()
+        self.craft_levels = FlowLayout(self.craft_levels_box, spacing=6, per_row=6)
+        self.craft_levels_box.hide()
+        lay.addWidget(self.craft_levels_box)
+        self._craft_level_pick = None
         self.craft_src = QHBoxLayout()
         lay.addLayout(self.craft_src)
         self._source_line(self.craft_src, sources.MEOWDB)
@@ -1172,29 +1895,117 @@ class ToolsDialog(GlassDialog):
         t, c = self.t, self.c
         clear(self.craft_list)
         clear(self.craft_info)
-        self.craft_info.addWidget(self._craft_info_card(self._prof()))
-        if not c:
-            self._no_character(self.craft_list)
-            return
+        clear(self.craft_levels)
+        mode = self.craft_mode.value()
+        teacher = mode == "teacher"
+        self.craft_search.setVisible(not teacher)
+        self.craft_recipe_mode.setVisible(not teacher)
+        self.craft_levels_box.setVisible(False)
         prof = self._prof()
         top = crafting.max_level(self.kb, prof)
-        lv = int((c.crafts or {}).get(prof, 1))
+        lv = int(((c.crafts or {}).get(prof, 1)) if c else 1)
         self.craft_level.blockSignals(True)
         self.craft_level.setMaximum(top)          # the + button and the typed-value check follow the new top
         self.craft_level.setValue(min(lv, top))
         self.craft_level.blockSignals(False)
-        _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
-        # everything you can craft so far, not only what this exact level opened (newest first)
-        recipes = crafting.up_to(self.kb, prof, min(lv, top))
-        head = t("craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
-        if nxt and nxt.needs_exp:
-            head += "\n" + t("craft_next", lv=nxt.level, exp=f"{nxt.needs_exp:,}", char=nxt.char_level or "?")
-        self._set(self.craft_head, head)
-        if not recipes:
-            self.craft_list.addWidget(self._label(t("craft_none"), "RowHint"))
+        if teacher:
+            self._set(self.craft_head, "")
+            self.craft_head.hide()
+            self.craft_info.addWidget(self._label(t("craft_teacher_head"), "SectionHeader"))
+            self.craft_info.addWidget(self._craft_info_card(prof))
+            # the profession's quests as full quest cards, as on the quests page: need, where to get it, reward
+            i = crafting.info(self.kb, prof)
+            for name, qlv, head in ((i.start_quest, i.start_level, "craft_start"),
+                                    (i.master_quest, i.master_level, "craft_master")):
+                q = self._quest_by_name(name)
+                if q is None:
+                    continue
+                self.craft_info.addWidget(self._label(t(head, lv=qlv or q.opens_at()), "SectionHeader"))
+                self.craft_info.addWidget(self._quest_card(q, done=bool(c and q.key in c.quests_done)))
             return
+        self.craft_head.show()
+        if not c:
+            self._no_character(self.craft_list)
+            return
+        every = self.craft_recipe_mode.value() == "all"
+        _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
+        # everything you can craft so far (newest level first), or every recipe (first level first)
+        recipes = crafting.up_to(self.kb, prof, top if every else min(lv, top))
+        if every:
+            recipes.sort(key=lambda r: (r.level, -r.exp_per_meso, -r.exp))
+        self.craft_search.set_rows([(f"{r.name}  ·  {t('craft_level_group', n=r.level)}", r.name,
+                                     self._picture_path("item", r.name)) for r in recipes])
+        head = t("craft_head_all" if every else "craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
+        if nxt and nxt.needs_exp:
+            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
+                              char=nxt.char_level or "?")
+        self._set(self.craft_head, head)
+        # a chip a level ("רמה 4"), as on the quests page: a tap shows that level's recipes
+        levels: dict[int, int] = {}
+        for r in recipes:
+            levels[r.level] = levels.get(r.level, 0) + 1
+        if len(levels) > 1:
+            if self._craft_level_pick not in levels:
+                self._craft_level_pick = None
+            self.craft_levels_box.setVisible(True)
+            for value, text in [(None, t("q_all_levels"))] + [(x, t("craft_level_group", n=x)) for x in levels]:
+                b = QPushButton(self._p(text), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(value == self._craft_level_pick)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setAutoDefault(False)
+                b.clicked.connect(lambda _=False, v=value: (setattr(self, "_craft_level_pick", v), self._fill_crafting()))
+                self.craft_levels.addWidget(b)
+        if self._craft_level_pick is not None:
+            recipes = [r for r in recipes if r.level == self._craft_level_pick]
+        query = self.craft_search.text().strip().lower()
+        if query:
+            # by the recipe's name or an ingredient's ("Garnet Ore" finds what it goes into)
+            recipes = [r for r in recipes if query in r.name.lower() or any(query in n.lower() for _, n in r.ingredients)]
+        if not recipes:
+            self.craft_list.addWidget(self._label(t("craft_no_match" if query else "craft_none"), "RowHint"))
+            return
+        last = None
         for i, r in enumerate(recipes):
-            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0)))
+            if r.level != last:
+                last = r.level            # level by level, as the quests are
+                self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
+            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every and not query)))
+
+    def _leave(self, name: str) -> None:
+        """A page left: its picks and searches start fresh next time (a shopping map stayed: the owner). A page
+        another one opens fills them again on arrival (a quest jump, a monster's way there)."""
+        def empty(box):
+            box.blockSignals(True)
+            box.clear()
+            box.blockSignals(False)
+        if name == "quests":
+            self.q_mode.group.buttons()[0].setChecked(True)      # back on "Quests for level N", every level
+            self._q_level = None
+            empty(self.q_search)
+        elif name == "town":
+            self._town_grade_pick = None
+            empty(self.town_search)
+        elif name == "crafting":
+            self._craft_level_pick = None
+            empty(self.craft_search)
+        elif name == "farm":
+            self._farm_mob_pick = None
+        elif name == "more":
+            clear(self.sell_box)
+        elif name == "route":
+            empty(self.route_to)
+            clear(self.route_out)
+
+    def _quest_by_name(self, name: str):
+        """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
+        want = (name or "").rstrip("!").strip().lower()
+        if not want:
+            return None
+        for k, e in self.kb.entities.items():
+            if e.get("category") == "quest" and e.get("name", "").rstrip("!").strip().lower() == want:
+                return quests.quest(self.kb, k)
+        return None
 
     def _craft_info_card(self, prof: str) -> QFrame:
         """The profession explained: what it makes, its teacher (and town), the quests, the work stations."""
@@ -1212,6 +2023,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(6)
@@ -1220,15 +2032,15 @@ class ToolsDialog(GlassDialog):
         col.addWidget(self._label(t(f"craft_makes_{prof}"), "RowLabel"))
         if i.teacher:
             col.addWidget(self._label(t("craft_teacher", npc=i.teacher, town=i.teacher_town or "?"), "RowLabel"))
-        if i.start_quest:
-            col.addWidget(self._label(t("craft_start", quest=i.start_quest.rstrip("!"), lv=i.start_level or "?"), "RowLabel"))
-        if i.master_quest:
-            col.addWidget(self._label(t("craft_master", quest=i.master_quest.rstrip("!"), lv=i.master_level or "?"), "RowLabel"))
         if i.station_towns:
-            col.addWidget(self._label(t("craft_station", station=i.station, towns=" · ".join(i.station_towns)),
+            col.addWidget(self._label(t("craft_station", station=i.station,
+                                        towns=(" וב-" if t.rtl else ", ").join(i.station_towns)),
                                       "RowLabel"))
         name = crafting.NAMES[prof]
-        col.addWidget(self._ask_link(lambda: self.ask_requested.emit(t("craft_ask", prof=name), False)))
+        acts = [("craft_go_teacher", lambda n=i.teacher: self._go_route(n))] \
+            if i.teacher and routes.of(self.kb).find(i.teacher) else []
+        acts.append(("ask_short", lambda: self.ask_requested.emit(t("craft_ask", prof=name), False)))
+        col.addLayout(self._links_row(acts))
         return card
 
     def _recipe_card(self, r: crafting.Recipe, best: bool) -> QFrame:
@@ -1245,6 +2057,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(4)
@@ -1257,7 +2070,11 @@ class ToolsDialog(GlassDialog):
         why.addWidget(tag(f"+{r.exp} EXP", "TagGood"))
         why.addWidget(tag(self._p(t("craft_cost", n=f"{r.catalyst:,}")), "Tag"))
         col.addLayout(why)
-        col.addWidget(self._things_label(t("craft_needs"), [f"{name} x {n}" for n, name in r.ingredients]))
+        needs = [f"{name} x {n}" for n, name in r.ingredients]
+        col.addWidget(self._things_label(t("craft_needs"), needs))
+        where = self._droppers_label(needs)          # where each ingredient comes from, as on a quest card
+        if where is not None:
+            col.addWidget(where)
         net = t("craft_net_gain", n=f"{r.net:,}") if r.net >= 0 else t("craft_net_loss", n=f"{-r.net:,}")
         col.addWidget(self._label(net, "RowHint"))
         col.addWidget(self._ask_link(lambda: self.ask_requested.emit(t("craft_ask_recipe", item=r.name), False)))
@@ -1277,8 +2094,19 @@ class ToolsDialog(GlassDialog):
         self.town_basics = self._label(t("town_basics"), "RowHint")
         sec.add_widget(self.town_basics)
         lay.addWidget(sec)
+        # a search and a chip a grade, as on the quests and crafting pages (the owner)
+        self.town_search = EntityPicker([], self._p(t("town_search")), icon=32, rtl=t.rtl)
+        self._town_search_timer = QTimer(self, singleShot=True, interval=200)
+        self._town_search_timer.timeout.connect(lambda: self._fill_town())
+        self.town_search.textChanged.connect(lambda *_: self._town_search_timer.start())
+        lay.addWidget(self.town_search)
         self.town_head = self._label("", "ToolHeader")
         lay.addWidget(self.town_head)
+        self.town_grades_box = QWidget()
+        self.town_grades = FlowLayout(self.town_grades_box, spacing=6, per_row=6)
+        self.town_grades_box.hide()
+        lay.addWidget(self.town_grades_box)
+        self._town_grade_pick = None
         self.town_src = QHBoxLayout()
         lay.addLayout(self.town_src)
         self._source_line(self.town_src, sources.MEOWDB)
@@ -1302,6 +2130,20 @@ class ToolsDialog(GlassDialog):
         self._town_limit = MAX_QUESTS         # another town's list: its first cards
         self.refresh("town")
 
+    def _npc_towns(self, text: str) -> str:
+        """Each NPC a sentence names, with the town it stands in: "Raymond (ב-Henesys) sells ..."."""
+        done = set()
+
+        def one(m):
+            name = m.group(0)
+            key = self.kb._npc_by_name.get(name.lower())
+            if not key or name in done:
+                return name
+            done.add(name)
+            town = crafting._town(self.kb, key)
+            return f"{name} ({self.t('in_town', town=town)})" if town and town not in text and town != name else name
+        return re.sub(r"\b[A-Z][a-z]+(?: [A-Z][a-z]+)?\b", one, text)
+
     def _fill_town(self):
         t, c = self.t, self.c
         clear(self.town_list)
@@ -1316,21 +2158,79 @@ class ToolsDialog(GlassDialog):
         for b in self.town_pick.findChildren(QPushButton):
             b.setChecked(b.property("value") == town or b.text() == town)
         self.town_pick.blockSignals(False)
-        # the guide's advice, one sentence per line, the grades and towns in bold
-        lines = [t("town_recommended", town=rec, job=c.job_label or c.base_class)] if rec else []
-        for para in paras[:2]:
-            for sentence in re.split(r"(?<=[.!?])\s+", guides._ICON.sub("", para).strip()):
-                if sentence.strip():
-                    lines.append("• " + _bold_names(sentence.strip()))
-        self._set(self.town_advice, "\n".join(lines) if lines else t("town_no_advice"))
+        # the guide's advice, short: what it recommends and where to sign up; the reasons behind a "?", each NPC
+        # with the town it stands in ("Raymond" alone said nothing: the owner)
+        sentences = [x.strip() for para in paras[:2]
+                     for x in re.split(r"(?<=[.!?])\s+", guides._ICON.sub("", para).strip()) if x.strip()]
+        sentences = [re.sub(r"\*\*", "", x) for x in sentences]
+        reasons = [x for x in sentences
+                   if not re.search(r"best|הכי טוב|הטובה|ממליץ|Pick |\bsign|נרשמ|להירשם|תבחרו|תירשמו", x, re.I)]
+        # where to sign up in the town picked: its clerk from the KB (the guide's line is the recommended town's)
+        clerk = next(((e["name"], crafting._town(self.kb, k)) for k, e in self.kb.entities.items()
+                      if e.get("category") == "npc" and crafting._town(self.kb, k).startswith(town)
+                      and re.search(r"^(Town Clerk|City Clerk)$", self.kb.page(k), re.M)), None)
+        sign_line = t("town_sign", npc=clerk[0], place=clerk[1]) if clerk else ""
+        if rec:
+            badge = terms._badge_uri()
+            head = f"<b>{html.escape(bidi.plain(t('town_recommended_short', town=rec, job=c.job or c.base_class), t.rtl))}</b>"
+            if badge and reasons:
+                head += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+            text = head + (f"<br>{html.escape(bidi.plain(sign_line, t.rtl))}" if sign_line else "")
+            self.town_advice.setText(text)
+            self.town_advice.setToolTip(tip_html("\n".join("• " + self._npc_towns(x) for x in reasons), t.rtl)
+                                        if reasons else "")
+        else:
+            self._set(self.town_advice, t("town_no_advice"))
+            self.town_advice.setToolTip("")
         rows = quests.citizenship(self.kb, town, c.level, c.quests_done)
         self._set(self.town_head, t("town_head", n=len(rows), town=town))
+        clear(self.town_grades)
+        self.town_grades_box.hide()
         if c.level < 12:
             self.town_list.addWidget(self._label(t("town_too_low"), "RowHint"))
             return
+        def grade(q):
+            return q.grade[1] if q.grade else 0
+        rows = sorted(rows, key=lambda q: (grade(q), -q.exp))      # by the grade they ask, lowest first
+        self.town_search.set_rows([(q.name, q.name, self._quest_picture(q)) for q in rows])
+        grades: dict[int, int] = {}
+        for q in rows:
+            grades[grade(q)] = grades.get(grade(q), 0) + 1
+        if len(grades) > 1:
+            if self._town_grade_pick not in grades:
+                self._town_grade_pick = None
+            self.town_grades_box.show()
+            for value, text in [(None, t("town_all_grades"))] + [(g, t("town_grade_group", n=g) if g else t("town_no_grade"))
+                                                                 for g in grades]:
+                b = QPushButton(self._p(text), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(value == self._town_grade_pick)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setAutoDefault(False)
+                b.clicked.connect(lambda _=False, v=value: (setattr(self, "_town_grade_pick", v), self._fill_town()))
+                self.town_grades.addWidget(b)
+        # the next grade's quests: from which level (only the grades open at this level have chips: "is there
+        # only one grade?", the owner)
+        top = max(grades, default=0)
+        later = sorted((q.grade[1], q.opens_at()) for k, e in self.kb.entities.items() if e.get("category") == "quest"
+                       for q in [quests.quest(self.kb, k)] if q and q.area == "Citizenship" and q.grade
+                       and quests.town_of(self.kb, q) == town and q.grade[1] > top)
+        if later:
+            self.town_list.addWidget(self._label(t("town_next_grade", n=later[0][0], lv=later[0][1],
+                                                   last=later[-1][0]), "RowHint"))
+        if self._town_grade_pick is not None:
+            rows = [q for q in rows if grade(q) == self._town_grade_pick]
+        query = self.town_search.text().strip()
+        if query:
+            rows = [q for q in rows if q.matches(query)]
         if not rows:
-            self.town_list.addWidget(self._label(t("q_none"), "RowHint"))
+            self.town_list.addWidget(self._label(t("q_no_match" if query else "q_none"), "RowHint"))
+        last = None
         for q in rows[:self._town_limit]:
+            if grade(q) != last:
+                last = grade(q)           # grade by grade, as the quests are level by level
+                self.town_list.addWidget(self._label(t("town_grade_group", n=last) if last else t("town_no_grade"),
+                                                     "SectionHeader"))
             self.town_list.addWidget(self._quest_card(q))
         self._more_quests(self.town_list, len(rows), self._town_limit, "_town_limit")
         mine = [k for k in c.quests_done
@@ -1348,6 +2248,8 @@ class ToolsDialog(GlassDialog):
         rows = item_rows(self.kb)
         self.price_input = EntityPicker(rows, self._p(t("price_placeholder", n=f"{len(rows):,}")), icon=32, rtl=t.rtl)
         self.price_input.picked.connect(self._fill_prices)
+        # an emptied box empties the page: the last item stayed on it (the owner)
+        self.price_input.textChanged.connect(lambda text: None if text.strip() else self._fill_prices())
         lay.addWidget(self.price_input)
         self.price_box = QVBoxLayout()
         self.price_box.setSpacing(12)
@@ -1373,6 +2275,12 @@ class ToolsDialog(GlassDialog):
             if name:
                 self.price_box.addWidget(self._label(t("price_none"), "RowHint"))
             return
+        # an untradeable Cash Shop item (a pet): no NPC and no player buys or sells it, so no price here (the owner)
+        if str((self.kb.get(key) or {}).get("type") or "").startswith("Cash") and sitedata.untradeable(self.kb, key):
+            nx = sitedata.cash_price(self.kb, key)
+            self.price_box.addWidget(self._label(t("price_untradeable", n=f"{nx[0]:,}") if nx else
+                                                 t("price_untradeable_no_nx"), "RowHint"))
+            return
         npc = market.npc_prices(self.kb, key)
         card = QFrame(objectName="Card")
         outer = QHBoxLayout(card)
@@ -1386,6 +2294,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(6)
@@ -1427,16 +2336,31 @@ class ToolsDialog(GlassDialog):
         self.fm_label = self._label(t("price_fm_loading"), "RowLabel", seen=set(seen))
         self.fm_chip = source_tag(t, sources.COMMUNITY)
         col.addLayout(chip_row([self.fm_chip], self.fm_label, lead=True))
+        # the rest of the item's Free Market (offers, trend, newest listings) under it, once it's in (_on_market)
+        self.fm_more = QVBoxLayout()
+        self.fm_more.setSpacing(4)
+        col.addLayout(self.fm_more)
+        slug = key.split("/", 1)[1]
+        item_id = int(slug) if slug.isdigit() else None        # the KB's item ids are NiaMeowDB's
         web = QPushButton(self._p(t("price_open_site")), objectName="Link")
         web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda _=False, n=name: __import__("webbrowser").open(market.page_url(n)))
+        web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
+            market.item_page(i) if i else market.page_url(n)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+        # who drops it (Farm), the way to the cheapest shop
+        acts = [("go_get", lambda n=name: self._go_farm_item(n))] if self.kb.droppers.get(key) else []
+        if shops and routes.of(self.kb).find(shops[0][0]):
+            acts.append(("go_shop", lambda n=shops[0][0]: self._go_route(n)))
+        if acts:
+            col.addLayout(self._links_row(acts))
         self.price_box.addWidget(card)
         self._price_for = name
         import threading
 
-        def lookup(n=name):
-            found = market.free_market(n)          # up to 10 s on a slow connection
+        def lookup(n=name, i=item_id):
+            # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
+            # without one. Up to 10 s on a slow connection
+            found = market.item_market(i) if i else market.free_market(n)
             try:
                 self.market_ready.emit((n, found))
             except RuntimeError:
@@ -1450,126 +2374,1121 @@ class ToolsDialog(GlassDialog):
         name, m = result
         if name != getattr(self, "_price_for", None) or not hasattr(self, "fm_label"):
             return                      # an older lookup, the player picked another item since
+        more: list[str] = []
         if m is None:
             text = t("price_fm_offline")
+        elif isinstance(m, market.ItemMarket):
+            text, more = self._fm_lines(m)
         elif not m.count:
             text = t("price_fm_empty")
         else:
             text = t("price_fm", median=f"{m.median:,}", n=m.count, low=f"{m.low:,}", high=f"{m.high:,}")
+        seen = set(getattr(self, "_card_seen", ()))
         try:
-            self._set(self.fm_label, text, set(getattr(self, "_card_seen", ())))
+            self._set(self.fm_label, text, seen)
+            clear(self.fm_more)
+            for line in more:
+                self.fm_more.addWidget(self._label(line, "RowHint", seen=seen))
         except RuntimeError:
             pass                        # the card was redrawn meanwhile
 
-    # EXP meter -----------------------------------------------------------
+    def _fm_lines(self, m) -> tuple[str, list[str]]:
+        """An item's Free Market in words: the usual price (the line beside the community chip), then the offers
+        now, the trend and volume, and the newest listings (smaller, under it)."""
+        t = self.t
+        if m.empty:
+            return t("price_fm_empty"), []
+        if m.usual:
+            n = m.checks + m.trades
+            head = t("price_fm_usual", price=f"{m.usual:,}", n=n, days=m.window)
+        else:
+            head = t("price_fm_no_usual", days=m.window)
+        more = []
+        offers = []
+        if m.cheapest_sell:
+            offers.append(t("price_fm_cheapest", price=f"{m.cheapest_sell:,}"))
+        if m.best_buy:
+            offers.append(t("price_fm_best_buy", price=f"{m.best_buy:,}"))
+        if m.for_sale:
+            offers.append(t("price_fm_for_sale", n=m.for_sale))
+        if offers:
+            more.append(" · ".join(offers))
+        if m.trend_pct is not None and m.trend_days:
+            arrow = "▲" if m.trend_pct > 0 else "▼" if m.trend_pct < 0 else "="
+            more.append(t("price_fm_trend", trend=f"{arrow} {abs(m.trend_pct)}%", days=m.trend_days, n=m.volume,
+                          window=market.TREND_DAYS))
+        elif m.volume:
+            more.append(t("price_fm_volume", n=m.volume, window=market.TREND_DAYS))
+        if m.listings:
+            more.append(t("price_fm_listings"))
+            for x in m.listings:
+                where = [t("price_fm_ch", n=x.channel)] if x.channel is not None else []
+                if x.room is not None:
+                    where.append(t("price_fm_entrance") if x.room == 0 else t("price_fm_room", n=x.room))
+                bits = [t("price_fm_selling" if x.side == "sell" else "price_fm_buying", n=x.quantity,
+                          price=f"{x.price:,}")] + where + ([market_ago(t, x.created)] if x.created else [])
+                more.append("• " + " · ".join(bits))
+        return head, more
+
+    # grind tracker ---------------------------------------------------------
+    # A session measured from screenshot reads at Start, Update and End (each read costs the player's AI plan, so
+    # nothing reads on its own). grind.py does the math; this page shows what is measured as a plain number and
+    # what is estimated with "~" and a tooltip saying how.
+
+    GRIND_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "net", "kills", "kills_h", "potions")
 
     def _page_exp(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
-        sec = Section(t("exp_title"), t.rtl)
-        self.exp_now = self._label("", "RowLabel")
-        sec.add_widget(self.exp_now)
-        grid = QHBoxLayout()
-        self.exp_cells = {}
-        for key in ("per_hour", "pct_hour", "to_level"):
-            box = self._big("–", self._p(t(f"exp_{key}")))
-            grid.addLayout(box)
-            self.exp_cells[key] = box.itemAt(0).widget()
-        holder = QWidget()
-        holder.setLayout(grid)
-        sec.add_widget(holder)
-        self.exp_status = self._label("", "RowHint")
-        sec.add_widget(self.exp_status)
-        src = QWidget()
-        self.exp_src = QHBoxLayout(src)
-        self.exp_src.setContentsMargins(0, 0, 0, 0)
-        sec.add_widget(src)
+        # a term gets its "?" once on this page, in the intro (as on the prices page)
+        self._grind_seen: set = set()
+        lay.addWidget(self._label(t("grind_intro"), "ToolHeader", seen=self._grind_seen))
+        sec = Section(t("grind_current"), t.rtl)
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.grind_tag = tag("", "TagGood")
+        self.grind_state = self._gl("", "RowLabel")
+        tl.addLayout(chip_row([self.grind_tag], self.grind_state, lead=True))
+        self.grind_map = self._gl("", "CardSub")
+        tl.addWidget(self.grind_map)
+        mon = QWidget()
+        ml = QVBoxLayout(mon)
+        ml.setContentsMargins(0, 8, 0, 8)
+        ml.setSpacing(4)
+        ml.addWidget(self._gl(t("grind_monster"), "RowLabel"))
+        rows = monster_rows(self.kb)
+        self.grind_monster = EntityPicker(rows, self._p(t("grind_monster_ph", n=len(rows))), rtl=t.rtl)
+        self.grind_monster.picked.connect(self._grind_pick_monster)
+        self.grind_monster.textChanged.connect(lambda text: None if text.strip() else self._grind_pick_monster())
+        ml.addWidget(self.grind_monster)
+        ml.addWidget(self._gl(t("grind_monster_hint"), "RowHint"))
+        # the way to the picked monster's map, and its hit & damage
+        ml.addLayout(self._links_row([
+            ("farm_route", lambda: self.grind_monster.text().strip() and self._go_route(self.grind_monster.text())),
+            ("tool_calc", lambda: self.grind_monster.text().strip() and self._go_calc(self.grind_monster.text()))]))
+        sec.add_widget(mon)
+        # the session's state right over its numbers, under the monster and its links (the owner)
+        sec.add_widget(top)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.grind_cells = {}
+        for i, key in enumerate(self.GRIND_CELLS):
+            box = QWidget()
+            bl = self._big("–", self._p(t(f"grind_{key}")), explain=False)      # the tooltip explains it
+            bl.setContentsMargins(0, 0, 0, 0)
+            box.setLayout(bl)
+            grid.addWidget(box, i // 3, i % 3)
+            grid.setColumnStretch(i % 3, 1)
+            self.grind_cells[key] = (box, bl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.grind_lines = QVBoxLayout(lines)
+        self.grind_lines.setContentsMargins(0, 8, 0, 8)
+        self.grind_lines.setSpacing(6)
+        sec.add_widget(lines)
+        auto = QWidget()
+        arow = QHBoxLayout(auto)
+        arow.setContentsMargins(0, 8, 0, 8)
+        arow.setSpacing(10)
+        acol = QVBoxLayout()
+        acol.setSpacing(1)
+        acol.addWidget(self._gl(t("grind_auto"), "RowLabel"))
+        acol.addWidget(self._gl(t("grind_auto_hint"), "RowHint"))
+        self.grind_auto_state = self._gl("", "RowHint")
+        acol.addWidget(self.grind_auto_state)
+        arow.addLayout(acol, 1)
+        self.grind_auto = Switch(self.runner.auto)
+        self.grind_auto.setAccessibleName(t("grind_auto"))
+        self.grind_auto.setAccessibleDescription(t("grind_auto_hint"))
+        self.grind_auto.toggled.connect(self._grind_set_auto)
+        arow.addWidget(self.grind_auto, 0, Qt.AlignVCenter)
+        sec.add_widget(auto)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.grind_status = self._gl("", "RowHint")
+        fl.addWidget(self.grind_status)
         btns = QHBoxLayout()
-        self.exp_start = QPushButton(self._p(t("exp_start")), objectName="Primary")
-        self.exp_start.setCursor(Qt.PointingHandCursor)
-        self.exp_start.clicked.connect(self._meter_start)
-        self.exp_measure = QPushButton(self._p(t("exp_measure")), objectName="Secondary")
-        self.exp_measure.setCursor(Qt.PointingHandCursor)
-        self.exp_measure.clicked.connect(self._meter_measure)
-        btns.addWidget(self.exp_start)
-        btns.addWidget(self.exp_measure)
+        btns.setSpacing(8)
+        self.grind_start = QPushButton(self._p(t("grind_start")), objectName="Primary")
+        self.grind_update = QPushButton(self._p(t("grind_update")), objectName="Primary")
+        self.grind_end = QPushButton(self._p(t("grind_end")), objectName="Secondary")
+        for b, then in ((self.grind_start, "start"), (self.grind_update, "update"), (self.grind_end, "end")):
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, w=then: self._grind_read(w))
+            btns.addWidget(b)
         btns.addStretch(1)
-        holder2 = QWidget()
-        holder2.setLayout(btns)
-        sec.add_widget(holder2)
-        sec.add_widget(self._label(t("exp_hint"), "RowHint"))
+        fl.addLayout(btns)
+        sec.add_widget(foot)
         lay.addWidget(sec)
+        recent = Section(t("grind_recent"), t.rtl)
+        box = QWidget()
+        self.grind_table = QGridLayout(box)
+        self.grind_table.setContentsMargins(0, 8, 0, 8)
+        self.grind_table.setHorizontalSpacing(10)
+        self.grind_table.setVerticalSpacing(6)
+        recent.add_widget(box)
+        self.grind_ask = QPushButton(self._p(t("grind_ask")), objectName="Link")
+        self.grind_ask.setCursor(Qt.PointingHandCursor)
+        self.grind_ask.setAutoDefault(False)
+        self.grind_ask.clicked.connect(self._grind_ask)
+        ask = self.grind_ask_row = QWidget()
+        al = QHBoxLayout(ask)
+        al.setContentsMargins(0, 0, 0, 0)
+        al.addWidget(self.grind_ask, 0, Qt.AlignLeft)       # AlignLeft is the leading edge (mirrored in Hebrew)
+        al.addStretch(1)
+        recent.add_widget(ask)
+        lay.addWidget(recent)
         lay.addStretch(1)
+        # the session time and "updated 20 s ago" move on between reads (only the clock: the numbers change at a read)
+        self._grind_clock = QTimer(self, interval=10_000, timeout=self._grind_tick)
+        self._grind_clock.start()
         return sc
 
-    def _meter_start(self):
+    def _gl(self, text: str, obj: str) -> QLabel:
+        """A grind tracker label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._grind_seen))
+
+    def _gs(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._grind_seen))
+
+    def _grind_read(self, what: str):
+        """Start / Update / End: a screenshot read (the chat runs it), then the runner takes it into the session. An
+        Update or End pressed while the minute's automatic read is on its way rides on that read."""
         c = self.c
         if not c:
             return
-        self.meter[c.id] = {"start": None, "result": None}
-        self.meter["pending"] = ("start", c.id)
-        self._set(self.exp_status, self.t("exp_reading"))
-        self._read_screen()
-
-    def _meter_measure(self):
-        c = self.c
-        if not c or not (self.meter.get(c.id) or {}).get("start"):
+        how = self.runner.ask(what, c.id, self._grind_choice if what == "start" else "")
+        if not how:
             return
-        self.meter["pending"] = ("end", c.id)
-        self._set(self.exp_status, self.t("exp_reading"))
-        self._read_screen()
+        if "grind_status" in self.__dict__:
+            self._gs(self.grind_status, self.t("grind_reading"))
+            self._grind_buttons(busy=True)
+        if "farm_status" in self.__dict__:
+            self._fs(self.farm_status, self.t("grind_reading"))
+            self._farm_buttons(busy=True)
+        if how == "read":
+            self._step_aside(self.grind_sync_requested.emit)
 
-    def _meter_reading(self):
-        """A fresh level/EXP reading arrived (after the screenshot read the chat ran)."""
-        what, cid = self.meter.pop("pending")
+    def grind_read(self, r):
+        """The AI's reply to a grind read (character id, profile_update, grind), just before sync_done (a window
+        with its own runner: the app's gets it from the chat itself)."""
+        if self._own_runner:
+            self.runner.grind_read(r)
+
+    def grind_changed(self):
+        """A read landed, failed or was skipped: the page follows, once it is built."""
+        try:
+            pending = self.__dict__.get("_pending", ())
+            if "exp" not in pending:
+                self.refresh("exp")
+            if "farm" not in pending:
+                self._fill_farm_session()           # the session only: the lists above it don't change on a read
+                self._fill_farm_records()
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _grind_set_auto(self, on: bool):
+        self.runner.set_auto(on)
+        self._fill_auto_state()
+
+    def _asked_read(self) -> bool:
+        """A read the player asked for is on its way (the buttons wait for it; the minute's own read doesn't)."""
+        p = self.runner.busy()
+        return bool(p and p[0] != "auto")
+
+    def _grind_pick_monster(self):
         c = self.c
-        if not c or c.id != cid or c.exp_pct is None:
-            return
-        sample = (time.time(), c.level, c.exp_pct)
-        m = self.meter.setdefault(cid, {"start": None, "result": None})
-        if what == "start":
-            m["start"], m["result"] = sample, None
+        name = self.grind_monster.text().strip()
+        if name and not plan.monster_exp(self.kb, name):
+            # a name typed part way ("horny"): the closest monster, as the calculator takes it
+            q = name.lower()
+            part = sorted((r[1] for r in monster_rows(self.kb) if q in r[1].lower()), key=len)
+            name = part[0] if part else name
+            self.grind_monster.setText(name)
+            self.grind_monster.setCursorPosition(0)
+        if c and self.grind.running(c.id):
+            self.grind.set_monster(c.id, name)
         else:
-            m["result"] = plan.exp_rate(self.kb, m["start"], sample)
-            m["end"] = sample
+            self._grind_choice = name           # for the next session
+        self.refresh("exp")
+        if "farm" in self.pages:
+            self._fill_farm_session()
+
+    def _grind_buttons(self, busy: bool = False):
+        c = self.c
+        running = bool(c and self.grind.running(c.id))
+        self.grind_start.setVisible(not running)
+        self.grind_update.setVisible(running)
+        self.grind_end.setVisible(running)
+        for b in (self.grind_start, self.grind_update, self.grind_end):
+            b.setEnabled(bool(c) and not busy)
+
+    def _grind_tick(self):
+        try:
+            if self.isVisible() and not self._asked_read():
+                if self.stack.currentIndex() == PAGES.index("exp"):
+                    self._fill_exp_clock()
+                elif self.stack.currentIndex() == PAGES.index("farm"):
+                    self._fill_farm_session()
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _num(self, n: int | float | None, sign: bool = False, approx: bool = False) -> str:
+        """A number for a big cell: in full up to 99,999, then 123.4K / 1.23M (the exact one is in the tooltip).
+        One left-to-right block in Hebrew, so "-1,200" and "~45K" keep their sign on the left."""
+        if n is None:
+            return "–"
+        a = abs(n)
+        text = f"{a:,.0f}" if a < 100_000 else f"{a / 1000:.1f}K" if a < 1_000_000 else f"{a / 1_000_000:.2f}M"
+        text = ("-" if n < 0 else "+" if sign and n > 0 else "") + text
+        return bidi.ltr_block(("~" if approx else "") + text, self.t.rtl)
+
+    def _clock(self, seconds: float | None) -> str:
+        """A duration: "47 min" under an hour, "1:12 h" from one (a bare "0:47" read like seconds)."""
+        if seconds is None:
+            return "–"
+        m = int(seconds) // 60
+        return self.t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else self.t("grind_minutes", m=m)
+
+    def _cell(self, key: str, value: str, tip: str = ""):
+        box, label = self.grind_cells[key]
+        label.setText(value)
+        box.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'grind_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _fill_exp_clock(self):
+        """The session's age and the time since its last read (every 30 s, between reads)."""
+        t, c = self.t, self.c
+        s = self.grind.session(c.id) if c else None
+        if not s:
+            self.grind_tag.hide()
+            self.grind_auto_state.hide()
+            self._gs(self.grind_state, t("grind_idle_state"))
+            self._cell("time", "–")
+            return
+        self.grind_tag.show()
+        self.grind_tag.setObjectName("Tag" if s.ended else "TagGood")
+        self.grind_tag.setText(self._p(t("grind_tag_ended" if s.ended else "grind_tag_running")))
+        self.grind_tag.style().unpolish(self.grind_tag)
+        self.grind_tag.style().polish(self.grind_tag)
+        end = s.ended or time.time()
+        self._cell("time", self._p(self._clock(end - s.start)), t("grind_tip_time"))
+        if s.ended:
+            self.grind_auto_state.hide()
+            self._gs(self.grind_state, t("grind_ended_state", time=self._clock(end - s.start)))
+            return
+        self._gs(self.grind_state, t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        self._fill_auto_state(s)
+
+    def _fill_auto_state(self, s=None):
+        """Under the auto-update switch: when the numbers were last read, or why they wait."""
+        t, c, r = self.t, self.c, self.runner
+        s = s or (self.grind.running(c.id) if c else None)
+        if not s or s.ended:
+            self.grind_auto_state.hide()
+            return
+        p = r.busy()
+        if p and p[0] == "auto":
+            text = t("grind_auto_reading")
+        elif r.auto and r.waiting:
+            text = t("grind_waiting_covered" if r.waiting == "covered" else "grind_waiting")
+        elif r.auto and r.idle(s):
+            text = t("grind_auto_idle")
+        else:
+            ago = max(0, round(time.time() - s.reads[-1].t))
+            text = t("grind_last_now") if ago < 10 else t("grind_last_secs", n=ago) if ago < 60 else \
+                t("grind_last_mins", n=ago // 60)
+        self._gs(self.grind_auto_state, text)
+        self.grind_auto_state.show()
 
     def _fill_exp(self):
         t, c = self.t, self.c
+        clear(self.grind_lines)
         if not c:
-            self._set(self.exp_now, t("tool_no_char"))
+            self.grind_tag.hide()
+            self._gs(self.grind_state, t("tool_no_char"))
+            self.grind_map.hide()
+            self.grind_lines.parentWidget().hide()
+            self._fill_cells(None, "")
+            self._cell("time", "–")
+            self._grind_buttons()
+            self._fill_recent()
             return
-        # no reading yet: say so, a lone "?" read like a broken value
-        self._set(self.exp_now, t("exp_now", lv=c.level, pct=f"{c.exp_pct:.1f}%") if c.exp_pct is not None
-                  else t("exp_now_unknown", lv=c.level))
-        m = self.meter.get(c.id) or {}
-        r = m.get("result")
-        for key, cell in self.exp_cells.items():
-            v = (r or {}).get(key)
-            if v is None:
-                cell.setText("–")
-            elif key == "per_hour":
-                cell.setText(f"{v:,}")
-            elif key == "pct_hour":
-                cell.setText(f"{v}%")
-            else:
-                h, rest = divmod(int(v), 3600)
-                cell.setText(f"{h}:{rest // 60:02d}")
-        self.exp_measure.setEnabled(bool(m.get("start")))
-        # the % and the time to level come from the EXP table: MeowDB's confirmed levels, then a historical reference
-        self._source_line(self.exp_src, sources.exp_source(self.kb, c.level))
-        if self.meter.get("pending"):
-            return
-        if r:
-            self._set(self.exp_status, t("exp_result", n=r["minutes"]))
-        elif m.get("start") and m.get("end"):
-            # a check gave no rate: either no EXP really came in, or a reading is past the KB's EXP table (Lv. 100+)
-            known = all(plan.exp_position(self.kb, lv, pct) is not None for _, lv, pct in (m["start"], m["end"]))
-            self._set(self.exp_status, t("exp_no_gain") if known else t("exp_no_table"))
-        elif m.get("start"):
-            mins = max(0, round((time.time() - m["start"][0]) / 60))
-            self._set(self.exp_status, t("exp_started", n=mins, pct=f"{m['start'][2]:.1f}%"))
+        s = self.grind.session(c.id)
+        self._grind_buttons(busy=self._asked_read())
+        self._fill_exp_clock()
+        sm = grind.summarize(self.kb, s) if s else None
+        where = sm.map if sm else ""
+        self.grind_map.setVisible(bool(s))
+        self._gs(self.grind_map, t("grind_map", map=bidi.ltr_block(where, t.rtl)) if where else t("grind_map_unknown"))
+        # a finished session shows its monster until the player picks one for the next session
+        mob = s.monster if s and not (s.ended and self._grind_choice) else self._grind_choice
+        if not self.grind_monster.hasFocus() and self.grind_monster.text() != mob:
+            self.grind_monster.blockSignals(True)          # the AI's pick shown, not taken as the player's
+            self.grind_monster.setText(mob)
+            self.grind_monster.setCursorPosition(0)
+            self.grind_monster.blockSignals(False)
+        self._fill_cells(sm, mob)
+        if sm:
+            self._fill_lines(sm)
+        self.grind_lines.parentWidget().setVisible(self.grind_lines.count() > 0)     # no empty row in the card
+        if self._asked_read():
+            self._gs(self.grind_status, t("grind_reading"))
+        elif self.runner.note:
+            self._gs(self.grind_status, "\n".join(t(k) for k in self.runner.note))
+        elif s and not s.ended:
+            self._gs(self.grind_status, t("grind_running_hint"))
         else:
-            self._set(self.exp_status, t("exp_idle"))
+            self._gs(self.grind_status, t("grind_idle"))
+        self._fill_recent()
+
+    def _fill_cells(self, sm, mob: str):
+        t = self.t
+        wait = t("grind_tip_wait")
+        if sm is None:
+            for key in self.GRIND_CELLS[1:]:
+                self._cell(key, "–")
+            return
+        mob = sm.monster or mob          # the session's own monster: its kills are worked out from it
+        exp_tip = {"no_table": t("exp_no_table"), "no_gain": t("exp_no_gain"), "no_exp": t("grind_no_exp")}.get(
+            sm.exp_note, wait)
+        self._cell("exp", self._num(sm.exp, sign=bool(sm.exp)), f"{sm.exp:,} EXP" if sm.exp else exp_tip)
+        self._cell("exp_h", self._num(sm.exp_h), "" if sm.exp_h else exp_tip)
+        no_mesos = t("grind_tip_no_mesos")
+        self._cell("mesos", self._num(sm.mesos, sign=True),
+                   t("grind_tip_mesos", n=f"{sm.mesos:,}") if sm.mesos is not None else no_mesos)
+        self._cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else
+                   (wait if sm.mesos is not None else no_mesos))
+        self._cell("net", self._num(sm.net, sign=True), t("grind_tip_net") if sm.net is not None else
+                   t("grind_tip_no_net"))
+        if sm.kills is not None:
+            how = t("grind_tip_kills", mob=bidi.ltr_block(mob, t.rtl), n=f"{sm.monster_exp:,}")
+            self._cell("kills", self._num(sm.kills, approx=True), how)
+            self._cell("kills_h", self._num(sm.kills_h, approx=True), how if sm.kills_h is not None else wait)
+        else:
+            why = t("grind_tip_no_monster") if not mob else \
+                t("grind_tip_unknown_monster", mob=bidi.ltr_block(mob, t.rtl)) if not sm.monster_exp else exp_tip
+            self._cell("kills", "–", why)
+            self._cell("kills_h", "–", why)
+        self._cell("potions", self._num(sm.potions_cost),
+                   t("grind_tip_potions") if sm.potions_read else t("grind_tip_no_potions"))
+
+    def _fill_lines(self, sm):
+        """Under the numbers: the EXP rate in levels, the potions behind the cost, the community's mesos estimate."""
+        t, add = self.t, self.grind_lines.addWidget
+        if sm.exp:
+            bits = []
+            if sm.level_to and sm.level_from and sm.level_to > sm.level_from:
+                bits.append(t("grind_levelup", b=sm.level_to))
+            if sm.pct_h is not None:
+                bits.append(t("grind_pct_h", pct=f"{sm.pct_h}%"))
+            if sm.to_level:
+                bits.append(t("grind_to_level", time=self._clock(sm.to_level)))
+            if bits:
+                # the % and the time to level come from the EXP table: MeowDB's confirmed levels, then a reference
+                chip = source_tag(t, sources.exp_source(self.kb, sm.exp_level or 1))
+                self.grind_lines.addLayout(chip_row([chip], self._gl(" · ".join(bits), "RowHint"), lead=True))
+        if sm.potions_read:
+            if sm.potions:
+                used = ", ".join(bidi.ltr_block(f"{name} ×{n}", t.rtl) for name, n, _, _ in sm.potions)
+                srcs = [src for _, _, price, src in sm.potions if price]
+                text = t("grind_potions_used", list=used)
+                unpriced = [bidi.ltr_block(name, t.rtl) for name, _, price, _ in sm.potions if not price]
+                if unpriced:
+                    text += "\n" + t("grind_unpriced", names=", ".join(unpriced))
+                label = self._gl(text, "RowHint")
+                self.grind_lines.addLayout(chip_row(source_tags(t, srcs), label, lead=True) if srcs else _alone(label))
+            else:
+                add(self._gl(t("grind_potions_none"), "RowHint"))
+            if sm.restocked:
+                add(self._gl(t("grind_restocked", names=", ".join(bidi.ltr_block(n, t.rtl) for n in sm.restocked)),
+                                "RowHint"))
+        if sm.expected:
+            text = t("grind_expected", n=f"{sm.expected:,}", k=f"{sm.kills:,}", r=sm.reports)
+            self.grind_lines.addLayout(chip_row([source_tag(t, sources.COMMUNITY)], self._gl(text, "RowHint"),
+                                                lead=True))
+        if sm.kills is not None or sm.expected:
+            add(self._gl(t("grind_approx"), "RowHint"))
+
+    def _fill_recent(self):
+        t, c = self.t, self.c
+        grid = self.grind_table
+        clear(grid)
+        rows = self.grind.recent(c.id) if c else []
+        self.grind_ask_row.setVisible(bool(rows))
+        if not rows:
+            grid.addWidget(self._gl(t("grind_recent_none"), "RowHint"), 0, 0, 1, 4)
+            return
+        heads = ("grind_col_spot", "grind_col_time", "grind_col_exp", "grind_col_mesos")
+        for col, key in enumerate(heads):
+            h = QLabel(self._p(t(key)), objectName="RowHint")
+            h.setAlignment((Qt.AlignLeading if col == 0 else Qt.AlignHCenter) | Qt.AlignVCenter)
+            grid.addWidget(h, 0, col)
+        grid.setColumnStretch(0, 1)
+        best = max((r.get("exp_h") or 0 for r in rows), default=0)
+        for i, r in enumerate(rows, 1):
+            line = QFrame(objectName="Separator")
+            line.setFixedHeight(1)
+            grid.addWidget(line, 2 * i - 1, 0, 1, 4)
+            spot = QWidget()
+            sl = QVBoxLayout(spot)
+            sl.setContentsMargins(0, 0, 0, 0)
+            sl.setSpacing(0)
+            name = QLabel(bidi.ltr_name(r.get("map") or t("grind_unknown_map"), t.rtl), objectName="RowLabel")
+            name.setWordWrap(True)
+            sl.addWidget(name)
+            sub = [r.get("monster") or "", self._day(r.get("start"))]
+            sl.addWidget(QLabel(self._p(" · ".join(bidi.ltr_block(b, t.rtl) for b in sub if b)), objectName="CardSub"))
+            grid.addWidget(spot, 2 * i, 0)
+            exp_h = r.get("exp_h")
+            top = bool(exp_h) and exp_h == best and len(rows) > 1        # the best EXP/h stands out
+            for col, text in ((1, self._p(self._clock(r.get("seconds")))), (2, self._num(exp_h)),
+                              (3, self._num(r.get("mesos_h")))):
+                grid.addWidget(tag(text, "TagGood" if col == 2 and top else "CardStat"), 2 * i, col, Qt.AlignCenter)
+
+    def _day(self, ts) -> str:
+        if not isinstance(ts, (int, float)):
+            return ""
+        import datetime
+        d = datetime.date.fromtimestamp(ts)
+        today = datetime.date.today()
+        if d == today:
+            return self.t("grind_today")
+        if d == today - datetime.timedelta(days=1):
+            return self.t("grind_yesterday")
+        return f"{d.day}.{d.month}" if self.t.rtl else f"{d:%b} {d.day}"        # 2.10 / Oct 2
+
+    def _grind_ask(self):
+        """"Which spot paid more?": the saved sessions as the question's lines, so the chat compares real numbers."""
+        t, c = self.t, self.c
+        rows = self.grind.recent(c.id)[:6] if c else []
+        if not rows:
+            return
+        lines = []
+        for r in rows:
+            bits = [self._clock(r.get("seconds"))]
+            if r.get("exp_h"):
+                bits.append(t("grind_q_exp", n=f"{r['exp_h']:,}"))
+            if r.get("mesos_h") is not None:
+                bits.append(t("grind_q_mesos", n=f"{r['mesos_h']:,}"))
+            if r.get("potions_cost"):
+                bits.append(t("grind_q_pots", n=f"{r['potions_cost']:,}"))
+            spot = r.get("map") or t("grind_unknown_map")
+            if r.get("monster"):
+                spot += f" ({r['monster']})"
+            lines.append(f"• {spot}: " + ", ".join(bits))
+        self.ask_requested.emit(t("grind_ask_q", lines="\n".join(lines)), False)
+
+    # farming ---------------------------------------------------------------
+    # Hunting for drops rather than EXP (farm.py): who drops the item you want and where, which monsters around your
+    # level drop what pays, and what a session counted. The session is the grind tracker's own (one per
+    # character): with the inventory open on its Etc or Equip tab, its reads also count the loot.
+
+    FARM_CELLS = ("time", "loot", "loot_h", "kills")
+
+    def _page_farm(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        # a term gets its "?" once on this page, in the intro (as on the grind tracker)
+        self._farm_seen: set = set()
+        lay.addWidget(self._label(t("farm_intro"), "ToolHeader", seen=self._farm_seen))
+        want = Section(t("farm_want"), t.rtl)
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(6)
+        keys = farm.farmable(self.kb)
+        rows = [(self.kb.get(k)["name"], self.kb.get(k)["name"], self.kb.picture(k)) for k in keys]
+        self.farm_input = EntityPicker(rows, self._p(t("farm_placeholder", n=f"{len(rows):,}")), icon=32, rtl=t.rtl)
+        self.farm_input.picked.connect(self._farm_pick)
+        self.farm_input.textChanged.connect(lambda text: None if text.strip() else self._farm_pick())
+        bl.addWidget(self.farm_input)
+        # the wishlist's items as one-click picks (only the ones some monster drops)
+        self.farm_wish_head = self._fl("", "RowHint")
+        bl.addWidget(self.farm_wish_head)
+        self.farm_wished = FlowLayout(spacing=6)
+        bl.addLayout(self.farm_wished)
+        want.add_widget(box)
+        lay.addWidget(want)
+        self.farm_item = QVBoxLayout()
+        self.farm_item.setSpacing(8)
+        lay.addLayout(self.farm_item)
+        lay.addWidget(self._farm_header(t("farm_worth")))
+        self.farm_worth_head = self._fl("", "RowHint")
+        lay.addWidget(self.farm_worth_head)
+        self.farm_targets = QVBoxLayout()
+        self.farm_targets.setSpacing(8)
+        lay.addLayout(self.farm_targets)
+        lay.addWidget(self._farm_session_section())
+        rec = Section(t("farm_records"), t.rtl)
+        box = QWidget()
+        self.farm_records = QVBoxLayout(box)
+        self.farm_records.setContentsMargins(0, 8, 0, 8)
+        self.farm_records.setSpacing(6)
+        rec.add_widget(box)
+        lay.addWidget(rec)
+        lay.addStretch(1)
+        return sc
+
+    def _farm_header(self, text: str) -> QLabel:
+        """A list's title above its cards, as a Section's header looks."""
+        lb = QLabel(self._p(text if self.t.rtl else text.upper()), objectName="SectionHeader")
+        lb.setWordWrap(True)
+        return lb
+
+    def _farm_session_section(self) -> Section:
+        t = self.t
+        sec = Section(t("farm_session"), t.rtl)
+        # how the session counts, under its heading (it was in the page's intro, far from it: the owner)
+        sec.add_widget(self._label(t("farm_session_about"), "RowHint", seen=self._farm_seen))
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.farm_tag = tag("", "TagGood")
+        self.farm_state = self._fl("", "RowLabel")
+        tl.addLayout(chip_row([self.farm_tag], self.farm_state, lead=True))
+        self.farm_mob = self._fl("", "CardSub")
+        tl.addWidget(self.farm_mob)
+        sec.add_widget(top)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.farm_cells = {}
+        for i, key in enumerate(self.FARM_CELLS):
+            box = QWidget()
+            bl = self._big("–", self._p(t(f"farm_cell_{key}")), explain=False)      # the tooltip explains it
+            bl.setContentsMargins(0, 0, 0, 0)
+            box.setLayout(bl)
+            grid.addWidget(box, i // 2, i % 2)
+            grid.setColumnStretch(i % 2, 1)
+            self.farm_cells[key] = (box, bl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.farm_lines = QVBoxLayout(lines)
+        self.farm_lines.setContentsMargins(0, 8, 0, 8)
+        self.farm_lines.setSpacing(6)
+        sec.add_widget(lines)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.farm_status = self._fl("", "RowHint")
+        fl.addWidget(self.farm_status)
+        btns = QHBoxLayout()
+        btns.setSpacing(8)
+        self.farm_start = QPushButton(self._p(t("grind_start")), objectName="Primary")
+        self.farm_update = QPushButton(self._p(t("grind_update")), objectName="Primary")
+        self.farm_end = QPushButton(self._p(t("grind_end")), objectName="Secondary")
+        for b, then in ((self.farm_start, "start"), (self.farm_update, "update"), (self.farm_end, "end")):
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, w=then: self._grind_read(w))
+            btns.addWidget(b)
+        btns.addStretch(1)
+        fl.addLayout(btns)
+        sec.add_widget(foot)
+        return sec
+
+    def _fl(self, text: str, obj: str) -> QLabel:
+        """A farm page label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._farm_seen))
+
+    def _fs(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._farm_seen))
+
+    def _farm_target(self) -> str | None:
+        """The item the active character farms for (settings "farm_target", per character), if the KB has it."""
+        c = self.c
+        key = (self.settings["farm_target"] or {}).get(c.id) if c else None
+        return key if key and self.kb.get(key) else None
+
+    def _set_farm_target(self, key: str | None) -> None:
+        c = self.c
+        if not c:
+            return
+        data = dict(self.settings["farm_target"] or {})
+        if key:
+            data[c.id] = key
+        else:
+            data.pop(c.id, None)
+        self.settings["farm_target"] = data
+        self.settings.save()
+
+    def _farm_pick(self):
+        """The item box: an exact name, else the shortest item some monster drops whose name holds what was typed."""
+        name = self.farm_input.text().strip()
+        key = farm.item_key(self.kb, name) if name else None
+        if name and key not in self.kb.droppers:
+            q = name.lower()
+            part = sorted((self.kb.get(k)["name"] for k in farm.farmable(self.kb) if q in self.kb.get(k)["name"].lower()),
+                          key=lambda n: (len(n), n))
+            key = self.kb._item_by_name.get(part[0].lower()) if part else key
+        if name and not key:
+            self._set_farm_target(None)
+            self._fill_farm(missing=name)
+            return
+        self._farm_mob_pick = None
+        self._set_farm_target(key)
+        self.refresh("farm")
+
+    def _farm_choose(self, key: str):
+        """An item picked from a list on the page (a wishlist chip, a drop of a monster worth farming)."""
+        self._farm_mob_pick = None
+        self._set_farm_target(key)
+        self.refresh("farm")
+        try:
+            self.pages["farm"].verticalScrollBar().setValue(0)        # its droppers, at the top
+        except (KeyError, RuntimeError):
+            pass
+
+    def _farm_hunt(self, name: str):
+        """"Farm it": the monster becomes the session's main monster (its kills, and so each drop's rate, are
+        worked out from it), as the grind tracker's own monster box sets it."""
+        c = self.c
+        if c and self.grind.running(c.id):
+            self.grind.set_monster(c.id, name)
+        else:
+            self._grind_choice = name
+        if "exp" in self.pages:
+            self.refresh("exp")
+        self._fill_farm_session()
+
+    def _fill_farm(self, missing: str = ""):
+        t, c = self.t, self.c
+        for box in (self.farm_item, self.farm_targets, self.farm_wished):
+            clear(box)
+        if not c:
+            self.farm_wish_head.hide()
+            self.farm_worth_head.hide()
+            self._no_character(self.farm_item)
+            self._fill_farm_session()
+            self._fill_farm_records()
+            return
+        key = self._farm_target()
+        if not self.farm_input.hasFocus():
+            name = (self.kb.get(key) or {}).get("name", "") if key else missing
+            if self.farm_input.text() != name:
+                self.farm_input.blockSignals(True)
+                self.farm_input.setText(name)
+                self.farm_input.setCursorPosition(0)
+                self.farm_input.blockSignals(False)
+        from .. import wishlist
+        wished = [k for k in wishlist.items(self.settings, c.id) if k in self.kb.droppers and self.kb.get(k)]
+        self.farm_wish_head.setVisible(bool(wished))
+        if wished:
+            self._fs(self.farm_wish_head, t("farm_from_wishlist"))
+            for k in wished:
+                b = QPushButton(bidi.ltr_name(self.kb.get(k)["name"], t.rtl), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(k == key)
+                b.setCursor(Qt.PointingHandCursor)
+                b.clicked.connect(lambda _=False, k=k: self._farm_choose(k))
+                self.farm_wished.addWidget(b)
+        mob = self.__dict__.get("_farm_mob_pick")
+        target = None
+        if mob and not missing:
+            from .. import wishlist as _w
+            wanted = farm.needs(self.kb, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                                _w.items(self.settings, c.id))
+            target = farm.target_for(self.kb, mob, c.level, wanted)
+        if target is not None:
+            self.farm_item.addWidget(self._fl(t("farm_mob_head"), "SectionHeader"))
+            self.farm_item.addWidget(self._target_card(target))
+        elif missing:
+            self.farm_item.addWidget(self._fl(t("farm_none", name=bidi.ltr_block(missing, t.rtl)), "RowHint"))
+        elif key:
+            self._fill_farm_item(key)
+        else:
+            self.farm_item.addWidget(self._fl(t("farm_pick"), "RowHint"))
+        self._fill_farm_targets()
+        self._fill_farm_session()
+        self._fill_farm_records()
+
+    def _fill_farm_item(self, key: str):
+        """The wanted item: what an NPC pays for it, then every monster that drops it and where."""
+        t, kb, c = self.t, self.kb, self.c
+        e = kb.get(key)
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 10, 12, 10)
+        row.setSpacing(12)
+        row.addWidget(self._picture(key, 48), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        title = QLabel(bidi.ltr_name(e["name"], t.rtl), objectName="CardName")
+        title.setWordWrap(True)
+        updated = updated_tag(t, kb, key)
+        if updated:
+            col.addLayout(chip_row([updated], title))
+        else:
+            col.addWidget(title)
+        v = farm.value(kb, key)
+        if v:
+            col.addLayout(chip_row([source_tag(t, v.source)],
+                                   self._fl(t("price_npc_buys", n=f"{v.price:,}"), "RowLabel"), lead=True))
+        else:
+            col.addWidget(self._fl(t("farm_no_npc_price"), "RowHint"))
+        # a label link, which wraps in a narrow window (a QPushButton#Link never does)
+        fm = WrapLink(t("farm_fm_price"), t.rtl)
+        fm.clicked.connect(lambda n=e["name"]: self._farm_price(n))
+        col.addWidget(fm)
+        row.addLayout(col, 1)
+        self.farm_item.addWidget(card)
+        ds = farm.droppers(kb, key, c.level if c else None)
+        head = self._fl(t("wish_dropped_by") if ds else t("wish_no_droppers"), "ToolHeader")
+        # each drop's list: one chip beside "Dropped by" when every dropper's drop is on the same one, else one on
+        # each dropper's card (as the wishlist window does)
+        mixed = len({d.source for d in ds}) > 1
+        chips = [] if mixed else source_tags(t, [d.source for d in ds])
+        self.farm_item.addLayout(chip_row(chips, head) if chips else _alone(head))
+        if not ds:
+            return
+        self.farm_item.addWidget(self._fl(quick.drops_note(t, [d.source for d in ds]), "RowHint"))
+        for d in ds:
+            self.farm_item.addWidget(self._dropper_card(d, mixed))
+
+    def _picture(self, key: str, size: int) -> QLabel:
+        pic = QLabel()
+        pic.setFixedSize(size, size)
+        pic.setAlignment(Qt.AlignCenter)
+        path = self.kb.picture(key)
+        if path:
+            pm = QPixmap(str(path))
+            if not pm.isNull():
+                pic.setPixmap(pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
+        return pic
+
+    def _fit_tag(self, fit: str, boss: bool = False) -> QLabel:
+        t = self.t
+        if boss:
+            return info_tag(t, t("farm_fit_boss"), t("farm_fit_boss_tip"), "TagWarn")
+        kind = {"easy": "TagGood", "range": "Tag", "hard": "TagWarn"}[fit]
+        return info_tag(t, t(f"farm_fit_{fit}"), t(f"farm_fit_{fit}_tip"), kind)
+
+    def _dropper_card(self, d: farm.Dropper, mixed: bool) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 8, 12, 8)
+        row.setSpacing(10)
+        row.addWidget(self._picture(d.key, 44), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        # "Name · Lv. N" as one English block, the same order as the training spots and the wishlist
+        name = QLabel(bidi.ltr_name(f"{d.name} · Lv. {d.level}" if d.level else d.name, t.rtl), objectName="CardName")
+        name.setWordWrap(True)
+        col.addWidget(name)
+        if d.map:
+            col.addWidget(self._fl(bidi.ltr_block(self.kb.map_label(d.map), t.rtl), "CardSub"))
+        chips = FlowLayout(spacing=5)
+        chips.addWidget(self._fit_tag(d.fit, d.boss))
+        if mixed:
+            chips.addWidget(source_tag(t, d.source))
+        if d.vote:
+            chips.addWidget(vote_tag(t, d.vote))
+        if d.mesos:
+            mt = tag(self._p(mesos_text(t, d.mesos)), "Tag")
+            mt.setToolTip(tip_html(mesos_tip(t, d.mesos), t.rtl))
+            chips.addWidget(mt)
+        col.addLayout(chips)
+        col.addLayout(self._farm_links(d.key, d.name, d.map, d.boss))
+        row.addLayout(col, 1)
+        return card
+
+    def _farm_links(self, key: str, name: str, map_name: str, boss: bool = False) -> QHBoxLayout:
+        """A monster's actions: farm it (the session's monster), the way to its map, ask the chat about it."""
+        acts = [] if boss else [("farm_hunt", lambda n=name: self._farm_hunt(n))]
+        if map_name:
+            acts.append(("farm_route", lambda m=map_name: self._farm_route(m)))
+        acts.append(("ask_short", lambda k=key: self.tag_requested.emit(k)))
+        return self._links_row(acts)
+
+    # links between the pages ----------------------------------------------
+    # what a card shows, a tap from the page about it: a monster's map, its hit & damage, a grind session on it;
+    # an item's droppers and its price; an NPC's map (the owner)
+
+    def _links_row(self, acts: list) -> QHBoxLayout:
+        """(text key, action) as orange links in the reading order, a dot between them (as on the farm cards)."""
+        t = self.t
+        links = QHBoxLayout()
+        links.setContentsMargins(0, 2, 0, 0)
+        links.setSpacing(14)
+        for i, (text, then) in enumerate(acts):
+            if i:
+                links.addWidget(QLabel("·", objectName="RowHint"))
+            b = QPushButton(self._p(t(text)), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.clicked.connect(lambda _=False, f=then: f())
+            links.addWidget(b)
+        links.addStretch(1)
+        return links
+
+    def _links_box(self, acts: list) -> QWidget:
+        box = QWidget()
+        box.setLayout(self._links_row(acts))
+        return box
+
+    def _mob_map(self, name: str) -> str:
+        """The map a monster (by name) is hunted on: its busiest open one."""
+        n = name.strip().lower()
+        m = next((m for m in combat.monsters(self.kb) if m.name.lower() == n), None)
+        return farm._home(self.kb, m.key) if m else ""
+
+    def _go_route(self, place: str):
+        """The way to a map, a monster's map or an NPC's map (How to get there)."""
+        mob = self._mob_map(place)
+        self._farm_route(mob or place)
+
+    def _go_calc(self, name: str):
+        """A monster's hit & damage for the character (Hit & damage)."""
+        self.show_page(PAGES.index("calc"))
+        self.calc_input.setText(name)
+        self.calc_input.setCursorPosition(0)
+        self._fill_calc()
+
+    def _go_track(self, name: str):
+        """A grind session on a monster (the Grind tracker's monster)."""
+        self.show_page(PAGES.index("exp"))
+        self.grind_monster.setText(name)
+        self.grind_monster.setCursorPosition(0)
+        self._grind_pick_monster()
+
+    def _go_farm_item(self, name: str):
+        """Who drops an item, where and at what level (Farm)."""
+        key = farm.item_key(self.kb, name)
+        if not key:
+            return
+        self.show_page(PAGES.index("farm"))
+        self._farm_choose(key)
+
+    def _go_farm_hunt(self, name: str):
+        """A farm session on a monster (Farm, its session), and the monster itself on top: what it drops, where
+        (the page showed nothing of it: the owner)."""
+        self.show_page(PAGES.index("farm"))
+        self._farm_mob_pick = name
+        self._farm_hunt(name)
+        self._fill_farm()
+        self.pages["farm"].verticalScrollBar().setValue(0)
+
+    def _nav(self, href: str):
+        """A link in a card's text: "route:Henesys", "calc:Stirge", "track:Stirge", "farm:Garnet Ore",
+        "price:Garnet Ore" (a picture's "zoom:" is its hover)."""
+        from urllib.parse import unquote
+        kind, _, arg = href.partition(":")
+        arg = unquote(arg)
+        go = {"route": self._go_route, "calc": self._go_calc, "track": self._go_track, "farm": self._go_farm_item,
+              "price": self._farm_price}.get(kind)
+        if go and arg:
+            go(arg)
+
+    def _nav_html(self, links: list[tuple[str, str, str]]) -> str:
+        """(text key, kind, argument) as links in a card's text, a dot between them."""
+        from urllib.parse import quote
+        color = theme.accent_text()
+        return " · ".join(f"<a href='{kind}:{quote(arg)}' style='color:{color}; text-decoration:none'>"
+                          f"{html.escape(bidi.plain(self.t(text), self.t.rtl))}</a>" for text, kind, arg in links)
+
+    def _farm_route(self, map_name: str):
+        """The way to a monster's map, from the character's map (the How to get there tab)."""
+        self.show_page(PAGES.index("route"))
+        g = self.route_graph
+        mid = g.find(map_name)
+        if mid:
+            self.route_to.setText(g.name(mid))
+            self.route_to.setCursorPosition(0)
+        self._find_route()
+
+    def _farm_price(self, name: str):
+        """The item's prices in full, the Free Market's too (the Item price tab)."""
+        self.show_page(PAGES.index("prices"))
+        self.price_input.setText(name)
+        self.price_input.setCursorPosition(0)
+        self._fill_prices()
+
+    def _fill_farm_targets(self):
+        """Monsters around the level whose drops pay most at an NPC (no drop rates in the KB: by the best drop)."""
+        t, c = self.t, self.c
+        from .. import wishlist
+        wanted = farm.needs(self.kb, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                            wishlist.items(self.settings, c.id))
+        rows = farm.targets(self.kb, c.level, n=6, wanted=wanted)
+        self.farm_worth_head.show()
+        self._fs(self.farm_worth_head, t("farm_worth_hint", lo=max(1, c.level - farm.FARM_BELOW),
+                                          hi=c.level + combat.SPOT_ABOVE))
+        if not rows:
+            self.farm_targets.addWidget(self._fl(t("farm_worth_none"), "RowHint"))
+            return
+        for r in rows:
+            self.farm_targets.addWidget(self._target_card(r))
+
+    def _target_card(self, r: farm.Target) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 10, 12, 10)
+        row.setSpacing(12)
+        row.addWidget(self._picture(r.key, 48), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        name = QLabel(bidi.ltr_name(f"{r.name} · Lv. {r.level}", t.rtl), objectName="CardName")
+        name.setWordWrap(True)
+        col.addWidget(name)
+        col.addWidget(self._fl(bidi.ltr_block(self.kb.map_label(r.map), t.rtl), "CardSub"))
+        chips = FlowLayout(spacing=5)
+        chips.addWidget(self._fit_tag(r.fit))
+        if r.mesos:
+            mt = tag(self._p(mesos_text(t, r.mesos)), "Tag")
+            mt.setToolTip(tip_html(mesos_tip(t, r.mesos), t.rtl))
+            chips.addWidget(mt)
+        col.addLayout(chips)
+        # its best-paying drops, each a link that makes it the wanted item, with the list it is on
+        for d in r.drops:
+            text = f"{d.name} · {d.value.price:,} mesos" if d.value else d.name
+            b = QPushButton(bidi.ltr_name(text, t.rtl), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.setToolTip(tip_html(t("farm_drop_tip", item=d.name), t.rtl))
+            b.clicked.connect(lambda _=False, k=d.key: self._farm_choose(k))
+            chips_ = [source_tag(t, d.source)]          # the chip right after its drop
+            if d.need:
+                # what you need it for: a quest you can do, a recipe of your profession, your wishlist
+                kind, what = d.need
+                need = tag(self._p(t(f"farm_need_{kind}")), "TagGood")
+                if what:
+                    need.setToolTip(tip_html(t(f"farm_need_{kind}_tip", name=what), t.rtl))
+                chips_.insert(0, need)
+            line = QHBoxLayout()
+            line.setSpacing(6)
+            line.addWidget(self._picture(d.key, 24), 0, Qt.AlignVCenter)
+            line.addLayout(chip_row(chips_, b), 1)
+            col.addLayout(line)
+        col.addLayout(self._farm_links(r.key, r.name, r.map))
+        row.addLayout(col, 1)
+        return card
+
+    def _farm_cell(self, key: str, value: str, tip: str = ""):
+        box, label = self.farm_cells[key]
+        label.setText(value)
+        box.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'farm_cell_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _farm_buttons(self, busy: bool = False):
+        if "farm_start" not in self.__dict__:
+            return
+        c = self.c
+        running = bool(c and self.grind.running(c.id))
+        self.farm_start.setVisible(not running)
+        self.farm_update.setVisible(running)
+        self.farm_end.setVisible(running)
+        for b in (self.farm_start, self.farm_update, self.farm_end):
+            b.setEnabled(bool(c) and not busy)
+
+    def _fill_farm_session(self):
+        """The grind tracker's session, as loot: what the Etc / Equip tab reads gained, what it sells for, and how
+        often each item dropped over the session's kills."""
+        t, c = self.t, self.c
+        clear(self.farm_lines)
+        self._farm_buttons(busy=self._asked_read())
+        s = self.grind.session(c.id) if c else None
+        if not s:
+            self.farm_tag.hide()
+            self._fs(self.farm_state, t("grind_idle_state") if c else t("tool_no_char"))
+            mob = self._grind_choice if c else ""
+            self.farm_mob.setVisible(bool(mob))
+            if mob:
+                self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)))
+            for k in self.FARM_CELLS:
+                self._farm_cell(k, "–")
+            self.farm_lines.parentWidget().hide()
+            self._fs(self.farm_status, t("farm_idle") if c else "")
+            return
+        self.farm_tag.show()
+        self.farm_tag.setObjectName("Tag" if s.ended else "TagGood")
+        self.farm_tag.setText(self._p(t("grind_tag_ended" if s.ended else "grind_tag_running")))
+        self.farm_tag.style().unpolish(self.farm_tag)
+        self.farm_tag.style().polish(self.farm_tag)
+        end = s.ended or time.time()
+        self._fs(self.farm_state, t("grind_ended_state", time=self._clock(end - s.start)) if s.ended else
+                 t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        mob = s.monster if not (s.ended and self._grind_choice) else self._grind_choice
+        self.farm_mob.show()
+        self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)) if mob else t("farm_mob_none"))
+        sm = grind.summarize(self.kb, s)
+        self._farm_cell("time", self._p(self._clock(sm.seconds)), t("grind_tip_time"))
+        wait = t("grind_tip_wait")
+        no_loot = t("farm_tip_no_loot")
+        self._farm_cell("loot", self._num(sm.loot_value), t("farm_tip_loot") if sm.loot_read else no_loot)
+        self._farm_cell("loot_h", self._num(sm.loot_h), "" if sm.loot_h is not None else
+                        (wait if sm.loot_read else no_loot))
+        if sm.kills is not None:
+            self._farm_cell("kills", self._num(sm.kills, approx=True),
+                            t("grind_tip_kills", mob=bidi.ltr_block(sm.monster, t.rtl), n=f"{sm.monster_exp:,}"))
+        else:
+            self._farm_cell("kills", "–", t("grind_tip_no_monster") if not sm.monster else wait)
+        self._farm_loot_lines(sm)
+        self.farm_lines.parentWidget().setVisible(self.farm_lines.count() > 0)
+        if self._asked_read():
+            self._fs(self.farm_status, t("grind_reading"))
+        elif self.runner.note:
+            # (the grind tracker's "open the Use tab" isn't this page's advice: the loot line says which tab)
+            self._fs(self.farm_status, "\n".join(t(k) for k in self.runner.note if k != "grind_no_inv"))
+        elif not s.ended:
+            self._fs(self.farm_status, t("farm_running_hint"))
+        else:
+            self._fs(self.farm_status, t("farm_idle"))
+
+    def _farm_loot_lines(self, sm):
+        t, add = self.t, self.farm_lines.addWidget
+        if not sm.loot_read:
+            add(self._fl(t("farm_loot_wait"), "RowHint"))
+            return
+        if not sm.loot:
+            add(self._fl(t("farm_loot_none"), "RowHint"))
+            return
+        target = (self.kb.get(self._farm_target() or "") or {}).get("name", "").lower()
+        for name, n, price, src in sm.loot:
+            bits = [bidi.ltr_block(f"{name} ×{n}", t.rtl)]
+            if price:
+                bits.append(t("farm_loot_value", n=f"{n * price:,}"))
+            if sm.kills:
+                bits.append(t("farm_every", n=f"{max(1, round(sm.kills / n)):,}"))
+            text = " · ".join(bits)
+            if target and name.lower() == target:
+                text = "**" + text + "**"          # the item the player farms for
+            label = self._fl(text, "RowHint")
+            self.farm_lines.addLayout(chip_row([source_tag(t, src)], label, lead=True) if price else _alone(label))
+        unpriced = [bidi.ltr_block(name, t.rtl) for name, _, price, _ in sm.loot if not price]
+        if unpriced:
+            add(self._fl(t("farm_unpriced", names=", ".join(unpriced)), "RowHint"))
+        if sm.kills:
+            add(self._fl(t("grind_approx"), "RowHint"))
+
+    def _fill_farm_records(self):
+        """The player's own drop counts across the saved sessions (farm.records): the only drop rates shown."""
+        t, c = self.t, self.c
+        clear(self.farm_records)
+        rows = farm.records(self.grind.recent(c.id)) if c else []
+        if not rows:
+            self.farm_records.addWidget(self._fl(t("farm_records_none"), "RowHint"))
+            return
+        for r in rows[:20]:
+            bits = [bidi.ltr_block(f"{r.monster}: {r.item} ×{r.got}", t.rtl)]
+            if r.every:
+                bits.append(t("farm_every", n=f"{r.every:,}"))
+            bits.append(t("farm_sessions", n=r.sessions))
+            self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
+        self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))
 
     # quick checks --------------------------------------------------------
 
@@ -1583,40 +3502,521 @@ class ToolsDialog(GlassDialog):
         go.setCursor(Qt.PointingHandCursor)
         go.clicked.connect(self._sell_check)
         sell.add_widget(go)
+        self.sell_go = go
         lay.addWidget(sell)
-        shop = Section(t("shop_title"), t.rtl)
-        shop.add_widget(self._label(t("shop_body"), "RowLabel"))
-        maps = map_rows(self.kb)
-        self.shop_map = EntityPicker(maps, self._p(t("shop_map_ph", n=len(maps))), icon=40, rtl=t.rtl)
-        self.shop_map.setMinimumWidth(280)
-        shop.add_row(t("shop_where"), self.shop_map)
-        self.shop_len = Segmented([("30", 30), ("60", 60), ("120", 120)], 60, t.rtl)
-        shop.add_row(t("shop_minutes"), self.shop_len)
-        go2 = QPushButton(self._p(t("shop_go")), objectName="Primary")
-        go2.setCursor(Qt.PointingHandCursor)
-        go2.clicked.connect(self._shopping)
-        shop.add_widget(go2)
-        lay.addWidget(shop)
+        # the answer here, as cards by what to do with each item (it came as a chat message: the owner)
+        self.sell_box = QVBoxLayout()
+        self.sell_box.setSpacing(8)
+        lay.addLayout(self.sell_box)
+        lay.addStretch(1)
+        self.inventory_ready.connect(self._show_sell)
+        self.sell_market_ready.connect(self._on_sell_market)
+        return sc
+
+    def _page_pets(self):
+        sc, lay = scroll_page(self.t.rtl)
+        lay.addWidget(self._pets_section())
+        skills = self.__dict__.get("_pet_skills") or []
+        if skills:
+            box = Section(self.t("pet_skills_title"), self.t.rtl)
+            box.add_widget(self._label(self.t("pet_skills_intro"), "RowLabel"))
+            for s in skills:
+                box.add_widget(self._pet_skill_card(s))
+            lay.addWidget(box)
+        if not sitedata.pets(self.kb):        # a KB from before the pets page
+            lay.addWidget(self._label(self.t("pets_empty"), "RowHint"))
         lay.addStretch(1)
         return sc
 
+    def _pets_section(self) -> Section:
+        """Every pet: lifespan, hunger rate, commands to Lv 30, and whether the Cash Shop sells it now (sitedata.py).
+        Its own page of the play tools (Pets); sold now is shown first."""
+        t = self.t
+        sec = Section(t("pets_title"), t.rtl)
+        sec.add_widget(self._label(t("pets_intro"), "RowLabel"))
+        # what each chip means, in words (on hover alone it went unseen: the owner)
+        # the Cash Shop's pet skills (auto potions, auto move): they were nowhere (the owner)
+        skills = sitedata.pet_skills(self.kb)
+        if skills:
+            self.__dict__["_pet_skills"] = skills
+        self.pet_filter = Segmented([(t("pets_sold"), "sold"), (t("pets_easy"), "easy"), (t("pets_all"), "all")],
+                                    "sold", t.rtl)
+        self.pet_filter.set_label(t("pets_title"))
+        self.pet_filter.changed.connect(lambda *_: self._fill_pets())
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(8)
+        bl.addWidget(self.pet_filter)
+        self.pet_src = QHBoxLayout()
+        bl.addLayout(self.pet_src)
+        self.pet_list = QVBoxLayout()
+        self.pet_list.setSpacing(6)
+        bl.addLayout(self.pet_list)
+        sec.add_widget(box)
+        self._fill_pets()
+        sec.setVisible(bool(sitedata.pets(self.kb)))       # a KB from before the pets page: no empty section
+        return sec
+
+    def _fill_pets(self):
+        t = self.t
+        clear(self.pet_list)
+        every = sitedata.pets(self.kb)
+        mode = self.pet_filter.value()
+        shown = [p for p in every if p.sold] if mode == "sold" else sitedata.easiest(every) if mode == "easy" else every
+        self._source_line(self.pet_src, sources.MEOWDB if every else None)
+        if not shown and every:
+            self.pet_list.addWidget(self._label(t("pets_none_sold"), "RowHint"))
+        for p in shown:
+            self.pet_list.addWidget(self._pet_row(p))
+
+    def _pet_line(self, col, name_key: str, value: str, tip_key: str, extra: str = "") -> None:
+        """ "תוחלת חיים ?: 7 ימים": the name bold with its "?" (the explanation on hover), then the value."""
+        t = self.t
+        badge = terms._badge_uri()
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        name = f"<b>{html.escape(t(name_key))}</b>"
+        if badge:
+            name += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+        lines = value.split("\n")
+        tail = f" <span style='color:#F07A12'>{html.escape(extra)}</span>" if extra else ""
+        if len(lines) == 1:
+            body = f"<p {side} style='margin:0'>{name}: {html.escape(bidi.plain(value, t.rtl))}{tail}</p>"
+        else:                               # several lines: each its own label under the name, at the reading start
+            body = f"<p {side} style='margin:0'>{name}:</p>"
+        lb = QLabel(body, objectName="CardSub")
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        lb.setToolTip(tip_html(t(tip_key, level=30), t.rtl))
+        col.addWidget(lb)
+        if len(lines) > 1:
+            for v in lines:
+                one = QLabel(bidi.plain(v, t.rtl), objectName="CardSub")
+                one.setWordWrap(True)
+                one.setAlignment((Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+                col.addWidget(one)
+
+    def _pet_skill_card(self, s) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(10, 8, 10, 8)
+        row.setSpacing(10)
+        row.addWidget(self._picture(s.key, 36), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        col.addWidget(QLabel(bidi.ltr_name(s.name, t.rtl), objectName="CardName"))
+        col.addWidget(self._label(sitedata.pet_skill_text(s, t.lang, self.kb), "CardSub"))
+        tags = FlowLayout(spacing=5)
+        if s.sold and s.nx:
+            trade = sitedata.trade(self.kb, s.key)
+            tags.addWidget(info_tag(t, t("pet_nx", n=f"{s.nx:,}"),
+                                    t("pet_shop_tip") + (" " + t("pet_nx_closed") if s.closed_test else "")
+                                    + (" " + t(f"pet_trade_{trade}_tip") if trade else ""), "TagGood"))
+        else:
+            tags.addWidget(info_tag(t, t("pet_not_sold"), t("pet_not_sold_tip"), "Tag"))
+        col.addLayout(tags)
+        row.addLayout(col, 1)
+        return card
+
+    def _pet_row(self, p) -> QFrame:
+        """One pet: picture, name and "Ask in chat", then its numbers as chips, each explained on hover."""
+        t = self.t
+        row = QFrame(objectName="Card")
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(10)
+        pic = QLabel()
+        pic.setFixedSize(40, 40)
+        pic.setAlignment(Qt.AlignCenter)
+        path = self.kb.picture(p.key)
+        pm = QPixmap(str(path)) if path else QPixmap()
+        if not pm.isNull():
+            pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(pic, path)
+        lay.addWidget(pic, 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(QLabel(bidi.ltr_name(p.name, t.rtl), objectName="CardName"), 0, Qt.AlignVCenter)
+        head.addStretch(1)
+        trade = sitedata.trade(self.kb, p.key)
+        acts = [("go_price", lambda n=p.name: self._farm_price(n))] if trade in ("once", "tradeable") else []
+        acts.append(("ask_short", lambda k=p.key: self.tag_requested.emit(k)))
+        head.addLayout(self._links_row(acts))
+        col.addLayout(head)
+        # one line a detail, its name with a "?" that explains it (all in one row of chips was hard to read; the
+        # explanations sat in a paragraph above the list: the owner)
+        closed = set(p.closed_test or [])
+        if p.lifespan:
+            self._pet_line(col, "pet_line_life", sitedata.lifespan_text(t, p), "pet_life_tip",
+                           t("pet_closed_mark") if "lifespan" in closed else "")
+        if p.hunger is not None:
+            top = sitedata.hunger_top(self.kb, p.key)
+            self._pet_line(col, "pet_line_hunger", t("pet_hunger_of", n=p.hunger, top=top) if top else str(p.hunger),
+                           "pet_hunger_tip")
+        if isinstance(p.commands, int):
+            self._pet_line(col, "pet_line_commands", t("pet_commands_n", n=f"{p.commands:,}", level=p.level),
+                           "pet_commands_tip")
+        fast = sitedata.fastest_commands(self.kb, p.key)
+        if fast:
+            # a range a line, the commands one English block ("sit / bad / stupid" read backwards otherwise)
+            self._pet_line(col, "pet_line_fastest",
+                           "\n".join(t("pet_fast_at", cmds=bidi.ltr_block(c, t.rtl), lv=bidi.ltr_block(lv, t.rtl))
+                                     for c, lv in fast), "pet_fastest_tip")
+        nx = sitedata.cash_price(self.kb, p.key)
+        shop = (t("pet_nx", n=f"{nx[0]:,}") + (" " + t("pet_closed_mark") if nx[1] else "")) if nx and p.sold \
+            else t("pet_not_sold")
+        self._pet_line(col, "pet_line_shop", shop, "pet_shop_tip")
+        if trade:
+            self._pet_line(col, "pet_line_trade", t(f"pet_trade_{trade}"), f"pet_trade_{trade}_tip")
+        updated = updated_tag(t, self.kb, p.key)
+        if updated:
+            col.addLayout(chip_row([updated], lead=True))
+        lay.addLayout(col, 1)
+        return row
+
     def _sell_check(self):
-        # the inventory must be in the screenshot, not this window; the chat bubble says "Inventory check",
-        # not the nine lines of instructions the AI gets
-        self._step_aside(lambda: self.detail_ask_requested.emit(self.t("sell_q"), self.t("inv_check")))
+        """The inventory read here, no AI: this window steps out of the shot, the icons are matched to the KB's
+        pictures (inventory.py) off the GUI thread, and each item is sorted by what the KB says (sellkeep.py)."""
+        clear(self.sell_box)
+        self.sell_box.addWidget(self._label(self.t("sell_reading"), "RowHint"))
+        self.sell_go.setEnabled(False)
 
-    def _fill_more(self):
+        def shoot():
+            import threading
+
+            from .. import capture, inventory, osapi
+            capture.LAST_FULL = None
+            try:
+                hwnd = osapi.find_game_window()
+                if hwnd:
+                    osapi.capture_game(hwnd)
+            except Exception:      # noqa: BLE001 - no shot: said on the page
+                pass
+            full, cursor, kb = capture.LAST_FULL, capture.LAST_CURSOR, self.kb
+            if full is None:
+                self.inventory_ready.emit(None)
+                return
+
+            def read():
+                try:
+                    slots = inventory.read(full, kb, cursor=cursor)
+                except Exception:      # noqa: BLE001
+                    slots = []
+                try:
+                    self.inventory_ready.emit(slots)
+                except RuntimeError:   # the window closed meanwhile
+                    pass
+            threading.Thread(target=read, daemon=True).start()
+        self._step_aside(shoot)
+
+    def _show_sell(self, slots) -> None:
+        from .. import sellkeep, wishlist
+        t, c = self.t, self.c
+        self.sell_go.setEnabled(True)
+        clear(self.sell_box)
+        if slots is None:
+            self.sell_box.addWidget(self._label(t("sell_no_game"), "RowHint"))
+            return
+        if not slots:
+            self.sell_box.addWidget(self._label(t("sell_no_inventory"), "RowHint"))
+            return
+        if not c:
+            self._no_character(self.sell_box)
+            return
+        verdicts = sellkeep.classify(self.kb, slots, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                                     wishlist.items(self.settings, c.id))
+        self._sell_verdicts = verdicts
+        self._render_sell(verdicts, checking=True)
+        # the Free Market's usual price of each item to sell, from NiaMeowDB (live: its pages have no numbers),
+        # one item after another in the background; the cards follow when they're in
+        keys = sellkeep.for_market(self.kb, verdicts)[:30]
+        self._sell_read = read_id = self.__dict__.get("_sell_read", 0) + 1
+        if not keys:
+            self._render_sell(verdicts)
+            return
+        import threading
+
+        def look():
+            usual = {}
+            for k in keys:
+                slug = k.split("/", 1)[1]
+                if slug.isdigit():
+                    m = market.item_market(int(slug))
+                    if m is not None and m.usual:
+                        usual[k] = m.usual
+            try:
+                self.sell_market_ready.emit((read_id, usual))
+            except RuntimeError:
+                pass
+        threading.Thread(target=look, daemon=True).start()
+
+    def _on_sell_market(self, r) -> None:
+        from .. import sellkeep
+        read_id, usual = r
+        if read_id != self.__dict__.get("_sell_read") or not self.__dict__.get("_sell_verdicts"):
+            return
+        self._sell_verdicts = sellkeep.with_market(self._sell_verdicts, usual)
+        self._render_sell(self._sell_verdicts)
+
+    def _render_sell(self, verdicts, checking: bool = False) -> None:
+        t = self.t
+        clear(self.sell_box)
+        total = sum(v.price for v in verdicts if v.kind == "sell")
+        self.sell_box.addWidget(self._label(t("sell_summary", n=len(verdicts), mesos=f"{total:,}"), "ToolHeader"))
+        if checking:
+            self.sell_box.addWidget(self._label(t("sell_fm_checking"), "RowHint"))
+        last = None
+        for v in verdicts:
+            if v.kind != last:
+                last = v.kind
+                self.sell_box.addWidget(self._label(t(f"sell_kind_{v.kind}"), "SectionHeader"))
+            self.sell_box.addWidget(self._sell_card(v))
+
+    def _sell_card(self, v) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 8, 12, 8)
+        row.setSpacing(10)
+        if v.key:
+            row.addWidget(self._picture(v.key, 36), 0, Qt.AlignVCenter)
+        elif v.picture:
+            pic = QLabel()
+            pm = QPixmap()
+            pm.loadFromData(v.picture)
+            pic.setPixmap(pm.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            row.addWidget(pic, 0, Qt.AlignVCenter)
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        name = v.name or t("sell_unknown_slot", n=v.slot)
+        col.addWidget(QLabel(bidi.ltr_name(name, t.rtl) if v.name else self._p(name), objectName="CardName"))
+        why = {"quest": t("farm_need_quest_tip", name=v.why), "recipe": t("farm_need_recipe_tip", name=v.why),
+               "wish": t("sell_why_wish"), "wear": t("sell_why_wear", lv=v.why or "-"),
+               "not_yet": t("sell_why_not_yet", lv=v.why), "other_job": t("sell_why_other_job"),
+               "sell": t("sell_why_sell", n=f"{v.price:,}"), "no_price": t("sell_why_no_price"),
+               "fm": t("sell_why_fm", n=f"{v.fm:,}") + (" " + t("sell_or_npc", n=f"{v.price:,}") if v.price else ""),
+               "unknown": t("sell_why_unknown")}[v.kind]
+        if v.kind in ("not_yet", "other_job") and v.price:
+            why += " " + t("sell_or_npc", n=f"{v.price:,}")
+        col.addWidget(self._label(why, "CardSub"))
+        row.addLayout(col, 1)
+        if v.key:
+            acts = [("go_price", lambda n=v.name: self._farm_price(n))]
+            col.addLayout(self._links_row(acts))
+        return card
+
+    # how to get there ----------------------------------------------------
+
+    def _page_route(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        self.route_graph = routes.of(self.kb)
+        sec = Section(t("route_title"), t.rtl)
+        rows = route_rows(self.kb, self.route_graph)
+        # no map list before the KB carries routes.json (an app on an older KB): say so, not "Pick a map (0)"
+        ph = self._p(t("route_map_ph", n=len(rows)) if rows else t("route_no_maps"))
+        self.route_from = EntityPicker(rows, ph, icon=40, rtl=t.rtl)
+        self.route_to = EntityPicker(rows, ph, icon=40, rtl=t.rtl)
+        for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
+            picker.setMinimumWidth(280)
+            sec.add_row(t(label), picker)
+        self.route_taxi = Switch(True)
+        # a way already shown follows the switch; before one is asked for, nothing yet
+        self.route_taxi.toggled.connect(lambda *_: self.route_out.count() > 1 and self._find_route())
+        sec.add_row(t("route_taxi"), self.route_taxi, hint=t("route_taxi_hint"))
+        go = QPushButton(self._p(t("route_go")), objectName="Primary")
+        go.setCursor(Qt.PointingHandCursor)
+        go.clicked.connect(self._find_route)
+        swap = QPushButton(self._p(t("route_swap")), objectName="Link")
+        swap.setCursor(Qt.PointingHandCursor)
+        swap.setAutoDefault(False)
+        swap.clicked.connect(self._swap_route)
+        buttons = QWidget()
+        bl = QHBoxLayout(buttons)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.addWidget(go, 1)
+        bl.addWidget(swap)
+        sec.add_widget(buttons)
+        lay.addWidget(sec)
+        self.route_out = QVBoxLayout()
+        self.route_out.setSpacing(10)
+        lay.addLayout(self.route_out)
+        lay.addStretch(1)
+        self._route_auto = ""          # the start filled in from the character's map (followed when it moves)
+        return sc
+
+    def _fill_route(self):
         c = self.c
-        if c and not self.shop_map.text():
-            best = combat.spots(self.kb, c.level, *self._stats(), magic=c.base_class == combat.MAGE, n=1)
-            if best:
-                self.shop_map.setText(best[0].map)
-                self.shop_map.setCursorPosition(0)     # show the start of the map name
+        here = (c.map if c else "") or ""
+        mid = self.route_graph.find(here) if here else None
+        start = self.route_from.text().strip()
+        if mid and (not start or start == self._route_auto):
+            self._route_auto = self.route_graph.name(mid)
+            self.route_from.setText(self._route_auto)
+            self.route_from.setCursorPosition(0)
+        # the way shows on the button (or a link from another page), not on its own (the owner)
+        if self.route_out.count() == 0:
+            self._route_hint(self.t("route_pick" if self.route_graph.maps else "route_no_data"))
 
-    def _shopping(self):
-        where = self.shop_map.text().strip()
-        # no map picked: a sentence of its own ("grind at the place I train", not "at where I train")
-        q = self.t("shop_q", map=where, n=self.shop_len.value()) if where else self.t("shop_q_here", n=self.shop_len.value())
-        # with a fresh screenshot: the HUD shows max HP/MP as they are right now (and the potions already in the
-        # bag when the inventory is open), so the list fits the character at this moment (live feedback)
-        self._step_aside(lambda: self.ask_requested.emit(q, True))
+    def route_to_map(self, key: str) -> None:
+        """Open on the way to this map (a map card's "How to get here"), from the character's map."""
+        self.show_page(PAGES.index("route"))
+        mid = self.route_graph.of_key(key)
+        if mid:
+            self.route_to.setText(self.route_graph.name(mid))
+            self.route_to.setCursorPosition(0)
+        self._find_route()
+
+    def _swap_route(self):
+        a, b = self.route_from.text(), self.route_to.text()
+        self.route_from.setText(b)
+        self.route_to.setText(a)
+        if self.route_out.count() > 1:          # a way shown follows the swap; none asked for yet, none now
+            self._find_route()
+
+    def _route_hint(self, text: str) -> None:
+        self.route_out.addWidget(self._label(text, "RowHint"))
+
+    def _find_route(self):
+        t, g, rtl = self.t, self.route_graph, self.t.rtl
+        clear(self.route_out)
+        if not g.maps:
+            self._route_hint(t("route_no_data"))
+            return
+        texts = (self.route_from.text().strip(), self.route_to.text().strip())
+        if not texts[1]:
+            self._route_hint(t("route_pick"))
+            return
+        found = [g.find(x) if x else None for x in texts]
+        for text, mid in zip(texts, found):
+            if text and not mid:
+                # a map the KB has but doesn't confirm in the game (Orbis) is "not out yet", not "no such map"
+                why = "route_not_out" if g.not_in_game(text) else "route_unknown"
+                self._route_hint(t(why, name=bidi.ltr_block(text, rtl)))
+                return
+        a, b = found
+        if not a:
+            self._route_hint(t("route_pick_from"))
+            return
+
+        def name(mid: str) -> str:
+            return bidi.ltr_block(g.name(mid), rtl)
+        r = g.route(a, b, taxi=self.route_taxi.isChecked())
+        if r is None:
+            self._route_hint(t("route_none", a=name(a), b=name(b)))
+            self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+            return
+        if not r.legs:
+            self._route_hint(t("route_same"))
+            return
+        self.route_out.addWidget(self._label(t("route_head", a=name(a), b=name(b)), "ToolHeader"))
+        tags = FlowLayout(spacing=5)
+        tags.addWidget(tag(self._p(t("route_steps", n=len(r.legs))), "TagAccent"))
+        kinds = {leg.kind for leg in r.legs}
+        for kind in ("taxi", "boat"):
+            if kind in kinds:
+                tags.addWidget(tag(self._p(t(f"route_tag_{kind}")), "Tag"))
+        if not r.paid:
+            tags.addWidget(tag(self._p(t("route_tag_walk")), "TagGood"))
+        tags.addWidget(source_tag(t, sources.MEOWDB))
+        self.route_out.addLayout(tags)
+        notes = []
+        if "taxi" in kinds and (walk := g.route(a, b, taxi=False)):
+            notes.append(t("route_walk_alt" if not walk.paid else "route_walk_alt_boat", n=len(walk.legs)))
+        if unpriced := [leg for leg in r.paid if not leg.fare]:
+            paid = {leg.kind for leg in unpriced}
+            notes.append(t("route_fares" if len(paid) > 1 else f"route_fares_{paid.pop()}"))
+        notes.append(t("route_ring"))
+        self.route_out.addWidget(self._label("\n".join(notes), "RowHint"))
+        self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+        for i, leg in enumerate(r.legs, 1):
+            self.route_out.addWidget(self._route_step(str(i), leg.frm, leg))
+        self.route_out.addWidget(self._route_step("✓", b, None))
+
+    def _ask_route(self, a: str, b: str) -> None:
+        g = self.route_graph
+        self.ask_requested.emit(self.t("route_q", a=g.name(a), b=g.name(b)), False)
+
+    def _route_says(self, leg: routes.Leg | None) -> str:
+        t, rtl = self.t, self.t.rtl
+        if leg is None:
+            return t("route_arrive")
+        # a map name of a few words stays on one line: wrapped inside, "The Road to the" ended one line and
+        # "Dungeon" began the next
+        to = bidi.ltr_block(_whole(self.route_graph.name(leg.to)), rtl)
+        if leg.kind == "portal":
+            where = routes.side(leg.spot)
+            return t(f"route_portal_{where}" if where in ("left", "right") else "route_portal", to=to)
+        said = t(f"route_by_{leg.kind}", npc=bidi.ltr_block(leg.via, rtl), to=to)
+        return said + (" " + t("route_fare", n=f"{leg.fare:,}") if leg.fare else "")
+
+    def _route_step(self, number: str, mid: str, leg: routes.Leg | None) -> QFrame:
+        """One map of the way: its name, what to do there, and its minimap with the spot to go to ringed."""
+        g, rtl = self.route_graph, self.t.rtl
+        card = QFrame(objectName="Card")
+        col = QVBoxLayout(card)
+        col.setContentsMargins(12, 10, 12, 10)
+        col.setSpacing(6)
+        top = QHBoxLayout()
+        top.setSpacing(10)
+        num = tag(number, "TagAccent" if leg else "TagGood")
+        num.setMinimumWidth(26)
+        top.addWidget(num, 0, Qt.AlignTop)
+        names = QVBoxLayout()
+        names.setSpacing(1)
+        title = QLabel(bidi.ltr_name(g.name(mid), rtl), objectName="CardName")
+        title.setWordWrap(True)
+        names.addWidget(title)
+        m = g.maps[mid]
+        where = "  ·  ".join(x for x in (m.street, m.continent) if x)
+        if where:
+            names.addWidget(self._label(bidi.ltr_block(where, rtl), "CardSub"))
+        top.addLayout(names, 1)
+        col.addLayout(top)
+        col.addWidget(self._label(self._route_says(leg), "RowLabel"))
+        pic = self._minimap(mid, leg)
+        if pic is not None:
+            col.addWidget(pic, 0, Qt.AlignHCenter)
+        return card
+
+    MINIMAP_W, MINIMAP_H = 360, 170       # the most a step's minimap takes (small ones grow, pixel for pixel)
+
+    def _minimap(self, mid: str, leg: routes.Leg | None) -> QLabel | None:
+        path = self.route_graph.minimap(mid)
+        pm = QPixmap(str(path)) if path else QPixmap()
+        if pm.isNull():
+            return None
+        grow = max(1, min(3, self.MINIMAP_W // max(1, pm.width()), self.MINIMAP_H // max(1, pm.height())))
+        if grow > 1:
+            pm = pm.scaled(pm.width() * grow, pm.height() * grow, Qt.KeepAspectRatio, Qt.FastTransformation)
+        if pm.width() > self.MINIMAP_W or pm.height() > self.MINIMAP_H:
+            pm = pm.scaled(self.MINIMAP_W, self.MINIMAP_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        if leg is not None and leg.spot:
+            # the portal (orange) or the NPC to talk to (green), ringed where it is on the map
+            x, y = round(leg.spot[0] * pm.width()), round(leg.spot[1] * pm.height())
+            color = QColor(theme.ORANGE if leg.kind == "portal" else theme.GOOD_TEXT_LIGHT)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.setBrush(Qt.NoBrush)
+            p.setPen(QPen(QColor(0, 0, 0, 170), 5))
+            p.drawEllipse(QPoint(x, y), 11, 11)
+            p.setPen(QPen(color, 2.6))
+            p.drawEllipse(QPoint(x, y), 11, 11)
+            p.end()
+        pic = QLabel()
+        pic.setPixmap(pm)
+        pic.setAccessibleName(self.route_graph.name(mid))
+        return pic
+
+
+def market_ago(t, ts: float) -> str:
+    """How long ago a listing went up: "5 min ago", "3 h ago", "2 days ago"."""
+    mins = int(max(0, time.time() - ts) // 60)
+    if mins < 60:
+        return t("price_fm_ago_min", n=max(1, mins))
+    if mins < 24 * 60:
+        return t("price_fm_ago_h", n=mins // 60)
+    return t("price_fm_ago_d", n=mins // (24 * 60))

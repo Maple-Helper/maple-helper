@@ -18,6 +18,45 @@ class PlanTable:
     heading: str              # in the player's language
     rows: list[list[str]]     # first row = header
     current: int | None       # index (in rows) of the row for the player's level
+    head_en: list[str] | None = None     # the English header row (the columns' meaning, whatever the language)
+
+
+def weapon_types(kb) -> set[str]:
+    """Every weapon type the KB's equipment carries ("Bow", "Crossbow", "Claw"), lower case."""
+    memo = kb.__dict__.setdefault("_weapon_types", None) if hasattr(kb, "__dict__") else None
+    if memo is not None:
+        return memo
+    found = set()
+    for e in kb.entities.values():
+        t = str((e.get("props") or {}).get("_type") or e.get("type") or "")
+        if t.startswith("Equip / "):
+            found.add(t.split(" / ", 1)[1].strip().lower())
+    kb.__dict__["_weapon_types"] = found
+    return found
+
+
+def split_paths(kb, table: PlanTable) -> list[tuple[str, PlanTable]]:
+    """A first job's table that carries both 2nd-job paths side by side ("Bow AP spend" | "Crossbow AP spend") as
+    one table per path, the shared columns ("Levels", "Useful armor") in each: ("", table) when it has one path.
+    A path is a column whose English header starts with a weapon type of the KB, two of them or more (the owner:
+    "Bowman" over a table of both 2nd jobs)."""
+    head = table.head_en or []
+    types = weapon_types(kb)
+    owner = []
+    for h in head:
+        words = str(h).replace("[[", " ").split()
+        first = words[0].lower() if words else ""
+        owner.append(first if first in types else "")
+    paths = list(dict.fromkeys(o for o in owner if o))
+    if len(paths) < 2:
+        return [("", table)]
+    out = []
+    for path in paths:
+        cols = [i for i, o in enumerate(owner) if o in ("", path)]
+        rows = [[r[i] for i in cols if i < len(r)] for r in table.rows]
+        name = next(str(head[i]).split()[0] for i, o in enumerate(owner) if o == path)
+        out.append((name, PlanTable(table.kind, table.heading, rows, table.current, [head[i] for i in cols])))
+    return out
 
 
 def _levels(cell: str) -> tuple[int, int] | None:
@@ -68,7 +107,8 @@ def tables(kb, base_class: str, job: str, level: int, lang: str) -> tuple[str | 
             continue
         kinds_seen.add((kind, heading))
         rows = (local["blocks"][i] if same else b).get("table") or b["table"]
-        out.append((PlanTable(kind, heading_local, rows, current_row(b["table"], level)), _levels(heading)))
+        out.append((PlanTable(kind, heading_local, rows, current_row(b["table"], level), list(b["table"][0])),
+                    _levels(heading)))
     # per kind, the table for the player's levels ("levels 10-30"), else the latest one already reached
     picked = []
     for kind, _ in KINDS:

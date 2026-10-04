@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import webbrowser
 
-from PySide6.QtCore import QObject, Qt, Signal
+from PySide6.QtCore import QObject, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
                                QWidgetAction)
@@ -93,11 +93,12 @@ class Bubble(QFrame):
         self.label.setText(body)
 
     def add_pin(self, on_pin, tip: str) -> None:
-        """A small 📌 under a finished answer."""
+        """A small pin under a finished answer (the icon font's, like the header's icons; it was the 📌 emoji)."""
         from PySide6.QtWidgets import QToolButton
         row = QHBoxLayout()
         row.addStretch(1)
-        b = QToolButton(objectName="Icon", text="📌")
+        from . import theme
+        b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
         b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
@@ -148,7 +149,9 @@ class NoticeCard(QFrame):
     clicked = Signal()
     clicked2 = Signal()        # the second action, when there is one
 
-    def __init__(self, text: str, action: str, rtl: bool, stacked: bool = False, action2: str = ""):
+    def __init__(self, text: str, action: str, rtl: bool, stacked: bool = False, action2: str = "",
+                 closable: bool = True):
+        """closable: an ✕ at the far edge takes the note out of the chat (a KB update's note stayed for good)."""
         super().__init__(objectName="InfoNote")
         from . import theme
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
@@ -190,14 +193,31 @@ class NoticeCard(QFrame):
             self._row2.addWidget(self.btn)
             self._row2.addWidget(self.btn2)
             self._col.addWidget(holder)
+        self.close_btn = None
+        if closable:
+            from PySide6.QtWidgets import QToolButton
+            self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
+            self.close_btn.setCursor(Qt.PointingHandCursor)
+            self.close_btn.setFixedSize(24, 24)
+            self.close_btn.clicked.connect(self._dismiss)
+            lay.addWidget(self.close_btn, 0, Qt.AlignTop)
         self._below = None
         self.set_texts(text, action, rtl, action2)
+
+    def _dismiss(self):
+        self.hide()
+        self.deleteLater()
 
     def set_texts(self, text: str, action: str, rtl: bool, action2: str = ""):
         """Shown again in a new language when the player switches it."""
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
         self.msg.setText(bidi.plain(text, rtl))
         self.btn.setText(bidi.plain(action, rtl))
+        if self.close_btn is not None:
+            from ..i18n import I18n
+            label = I18n("he" if rtl else "en")("notice_close")
+            self.close_btn.setToolTip(label)
+            self.close_btn.setAccessibleName(label)
         if self.btn2 is not None and action2:
             self.btn2.setText(bidi.plain(action2, rtl))
         self._place_button()
@@ -301,6 +321,7 @@ def source_tag(t, source: str, stamp=None) -> QLabel:
     from .. import sources
     lb = QLabel(bidi.plain(sources.tag(t, source), t.rtl), objectName="SourceTag")
     lb.setAlignment(Qt.AlignCenter)
+    lb.setFixedHeight(17)              # as tall as the BETA badge it looks like
     lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
     text = sources.stamp_tip(t, source, stamp)
     lb.setToolTip(tip_html(text, t.rtl))
@@ -326,6 +347,96 @@ def updated_tag(t, kb, key: str) -> QLabel | None:
     lb.setToolTip(tip_html(text, t.rtl))
     lb.setAccessibleName(text)
     return lb
+
+
+def vote_tag(t, vote: dict) -> QLabel:
+    """A community drop's votes beside it: "16 ✓" (players who confirmed it), or "single report" when one player
+    alone reported it; the tooltip gives confirmed and denied (kb.community_drops)."""
+    single = bool(vote.get("single"))
+    text = t("votes_single") if single else t("votes_up", n=vote.get("up", 0))
+    # "16 ✓" one left-to-right block in Hebrew too (run by run, the mark went before the number: "✓16")
+    lb = QLabel(bidi.plain(text, t.rtl) if single else bidi.ltr_name(text, t.rtl), objectName="VoteTag")
+    lb.setProperty("single", "true" if single else "false")
+    lb.setAlignment(Qt.AlignCenter)
+    lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+    tip = t("votes_single_tip") if single else t("votes_tip", up=vote.get("up", 0), down=vote.get("down", 0))
+    lb.setToolTip(tip_html(tip, t.rtl))
+    lb.setAccessibleName(f"{text}: {tip}")
+    return lb
+
+
+def mesos_text(t, mesos) -> str:
+    """ "mesos 18–23 (קהילה)" / "Mesos 18–23 (Community)" (sources.mesos_line)."""
+    from .. import sources
+    return sources.mesos_line(t, mesos)
+
+
+def mesos_tip(t, mesos) -> str:
+    """What the mesos numbers are: the median of the players' reports, and how often a kill drops mesos."""
+    _, _, chance, n = mesos
+    tip = t("mesos_tip", n=n)
+    if chance is not None:
+        tip += " " + t("mesos_chance", pct=f"{chance:g}")
+    return tip
+
+def level_job(c, rtl: bool) -> str:
+    """ "רמה 15 · Bowman" / "Lv. 15 · Bowman": the same words as the rest of the app."""
+    from ..i18n import I18n
+    return bidi.plain(f"{I18n('he' if rtl else 'en')('lv_short', n=c.level)} · {c.job_label}", rtl)
+
+
+def zoom_on_hover(label, path, caption: str = "", height: int = 96) -> None:
+    """A small picture shows large on hover, as the quests' and recipes' pictures do: at 30-56 px a sprite hid
+    what it shows (the owner)."""
+    if not path:
+        return
+    from html import escape
+    from pathlib import Path as _P
+    uri = _P(str(path)).resolve().as_uri()
+    cap = f"<br>{escape(caption)}" if caption else ""
+    label.setToolTip(f"<div align='center'><img src='{uri}' height='{height}'>{cap}</div>")
+
+def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
+    """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
+    lb = QLabel(bidi.plain(text, t.rtl), objectName=kind)
+    lb.setAlignment(Qt.AlignCenter)
+    lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+    if tip:
+        lb.setToolTip(tip_html(tip, t.rtl))
+    lb.setAccessibleName(f"{text}: {tip}" if tip else text)
+    return lb
+
+
+def changed_tag(t, kb, key: str) -> QLabel | None:
+    """ "Changed in COT2" on a skill whose values changed between two builds (sitedata.py); the tooltip lists the
+    changes ("Chance: 35% → 50% · Damage: 180% → 140%")."""
+    from .. import sitedata
+    ch = sitedata.skill_change(kb, key)
+    if not ch:
+        return None
+    return info_tag(t, sitedata.chip_label(t, ch), sitedata.change_tip(t, ch, kb), "ChangedTag")
+
+
+def pet_parts(t, kb, key: str) -> tuple[list[str], list[QLabel]] | None:
+    """A pet's numbers as pill texts (lifespan, hunger, commands to Lv 30) and its chips (sold now or not, and
+    "Closed test" for a value from the closed tests); None for an item that is no pet."""
+    from .. import sitedata, sources
+    p = sitedata.pet(kb, key)
+    if not p:
+        return None
+    pills = [t("pet_life", v=sitedata.lifespan_text(t, p)), t("pet_hunger", n=p.hunger)]
+    if p.commands_text:
+        # the whole number ("25,000"), not the site's "25.0k" shorthand
+        pills.append(t("pet_commands", level=p.level,
+                       n=f"{p.commands:,}" if isinstance(p.commands, int) else p.commands_text.lstrip("~")))
+    chips = [info_tag(t, t("pet_sold" if p.sold else "pet_not_sold"), t("pet_sold_tip" if p.sold else "pet_not_sold_tip"),
+                      "TagGood" if p.sold else "Tag")]
+    if p.closed_test:
+        chip = source_tag(t, sources.CLOSED_TEST)
+        if "lifespan" in p.closed_test:
+            chip.setToolTip(tip_html(t("pet_life_closed_tip"), t.rtl))
+        chips.append(chip)
+    return pills, chips
 
 
 def chip_row(chips: list[QWidget], text: QWidget | None = None, spacing: int = 6, lead: bool = False) -> QHBoxLayout:
@@ -407,6 +518,15 @@ class _Wishlist(QObject):
 WISHLIST = _Wishlist()
 
 
+class _RouteRequests(QObject):
+    """A map card's "How to get here from my map": the app opens Play tools on the way there."""
+
+    requested = Signal(str)       # the map's KB key
+
+
+ROUTE_REQUESTS = _RouteRequests()
+
+
 class Selectable:
     """Mixin: a tap selects this entity (orange border); every selectable follows the shared selection."""
 
@@ -465,6 +585,7 @@ class EntityCard(Selectable, QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
 
         col = QVBoxLayout()
@@ -483,6 +604,10 @@ class EntityCard(Selectable, QFrame):
 
         stats = self._stats(e, t)
         main, bonuses = stat_parts(e)
+        # a pet: its lifespan, hunger and commands to Lv 30 as pills, sold now (or not) as a chip (sitedata.py)
+        pet = pet_parts(t, kb, key) if key.startswith("item/") else None
+        if pet:
+            main = main + pet[0]
         if main or bonuses:
             # one small pill per stat ("Lv. 30", "DEF 75", "STR DEX INT LUK +1"): a single long line mixed Hebrew
             # labels with English stats and wrapped into a scrambled order in a Hebrew chat
@@ -490,10 +615,18 @@ class EntityCard(Selectable, QFrame):
             pills = QWidget()
             flow = FlowLayout(pills, spacing=4)
             for text in main + bonuses:
-                pill = QLabel(text, objectName="StatPill")
+                pill = QLabel(bidi.plain(text, he) if bidi._RTL.search(text) else text, objectName="StatPill")
                 pill.setLayoutDirection(Qt.LeftToRight)
                 flow.addWidget(pill)
             col.addWidget(pills)
+        # a monster's mesos, as players reported them: "mesos 18–23 (קהילה)", its own line (it isn't the page's stat
+        # and doesn't share the stat line's source)
+        mesos = kb.community_mesos(key) if key.startswith("monster/") else None
+        if mesos:
+            self.mesos_label = _label(bidi.plain(mesos_text(t, mesos), he), "CardSub")
+            self.mesos_label.setAlignment(side)
+            self.mesos_label.setToolTip(tip_html(mesos_tip(t, mesos), he))
+            col.addWidget(self.mesos_label)
         # the credit line is the card's source line: where the stat line's numbers come from (the page's build,
         # "COT2", else MeowDB's own) and, for an entity a KB update changed this week, "Updated", at its start
         from .. import sources
@@ -502,6 +635,21 @@ class EntityCard(Selectable, QFrame):
             stamp = sources.stat_source(kb, key)
             self.source_chip = source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp)
             chips.append(self.source_chip)
+            # what the build changed, in sight (it was only in the tag's tooltip: "why no COT1 data?", the owner)
+            if stamp and stamp.changes and stamp.before and sources.test_build(stamp.source):
+                shown = ", ".join(sources.change_line(c.stat, c.old, c.new) for c in stamp.changes[:3])
+                more = len(stamp.changes) - 3
+                text = t("src_changed_line", before=stamp.before, changes=shown) + \
+                    (" " + t("pn_more", n=more) if more > 0 else "")
+                self.changed_label = _label(bidi.plain(text, he), "CardSub")
+                self.changed_label.setAlignment(side)
+                self.changed_label.setToolTip(tip_html(sources.stamp_tip(t, stamp.source, stamp), he))
+                col.addWidget(self.changed_label)
+        if pet:
+            chips += pet[1]
+        changed = changed_tag(t, kb, key) if key.startswith("skill/") else None
+        if changed:
+            chips.append(changed)          # "Changed in COT2", its changes in the tooltip
         updated = updated_tag(t, kb, key)
         if updated:
             chips.append(updated)
@@ -532,6 +680,15 @@ class EntityCard(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             bl.addWidget(self._star)
+        if key.startswith("map/"):
+            from .. import routes
+            if routes.of(kb).of_key(key):          # a map in the game the route graph has
+                way = QToolButton(objectName="Icon", text=theme.ICON["route"])
+                way.setCursor(Qt.PointingHandCursor)
+                way.setToolTip(t("card_route"))
+                way.setAccessibleName(t("card_route"))
+                way.clicked.connect(lambda: ROUTE_REQUESTS.requested.emit(self.key))
+                bl.addWidget(way)
         copy = QToolButton(objectName="Icon", text=theme.ICON["copy"])
         copy.setCursor(Qt.PointingHandCursor)
         copy.setToolTip(self._t("copy_card"))
@@ -541,6 +698,7 @@ class EntityCard(Selectable, QFrame):
         bl.addStretch(1)
         row.addWidget(self._buttons, 0, Qt.AlignTop)
 
+    @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
     def _refresh_star(self):
         from . import theme
         on = WISHLIST.has(self.key)
@@ -718,10 +876,10 @@ class ProfileCard(QFrame):
 
     def show_character(self, c, avatar_path, kb, rtl: bool) -> None:
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
-        self.setAccessibleDescription(f"{c.name} · Lv. {c.level} · {c.job_label}")
+        self.setAccessibleDescription(f"{c.name} · {level_job(c, rtl)}")
         self.name.setText(bidi.plain(c.name, rtl))
         self.name.setAlignment(align)
-        self.meta.setText(f"Lv. {c.level} · {c.job_label}")
+        self.meta.setText(level_job(c, rtl))
         self.meta.setAlignment(align)
         self.avatar.set_image(character_image(c, avatar_path, kb))
 
@@ -840,7 +998,7 @@ class CharacterChoice(QFrame):
         col.setSpacing(1)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         name = QLabel(bidi.plain(c.name, rtl), objectName="ProfileName")
-        meta = QLabel(f"Lv. {c.level} · {c.job_label}", objectName="ProfileMeta")
+        meta = QLabel(level_job(c, rtl), objectName="ProfileMeta")
         for lb in (name, meta):
             lb.setAlignment(align)
             col.addWidget(lb)
@@ -892,7 +1050,7 @@ class CharacterRow(QFrame):
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         name = QLabel(bidi.plain(c.name, rtl), objectName="ProfileName")
         name.setAlignment(align)
-        meta = QLabel(f"Lv. {c.level} · {c.job_label}", objectName="ProfileMeta")
+        meta = QLabel(level_job(c, rtl), objectName="ProfileMeta")
         meta.setAlignment(align)
         col.addWidget(name)
         col.addWidget(meta)
@@ -947,7 +1105,8 @@ def stat_parts(e: dict, tile: bool = False) -> tuple[list[str], list[str]]:
 class EntityTile(Selectable, QFrame):
     """Compact item tile for lists (drops, rewards): picture + official name. Tap to ask about it."""
 
-    def __init__(self, kb, key: str, t=None):
+    def __init__(self, kb, key: str, t=None, vote: dict | None = None):
+        """vote: a community drop's votes (kb.community_vote), shown under the name."""
         super().__init__(objectName="Tile")
         e = kb.get(key) or {}
         if t is None:
@@ -968,6 +1127,7 @@ class EntityTile(Selectable, QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img, e.get("name", ""))
         row.addWidget(pic)
         col = QVBoxLayout()
         col.setSpacing(1)
@@ -985,8 +1145,38 @@ class EntityTile(Selectable, QFrame):
         self.stats.setMinimumWidth(48)
         self.stats.setVisible(bool(stats))
         col.addWidget(self.stats)
+        self.vote = vote_tag(t, vote) if vote else None
+        if self.vote is not None:
+            col.addLayout(chip_row([self.vote]))       # at the reading start, under the name
         row.addLayout(col, 1)
+        # an item in a list (a monster's drops, rewards) can go on the wishlist too: the star was only on a full
+        # item card, so the drops in an answer couldn't be followed (the owner's report)
+        if key.startswith("item/"):
+            from PySide6.QtWidgets import QToolButton
+            self._t = t
+            self.key = key
+            self._star = QToolButton(objectName="Icon")
+            self._star.setFixedSize(26, 26)
+            self._star.setCursor(Qt.PointingHandCursor)
+            self._star.clicked.connect(lambda: WISHLIST.toggle(self.key))
+            WISHLIST.changed.connect(self._refresh_star)
+            self._refresh_star()
+            row.addWidget(self._star, 0, Qt.AlignTop)
         self._align_name()
+
+    @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
+    def _refresh_star(self):
+        from . import theme
+        try:
+            on = WISHLIST.has(self.key)
+            self._star.setText(theme.ICON["star_on" if on else "star"])
+        except RuntimeError:          # the tile was deleted (a cleared chat) while the wishlist changed
+            return
+        self._star.setProperty("wished", "true" if on else "false")
+        self._star.style().unpolish(self._star)
+        self._star.style().polish(self._star)
+        self._star.setToolTip(self._t("wish_remove" if on else "wish_add"))
+        self._star.setAccessibleName(self._t("wish_remove" if on else "wish_add"))
 
     def _align_name(self):
         """The (English) name sits right beside its picture: on the right in a Hebrew chat. Qt resolves "leading"
@@ -1007,7 +1197,9 @@ class EntityTile(Selectable, QFrame):
 class TileGrid(QFrame):
     """Two-column grid of item tiles with a credit line."""
 
-    def __init__(self, kb, keys: list[str], title: str = "", rtl: bool | None = None, t=None, srcs=()):
+    def __init__(self, kb, keys: list[str], title: str = "", rtl: bool | None = None, t=None, srcs=(),
+                 monster: str | None = None):
+        """monster: the monster whose drops these are; its community drops then show their players' votes."""
         super().__init__(objectName="TileGrid")
         from PySide6.QtWidgets import QApplication, QGridLayout
         from .. import bidi
@@ -1033,10 +1225,21 @@ class TileGrid(QFrame):
         grid = QGridLayout()
         grid.setSpacing(6)
         for i, k in enumerate(keys):
-            grid.addWidget(EntityTile(kb, k, t), i // 2, i % 2)
+            grid.addWidget(EntityTile(kb, k, t, kb.community_vote(monster, k) if monster else None), i // 2, i % 2)
         outer.addLayout(grid)
         credit = QLabel("NiaMeowDB (meowdb.com)", objectName="CardCredit")
-        outer.addWidget(credit)
+        # the title's chip says where the list is from (community, MSEA); the tiles' stat lines carry their own
+        # build ("COT2"), beside the credit as on a card: under a "Community" title they read as players' numbers
+        from .. import sources
+        builds = [sources.source_of(kb, k) for k in keys
+                  if (e := kb.get(k)) and any(stat_parts(e, tile=True)) and sources.stat_source(kb, k)]
+        stat_chips = source_tags(t, builds) if t is not None else []
+        if stat_chips:
+            # "Stats: COT2": alone under the drops it read as the drops' source (the owner's question)
+            what = QLabel(bidi.plain(t("tiles_stats_from"), rtl), objectName="CardCredit")
+            outer.addLayout(chip_row([what] + stat_chips, credit))
+        else:
+            outer.addWidget(credit)
 
 
 class DropGroupCard(QFrame):
@@ -1065,6 +1268,7 @@ class DropGroupCard(QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img)
         head.addWidget(pic)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         col = QVBoxLayout()
@@ -1090,7 +1294,8 @@ class DropGroupCard(QFrame):
         grid.setSpacing(6)
         mixed = len(set(srcs.get(i) for i in items)) > 1
         for i, k in enumerate(items):
-            tile = EntityTile(kb, k, t)
+            # a community drop with its players' votes ("16 ✓", "single report")
+            tile = EntityTile(kb, k, t, kb.community_vote(monster, k))
             if mixed and t is not None:
                 tile.setToolTip(f"{tile.toolTip()} · {sources.tag(t, srcs.get(k) or sources.MSEA)}")
             grid.addWidget(tile, i // 2, i % 2)

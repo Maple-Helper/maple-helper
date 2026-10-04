@@ -165,3 +165,27 @@ def info(kb, profession: str) -> Info:
                         out.station_towns.append(town)
                 i += 1
     return out
+
+
+def made_from(kb, name: str) -> list[tuple[str, int, str]]:
+    """How a crafting material is made: [(profession, level, "10 x Tree Branch")], lowest level first, from the
+    professions' recipe tables (pages/crafting/efficiency__*.md: "5 | Processed Wood" then its ingredients)."""
+    memo = kb.__dict__.setdefault("_made_from", {})
+    if name in memo:
+        return memo[name]
+    out = []
+    for key, e in kb.entities.items():
+        if e.get("category") != "crafting" or not key.startswith("crafting/efficiency__"):
+            continue
+        profession = key.split("__", 1)[1].replace("-", " ").title()
+        level = 1
+        lines = kb.page(key).split("\n")
+        for n, ln in enumerate(lines):
+            m = re.match(r"^Lv\. (\d+)$", ln.strip())
+            if m:
+                level = int(m.group(1))
+            m = re.match(r"^\d+ \| (.+?)(?: x [\d,]+)?$", ln.strip())
+            if m and m.group(1).strip().lower() == name.lower() and n + 1 < len(lines):
+                out.append((profession, level, lines[n + 1].strip()))
+    memo[name] = sorted(out, key=lambda r: r[1])
+    return memo[name]

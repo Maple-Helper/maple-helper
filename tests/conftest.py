@@ -64,7 +64,7 @@ def no_real_world():
     import shutil
     import socket
 
-    from maplehelper import market
+    from maplehelper import market, serverstatus
     from maplehelper.providers import codex
 
     mp = pytest.MonkeyPatch()
@@ -73,6 +73,9 @@ def no_real_world():
                else which(name, *a, **k))
     mp.setattr(codex, "store_apps", lambda: [])           # the Microsoft Store copy, found through the registry
     mp.setattr(market, "free_market", lambda name, timeout=10: None)
+    mp.setattr(market, "item_market", lambda item_id, timeout=8: None)
+    # the chat's server-status dot (live from MeowDB): "can't reach it", without asking
+    mp.setattr(serverstatus, "fetch", lambda timeout=8: None)
 
     connect = socket.socket.connect
 
@@ -103,10 +106,12 @@ def kb():
 
 @pytest.fixture
 def isolated_store(tmp_path, monkeypatch):
-    """Settings/Profiles/History write into tmp_path instead of the shared test APPDATA."""
+    """Settings/Profiles/History (and grind sessions) write into tmp_path instead of the shared test APPDATA."""
     from maplehelper import store
     monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
     monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
     monkeypatch.setattr(store, "HISTORY_DIR", tmp_path / "history")
+    from maplehelper import grind
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
     (tmp_path / "history").mkdir()
     return store

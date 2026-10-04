@@ -31,28 +31,35 @@ TERMS = {
 
 # clearer or missing definitions, written for the app
 APP = {
+    # a monster's own numbers (the calculator's big numbers): the plain "HP" entry is the player's HP / MP
+    "Monster P.DEF": ("ההגנה של המפלצת מפני מכות פיזיות: מורידה מהנזק שאתם עושים לה במכות רגילות (לא בקסמים). "
+                      "0 = לא מורידה כלום.",
+                      "The monster's defence against physical hits: it lowers the damage your basic attacks do to it "
+                      "(not magic). 0 = nothing off."),
+    "Monster HP": ("כמה נזק צריך כדי להרוג את המפלצת: כל מכה מורידה ממנו, וכשהוא מגיע ל-0 היא מתה.",
+                   "How much damage the monster takes before it dies: every hit takes some off, and at 0 it dies."),
     # "a bit over 3x": the class guides' "ACC to never miss at equal level" tables (pages/guide/cleric-class-guide.md:
     # Jr. Wraith Avoid 24 -> 79 ACC, Rotten Mushroom 33 -> 108) and Zombie Mushroom's page (Avoid 14 -> 47)
     "ACC": ("Accuracy: כמה טוב אתם פוגעים. ככל שה-ACC שלכם גבוה יותר מה-Avoid של המפלצת, אתם מפספסים פחות. "
-            "כדי לא לפספס בכלל צריך קצת יותר מפי 3 מה-Avoid שלה כשהיא בלבל שלכם, ועוד יותר כשהיא בלבל גבוה משלכם. "
+            "כדי לא לפספס בכלל צריך קצת יותר מפי 3 מה-Avoid שלה כשהיא ברמה שלכם, ועוד יותר כשהיא ברמה גבוהה משלכם. "
             "רואים אותו בחלון ה-Stat.",
             "Accuracy: how well you hit. The more your ACC beats a monster's Avoid, the fewer misses. "
             "To never miss you need a bit over 3x its Avoid at your level, more when it's above your level. "
             "It's in the Stat window."),
     "Avoid": ("Avoidability: כמה טוב המפלצת מתחמקת. Avoid גבוה = צריך יותר ACC כדי לפגוע בה. "
-              "מפלצת בלבל גבוה משלכם מתחמקת עוד יותר.",
+              "מפלצת ברמה גבוהה משלכם מתחמקת עוד יותר.",
               "Avoidability: how well a monster dodges. Higher Avoid means you need more ACC to hit it. "
               "A monster above your level dodges even more."),
     "P.DEF": ("Physical Defense: הגנה מפני מכות פיזיות. מורידה מהנזק של מכות רגילות (לא קסמים).",
               "Physical Defense: cuts the damage of physical hits (not magic)."),
     "M.DEF": ("Magic Defense: הגנה מפני קסמים. מורידה מהנזק של מכות קסם.",
               "Magic Defense: cuts the damage of magic hits."),
-    "AP": ("Ability Points: 5 נקודות בכל עליית לבל, שמחלקים ל-STR / DEX / INT / LUK.",
+    "AP": ("Ability Points: 5 נקודות בכל עליית רמה, שמחלקים ל-STR / DEX / INT / LUK.",
            "Ability Points: 5 per level up, spent on STR / DEX / INT / LUK."),
     # pages/guide/beginners-guide-first-steps-in-maple-world.md ("9 SP by the time you hit level 10 (1 per level-up)")
     # and pages/guide/maplestory-classic-glossary.md ("3 SP per level, plus 1 bonus SP at lv 10 advancement")
-    "SP": ("Skill Points: נקודות לסקילים. Beginner מקבל נקודה אחת בכל עליית לבל (9 עד לבל 10), "
-           "ואחרי הג'וב הראשון מקבלים 3 בכל לבל.",
+    "SP": ("Skill Points: נקודות לסקילים. Beginner מקבל נקודה אחת בכל עליית רמה (9 עד רמה 10), "
+           "ואחרי הג'וב הראשון מקבלים 3 בכל רמה.",
            "Skill Points: points for your skills. A Beginner gets 1 per level up (9 by level 10), "
            "then 3 per level after the first job."),
     "NPC": ("דמות של המשחק (לא שחקן): חנויות, נותני קווסטים ומדריכי ג'וב.",
@@ -60,7 +67,7 @@ APP = {
     "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מ-Lv. 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
                     "Citizenship of a town (Henesys or Kerning City) from Lv. 12. Donations raise your grade, "
                     "which opens discounts and items in that town's shops."),
-    "Lv.": ("Level: הלבל של הדמות או של המפלצת. כל עליית לבל נותנת AP ו-SP.",
+    "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
             "Level: of your character or a monster. Every level up gives AP and SP."),
     "mob": ("מפלצת (קיצור של mobile). \"מובים\" = מפלצות.", "A monster (short for mobile)."),
     "catalyst": ("ה-mesos שמשלמים כדי ליצור את הפריט, מעבר לחומרים.", "The mesos paid to craft, on top of the materials."),
@@ -157,6 +164,10 @@ def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None
     # only text between tags, never inside a tag or an existing link
     parts = re.split(r"(<a\b.*?</a>|<[^>]+>)", html_text, flags=re.S)
     return "".join(p if p.startswith("<") else text_part(p) for p in parts)
+
+
+# a term's title in its explanation, when the term isn't the word shown ("Monster HP" explains an "HP")
+TITLES = {"Monster HP": "HP", "Monster P.DEF": "P.DEF"}
 
 
 def term_of(link: str) -> str | None:

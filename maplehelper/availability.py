@@ -90,6 +90,7 @@ class Availability:
         self.confirmed = {c for c in self.continents if self._named(c, self.confirmed_text)}
         self.not_at_launch = {c for c in self.continents if self._named(c, self.not_at_launch_text)}
         self.confirmed -= self.not_at_launch
+        self._close_areas(kb)
         # monsters the guide names one by one ("Confirmed bosses: Mushmom, Zombie Mushmom, ...", new monsters)
         names = sorted({e["name"] for e in kb.entities.values() if e.get("category") == "monster"}, key=len, reverse=True)
         text, self.named_monsters = self.confirmed_text, set()
@@ -101,6 +102,48 @@ class Availability:
         third_in = bool(re.search(r"3rd job", self.confirmed_text, re.I))
         # 3rd job opens only once the guide confirms it; until then (out, or not named at all) it stays shut
         self.job_tier = 3 if third_in and not third_out else 2
+
+    def _close_areas(self, kb) -> None:
+        """An area inside an open continent that the guide's "Not at launch" names ("Forgotten Hollow is closed during
+        Founder's Access"): its maps are the ones the KB's guide to that area lists, and every map on their streets
+        ("Shallow Passage", "Deep Passage") is closed with it. It counted as open since Victoria Island is (its
+        monsters, quests and the Arcane Station showed). No list here: the guide names the area, its own guide
+        page names the maps, and when the release guide stops calling it closed, it opens with the next KB."""
+        self.closed_areas: list[str] = []
+        streets: set[str] = set()
+        for name in sorted(self.map_place_by_name, key=len, reverse=True):
+            if not (self.map_place_by_name[name] & self.confirmed) or not self._named(name, self.not_at_launch_text):
+                continue
+            mentions = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])[^.]*\b(closed|not open|not included|"
+                                 r"later date|not part)\b", self.not_at_launch_text, re.I)
+            if not mentions:
+                continue
+            self.closed_areas.append(name)
+            listed = {name}
+            for key, e in kb.entities.items():
+                if e.get("category") == "guide" and name.lower() in e.get("name", "").lower():
+                    page = kb.page(key)
+                    listed |= {m for m in self.map_place_by_name if len(m) > 4 and self._named(m, page)}
+            # a street is the area's when most of its maps are in the area's guide: Shallow / Deep Passage, not
+            # Victoria Road (the guide names Ellinia and Henesys too, and they are no part of it)
+            per_street: dict[str, list[bool]] = {}
+            for cell, (cont, street) in self.map_place.items():
+                if cont in self.confirmed:
+                    per_street.setdefault(street, []).append(cell[:-len(street)].strip() in listed)
+            for street, hits in per_street.items():
+                if sum(hits) * 2 > len(hits):
+                    streets.add(street)
+        if not streets:
+            return
+        closed = " · ".join(self.closed_areas)
+        for cell, (cont, street) in list(self.map_place.items()):
+            if street in streets:
+                shut = f"{cont} · {closed}"            # a continent of its own, never in self.confirmed
+                self.map_place[cell] = (shut, street)
+                name = cell[:-len(street)].strip()
+                self.map_place_by_name[name] = (self.map_place_by_name.get(name, set()) - {cont}) | {shut}
+                self.streets[street] = (self.streets.get(street, set()) - {cont}) | {shut}
+                self.continents.add(shut)
 
     @staticmethod
     def _named(name: str, text: str) -> bool:

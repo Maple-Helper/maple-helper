@@ -85,8 +85,13 @@ NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant 
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
 PREFIX_FROM = 4        # Hebrew letters a name needs before a glued prefix counts ("לאן" is not ל + "אן")
 _PREFIX = "[בלמהושכ]{1,2}"
-DROPS_MARK = "drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
+DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
+              "and the players' votes on community drops\n")
 NAMES_TABLE = "names.tsv"     # key, category, name, type: one line per entity, for the AI to grep (see ensure_drop_table)
+COMMUNITY_FILE = "community.json"     # players' drop and mesos reports per monster (tools/scrape_community.py)
+# a community drop is shown when more players confirmed it than denied it (score = up - down); one with a single
+# vote is shown marked "single report" (tools/kb_release.py repeats the rule for the patch notes)
+COMMUNITY_MIN_SCORE = 1
 
 
 class KnowledgeBase:
@@ -344,12 +349,17 @@ class KnowledgeBase:
 
         The page's "Drops (MS Classic)" block holds two lists: "Community sourced", the drops players have seen
         in Classic themselves, then "MSEA reference drops", old MapleSEA's table that the KB calls historical
-        reference. Read as one list, an MSEA drop was shown as if confirmed for Classic (and the other way)."""
+        reference. Read as one list, an MSEA drop was shown as if confirmed for Classic (and the other way).
+        The community list is community.json's reports first (community_drops: best confirmed first), then the
+        page's own; a drop on both lists is shown once, on the community one. (Players' reports don't replace the
+        MSEA list: only the game's official data would, the owner's rule.)"""
         memo = self.__dict__.setdefault("_drop_lists", {})
         if key in memo:
             return memo[key]
         body = self.page(key)
-        out: dict[str, list[str]] = {sources.COMMUNITY: [], sources.MSEA: []}
+        # (the site's script loads the community list into the page, so the scraped page text rarely has it)
+        out: dict[str, list[str]] = {sources.COMMUNITY: [d["item"] for d in self.community_drops(key)],
+                                     sources.MSEA: []}
         i = body.find("Drops (MS Classic)")
         if i >= 0:
             end = len(body)
@@ -369,6 +379,68 @@ class KnowledgeBase:
                         out[src].append(k)
         memo[key] = out
         return out
+
+    # ------------------------------------------------------------ community reports
+
+    @cached_property
+    def _community(self) -> dict[str, dict]:
+        """community.json's monsters (monster key -> {"drops", "mesos", "fetched"}); {} without the file. A KB
+        update brings a new file with a new KnowledgeBase object, so it is read once."""
+        try:
+            data = json.loads((self.root / COMMUNITY_FILE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        monsters = data.get("monsters") if isinstance(data, dict) else None
+        return monsters if isinstance(monsters, dict) else {}
+
+    def _community_open(self, key: str) -> dict | None:
+        """A monster's community entry, only for a monster the KB confirms is in the game."""
+        entry = self._community.get(key)
+        if not isinstance(entry, dict) or not self.get(key):
+            return None
+        from . import availability
+        return entry if availability.of(self).monster_key_open(key) else None
+
+    def community_drops(self, monster_key: str) -> list[dict]:
+        """What players reported a monster drops, best confirmed first: [{"item", "up", "down", "score", "reqJob",
+        "single"}]. A drop more players denied than confirmed (score under COMMUNITY_MIN_SCORE) isn't shown;
+        "single": one player's report alone (shown as "single report"). Empty for a monster not in the game."""
+        memo = self.__dict__.setdefault("_community_drops", {})
+        if monster_key in memo:
+            return memo[monster_key]
+        out = []
+        for d in (self._community_open(monster_key) or {}).get("drops") or []:
+            if not isinstance(d, dict) or not self.get(str(d.get("item"))):
+                continue
+            up, down = int(d.get("up") or 0), int(d.get("down") or 0)
+            score = int(d["score"]) if isinstance(d.get("score"), (int, float)) else up - down
+            if score >= COMMUNITY_MIN_SCORE:
+                out.append({"item": d["item"], "up": up, "down": down, "score": score, "reqJob": d.get("reqJob"),
+                            "single": up + down <= 1})
+        memo[monster_key] = sorted(out, key=lambda d: (-d["score"], -d["up"]))
+        return memo[monster_key]
+
+    def community_vote(self, monster_key: str, item_key: str) -> dict | None:
+        """The players' votes on one community drop (as community_drops gives it), or None."""
+        return next((d for d in self.community_drops(monster_key) if d["item"] == item_key), None)
+
+    def community_mesos(self, monster_key: str) -> tuple[int, int, float | None, int] | None:
+        """(min, max, drop chance %, reports): the mesos players reported for a monster (the reports' medians), or
+        None (no reports, or a monster not in the game)."""
+        m = (self._community_open(monster_key) or {}).get("mesos")
+        if not isinstance(m, dict) or not isinstance(m.get("min"), (int, float)) or not m.get("count"):
+            return None
+        chance = m.get("chance")
+        return (int(m["min"]), int(m.get("max") or m["min"]),
+                float(chance) if isinstance(chance, (int, float)) else None, int(m["count"]))
+
+    def mesos_per_kill(self, monster_key: str) -> float | None:
+        """The mesos a kill brings on average by the players' reports: the range's middle times its drop chance."""
+        m = self.community_mesos(monster_key)
+        if not m:
+            return None
+        lo, hi, chance, _ = m
+        return (lo + hi) / 2 * (100 if chance is None else chance) / 100
 
     def monster_drops(self, key: str) -> list[str]:
         """Item keys a monster drops, both lists: the community's Classic drops first, then the MSEA reference
@@ -429,8 +501,9 @@ class KnowledgeBase:
 
     @cached_property
     def droppers(self) -> dict[str, list[str]]:
-        """item key → monster keys that drop it (lowest level first): only monsters the KB confirms are in the
-        game (availability.py), so no Orbis/El Nath or map-less monster is ever named as a source."""
+        """item key → monster keys that drop it, the ones players saw drop it first, then lowest level first: only
+        monsters the KB confirms are in the game (availability.py), so no Orbis/El Nath or map-less monster is ever
+        named as a source."""
         from . import availability
         open_ = availability.of(self)
         out: dict[str, list[str]] = {}
@@ -439,10 +512,12 @@ class KnowledgeBase:
                 for ikey in self.monster_drops(mkey):
                     out.setdefault(ikey, []).append(mkey)
         lvl = lambda k: (self.get(k).get("props") or {}).get("Level") or 999  # noqa: E731
-        return {i: sorted(ms, key=lvl) for i, ms in out.items()}
+        return {i: sorted(ms, key=lambda m: (self.drop_source(m, i) != sources.COMMUNITY, lvl(m)))
+                for i, ms in out.items()}
 
     def drop_groups(self, item_keys: list[str], limit: int = 8) -> list[dict]:
-        """Group items by the monsters that drop them: [{"monster": key, "items": [keys]}], by monster level."""
+        """Group items by the monsters that drop them: [{"monster": key, "items": [keys]}], the monsters players saw
+        drop one of them first, then by monster level."""
         groups: dict[str, list[str]] = {}
         for i in item_keys:
             for m in self.droppers.get(i, []):
@@ -450,13 +525,16 @@ class KnowledgeBase:
                 if i not in groups[m]:
                     groups[m].append(i)
         lvl = lambda k: (self.get(k).get("props") or {}).get("Level") or 999  # noqa: E731
-        ordered = sorted(groups, key=lvl)[:limit]
+        seen = lambda m: any(self.drop_source(m, i) == sources.COMMUNITY for i in groups[m])  # noqa: E731
+        ordered = sorted(groups, key=lambda m: (not seen(m), lvl(m)))[:limit]
         return [self.drop_group(m, groups[m]) for m in ordered]
 
     def drop_group(self, monster: str, items: list[str]) -> dict:
-        """{"monster", "items", "sources": {item: its list}}: every drop shown says which list it comes from."""
+        """{"monster", "items", "sources": {item: its list}, "votes": {item: (up, down)}}: every drop shown says
+        which list it comes from, and a community drop how many players confirmed and denied it."""
         return {"monster": monster, "items": items,
-                "sources": {i: self.drop_source(monster, i) or sources.MSEA for i in items}}
+                "sources": {i: self.drop_source(monster, i) or sources.MSEA for i in items},
+                "votes": {i: (v["up"], v["down"]) for i in items if (v := self.community_vote(monster, i))}}
 
     def ensure_drop_table(self) -> None:
         """Write drops.tsv next to index.json so Claude can grep 'which monsters drop X' in one step: only monsters
@@ -468,8 +546,10 @@ class KnowledgeBase:
         names = self.root / NAMES_TABLE
         idx = self.root / "index.json"
         try:
+            community = self.root / COMMUNITY_FILE      # (a newer community.json redoes the table too)
             if (path.exists() and mark.exists() and names.exists() and idx.exists()
                     and path.stat().st_mtime >= idx.stat().st_mtime
+                    and (not community.exists() or path.stat().st_mtime >= community.stat().st_mtime)
                     and mark.read_text(encoding="utf-8") == DROPS_MARK):
                 return
             mark.write_text(DROPS_MARK, encoding="utf-8")
@@ -478,30 +558,66 @@ class KnowledgeBase:
             rows = ["key\tcategory\tname\ttype"]
             rows += [f"{k}\t{e.get('category', '')}\t{e.get('name', '')}\t{e.get('type') or ''}" for k, e in self.entities.items()]
             names.write_text("\n".join(rows), encoding="utf-8")
-            # source: the list the drop is on, "MSEA" (reference) or "community" (players saw it in Classic)
-            lines = ["monster\tmonster_level\tmonster_key\titem\titem_type\titem_key\tsource"]
+            # source: the list the drop is on, "MSEA" (reference) or "community" (players saw it in Classic);
+            # votes: how many players confirmed / denied a community drop ("16 up 1 down"), empty on the MSEA list
+            lines = ["monster\tmonster_level\tmonster_key\titem\titem_type\titem_key\tsource\tvotes"]
             for ikey, monsters in self.droppers.items():
                 it = self.get(ikey)
                 for m in monsters:
                     me = self.get(m)
                     lv = (me.get("props") or {}).get("Level", "")
+                    v = self.community_vote(m, ikey)
                     lines.append(f"{me['name']}\t{lv}\t{m}\t{it['name']}\t{it.get('type') or ''}\t{ikey}\t"
-                                 f"{self.drop_source(m, ikey) or sources.MSEA}")
+                                 f"{self.drop_source(m, ikey) or sources.MSEA}\t"
+                                 + (f"{v['up']} up {v['down']} down" if v else ""))
             path.write_text("\n".join(lines), encoding="utf-8")
         except OSError:
             pass
 
     def drops_digest(self, key: str) -> str:
-        """A monster's drops for the AI, list by list, each said for what it is."""
+        """A monster's drops and mesos for the AI, list by list, each said for what it is: a community drop with its
+        players' votes, and "no community data" when players reported nothing."""
         lists = self.drop_lists(key)
         e = self.get(key)
         out = []
-        for src, head in ((sources.COMMUNITY, "community-confirmed in Classic (players saw them drop)"),
+        for src, head in ((sources.COMMUNITY, "community-confirmed in Classic (players saw them drop; the votes are "
+                                              "how many players confirmed / denied each)"),
                           (sources.MSEA, "MSEA reference list: old MapleSEA, not confirmed for Classic")):
             if lists[src]:
-                names = ", ".join(f"{self.get(k)['name']} [{k}]" for k in lists[src])
+                names = ", ".join(f"{self.get(k)['name']} [{k}]{self._votes_note(key, k)}" for k in lists[src])
                 out.append(f"Drops of {e['name']}, {head}; names and keys exactly as in the game: {names}")
+        if not lists[sources.COMMUNITY]:
+            out.append(f"Community drops of {e['name']}: no community data (no player reports)")
+        out.append(self.mesos_digest(key))
         return "\n".join(out)
+
+    def droppers_digest(self, item: str) -> str:
+        """Who drops an item, by the players' reports (with votes), for the AI: an item page's own "Dropped By"
+        list doesn't have them (the site loads them in the browser)."""
+        name = (self.get(item) or {}).get("name", item)
+        seen = [m for m in self.droppers.get(item, []) if self.drop_source(m, item) == sources.COMMUNITY]
+        if not seen:
+            return f"Community reports of monsters dropping {name}: no community data (no player reports)"
+        rows = [f"{self.get(m)['name']} (Lv {(self.get(m).get('props') or {}).get('Level', '?')}) [{m}]"
+                f"{self._votes_note(m, item)}" for m in seen[:12]]
+        return f"Community reports of monsters dropping {name} (players saw it drop in Classic): {', '.join(rows)}"
+
+    def _votes_note(self, monster: str, item: str) -> str:
+        v = self.community_vote(monster, item)
+        if not v:
+            return ""
+        return " (single report)" if v["single"] else f" ({v['up']} confirmed, {v['down']} denied)"
+
+    def mesos_digest(self, key: str) -> str:
+        """The mesos players reported for a monster, one line for the AI."""
+        name = (self.get(key) or {}).get("name", key)
+        m = self.community_mesos(key)
+        if not m:
+            return f"Mesos of {name}: no community data (no player reports)"
+        lo, hi, chance, n = m
+        odds = f", dropped on {chance:g}% of kills" if chance is not None else ""
+        return (f"Mesos of {name} (community, median of {n} player report{'' if n == 1 else 's'}): {lo}-{hi} "
+                f"per drop{odds}")
 
     # ------------------------------------------------------------ level digest
 
@@ -521,8 +637,9 @@ class KnowledgeBase:
             lvl = p.get("Level")
             if not isinstance(lvl, (int, float)):
                 continue
+            mesos = self.community_mesos(key)
             rows.append({"key": key, "name": e["name"], "level": int(lvl), "hp": p.get("HP"),
-                         "exp": p.get("EXP"), "maps": [m for m in self.all_maps(key) if combat.reachable_map(self, m)][:3]})
+                         "exp": p.get("EXP"), "mesos": f"{mesos[0]}-{mesos[1]}" if mesos else "-", "maps": [m for m in self.all_maps(key) if combat.reachable_map(self, m)][:3]})
         mapped = {r["name"] for r in rows if r["maps"]}
         seen: set[str] = set()
         out = []
@@ -572,7 +689,9 @@ class KnowledgeBase:
         rows = [r for r in self._monsters if level - below <= r["level"] <= level + above]
         if not rows:
             return ""
-        lines = ["Monsters near the player's level (name | level | HP | EXP | top maps | key):"]
+        lines = ["Monsters near the player's level (name | level | HP | EXP | mesos per drop by community reports, "
+                 "- = no community data | top maps | key):"]
         for r in rows[:40]:
-            lines.append(f"{r['name']} | {r['level']} | {r['hp']} | {r['exp']} | {', '.join(r['maps'])} | {r['key']}")
+            lines.append(f"{r['name']} | {r['level']} | {r['hp']} | {r['exp']} | {r['mesos']} | "
+                         f"{', '.join(r['maps'])} | {r['key']}")
         return "\n".join(lines)

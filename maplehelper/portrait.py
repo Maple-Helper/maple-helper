@@ -163,4 +163,69 @@ def sprite_mask(rgb: np.ndarray) -> np.ndarray | None:
         return None
     sizes = np.bincount(lab.ravel())[1:]
     fg = lab == 1 + int(sizes.argmax())                 # the character; stray dark grass at the edges goes
+    fg = _without_scenery(a, fg)
     return fg if 0.12 <= fg.mean() <= 0.8 else None
+
+
+def _erode(m: np.ndarray) -> np.ndarray:
+    e = m.copy()
+    e[1:] &= m[:-1]
+    e[:-1] &= m[1:]
+    e[:, 1:] &= m[:, :-1]
+    e[:, :-1] &= m[:, 1:]
+    return e
+
+
+def _core(fg: np.ndarray, k: int) -> np.ndarray:
+    """The body: what is left after peeling k pixels off, the part over the crop's middle third, grown back k + 1
+    pixels inside fg. A thick bush that only touches the sprite somewhere is cut off; so is a thin bowstring."""
+    core = fg
+    for _ in range(k):
+        core = _erode(core)
+    lab, n = _components(core)
+    if n <= 1:
+        return fg
+    W = fg.shape[1]
+    score = np.bincount(lab[:, W // 3: 2 * W // 3].ravel(), minlength=n + 1)
+    score[0] = 0
+    keep = lab == int(score.argmax())
+    for _ in range(k + 1):
+        g = keep.copy()
+        g[1:] |= keep[:-1]
+        g[:-1] |= keep[1:]
+        g[:, 1:] |= keep[:, :-1]
+        g[:, :-1] |= keep[:, 1:]
+        keep = g & fg
+    return keep
+
+
+def _without_scenery(a: np.ndarray, fg: np.ndarray) -> np.ndarray:
+    """A bush or leaves the sprite stands against (live, 2026-10-04: a dark green bush beside an archer's legs): its
+    dark mass has no outline between it and the sprite, so the flood above keeps it. A chunk that peeling cuts off,
+    reaches the crop's edge and is mostly dark green is scenery, with the dark green pixels joined to it; a weapon or
+    a cape (not green, inside the crop) stays."""
+    peeled = fg & ~_core(fg, 3)
+    lab, n = _components(peeled)
+    if not n:
+        return fg
+    luma = a[..., 0] * 0.3 + a[..., 1] * 0.59 + a[..., 2] * 0.11
+    leafy = fg & (a[..., 1] - np.maximum(a[..., 0], a[..., 2]) >= 12) & (luma < 110)
+    edge = np.ones(fg.shape, bool)
+    edge[4:-4, 4:-4] = False
+    sizes = np.bincount(lab.ravel(), minlength=n + 1)
+    chunks = [i for i in range(1, n + 1) if sizes[i] >= 40]
+    scenery = np.zeros(fg.shape, bool)
+    for i in chunks:
+        part = lab == i
+        if (part & edge).any() and (part & leafy).sum() >= 0.3 * sizes[i]:
+            scenery |= part
+    if not scenery.any():
+        return fg
+    rest = fg & ~_grow(scenery, leafy | scenery)
+    body = _grow(_core(rest, 2), rest)                # the outline bits the bush leaves hanging go too
+    lab, n = _components(body)
+    if not n:
+        return fg
+    sizes = np.bincount(lab.ravel())
+    sizes[0] = 0
+    return lab == int(sizes.argmax())

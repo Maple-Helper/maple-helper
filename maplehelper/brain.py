@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, providers, sources
+from . import availability, news, providers, routes, sitedata, sources
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -22,6 +22,14 @@ META = "@@META@@"
 _FOCUS_TAG = re.compile(r"^\s*\[about [^\]]*\]\s*")      # "[about Mano] " the chat puts before a tagged question
 REVERSE_WORDS = re.compile(r"(מאיז[הו]|מאילו|איזה|אילו)\s+מפלצ|מי\s+מפיל|which\s+monsters?|who\s+drops|what\s+drops", re.I)
 # "נופל" alone is also falling ("למה אני נופל מהחבל ליד Mano" showed Mano's whole drop list): only as "what drops"
+# questions the list pages answer (sitedata.py): pets, which job is strongest, a build's skills
+PET_WORDS = re.compile(r"(?<![א-ת])(?:ה|ל|ב)?(?:חיית|חיות|חיה|פט|פטים)(?![א-ת])|\bpets?\b", re.I)
+TIER_WORDS = re.compile(r"טייר|דירוג|(?:איזה|איזו)\s+(?:ג'וב|מקצוע|קלאס)|ג'וב\s+הכי|\btier|\bbest\s+(?:class|job)|"
+                        r"\bwhich\s+(?:class|job)|\bstrongest\s+(?:class|job)", re.I)
+BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskills?\b|\bbuild\b", re.I)
+# "tell me about Blue Snail": the monster's card and every drop as tiles, as for a drops question. The answer no longer
+# repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report)
+DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
                   "what the player worked on, decisions, open goals. Same language as the conversation.")
@@ -32,12 +40,13 @@ What you receive with each question:
 - A screenshot of the game window, taken the moment the player opened the chat (when available).
 - The player's character profile, recent conversation, and knowledge-base context the app pre-fetched.
 
-Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) database for MapleStory Classic: index.json (every entity: key, name, category, props), names.tsv (key, category, name, type: one entity per line, the file to grep for a name or a key) and pages/<category>/<id>.md (full details: stats, drops, maps, quests). Categories: monster, item, map, quest, npc, skill, class, guide, shop, crafting, formula.
+Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) database for MapleStory Classic: index.json (every entity: key, name, category, props), names.tsv (key, category, name, type: one entity per line, the file to grep for a name or a key) and pages/<category>/<id>.md (full details: stats, drops, maps, quests); skill_changes.json (skills changed between two test builds), pets.json and tiers.json (the community tier list) are NiaMeowDB's list pages. Categories: monster, item, map, quest, npc, skill, class, guide, shop, crafting, formula.
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
-Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source) lists the monster→item
-drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops below). Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
+Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source, votes) lists the
+monster→item drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops
+below), votes a community drop's "16 up 1 down". Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
 grouped per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
 An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
 not in the game, so never name it as a source.
@@ -45,8 +54,14 @@ not in the game, so never name it as a source.
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
-which list each drop is on. When asked what a monster drops, list the drops by name (grouped: Etc / Use / Equipment is
-fine), say which list they come from, and return every dropped item's key in entities.
+which list each drop is on. The community list comes from players' reports on MeowDB, each with its votes (players
+who confirmed / denied it); the app hides drops more players denied than confirmed. Name a community drop's votes
+briefly the first time: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
+"(קהילה, דיווח יחיד)" / "(community, single report)": it is not confirmed yet. Mesos: the pre-fetched "Mesos of"
+line is the median of the players' reports (per drop, and how often a kill drops mesos): give it as
+"18–23 mesos (קהילה)" / "18–23 mesos (community)". When asked what a monster drops, the app shows every drop as a tile with its votes and its list: in the text name
+only the few worth knowing (the most confirmed, anything valuable) and say the tiles show the rest; return every
+dropped item's key in entities.
 
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
@@ -55,18 +70,32 @@ reports, the game's scope is official (Nexon), and anything unlabeled is MeowDB'
 prices or stats, name their source in a word or two right after them: "(MSEA)", "(community)", "(COT2)", "(official)",
 "(MeowDB)" in English; in a Hebrew answer "(MSEA)", "(קהילה)", "(COT2)", "(רשמי)", "(MeowDB)". When players reported
 nothing, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
-point the change out briefly (old → new).
+point the change out briefly (old → new). "Skill change COT1 -> COT2" lines give a skill's values before and after the
+latest test: build advice uses the newer values. The "Community tier list" is community opinion: say so when you cite it.
+
+Routes: a "Route" block in the context is the way between two maps, worked out by the app from the knowledge base's
+map connections, taxis and boats, through maps that are in the game only. For "how do I get to ..." give it as
+numbered steps ("1.", "2.", one step per line, never as running prose), map and NPC names exactly as written in the
+block, in English even in a Hebrew answer (the player's "לסליפיווד" is "Sleepywood"); never add maps, shortcuts or
+transport it doesn't list. Portals are free; a taxi or boat step costs mesos, with the amount only where the block
+gives one. Never say a walk or a portal costs anything.
 
 Advice must fit the player's level and job. If the profile lacks level or job, ask for it before recommending.
 
 Scope: you help only with MapleStory Classic (the game, the player's characters) and with Maple Helper itself (what it
 can do, its settings, which AI and model answers). Anything else
-(news, real people, politics, general knowledge, other games, coding, homework, writing or file tasks) you do not answer,
+(news not about MapleStory Classic, real people, politics, general knowledge, other games, coding, homework, writing or file tasks) you do not answer,
 not even briefly: reply in one short line, in the question's language, that you only help with MapleStory Classic, and
 invite a game question. Entities stay empty.
 
 Style:
-- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (לגרינד, דרופ, לעשות ג'וב, לבל).
+- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (גריינד, דרופ, לעשות ג'וב, רמה).
+  "גריינד" (spelled so) is a noun, never with ל- before it: "לא שווה גריינד", "מקום טוב לעשות גריינד"; never
+  "לגרינד" or "לגריינד".
+  Address the player in the plural, as the app does ("קחו", "לכו", "דברו"), never "קח" or "קחי". The currency is
+  "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "רמה" ("ברמה 31", "הרמה הבאה"), never "לבל".
+  Source tags in Hebrew too: "(קהילה)", never "(community)". A Hebrew prefix joins an English name
+  with a hyphen ("ל-Henesys", "מ-Henesys"), never a Hebrew spelling ("להניסיס").
 - In-game names (items, monsters, maps, NPCs, skills, quests, jobs) always in English, exactly as in the data.
 - {length}
 - Plain text with short lines; **bold** allowed; no headings, no tables.
@@ -98,6 +127,7 @@ class Answer:
     profile_update: dict = field(default_factory=dict)
     avatar_box: list | None = None
     drop_groups: list = field(default_factory=list)
+    grind: dict = field(default_factory=dict)       # a grind tracker read: map, monster, mesos, potions (grind.py)
     # where an instant answer's data comes from (sources.py: "COT2", "MSEA", "community", "MeowDB", ...): chips
     # beside its badge
     sources: list = field(default_factory=list)
@@ -114,14 +144,40 @@ REPLY_RULES = """<reply_rules>
   out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet.
 - At most {length} short lines. No filler, no follow-up offers.
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
-- In a Hebrew answer only game names and stat names stay in English; every other word is Hebrew ("קווסט", not
-  "quest"; "קהילה", not "community"; never "This", "drop" or "and" in a Hebrew sentence). Write stat bonuses one
-  per item ("STR +1, DEX +1"), never slashed together ("STR/DEX +1").
+- Under the answer the app shows a card for every entity in META: a monster's level, HP, EXP, maps and what changed
+  since the last test build, an item's stats, and a monster's drops as tiles with their votes and sources.
+  Don't repeat what those cards show: no level / HP / EXP line, no list of maps, drops or votes, no "mesos: no data".
+  "Tell me about X" gets 2-3 lines of what the cards can't say: who it suits (against the player's level), where it
+  is best, what is worth it, a recent change; at most one notable drop by name. A question for one number ("how much
+  HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
+- A Hebrew answer reads as if a fluent Israeli gamer wrote it: plain, short sentences in natural Hebrew word order,
+  never English sentence structure in Hebrew words. Before replying, reread it once as a Hebrew reader would.
+  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מונסטר בסיסי", never "מונסטר בסיס").
+  * A level always says so: "אתם ברמה 31", "נשק לרמה 20", never "(31)", "ב-31" or "לבל"; "רמה" is feminine
+    ("הרמה הבאה", "רמה גבוהה").
+  * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
+    letters (never "מזו", "מזוס", "מסוס", "מסות").
+  * English only for game names and stat names, joined to a Hebrew prefix with a hyphen ("ל-Henesys",
+    "מ-Blue Snail"); never "This", "drop", "and" or "community" in a Hebrew sentence.
+  * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
+  * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
+  * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin ברמה 31."
+  * Jobs and classes in English, always ("Warrior", "Mage", "Assassin"), never "וריור" or "מג'".
+  * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
+- A name in Hebrew letters is a game name written the way it sounds ("סאונה רוב כחול" is "Blue Sauna Robe", "בלו
+  סנייל" is "Blue Snail"): work out the English and grep names.tsv for it. Never answer about a different entity
+  (one from the conversation) instead; if no name matches, say so and ask.
+- "Send me a picture of X": the app shows X's picture on its card under the answer. Find X, put its key in META
+  entities, and say in a line that its picture is in the card below; never say you can't send pictures.
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
-- Name the source of every drop list, price and stat you state, briefly: "(MSEA)", "(COT2)", "(MeowDB)", and in the
-  answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; none reported: "אין נתונים מהקהילה".
+- Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
+  page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
+  and in the answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; a community drop with its votes ("16 ✓",
+  one report alone: "דיווח יחיד" / "single report"); mesos or drops nobody reported: "אין נתונים מהקהילה" /
+  "no community data".
 - Then the line @@META@@ and the JSON object. Always include it, even when empty. If the player states a new level/job, put it in profile_update.
 - profile_update describes ONLY the character in <player_profile>. If the player says they are on another character,
   or the screenshot's HUD shows another name, put that character's facts in profile_update WITH its "name" (the app
@@ -136,10 +192,34 @@ HUD_RULE = ("The screenshot's HUD (bottom left: level, job, character name) is t
 NOT_OUT = "NOT in the game: the knowledge base doesn't confirm it is out. Never recommend it; if asked, say it isn't out yet."
 
 
+_SECTION_END = ("Associated Quests", "Map Locations", "Respawn Timer", "Change history", "Similar monsters",
+                "Similar items", "Dropped By")
+
+
+def _cut(body: str, head: str) -> str:
+    """The page without the section that starts at the line `head`, up to the next section."""
+    m = re.search(rf"^{re.escape(head)}\b.*$", body, re.M)
+    if not m:
+        return body
+    ends = [j for h in _SECTION_END if h != head and (j := body.find("\n" + h, m.end())) > 0]
+    return body[:m.start()] + (body[min(ends) + 1:] if ends else "")
+
+
+def without_superseded(kb: KnowledgeBase, key: str, body: str) -> str:
+    """What the game's official data replaces, out of a page for the AI (the owner's rule, 2026-10-04: once an
+    official value is out, only it and the community's data count): the test builds' change table once a page's
+    values are from the released game."""
+    stamp = sources.stat_source(kb, key)
+    if stamp and not sources.test_build(stamp.source):
+        body = _cut(body, "Change history")
+    return body
+
+
 def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
     """A pre-fetched page, marked when the KB says it isn't in the game: the pages of Orbis, El Nath and the rest
     read like any town's ("El Nath is a town in El Nath, Ossyria"), and the AI sent players there."""
     body = kb.page_body(key, limit=limit)
+    body = without_superseded(kb, key, body) if body else body
     if body and key.startswith("item/"):
         body = _mark_droppers(kb, body)
     if body:
@@ -149,6 +229,32 @@ def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
     if body and not availability.of(kb).entity_open(key):
         return f"[{key}] ({NOT_OUT})\n{body}"
     return f"[{key}]\n{body}" if body else ""
+
+
+def _site_context(kb: KnowledgeBase, question: str, character: Character | None, shown: list[str]) -> list[str]:
+    """What NiaMeowDB's list pages add (sitedata.py): the build changes of the skills in the context (and of the
+    player's job line when the question is about skills or a build), the pets when one is named or pets are asked
+    about, and the community tier list when the question compares jobs."""
+    out = []
+    skills = [k for k in shown if k.startswith("skill/")]
+    if character and getattr(character, "job", None) and BUILD_WORDS.search(question):
+        skills += [c.key for c in sitedata.changes_for(kb, character.base_class, character.job)]
+    lines = sitedata.ai_skill_lines(kb, skills)
+    if lines:
+        out.append("\n".join(lines))
+    named = [k for k in shown if k.startswith("item/") and sitedata.pet(kb, k)]
+    lines = sitedata.ai_pet_lines(kb, None if PET_WORDS.search(question) else named) if named or PET_WORDS.search(question) else []
+    if lines:
+        out.append("\n".join(lines))
+    if TIER_WORDS.search(question):
+        lines = sitedata.ai_tier_lines(kb)
+    elif character and BUILD_WORDS.search(question):
+        lines = sitedata.ai_tier_lines(kb, sitedata.tiers_for(kb, character.base_class, character.job))
+    else:
+        lines = []
+    if lines:
+        out.append("\n".join(lines))
+    return out
 
 
 def _mark_droppers(kb: KnowledgeBase, body: str) -> str:
@@ -172,7 +278,9 @@ def reply_language(question: str, ui_lang: str = "he") -> str:
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[֐-׿]", question):
         return "Hebrew"
-    if re.search(r"[A-Za-z]", _FOCUS_TAG.sub("", question)):
+    bare = _FOCUS_TAG.sub("", question)
+    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English)
+    if re.search(r"[A-Za-z]", bare) and len(re.findall(r"[A-Za-z']+", bare)) > 4:
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
 
@@ -219,7 +327,13 @@ def build_prompt(question: str, character: Character | None, history: History | 
             sel.append(_page(kb, k, per))
             if k.startswith("monster/"):
                 sel.append(kb.drops_digest(k))
+            elif k.startswith("item/"):
+                sel.append(kb.droppers_digest(k))
         ctx.append("<selected>\n" + "\n".join(x for x in sel if x) + "\n</selected>")
+    # "how do I get to Sleepywood?": the way there, worked out from the KB's map connections (no tool call for it)
+    way = routes.ai_context(kb, question, character, tagged)
+    if way:
+        ctx.append(way)
     if is_reverse(question, kb):
         items = item_keys_for_question(question, kb)
         groups = kb.drop_groups(items, limit=10)
@@ -231,7 +345,9 @@ def build_prompt(question: str, character: Character | None, history: History | 
                 m = kb.get(g["monster"])
                 lv = (m.get("props") or {}).get("Level", "?")
                 lines.append(f"- {m['name']} (Lv {lv}) [{g['monster']}]: "
-                             + ", ".join(f"{kb.get(i)['name']} [{i}] ({g['sources'].get(i, sources.MSEA)})"
+                             + ", ".join(f"{kb.get(i)['name']} [{i}] ({g['sources'].get(i, sources.MSEA)}"
+                                         + (f", {g['votes'][i][0]} confirmed {g['votes'][i][1]} denied"
+                                            if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
     for key in kb.find_mentions(question, max_results=4):
@@ -242,11 +358,20 @@ def build_prompt(question: str, character: Character | None, history: History | 
             drops = kb.drops_digest(key)
             if drops:
                 ctx.append(drops)
+        elif key.startswith("item/"):
+            # the players' reports of who drops it, with votes (its page's "Dropped By" doesn't have them)
+            ctx.append(kb.droppers_digest(key))
     # what a KB update changed this week in the entities above (and the level digest's monsters)
     shown = re.findall(r"\[((?:monster|item|npc|map|quest|skill)/[^\]\s]+)\]", "\n".join(ctx))
     changes = kb_changes.ai_lines(kb, shown)
     if changes:
         ctx.append("\n".join(changes))
+    ctx += _site_context(kb, question, character, shown)
+
+    # the KB's news (NiaMeowDB's news section) for a question about news, launch or maintenance: what was
+    # announced, never what is released (the game scope says that)
+    if news.asks_news(question) and (announced := news.ai_lines(kb)):
+        ctx.append("\n".join(announced))
     if ctx:
         parts.append("<kb_context>\n" + "\n\n".join(ctx) + "\n</kb_context>")
     if has_screenshot is True:
@@ -313,8 +438,26 @@ _KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|clas
                           r"[\w\-]+(?![\w/])")
 
 
+# "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
+# "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number)
+_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)")
+# "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
+_SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
+# the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner)
+_LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])(?:בלבלים|לבלים|בלבל|ללבל|הלבל|מלבל|לבל)(?![\u0590-\u05FF])")
+_TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+
+
 def drop_keys(text: str) -> str:
-    return _KEY_IN_TEXT.sub("", text)
+    """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
+    named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
+    text = _KEY_IN_TEXT.sub("", text)
+    text = _BARE_LEVEL.sub(r"\1 ברמה \2", text)
+    text = _LEVEL_WORD.sub(lambda m: {"לבל": "רמה", "בלבל": "ברמה", "ללבל": "לרמה", "הלבל": "הרמה", "מלבל": "מרמה",
+                                      "לבלים": "רמות", "בלבלים": "ברמות"}[m.group(0)], text)
+    text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
+    return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
 def split_meta(raw: str) -> tuple[str, dict]:
@@ -330,7 +473,7 @@ def split_meta(raw: str) -> tuple[str, dict]:
     if not isinstance(data, dict):
         data = {}
     # every field to the type the app expects: a malformed reply must never replace a good answer with an error
-    for key, typ in (("profile_update", dict), ("entities", list), ("drop_groups", list)):
+    for key, typ in (("profile_update", dict), ("entities", list), ("drop_groups", list), ("grind", dict)):
         if key in data and not isinstance(data[key], typ):
             del data[key]
     _numbers(data.get("profile_update"))
@@ -505,6 +648,7 @@ class Brain:
         low = text.lower()
         entities = [k for k in entities if str((self.kb.get(k) or {}).get("name", "")).lower() in low]
         groups = []
+        every_drop = False
         for g in meta.get("drop_groups") or []:
             # a group of the wrong shape ("items": 5) is skipped: it must never turn a good answer into an error
             if isinstance(g, dict) and kb_has(self.kb, str(g.get("monster", ""))) and isinstance(g.get("items"), list):
@@ -519,13 +663,14 @@ class Brain:
             groups = self.kb.drop_groups(items)
         if groups:
             entities = []          # the grouped view replaces the flat cards
-        elif DROP_WORDS.search(question):
-            # a drops question: the monster card + every drop as a tile, straight from the database
+        elif DROP_WORDS.search(question) or DETAIL_WORDS.search(question):
+            # a drops question (or "tell me about" a monster): the monster card + every drop as a tile, from the KB
             monsters = [k for k in entities if k.startswith("monster/")] or \
                 [k for k in self.kb.find_mentions(question, 4) if k.startswith("monster/")]
             if monsters:
                 drops = self.kb.monster_drops(monsters[0])
                 entities = [monsters[0]] + drops
+                every_drop = True       # all of them: at 12 cards, 18 community drops left no room for the MSEA list
         if not groups:
             # cards for every in-game name the answer itself mentions, after the ones the AI listed (it listed only
             # Snail Shell for an answer naming Brown Skullcap, Green Skullcap and Snail, seen live)
@@ -542,8 +687,8 @@ class Brain:
             box = None
         if result.model:
             self.last_model = result.model
-        return Answer(text=text, entities=entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
-                      avatar_box=box if screenshot_jpeg else None, cost_usd=result.cost_usd,
+        return Answer(text=text, entities=entities if every_drop else entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
+                      grind=meta.get("grind") or {}, avatar_box=box if screenshot_jpeg else None, cost_usd=result.cost_usd,
                       limits=result.limits, model=result.model)
 
     def summarize(self, transcript: str) -> str | None:

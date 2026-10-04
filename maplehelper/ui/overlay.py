@@ -4,13 +4,13 @@ from __future__ import annotations
 import html
 import time
 
-from PySide6.QtCore import (QEasingCurve, QObject, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRect, QRectF,
+from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF,
                             Qt, QThread, QTimer, Signal)
-from PySide6.QtGui import QGuiApplication, QIcon, QPainterPath, QPixmap
-from PySide6.QtWidgets import (QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+from PySide6.QtGui import QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
-from .. import __version__, bidi, osapi, quick, telemetry
+from .. import __version__, bidi, osapi, quick, sources, telemetry
 from ..brain import Answer, Brain
 from ..i18n import STRINGS, I18n
 from ..kb import KnowledgeBase
@@ -44,6 +44,58 @@ class AskWorker(QObject):
         except Exception as e:  # noqa: BLE001
             ans = Answer(error=f"internal: {e}")
         self.done.emit(ans)
+
+
+class GrindReadWorker(AskWorker):
+    """A grind tracker read: the app first matches the inventory's icons to the KB (inventory.py: exact where the
+    AI guessed names), so the AI is told which slots hold which potions and only reads their counts."""
+
+    def __init__(self, *args, full=None, cursor=None, kb=None, **kw):
+        super().__init__(*args, **kw)
+        self.full, self.cursor, self.kb = full, cursor, kb
+
+    def run(self):
+        if self.full is not None and self.kb is not None:
+            try:
+                from .. import grind, inventory
+                self.question += grind.inventory_hint(inventory.read(self.full, self.kb, cursor=self.cursor), self.kb)
+            except Exception:      # noqa: BLE001 - the AI still has the screenshot
+                pass
+        super().run()
+
+
+class ControllerButton(QToolButton):
+    """The play tools' header button: a game controller drawn as a vector, in the header icons' colors (the icon
+    font's own controller, U+E7FC, read as a smudge at 14 px: the owner's report)."""
+
+    def __init__(self):
+        super().__init__(objectName="Icon")
+        self.setCursor(Qt.PointingHandCursor)
+
+    def paintEvent(self, e):
+        super().paintEvent(e)            # the hover / pressed background from the stylesheet; no text
+        from . import theme
+        color = theme.qcolor(theme.P()["text" if self.underMouse() else "muted"])     # as the stylesheet's icons
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        side = 19.0
+        p.translate((self.width() - side) / 2, (self.height() - side) / 2)
+        p.scale(side / 24, side / 24)
+        p.setPen(QPen(color, 1.7, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
+        body = QPainterPath()
+        body.addRoundedRect(QRectF(2.5, 7, 19, 9), 4.5, 4.5)
+        for cx in (6.5, 17.5):            # the two grips
+            grip = QPainterPath()
+            grip.addEllipse(QPointF(cx, 15.2), 3.6, 3.6)
+            body = body.united(grip)
+        p.drawPath(body.simplified())
+        p.drawLine(QPointF(5.2, 11.5), QPointF(9.2, 11.5))      # the d-pad
+        p.drawLine(QPointF(7.2, 9.5), QPointF(7.2, 13.5))
+        p.setPen(Qt.NoPen)
+        p.setBrush(color)
+        p.drawEllipse(QPointF(16.2, 10.4), 1.15, 1.15)          # two buttons
+        p.drawEllipse(QPointF(18.4, 12.6), 1.15, 1.15)
+        p.end()
 
 
 class TitleBar(QWidget):
@@ -228,8 +280,8 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
 
 
 def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool) -> bytes | None:
-    """The player's own sprite as a 128 px PNG portrait: on their name tag (found in the pixels, near the AI's rough
-    box), else the AI's box itself when it looks like a sprite and there's no portrait yet. None: no change.
+    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels, near the AI's rough
+    box). None: no change (no tag found; have_portrait is kept for the callers).
     Pure (no Qt), so it runs in a worker thread."""
     import io
 
@@ -254,25 +306,9 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
             buf = io.BytesIO()
             square.save(buf, "PNG")
             return buf.getvalue()
-        if not box or have_portrait:
-            return None     # no tag found: the AI's box alone is too often off to replace a portrait
-        W, H = img.size
-        x, y, w, h = box
-        if not (0 <= x < 1 and 0 <= y < 1 and 0.005 < w < 0.15 and 0.01 < h < 0.3):
-            return None     # far bigger than a character sprite: a misread
-        if not 0.6 <= (h * H) / (w * W) <= 4:
-            return None     # sprites stand upright: not a wide strip of scenery
-        pad_w, pad_h = w * 0.25, h * 0.12
-        left, top = max(0, (x - pad_w) * W), max(0, (y - pad_h) * H)
-        right, bottom = min(W, (x + w + pad_w) * W), min(H, (y + h + pad_h) * H)
-        crop = img.crop((int(left), int(top), int(right), int(bottom)))
-        side = max(crop.size)
-        square = Image.new("RGB", (side, side), crop.getpixel((0, 0)))
-        square.paste(crop, ((side - crop.width) // 2, (side - crop.height) // 2))
-        square = square.resize((128, 128), Image.LANCZOS)
-        buf = io.BytesIO()
-        square.save(buf, "PNG")
-        return buf.getvalue()
+        # no name tag: no portrait. The AI's box alone cropped scenery (live, 2026-10-04: the lamp beside Nana(H) and an
+        # HP bar, for a new character with no portrait yet); the job's picture stays until a read finds the tag
+        return None
     except Exception:      # noqa: BLE001
         return None
 
@@ -282,6 +318,38 @@ def set_tip(w: QWidget, text: str) -> None:
     character), which a screen reader reads as nothing; its name is what the tooltip says."""
     w.setToolTip(text)
     w.setAccessibleName(text)
+
+
+def windows_over(rect: tuple[int, int, int, int]) -> list[QWidget]:
+    """Our visible top-level windows that overlap the game's rectangle (screen pixels, as osapi.window_rect gives
+    it): the ones a screen grab of the game would catch."""
+    x, y, w, h = rect
+    out = []
+    for win in QApplication.topLevelWidgets():
+        try:
+            if not win.isVisible() or win.windowOpacity() == 0 or win.isMinimized():
+                continue
+            g = win.frameGeometry()
+            ratio = win.devicePixelRatioF() if osapi.SCREEN_COORDS_ARE_PHYSICAL else 1.0
+            left, top = g.x() * ratio, g.y() * ratio
+            right, bottom = left + g.width() * ratio, top + g.height() * ratio
+        except RuntimeError:       # deleted meanwhile
+            continue
+        # a few pixels of slack: a mixed-DPI desktop rounds the two coordinate systems apart
+        if left < x + w + 4 and right > x - 4 and top < y + h + 4 and bottom > y - 4:
+            out.append(win)
+    return out
+
+
+def show_quietly(w: QWidget) -> None:
+    """Back after a grab without taking the keyboard from the game (the player is playing)."""
+    try:
+        quiet = w.testAttribute(Qt.WA_ShowWithoutActivating)
+        w.setAttribute(Qt.WA_ShowWithoutActivating, True)
+        w.show()
+        w.setAttribute(Qt.WA_ShowWithoutActivating, quiet)
+    except RuntimeError:           # closed meanwhile
+        pass
 
 
 def _alive(w) -> bool:
@@ -308,12 +376,15 @@ class Overlay(QWidget):
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
+    grind_read = Signal(object)       # (character id, profile_update, grind) of a grind tracker read, before sync_finished
+    grind_skipped = Signal(str)       # an automatic grind read that didn't run: "busy" | "no_game" | "covered"
     tools_requested = Signal()
     edit_character_requested = Signal(str)
     delete_character_requested = Signal(str)      # plan usage read in the background after an answer (ChatGPT)
     inventory_read = Signal(object)    # (question, shown, character id, tiles, slots, description), worker thread
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
+    news_requested = Signal()          # the megaphone or the news strip: the News window
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, brain: Brain):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
@@ -387,11 +458,10 @@ class Overlay(QWidget):
         tb = QHBoxLayout(self.title_bar)
         tb.setContentsMargins(2, 2, 0, 0)
         tb.setSpacing(8)
-        logo = QLabel()
-        icon = ASSETS / "brand" / "icon-64.png"
-        if icon.exists():
-            logo.setPixmap(QPixmap(str(icon)).scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        tb.addWidget(logo)
+        self.logo = QLabel()
+        self.logo.setFixedSize(22, 22)
+        self._paint_logo()
+        tb.addWidget(self.logo)
         self.title = QLabel("Maple Helper", objectName="Title")
         tb.addWidget(self.title)
         # the app is still in beta: always shown beside the name, never hidden for room like the version
@@ -400,41 +470,63 @@ class Overlay(QWidget):
         self.beta_badge.setAlignment(Qt.AlignCenter)
         self.beta_badge.setFixedHeight(17)
         tb.addWidget(self.beta_badge, 0, Qt.AlignVCenter)
-        self.version_label = QLabel(f"v{__version__}", objectName="Version")
-        self.version_label.setLayoutDirection(Qt.LeftToRight)
-        tb.addWidget(self.version_label)
+        # the game servers' state, in the footer beside the version. Live from MeowDB, not the KB (a nightly copy can't follow a
+        # maintenance): polled only while the chat is open (showEvent / hideEvent), see serverdot.py
+        from .serverdot import ServerDot, StatusPoller
+        self.server_dot = ServerDot()
+        self.server_poller = StatusPoller(parent=self)
+        self.server_poller.status.connect(self._on_server_status)
+        self._server = None            # the last status the site gave (None: none yet this session)
+        self._server_answer = None     # the last answer, None when the site couldn't be reached
+        self._server_asked = False     # an answer came this session (before it: "checking", not "unreachable")
         self.saver_badge = QLabel(objectName="SaverBadge")
         self.saver_badge.hide()
         self._saver_on = False
         tb.addWidget(self.saver_badge)
-        # the version and the saver badge never hold the window wide: _fit_header hides / shortens them when
-        # the header has no room (at 470 px with a large font the chat could not get that narrow)
-        for w in (self.version_label, self.saver_badge, self.beta_badge):
+        # the saver badge and BETA never hold the window wide: _fit_header shortens them when the header has no
+        # room (at 470 px with a large font the chat could not get that narrow)
+        for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
+        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
         self.history_btn = self._icon_button(theme.ICON["search"])
         self.history_btn.clicked.connect(self.history_requested.emit)
         tb.addWidget(self.history_btn)
-        self.tools_btn = self._icon_button(theme.ICON["tools"])
-        self.tools_btn.clicked.connect(self.tools_requested.emit)
-        tb.addWidget(self.tools_btn)
+        # MapleStory Classic news: its own window; orange while there is news the player hasn't read
+        from .newsview import glyph as news_glyph
+        self.news_btn = self._icon_button(news_glyph())
+        self.news_btn.clicked.connect(self.news_requested.emit)
+        tb.addWidget(self.news_btn)
         self.guides_btn = self._icon_button(theme.ICON["book"])
         self.guides_btn.clicked.connect(self.guides_requested.emit)
         tb.addWidget(self.guides_btn)
         self.wish_btn = self._icon_button(theme.ICON["star"])
         self.wish_btn.clicked.connect(self.wishlist_requested.emit)
         tb.addWidget(self.wish_btn)
+        self.tools_btn = ControllerButton()                           # a game controller: the play tools
+        self.tools_btn.clicked.connect(self.tools_requested.emit)
+        tb.addWidget(self.tools_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         tb.addWidget(self.settings_btn)
-        # window controls sit at the header's edge (left in Hebrew, right in English)
+        # window controls sit at the header's edge (left in Hebrew, right in English), apart from the rest
+        # (one group: the bar and the two buttons don't each add the header's gap, which kept the chat off 470 px)
+        controls = QWidget()
+        cl = QHBoxLayout(controls)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(3)
+        self.header_sep = QFrame(objectName="HeaderSep")
+        self.header_sep.setFixedSize(1, 16)
+        cl.addWidget(self.header_sep, 0, Qt.AlignVCenter)
+        cl.addSpacing(2)
         self.min_btn = self._icon_button(theme.ICON["minimize"])
         self.min_btn.clicked.connect(self.minimize)
-        tb.addWidget(self.min_btn)
+        cl.addWidget(self.min_btn)
         self.close_btn = self._icon_button(theme.ICON["close"])
         self.close_btn.setObjectName("IconClose")
         self.close_btn.clicked.connect(self.close_overlay)
-        tb.addWidget(self.close_btn)
+        cl.addWidget(self.close_btn)
+        tb.addWidget(controls)
         lay.addWidget(self.title_bar)
 
         # a new version is downloaded: one tap installs it and reopens the app
@@ -460,8 +552,20 @@ class Overlay(QWidget):
         self.update_btn.setCursor(Qt.PointingHandCursor)
         self.update_btn.clicked.connect(self.update_requested.emit)
         ub.addWidget(self.update_btn)
+        # ✕: out of the way until the app opens again (every note in the chat can be closed: the owner)
+        self.update_close = self._icon_button(theme.ICON["close"])
+        self.update_close.setFixedSize(24, 24)
+        self.update_close.clicked.connect(self.update_bar.hide)
+        ub.addWidget(self.update_close, 0, Qt.AlignTop)
         self.update_bar.hide()
         lay.addWidget(self.update_bar)
+
+        # unread MapleStory Classic news (the KB's news.json): tap for the News tab, ✕ to dismiss that item
+        from .newsview import NewsStrip
+        self.news_strip = NewsStrip()
+        self.news_strip.opened.connect(self.news_requested.emit)
+        self.news_strip.dismissed.connect(self._dismiss_news)
+        lay.addWidget(self.news_strip)
 
         # the character, pinned at the top of the conversation
         self.profile_card = ProfileCard()
@@ -470,7 +574,7 @@ class Overlay(QWidget):
         self.profile_card.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.profile_card)
         # no character (the last one deleted, then "Add character" cancelled): the way back, where the card was
-        self.no_char_card = NoticeCard("", "", True, stacked=True)     # Hebrew and English look the same
+        self.no_char_card = NoticeCard("", "", True, stacked=True, closable=False)     # Hebrew and English alike
         self.no_char_card.clicked.connect(self.add_character_requested.emit)
         self.no_char_card.hide()
         lay.addWidget(self.no_char_card)
@@ -566,8 +670,18 @@ class Overlay(QWidget):
         self.scope_note = QLabel(objectName="ScopeNote")
         self.scope_note.setTextFormat(Qt.RichText)
         self.scope_note.setWordWrap(True)
-        self.scope_note.setAlignment(Qt.AlignHCenter)
-        lay.addWidget(self.scope_note)
+        self.scope_note.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)     # mirrored: the right side in Hebrew
+        # the line on the reading side (right in Hebrew), the version on the far side: the row mirrors with the language
+        self.version_label = QLabel(f"v{__version__}", objectName="Version")
+        self.version_label.setLayoutDirection(Qt.LeftToRight)
+        foot = QHBoxLayout()
+        foot.setContentsMargins(0, 0, 0, 0)
+        foot.addWidget(self.scope_note, 1)
+        foot.addSpacing(6)
+        foot.addWidget(self.server_dot, 0, Qt.AlignVCenter)      # the servers' status, beside the version
+        foot.addSpacing(4)
+        foot.addWidget(self.version_label, 0, Qt.AlignVCenter)
+        lay.addLayout(foot)
 
         # every edge and corner resizes (a single grip in one bottom corner was the only way before)
         self.setMouseTracking(True)
@@ -645,33 +759,29 @@ class Overlay(QWidget):
         super().leaveEvent(e)
 
     def _fit_header(self):
-        """Version and saver badge only when the header has room: first the buttons move closer, then the version
-        goes, then the badge shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at
-        the narrowest width with the largest font does it step aside. (Closer buttons first: with BETA beside the
-        name the version went at the default size.)"""
+        """The saver badge in full only when the header has room: first the buttons move closer, then the badge
+        shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at the narrowest width
+        with the largest font does it step aside. (The version sits in the footer, beside the scope line.)"""
         tb = self.title_bar.layout()
         room = self.title_bar.width()
         self.saver_badge.setText("🍃 " + self.t("saver_on_badge"))
         self.saver_badge.setVisible(self._saver_on)
-        self.version_label.show()
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.history_btn, self.tools_btn, self.guides_btn, self.wish_btn, self.settings_btn, self.min_btn,
-                   self.close_btn)
+        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.settings_btn,
+                   self.min_btn, self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
             b.setMinimumWidth(24)
             b.setMaximumWidth(16777215)
         tb.setSpacing(8)
-        for step in ("tight", "version", "badge", "beta", "nobeta", "done"):
+        for step in ("tight", "badge", "beta", "nobeta", "done"):
             tb.invalidate()
             if tb.sizeHint().width() <= room or step == "done":
                 return
-            if step == "version":
-                self.version_label.hide()
-            elif step == "tight":
-                tb.setSpacing(3)          # the header's buttons closer together, and a little narrower: at the
-                for b in buttons:         # chat's narrowest (470 px) the version then stays beside BETA
+            if step == "tight":
+                tb.setSpacing(3)          # the header's buttons closer together, and a little narrower
+                for b in buttons:
                     b.setFixedWidth(26)
             elif step == "badge":
                 self.saver_badge.setText("🍃")
@@ -700,7 +810,7 @@ class Overlay(QWidget):
         from . import terms
         # a grey "?" says the line explains itself on hover
         self.scope_note.setText(terms.hint_badge_html() + html.escape(bidi.plain(text, self.t.rtl)))
-        tip = self.t("scope_tip") + ("\n" + self.t("scope_tip_changed", date=changed) if changed else "")
+        tip = self.t("scope_tip") + ("\n" + self.t("scope_tip_changed", date=changed, checked=checked or changed) if changed else "")
         self.scope_note.setToolTip(tip)
         self.beta_badge.setToolTip(self.t("beta_tip"))
 
@@ -727,6 +837,8 @@ class Overlay(QWidget):
         self._fit_header()
         self.show_scope()
         set_tip(self.wish_btn, self.t("wishlist"))
+        self.server_dot.set_status(self._server_answer, self.t, asked=self._server_asked)
+        self.show_news()
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
@@ -739,6 +851,7 @@ class Overlay(QWidget):
                              getattr(self, "_update_pct", None))
         set_tip(self.profile_card, self.t("switch_character"))
         set_tip(self.min_btn, self.t("minimize"))
+        set_tip(self.update_close, self.t("notice_close"))
         set_tip(self.close_btn, self.t("close_chat").replace("F9", self.settings["hotkey_toggle"]))
         set_tip(self.mic_btn, self.t("mic_tip", key=hk_voice))
         self._on_text(self.input.text())
@@ -842,6 +955,73 @@ class Overlay(QWidget):
         self.profile_card.exp.show_progress(plan.progress(self.kb, c.level, c.exp_pct), self.t, self.t.rtl)
         dismissed = (self.settings["tips_dismissed"] or {}).get(c.id, {})
         self.tip_strip.show_tip(plan.tip(self.kb, c, self.t, dismissed), self.t, self.t.rtl)
+
+    # ------------------------------------------------------------------ news and server status
+
+    def show_news(self) -> None:
+        """The news strip: the newest Global news the player hasn't read or dismissed (news.unread)."""
+        from .. import news
+        unread = news.unread(self.kb, self.settings[news.SETTING])
+        self.news_strip.show_news(unread, self.t)
+        self.news_btn.setProperty("unread", "true" if unread else "false")
+        self.news_btn.style().unpolish(self.news_btn)
+        self.news_btn.style().polish(self.news_btn)
+        set_tip(self.news_btn, self.t("news_btn_new", n=len(unread)) if unread else self.t("news_btn"))
+
+    def _dismiss_news(self, nid: str) -> None:
+        from .. import news
+        news.mark_read(self.settings, [nid])
+        self.show_news()                # the next unread item, if any
+
+    def _paint_logo(self) -> None:
+        """The app mark from the 256 px source at the screen's own pixels: drawn from the 64 px one at 22 logical px,
+        Windows stretched it to 125% and it read blurred (a player's report)."""
+        icon = ASSETS / "brand" / "icon-256.png"
+        if not icon.exists():
+            return
+        dpr = self.devicePixelRatioF() or 1.0
+        side = round(22 * dpr)
+        pm = QPixmap(str(icon)).scaled(side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
+        self.logo.setPixmap(pm)
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() == QEvent.DevicePixelRatioChange and hasattr(self, "logo"):
+            self._paint_logo()             # moved to a screen with another scale
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self._paint_logo()
+        self.server_poller.start()
+
+    def hideEvent(self, e):
+        super().hideEvent(e)
+        self.server_poller.stop()        # closed or minimized: no polling
+
+    def _on_server_status(self, st) -> None:
+        """A server-status answer: the dot, and one chat notice when a maintenance starts or ends. An unreachable
+        site turns the dot grey but says nothing (a network blip isn't maintenance)."""
+        from .. import serverstatus
+        self._server_answer, self._server_asked = st, True
+        self.server_dot.set_status(st, self.t)
+        if st is None:
+            return
+        change = serverstatus.transition(self._server, st)
+        self._server = st
+        if change == "started":
+            from .serverdot import when
+            until = when(st.notice_end) if st.notice_end and not st.notice_done else ""
+
+            def text(t, until=until):
+                return t("server_maint_started_until", time=until) if until else t("server_maint_started")
+            if st.notice_url:
+                self.add_notice(text, lambda t: t("server_notice_open"),
+                                lambda url=st.notice_url: __import__("webbrowser").open(url))
+            else:
+                self.add_system(text)
+        elif change == "ended":
+            self.add_system(lambda t: t("server_maint_ended"))
 
     def _dismiss_tip(self, kind: str):
         c = self.profiles.active
@@ -1065,6 +1245,7 @@ class Overlay(QWidget):
         self._hidden_context = self._detail_tiles = None      # one character's context never reaches another's
         self.profiles.set_active(cid)
         self.refresh_profile_chip()
+        self.profile_changed.emit()        # the play tools and the grind tracker's minute reads follow
         c = self.profiles.active
         if c:
             self.add_system(lambda t, name=c.name: t("switched_character", name=name))
@@ -1108,7 +1289,7 @@ class Overlay(QWidget):
             s = QGuiApplication.screenAt(QPoint(rect[0] + rect[2] // 2, rect[1] + rect[3] // 2))
             screen = s or screen
         a = screen.availableGeometry()
-        w, h = 420, min(640, a.height() - 80)
+        w, h = min(600, a.width() - 48), min(640, a.height() - 80)     # the size the owner set by hand (2026-10-04)
         self.setGeometry(a.right() - w - 24, a.top() + 60, w, h)
 
     def save_geometry(self):
@@ -1158,6 +1339,7 @@ class Overlay(QWidget):
     def open_overlay(self, shot: bytes | None, game_hwnd: int | None):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
         self._update_shot_hint()
+        self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
             self.place_default(game_hwnd)
         if self._session_started is None:
@@ -1290,7 +1472,7 @@ class Overlay(QWidget):
         pins, the conversation, the tagged cards, then the input row. (Qt's own chain is creation order: the chips
         and the chat's buttons, made later, came after the header, and the header after the input.)"""
         from PySide6.QtWidgets import QAbstractScrollArea
-        sections = [self.title_bar, self.update_bar, self.profile_card, self.no_char_card, self.tip_strip,
+        sections = [self.title_bar, self.update_bar, self.news_strip, self.profile_card, self.no_char_card, self.tip_strip,
                     self.pins_bar, self.feed, self.focus_bar, self.capsule]
         rtl = self.t.rtl
         found = []
@@ -1527,8 +1709,10 @@ class Overlay(QWidget):
             groups.setdefault(title, []).append(k)
         for (key, name, src), ks in groups.items():
             if ks:
+                # (a community drop's tile shows its players' votes)
                 self._add_redrawn(lambda t, key=key, name=name, ks=ks, src=src: TileGrid(
-                    self.kb, ks, t(key, name=name) if name else t(key), t.rtl, t=t, srcs=[src] if src else ()))
+                    self.kb, ks, t(key, name=name) if name else t(key), t.rtl, t=t, srcs=[src] if src else (),
+                    monster=monster if src == sources.COMMUNITY else None))
 
     def _add_redrawn(self, make) -> QWidget:
         """A feed row built by make(t), built again in the new language on a switch (cards and tile groups kept
@@ -1626,6 +1810,10 @@ class Overlay(QWidget):
         focus_name = ", ".join(self.kb.get(k)["name"] for k in focus)
         if not force_claude:          # "Ask Claude anyway" re-asks a question already in the chat
             self.add_bubble(label, "user", focus_name)
+            if focus:
+                # the tags went with this question (its bubble names them): the next one starts untagged, as the
+                # owner expects (they stayed on, and the next question was asked about them too)
+                self.set_tags([])
             if self.stats:
                 self.stats.question(c)     # once per question, however it gets answered
             if not focus and not shown and self.settings["instant_answers"]:
@@ -1744,7 +1932,6 @@ class Overlay(QWidget):
         rl.setContentsMargins(4, 0, 4, 0)
         rl.addWidget(QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine"))
         # where the answer's data comes from ("COT2" stats, "MSEA" drops, a shop's "COT2" price), beside the badge
-        from .. import sources
         stamp = sources.stat_source(self.kb, qa.entities[0]) if qa.entities else None
         for chip in source_tags(self.t, getattr(qa, "sources", ()), stamp):
             rl.addWidget(chip)
@@ -1833,19 +2020,35 @@ class Overlay(QWidget):
                      "it even if the profile calls it otherwise, base_class if visible, "
                      "exp_percent, stats) and avatar_box. If the game or the character is not visible, say so briefly "
                      "and leave profile_update empty.")
+    # the play tools' grind tracker: the same read, plus what a session measures (grind.py)
+    GRIND_QUESTION = (" This read is also for the grind tracker: add \"grind\" to the META object: {\"map\": the map's "
+                      "name: the minimap's title has the street on its first line (\"Victoria Road\") and the map on "
+                      "the second (\"Henesys\"), give the second line only, \"monster\": the monster the player is hunting (the kind most often on "
+                      "screen, its English name, only if you recognise it), \"inventory_open\": true or false, "
+                      "\"mesos\": the meso amount at the bottom of the inventory window (an integer, only when the "
+                      "inventory is open), \"potions\": {\"<item name>\": count} for every HP/MP recovery item in the "
+                      "inventory's Use tab with its stack count, summed per item (only when the Use tab is the one "
+                      "shown; {} when it shows none), \"etc\": {\"<item name>\": count} for every item in the "
+                      "inventory's Etc tab with its stack count, summed per item (only when the Etc tab is the one "
+                      "shown; a slot with no number holds 1; {} when it is empty), \"equip\": {\"<item name>\": how "
+                      "many} for the items in the inventory's Equip tab (only when the Equip tab is the one shown; {} "
+                      "when it is empty)}. Leave out anything you can't read clearly.")
 
     SYNC_TIMEOUT_MS = 60_000       # a read still going after a minute is stopped (the button spun on, seen live)
 
-    def sync_profile(self):
+    def sync_profile(self, grind: bool = False):
+        """grind: a grind tracker read (the play tools), which also reads the map, the monster, mesos and potions."""
         if getattr(self, "_syncing", False):
             return                 # a read is on its way already; it ends with sync_finished for every caller
         if self._is_busy():
-            # an answer or an inventory check is running: say so, and end the request (the play tools' EXP meter
-            # waited forever on "Reading the EXP bar…", then took a later, unrelated read as its sample)
+            # an answer or an inventory check is running: say so, and end the request (the play tools' grind tracker
+            # waited forever on its read, then took a later, unrelated read as its sample)
             self._say_busy()
             self.sync_finished.emit(False)
             return
         self._syncing = True
+        self._sync_grind = grind is True        # (a button's clicked(bool) never makes it one)
+        self._sync_auto = False
         self.profile_card.set_busy(True, self.t("syncing"), self.t("sync_reading"))
         if not hasattr(self, "_sync_timer"):
             self._sync_timer = QTimer(self, singleShot=True, interval=self.SYNC_TIMEOUT_MS, timeout=self._sync_timed_out)
@@ -1854,16 +2057,53 @@ class Overlay(QWidget):
         self.setWindowOpacity(0.0)
         QTimer.singleShot(120, self._sync_capture)
 
-    def _sync_capture(self):
+    def auto_grind_read(self):
+        """The grind tracker's read every minute while a session runs. Quiet: no chat line, no portrait crop, no
+        spinner on the card, and a tick that can't run (an answer or another read on its way, the game closed or
+        covered) is skipped with grind_skipped, never queued. On the player's own model, like the ⟳ read.
+        The capture is a screen grab, so only our windows that are over the game step aside, and only for the
+        grab: beside the game (the usual place while playing) nothing moves at all."""
+        if getattr(self, "_syncing", False) or self._is_busy():
+            self.grind_skipped.emit("busy")
+            return
+        try:
+            hwnd = osapi.find_game_window() or self.game_hwnd
+            rect = osapi.window_rect(hwnd) if hwnd else None
+        except Exception:      # noqa: BLE001
+            rect = None
+        if not rect:
+            self.grind_skipped.emit("no_game")
+            return
+        self._syncing, self._sync_grind, self._sync_auto = True, True, True
+        if not hasattr(self, "_sync_timer"):
+            self._sync_timer = QTimer(self, singleShot=True, interval=self.SYNC_TIMEOUT_MS, timeout=self._sync_timed_out)
+        self._sync_timer.start()
+        over = windows_over(rect)
+        hidden = [w for w in over if w is not self]
+        if self in over:
+            self.setWindowOpacity(0.0)
+        for w in hidden:
+            w.hide()           # hidden, not see-through: a see-through tools window left traces in the grab
+        # Windows fades a hidden window out (~250 ms); the chat's opacity takes effect at once
+        wait = 300 if hidden else 120 if over else 0
+        QTimer.singleShot(wait, lambda: self._sync_capture(hidden))
+
+    def _sync_capture(self, stepped_aside: list | None = None):
         try:
             hwnd = osapi.find_game_window() or self.game_hwnd
             shot = osapi.capture_game(hwnd) if hwnd else None
         except Exception:      # noqa: BLE001 - a failed capture must not leave the button spinning forever
             shot = None
         self.setWindowOpacity(1.0)
+        for w in stepped_aside or ():
+            show_quietly(w)
         if not shot:
             self._sync_ended()
-            from ..capture import problem_key
+            from ..capture import LAST_PROBLEM, problem_key
+            if getattr(self, "_sync_auto", False):
+                self._sync_auto = False
+                self.grind_skipped.emit("covered" if LAST_PROBLEM == "covered" else "no_game")
+                return         # waiting for the game: the tracker says so, the chat stays as it is
             missing = problem_key() or "sync_no_game"
             self.add_system(lambda t: t(missing))
             self.sync_finished.emit(False)
@@ -1877,7 +2117,15 @@ class Overlay(QWidget):
             # reading a name, a level and a bar off a screenshot: no knowledge base, no file tools (it went looking
             # through the pages). The player's own model: measured 2026-10-02, Sonnet answered this read in ~3 s and
             # Haiku in 13-50 s, so the "light" model is no faster here
-            self._sync_worker = AskWorker(self.brain, self.SYNC_QUESTION, self.profiles.active, None, shot, light=True)
+            if getattr(self, "_sync_grind", False):
+                # the automatic read (one a minute) too: on the light model it took 44 s live (2026-10-04) and
+                # misread "KalimeroZz" as "KalimerZz", which isn't the character, so the read was dropped
+                self._sync_worker = GrindReadWorker(self.brain, self.SYNC_QUESTION + self.GRIND_QUESTION,
+                                                    self.profiles.active, None, shot, light=True, full=self._sync_full,
+                                                    cursor=capture.LAST_CURSOR, kb=self.kb)
+            else:
+                self._sync_worker = AskWorker(self.brain, self.SYNC_QUESTION, self.profiles.active, None, shot,
+                                              light=True)
             self._sync_worker.moveToThread(self._sync_thread)
             self._sync_thread.started.connect(self._sync_worker.run)
             self._sync_worker.done.connect(self._on_sync_done)      # bound method → runs on the GUI thread
@@ -1892,6 +2140,7 @@ class Overlay(QWidget):
 
     def _sync_ended(self):
         self._syncing = False
+        self._sync_grind = False
         if hasattr(self, "_sync_timer"):
             self._sync_timer.stop()
         self.profile_card.set_busy(False)
@@ -1907,24 +2156,35 @@ class Overlay(QWidget):
         except Exception:      # noqa: BLE001
             pass
         self._sync_ended()
-        self.add_system(lambda t: t("sync_timeout"))
+        if not getattr(self, "_sync_auto", False):
+            self.add_system(lambda t: t("sync_timeout"))
+        self._sync_auto = False
         self.sync_finished.emit(False)
 
     def _on_sync_done(self, ans: Answer):
         if self.sender() is not None and self.sender() is getattr(self, "_sync_dropped", None):
             return             # it timed out and the player was told; this late answer is not applied
+        grind, auto = getattr(self, "_sync_grind", False), getattr(self, "_sync_auto", False)
+        self._sync_auto = False
         self._sync_ended()
         if ans.error:
-            self.add_system(lambda t: t("err_generic"))
+            if not auto:
+                self.add_system(lambda t: t("err_generic"))
             self.sync_finished.emit(False)
             return
         if self.profiles.active_id != getattr(self, "_sync_cid", None):
             self.sync_finished.emit(False)
             return             # the player switched character meanwhile: this read belongs to the other one
+        if auto:
+            self._quiet_grind_read(ans)
+            return
         if self._offer_other_character(ans, self._sync_shot, getattr(self, "_sync_full", None)):
             self._sync_full = None
             self.sync_finished.emit(False)
             return             # another character is in game: the saved one stays as it is
+        if grind:
+            # the read as the AI gave it: the tracker compares this moment's numbers, never a stale saved EXP %
+            self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
         changes = self.profiles.apply_update(ans.profile_update or {})
         full, self._sync_full = getattr(self, "_sync_full", None), None
         self._syncing = True            # until the portrait is cropped (a worker thread): no other read meanwhile
@@ -1943,6 +2203,22 @@ class Overlay(QWidget):
         self.profile_card.set_busy(True, self.t("syncing"), self.t("sync_reading"))
         self._update_avatar(self._sync_shot, ans.avatar_box, full, on_done=lambda ok: (
             self.profile_card.set_busy(False), finish(ok)))
+
+    def _quiet_grind_read(self, ans: Answer):
+        """An automatic grind read's reply: the numbers go to the tracker and the profile follows (a level-up still
+        says so in the chat), with no "nothing new" line a minute and no portrait crop. Another character on screen
+        is left alone (the ⟳ on the card offers to add it)."""
+        from ..store import hud_name, same_character
+        self._sync_full = None
+        c, name = self.profiles.active, hud_name(ans.profile_update)
+        if c and name and not same_character(c.name, name, c.name_seen, self.profiles.other_names(c)):
+            self.sync_finished.emit(False)
+            return
+        self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
+        changes = self.profiles.apply_update(ans.profile_update or {})
+        if changes:
+            self._show_changes(changes)
+        self.sync_finished.emit(bool(ans.profile_update))
 
     def _on_done_main(self, ans: Answer):
         self._on_done(ans, self._pending_history)
@@ -2105,7 +2381,7 @@ class Overlay(QWidget):
 
     def _show_changes(self, changes):
         if changes:
-            self.profile_changed.emit()        # the play tools (stats, EXP meter) follow the profile
+            self.profile_changed.emit()        # the play tools (stats, grind tracker) follow the profile
         changes = [ch for ch in changes if ch[0] != "exp"]     # the EXP bar shows it; no chat line per percent
         self.refresh_plan()
         for field, value in changes:

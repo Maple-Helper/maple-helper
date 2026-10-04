@@ -110,9 +110,15 @@ def test_term_links_open_from_the_keyboard(monkeypatch):
     from maplehelper import glossary
     from maplehelper.ui import terms
     monkeypatch.setattr(terms, "LANG", "en")
+    monkeypatch.setattr(terms, "_popup", None)            # a card a Hebrew window before left behind
     opened = []
     monkeypatch.setattr(terms, "show", lambda link, lang, near=None: opened.append((link, near is not None)))
+    from PySide6.QtWidgets import QApplication
+    for other in QApplication.topLevelWidgets():         # windows earlier tests left open took the focus
+        other.hide()
     w = QWidget()
+    w.setLayoutDirection(Qt.LeftToRight)              # an English window, whatever a Hebrew one before it set
+    QApplication.setLayoutDirection(Qt.LeftToRight)
     lay = QVBoxLayout(w)
     before, after = QLineEdit(), QLineEdit()
     lb = terms.watch(QLabel(glossary.annotate("Your HP and ACC", "en")))
@@ -120,6 +126,10 @@ def test_term_links_open_from_the_keyboard(monkeypatch):
     for x in (before, lb, plain, after):
         lay.addWidget(x)
     w.show()
+    # its own window active: in a full run another test's window still held it, and Tab moved nothing
+    w.raise_()
+    w.activateWindow()
+    QTest.qWaitForWindowActive(w, 1000)
     pump()
     assert plain.focusPolicy() == Qt.NoFocus              # nothing to open: not a Tab stop
     assert "Your HP and ACC" in lb.accessibleName() and "HP, ACC" in lb.accessibleDescription()
@@ -147,7 +157,7 @@ def test_search_boxes_and_close_have_names(tools):
     from maplehelper.ui.glass import GlassDialog
     d = tools(page="quests")
     assert d.q_search.accessibleName() == I18n("en")("q_search")
-    for name in ("calc_input", "price_input", "shop_map"):
+    for name in ("calc_input", "price_input"):
         assert getattr(d, name).accessibleName(), name
     assert d.close_btn.accessibleName() == "Close"
     assert GlassDialog("x", rtl=True).close_btn.accessibleName() == I18n("he")("close")

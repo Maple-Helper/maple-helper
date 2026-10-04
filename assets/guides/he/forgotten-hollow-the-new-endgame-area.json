@@ -1,9 +1,9 @@
 {
- "title": "מדריך Forgotten Hollow: קווסטים, מפלצות ומפות (לבל 39-60)",
+ "title": "מדריך Forgotten Hollow: קווסטים, מפלצות ומפות (רמה 39-60)",
  "intro": "Forgotten Hollow לא קיים בשום מקום אחר ב-MapleStory: 15 קווסטים, עיר פיות במערה, עשר מפלצות חדשות והבוס Rotten Mushmom.",
  "blocks": [
   {
-   "p": "[[img:99e27e8c542fc6.png]] Forgotten Hollow הוא אזור חדש לגמרי שלא קיים בשום מקום אחר ב-MapleStory. זו מערה עם עיר פיות משלה, עשר מפלצות חדשות, הבוס Rotten Mushmom ו-15 קווסטים. הסיפור מתחיל בלבל 39 אצל Grendel the Really Old ב-Ellinia. הוא גם נגמר אצלו."
+   "p": "[[img:99e27e8c542fc6.png]] Forgotten Hollow הוא אזור חדש לגמרי שלא קיים בשום מקום אחר ב-MapleStory. זו מערה עם עיר פיות משלה, עשר מפלצות חדשות, הבוס Rotten Mushmom ו-15 קווסטים. הסיפור מתחיל ברמה 39 אצל Grendel the Really Old ב-Ellinia. הוא גם נגמר אצלו."
   },
   {
    "img": "666c9e9d0a6175.png",
@@ -21,7 +21,7 @@
    "p": "יש גם דלת אחורית. מ-Sleepy Dungeon V יש דרך למטה ל-Forgotten Dungeon Tunnel. משם, The Faded Canopy ו-The End of Fleeting Light מובילים לעיר."
   },
   {
-   "p": "Return Scroll to Forgotten Hollow לוקח אתכם ישר לעיר. Zelya נותנת לכם שניים ב-Natural Adhesive, ו-Luma מוכרת אותם ב-800 מסוס."
+   "p": "Return Scroll to Forgotten Hollow לוקח אתכם ישר לעיר. Zelya נותנת לכם שניים ב-Natural Adhesive, ו-Luma מוכרת אותם ב-800 mesos."
   },
   {
    "h2": "הלור"
@@ -87,16 +87,16 @@
    "p": "הסיפור של ה-Hollow מתחיל ב-Magic Library של Grendel עם The Roots of Regret. The Sage's Burden ו-Myra's Old Friend שניהם נגמרים שם."
   },
   {
-   "h2": "טווח לבלים"
+   "h2": "טווח רמות"
   },
   {
-   "p": "עשר המפלצות החדשות נעות מלבל 39 (Glowshroom) עד 59 (Sporewood). Rotten Mushmom הוא לבל 60. הקווסטים נפתחים בשלבים: שרשרת Ellinia ושני הקווסטים הראשונים של Zelya ב-39, The Road Back Home ב-43, השרשרת של Nyroth ב-45, Myra ב-49 ו-Daniel ב-50. מפלצות ותיקות חולקות את המפות: Zombie Mushrooms, Zombie Lupins, Lupins, Curse Eyes, Evil Eyes ו-Fairies."
+   "p": "עשר המפלצות החדשות נעות מרמה 39 (Glowshroom) עד 59 (Sporewood). Rotten Mushmom הוא רמה 60. הקווסטים נפתחים בשלבים: שרשרת Ellinia ושני הקווסטים הראשונים של Zelya ב-39, The Road Back Home ב-43, השרשרת של Nyroth ב-45, Myra ב-49 ו-Daniel ב-50. מפלצות ותיקות חולקות את המפות: Zombie Mushrooms, Zombie Lupins, Lupins, Curse Eyes, Evil Eyes ו-Fairies."
   },
   {
    "h2": "שרשרת הקווסטים, קווסט אחרי קווסט"
   },
   {
-   "p": "חמישה עשר קווסטים בארבע שרשראות, ששווים בסך הכל **84,249 EXP ו-19,573 מסוס**. שרשרת Ellinia באה ראשונה. סיום Welcome to the Hollow פותח את שלוש האחרות בבת אחת. אפשר להריץ את Zelya, Nyroth ו-Myra במקביל לפי מה שהלבל שלכם מאפשר."
+   "p": "חמישה עשר קווסטים בארבע שרשראות, ששווים בסך הכל **84,249 EXP ו-19,573 mesos**. שרשרת Ellinia באה ראשונה. סיום Welcome to the Hollow פותח את שלוש האחרות בבת אחת. אפשר להריץ את Zelya, Nyroth ו-Myra במקביל לפי מה שהלבל שלכם מאפשר."
   },
   {
    "h3": "Ellinia: Grendel ו-Arwen"
@@ -105,7 +105,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -115,35 +115,35 @@
      "39",
      "Grendel the Really Old, Magic Library",
      "להביא 25 Luminous Magical Resonance מ-Lupins",
-     "3,531 EXP, 900 מסוס, 20 Orange Potions"
+     "3,531 EXP, 900 mesos, 20 Orange Potions"
     ],
     [
      "A Fairy's Insight",
      "39",
      "Grendel, ואז Arwen the Fairy ב-Ellinia",
      "לדבר עם Arwen",
-     "4,200 EXP, 1,100 מסוס, 20 Blue Potions"
+     "4,200 EXP, 1,100 mesos, 20 Blue Potions"
     ],
     [
      "Tracing the Resonance",
      "39",
      "Arwen the Fairy",
      "להביא 25 Rotten Root Fragments מ-Cold Eyes",
-     "4,200 EXP, 1,100 מסוס, Hat Accuracy Scroll: Intermediate או Hat Accuracy Scroll: Greater אחד (50% כל אחד)"
+     "4,200 EXP, 1,100 mesos, Hat Accuracy Scroll: Intermediate או Hat Accuracy Scroll: Greater אחד (50% כל אחד)"
     ],
     [
      "The Yawning Abyss",
      "39",
      "Arwen, ואז Grendel",
      "לדווח לאן התהודה מובילה",
-     "1,500 EXP, 500 מסוס, 10 Blue Potions"
+     "1,500 EXP, 500 mesos, 10 Blue Potions"
     ],
     [
      "Welcome to the Hollow",
      "39",
      "Grendel, ואז Nyroth ב-Forgotten Hollow",
      "לרדת דרך The Tree Tunnel At the Forest Up North",
-     "2,500 EXP, 800 מסוס, מגילת נשק Greater אחת לבחירתכם לקלאס שלכם"
+     "2,500 EXP, 800 mesos, מגילת נשק Greater אחת לבחירתכם לקלאס שלכם"
     ]
    ]
   },
@@ -154,7 +154,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -164,21 +164,21 @@
      "39",
      "Zelya, Cave Fairy Sanctuary",
      "להביא 25 Zelya's Map Fragments מ-Glowshrooms",
-     "5,062 EXP, 1,140 מסוס, 20 Blue Potions"
+     "5,062 EXP, 1,140 mesos, 20 Blue Potions"
     ],
     [
      "Natural Adhesive",
      "39",
      "Zelya",
      "להרוג 50 Raffles ולהביא 25 Raffle Petals",
-     "5,062 EXP, 1,140 מסוס, 2 Return Scrolls to Forgotten Hollow"
+     "5,062 EXP, 1,140 mesos, 2 Return Scrolls to Forgotten Hollow"
     ],
     [
      "The Road Back Home",
      "43",
      "Zelya",
      "להרוג 50 Aqumanders ו-50 Echopuses",
-     "6,075 EXP, 1,257 מסוס, מגילת עגיל Greater אקראית אחת: STR, DEX, INT או LUK (25% כל אחת)"
+     "6,075 EXP, 1,257 mesos, מגילת עגיל Greater אקראית אחת: STR, DEX, INT או LUK (25% כל אחת)"
     ]
    ]
   },
@@ -189,7 +189,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -199,35 +199,35 @@
      "45",
      "Nyroth, Forgotten Hollow",
      "להביא 20 Rafflesia Petals",
-     "5,255 EXP, 1,300 מסוס, 25 Blue Potions"
+     "5,255 EXP, 1,300 mesos, 25 Blue Potions"
     ],
     [
      "Matters of the Heart",
      "45",
      "Nyroth, ואז Jaime the Wandering Explorer ב-Decayed Tunnel III",
      "למסור את ה-Scorched Arcon Scroll",
-     "5,255 EXP, 1,300 מסוס, Cape Accuracy Scroll: Intermediate או Cape Accuracy Scroll: Greater אחד (50% כל אחד)"
+     "5,255 EXP, 1,300 mesos, Cape Accuracy Scroll: Intermediate או Cape Accuracy Scroll: Greater אחד (50% כל אחד)"
     ],
     [
      "A Memory of Iron",
      "45",
      "Jaime the Wandering Explorer",
      "להרוג 50 Echopuses",
-     "6,134 EXP, 1,600 מסוס, 15 Watermelons, 10 Lemons"
+     "6,134 EXP, 1,600 mesos, 15 Watermelons, 10 Lemons"
     ],
     [
      "A Heart of Stillness and Wood",
      "50",
      "Daniel the Scholar, Precipice of Darkness",
      "להביא 30 Cursed Dolls ו-20 Duskmander Tails",
-     "12,500 EXP, 2,500 מסוס, 15 Elixirs, Bottomwear HP Scroll: Greater אחד"
+     "12,500 EXP, 2,500 mesos, 15 Elixirs, Bottomwear HP Scroll: Greater אחד"
     ],
     [
      "The Sage's Burden",
      "50",
      "Daniel, ואז Grendel the Really Old ב-Ellinia",
      "להזהיר את Grendel",
-     "9,875 EXP, 2,500 מסוס, 2 Mana Elixirs, 10 Lemons, 15 Elixirs"
+     "9,875 EXP, 2,500 mesos, 2 Mana Elixirs, 10 Lemons, 15 Elixirs"
     ]
    ]
   },
@@ -238,7 +238,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -248,14 +248,14 @@
      "49",
      "Myra, Lingering Regret",
      "להרוג 50 Myewoods ו-30 Sporewoods",
-     "7,706 EXP, 1,433 מסוס"
+     "7,706 EXP, 1,433 mesos"
     ],
     [
      "Myra's Old Friend",
      "49",
      "Myra, ואז Grendel the Really Old ב-Ellinia",
      "למסור את ה-Ominous Rotten Branch ש-Myra נותנת לכם",
-     "5,394 EXP, 1,003 מסוס, 15 Mana Elixirs"
+     "5,394 EXP, 1,003 mesos, 15 Mana Elixirs"
     ]
    ]
   },
@@ -291,7 +291,7 @@
     [
      "",
      "פריט",
-     "מסוס"
+     "mesos"
     ],
     [
      "[[img:be80aa4791c684.png]]",
@@ -364,13 +364,13 @@
    "h2": "המפלצות החדשות"
   },
   {
-   "p": "עשר מפלצות רגילות חדשות ב-Hollow, ועוד הבוס. לבלים, HP, EXP ואלמנטים:"
+   "p": "עשר מפלצות רגילות חדשות ב-Hollow, ועוד הבוס. רמות, HP, EXP ואלמנטים:"
   },
   {
    "table": [
     [
      "מפלצת",
-     "לבל",
+     "רמה",
      "HP",
      "EXP",
      "חולשה",
@@ -462,7 +462,7 @@
    "h2": "הבוס: Rotten Mushmom"
   },
   {
-   "p": "Rotten Mushmom עושה ספאון רק ב-Someone Else's Grave, מפה נסתרת ליד Decayed Tunnel I. היא Mushmom אנדד, לבל 60 לעומת 40 של המקורית."
+   "p": "Rotten Mushmom עושה ספאון רק ב-Someone Else's Grave, מפה נסתרת ליד Decayed Tunnel I. היא Mushmom אנדד, רמה 60 לעומת 40 של המקורית."
   },
   {
    "p": "[[img:c090f6e4b73be2.png]]\nRotten Mushmom"
@@ -471,7 +471,7 @@
    "table": [
     [
      "בוס",
-     "לבל",
+     "רמה",
      "HP",
      "EXP",
      "חולשה",

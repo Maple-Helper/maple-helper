@@ -148,7 +148,8 @@ def test_a_quest_finished_at_a_higher_level_waits_for_it():
     quests._quest.cache_clear()
     kb = quest_kb(Area="Victoria Island")
     assert quests.for_level(kb, 20)["now"] == []                                  # taken at 12, done at 52
-    assert [q.key for q in quests.for_level(kb, 50)["soon"]] == ["quest/1"]
+    assert [q.key for q in quests.for_level(kb, 50)["later"]] == ["quest/1"]                 # 2 levels up: later
+    assert [q.key for q in quests.for_level(kb, 51)["soon"]] == ["quest/1"]                  # the next level
     assert [q.key for q in quests.for_level(kb, 52)["now"]] == ["quest/1"]
     kb = quest_kb()
     # the quest asks Henesys citizenship grade 9: a Henesys quest, whatever its NPC page says
@@ -390,7 +391,7 @@ def test_below_level_8_the_plan_stays_on_maple_island(real):
 
 def test_glossary_sp_and_acc():
     assert "1 per level up" in glossary.explain("SP", "en") and "3 per level" in glossary.explain("SP", "en")
-    assert "נקודה אחת בכל עליית לבל" in glossary.explain("SP", "he")
+    assert "נקודה אחת בכל עליית רמה" in glossary.explain("SP", "he")
     assert "3x its Avoid" in glossary.explain("ACC", "en") and "פי 3" in glossary.explain("ACC", "he")
 
 
@@ -652,3 +653,17 @@ def test_no_card_for_what_is_not_in_the_game(tmp_path):
     b.backend = SimpleNamespace(exe="fake", run=lambda *a, **k: RawResult(
         text='El Nath isn\'t out yet; stay around Henesys.\n@@META@@\n{"entities": ["map/1", "map/2"]}'))
     assert b.ask("how do I get to El Nath?", None, None, None).entities == ["map/2"]
+
+
+
+@needs_kb
+def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
+    """"Forgotten Hollow is closed during Founder's Access": its maps (Shallow / Deep Passage) and their monsters are
+    out, while the rest of Victoria Island (whose towns the Hollow's guide also names) stays in."""
+    from maplehelper import availability, combat
+    o = availability.of(real)
+    if "Forgotten Hollow" not in o.closed_areas:
+        pytest.skip("the release guide no longer calls Forgotten Hollow closed")
+    assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
+    assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
+    assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))

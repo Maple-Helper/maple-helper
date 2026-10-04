@@ -204,7 +204,7 @@ def test_drops_split_by_list(tiny):
 def test_drop_table_has_a_source_column(tiny):
     tiny.ensure_drop_table()
     rows = (tiny.root / "drops.tsv").read_text(encoding="utf-8").splitlines()
-    assert rows[0].split("\t")[-1] == "source"
+    assert rows[0].split("\t")[6:] == ["source", "votes"]     # (votes: players' votes on a community drop)
     by_item = {r.split("\t")[5]: r.split("\t")[6] for r in rows[1:]}
     assert by_item == {"item/11": "community", "item/13": "MSEA"}
     # a table from before the column is redone
@@ -238,6 +238,11 @@ def test_ai_gets_the_sources(tiny):
     assert "(MSEA)" in brain.SYSTEM_PROMPT and "(COT2)" in brain.REPLY_RULES
     reverse = brain.build_prompt("which monsters drop snail shell?", None, None, tiny, False)
     assert "Snail Shell [item/13] (MSEA)" in reverse
+    # players' reports don't replace the MSEA list: only the game's official data would (the owner's rule)
+    assert "MSEA reference drops" in brain._page(tiny, "monster/1", 6000)
+    # official values from the released game: the test builds' table is gone from the AI's page (item/10 is "Launch")
+    assert "Change history" not in brain._page(tiny, "item/10", 6000)
+    assert "Change history" in brain._page(tiny, "monster/1", 6000)
 
 
 # ---------------------------------------------------------------- recent changes
@@ -299,6 +304,9 @@ def test_cards_and_groups_show_their_source(tiny, qapp):
     assert chips(EntityCard(tiny, "item/13", "en")) == []            # no stat line, nothing to label
     group = DropGroupCard(tiny, "monster/1", ["item/13", "item/11"], en)
     assert chips(group) == ["Community", "MSEA"]                      # a group that mixes lists: one chip each
+    # the change from the test before, in sight (it was only in the tag's tooltip)
+    assert "ACC 30 → 33" in card.changed_label.text() and "COT1" in card.changed_label.text()
+    assert not hasattr(EntityCard(tiny, "item/10", "en"), "changed_label")      # official values: no test change
     assert chips(TileGrid(tiny, ["item/13"], "Snail drops", False, t=en, srcs=["MSEA"])) == ["MSEA"]
 
 

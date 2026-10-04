@@ -1,0 +1,34 @@
+{
+ "founders-access-release-notes": {
+  "summary": "Nexon פרסמה את פרטי העדכון של Founder's Access, שנפתח ב-6 באוקטובר ב-11:00 בבוקר (שעון פסיפיק). אפשר להגיע עד רמה 100, ו-Forgotten Hollow נשאר סגור בינתיים.",
+  "source_hash": "767a970325241815",
+  "title": "פרטי Founder's Access: תקרת רמה 100, ו-Forgotten Hollow ייפתח בהמשך",
+  "highlights": [
+   "תקרת הרמה היא 100. את הג'וב הראשון לוקחים ברמה 10 ואת השני ברמה 30.",
+   "Forgotten Hollow לא פתוח ב-Founder's Access. לפי Nexon, הדרך אליו עוד לא התגלתה, והם מתכננים להוסיף אותו בהמשך.",
+   "חמישה בוסים במשחק: Mano, Mushmom, Shade, Zombie Mushmom ו-Jr. Balrog.",
+   "בכל חשבון אפשר ליצור עד 3 דמויות. דמות שנמחקת עוברת תקופת המתנה לפני שהיא נמחקת סופית.",
+   "Founder's First Step הוא צ'ק-אין יומי לדמויות מרמה 10 ומעלה. הוא רץ מ-6 עד 20 באוקטובר ונותן קופונים של Leaf Points, פוטים ומגפונים.",
+   "ה-GMs מריצים ארבעה אירועים לפני ה-Grand Launch: Physical Fitness Challenge, Coconut Harvest, Up and Up ו-Monster Invasion.",
+   "אירוע Mark of Beta אמור להתחיל ב-Grand Launch, ב-21 באוקטובר."
+  ],
+  "commentary": "הוספנו את תקרת הרמה, רשימת הבוסים ושעות האירועים למדריך תאריך ההשקה שלנו.",
+  "body_hash": "7f6a417e7109cb4b"
+ },
+ "inkwell-interview-roadmap-at-maplestory-fest": {
+  "summary": "Nexon פרסמה ראיון ארוך עם Inkwell, שמנהל את Global MapleStory. לדבריו, הצוות יציג את מפת הדרכים לאחרי ההשקה ב-MapleStory Fest ב-17 באוקטובר. גם בוס חדש בעבודה.",
+  "source_hash": "84f77e66b9a5c293",
+  "title": "Inkwell: מפת הדרכים של Classic World תוצג ב-MapleStory Fest, ובוס חדש בעבודה",
+  "highlights": [
+   "MapleStory Fest מתקיים בשבת, 17 באוקטובר, בלוס אנג'לס. שם Nexon מתכננת להציג את מפת הדרכים של Classic World.",
+   "הצוות עובד על בוס חדש. Inkwell לא אמר מתי הוא יגיע.",
+   "ה-Grand Launch ב-21 באוקטובר מוסיף עוד תוכן חדש לגמרי. הראיון לא אומר מה הוא.",
+   "Nexon לא מתכננת להעתיק בדיוק את סדר העדכונים הישן. ג'וב 3 ואזורים חדשים עשויים להגיע אחד אחד, וחלק מהתוכן הישן עשוי להשתנות.",
+   "Forgotten Hollow ו-Citizenship נבנו במיוחד בשביל Classic World.",
+   "תוכן חדש יגיע לאט יותר מאשר ב-MapleStory המודרני, בכוונה. כמה עדכונים עתידיים כבר מוכנים.",
+   "Nemi, שעבד על עיצוב המשחק של MapleStory המקורי, ו-Dr. Lim, שהוביל את הארט של MapleStory עוד מלפני עדכון ה-Big Bang, נמצאים בצוות יחד עם ותיקים נוספים שחזרו."
+  ],
+  "commentary": "הוספנו את התאריך של מפת הדרכים למדריך תאריך ההשקה שלנו.",
+  "body_hash": "6f41cf94948f42eb"
+ }
+}

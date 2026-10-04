@@ -26,7 +26,8 @@ COMMUNITY = "community"
 OFFICIAL = "official"
 MEOWDB = "MeowDB"
 REFERENCE = "reference"        # a historical reference table (the EXP guide's levels 50+)
-FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE)
+CLOSED_TEST = "closed_test"    # a value the KB marks "(closed test)" without naming the build (a pet's lifespan)
+FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE, CLOSED_TEST)
 
 # readable names for the build labels the KB uses or is likely to (an unknown one is shown as written)
 BUILD_NAMES = {
@@ -126,6 +127,13 @@ def stat_source(kb, key: str) -> Stamp | None:
     if key not in memo:
         memo[key] = history(kb.page(key)) if kb.get(key) else None
     return memo[key]
+
+
+def test_build(source: str) -> bool:
+    """A closed test's build ("COT2"). Once the game's official values are out, they replace everything else (the
+    owner's rule, 2026-10-04: official data and the community's, nothing older): the card and the AI say the change
+    between two tests, never a test's values next to the game's own."""
+    return bool(re.fullmatch(r"COT\d+", source or ""))
 
 
 def source_of(kb, key: str) -> str:
@@ -313,6 +321,14 @@ def price_note(t, label: str) -> str:
     return t("price_build", label=tag(t, label))
 
 
+def mesos_line(t, mesos) -> str:
+    """ "mesos 18–23 (קהילה)" / "Mesos 18–23 (Community)" for kb.community_mesos's (min, max, chance, reports)."""
+    lo, hi = mesos[0], mesos[1]
+    span = f"{lo:,}" if lo == hi else f"{lo:,}–{hi:,}"
+    # Hebrew: "19–23 mesos" as one left-to-right block, the number left of the word (the owner)
+    return t("mesos_line", amount=f"{bidi.LRI}{span} mesos{bidi.PDI}", src=tag(t, COMMUNITY))
+
+
 def change_line(stat: str, old, new, before: str = "", after: str = "") -> str:
     """ "ACC 62 → 64 (COT1 → COT2)" as one left-to-right block (bidi.ltr_block's isolate): in a Hebrew line the
     arrow still points from the old value to the new one and the parentheses stay around the labels."""
@@ -337,7 +353,8 @@ AI_NAMES = {MSEA: "MSEA reference (old MapleSEA, not confirmed for Classic)",
             COMMUNITY: "community (player-reported on MeowDB)",
             OFFICIAL: "official (Nexon)",
             MEOWDB: "MeowDB (no build label)",
-            REFERENCE: "historical reference table (an estimate until verified)"}
+            REFERENCE: "historical reference table (an estimate until verified)",
+            CLOSED_TEST: "closed-test value (not confirmed for launch)"}
 
 
 def ai_name(source: str) -> str:
@@ -349,7 +366,7 @@ def page_note(kb, key: str) -> str:
     bits: list[str] = []
     stamp = stat_source(kb, key)
     if stamp:
-        ch = "; ".join(f"{c.stat} {c.old} -> {c.new}" for c in stamp.changes[:6])
+        ch = "; ".join(f"{c.stat} {c.old} -> {c.new}" for c in stamp.changes[:6]) if test_build(stamp.source) else ""
         bits.append(f"stats are {stamp.source} values" + (f" (changed from {stamp.before}: {ch})" if ch else ""))
     elif key.partition("/")[0] in ("monster", "item", "skill"):
         bits.append("stats: MeowDB (no build label)")

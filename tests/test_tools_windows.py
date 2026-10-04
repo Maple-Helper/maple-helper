@@ -81,7 +81,8 @@ def test_quest_lists_past_40_say_so_and_show_the_rest(tools):
     from maplehelper import quests
     from maplehelper.ui.tools import MAX_QUESTS
     d, c = tools("Warrior", "Fighter", 20, "quests")
-    rows = len(quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)["now"])
+    d.q_mode.group.buttons()[1].click()            # the quests not done from earlier levels: the long list
+    rows = len(quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)["missed"])
     assert rows > MAX_QUESTS
     assert len(cards(d.q_list)) == MAX_QUESTS
     btn = more_button(d.q_list)
@@ -110,8 +111,9 @@ def test_citizenship_list_past_40_has_more_too(tools):
 def test_opening_on_the_build_page_keeps_the_other_pages_for_later(tools):
     """_skill_icons' hasattr("_skills") went through __getattr__, which built all eight other pages at once."""
     d, _ = tools("Thief", "Assassin", 34, "build")
+    from maplehelper.ui.tools import PAGES
     assert d._skill_icons()                        # the build tables have their icons
-    assert len(d._pending) == 8
+    assert len(d._pending) == len(PAGES) - 1       # every other page, still to come
     end = time.time() + 10
     while d._pending and time.time() < end:
         pump()
@@ -136,12 +138,16 @@ def test_done_toggle_closes_when_the_last_done_quest_is_undone(tools):
 def test_tab_switch_back_keeps_the_quest_cards(tools):
     """Every switch to Quests / Citizenship rebuilt up to 40 cards (~0.3 s) though nothing had changed."""
     from maplehelper.ui.tools import PAGES
-    d, c = tools("Thief", "Assassin", 34, "quests")
+    d, c = tools("Thief", "Thief", 15, "quests")      # (quests open at 15: the level tab has cards)
+    d.q_mode.group.buttons()[1].click()            # another tab: back on "Quests for level N" after leaving
+    d.show_page(PAGES.index("train"))
+    d.show_page(PAGES.index("quests"))
+    assert d.q_mode.group.buttons()[0].isChecked()
     first = cards(d.q_list)[0]
     d.show_page(PAGES.index("train"))
     d.show_page(PAGES.index("quests"))
     assert cards(d.q_list)[0] is first
-    c.level = 35                                    # the character changed: the page follows
+    c.level = 16                                    # the character changed: the page follows
     d.show_page(PAGES.index("train"))
     d.show_page(PAGES.index("quests"))
     assert cards(d.q_list)[0] is not first
@@ -157,6 +163,7 @@ def test_closing_during_a_free_market_lookup_logs_nothing(tools, monkeypatch):
     from maplehelper import market
     release, errors = threading.Event(), []
     monkeypatch.setattr(market, "free_market", lambda n: release.wait(5) and None)
+    monkeypatch.setattr(market, "item_market", lambda i: release.wait(5) and None)
     monkeypatch.setattr(threading, "excepthook", lambda a: errors.append(a.exc_value))
     d, _ = tools("Thief", "Assassin", 34, "prices")
     before = set(threading.enumerate())
@@ -202,7 +209,8 @@ def test_wishlist_shows_only_droppers_and_maps_in_the_game(real_kb):
     assert not [x for x in texts if "Crimson Balrog" in x or "Tick-Tock" in x]
     assert not [x for x in texts if "Orbis" in x or "El Nath" in x]
     assert any("Green Mushroom" in x for x in texts)
-    assert sum("reference data" in x for x in texts) == 2          # the MSEA reference caveat under each list
+    # under each list, which list its drops are on: the MSEA reference caveat, or players' own reports
+    assert sum("reference data" in x or "Players saw these drops" in x for x in texts) == 2
     d.close()
 
 
@@ -474,3 +482,32 @@ def test_share_card_ellipsizes_a_long_name_and_wraps_a_long_map(isolated_store, 
     names = [t for o, t, _ in labels if o == "ShareName"]
     assert "Kiwi" in names and any(t.endswith("…") and t.startswith("ElipazTheVery") for t in names)
     assert a.width() == b.width() and b.height() >= a.height()        # the long map took a second line
+
+
+@needs_kb
+def test_a_quests_prerequisite_is_a_tap_away(tools):
+    """"Opens once you finish X": a tap shows X, on its own tab, alone (the owner)."""
+    from maplehelper import quests
+    d, c = tools("Thief", "Assassin", 31, "quests")
+    r = quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)
+    later = next(q for m in ("level", "missed", "soon", "later") for q in r[m] if q.afters
+                 and any(p.name == q.afters[0] for mm in ("level", "missed", "soon", "later") for p in r[mm]))
+    d._goto_quest(later.afters[0])
+    assert d.q_search.text() == later.afters[0]
+    names = [w.text() for w in d.findChildren(QLabel, "CardName") if w.isVisibleTo(d)]
+    assert names and all(later.afters[0] in n for n in names)
+
+
+@needs_kb
+def test_a_prerequisite_already_done_is_not_mentioned(tools):
+    from maplehelper import quests
+    d, c = tools("Thief", "Assassin", 31, "quests")
+    r = quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)
+    q = next(q for m in ("level", "missed", "soon", "later") for q in r[m] if len(q.afters) == 1)
+    before = next(k for k, e in d.kb.entities.items() if e.get("category") == "quest" and e["name"] == q.afters[0])
+    def mentions():
+        card = d._quest_card(q)              # (kept while read: a card nobody holds goes at once)
+        return [w.text() for w in card.findChildren(QLabel) if "href='go'" in w.text()]
+    assert mentions()
+    c.quests_done.append(before)
+    assert not mentions()

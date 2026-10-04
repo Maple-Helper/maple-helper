@@ -69,6 +69,8 @@ class _Popup(QLabel):
 
     def __init__(self):
         super().__init__(None, Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # shown, never activated: it took the window's focus away (Tab moved on, then nothing had the focus)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setWordWrap(True)
         self.setTextFormat(Qt.RichText)
         self.setMaximumWidth(320)
@@ -110,7 +112,8 @@ def tip_html(term: str, lang: str) -> str | None:
     if not text:
         return None
     d = "rtl" if lang != "en" else "ltr"
-    return (f"<div dir='{d}'><b style='color:{theme.accent_text(deep=True)};'>{html.escape(term)}</b><br>"
+    title = glossary.TITLES.get(term, term)
+    return (f"<div dir='{d}'><b style='color:{theme.accent_text(deep=True)};'>{html.escape(title)}</b><br>"
             f"<span style='line-height:135%;'>{html.escape(text)}</span></div>")
 
 
@@ -126,6 +129,14 @@ def show(link: str, lang: str, near: QRect | None = None) -> bool:
             _popup = _Popup()
         _popup.show_text(body, near, rtl=lang != "en")
     return True
+
+
+def show_html(body: str, rtl: bool = False) -> None:
+    """Any explanation in the same card beside the mouse (a skill's changes on the build table's chip)."""
+    global _popup
+    if _popup is None:
+        _popup = _Popup()
+    _popup.show_text(f"<div dir='{'rtl' if rtl else 'ltr'}'>{body}</div>", rtl=rtl)
 
 
 def hide():

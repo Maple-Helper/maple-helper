@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, osapi, providers, report, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, news, osapi, providers, report, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n
 from .kb import KnowledgeBase
@@ -158,9 +158,20 @@ class MapleHelperApp:
         self.overlay.add_character_requested.connect(self.add_character)
         self.overlay.edit_character_requested.connect(self.edit_character)
         self.overlay.delete_character_requested.connect(self.delete_character)
-        # play tools: the EXP meter lives as long as the app (the window may close in between)
-        self.exp_meter: dict = {}
+        # play tools: the grind tracker's reads and its minute timer live as long as the app (the tools window may
+        # be closed); the session itself is saved (grind.py)
+        from .ui.grindrunner import GrindRunner
+        self.grind = GrindRunner(self.kb, self.profiles, self.settings)
+        self.grind.auto_requested.connect(self.overlay.auto_grind_read)
+        self.overlay.grind_read.connect(self.grind.grind_read)
+        self.overlay.grind_skipped.connect(self.grind.skipped)
+        self.overlay.sync_finished.connect(self.grind.sync_done)     # before the tools window redraws (below)
+        self.grind.sync()          # a session running when the app last closed goes on (unless it was left idle)
         self.overlay.tools_requested.connect(lambda: self.show_tools())
+        from .ui.widgets import ROUTE_REQUESTS
+        ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
+
+        self.overlay.news_requested.connect(self.show_news_page)
         self.overlay.profile_changed.connect(self.on_profile_changed)
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
@@ -463,8 +474,8 @@ class MapleHelperApp:
             key = getattr(dlg, "_reading", None)
             return lambda: self.show_guides(key)
         if kind == "patch_notes":
-            entries = getattr(dlg, "entries", None)
-            return lambda: self.show_patch_notes(entries)
+            entries, tab = getattr(dlg, "entries", None), getattr(dlg, "tab", "changes")
+            return lambda: self.show_patch_notes(entries, tab)
         if kind == "whats_new":
             notes = getattr(dlg, "notes", None)
             return lambda: self.show_whats_new(notes)
@@ -501,8 +512,8 @@ class MapleHelperApp:
                              t("cancel"), t.rtl, self.style()).exec():
             return
         self.profiles.remove(cid)
-        # nothing of the deleted character stays behind: its pinned answers, tracked items and hidden tips
-        for key in ("pins", "wishlist", "tips_dismissed"):
+        # nothing of the deleted character stays behind: its pinned answers, tracked items, farm target, hidden tips
+        for key in ("pins", "wishlist", "farm_target", "tips_dismissed"):
             data = dict(self.settings[key] or {})
             if data.pop(cid, None) is not None:
                 self.settings[key] = data
@@ -777,10 +788,13 @@ class MapleHelperApp:
             return
         # in the chat, where the player looks next; a dialog over the game would interrupt play. What touches the
         # active character (gear for them, monsters in their training range, wished items) is said first, by name
+        # an update that brought only news opens on the News tab
+        only_news = all(not any((e.get("counts") or {}).get(k) for k in ("added", "changed", "updated", "removed"))
+                        for e in entries)
         self.overlay.add_notice(lambda t: update_notice(t, entries, self.kb, self.profiles.active,
                                                         wishlist.items(self.settings, self.profiles.active_id)),
                                 lambda t: t("patch_notes_show"),
-                                lambda: self.show_patch_notes(entries))
+                                lambda: self.show_patch_notes(entries, "news" if only_news else "changes"))
         if not self.overlay.isVisible():
             self.toast(t("kb_updated"), t("kb_updated_open"))
 
@@ -789,14 +803,30 @@ class MapleHelperApp:
 
         def make():
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
-                              self.exp_meter, page)
+                              self.grind, page)
             dlg.sync_requested.connect(self.overlay.sync_profile)
+            dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
             dlg.detail_ask_requested.connect(lambda q, shown: self.ask_from_tools(q, True, detail=True, shown=shown))
             dlg.tag_requested.connect(self.ask_about_guide)
             dlg.guide_requested.connect(self.show_guides)
             return dlg
-        self.open_window("tools", make)
+        return self.open_window("tools", make)
+
+    def show_news_page(self):
+        """The News window: the megaphone in the chat's header, or the news strip tapped."""
+        from .ui.newsview import news_dialog
+
+        def make():
+            unread = [i["id"] for i in news.unread(self.kb, self.settings[news.SETTING])]
+            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread)
+            dlg.news_seen.connect(self._news_seen)
+            return dlg
+        return self.open_window("news", make)
+
+    def show_route(self, key: str):
+        """Play tools on the way to a map, from the character's map."""
+        self.show_tools("route").route_to_map(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
         if not self.overlay.isVisible():
@@ -815,6 +845,7 @@ class MapleHelperApp:
             getattr(tools, method)(*args)
 
     def on_profile_changed(self):
+        self.grind.sync()          # another character: its own session's minute reads (or none)
         self._tools_call("profile_changed")
 
     def show_guides(self, open_key: str | None = None):
@@ -889,12 +920,25 @@ class MapleHelperApp:
         dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
         return dlg
 
-    def show_patch_notes(self, entries: list[dict] | None = None):
+    def show_patch_notes(self, entries: list[dict] | None = None, tab: str = "changes"):
+        """tab: "changes" (what a KB update changed) or "news" (MapleStory Classic news, news.py)."""
         if entries is None:
             entries = updater.changelog()[:5]
-        self.open_window("patch_notes", lambda: PatchNotesDialog(
-            entries, self.settings["language"], self.style(), self.kb, self.profiles.active,
-            wishlist.items(self.settings, self.profiles.active_id)))
+        old = self.__dict__.get("_windows", {}).get("patch_notes")
+        if old is not None and old.isVisible() and getattr(old, "tab", tab) != tab:
+            old.tabs.group.buttons()[1 if tab == "news" else 0].click()     # open already: show the asked tab
+
+        def make():
+            unread = [i["id"] for i in news.unread(self.kb, self.settings[news.SETTING])]
+            dlg = PatchNotesDialog(entries, self.settings["language"], self.style(), self.kb, self.profiles.active,
+                                   wishlist.items(self.settings, self.profiles.active_id), tab, unread)
+            dlg.news_seen.connect(self._news_seen)
+            return dlg
+        self.open_window("patch_notes", make)
+
+    def _news_seen(self, ids: list) -> None:
+        news.mark_read(self.settings, ids)
+        self.overlay.show_news()          # the chat's news strip goes once its news was read
 
     def reload_kb(self):
         self.kb = load_kb()
@@ -902,10 +946,13 @@ class MapleHelperApp:
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb
         self.overlay.kb = self.kb
+        self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
+        self.overlay.show_news()            # and its news
 
     def shutdown(self):
         telemetry.flush()
+        self.grind.stop()                        # no minute read while the app goes
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

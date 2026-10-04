@@ -1,0 +1,29 @@
+{
+ "reports": [
+  {
+   "id": 4,
+   "minMesos": 2,
+   "maxMesos": 2,
+   "dropChancePct": 100,
+   "upvotes": 1,
+   "downvotes": 0,
+   "score": 1,
+   "isOwn": false,
+   "userVote": 0,
+   "createdAt": "2026-07-30 15:54:55",
+   "updatedAt": "2026-07-30 15:54:55"
+  }
+ ],
+ "summary": {
+  "count": 1,
+  "trustedCount": 1,
+  "medianMin": 2,
+  "medianMax": 2,
+  "medianDropChancePct": 100
+ },
+ "isLoggedIn": false,
+ "userRole": null,
+ "userReportId": null,
+ "locked": false,
+ "lockReason": null
+}

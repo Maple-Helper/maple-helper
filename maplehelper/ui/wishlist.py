@@ -1,7 +1,7 @@
 """The wishlist window: each wished item, who drops it (lowest level first) and where they live."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
@@ -11,9 +11,7 @@ from ..kb import KnowledgeBase
 from .controls import rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag
-
-SHOWN_DROPPERS = 5
+from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
 
 
 class WishlistDialog(GlassDialog):
@@ -38,6 +36,28 @@ class WishlistDialog(GlassDialog):
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
 
+        self._fill(keys)
+        from .widgets import WISHLIST
+        WISHLIST.changed.connect(self._refill)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 10, 0, 0)
+        row.addStretch(1)
+        ok = QPushButton(t("close"), objectName="Primary")
+        ok.setCursor(Qt.PointingHandCursor)
+        ok.setMinimumWidth(160)
+        ok.clicked.connect(self.accept)
+        row.addWidget(ok)
+        row.addStretch(1)
+        outer.addLayout(row)
+        rtl_buttons(self, rtl)
+
+    def _fill(self, keys: list[str]) -> None:
+        """The wished items and their droppers; run again whenever the wishlist changes (a star taken off here or
+        on a card left its item in the window until it was reopened: the owner's report)."""
+        from .tools import clear
+        t, kb, lay, rtl = self.t, self.kb, self.lay, self.t.rtl
+        clear(lay)
         keys = [k for k in keys if kb.get(k)]
         if not keys:
             empty = QLabel(bidi.plain(t("wishlist_empty"), rtl), objectName="DialogBody")
@@ -72,28 +92,33 @@ class WishlistDialog(GlassDialog):
             item = (kb.get(k) or {}).get("name", k)
             # each dropper as a row with its picture, level, map and a way to ask the chat about it (live feedback:
             # a small text list was hard to read and led nowhere)
-            for m in droppers[:SHOWN_DROPPERS]:
-                lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None))
-            if len(droppers) > SHOWN_DROPPERS:
-                more = QLabel(bidi.plain(t("pn_more", n=len(droppers) - SHOWN_DROPPERS), rtl), objectName="RowHint")
-                more.setAlignment(self._align)
-                lay.addWidget(more)
+            # every dropper ("and 4 more" hid them, and the window scrolls anyway: the owner's report)
+            for m in droppers:
+                lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None, kb.community_vote(m, k)))
             lay.addSpacing(10)
         lay.addStretch(1)
 
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 10, 0, 0)
-        row.addStretch(1)
-        ok = QPushButton(t("close"), objectName="Primary")
-        ok.setCursor(Qt.PointingHandCursor)
-        ok.setMinimumWidth(160)
-        ok.clicked.connect(self.accept)
-        row.addWidget(ok)
-        row.addStretch(1)
-        outer.addLayout(row)
-        rtl_buttons(self, rtl)
+    @Slot()
+    def _refill(self) -> None:
+        """After the wishlist's signal, not inside it: rebuilding while the signal ran (the star that sent it is in
+        here) crashed the app later, when the old cards were deleted."""
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self, self._refill_now)
 
-    def _dropper(self, m: str, item: str, source: str | None = None) -> QFrame:
+    def _refill_now(self) -> None:
+        from .widgets import WISHLIST
+        if self.isVisible():
+            self._fill(WISHLIST.keys())
+
+    def done(self, r: int) -> None:
+        from .widgets import WISHLIST
+        try:
+            WISHLIST.changed.disconnect(self._refill)       # a closed window stays out of the wishlist's changes
+        except (RuntimeError, TypeError):
+            pass
+        super().done(r)
+
+    def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None) -> QFrame:
         t, kb = self.t, self.kb
         e = kb.get(m) or {}
         name = e.get("name", m)
@@ -114,13 +139,15 @@ class WishlistDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)
         title = QLabel(bidi.ltr_name(name + (f" · Lv. {lvl}" if lvl else ""), t.rtl), objectName="CardName")
         title.setAlignment(self._align)
-        # this row's own drop list when the droppers mix them, and a KB update this week that changed the monster
-        chips = ([source_tag(t, source)] if source else []) + [c for c in [updated_tag(t, kb, m)] if c]
+        # this row's own drop list when the droppers mix them, the players' votes when players reported it ("16 ✓"),
+        # and a KB update this week that changed the monster
+        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else [])             + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
             col.addLayout(chip_row(chips, title))
         else:

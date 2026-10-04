@@ -1,4 +1,4 @@
-"""Play tools: combat math (checked against NiaMeowDB's own numbers), quests, build tables, EXP meter."""
+"""Play tools: combat math (checked against NiaMeowDB's own numbers), quests, build tables, grind tracker."""
 from pathlib import Path
 
 import pytest
@@ -226,6 +226,8 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     from maplehelper.ui.tools import PAGES, ToolsDialog
     monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
     monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    from maplehelper import grind
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
     p = store.Profiles()
     c = p.add("Kiwi", "Magician", "Cleric", 30)
     c.stats = {"acc": 70, "dmg_min": 40, "dmg_max": 15}
@@ -251,9 +253,11 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     d._quest_undo(first)
     assert first not in c.quests_done and d.q_done_toggle.isHidden()
     d.show_page(PAGES.index("exp"))
-    d.meter[c.id] = {"start": (0, 99, 90.0), "result": None, "end": (60, 100, 1.0)}   # across 99 -> 100
+    from maplehelper.grind import Reading
+    d.grind.start(c.id, Reading(0, 99, 90.0))
+    d.grind.add(c.id, Reading(600, 100, 1.0))          # across 99 -> 100: past the KB's EXP table
     d._fill_exp()
-    assert "past Lv. 99" in d.exp_status.text()
+    assert "past Lv. 99" in d.grind_cells["exp"][0].toolTip()
     d.close()
     app.processEvents()
 
@@ -286,11 +290,13 @@ def test_quest_search_filters_the_list_for_the_level(tmp_path, monkeypatch):
     p = store.Profiles()
     c = p.add("Kiwi", "Thief", "Assassin", 32)
     d = ToolsDialog(kb, p, store.Settings(), "en", "", {}, "quests")
-    level_list = quests.for_level(kb, c.level, c.base_class, c.job, c.quests_done)["now"]
+    d.q_mode.group.buttons()[1].click()          # the quests skipped from earlier levels: a long list
+    level_list = quests.for_level(kb, c.level, c.base_class, c.job, c.quests_done)["missed"]
     assert len(level_list) > 1
 
-    def cards():
-        return sum(1 for i in range(d.q_list.count()) if d.q_list.itemAt(i).widget() is not None)
+    def cards():                                 # quest cards only, not the headings over them
+        return sum(1 for i in range(d.q_list.count()) if (w := d.q_list.itemAt(i).widget()) is not None
+                   and w.objectName() == "Card")
     d._fill_quests()
     everything = cards()
     target = level_list[1]
@@ -300,7 +306,8 @@ def test_quest_search_filters_the_list_for_the_level(tmp_path, monkeypatch):
     assert cards() == sum(1 for q in level_list if q.matches(target.name))     # only from the level's list
     d.q_search.setText("zzzz-no-such-quest")
     d._fill_quests()
-    assert cards() == 1 and "No quest like that in the list for your level." in d.q_list.itemAt(0).widget().text()
+    assert cards() == 0 and any("No quest like that" in (w.text() if hasattr(w, "text") else "")
+                                for i in range(d.q_list.count()) if (w := d.q_list.itemAt(i).widget()))
     d.q_search.clear()
     d._fill_quests()
     assert cards() == everything
@@ -312,3 +319,28 @@ def test_quest_matches_name_npc_and_what_it_asks():
               needs=["Green Mushroom Cap x 20"], rewards=["Red Potion x 20"])
     assert q.matches("pio") and q.matches("mushroom cap") and q.matches("red potion") and q.matches("LITH")
     assert not q.matches("mushroom snail")
+
+
+def test_the_calculators_hp_hint_explains_the_monsters_hp():
+    """The "?" beside a monster's HP explained the player's HP / MP and levels (the owner's report)."""
+    from maplehelper import glossary
+    from maplehelper.ui import terms
+    tip = terms.tip_html("Monster HP", "he")
+    assert "להרוג את המפלצת" in tip and "<b style" in tip and ">HP<" in tip
+    assert "MP" not in glossary.explain("Monster HP", "he")
+
+
+def test_maple_island_quests_leave_once_a_job_is_taken(kb):
+    """Maple Island is behind a one-way boat: its quests show for a Beginner, not for a Lv. 31 Assassin."""
+    from maplehelper import quests
+    q = quests.Quest(key="quest/x", name="Bringing a Mirror to Heena", level=1, area="Maple Island")
+    assert quests.job_fits(q, "Beginner", "Beginner") and not quests.job_fits(q, "Thief", "Assassin")
+    assert quests.job_fits(quests.Quest(key="quest/y", name="Y", level=1, area="Victoria Island"), "Thief", "Assassin")
+
+
+def test_the_later_tab_says_which_areas_are_not_open_yet(kb):
+    """Quests in an area the KB doesn't confirm are hidden: the "later" tab names those areas, and the note goes
+    once every area is open (the owner)."""
+    from maplehelper import quests
+    areas = quests.closed_areas(kb)
+    assert all("event" not in a.lower() for a in areas)

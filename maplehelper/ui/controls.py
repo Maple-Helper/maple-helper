@@ -89,17 +89,34 @@ class Segmented(QFrame):
     def showEvent(self, e):
         # the chosen segment is bold: reserve that width, or "Kerning City" loses a letter when picked.
         # Measured once styled (the stylesheet's size and letter spacing), not with the default font
-        from PySide6.QtGui import QFontMetrics
         for b in self.group.buttons():
-            b.ensurePolished()
-            bold = b.font()
-            bold.setBold(True)
-            b.setMinimumWidth(QFontMetrics(bold).horizontalAdvance(b.text()) + 30)
+            self._fit(b)
         super().showEvent(e)
+
+    @staticmethod
+    def _fit(b) -> None:
+        from PySide6.QtGui import QFontMetrics
+        b.ensurePolished()
+        bold = b.font()
+        bold.setBold(True)
+        b.setMinimumWidth(QFontMetrics(bold).horizontalAdvance(b.text()) + 30)
+
+    def set_text(self, i: int, text: str) -> None:
+        """A segment's new text, its width measured again ("Quests for level 31" was cut to the width of the
+        label it had before the level was known)."""
+        b = self.group.buttons()[i]
+        b.setText(text)
+        self._fit(b)
 
     def value(self):
         b = self.group.checkedButton()
         return b.property("value") if b else None
+
+    def set_value(self, value) -> None:
+        """Pick a segment without the changed signal (a page opened from elsewhere names its subject)."""
+        for b in self.group.buttons():
+            if b.property("value") == value:
+                b.setChecked(True)
 
     def set_label(self, label: str) -> None:
         """What a screen reader says for it: the row's label for the control, and as context on each segment
@@ -107,6 +124,61 @@ class Segmented(QFrame):
         self.setAccessibleName(label)
         for b in self.group.buttons():
             b.setAccessibleDescription(label)
+
+
+class BalancedRow(QWidget):
+    """Buttons on one row when they fit at their own widths, else in equal rows (six: two of three): never one
+    left alone on a second row, never cut (the crafting professions, the owner)."""
+
+    def __init__(self, buttons: list, spacing: int = 4):
+        super().__init__()
+        from PySide6.QtWidgets import QGridLayout
+        self._buttons = list(buttons)
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, 0, 0)
+        self._grid.setHorizontalSpacing(spacing)
+        self._grid.setVerticalSpacing(spacing)
+        self._spacing = spacing
+        self._per_row = 0
+        self._place(len(self._buttons))
+
+    def _need(self) -> int:
+        return sum(self._width(b) for b in self._buttons) + self._spacing * (len(self._buttons) - 1)
+
+    @staticmethod
+    def _width(b) -> int:
+        """The width a button needs when picked: its text in bold (picked, "Leatherworking" lost its last letter)."""
+        from PySide6.QtGui import QFontMetrics
+        b.ensurePolished()
+        bold = b.font()
+        bold.setBold(True)
+        return max(b.sizeHint().width(), QFontMetrics(bold).horizontalAdvance(b.text()) + 14)
+
+    def showEvent(self, e):
+        for b in self._buttons:
+            b.setMinimumWidth(self._width(b))
+        super().showEvent(e)
+
+    def _place(self, per_row: int) -> None:
+        if per_row == self._per_row:
+            return
+        self._per_row = per_row
+        for b in self._buttons:
+            self._grid.removeWidget(b)
+        for i, b in enumerate(self._buttons):
+            self._grid.addWidget(b, i // per_row, i % per_row)
+        for c in range(len(self._buttons)):
+            self._grid.setColumnStretch(c, 1 if c < per_row else 0)
+
+    def minimumSizeHint(self):
+        from PySide6.QtCore import QSize
+        widest = max((self._width(b) for b in self._buttons), default=0)
+        return QSize(widest * 3 + self._spacing * 2, super().minimumSizeHint().height())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        n = len(self._buttons)
+        self._place(n if e.size().width() >= self._need() else (n + 1) // 2)
 
 
 class Section(QFrame):
@@ -434,9 +506,11 @@ class FlowLayout(QLayout):
     """Items in a row from the leading edge (right in Hebrew), wrapping onto the next line when the row is full:
     a row of tags or chips never makes the window wider than it is (one long row pushed it past 470 px)."""
 
-    def __init__(self, parent: QWidget | None = None, spacing: int = 6, line_spacing: int | None = None):
+    def __init__(self, parent: QWidget | None = None, spacing: int = 6, line_spacing: int | None = None,
+                 per_row: int = 0):
         super().__init__(parent)
         self._items = []
+        self._per_row = per_row           # at most this many a line (0: as many as fit)
         self._h = spacing
         self._v = spacing if line_spacing is None else line_spacing
         self.setContentsMargins(0, 0, 0, 0)
@@ -490,7 +564,7 @@ class FlowLayout(QLayout):
             if item.isEmpty():
                 continue
             w = min(item.sizeHint().width(), max(1, area.width()))
-            if line and x + self._h + w > area.width():
+            if line and (x + self._h + w > area.width() or (self._per_row and len(line) >= self._per_row)):
                 lines.append(line)
                 line, x = [], 0
             x += (self._h if line else 0) + w

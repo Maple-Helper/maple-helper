@@ -141,8 +141,12 @@ def answer(question: str, kb: KnowledgeBase, t, char=None) -> Answer | None:
         if not drops:
             return None
         srcs = [s for s, ks in lists.items() if ks]
-        return Answer(text=t("quick_drops", name=name, n=len(drops)) + "\n" + drops_note(t, srcs),
-                      entities=[key] + drops, sources=srcs)
+        text = t("quick_drops", name=name, n=len(drops)) + "\n" + drops_note(t, srcs)
+        mesos = kb.community_mesos(key)
+        if mesos:
+            # the mesos players reported too ("mesos 18–23 (קהילה)"): part of what a monster drops
+            text += "\n" + sources.mesos_line(t, mesos)
+        return Answer(text=text, entities=[key] + drops, sources=srcs)
     if WHERE.search(q):
         maps = _maps(kb, key)
         if not maps:

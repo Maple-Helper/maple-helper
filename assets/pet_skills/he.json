@@ -1,0 +1,18 @@
+{
+ "item/1530": {
+  "en": "Allows your pet to use your HP potions on you when your HP falls below the threshold that you set. Can be used on all pets that do not have this skill.",
+  "he": "ה-Pet משתמש בפוטים של ה-HP שלכם כשה-HP יורד מתחת לסף שקבעתם. אפשר להוסיף אותו לכל Pet שעוד אין לו את הסקיל הזה."
+ },
+ "item/1531": {
+  "en": "Allows your pet to use your MP potions on you when your MP falls below the threshold that you set. Can be used on all pets that do not have this skill.",
+  "he": "ה-Pet משתמש בפוטים של ה-MP שלכם כשה-MP יורד מתחת לסף שקבעתם. אפשר להוסיף אותו לכל Pet שעוד אין לו את הסקיל הזה."
+ },
+ "item/1532": {
+  "en": "Adds a skill that allows your pet to automatically pick up nearby items and mesos without you having to move. Can be used on pets with Meso Magnet or Item Pouch.",
+  "he": "ה-Pet אוסף לבד פריטים ו-mesos שקרובים אליו, בלי שתצטרכו לזוז. אפשר להוסיף אותו ל-Pet עם Meso Magnet או Item Pouch."
+ },
+ "item/2135": {
+  "en": "Triples your pet's auto move distance. Can only be used on pets with the Auto Move Skill. Cannot be stacked.",
+  "he": "משלש את המרחק שה-Pet הולך לאסוף ממנו. רק ל-Pet עם Auto Move Skill, ולא מצטבר."
+ }
+}

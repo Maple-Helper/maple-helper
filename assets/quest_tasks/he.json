@@ -1,0 +1,394 @@
+{
+ "quest/1000": {
+  "en": "I met Heena, who's worried the sun is damaging her skin. I should get her mirror from her sister, Sera, so she can check.",
+  "he": "Heena חוששת שהשמש פוגעת לה בעור. צריך להביא את המראה שלה מאחותה, Sera, כדי שתוכל לבדוק."
+ },
+ "quest/1002": {
+  "en": "Press the hotkey I to open your inventory, navigate to the Use tab, and double-click Roger's Apple to consume it. Then, talk to Roger.",
+  "he": "לוחצים על המקש I כדי לפתוח את ה-Inventory, עוברים ללשונית Use ולוחצים פעמיים על Roger's Apple כדי לאכול אותו. אחר כך מדברים עם Roger."
+ },
+ "quest/1003": {
+  "en": "Nina is wondering what to make her brother, Sen, for dinner. Go talk to Sen, who's in the house next to Nina, and ask him what he wants to eat.",
+  "he": "Nina לא יודעת מה להכין לאחיה, Sen, לארוחת ערב. לכו לדבר עם Sen, שנמצא בבית ליד Nina, ושאלו אותו מה הוא רוצה לאכול."
+ },
+ "quest/1004": {
+  "en": "You told Nina what Sen wants for dinner.",
+  "he": "סיפרת ל-Nina מה Sen רוצה לארוחת ערב."
+ },
+ "quest/1013": {
+  "en": "I'm not a total newbie anymore. Talk to Rain and take the Maple Quiz!",
+  "he": "כבר לא מתחילים לגמרי. דברו עם Rain ועשו את ה-Maple Quiz!"
+ },
+ "quest/1014": {
+  "en": "What's Rain's second question?",
+  "he": "מה השאלה השנייה של Rain?"
+ },
+ "quest/1015": {
+  "en": "Time for Rain's third question.",
+  "he": "הגיע הזמן לשאלה השלישית של Rain."
+ },
+ "quest/1016": {
+  "en": "I can answer Rain's questions if I think carefully enough.",
+  "he": "אפשר לענות על השאלות של Rain אם חושבים מספיק טוב."
+ },
+ "quest/1017": {
+  "en": "What's the fifth question?",
+  "he": "מה השאלה החמישית?"
+ },
+ "quest/1018": {
+  "en": "And next, the sixth question.",
+  "he": "ועכשיו, השאלה השישית."
+ },
+ "quest/1019": {
+  "en": "Finally, the last question. After this, I'll be a true Mapler.",
+  "he": "סוף סוף, השאלה האחרונה. אחריה נהיה Mapler אמיתי."
+ },
+ "quest/10001": {
+  "en": "Phil, the informant of Lith Harbor, explained that once you reach Level 10, you can make a job advancement in each town of Victoria Island. They asked me to help out the townsfolk in Lith Harbor and hunt monsters to reach Level 10, then return.",
+  "he": "Phil, המודיע של Lith Harbor, הסביר שברגע שמגיעים לרמה 10 אפשר לבצע Job Advancement בכל עיר ב-Victoria Island. הוא ביקש לעזור לתושבי Lith Harbor ולצוד מפלצות עד רמה 10, ואז לחזור אליו."
+ },
+ "quest/10101": {
+  "en": "I saw Mrs. Ming Ming again in Henesys; she's still preparing for the village carnival. She said that this time she needs food for the carnival and asked me to collect 10 Pig's Heads, 30 Octopus Legs, and Estelle's Special Sauce. To get the Special Sauce, I think I'll have to go find Estelle in The Field South of Ellinia.",
+  "he": "פגשנו שוב את Mrs. Ming Ming ב-Henesys; היא עדיין מתכוננת לקרנבל של הכפר. הפעם היא צריכה אוכל לקרנבל וביקשה לאסוף 10 Pig's Heads, 30 Octopus Legs ואת Estelle's Special Sauce. כדי להשיג את ה-Special Sauce כנראה צריך למצוא את Estelle ב-The Field South of Ellinia."
+ },
+ "quest/10106": {
+  "en": "A girl named Maya in Henesys Townstreet has been ill for a long time. It seems like she hasn't been able to live a normal life at all, so I agreed to do what I could to help. Weird Medicine... What a strange name! She told me that it helps improve her health, at least a little bit... I should go to Lith Harbor and see this guy, Teo.",
+  "he": "ילדה בשם Maya ב-Henesys Townstreet חולה כבר הרבה זמן. נראה שהיא לא מצליחה לחיות חיים רגילים בכלל, אז הסכמנו לעזור כמה שאפשר. Weird Medicine... איזה שם מוזר! היא אמרה שזה משפר קצת את הבריאות שלה... צריך ללכת ל-Lith Harbor ולפגוש את Teo."
+ },
+ "quest/10107": {
+  "en": "I met Sophia. To make the Sparkling Rock, she said she needs Arcon's Blood.",
+  "he": "פגשנו את Sophia. היא אמרה שכדי להכין את ה-Sparkling Rock היא צריכה Arcon's Blood."
+ },
+ "quest/10108": {
+  "en": "Sophia told me that Manji has some Arcon's Blood, a key ingredient in making a Sparkling Rock.",
+  "he": "Sophia סיפרה של-Manji יש Arcon's Blood, מרכיב מפתח בהכנת Sparkling Rock."
+ },
+ "quest/10120": {
+  "en": "Pia also asked me to retrieve the Red Cape that Rina in Henesys borrowed, to give it to her friend too. She'll give me something nice if I bring it back to her.",
+  "he": "Pia ביקשה גם להחזיר את ה-Red Cape ש-Rina ב-Henesys שאלה, כדי לתת גם אותו לחברה שלה. היא תיתן משהו נחמד אם נביא לה אותו."
+ },
+ "quest/10608": {
+  "en": "Grendel the Really Old asked me to speak with Arwen the Fairy in Ellinia. While he is human, the fairies are native to the forest and can naturally sense the distress of the ancient woods.",
+  "he": "Grendel the Really Old ביקש לדבר עם Arwen the Fairy ב-Ellinia. הוא בן אדם, אבל הפיות הן ילידות היער ומרגישות באופן טבעי במצוקה של היער העתיק."
+ },
+ "quest/10610": {
+  "en": "I must speak with Grendel the Really Old. I need to tell him that Arwen the Fairy tracked the dark resonance directly to The Tree Tunnel At the Forest Up North.",
+  "he": "צריך לדבר עם Grendel the Really Old ולספר לו ש-Arwen the Fairy עקבה אחרי התהודה האפלה ישירות עד The Tree Tunnel At the Forest Up North."
+ },
+ "quest/10611": {
+  "en": "I must travel to The Tree Tunnel At the Forest Up North, find the newly opened abyss, and descend into the Forgotten Hollow to see what remains of the fairy homeland.",
+  "he": "צריך להגיע ל-The Tree Tunnel At the Forest Up North, למצוא את התהום שנפתחה ולרדת אל Forgotten Hollow כדי לראות מה נשאר ממולדת הפיות."
+ },
+ "quest/80000": {
+  "en": "After easily passing the test Trainer Bartos of Henesys gave me, I got a hold of the Water of Life and Life Scroll and got them to Mar the Fairy. With her magical power and the items I got her, she turned the doll back into a living pet. I can hang out with him for a while longer now... Sweet...",
+  "he": "אחרי שעברנו בקלות את המבחן של Trainer Bartos מ-Henesys, השגנו את ה-Water of Life ואת ה-Life Scroll והבאנו אותם ל-Mar the Fairy. בעזרת הכוח הקסום שלה והפריטים שהבאנו, היא החזירה את הבובה להיות חיית מחמד חיה. עכשיו אפשר לבלות איתו עוד קצת... מתוק..."
+ },
+ "quest/10300": {
+  "en": "On a lonely building rooftop in Kerning City, I met a boy named Alex, who's run away from home because of a fight with his father, Chief Stan, in Henesys. But Alex is exhausted from being on the run and is out of money. He wants to go home and try to work things out with his strict, but admittedly loving, father. He asked me if I could persuade his father to not punish him for what he did. Also, he wants me to bring the Old Gold Watch his mother left him when she died, as proof that he really did have his father's forgiveness.",
+  "he": "על גג בניין בודד ב-Kerning City פגשנו ילד בשם Alex, שברח מהבית אחרי ריב עם אביו, Chief Stan, ב-Henesys. אבל Alex מותש מהבריחה ונגמר לו הכסף. הוא רוצה לחזור הביתה ולנסות להשלים עם אביו הקפדן, אבל האוהב. הוא ביקש לשכנע את אביו לא להעניש אותו על מה שעשה. בנוסף, הוא רוצה שנביא את ה-Old Gold Watch שאמו השאירה לו כשמתה, כהוכחה שאביו באמת סלח לו."
+ },
+ "quest/10315": {
+  "en": "I went to talk to Icarus in Kerning City. What exactly was he doing, staring aimlessly at the sky? He seemed really bored and asked me if I'd answer his questions.",
+  "he": "הלכנו לדבר עם Icarus ב-Kerning City. מה בדיוק הוא עשה, בוהה בשמיים בלי מטרה? הוא נראה ממש משועמם וביקש שנענה על השאלות שלו."
+ },
+ "quest/10319": {
+  "en": "Icarus's flying balloon didn't work out, but his quest for flight continues. This time, he wants to deviate from a scientific approach and opt for a magical one. He asked me to go see his best friend, Wing the Fairy, in Ellinia, the town of fairies. Apparently, Wing the Fairy knows how to make Flying Medicine... I'll need to go see him in Ellinia, for Icarus's sake.",
+  "he": "הבלון המעופף של Icarus לא הצליח, אבל החיפוש שלו אחרי תעופה נמשך. הפעם הוא רוצה לוותר על הגישה המדעית ולנסות גישה קסומה. הוא ביקש ללכת לחבר הכי טוב שלו, Wing the Fairy, ב-Ellinia, עיר הפיות. כנראה ש-Wing the Fairy יודע איך להכין Flying Medicine... צריך ללכת אליו ל-Ellinia, בשביל Icarus."
+ },
+ "quest/10408": {
+  "en": "Dr. Betty in Ellinia needs 1 Stuffed Drake Skull for her research. She asked me to fetch one from her daughter, who should be near Henesys. But where exactly would Anne be...?",
+  "he": "Dr. Betty ב-Ellinia צריכה Stuffed Drake Skull אחד למחקר שלה. היא ביקשה להביא אחד מהבת שלה, שאמורה להיות ליד Henesys. אבל איפה בדיוק Anne יכולה להיות...?"
+ },
+ "quest/10500": {
+  "en": "I met an old, balding man named Mr. Wetbottom in the VIP Sauna in Sleepywood. His son's run away from home with a book that's apparently more important to him than his own son?? He asked that I find his son, get the book, and bring JUST the book back. He offered me a nice sauna robe as a reward.",
+  "he": "ב-VIP Sauna ב-Sleepywood פגשנו איש זקן וקירח בשם Mr. Wetbottom. הבן שלו ברח מהבית עם ספר שכנראה חשוב לו יותר מהבן שלו?? הוא ביקש למצוא את הבן, לקחת את הספר ולהחזיר רק את הספר. בתמורה הוא הציע חלוק סאונה יפה."
+ },
+ "quest/10502": {
+  "en": "I went to see Rina of Henesys to help feed the hungry Ronnie.",
+  "he": "הלכנו ל-Rina מ-Henesys כדי לעזור להאכיל את Ronnie הרעב."
+ },
+ "quest/10505": {
+  "en": "I went to see Rowen the Fairy of Ellinia to help quench Ronnie's thirst.",
+  "he": "הלכנו ל-Rowen the Fairy מ-Ellinia כדי לעזור להרוות את הצמא של Ronnie."
+ },
+ "quest/10616": {
+  "en": "I must travel back up to the Magic Library and deliver the truth to Grendel the Really Old before the Sages are caught completely off guard.",
+  "he": "צריך לחזור למעלה ל-Magic Library ולמסור את האמת ל-Grendel the Really Old לפני שה-Sages ייתפסו לגמרי לא מוכנים."
+ },
+ "quest/506000": {
+  "en": "It seems Henesys offers various services for adventurers. I should drop by Henesys if I'm ever in the area.",
+  "he": "נראה ש-Henesys מציעה מגוון שירותים להרפתקנים. כדאי לקפוץ ל-Henesys כשנמצאים באזור."
+ },
+ "quest/506001": {
+  "en": "Arthur, the town clerk, asked me to greet Rina, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Rina, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506002": {
+  "en": "Arthur, the town clerk, asked me to check on Rina, a resident of the town. Let's go see how Rina is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Rina, תושבת העיר. בואו נלך לראות מה שלום Rina."
+ },
+ "quest/506003": {
+  "en": "Arthur, the town clerk, asked me to greet Rina, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Rina, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506004": {
+  "en": "Arthur, the town clerk, asked me to check on Mrs. Ming Ming, a resident of the town. Let's go see how Mrs. Ming Ming is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Mrs. Ming Ming, תושבת העיר. בואו נלך לראות מה שלום Mrs. Ming Ming."
+ },
+ "quest/506005": {
+  "en": "Arthur, the town clerk, asked me to greet Camila, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Camila, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506006": {
+  "en": "Arthur, the town clerk, asked me to check on Camila, a resident of the town. Let's go see how Camila is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Camila, תושבת העיר. בואו נלך לראות מה שלום Camila."
+ },
+ "quest/506007": {
+  "en": "Arthur, the town clerk, asked me to greet Bruce, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Bruce, תושב העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506008": {
+  "en": "Arthur, the town clerk, asked me to check on Bruce, a resident of the town. Let's go see how Bruce is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Bruce, תושב העיר. בואו נלך לראות מה שלום Bruce."
+ },
+ "quest/506009": {
+  "en": "Arthur, the town clerk, asked me to greet Maya, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Maya, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506010": {
+  "en": "Arthur, the town clerk, asked me to check on Maya, a resident of the town. Let's go see how Maya is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Maya, תושבת העיר. בואו נלך לראות מה שלום Maya."
+ },
+ "quest/506011": {
+  "en": "Arthur, the town clerk, asked me to greet Pia, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Pia, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506012": {
+  "en": "Arthur, the town clerk, asked me to check on Pia, a resident of the town. Let's go see how Pia is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Pia, תושבת העיר. בואו נלך לראות מה שלום Pia."
+ },
+ "quest/506013": {
+  "en": "Arthur, the town clerk, asked me to greet Anne, a resident of the town. Since I've become a resident here too, greeting the townspeople is a given, right?",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Anne, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506014": {
+  "en": "Arthur, the town clerk, asked me to check on Anne, a resident of the town. Let's go see how Anne is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Anne, תושבת העיר. בואו נלך לראות מה שלום Anne."
+ },
+ "quest/506015": {
+  "en": "Arthur, the town clerk, asked me to greet Chief Stan, the leader of this town. I'm a little nervous about meeting the Chief!",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Chief Stan, ראש העיר. קצת מלחיץ לפגוש את ה-Chief!"
+ },
+ "quest/506016": {
+  "en": "Arthur, the town clerk, asked me to check on Chief Stan. Let's go see how Chief Stan is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Chief Stan. בואו נלך לראות מה שלום Chief Stan."
+ },
+ "quest/506017": {
+  "en": "Arthur, the town clerk, asked me to greet Athena Pierce, the leader of the archers. I'm a little nervous about meeting her!",
+  "he": "Arthur, פקיד העירייה, ביקש לברך את Athena Pierce, מנהיגת הקשתים. קצת מלחיץ לפגוש אותה!"
+ },
+ "quest/506018": {
+  "en": "Arthur, the town clerk, asked me to check on Athena Pierce. Let's go see how Athena Pierce is doing.",
+  "he": "Arthur, פקיד העירייה, ביקש לבדוק מה שלום Athena Pierce. בואו נלך לראות מה שלום Athena Pierce."
+ },
+ "quest/506036": {
+  "en": "Bruce, your neighbor living in Henesys, has been agonizing over how to get his newly found daughter, Ayan, to open her heart to him. It might be best to seek advice from Mrs. Ming Ming.",
+  "he": "Bruce, השכן שגר ב-Henesys, מתייסר בשאלה איך לגרום לבת שמצא לא מזמן, Ayan, לפתוח אליו את הלב. אולי כדאי לבקש עצה מ-Mrs. Ming Ming."
+ },
+ "quest/506040": {
+  "en": "After eating her dad's food, I think Ayan in Perion came to understand his true feelings. She then asked me to convey her feelings to Bruce in Henesys.",
+  "he": "אחרי שאכלה את האוכל של אבא שלה, נראה ש-Ayan ב-Perion הבינה את הרגשות האמיתיים שלו. אחר כך היא ביקשה להעביר את הרגשות שלה ל-Bruce ב-Henesys."
+ },
+ "quest/506041": {
+  "en": "Mrs. Ming Ming mentioned that although the town festival was a huge success, Chief Stan hasn't been feeling quite like himself lately. She asked for help finding a way to cheer him up, suggesting that Jay, who is well-versed in ancient history, might know something.",
+  "he": "Mrs. Ming Ming סיפרה שלמרות שפסטיבל העיר הצליח מאוד, Chief Stan לא ממש מרגיש את עצמו בזמן האחרון. היא ביקשה עזרה במציאת דרך לשמח אותו, והציעה ש-Jay, שבקיא בהיסטוריה עתיקה, אולי יודע משהו."
+ },
+ "quest/506042": {
+  "en": "Jay of Henesys mentioned that Chief Stan was an adventurer who traveled the world in the past, and suggested that if he could find the Old Chief Stan's Hammer lost long ago when he was young, he might regain his energy. I should inform Mrs. Ming Ming of this information.",
+  "he": "Jay מ-Henesys סיפר ש-Chief Stan היה פעם הרפתקן שטייל בכל העולם, והציע שאם ימצא את Old Chief Stan's Hammer שאבד לו מזמן כשהיה צעיר, אולי יחזור אליו הכוח. צריך לספר את זה ל-Mrs. Ming Ming."
+ },
+ "quest/506045": {
+  "en": "Chief Stan of Henesys asked me to tell Mrs. Ming Ming that he is sorry and grateful. However, the news that he has regained his vitality will likely be what makes her happiest.",
+  "he": "Chief Stan מ-Henesys ביקש למסור ל-Mrs. Ming Ming שהוא מצטער ואסיר תודה. אבל מה שכנראה הכי ישמח אותה זו הבשורה שהכוח שלו חזר אליו."
+ },
+ "quest/506100": {
+  "en": "Town Clerk Arthur of Henesys recommended listening to the explanation in Kerning City as well before deciding which city to become a resident of.",
+  "he": "פקיד העירייה Arthur מ-Henesys המליץ לשמוע גם את ההסבר ב-Kerning City לפני שמחליטים באיזו עיר להיות תושבים."
+ },
+ "quest/506101": {
+  "en": "Roxy, the City Clerk, asked me to greet Alex, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Alex, תושב העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506102": {
+  "en": "Roxy, the City Clerk, asked me to check on Alex, a resident of the city. Let's go see how Alex is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Alex, תושב העיר. בואו נלך לראות מה שלום Alex."
+ },
+ "quest/506103": {
+  "en": "Roxy, the City Clerk, asked me to greet Shumi, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Shumi, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506104": {
+  "en": "Roxy, the City Clerk, asked me to check on Shumi, a resident of the city. Let's go see how Shumi is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Shumi, תושבת העיר. בואו נלך לראות מה שלום Shumi."
+ },
+ "quest/506105": {
+  "en": "Roxy, the City Clerk, asked me to greet Nella, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Nella, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506106": {
+  "en": "Roxy, the City Clerk, asked me to check on Nella, a resident of the city. Let's go see how Nella is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Nella, תושבת העיר. בואו נלך לראות מה שלום Nella."
+ },
+ "quest/506107": {
+  "en": "Roxy, the City Clerk, asked me to greet Icarus, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Icarus, תושב העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506108": {
+  "en": "Roxy, the City Clerk, asked me to check on Icarus, a resident of the city. Let's go see how Icarus is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Icarus, תושב העיר. בואו נלך לראות מה שלום Icarus."
+ },
+ "quest/506109": {
+  "en": "Roxy, the City Clerk, asked me to greet Jane Doe, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Jane Doe, תושבת העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506110": {
+  "en": "Roxy, the City Clerk, asked me to check on Jane Doe, a resident of the city. Let's go see how Jane Doe is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Jane Doe, תושבת העיר. בואו נלך לראות מה שלום Jane Doe."
+ },
+ "quest/506111": {
+  "en": "Roxy, the City Clerk, asked me to greet Jake, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Jake, תושב העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506112": {
+  "en": "Roxy, the City Clerk, asked me to check on Jake, a resident of the city. Let's go see how Jake is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Jake, תושב העיר. בואו נלך לראות מה שלום Jake."
+ },
+ "quest/506113": {
+  "en": "Roxy, the City Clerk, asked me to greet Mr. Pickall, a resident of the city. Since I've become a resident here too, greeting the cityspeople is a given, right?",
+  "he": "Roxy, פקידת העירייה, ביקשה לברך את Mr. Pickall, תושב העיר. עכשיו כשגם אנחנו תושבים כאן, ברור שצריך להגיד שלום לתושבי העיר, נכון?"
+ },
+ "quest/506114": {
+  "en": "Roxy, the City Clerk, asked me to check on Mr. Pickall, a resident of the city. Let's go see how Mr. Pickall is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Mr. Pickall, תושב העיר. בואו נלך לראות מה שלום Mr. Pickall."
+ },
+ "quest/506115": {
+  "en": "Roxy, the City Clerk, asked me to check on Chun Ji, a resident of the city. Let's go see how Chun Ji is doing.",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Chun Ji, תושב העיר. בואו נלך לראות מה שלום Chun Ji."
+ },
+ "quest/506116": {
+  "en": "Roxy, the City Clerk, asked me to check on Chun Ji, one of the residents. Ugh, do I really have to deal with that guy again...?",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Chun Ji, אחד התושבים. אוף, באמת צריך להתעסק שוב עם הטיפוס הזה...?"
+ },
+ "quest/506117": {
+  "en": "Roxy, the City Clerk, asked me to go say hello to Dark Lord, the hidden leader of the city. I'm a bit scared to say hello to Dark Lord for the first time.",
+  "he": "Roxy, פקידת העירייה, ביקשה ללכת להגיד שלום ל-Dark Lord, המנהיג הנסתר של העיר. קצת מפחיד להגיד שלום ל-Dark Lord בפעם הראשונה."
+ },
+ "quest/506118": {
+  "en": "Roxy, the City Clerk, asked me to check on Dark Lord, the hidden leader of the city. Time to take a deep breath and go...",
+  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Dark Lord, המנהיג הנסתר של העיר. הגיע הזמן לנשום עמוק וללכת..."
+ },
+ "quest/506137": {
+  "en": "It seems like Jake, who works at the subway entrance in Kerning City, needs Mong from Kong's help to cure his fear of Stirge. I should ask Mong from Kong in Kerning City if there is a good way.",
+  "he": "נראה ש-Jake, שעובד בכניסה לרכבת התחתית ב-Kerning City, צריך את העזרה של Mong from Kong כדי להתגבר על הפחד שלו מ-Stirge. כדאי לשאול את Mong from Kong ב-Kerning City אם יש דרך טובה."
+ },
+ "quest/506139": {
+  "en": "Claiming that he needs the final ingredient for the Stirge phobia cure, Mong from Kong in Kerning City asked me to go get a Vitamin Gummy from his grandfather, Mr. Goldstein in Lith Harbor. To think that Mr. Goldstein was Mong from Kong's grandfather...",
+  "he": "Mong from Kong ב-Kerning City טוען שהוא צריך את המרכיב האחרון לתרופה נגד פוביית ה-Stirge, וביקש להביא Vitamin Gummy מסבא שלו, Mr. Goldstein ב-Lith Harbor. מי היה מאמין ש-Mr. Goldstein הוא הסבא של Mong from Kong..."
+ },
+ "quest/12100": {
+  "en": "Master Sergeant Fox, whom I met in El Nath, asked me to meet Staff Sergeant Charlie, Sergeant Bravo, and Corporal Easy in order, and then return. I should go find Staff Sergeant Charlie first, who is somewhere on the Ossyria. He said Staff Sergeant Charlie hates the cold, so he must have gone up the tower.",
+  "he": "Master Sergeant Fox, שפגשנו ב-El Nath, ביקש לפגוש לפי הסדר את Staff Sergeant Charlie, את Sergeant Bravo ואת Corporal Easy, ואז לחזור. קודם צריך למצוא את Staff Sergeant Charlie, שנמצא איפשהו ב-Ossyria. לדבריו Staff Sergeant Charlie שונא קור, אז הוא בטח עלה למגדל."
+ },
+ "quest/12103": {
+  "en": "Master Sergeant Fox, whom I met in El Nath, asked me to find Sergeant Bravo this time.",
+  "he": "Master Sergeant Fox, שפגשנו ב-El Nath, ביקש הפעם למצוא את Sergeant Bravo."
+ },
+ "quest/12106": {
+  "en": "Master Sergeant Fox, whom I met in El Nath, asked me to find Corporal Easy this time.",
+  "he": "Master Sergeant Fox, שפגשנו ב-El Nath, ביקש הפעם למצוא את Corporal Easy."
+ },
+ "quest/12109": {
+  "en": "I met Alcaster the sorcerer at El Nath. He said he had heard about the Book of Ancient, written during a great war that happened hundreds of years ago. Interesting... The only living descendant of the author of The Book of Ancient is Hella, who lives in Orbis. I'd better go find her right now.",
+  "he": "פגשנו את הקוסם Alcaster ב-El Nath. הוא סיפר ששמע על ה-Book of Ancient, שנכתב בזמן מלחמה גדולה לפני מאות שנים. מעניין... הצאצאית החיה היחידה של מחבר The Book of Ancient היא Hella, שגרה ב-Orbis. כדאי ללכת למצוא אותה עכשיו."
+ },
+ "quest/12110": {
+  "en": "Alcaster told me to go to Hella's house in Orbis, to no avail. She wasn't anywhere to be found, so I had to resort to talking to Elma the Housekeeper. According to her, Hella hadn't been home in months, and no one knows where she went or why. She did tell me to go see her best friend, Jade of El Nath, so I should go there immediately.",
+  "he": "Alcaster שלח אותנו לבית של Hella ב-Orbis, אבל לשווא. היא לא הייתה שם, אז נאלצנו לדבר עם Elma the Housekeeper. לדבריה Hella לא הייתה בבית כבר חודשים, ואף אחד לא יודע לאן הלכה או למה. היא אמרה ללכת לחבר הכי טוב שלה, Jade מ-El Nath, אז כדאי ללכת לשם מיד."
+ },
+ "quest/12111": {
+  "en": "Jade suspected that Hella may have gone on a search to find the keepsake of her late mother, and told me to go see Elma the Housekeeper again.",
+  "he": "Jade חושד ש-Hella אולי יצאה לחפש מזכרת מאמה המנוחה, ואמר ללכת שוב ל-Elma the Housekeeper."
+ },
+ "quest/12112": {
+  "en": "Elma the Housekeeper told me she heard Hella mention something about an old lady. She also told me to go talk to Jade again if I want to know more about her.",
+  "he": "Elma the Housekeeper סיפרה ששמעה את Hella מזכירה משהו על אישה זקנה. היא גם אמרה לדבר שוב עם Jade אם רוצים לדעת עליה יותר."
+ },
+ "quest/12113": {
+  "en": "Jade said the \"old lady\" may be Spiruna, who lives in a small house around where the Orbis Park monsters walk around, and recommended that I go see her immediately.",
+  "he": "Jade אמר שה\"אישה הזקנה\" היא אולי Spiruna, שגרה בבית קטן באזור שבו מסתובבות המפלצות של Orbis Park, והמליץ ללכת אליה מיד."
+ },
+ "quest/12114": {
+  "en": "Spiruna promised to tell me everything that she knows, as long as I find the Black Crystal that she lost in the snowfield while on a search for some materials for spells. Now where in the snowfield must that be...",
+  "he": "Spiruna הבטיחה לספר את כל מה שהיא יודעת, בתנאי שנמצא את ה-Black Crystal שהיא איבדה בשדה השלג כשחיפשה חומרים לכישופים. איפה בשדה השלג הוא יכול להיות..."
+ },
+ "quest/12116": {
+  "en": "Sure enough... Spiruna flew into a furious rage upon seeing the broken Black Crystal, doing nothing but yelling and blaming me. Why not ask the woman living with Spiruna for some help?",
+  "he": "כצפוי... Spiruna נכנסה להתקף זעם כשראתה את ה-Black Crystal השבור, ורק צעקה והאשימה אותנו. אולי כדאי לבקש עזרה מהאישה שגרה עם Spiruna?"
+ },
+ "quest/12117": {
+  "en": "Spiruna's assistant quietly tells me that at this point, nothing will bring her back to her senses unless I bring an item called Fairy Dust, the only item that'll restore the cracked black crystal to its original state. Kriel the Fairy of Orbis Department Store may have it.",
+  "he": "העוזרת של Spiruna מספרת בשקט שבשלב הזה שום דבר לא יחזיר אותה לעצמה, אלא אם נביא פריט בשם Fairy Dust, הפריט היחיד שיחזיר את ה-Black Crystal הסדוק למצבו המקורי. אולי יש אותו ל-Kriel the Fairy ב-Orbis Department Store."
+ },
+ "quest/12120": {
+  "en": "Spiruna was utterly ecstatic over receiving the Fairy Dust, and proceeded to tell me everything she knew about Hella. Oh my goodness... are you kidding me? That assistant there is the Hella I've been looking for all this time??",
+  "he": "Spiruna הייתה מאושרת לגמרי לקבל את ה-Fairy Dust, וסיפרה כל מה שהיא יודעת על Hella. וואו... אתם רציניים? העוזרת שם היא ה-Hella שחיפשנו כל הזמן הזה??"
+ },
+ "quest/12122": {
+  "en": "I gave Jade the pendant from Hella, and I could immediately sense that he was pleased to know that his friend is all right after all. That Small Tomb Jade mentioned should be somewhere in the snowfield.",
+  "he": "נתנו ל-Jade את התליון מ-Hella, ומיד היה אפשר להרגיש שהוא שמח לדעת שהחברה שלו בסדר בסוף. ה-Small Tomb ש-Jade הזכיר אמור להיות איפשהו בשדה השלג."
+ },
+ "quest/12126": {
+  "en": "Scadur reminisced about the old days, when he heard about the ring from the four sages he met as a young man. He recommended that I visit Victoria Island and meet up with all four of the sages, starting with the one in Perion.",
+  "he": "Scadur נזכר בימים הישנים, כששמע על הטבעת מארבעת ה-Sages שפגש כבחור צעיר. הוא המליץ לבקר ב-Victoria Island ולפגוש את כל ארבעת ה-Sages, החל מזה שב-Perion."
+ },
+ "quest/12135": {
+  "en": "So I need the Memory Powder to put the map pieces back together... I better talk to Corporal Easy of the Alpha Platoon and see if he has it.",
+  "he": "אז צריך את ה-Memory Powder כדי לחבר בחזרה את חלקי המפה... כדאי לדבר עם Corporal Easy מה-Alpha Platoon ולבדוק אם יש לו."
+ },
+ "quest/12141": {
+  "en": "I got to see Scadur the Hunter, who previously aided me in finding The Book of Ancient requested by Alcaster. Long ago, he lost his wife when monsters from the Dead Mine raided the town. Now, his son, Nick, has ventured into the depths of the Dead Mine, vowing to defeat the monsters, but he has yet to return... Scadur has asked me to search for Nick's Ring, a keepsake that might be lost somewhere inside the lava cave deep within the Dead Mine. On top of that, he wants me to honor his son's wish by defeating Cerebes as well...! This promises to be quite a perilous journey.",
+  "he": "פגשנו את Scadur the Hunter, שעזר בעבר למצוא את The Book of Ancient ש-Alcaster ביקש. לפני הרבה זמן הוא איבד את אשתו כשמפלצות מה-Dead Mine פשטו על העיר. עכשיו הבן שלו, Nick, יצא אל מעמקי ה-Dead Mine ונשבע להביס את המפלצות, אבל עדיין לא חזר... Scadur ביקש לחפש את Nick's Ring, מזכרת שאולי אבדה איפשהו במערת הלבה שבעומק ה-Dead Mine. ובנוסף, הוא רוצה שנכבד את המשאלה של בנו ונביס גם את Cerebes...! זה הולך להיות מסע מסוכן למדי."
+ },
+ "quest/500000": {
+  "en": "It seems she has a favor to ask me.",
+  "he": "נראה שיש לה בקשה."
+ },
+ "quest/500002": {
+  "en": "Grendel the Really Old is worried that there might be a problem with the World Tree and asked me to talk to Manji in Perion about it.",
+  "he": "Grendel the Really Old חושש שאולי יש בעיה עם ה-World Tree, וביקש לדבר על זה עם Manji ב-Perion."
+ },
+ "quest/500006": {
+  "en": "I've obtained the Gift for the New Journey. It should come in handy for my future adventures.",
+  "he": "קיבלנו את ה-Gift for the New Journey. הוא יעזור בהרפתקאות הבאות."
+ },
+ "quest/500008": {
+  "en": "Deliver Betty's research report to Cherry, the sailor who voyages to and from Ossyria. You can find her at Ellinia Station.",
+  "he": "מסרו את דו\"ח המחקר של Betty ל-Cherry, המלחית שמפליגה הלוך וחזור ל-Ossyria. אפשר למצוא אותה ב-Ellinia Station."
+ },
+ "quest/20000": {
+  "en": "Does Dances with Balrog of Perion have even greater lessons to teach me?",
+  "he": "האם ל-Dances with Balrog מ-Perion יש שיעורים גדולים עוד יותר ללמד?"
+ },
+ "quest/20100": {
+  "en": "Does Grendel the Really Old of Ellinia have even greater lessons to teach me?",
+  "he": "האם ל-Grendel the Really Old מ-Ellinia יש שיעורים גדולים עוד יותר ללמד?"
+ },
+ "quest/20200": {
+  "en": "Does Athena Pierce of Henesys have even greater lessons to teach me?",
+  "he": "האם ל-Athena Pierce מ-Henesys יש שיעורים גדולים עוד יותר ללמד?"
+ },
+ "quest/20300": {
+  "en": "Does Dark Lord of Kerning City have even greater lessons to teach me?",
+  "he": "האם ל-Dark Lord מ-Kerning City יש שיעורים גדולים עוד יותר ללמד?"
+ }
+}

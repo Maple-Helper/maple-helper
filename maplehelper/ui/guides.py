@@ -88,7 +88,7 @@ class ImageZoom(QObject):
         self.browser = browser
         self.pop = QLabel(None, Qt.ToolTip | Qt.FramelessWindowHint)
         self.pop.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.pop.setStyleSheet("background: rgba(28,28,30,0.92); border-radius: 12px; padding: 8px;")
+        self.pop.setStyleSheet(_pop_style())
         # the popup is a window of its own (no parent, so it can stand beside the dialog): it goes with the view.
         # The dialogs delete themselves on close, before the poll below could hide it, so it stayed on screen
         # over the game until the app quit, and each Play tools / Guides window left one more behind
@@ -169,6 +169,14 @@ class ImageZoom(QObject):
 COVER_W = 480       # a guide's cover picture, shown when hovering its card
 
 
+def _pop_style() -> str:
+    """A picture shown large: on the tooltips' background (white in the light theme), not always black."""
+    from . import theme
+    c = theme.P()
+    bg = "#2C2C2E" if theme.MODE == "dark" else "#FFFFFF"
+    return f"background: {bg}; border: 1px solid {c['stroke']}; border-radius: 12px; padding: 8px;"
+
+
 class CoverPic(QLabel):
     """The small cover on a guide's card; hovering it shows the cover large."""
 
@@ -177,7 +185,7 @@ class CoverPic(QLabel):
         self.full = QPixmap(path) if path else QPixmap()
         self.pop = QLabel(None, Qt.ToolTip | Qt.FramelessWindowHint)
         self.pop.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.pop.setStyleSheet("background: rgba(28,28,30,0.92); border-radius: 12px; padding: 8px;")
+        self.pop.setStyleSheet(_pop_style())
         self.destroyed.connect(self.pop.deleteLater)
 
     def enterEvent(self, e):

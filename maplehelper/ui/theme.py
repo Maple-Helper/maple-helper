@@ -47,6 +47,18 @@ def _contrast(c: dict) -> dict:
     return {**c, "muted": c["text"], "faint": c["muted"], "stroke": f"rgba({rgb},0.60)", "hair": f"rgba({rgb},0.35)"}
 
 
+def qcolor(css: str):
+    """A palette color as a QColor: "#RRGGBB" or "rgba(r,g,b,a)" with a 0-1 alpha (QColor can't read the latter)."""
+    import re
+
+    from PySide6.QtGui import QColor
+    m = re.fullmatch(r"\s*rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)\s*", css or "")
+    if not m:
+        return QColor(css)
+    r, g, b, a = m.groups()
+    return QColor(int(r), int(g), int(b), round(float(a if a is not None else 1) * 255))
+
+
 def P() -> dict:
     c = PALETTES.get(MODE, PALETTES["dark"])
     return _contrast(c) if HIGH_CONTRAST else c
@@ -57,6 +69,7 @@ ORANGE_TEXT_LIGHT = "#C9620A"     # orange as text on white: #FF9533 / #F07A12 a
 # row): white, the brand look the owner chose (a darker text read better but changed the look)
 ON_ORANGE = "#FFFFFF"
 GOOD_TEXT_LIGHT = "#2E9E5B"
+CHANGED = {"light": "#0A6CD6", "dark": "#64B5FF"}    # the "Changed in COT2" chip's text, readable on either glass
 
 
 def accent_text(deep: bool = False) -> str:
@@ -74,12 +87,13 @@ BORDER = "rgba(255,149,51,0.55)"
 
 FONT_FAMILY = "Rubik"
 ICON_FONT = "Segoe Fluent Icons"
-ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue82d", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e"}
+ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707", "pin": "\ue718"}
 # the same keys without an icon font (a trailing U+FE0E asks for the plain glyph, not the color emoji)
 SYMBOL_ICONS = {"open": "\u2197", "refresh": "\u21bb", "info": "\u24d8", "edit": "\u270e", "delete": "\u232b", "add": "+", "minimize": "\u2013",
                 "close": "\u2715", "settings": "\u2699\ufe0e", "camera": "\ud83d\udcf7\ufe0e", "mic": "\ud83c\udf99\ufe0e", "send": "\u27a4", "stop": "\u25a0",
                 "copy": "\u29c9", "star": "\u2606", "star_on": "\u2605", "plan": "\u2261", "book": "\u2630", "search": "\u2315",
-                "tools": "\u2692\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713"}
+                "tools": "\u2692\ufe0e", "pin": "\U0001F4CC\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
+                "route": "\u2316"}
 
 
 def high_contrast() -> str | None:
@@ -180,11 +194,13 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QToolButton#Icon:hover {{ background: {c['fill2']}; color: {c['text']}; }}
     QToolButton#Icon:pressed {{ background: {c['fill3']}; }}
     QToolButton#Icon[active="true"] {{ color: #FF453A; }}
+    QToolButton#Icon[unread="true"] {{ color: {ORANGE}; }}
     QToolButton#Icon[wished="true"] {{ color: {ot}; }}
-    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {c['muted']}; background: transparent;
+    #HeaderSep {{ background: {c['stroke']}; border: none; }}
+    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {ot}; background: transparent;
                              border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
-    QToolButton#IconClose:hover {{ background: #FF453A; color: #FFFFFF; }}
-    QToolButton#IconClose:pressed {{ background: #D70015; color: #FFFFFF; }}
+    QToolButton#IconClose:hover {{ background: {ORANGE}; color: #FFFFFF; }}
+    QToolButton#IconClose:pressed {{ background: {ORANGE_DEEP}; color: #FFFFFF; }}
 
     QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
     QScrollBar:vertical {{ background: transparent; width: 6px; margin: 4px 1px; }}
@@ -267,6 +283,12 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QPushButton#SubChip {{ background: transparent; border: 1px solid {c['stroke']}; border-radius: 10px;
                            min-height: 26px; max-height: 26px; padding: 0 10px; font-size: {s - 3}px; font-weight: 500;
                            color: {c['muted']}; }}
+    QPushButton#ProfChip {{ background: transparent; border: 1px solid {c['stroke']}; border-radius: 10px;
+                            min-height: 26px; max-height: 26px; padding: 0 4px; font-size: {s - 4}px; font-weight: 500;
+                            color: {c['muted']}; }}
+    QPushButton#ProfChip:hover {{ background: {c['fill3']}; color: {c['text']}; }}
+    QPushButton#ProfChip:checked {{ background: rgba(255,149,51,0.14); border: 1.5px solid {ORANGE}; color: {otd};
+                                    font-weight: 700; }}
     QPushButton#SubChip:hover {{ background: {c['fill3']}; color: {c['text']}; }}
     QPushButton#SubChip:checked {{ background: rgba(255,149,51,0.14); border: 1.5px solid {ORANGE}; color: {otd};
                                    font-weight: 700; }}
@@ -275,11 +297,17 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     #TagGood {{ color: {good}; background: rgba(52,199,89,0.16); }}
     #TagWarn {{ color: #C9620A; background: rgba(255,149,51,0.18); }}
     #TagAccent {{ color: {otd}; background: rgba(255,149,51,0.12); }}
-    /* where a datum comes from (sources.py): quieter than the tags above, an outline beside the data */
-    #SourceTag {{ font-size: {s - 4}px; font-weight: 600; color: {c['muted']}; background: transparent;
-                  border: 1px solid {c['stroke']}; border-radius: 7px; padding: 1px 5px; }}
+    /* where a datum comes from (sources.py): the BETA badge's look, orange outline and letters (the owner's call) */
+    #SourceTag {{ font-size: {s - 5}px; font-weight: 700; color: {accent_text()}; background: transparent;
+                  border: 1px solid rgba(255,149,51,0.6); border-radius: 5px; padding: 0 4px; min-height: 0; }}
+    /* a community drop's votes: "16 ✓" in green, "single report" (one player alone) in the warning colour */
+    #VoteTag {{ font-size: {s - 4}px; font-weight: 600; color: {good}; background: transparent; padding: 0 1px; }}
+    #VoteTag[single="true"] {{ color: #C9620A; }}
     #UpdatedTag {{ font-size: {s - 4}px; font-weight: 700; color: {otd}; background: rgba(255,149,51,0.14);
                    border: 1px solid rgba(255,149,51,0.45); border-radius: 7px; padding: 1px 5px; }}
+    /* a skill whose values changed between two builds (sitedata.py): blue, apart from the orange "Updated" */
+    #ChangedTag {{ font-size: {s - 4}px; font-weight: 700; color: {CHANGED[MODE]}; background: rgba(10,132,255,0.12);
+                   border: 1px solid rgba(10,132,255,0.40); border-radius: 7px; padding: 1px 5px; }}
     #BigStat {{ font-size: {s + 10}px; font-weight: 700; letter-spacing: -0.4px; color: {c['text']}; }}
     #BigStatLabel {{ font-size: {s - 3}px; color: {c['muted']}; }}
     QPushButton#NowChip {{ background: rgba(255,149,51,0.12); border: 1px solid rgba(255,149,51,0.55); border-radius: 12px;
@@ -540,7 +568,7 @@ def dialog_background() -> str:
 def glyph_icon(name: str, color: str | None = None, px: int = 16):
     """A menu icon drawn from the app's icon font (the same pencil / trash as the Settings screen)."""
     from PySide6.QtCore import QRect, Qt
-    from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+    from PySide6.QtGui import QFont, QIcon, QPainter, QPixmap
     scale = 3
     pm = QPixmap(px * scale, px * scale)
     pm.fill(Qt.transparent)
@@ -549,7 +577,7 @@ def glyph_icon(name: str, color: str | None = None, px: int = 16):
     f = QFont(ICON_FONT)
     f.setPixelSize(int(px * scale * 0.8))
     p.setFont(f)
-    p.setPen(QColor(color or P()["muted"]))
+    p.setPen(qcolor(color or P()["muted"]))         # (QColor can't read the palette's "rgba(...)": it drew black)
     p.drawText(QRect(0, 0, px * scale, px * scale), Qt.AlignCenter, ICON[name])
     p.end()
     pm.setDevicePixelRatio(scale)

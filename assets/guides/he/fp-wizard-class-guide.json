@@ -1,17 +1,17 @@
 {
- "title": "מדריך בילד ועליית לבלים ל-F/P Wizard ב-MapleStory Classic: לבל 30-70",
+ "title": "מדריך בילד ועליית רמות ל-F/P Wizard ב-MapleStory Classic: רמה 30-70",
  "intro": "ה-Fire Arrow של F/P Wizard שורף מטרה עד הסוף בזמן שה-Poison Breath מרעיל מפה שלמה. הם האדונים של אפקטי נזק לאורך זמן.",
  "blocks": [
   {
-   "p": "המדריך הזה מבוסס על בילד F/P Wizard ריאלי בלבל 70 של Grummash."
+   "p": "המדריך הזה מבוסס על בילד F/P Wizard ריאלי ברמה 70 של Grummash."
   },
   {
    "p": "**יתרונות**"
   },
   {
    "ul": [
-    "מקום 3 ב-AoE דמג' בלבל 70.",
-    "מקום 2 ב-Physical EHP ותיקו על מקום 1 ב-Magic EHP בלבל 70 בבנצ'מרק הנוכחי.",
+    "מקום 3 ב-AoE דמג' ברמה 70.",
+    "מקום 2 ב-Physical EHP ותיקו על מקום 1 ב-Magic EHP ברמה 70 בבנצ'מרק הנוכחי.",
     "Fire Arrow עושה 25% יותר דמג' למובים שחלשים לאש.",
     "הפיצוץ במגע של Poison Breath פוגע בעד ארבעה מובים.",
     "Meditation נותן לחברי פארטי קרובים 25 Magic Attack.",
@@ -29,10 +29,10 @@
    ]
   },
   {
-   "h2": "מתחילים בלבל 30"
+   "h2": "מתחילים ברמה 30"
   },
   {
-   "p": "המדריך הזה ממשיך מהמדריך שלנו ל-Magician לבל 1 עד 30, שמשווה את הבילדים האלה של ג'וב ראשון לפי עלות ב-mesos. כל אחד מהם עובד ל-F/P Wizard."
+   "p": "המדריך הזה ממשיך מהמדריך שלנו ל-Magician רמה 1 עד 30, שמשווה את הבילדים האלה של ג'וב ראשון לפי עלות ב-mesos. כל אחד מהם עובד ל-F/P Wizard."
   },
   {
    "img": "6a5c564ccbecfc.png",
@@ -45,7 +45,7 @@
      "סקיל ג'וב ראשון",
      "חסכוני",
      "בטוח יותר",
-     "לבל 70 של Grummash"
+     "רמה 70 של Grummash"
     ],
     [
      "[[img:24dcca787059a4.png]]Energy Bolt",
@@ -95,7 +95,7 @@
    "p": "תישארו עם Kerning City מהמדריך של Magician. דרגות אזרחות גבוהות פותחות סקרולים של Lesser Overall LUK ו-INT לגלימות מג'ים, שמתאימים ליעד של Angel Wings בלי לוותר על AP לדמג'."
   },
   {
-   "h2": "Accuracy אחרי לבל 30"
+   "h2": "Accuracy אחרי רמה 30"
   },
   {
    "p": "מפת אימון עובדת רק כשההתקפות שלכם פוגעות. כל מיס שורף MP, מבזבז את אנימציית ההתקפה ומוריד EXP לדקה."
@@ -106,18 +106,18 @@
    "h": 179
   },
   {
-   "note": "**Accuracy בסיסי של Magician**\nלבל, INT, LUK ו-Accuracy ישיר מוסיפים כולם ל-ACC הכולל.\n**+0.39** ACC לכל לבל\n**+0.24** ACC לכל INT\n**+0.12** ACC לכל LUK\n**+1.00** ACC לכל ACC ישיר"
+   "note": "**Accuracy בסיסי של Magician**\nרמה, INT, LUK ו-Accuracy ישיר מוסיפים כולם ל-ACC הכולל.\n**+0.39** ACC לכל רמה\n**+0.24** ACC לכל INT\n**+0.12** ACC לכל LUK\n**+1.00** ACC לכל ACC ישיר"
   },
   {
-   "p": "לכל מוב יש Avoidability. להילחם מעל הלבל שלכם מעלה את ה-ACC שצריך כדי לפגוע, ועליית לבלים סוגרת את הקנס הזה. בגלל זה מפה בלבל נמוך יותר עם הריגות נקיות במכה אחת או שתיים יכולה לנצח מפה בלבל גבוה יותר עם פספוסים."
+   "p": "לכל מוב יש Avoidability. להילחם מעל הרמה שלכם מעלה את ה-ACC שצריך כדי לפגוע, ועליית רמות סוגרת את הקנס הזה. בגלל זה מפה ברמה נמוך יותר עם הריגות נקיות במכה אחת או שתיים יכולה לנצח מפה ברמה גבוה יותר עם פספוסים."
   },
   {
    "table": [
     [
      "מוב",
-     "לבל המוב",
+     "רמה המוב",
      "Avoid של המוב",
-     "ACC כדי לא לפספס אף פעם בלבל שווה"
+     "ACC כדי לא לפספס אף פעם ברמה שווה"
     ],
     [
      "[[img:777ced8b4048a6.png]]Jr. Wraith",
@@ -150,7 +150,7 @@
    "text": "קראו את ההסבר המלא על Accuracy של Magician"
   },
   {
-   "h2": "לבלים 30-70: בילד סקילים ועליית לבלים ל-F/P Wizard"
+   "h2": "רמות 30-70: בילד סקילים ועליית רמות ל-F/P Wizard"
   },
   {
    "img": "8b0bd01d5aeb46.png",
@@ -158,7 +158,7 @@
    "h": 139
   },
   {
-   "h3": "התקדמות ג'וב ל-F/P Wizard בלבל 30"
+   "h3": "התקדמות ג'וב ל-F/P Wizard ברמה 30"
   },
   {
    "ol": [
@@ -178,14 +178,14 @@
    "note": "**ה-SP הראשון של F/P Wizard: Teleport 1.** הנקודה הראשונה נותנת תנועה מיידית במפה במחיר כבד של 55 MP. תשתמשו בו לפלטפורמות ולמצבי חירום, עד שלבלי סקיל גבוהים יותר יהפכו את Teleport לזול מספיק לשימוש קבוע."
   },
   {
-   "h3": "יעד הסקילים בלבל 70"
+   "h3": "יעד הסקילים ברמה 70"
   },
   {
    "table": [
     [
      "סקיל",
      "SP",
-     "תוצאה בלבל הסקיל השמור"
+     "תוצאה ברמה הסקיל השמור"
     ],
     [
      "[[img:604935d1a72b1f.png]]MP Eater",
@@ -220,12 +220,12 @@
    ]
   },
   {
-   "h3": "חלוקת SP ל-F/P Wizard: לבלים 30-70"
+   "h3": "חלוקת SP ל-F/P Wizard: רמות 30-70"
   },
   {
    "table": [
     [
-     "לבלים",
+     "רמות",
      "הוצאה",
      "סך מצטבר",
      "סיבה"
@@ -305,7 +305,7 @@
    ]
   },
   {
-   "p": "אי אפשר לשים SP של ג'וב שני על סקילים של ג'וב ראשון, אז תסיימו את התוכנית של הג'וב הראשון עד לבל 30. ה-Character Builder מסמן כל בילד ששובר את זה."
+   "p": "אי אפשר לשים SP של ג'וב שני על סקילים של ג'וב ראשון, אז תסיימו את התוכנית של הג'וב הראשון עד רמה 30. ה-Character Builder מסמן כל בילד ששובר את זה."
   },
   {
    "h3": "Fire Arrow או Poison Breath קודם?"
@@ -343,13 +343,13 @@
    ]
   },
   {
-   "p": "EXP לדקה בלבל 40 במפת ההשקה הכי טובה ב-Training Advisor. על מוב אחד, [[img:24dcca787059a4.png]]Energy Bolt/[[img:5370722a856bb9.png]]Magic Claw 20 פוגעים חזק יותר מ-Poison Breath 30, אז העמודה של Poison Breath קודם חוזרת אליהם."
+   "p": "EXP לדקה ברמה 40 במפת ההשקה הכי טובה ב-Training Advisor. על מוב אחד, [[img:24dcca787059a4.png]]Energy Bolt/[[img:5370722a856bb9.png]]Magic Claw 20 פוגעים חזק יותר מ-Poison Breath 30, אז העמודה של Poison Breath קודם חוזרת אליהם."
   },
   {
    "p": "נקודת האיזון היא 2 מובים לקאסט. אנחנו ממקסמים Fire Arrow קודם כי רוב הקאסטים לא פוגעים ב-2+ מובים כשהם מפוזרים, ו-Fire Arrow עובד בכל מפה. Poison Breath עוקף את Fire Arrow אם אתם מצליחים לפגוע בעקביות ב-3 מובים או יותר בכל קאסט."
   },
   {
-   "p": "נגד מובים ניטרליים לאלמנטים, תמשיכו להשתמש ב-Energy Bolt או Magic Claw כהתקפה הראשית עד ש-Fire Arrow מגיע לסקיל Lv21 בלבל 37. נגד מובים שחלשים לאש, [[img:c5fb9f28d4a0c9.png]]Fire Arrow הוא הסקיל הטוב יותר מסקיל Lv15 בלבל 35. מובים עמידים לאש כמו Fire Boar צריכים Fire Arrow 30 לפני שהוא עוקף את Energy Bolt."
+   "p": "נגד מובים ניטרליים לאלמנטים, תמשיכו להשתמש ב-Energy Bolt או Magic Claw כהתקפה הראשית עד ש-Fire Arrow מגיע לסקיל Lv21 ברמה 37. נגד מובים שחלשים לאש, [[img:c5fb9f28d4a0c9.png]]Fire Arrow הוא הסקיל הטוב יותר מסקיל Lv15 ברמה 35. מובים עמידים לאש כמו Fire Boar צריכים Fire Arrow 30 לפני שהוא עוקף את Energy Bolt."
   },
   {
    "h3": "שינויים אפשריים לסדר ברירת המחדל"
@@ -358,13 +358,13 @@
    "h3": "Poison Breath קודם"
   },
   {
-   "p": "אם אתם פוגעים בעקביות ב-3 מובים או יותר לקאסט, תחליפו בין לבלים 31-40 ל-41-50: ממקסמים Poison Breath קודם, ואז Fire Arrow. ב-3 מובים לקאסט הוא מגיע לבערך 6,222 EXP/min בלבל 40, מול 4,243 של Fire Arrow."
+   "p": "אם אתם פוגעים בעקביות ב-3 מובים או יותר לקאסט, תחליפו בין רמות 31-40 ל-41-50: ממקסמים Poison Breath קודם, ואז Fire Arrow. ב-3 מובים לקאסט הוא מגיע לבערך 6,222 EXP/min ברמה 40, מול 4,243 של Fire Arrow."
   },
   {
    "h3": "Meditation לפני Poison Breath"
   },
   {
-   "p": "נלחמים בעיקר במוב אחד בכל פעם? אחרי Fire Arrow 30, תיקחו MP Eater 3 בלבל 41 ותמקסמו Meditation לפני Poison Breath. Poison Breath מוסיף מעט על מטרה בודדת, ו-Meditation מחזק כל ספל, עד 12% יותר דמג' למטרה בודדת בין לבל 42 ל-55."
+   "p": "נלחמים בעיקר במוב אחד בכל פעם? אחרי Fire Arrow 30, תיקחו MP Eater 3 ברמה 41 ותמקסמו Meditation לפני Poison Breath. Poison Breath מוסיף מעט על מטרה בודדת, ו-Meditation מחזק כל ספל, עד 12% יותר דמג' למטרה בודדת בין רמה 42 ל-55."
   },
   {
    "h3": "Teleport 10 מוקדם יותר"
@@ -373,16 +373,16 @@
    "p": "תעלו Teleport אחרי Fire Arrow במקסימום אם התנועה בין פלטפורמות חשובה לכם יותר מ-Poison Breath מוקדם. סקיל Lv10 עולה 37 MP וזז 128 px."
   },
   {
-   "h2": "חלוקת AP ל-F/P Wizard: לבלים 30-70"
+   "h2": "חלוקת AP ל-F/P Wizard: רמות 30-70"
   },
   {
-   "p": "היעד בלבל 70 הוא 299 INT בסיסי ו-63 LUK בסיסי. Grummash מגיע ל-65 Total LUK עם ציוד בשביל Angel Wings. תבדקו את הסך עם הציוד לפני שאתם שמים LUK; INT מוסיף דמג', MP ו-Accuracy."
+   "p": "היעד ברמה 70 הוא 299 INT בסיסי ו-63 LUK בסיסי. Grummash מגיע ל-65 Total LUK עם ציוד בשביל Angel Wings. תבדקו את הסך עם הציוד לפני שאתם שמים LUK; INT מוסיף דמג', MP ו-Accuracy."
   },
   {
    "table": [
     [
-     "לבלים",
-     "AP בכל לבל",
+     "רמות",
+     "AP בכל רמה",
      "AP בסיסי בסוף"
     ],
     [
@@ -413,7 +413,7 @@
   {
    "table": [
     [
-     "לבל",
+     "רמה",
      "פריט",
      "למה זה חשוב"
     ],
@@ -479,13 +479,13 @@
    "p": "[[img:865f68bdf44e7c.png]]Brown Jester[[img:9bb0c142cdc0c7.png]]Blue Wizard Robe[[img:5ca31d9e7d020a.png]]White Guiltian[[img:78d839fcd323e4.png]]Brown Starlight[[img:8d8a46fa3d576a.png]]Flame Golden Circlet[[img:47590281c2f8ba.png]]Red Calas[[img:ccef521f33304a.png]]Red Seraphis[[img:f4a44340286672.png]]Blue Anakamoon"
   },
   {
-   "p": "אלה נקודות ציון נקיות של כובע וגלימה ללבלים 30, 40, 50 ו-60 ממאגר הפריטים הנוכחי. תפתחו את הדף של כל פריט כדי לראות מאיפה הוא נופל, מתכון קראפטינג או חנות. גלימה זולה יותר עם INT או LUK שימושי יכולה להיות טובה יותר מלהתעקש על כל דרגה."
+   "p": "אלה נקודות ציון נקיות של כובע וגלימה לרמות 30, 40, 50 ו-60 ממאגר הפריטים הנוכחי. תפתחו את הדף של כל פריט כדי לראות מאיפה הוא נופל, מתכון קראפטינג או חנות. גלימה זולה יותר עם INT או LUK שימושי יכולה להיות טובה יותר מלהתעקש על כל דרגה."
   },
   {
    "h2": "M.ATK או Critical Rate על כפפות?"
   },
   {
-   "p": "המספרים האלה מבוססים על הבילד הריאלי של Grummash ל-F/P Wizard בלבל 70 וחמישה סקרולים מוצלחים של Lesser לכפפות. שתי האפשרויות משתמשות באותם חמישה סלוטים."
+   "p": "המספרים האלה מבוססים על הבילד הריאלי של Grummash ל-F/P Wizard ברמה 70 וחמישה סקרולים מוצלחים של Lesser לכפפות. שתי האפשרויות משתמשות באותם חמישה סלוטים."
   },
   {
    "h3": "5x Gloves Magic Attack Scroll: Lesser"
@@ -520,7 +520,7 @@
    "p": "תריצו את Fire Arrow ואת Poison Breath כבדיקות נפרדות ב-Advisor, כי מגבלות המטרות והאלמנטים שלהם נותנים מנצחים שונים. הריגה מובטחת בשני קאסטים אומרת שהמוב מת משתי הפגיעות הישירות הכי חלשות שלכם, בלי פספוסים. דמג' רעל לאורך זמן לא נספר כאן; ה-Training Advisor מחשב רק התקפות ישירות. כל המלצה מראה גם את רמת ה-Danger ואת המילוי הכי קרוב של פוטים."
   },
   {
-   "note": "לבל 30\nEnergy Bolt 20 / MG 3 / MA 20 / 71 ACC / 155 INT\n[[img:ae64823f427bc0.png]] **Transfer Area** Energy Bolt: Stirge בקאסט 1, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 4 פורטלים; בערך 2,741 EXP/min [[img:059caff41683e8.png]] **Dungeon, Southern Forest IV** Energy Bolt: Blue Mushroom ב-2 קאסטים ושאר הספאונים בקאסט 1, Safe ב-9%; מילוי אצל Len the Fairy במרחק 5 פורטלים; בערך 2,435 EXP/min\nלבל 40\nFire Arrow 30, 83 ACC, 182 INT\n[[img:777ced8b4048a6.png]] **Line 1 <Area 2>** Fire Arrow: Jr. Wraith חלש לאש וב-2 קאסטים; Stirge ניטרלי ובקאסט 1, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 5 פורטלים; בערך 4,243 EXP/min [[img:a951e586bae69f.png]] **Ant Tunnel Park** Fire Arrow: Evil Eye ושתי הפטריות בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Mr. Sweatbottom במרחק 11 פורטלים; בערך 3,511 EXP/min\nלבל 50\nPoison Breath 30, Fire Arrow 30, 98 ACC, 225 INT\n[[img:36750484773e65.png]] **Ant Tunnel III** Poison Breath: שתי הפטריות בקאסט 1 מובטח, Safe ב-4%; מילוי אצל Mr. Sweatbottom במרחק 5 פורטלים; בערך 12,878 EXP/min [[img:1d6ce5099450d1.png]] **Tree Dungeon, Forest Up North IX** Fire Arrow: Curse Eye בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Len the Fairy במרחק 5 פורטלים; בערך 4,889 EXP/min\nלבל 60\nPoison Breath 30, Fire Arrow 30, Meditation במקסימום, 270 INT\n[[img:a951e586bae69f.png]] **Ant Tunnel Park** Poison Breath: Evil Eye ושתי הפטריות בקאסט 1 מובטח, Safe ב-5%; מילוי אצל Mr. Sweatbottom במרחק 11 פורטלים; בערך 14,043 EXP/min [[img:2ba29b3aeef67c.png]] **Forgotten Dungeon Tunnel** Fire Arrow: Raffle, Glowshroom ו-Curse Eye בקאסט 1 מובטח, Safe ב-8%; מילוי אצל Luma במרחק 4 פורטלים; בערך 6,540 EXP/min\nלבל 70\nהבילד של Grummash, 352 INT, 336 M.ATK עם Meditation\n[[img:777ced8b4048a6.png]] **Line 1 <Area 2>** Poison Breath: Jr. Wraith ו-Stirge בקאסט 1 מובטח, Safe ב-5%; מילוי אצל Dr. Faymus במרחק 5 פורטלים; בערך 18,459 EXP/min [[img:0386eea7010d4c.png]] **Line 2 <Area 3>** Fire Arrow: Wraith בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 7 פורטלים; בערך 9,778 EXP/min"
+   "note": "רמה 30\nEnergy Bolt 20 / MG 3 / MA 20 / 71 ACC / 155 INT\n[[img:ae64823f427bc0.png]] **Transfer Area** Energy Bolt: Stirge בקאסט 1, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 4 פורטלים; בערך 2,741 EXP/min [[img:059caff41683e8.png]] **Dungeon, Southern Forest IV** Energy Bolt: Blue Mushroom ב-2 קאסטים ושאר הספאונים בקאסט 1, Safe ב-9%; מילוי אצל Len the Fairy במרחק 5 פורטלים; בערך 2,435 EXP/min\nרמה 40\nFire Arrow 30, 83 ACC, 182 INT\n[[img:777ced8b4048a6.png]] **Line 1 <Area 2>** Fire Arrow: Jr. Wraith חלש לאש וב-2 קאסטים; Stirge ניטרלי ובקאסט 1, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 5 פורטלים; בערך 4,243 EXP/min [[img:a951e586bae69f.png]] **Ant Tunnel Park** Fire Arrow: Evil Eye ושתי הפטריות בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Mr. Sweatbottom במרחק 11 פורטלים; בערך 3,511 EXP/min\nרמה 50\nPoison Breath 30, Fire Arrow 30, 98 ACC, 225 INT\n[[img:36750484773e65.png]] **Ant Tunnel III** Poison Breath: שתי הפטריות בקאסט 1 מובטח, Safe ב-4%; מילוי אצל Mr. Sweatbottom במרחק 5 פורטלים; בערך 12,878 EXP/min [[img:1d6ce5099450d1.png]] **Tree Dungeon, Forest Up North IX** Fire Arrow: Curse Eye בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Len the Fairy במרחק 5 פורטלים; בערך 4,889 EXP/min\nרמה 60\nPoison Breath 30, Fire Arrow 30, Meditation במקסימום, 270 INT\n[[img:a951e586bae69f.png]] **Ant Tunnel Park** Poison Breath: Evil Eye ושתי הפטריות בקאסט 1 מובטח, Safe ב-5%; מילוי אצל Mr. Sweatbottom במרחק 11 פורטלים; בערך 14,043 EXP/min [[img:2ba29b3aeef67c.png]] **Forgotten Dungeon Tunnel** Fire Arrow: Raffle, Glowshroom ו-Curse Eye בקאסט 1 מובטח, Safe ב-8%; מילוי אצל Luma במרחק 4 פורטלים; בערך 6,540 EXP/min\nרמה 70\nהבילד של Grummash, 352 INT, 336 M.ATK עם Meditation\n[[img:777ced8b4048a6.png]] **Line 1 <Area 2>** Poison Breath: Jr. Wraith ו-Stirge בקאסט 1 מובטח, Safe ב-5%; מילוי אצל Dr. Faymus במרחק 5 פורטלים; בערך 18,459 EXP/min [[img:0386eea7010d4c.png]] **Line 2 <Area 3>** Fire Arrow: Wraith בקאסט 1 מובטח, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 7 פורטלים; בערך 9,778 EXP/min"
   },
   {
    "h2": "מכניקות סקילים חשובות של F/P Wizard"
@@ -537,7 +537,7 @@
    "p": "ל-Fire Arrow במקסימום יש 180 Basic Attack ו-Mastery 10 ב-28 MP. מובים שחלשים לאש מקבלים 25% יותר דמג' ישיר. מובים עמידים לאש מקבלים 25% פחות דמג' ישיר ואי אפשר לשרוף אותם. כל פגיעה גם שורפת את המטרה ב-50 Basic Attack במשך 3 שניות, טיק אחד בשנייה."
   },
   {
-   "p": "**הבנצ'מרק בלבל 70 עושה בערך 2,667 דמג' ישיר צפוי למטרה ניטרלית ו-3,334 למטרה שחלשה לאש. החלק של הדמג' לאורך זמן לא נכלל במספרים האלה.**"
+   "p": "**הבנצ'מרק ברמה 70 עושה בערך 2,667 דמג' ישיר צפוי למטרה ניטרלית ו-3,334 למטרה שחלשה לאש. החלק של הדמג' לאורך זמן לא נכלל במספרים האלה.**"
   },
   {
    "h3": "Poison Breath"
@@ -574,7 +574,7 @@
    "p": "ל-Fire Arrow יש הרבה מטרות חלשות ב-Victoria Island. ל-Poison Breath יש שלושה מובים חלשים ושמונה שעמידים לו."
   },
   {
-   "p": "מובים חלשים מקבלים 25% יותר דמג'. מובים עמידים מקבלים 25% פחות, ואי אפשר לשרוף או להרעיל אותם עם האלמנט הזה. הטבלה מכסה ספאונים רגילים מלבל 20 ומעלה."
+   "p": "מובים חלשים מקבלים 25% יותר דמג'. מובים עמידים מקבלים 25% פחות, ואי אפשר לשרוף או להרעיל אותם עם האלמנט הזה. הטבלה מכסה ספאונים רגילים מרמה 20 ומעלה."
   },
   {
    "table": [
@@ -672,7 +672,7 @@
    ]
   },
   {
-   "h2": "בילד לדוגמה ל-F/P Wizard בלבל 70 מאת Grummash"
+   "h2": "בילד לדוגמה ל-F/P Wizard ברמה 70 מאת Grummash"
   },
   {
    "img": "a3e880b049879d.png",
@@ -689,7 +689,7 @@
    "note": "352 INT / 65 LUK / 336 M.ATK\n**9%** Critical Rate\n**26%** Critical Damage\n**224** WDEF\n**372** MDEF"
   },
   {
-   "h2": "בלבל 70: הופכים ל-F/P Mage"
+   "h2": "ברמה 70: הופכים ל-F/P Mage"
   },
   {
    "p": "[[img:c1522d01da4202.png]] **Robeira** אחראית על ההתקדמות ל-F/P Mage ב-El Nath."

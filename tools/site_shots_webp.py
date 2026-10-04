@@ -11,7 +11,7 @@ from PIL import Image, ImageChops, ImageDraw
 RAW = sys.argv[1]
 OUT = sys.argv[2]
 M, R = 30, 55
-for base in ['mano', 'hp', 'wishlist', 'settings', 'guide', 'tools-train', 'tools-calc', 'tools-crafting', 'tools-quests', 'tools-build']:
+for base in ['mano', 'hp', 'wishlist', 'settings', 'guide', 'tools-train', 'tools-calc', 'tools-crafting', 'tools-quests', 'tools-build', 'tools-farm', 'tools-town', 'tools-pets', 'tools-more']:
     for mode in ['light', 'dark']:
         for lang in ['he', 'en']:
             src = f'{RAW}/{base}-{mode}{"" if lang == "he" else "-en"}.png'

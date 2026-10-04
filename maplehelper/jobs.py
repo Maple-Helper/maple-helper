@@ -28,9 +28,8 @@ JOB_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוס
 
 
 def job_label(job: str, lang: str) -> str:
-    """How a job is shown: in Hebrew, its Hebrew name with the game's English one ("פייטר · Fighter")."""
-    he = JOB_HE.get(job) if lang == "he" else None
-    return f"{he} · {job}" if he else job
+    """How a job is shown: the game's English name in both languages, as everywhere else in the app ("Fighter")."""
+    return job
 
 
 # other names for the same job: older clients and servers print these on the HUD (an Old School HUD says "Archer"),

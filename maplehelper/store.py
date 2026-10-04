@@ -122,11 +122,14 @@ DEFAULT_SETTINGS = {
     "saver_mode": False,          # short answers on a lighter model, so the plan lasts longer
     "usage_warned": 0,            # reset time of the 5-hour window we already warned about
     "wishlist": {},               # character id -> item keys the player is hunting for
+    "farm_target": {},            # character id -> the item key the Farm tab shows the droppers of (farm.py)
     "seen_version": "",           # the app version whose "what's new" the player has seen
+    "news_read": [],              # news ids the player dismissed or read (news.py), so they come up once
     "last_session": None,         # summary of the previous play session, shown when the chat next opens
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
     "telemetry": False,           # anonymous usage stats, opt-in (see telemetry.py)
     "install_id": "",             # random id for those stats, created on first use
+    "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
 }
 
 
@@ -195,12 +198,13 @@ class Character:
     job_shown: str = ""     # the job as the game's HUD names it ("Archer" on an Old School server for a Bowman)
     name_seen: bool = False  # the name was read off the HUD once: from then on only that exact name is this character
     crafts: dict = field(default_factory=dict)        # crafting profession -> its level
+    cycle_done: dict = field(default_factory=dict)    # a daily / weekly quest marked done -> when (it comes back)
     updated_at: float = field(default_factory=time.time)
 
     @property
     def job_label(self) -> str:
         """The job as the player sees it in game (the app works with the MapleStory Classic name inside)."""
-        return self.job_shown or self.job
+        return self.job        # the KB's name everywhere; job_shown only tells the HUD's reading apart
 
     def finish_quest(self, name: str) -> list[str]:
         """The started quests this name finishes, removed from active_quests and returned: compared by
@@ -390,6 +394,8 @@ class Profiles:
         if c.avatar:
             (AVATAR_DIR / c.avatar).unlink(missing_ok=True)
         History(cid).clear()
+        from .grind import Store as GrindStore
+        GrindStore().forget(cid)            # its grind sessions go with it
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

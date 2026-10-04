@@ -217,3 +217,11 @@ def test_line_inside_hebrew_message(line, checks):
     x = glyph_x(shown)
     for a, b in checks:
         assert x[shown.index(a)] < x[shown.index(b)], f"{a!r} should be left of {b!r} in {line!r}"
+
+
+
+def test_a_hebrew_prefix_hyphen_never_ends_a_line():
+    """"עלה מ-7,000 ל-10,500 mesos" broke after "ל-" and the number went to the next line (the owner's report)."""
+    out = bidi.isolate_ltr_runs("רק מחיר החנות עלה מ-7,000 ל-10,500 mesos")
+    assert "מ-\u2060" in out and "ל-\u2060" in out
+    assert "\u2060" not in bidi.isolate_ltr_runs("Lv. 20 - Warrior")          # a dash, not a prefix

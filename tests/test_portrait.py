@@ -66,3 +66,31 @@ def test_tag_width_must_fit_the_name():
     assert tag_fits_name((0, 0, 116, 26), "KalimeroZz")         # measured live
     assert not tag_fits_name((0, 0, 74, 26), "KalimeroZz")      # a 6-letter name next to it
     assert not tag_fits_name((0, 0, 122, 42), "KalimeroZz")     # a label box of the Stat window
+
+
+def test_no_tag_keeps_the_job_picture_even_for_a_new_character():
+    """Live (2026-10-04): with no tag found, the AI's box alone cropped a lamp and an HP bar into a new character's
+    portrait. No tag, no portrait, with or without one already."""
+    import io
+
+    from PIL import Image
+
+    from maplehelper.ui.overlay import crop_portrait
+    img = Image.new("RGB", (800, 450), (120, 180, 90))
+    buf = io.BytesIO()
+    img.save(buf, "JPEG")
+    for have in (False, True):
+        assert crop_portrait(buf.getvalue(), [0.5, 0.4, 0.04, 0.12], None, "KalimeroZz", have) is None
+
+
+def test_a_bush_beside_the_sprite_is_not_part_of_it():
+    """Live (2026-10-04): a dark green bush touching an archer's bow and legs came into the portrait."""
+    from pathlib import Path
+
+    from maplehelper.portrait import sprite_mask
+    rgb = np.asarray(Image.open(Path(__file__).parent / "fixtures" / "portrait_bush.png").convert("RGB"))
+    m = sprite_mask(rgb)
+    assert m is not None
+    assert not m[95:125, :30].any()                      # the bush at the crop's left edge
+    assert m[20:60, 50:90].mean() > 0.9                  # the head
+    assert m[125:140, 45:75].any()                       # the feet stay

@@ -195,3 +195,40 @@ def test_the_cli_default_model_is_named(kb_copy, monkeypatch):
     assert b._running_on() == "\nYou run on Claude, model GPT-6.1-Sol."
     b.last_model = "claude-sonnet-5"
     assert b._running_on() == "\nYou run on Claude, model Sonnet 5."
+
+
+
+def test_grind_is_a_noun_spelled_the_owners_way():
+    """"לגרינד" in an answer reads "לעשות גריינד"; the spelling is "גריינד" (the owner, 2026-10-04)."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys("לא מתאים לגרינד בלבל 31") == "לא מתאים לעשות גריינד ברמה 31"
+    assert drop_keys("כדאי לגריינד על Ligator") == "כדאי לעשות גריינד על Ligator"
+    assert drop_keys("הגרינד שלכם") == "הגריינד שלכם" and drop_keys("grind spot") == "grind spot"
+
+
+@pytest.mark.parametrize("q", ["תן לי פרטים על Red Snail", "שלח לי מידע על Red Snail", "tell me about Red Snail"])
+def test_a_monster_details_question_shows_every_drop(kb_copy, q):
+    """The answer names one drop at most (it doesn't repeat the cards), so the tiles came from that one name; for
+    "details about X" the app shows the monster's card and every drop from the KB, as for a drops question."""
+    b = _brain(kb_copy, 'Red Snail is an early monster.\n@@META@@\n{"entities": ["monster/130101"]}')
+    items = [k for k, e in b.kb.entities.items() if e["category"] == "item"][:3]
+    b.kb.monster_drops = lambda key: items if key == "monster/130101" else []      # (the fixture's has none)
+    ans = b.ask(q, None, None, None)
+    assert ans.entities[:4] == ["monster/130101"] + items
+
+
+
+def test_the_players_level_is_named_as_one():
+    """"אתם ב-31" reads "אתם בלבל 31" (the owner: the word for level before the number)."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם ברמה 31)"
+    assert drop_keys("אתם ב31 עכשיו") == "אתם ברמה 31 עכשיו"
+    assert drop_keys("אתם בלבל 31") == "אתם ברמה 31" and drop_keys("עוד 3 לבלים") == "עוד 3 רמות"
+    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+
+
+
+def test_slashed_stat_bonuses_are_written_one_per_stat():
+    from maplehelper.brain import drop_keys
+    assert drop_keys("עם STR/DEX/INT/LUK +1 ו-HP/MP +10") == "עם STR +1, DEX +1, INT +1, LUK +1 ו-HP +10, MP +10"
+    assert drop_keys("W.DEF/M.DEF -2") == "W.DEF -2, M.DEF -2" and drop_keys("HP/MP recovery") == "HP/MP recovery"
