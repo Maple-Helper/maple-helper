@@ -1978,7 +1978,7 @@ class ToolsDialog(GlassDialog):
         elif name == "crafting":
             self._craft_level_pick = None
             empty(self.craft_search)
-        elif name == "more":
+        elif name == "exp":
             empty(self.shop_map)
         elif name == "farm":
             self._farm_mob_pick = None
@@ -2423,6 +2423,23 @@ class ToolsDialog(GlassDialog):
         # a term gets its "?" once on this page, in the intro (as on the prices page)
         self._grind_seen: set = set()
         lay.addWidget(self._label(t("grind_intro"), "ToolHeader", seen=self._grind_seen))
+        # the shopping list before a session: prepare, then start (on the bag page it had nothing to do with: the
+        # owner)
+        shop = Section(t("shop_title"), t.rtl)
+        shop.add_widget(self._label(t("shop_body"), "RowLabel"))
+        maps = map_rows(self.kb)
+        self.shop_map = EntityPicker(maps, self._p(t("shop_map_ph", n=len(maps))), icon=40, rtl=t.rtl)
+        self.shop_map.setMinimumWidth(280)
+        shop.add_row(t("shop_where"), self.shop_map)
+        shop.add_widget(self._links_box([
+            ("farm_route", lambda: self.shop_map.text().strip() and self._go_route(self.shop_map.text()))]))
+        self.shop_len = Segmented([("30", 30), ("60", 60), ("120", 120)], 60, t.rtl)
+        shop.add_row(t("shop_minutes"), self.shop_len)
+        go2 = QPushButton(self._p(t("shop_go")), objectName="Primary")
+        go2.setCursor(Qt.PointingHandCursor)
+        go2.clicked.connect(self._shopping)
+        shop.add_widget(go2)
+        lay.addWidget(shop)
         sec = Section(t("grind_current"), t.rtl)
         top = QWidget()
         tl = QVBoxLayout(top)
@@ -3483,21 +3500,6 @@ class ToolsDialog(GlassDialog):
         go.clicked.connect(self._sell_check)
         sell.add_widget(go)
         lay.addWidget(sell)
-        shop = Section(t("shop_title"), t.rtl)
-        shop.add_widget(self._label(t("shop_body"), "RowLabel"))
-        maps = map_rows(self.kb)
-        self.shop_map = EntityPicker(maps, self._p(t("shop_map_ph", n=len(maps))), icon=40, rtl=t.rtl)
-        self.shop_map.setMinimumWidth(280)
-        shop.add_row(t("shop_where"), self.shop_map)
-        shop.add_widget(self._links_box([
-            ("farm_route", lambda: self.shop_map.text().strip() and self._go_route(self.shop_map.text()))]))
-        self.shop_len = Segmented([("30", 30), ("60", 60), ("120", 120)], 60, t.rtl)
-        shop.add_row(t("shop_minutes"), self.shop_len)
-        go2 = QPushButton(self._p(t("shop_go")), objectName="Primary")
-        go2.setCursor(Qt.PointingHandCursor)
-        go2.clicked.connect(self._shopping)
-        shop.add_widget(go2)
-        lay.addWidget(shop)
         lay.addStretch(1)
         return sc
 
