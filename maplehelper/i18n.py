@@ -1105,6 +1105,7 @@ STRINGS = {
     "src_launch_tip": {"he": "ערכים מהמשחק עצמו ({label}), כפי שהמאגר מסמן אותם.",
                        "en": "Values from the game itself ({label}), as the knowledge base labels them."},
     "src_build_tip": {"he": "ערכים שהמאגר מסמן כ-{label}.", "en": "Values the knowledge base labels {label}."},
+    "src_changed_line": {"he": "השתנה מאז {before}: {changes}", "en": "Changed since {before}: {changes}"},
     "src_changed_head": {"he": "מה השתנה מאז {before}:", "en": "Changed since {before}:"},
     "src_data": {"he": "מקור הנתונים:", "en": "Data source:"},
     "price_test": {"he": "(מחיר מהטסט הסגור {label})", "en": "({label} test price)"},

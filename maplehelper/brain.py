@@ -51,13 +51,15 @@ not in the game, so never name it as a source.
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
-which list each drop is on. The community list comes from players' reports on MeowDB, each with its votes (players
+which list each drop is on; a monster players reported drops for has no MSEA list any more (the game's own drops
+supersede the old table). The community list comes from players' reports on MeowDB, each with its votes (players
 who confirmed / denied it); the app hides drops more players denied than confirmed. Name a community drop's votes
 briefly the first time: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
 "(קהילה, דיווח יחיד)" / "(community, single report)": it is not confirmed yet. Mesos: the pre-fetched "Mesos of"
 line is the median of the players' reports (per drop, and how often a kill drops mesos): give it as
-"18–23 mesos (קהילה)" / "18–23 mesos (community)". When asked what a monster drops, list the drops by name (grouped: Etc / Use / Equipment is fine), the
-community list first, say which list they come from, and return every dropped item's key in entities.
+"18–23 mesos (קהילה)" / "18–23 mesos (community)". When asked what a monster drops, the app shows every drop as a tile with its votes and its list: in the text name
+only the few worth knowing (the most confirmed, anything valuable) and say the tiles show the rest; return every
+dropped item's key in entities.
 
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
@@ -87,7 +89,8 @@ invite a game question. Entities stay empty.
 Style:
 - Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (לגרינד, דרופ, לעשות ג'וב, לבל).
   Address the player in the plural, as the app does ("קחו", "לכו", "דברו"), never "קח" or "קחי". The currency is
-  "mesos" in English letters ("300 mesos"), never "מזו", "מזוס" or "מסוס". A Hebrew prefix joins an English name
+  "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "לבל", never "רמה".
+  Source tags in Hebrew too: "(קהילה)", never "(community)". A Hebrew prefix joins an English name
   with a hyphen ("ל-Henesys", "מ-Henesys"), never a Hebrew spelling ("להניסיס").
 - In-game names (items, monsters, maps, NPCs, skills, quests, jobs) always in English, exactly as in the data.
 - {length}
@@ -137,6 +140,11 @@ REPLY_RULES = """<reply_rules>
   out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet.
 - At most {length} short lines. No filler, no follow-up offers.
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
+- Under the answer the app shows a card for every entity in META: a monster's level, HP, EXP, maps and what changed
+  since the last test build, an item's stats, and a monster's drops as tiles (community votes, MSEA list, sources).
+  Don't repeat what those cards show: no stat line, no full map or drop list. The text answers the question and adds
+  what the cards can't (a short take: who it suits, where it is best, what is worth it, a recent change). A question
+  for one number ("how much HP") still gets that number. In a Hebrew sentence a stat's number comes first: "51 HP".
 - In a Hebrew answer only game names and stat names stay in English; every other word is Hebrew ("קווסט", not
   "quest"; "קהילה", not "community"; never "This", "drop" or "and" in a Hebrew sentence). Write stat bonuses one
   per item ("STR +1, DEX +1"), never slashed together ("STR/DEX +1").
@@ -161,10 +169,36 @@ HUD_RULE = ("The screenshot's HUD (bottom left: level, job, character name) is t
 NOT_OUT = "NOT in the game: the knowledge base doesn't confirm it is out. Never recommend it; if asked, say it isn't out yet."
 
 
+_SECTION_END = ("Associated Quests", "Map Locations", "Respawn Timer", "Change history", "Similar monsters",
+                "Similar items", "Dropped By")
+
+
+def _cut(body: str, head: str) -> str:
+    """The page without the section that starts at the line `head`, up to the next section."""
+    m = re.search(rf"^{re.escape(head)}\b.*$", body, re.M)
+    if not m:
+        return body
+    ends = [j for h in _SECTION_END if h != head and (j := body.find("\n" + h, m.end())) > 0]
+    return body[:m.start()] + (body[min(ends) + 1:] if ends else "")
+
+
+def without_superseded(kb: KnowledgeBase, key: str, body: str) -> str:
+    """What the game's own data replaces, out of a page for the AI (the owner's rule, 2026-10-04): a monster's MSEA
+    reference drops once players reported its drops, and the test builds' change table once its values are from
+    the released game."""
+    if key.startswith("monster/") and kb.drop_lists(key)[sources.COMMUNITY]:
+        body = _cut(body, "MSEA reference drops")
+    stamp = sources.stat_source(kb, key)
+    if stamp and not sources.test_build(stamp.source):
+        body = _cut(body, "Change history")
+    return body
+
+
 def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
     """A pre-fetched page, marked when the KB says it isn't in the game: the pages of Orbis, El Nath and the rest
     read like any town's ("El Nath is a town in El Nath, Ossyria"), and the AI sent players there."""
     body = kb.page_body(key, limit=limit)
+    body = without_superseded(kb, key, body) if body else body
     if body and key.startswith("item/"):
         body = _mark_droppers(kb, body)
     if body:

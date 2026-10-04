@@ -593,6 +593,16 @@ class EntityCard(Selectable, QFrame):
             stamp = sources.stat_source(kb, key)
             self.source_chip = source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp)
             chips.append(self.source_chip)
+            # what the build changed, in sight (it was only in the tag's tooltip: "why no COT1 data?", the owner)
+            if stamp and stamp.changes and stamp.before and sources.test_build(stamp.source):
+                shown = ", ".join(sources.change_line(c.stat, c.old, c.new) for c in stamp.changes[:3])
+                more = len(stamp.changes) - 3
+                text = t("src_changed_line", before=stamp.before, changes=shown) + \
+                    (" " + t("pn_more", n=more) if more > 0 else "")
+                self.changed_label = _label(bidi.plain(text, he), "CardSub")
+                self.changed_label.setAlignment(side)
+                self.changed_label.setToolTip(tip_html(sources.stamp_tip(t, stamp.source, stamp), he))
+                col.addWidget(self.changed_label)
         if pet:
             chips += pet[1]
         changed = changed_tag(t, kb, key) if key.startswith("skill/") else None

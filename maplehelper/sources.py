@@ -126,6 +126,13 @@ def stat_source(kb, key: str) -> Stamp | None:
     return memo[key]
 
 
+def test_build(source: str) -> bool:
+    """A closed test's build ("COT2"). Once values come from the released game, what a test build had no longer
+    matters (the owner's rule, 2026-10-04): the card and the AI say the change between two tests, not a test's
+    values next to the game's own."""
+    return bool(re.fullmatch(r"COT\d+", source or ""))
+
+
 def source_of(kb, key: str) -> str:
     """The one source a card's values carry: the page's build, else MeowDB's own."""
     s = stat_source(kb, key)
@@ -354,12 +361,16 @@ def page_note(kb, key: str) -> str:
     bits: list[str] = []
     stamp = stat_source(kb, key)
     if stamp:
-        ch = "; ".join(f"{c.stat} {c.old} -> {c.new}" for c in stamp.changes[:6])
+        ch = "; ".join(f"{c.stat} {c.old} -> {c.new}" for c in stamp.changes[:6]) if test_build(stamp.source) else ""
         bits.append(f"stats are {stamp.source} values" + (f" (changed from {stamp.before}: {ch})" if ch else ""))
     elif key.partition("/")[0] in ("monster", "item", "skill"):
         bits.append("stats: MeowDB (no build label)")
     seen = set()
+    # a monster players reported drops for has no MSEA list any more (kb.drop_lists)
+    superseded = key.startswith("monster/") and bool(kb.drop_lists(key)[COMMUNITY])
     for m in markers(kb, key):
+        if m.kind == "drops" and superseded:
+            continue
         what = {"prices": f"shop prices are {m.source} prices",
                 "respawn": f"respawn timer from {m.source} map data" + (", unconfirmed" if "unconfirmed" in m.line else ""),
                 "drops": "the drop list is the MSEA reference list (old MapleSEA, not confirmed for Classic)",

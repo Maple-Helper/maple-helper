@@ -617,7 +617,10 @@ def test_real_shared_and_dropped_aliases(real):
 
 @needs_kb
 def test_real_drops_of_duplicate_named_items(real):
-    assert "item/1088" in real.monster_drops("monster/24") and "item/911" not in real.monster_drops("monster/24")
+    # (Iron Hog's Blue Moon was the case; players have reported Iron Hog's drops since, so its MSEA list is gone:
+    # Jr. Sentinel's MSEA list names one of two items called "Jr. Sentinel Shellpiece")
+    assert "item/347" in real.monster_drops("monster/1001") and "item/2584" not in real.monster_drops("monster/1001")
+    assert "item/911" not in real.monster_drops("monster/24")
 
 
 @needs_kb

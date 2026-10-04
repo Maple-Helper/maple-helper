@@ -67,6 +67,8 @@ HP | 10 | 8 | -2
 ACC | 30 | 33 | +3
 Similar monsters
 """
+# a monster no player reported drops for yet: only the MSEA reference list
+MSEA_ONLY = SNAIL.replace("Red Potion\nPotion\nMSEA reference drops", "MSEA reference drops", 1)
 
 LAUNCH = """Change history
 updated in Launch ▾ Stat | COT2 | Launch | Change
@@ -107,6 +109,7 @@ def tiny(tmp_path):
         ("item/11", "Red Potion", {"_type": "Use / Potion"}, SHOP),
         ("item/12", "Far Helm", {"Level Requirement": 70, "_type": "Equip / Hat"}, "REQ LEV 70 JOB Mage\n"),
         ("item/13", "Snail Shell", {"_type": "Etc / Monster Drop"}, ""),
+        ("monster/2", "Shell Snail", {"Level": 31, "HP": 9, "EXP": 3}, MSEA_ONLY),
     ], log)
 
 
@@ -187,18 +190,20 @@ def test_change_line_is_one_left_to_right_block_in_hebrew():
 # ---------------------------------------------------------------- the drop split
 
 def test_drops_split_by_list(tiny):
-    lists = tiny.drop_lists("monster/1")
-    assert lists == {sources.COMMUNITY: ["item/11"], sources.MSEA: ["item/13"]}      # Red Potion once, players' list
-    assert tiny.monster_drops("monster/1") == ["item/11", "item/13"]
-    assert tiny.drop_source("monster/1", "item/13") == sources.MSEA
+    # players reported Snail's drops: the game's own list supersedes the MSEA table (the owner's rule, 2026-10-04)
+    assert tiny.drop_lists("monster/1") == {sources.COMMUNITY: ["item/11"], sources.MSEA: []}
+    assert tiny.monster_drops("monster/1") == ["item/11"]
     assert tiny.drop_source("monster/1", "item/11") == sources.COMMUNITY
-    assert tiny.drop_source("monster/1", "item/10") is None
-    g = tiny.drop_group("monster/1", ["item/11", "item/13"])
-    assert g["sources"] == {"item/11": sources.COMMUNITY, "item/13": sources.MSEA}
+    assert tiny.drop_source("monster/1", "item/13") is None and tiny.drop_source("monster/1", "item/10") is None
+    # no reports yet: the MSEA reference list is what there is
+    assert tiny.drop_lists("monster/2") == {sources.COMMUNITY: [], sources.MSEA: ["item/13", "item/11"]}
+    assert tiny.drop_source("monster/2", "item/13") == sources.MSEA
+    g = tiny.drop_group("monster/2", ["item/13"])
+    assert g["sources"] == {"item/13": sources.MSEA}
     assert all(gr["sources"] for gr in tiny.drop_groups(["item/11", "item/13"]))
     digest = tiny.drops_digest("monster/1")
-    assert "community-confirmed in Classic" in digest.split("\n")[0] and "Red Potion [item/11]" in digest.split("\n")[0]
-    assert "MSEA reference list" in digest.split("\n")[1] and "Snail Shell [item/13]" in digest.split("\n")[1]
+    assert "community-confirmed in Classic" in digest and "Red Potion [item/11]" in digest and "MSEA" not in digest
+    assert "MSEA reference list" in tiny.drops_digest("monster/2")
 
 
 def test_drop_table_has_a_source_column(tiny):
@@ -206,7 +211,9 @@ def test_drop_table_has_a_source_column(tiny):
     rows = (tiny.root / "drops.tsv").read_text(encoding="utf-8").splitlines()
     assert rows[0].split("\t")[6:] == ["source", "votes"]     # (votes: players' votes on a community drop)
     by_item = {r.split("\t")[5]: r.split("\t")[6] for r in rows[1:]}
-    assert by_item == {"item/11": "community", "item/13": "MSEA"}
+    assert {(r.split("\t")[2], r.split("\t")[5], r.split("\t")[6]) for r in rows[1:]} == {
+        ("monster/1", "item/11", "community"), ("monster/2", "item/13", "MSEA"), ("monster/2", "item/11", "MSEA")}
+    assert by_item
     # a table from before the column is redone
     (tiny.root / "drops.ingame").write_text("drops.tsv lists only monsters the KB confirms are in the game\n",
                                             encoding="utf-8")
@@ -218,7 +225,9 @@ def test_drop_table_has_a_source_column(tiny):
 
 def test_instant_answers_carry_their_sources(tiny):
     a = quick.answer("Snail drops", tiny, en)
-    assert a.sources == [sources.COMMUNITY, sources.MSEA] and en("quick_drops_note_both") in a.text
+    assert a.sources == [sources.COMMUNITY] and en("quick_drops_note_community") in a.text
+    a = quick.answer("Shell Snail drops", tiny, en)
+    assert a.sources == [sources.MSEA] and en("quick_drops_note") in a.text
     a = quick.answer("Snail hp", tiny, en)
     assert a.sources == ["COT2"]
     a = quick.answer("who drops Snail Shell", tiny, en)
@@ -232,9 +241,15 @@ def test_instant_answers_carry_their_sources(tiny):
 def test_ai_gets_the_sources(tiny):
     note = sources.page_note(tiny, "monster/1")
     assert note.startswith("[sources: stats are COT2 values (changed from COT1: HP 10 -> 8; ACC 30 -> 33)")
-    assert "drop list is the MSEA reference list" in note
+    assert "MSEA" not in note                                   # players reported its drops: no MSEA list
+    assert "drop list is the MSEA reference list" in sources.page_note(tiny, "monster/2")
     prompt = brain.build_prompt("what does Snail drop?", None, None, tiny, False)
     assert "[sources: stats are COT2 values" in prompt and "community-confirmed in Classic" in prompt
+    assert "MSEA reference drops" not in brain._page(tiny, "monster/1", 6000)
+    assert "MSEA reference drops" in brain._page(tiny, "monster/2", 6000)
+    # values from the released game: the test builds' table is gone from the AI's page (item/10 is "Launch")
+    assert "Change history" not in brain._page(tiny, "item/10", 6000)
+    assert "Change history" in brain._page(tiny, "monster/1", 6000)
     assert "(MSEA)" in brain.SYSTEM_PROMPT and "(COT2)" in brain.REPLY_RULES
     reverse = brain.build_prompt("which monsters drop snail shell?", None, None, tiny, False)
     assert "Snail Shell [item/13] (MSEA)" in reverse
@@ -297,8 +312,12 @@ def test_cards_and_groups_show_their_source(tiny, qapp):
         [c for c in card.findChildren(QLabel) if c.objectName() == "UpdatedTag"][0].toolTip()
     assert chips(EntityCard(tiny, "item/10", "he")) == ["השקה"]
     assert chips(EntityCard(tiny, "item/13", "en")) == []            # no stat line, nothing to label
-    group = DropGroupCard(tiny, "monster/1", ["item/13", "item/11"], en)
-    assert chips(group) == ["Community", "MSEA"]                      # a group that mixes lists: one chip each
+    group = DropGroupCard(tiny, "monster/1", ["item/11"], en)
+    assert chips(group) == ["Community"]
+    assert chips(DropGroupCard(tiny, "monster/2", ["item/13"], en)) == ["MSEA"]
+    # the change from the test before, in sight (it was only in the tag's tooltip)
+    assert "ACC 30 → 33" in card.changed_label.text() and "COT1" in card.changed_label.text()
+    assert not hasattr(EntityCard(tiny, "item/10", "en"), "changed_label")      # the game's own values: no test
     assert chips(TileGrid(tiny, ["item/13"], "Snail drops", False, t=en, srcs=["MSEA"])) == ["MSEA"]
 
 
