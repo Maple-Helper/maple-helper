@@ -195,3 +195,12 @@ def test_the_cli_default_model_is_named(kb_copy, monkeypatch):
     assert b._running_on() == "\nYou run on Claude, model GPT-6.1-Sol."
     b.last_model = "claude-sonnet-5"
     assert b._running_on() == "\nYou run on Claude, model Sonnet 5."
+
+
+
+def test_grind_is_a_noun_spelled_the_owners_way():
+    """"לגרינד" in an answer reads "לעשות גריינד"; the spelling is "גריינד" (the owner, 2026-10-04)."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys("לא מתאים לגרינד בלבל 31") == "לא מתאים לעשות גריינד בלבל 31"
+    assert drop_keys("כדאי לגריינד על Ligator") == "כדאי לעשות גריינד על Ligator"
+    assert drop_keys("הגרינד שלכם") == "הגריינד שלכם" and drop_keys("grind spot") == "grind spot"

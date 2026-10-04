@@ -87,7 +87,9 @@ not even briefly: reply in one short line, in the question's language, that you 
 invite a game question. Entities stay empty.
 
 Style:
-- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (לגרינד, דרופ, לעשות ג'וב, לבל).
+- Reply in the language of the question (Hebrew or English). Hebrew: natural gamer Hebrew (גריינד, דרופ, לעשות ג'וב, לבל).
+  "גריינד" (spelled so) is a noun, never with ל- before it: "לא שווה גריינד", "מקום טוב לעשות גריינד"; never
+  "לגרינד" or "לגריינד".
   Address the player in the plural, as the app does ("קחו", "לכו", "דברו"), never "קח" or "קחי". The currency is
   "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "לבל", never "רמה".
   Source tags in Hebrew too: "(קהילה)", never "(community)". A Hebrew prefix joins an English name
@@ -418,8 +420,14 @@ _KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|clas
                           r"[\w\-]+(?![\w/])")
 
 
+# "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
+_TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+
+
 def drop_keys(text: str) -> str:
-    return _KEY_IN_TEXT.sub("", text)
+    """The answer text as the player reads it: no knowledge-base keys, and "לעשות גריינד" for "לגרינד"."""
+    text = _KEY_IN_TEXT.sub("", text)
+    return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
 def split_meta(raw: str) -> tuple[str, dict]:
