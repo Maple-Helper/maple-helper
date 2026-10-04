@@ -1278,8 +1278,6 @@ class ToolsDialog(GlassDialog):
         lb.setWordWrap(True)
         return self._zoomable(lb)
 
-    DROPPERS_SHOWN = 4
-
     def _droppers_label(self, needs: list[str]) -> QLabel | None:
         """ "מאיפה משיגים:" under "צריך:", item by item: the monsters that drop it, one a line with its picture
         (lowest level first), or the recipe that makes it ("Woodcrafting: 10 x Tree Branch"). By monster, one item
@@ -1298,15 +1296,12 @@ class ToolsDialog(GlassDialog):
                 continue
             rows = [f"<p {side} style='margin:4px 0 2px 0;'>{bidi.LRE}<u>{html.escape(name)}</u>{bidi.PDF}"
                     f"{bidi.RLM}:</p>"]
-            for m in mons[:self.DROPPERS_SHOWN]:
+            for m in mons:
                 path = self.kb.picture(m)
                 img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
                 who = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
                 rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
                             f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span></p>")
-            if len(mons) > self.DROPPERS_SHOWN:
-                rows.append(f"<p {side} style='margin:0 0 2px 0;'>"
-                            f"{html.escape(t('pn_more', n=len(mons) - self.DROPPERS_SHOWN))}</p>")
             if made:
                 # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
                 # in one line read backwards)
@@ -1355,11 +1350,12 @@ class ToolsDialog(GlassDialog):
         if where:
             col.addWidget(self._label(" · ".join(where), "CardSub"))
         if q.needs:
-            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4]))
-            who = self._droppers_label(q.needs[:4])
+            # the whole card, nothing cut ("and 2 more" hid what was needed and who drops it: the owner)
+            col.addWidget(self._things_label(t("q_needs_head"), q.needs))
+            who = self._droppers_label(q.needs)
             if who is not None:
                 col.addWidget(who)
-        gets = q.rewards[:3]
+        gets = q.rewards
         extra = " · ".join(x for x in (f"{q.mesos:,} mesos" if q.mesos else "", f"+{q.fame} Fame" if q.fame else "") if x)
         if gets or extra:
             col.addWidget(self._things_label(t("q_gets_head"), gets, extra))
@@ -1367,7 +1363,7 @@ class ToolsDialog(GlassDialog):
         base = self.c.base_class if self.c else ""
         for head, things in (("q_pick_head", q.rewards_pick(base)), ("q_random_head", q.rewards_random(base))):
             if things:
-                shown = things[:4] + ([t("pn_more", n=len(things) - 4)] if len(things) > 4 else [])
+                shown = things
                 col.addWidget(self._things_label(t(head), shown))
         # a reward that depends on the character's gender: both listed, each marked (the profile has no gender)
         by_gender = q.rewards_gender(t)
