@@ -113,7 +113,6 @@ class EntityPicker(QLineEdit):
         super().__init__()
         self.setPlaceholderText(placeholder)
         self.setAccessibleName(placeholder)         # a placeholder isn't read as the field's name
-        self.setClearButtonEnabled(True)
         self._icon = icon
         model = self._model(rows)
         comp = QCompleter(self)
@@ -148,6 +147,11 @@ class EntityPicker(QLineEdit):
         # a chevron says "this opens a list" before anyone clicks
         arrow = self.addAction(self._chevron(), QLineEdit.TrailingPosition)
         arrow.triggered.connect(self.open_list)
+        # an orange X beside it while something is typed: Qt's own clear button didn't show (the owner)
+        self._clear = self.addAction(self._cross(), QLineEdit.TrailingPosition)
+        self._clear.triggered.connect(lambda: (self.clear(), self.setFocus()))
+        self._clear.setVisible(False)
+        self.textChanged.connect(lambda text: self._clear.setVisible(bool(text)))
         self.setMinimumHeight(34)
         follow_typing(self, rtl)
 
@@ -192,6 +196,19 @@ class EntityPicker(QLineEdit):
         for it in rows:
             if _close(typed, str(it.data(NAME_ROLE))):
                 it.setData(f"{it.data(NAME_ROLE)}\u2063{typed}", FIND_ROLE)
+
+    @staticmethod
+    def _cross() -> QIcon:
+        from PySide6.QtGui import QColor, QPainter, QPen
+        pm = QPixmap(20, 20)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(QColor(theme.ORANGE_DEEP), 2.2, Qt.SolidLine, Qt.RoundCap))
+        p.drawLine(QPoint(6, 6), QPoint(14, 14))
+        p.drawLine(QPoint(14, 6), QPoint(6, 14))
+        p.end()
+        return QIcon(pm)
 
     def _chosen(self):
         # a close name picked: the box holds the name itself, not the misspelling it was found by
