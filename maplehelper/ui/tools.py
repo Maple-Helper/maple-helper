@@ -404,7 +404,8 @@ class ToolsDialog(GlassDialog):
         if name == "quests":
             return common + (tuple(sorted((c.crafts or {}).items())), self.q_mode.value(), self.__dict__.get("_q_level"),
                              self.q_search.text().strip(), self._q_limit, self.q_done_toggle.isChecked())
-        return common + (c.town, self._town_limit, self.town_done_toggle.isChecked())
+        return common + (c.town, self._town_limit, self.town_done_toggle.isChecked(), self.__dict__.get("_town_grade_pick"),
+                         self.town_search.text().strip())
 
     def refresh(self, name: str | None = None):
         """Redraw a page (or the current one) from the character and the KB."""
@@ -1541,15 +1542,32 @@ class ToolsDialog(GlassDialog):
         self.craft_level.valueChanged.connect(self._set_craft_level)
         self._row(sec, t("craft_my_level"), self.craft_level, hint=t("craft_level_hint"))
         lay.addWidget(sec)
-        self.craft_info = QVBoxLayout()           # who teaches the profession, where you work it
-        lay.addLayout(self.craft_info)
-        # what you can make now, or every recipe of the profession by level: how a later one is made (scrolls at
-        # Arcforge's higher levels) was nowhere to see (the owner)
-        self.craft_mode = Segmented([(t("craft_mode_now"), "now"), (t("craft_mode_all"), "all")], "now", t.rtl)
-        self.craft_mode.changed.connect(lambda *_: self._fill_crafting())
+        # under the profession, as on the quests page (the owner): its teacher and quests, what you can make now,
+        # or every recipe by level (how a later one is made, Arcforge's scrolls, was nowhere to see)
+        # two tabs, quests and recipes; the recipes split again into what you can make now and all of them (the
+        # owner's order)
+        self.craft_mode = Segmented([(t("craft_mode_teacher"), "teacher"), (t("craft_mode_recipes"), "recipes")],
+                                    "teacher", t.rtl)
+        self.craft_mode.changed.connect(lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
         lay.addWidget(self.craft_mode, 0, Qt.AlignHCenter)
+        self.craft_recipe_mode = Segmented([(t("craft_mode_now"), "now"), (t("craft_mode_all"), "all")], "now", t.rtl)
+        self.craft_recipe_mode.changed.connect(
+            lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
+        lay.addWidget(self.craft_recipe_mode, 0, Qt.AlignHCenter)
+        self.craft_search = EntityPicker([], self._p(t("craft_search")), icon=32, rtl=t.rtl)
+        self._craft_search_timer = QTimer(self, singleShot=True, interval=200)
+        self._craft_search_timer.timeout.connect(self._fill_crafting)
+        self.craft_search.textChanged.connect(lambda *_: self._craft_search_timer.start())
+        lay.addWidget(self.craft_search)
+        self.craft_info = QVBoxLayout()           # who teaches the profession, where you work it, its quests
+        lay.addLayout(self.craft_info)
         self.craft_head = self._label("", "ToolHeader")
         lay.addWidget(self.craft_head)
+        self.craft_levels_box = QWidget()
+        self.craft_levels = FlowLayout(self.craft_levels_box, spacing=6)
+        self.craft_levels_box.hide()
+        lay.addWidget(self.craft_levels_box)
+        self._craft_level_pick = None
         self.craft_src = QHBoxLayout()
         lay.addLayout(self.craft_src)
         self._source_line(self.craft_src, sources.MEOWDB)
@@ -1573,49 +1591,82 @@ class ToolsDialog(GlassDialog):
         t, c = self.t, self.c
         clear(self.craft_list)
         clear(self.craft_info)
-        self.craft_info.addWidget(self._label(t("craft_teacher_head"), "SectionHeader"))     # as over the quests
-        self.craft_info.addWidget(self._craft_info_card(self._prof()))
-        # the profession's quests as full quest cards, as on the quests page (just their names said too little: the
-        # owner): what they need, where to get it, what they give
-        i = crafting.info(self.kb, self._prof())
-        for name, lv, head in ((i.start_quest, i.start_level, "craft_start"), (i.master_quest, i.master_level, "craft_master")):
-            q = self._quest_by_name(name)
-            if q is None:
-                continue
-            self.craft_info.addWidget(self._label(t(head, lv=lv or q.opens_at()), "SectionHeader"))
-            self.craft_info.addWidget(self._quest_card(q, done=bool(c and q.key in c.quests_done)))
-        if not c:
-            self._no_character(self.craft_list)
-            return
+        clear(self.craft_levels)
+        mode = self.craft_mode.value()
+        teacher = mode == "teacher"
+        self.craft_search.setVisible(not teacher)
+        self.craft_recipe_mode.setVisible(not teacher)
+        self.craft_levels_box.setVisible(False)
         prof = self._prof()
         top = crafting.max_level(self.kb, prof)
-        lv = int((c.crafts or {}).get(prof, 1))
+        lv = int(((c.crafts or {}).get(prof, 1)) if c else 1)
         self.craft_level.blockSignals(True)
         self.craft_level.setMaximum(top)          # the + button and the typed-value check follow the new top
         self.craft_level.setValue(min(lv, top))
         self.craft_level.blockSignals(False)
+        if teacher:
+            self._set(self.craft_head, "")
+            self.craft_head.hide()
+            self.craft_info.addWidget(self._label(t("craft_teacher_head"), "SectionHeader"))
+            self.craft_info.addWidget(self._craft_info_card(prof))
+            # the profession's quests as full quest cards, as on the quests page: need, where to get it, reward
+            i = crafting.info(self.kb, prof)
+            for name, qlv, head in ((i.start_quest, i.start_level, "craft_start"),
+                                    (i.master_quest, i.master_level, "craft_master")):
+                q = self._quest_by_name(name)
+                if q is None:
+                    continue
+                self.craft_info.addWidget(self._label(t(head, lv=qlv or q.opens_at()), "SectionHeader"))
+                self.craft_info.addWidget(self._quest_card(q, done=bool(c and q.key in c.quests_done)))
+            return
+        self.craft_head.show()
+        if not c:
+            self._no_character(self.craft_list)
+            return
+        every = self.craft_recipe_mode.value() == "all"
         _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
-        # everything you can craft so far, not only what this exact level opened (newest first); or all of them
-        every = self.craft_mode.value() == "all"
+        # everything you can craft so far (newest level first), or every recipe (first level first)
         recipes = crafting.up_to(self.kb, prof, top if every else min(lv, top))
         if every:
             recipes.sort(key=lambda r: (r.level, -r.exp_per_meso, -r.exp))
+        self.craft_search.set_rows([(f"{r.name}  ·  {t('craft_level_group', n=r.level)}", r.name,
+                                     self._picture_path("item", r.name)) for r in recipes])
         head = t("craft_head_all" if every else "craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
         if nxt and nxt.needs_exp:
             head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
                               char=nxt.char_level or "?")
         self._set(self.craft_head, head)
+        # a chip a level ("רמה 4"), as on the quests page: a tap shows that level's recipes
+        levels: dict[int, int] = {}
+        for r in recipes:
+            levels[r.level] = levels.get(r.level, 0) + 1
+        if len(levels) > 1:
+            if self._craft_level_pick not in levels:
+                self._craft_level_pick = None
+            self.craft_levels_box.setVisible(True)
+            for value, text in [(None, t("q_all_levels"))] + [(x, t("craft_level_group", n=x)) for x in levels]:
+                b = QPushButton(self._p(text), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(value == self._craft_level_pick)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setAutoDefault(False)
+                b.clicked.connect(lambda _=False, v=value: (setattr(self, "_craft_level_pick", v), self._fill_crafting()))
+                self.craft_levels.addWidget(b)
+        if self._craft_level_pick is not None:
+            recipes = [r for r in recipes if r.level == self._craft_level_pick]
+        query = self.craft_search.text().strip().lower()
+        if query:
+            # by the recipe's name or an ingredient's ("Garnet Ore" finds what it goes into)
+            recipes = [r for r in recipes if query in r.name.lower() or any(query in n.lower() for _, n in r.ingredients)]
         if not recipes:
-            self.craft_list.addWidget(self._label(t("craft_none"), "RowHint"))
+            self.craft_list.addWidget(self._label(t("craft_no_match" if query else "craft_none"), "RowHint"))
             return
         last = None
-        if not every:
-            self.craft_list.addWidget(self._label(t("list_recipes"), "SectionHeader"))
         for i, r in enumerate(recipes):
-            if every and r.level != last:
-                last = r.level            # all the recipes, level by level
+            if r.level != last:
+                last = r.level            # level by level, as the quests are
                 self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
-            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every)))
+            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every and not query)))
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -1709,8 +1760,19 @@ class ToolsDialog(GlassDialog):
         self.town_basics = self._label(t("town_basics"), "RowHint")
         sec.add_widget(self.town_basics)
         lay.addWidget(sec)
+        # a search and a chip a grade, as on the quests and crafting pages (the owner)
+        self.town_search = EntityPicker([], self._p(t("q_search")), icon=32, rtl=t.rtl)
+        self._town_search_timer = QTimer(self, singleShot=True, interval=200)
+        self._town_search_timer.timeout.connect(lambda: self._fill_town())
+        self.town_search.textChanged.connect(lambda *_: self._town_search_timer.start())
+        lay.addWidget(self.town_search)
         self.town_head = self._label("", "ToolHeader")
         lay.addWidget(self.town_head)
+        self.town_grades_box = QWidget()
+        self.town_grades = FlowLayout(self.town_grades_box, spacing=6)
+        self.town_grades_box.hide()
+        lay.addWidget(self.town_grades_box)
+        self._town_grade_pick = None
         self.town_src = QHBoxLayout()
         lay.addLayout(self.town_src)
         self._source_line(self.town_src, sources.MEOWDB)
@@ -1757,14 +1819,44 @@ class ToolsDialog(GlassDialog):
         self._set(self.town_advice, "\n".join(lines) if lines else t("town_no_advice"))
         rows = quests.citizenship(self.kb, town, c.level, c.quests_done)
         self._set(self.town_head, t("town_head", n=len(rows), town=town))
+        clear(self.town_grades)
+        self.town_grades_box.hide()
         if c.level < 12:
             self.town_list.addWidget(self._label(t("town_too_low"), "RowHint"))
             return
+        def grade(q):
+            return q.grade[1] if q.grade else 0
+        rows = sorted(rows, key=lambda q: (grade(q), -q.exp))      # by the grade they ask, lowest first
+        self.town_search.set_rows([(q.name, q.name, self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
+        grades: dict[int, int] = {}
+        for q in rows:
+            grades[grade(q)] = grades.get(grade(q), 0) + 1
+        if len(grades) > 1:
+            if self._town_grade_pick not in grades:
+                self._town_grade_pick = None
+            self.town_grades_box.show()
+            for value, text in [(None, t("town_all_grades"))] + [(g, t("town_grade_group", n=g) if g else t("town_no_grade"))
+                                                                 for g in grades]:
+                b = QPushButton(self._p(text), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(value == self._town_grade_pick)
+                b.setCursor(Qt.PointingHandCursor)
+                b.setAutoDefault(False)
+                b.clicked.connect(lambda _=False, v=value: (setattr(self, "_town_grade_pick", v), self._fill_town()))
+                self.town_grades.addWidget(b)
+        if self._town_grade_pick is not None:
+            rows = [q for q in rows if grade(q) == self._town_grade_pick]
+        query = self.town_search.text().strip()
+        if query:
+            rows = [q for q in rows if q.matches(query)]
         if not rows:
-            self.town_list.addWidget(self._label(t("q_none"), "RowHint"))
-        if rows:
-            self.town_list.addWidget(self._label(t("list_quests"), "SectionHeader"))
+            self.town_list.addWidget(self._label(t("q_no_match" if query else "q_none"), "RowHint"))
+        last = None
         for q in rows[:self._town_limit]:
+            if grade(q) != last:
+                last = grade(q)           # grade by grade, as the quests are level by level
+                self.town_list.addWidget(self._label(t("town_grade_group", n=last) if last else t("town_no_grade"),
+                                                     "SectionHeader"))
             self.town_list.addWidget(self._quest_card(q))
         self._more_quests(self.town_list, len(rows), self._town_limit, "_town_limit")
         mine = [k for k in c.quests_done
