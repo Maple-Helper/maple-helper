@@ -1192,7 +1192,9 @@ class TileGrid(QFrame):
                   if (e := kb.get(k)) and any(stat_parts(e, tile=True)) and sources.stat_source(kb, k)]
         stat_chips = source_tags(t, builds) if t is not None else []
         if stat_chips:
-            outer.addLayout(chip_row(stat_chips, credit))
+            # "Stats: COT2": alone under the drops it read as the drops' source (the owner's question)
+            what = QLabel(bidi.plain(t("tiles_stats_from"), rtl), objectName="CardCredit")
+            outer.addLayout(chip_row([what] + stat_chips, credit))
         else:
             outer.addWidget(credit)
 
