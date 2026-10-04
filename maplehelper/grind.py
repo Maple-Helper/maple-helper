@@ -5,7 +5,9 @@ hunted, and, when the inventory is open on its Use tab, the mesos and the potion
 - measured: EXP gained (the EXP table bridges a level-up), mesos gained, potions used (a stack's count dropping);
 - worked out from the KB: what those potions cost (the NPC shop price, which the KB labels with a build: "COT2");
 - estimated ("~"): kills = EXP gained / the main monster's EXP, and the mesos the community's drop reports
-  expect from that many kills.
+  expect from that many kills;
+- loot (farming, farm.py): with the inventory open on its Etc or Equip tab, the items whose count went up, priced at
+  what an NPC pays for them (the KB's item page) and, over the kills, how often each dropped.
 A value that a read didn't give (the inventory was closed) starts at the first read that has it, so opening the
 inventory at an Update still measures the mesos from then on.
 """
@@ -32,6 +34,8 @@ class Reading:
     mesos: int | None = None
     potions: dict | None = None        # potion name -> count in the Use tab; None: the Use tab wasn't read
     inventory: bool = False            # the inventory window was open in the screenshot
+    etc: dict | None = None            # item name -> count in the Etc tab; None: the Etc tab wasn't read
+    equip: dict | None = None          # item name -> how many in the Equip tab; None: the Equip tab wasn't read
 
 
 def _whole(v) -> int | None:
@@ -66,18 +70,23 @@ def reading(t: float, update: dict | None, grind: dict | None) -> Reading:
     pct = round(float(pct), 2) if isinstance(pct, (int, float)) and not isinstance(pct, bool) and 0 <= pct <= 100 \
         else None
     mesos = _whole(g.get("mesos"))
-    pots = g.get("potions")
-    potions = None
-    if isinstance(pots, dict):
-        potions = {}
-        for name, n in pots.items():
-            n = _whole(n)
-            if isinstance(name, str) and name.strip() and n is not None and 0 <= n < 100_000:
-                potions[name.strip()] = potions.get(name.strip(), 0) + n
-    inv = g.get("inventory_open") is True or mesos is not None or potions is not None
+    potions, etc, equip = _counts(g.get("potions")), _counts(g.get("etc")), _counts(g.get("equip"))
+    inv = g.get("inventory_open") is True or any(x is not None for x in (mesos, potions, etc, equip))
     return Reading(t, lv if lv and 1 <= lv <= 250 else None, pct, _map(g.get("map")) or _map(update.get("map")),
                    _text(g.get("monster")), mesos if mesos is not None and 0 <= mesos < 10**11 else None,
-                   potions, inv)
+                   potions, inv, etc, equip)
+
+
+def _counts(v) -> dict | None:
+    """{"<item name>": count} from a read, summed per name; None when the read didn't give the tab at all."""
+    if not isinstance(v, dict):
+        return None
+    out: dict[str, int] = {}
+    for name, n in v.items():
+        n = _whole(n)
+        if isinstance(name, str) and name.strip() and n is not None and 0 <= n < 100_000:
+            out[name.strip()] = out.get(name.strip(), 0) + n
+    return out
 
 
 @dataclass
@@ -151,15 +160,22 @@ def is_potion(kb, key: str) -> bool:
 def inventory_hint(slots: list, kb) -> str:
     """For a grind read's prompt: the potions the app recognised in the inventory by their icons (inventory.read),
     so the AI only reads each one's count and names them as the KB does."""
-    found = []
+    found, loot = [], []
     for s in slots:
-        if getattr(s, "status", "") == "certain" and s.matches and is_potion(kb, s.matches[0][0]):
-            found.append(f"slot {s.index}: {kb.get(s.matches[0][0])['name']}")
-    if not found:
+        if getattr(s, "status", "") != "certain" or not s.matches:
+            continue
+        key = s.matches[0][0]
+        e = kb.get(key) or {}
+        if is_potion(kb, key):
+            found.append(f"slot {s.index}: {e['name']}")
+        elif str(e.get("type", "")).startswith(("Etc", "Equip")):
+            loot.append(f"slot {s.index}: {e['name']}")
+    if not found and not loot:
         return ""
+    # (farming: the Etc and Equip tabs' items are counted as loot, farm.py)
     return ("\n<inventory_read>The app matched the inventory's icons to the database (slots count left to right, top "
-            "to bottom): " + "; ".join(found) + ". Use these names in \"potions\" and read each slot's stack count "
-            "(the small number at its bottom left).</inventory_read>")
+            "to bottom): " + "; ".join(found + loot) + ". Use these names in \"potions\", \"etc\" and \"equip\" and "
+            "read each slot's stack count (the small number at its bottom left).</inventory_read>")
 
 
 def potion_price(kb, name: str) -> tuple[int, str] | None:
@@ -224,6 +240,10 @@ class Summary:
     kills_h: int | None = None
     expected: int | None = None           # ~ mesos the community reports expect from the kills
     reports: int = 0
+    loot: list = field(default_factory=list)         # (name, gained, NPC price or None, source or "")
+    loot_read: bool = False               # the Etc or Equip tab was read twice: the loot is a measured number
+    loot_value: int | None = None         # what an NPC pays for the loot gained
+    loot_h: int | None = None
 
 
 def _per_hour(value: float, seconds: float) -> int | None:
@@ -276,6 +296,7 @@ def summarize(kb, s: Session, now: float | None = None) -> Summary:
         out.potions_cost = cost
         if out.mesos is not None:
             out.net = out.mesos - cost
+    _loot(kb, s, out)
     out.monster_exp = plan.monster_exp(kb, s.monster) if s.monster else None
     if out.exp and out.monster_exp:
         out.kills = round(out.exp / out.monster_exp)
@@ -287,12 +308,43 @@ def summarize(kb, s: Session, now: float | None = None) -> Summary:
     return out
 
 
+def _loot(kb, s: Session, out: Summary) -> None:
+    """The items the Etc and Equip tabs gained between the first and the last read of each (a tab read once
+    measures nothing). A count that went down was sold, used or dropped: not loot, and not counted against it."""
+    from . import farm
+    gained: dict[str, int] = {}
+    span = 0.0
+    for tab in ("etc", "equip"):
+        reads = [r for r in s.reads if getattr(r, tab) is not None]
+        if len(reads) < 2:
+            continue
+        a, b = getattr(reads[0], tab), getattr(reads[-1], tab)
+        out.loot_read = True
+        span = max(span, reads[-1].t - reads[0].t)
+        for name, n1 in b.items():
+            if n1 > a.get(name, 0):
+                gained[name] = gained.get(name, 0) + n1 - a.get(name, 0)
+    if not out.loot_read:
+        return
+    total = 0
+    for name, n in gained.items():
+        v = farm.value(kb, farm.item_key(kb, name))
+        out.loot.append((name, n, v.price if v else None, v.source if v else ""))
+        total += n * v.price if v else 0
+    out.loot.sort(key=lambda x: (-(x[1] * (x[2] or 0)), -x[1], x[0]))
+    out.loot_value = total
+    out.loot_h = _per_hour(total, span)
+
+
 def record(s: Summary, start: float) -> dict:
     """A finished session as the Recent sessions table keeps it."""
+    from .farm import MAX_LOOT_KEPT
     return {"start": round(start), "seconds": round(s.seconds), "map": s.map, "monster": s.monster,
             "level_from": s.level_from, "level_to": s.level_to, "exp": s.exp, "exp_h": s.exp_h,
             "mesos": s.mesos, "mesos_h": s.mesos_h, "potions_cost": s.potions_cost, "net": s.net,
-            "kills": s.kills, "expected": s.expected}
+            "kills": s.kills, "expected": s.expected,
+            "loot": [[name, n] for name, n, _, _ in s.loot[:MAX_LOOT_KEPT]] if s.loot_read else None,
+            "loot_value": s.loot_value}
 
 
 # ---------------------------------------------------------------- saved per character
@@ -341,7 +393,7 @@ class Store:
         s.ended = now or time.time()
         summary = summarize(kb, s, s.ended)
         rec = record(summary, s.start)
-        if summary.seconds >= 60 and any(rec[k] is not None for k in ("exp", "mesos", "potions_cost")):
+        if summary.seconds >= 60 and any(rec[k] is not None for k in ("exp", "mesos", "potions_cost", "loot_value")):
             self._recent[cid] = ([rec] + [r for r in self._recent.get(cid, []) if isinstance(r, dict)])[:MAX_RECENT]
         else:
             rec = None

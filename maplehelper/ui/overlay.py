@@ -2028,7 +2028,11 @@ class Overlay(QWidget):
                       "\"mesos\": the meso amount at the bottom of the inventory window (an integer, only when the "
                       "inventory is open), \"potions\": {\"<item name>\": count} for every HP/MP recovery item in the "
                       "inventory's Use tab with its stack count, summed per item (only when the Use tab is the one "
-                      "shown; {} when it shows none)}. Leave out anything you can't read clearly.")
+                      "shown; {} when it shows none), \"etc\": {\"<item name>\": count} for every item in the "
+                      "inventory's Etc tab with its stack count, summed per item (only when the Etc tab is the one "
+                      "shown; a slot with no number holds 1; {} when it is empty), \"equip\": {\"<item name>\": how "
+                      "many} for the items in the inventory's Equip tab (only when the Equip tab is the one shown; {} "
+                      "when it is empty)}. Leave out anything you can't read clearly.")
 
     SYNC_TIMEOUT_MS = 60_000       # a read still going after a minute is stopped (the button spun on, seen live)
 

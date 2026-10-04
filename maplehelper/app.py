@@ -512,8 +512,8 @@ class MapleHelperApp:
                              t("cancel"), t.rtl, self.style()).exec():
             return
         self.profiles.remove(cid)
-        # nothing of the deleted character stays behind: its pinned answers, tracked items and hidden tips
-        for key in ("pins", "wishlist", "tips_dismissed"):
+        # nothing of the deleted character stays behind: its pinned answers, tracked items, farm target, hidden tips
+        for key in ("pins", "wishlist", "farm_target", "tips_dismissed"):
             data = dict(self.settings[key] or {})
             if data.pop(cid, None) is not None:
                 self.settings[key] = data

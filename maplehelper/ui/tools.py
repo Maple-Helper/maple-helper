@@ -14,15 +14,17 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem,
 from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import availability, bidi, buildplan, combat, crafting, glossary, grind, guides, market, plan, quests, routes, sitedata, sources
+from .. import (availability, bidi, buildplan, combat, crafting, farm, glossary, grind, guides, market, plan, quests, quick,
+               routes, sitedata, sources)
 from ..i18n import I18n
 from . import terms, theme
 from .controls import FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag
+from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag,
+                      vote_tag)
 from .patchnotes import gutter
 
-PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more", "route", "pets")
+PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "farm", "more", "route", "pets")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -327,6 +329,7 @@ class ToolsDialog(GlassDialog):
         # (all nine at once held the window back for a second or more). A page another one reaches into
         # before then is built on the spot (__getattr__).
         self.pages = {}
+        self._grind_choice = ""            # a monster picked before the session starts (grind tracker, farm page)
         self._pending = list(PAGES)
         for _ in PAGES:
             self.stack.addWidget(QWidget())
@@ -1967,7 +1970,6 @@ class ToolsDialog(GlassDialog):
         recent.add_widget(ask)
         lay.addWidget(recent)
         lay.addStretch(1)
-        self._grind_choice = ""            # a monster picked before the session starts
         # the session time and "updated 20 s ago" move on between reads (only the clock: the numbers change at a read)
         self._grind_clock = QTimer(self, interval=10_000, timeout=self._grind_tick)
         self._grind_clock.start()
@@ -1989,8 +1991,12 @@ class ToolsDialog(GlassDialog):
         how = self.runner.ask(what, c.id, self._grind_choice if what == "start" else "")
         if not how:
             return
-        self._gs(self.grind_status, self.t("grind_reading"))
-        self._grind_buttons(busy=True)
+        if "grind_status" in self.__dict__:
+            self._gs(self.grind_status, self.t("grind_reading"))
+            self._grind_buttons(busy=True)
+        if "farm_status" in self.__dict__:
+            self._fs(self.farm_status, self.t("grind_reading"))
+            self._farm_buttons(busy=True)
         if how == "read":
             self._step_aside(self.grind_sync_requested.emit)
 
@@ -2003,8 +2009,12 @@ class ToolsDialog(GlassDialog):
     def grind_changed(self):
         """A read landed, failed or was skipped: the page follows, once it is built."""
         try:
-            if "exp" not in self.__dict__.get("_pending", ()):
+            pending = self.__dict__.get("_pending", ())
+            if "exp" not in pending:
                 self.refresh("exp")
+            if "farm" not in pending:
+                self._fill_farm_session()           # the session only: the lists above it don't change on a read
+                self._fill_farm_records()
         except RuntimeError:       # the window closed meanwhile
             pass
 
@@ -2032,6 +2042,8 @@ class ToolsDialog(GlassDialog):
         else:
             self._grind_choice = name           # for the next session
         self.refresh("exp")
+        if "farm" in self.pages:
+            self._fill_farm_session()
 
     def _grind_buttons(self, busy: bool = False):
         c = self.c
@@ -2044,8 +2056,11 @@ class ToolsDialog(GlassDialog):
 
     def _grind_tick(self):
         try:
-            if self.stack.currentIndex() == PAGES.index("exp") and self.isVisible() and not self._asked_read():
-                self._fill_exp_clock()
+            if self.isVisible() and not self._asked_read():
+                if self.stack.currentIndex() == PAGES.index("exp"):
+                    self._fill_exp_clock()
+                elif self.stack.currentIndex() == PAGES.index("farm"):
+                    self._fill_farm_session()
         except RuntimeError:       # the window closed meanwhile
             pass
 
@@ -2294,6 +2309,504 @@ class ToolsDialog(GlassDialog):
                 spot += f" ({r['monster']})"
             lines.append(f"• {spot}: " + ", ".join(bits))
         self.ask_requested.emit(t("grind_ask_q", lines="\n".join(lines)), False)
+
+    # farming ---------------------------------------------------------------
+    # Hunting for drops rather than EXP (farm.py): who drops the item you want and where, which monsters around your
+    # level drop what pays, and what a session counted. The session is the grind tracker's own (one per
+    # character): with the inventory open on its Etc or Equip tab, its reads also count the loot.
+
+    FARM_CELLS = ("time", "loot", "loot_h", "kills")
+
+    def _page_farm(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        # a term gets its "?" once on this page, in the intro (as on the grind tracker)
+        self._farm_seen: set = set()
+        lay.addWidget(self._label(t("farm_intro"), "ToolHeader", seen=self._farm_seen))
+        want = Section(t("farm_want"), t.rtl)
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(6)
+        keys = farm.farmable(self.kb)
+        rows = [(self.kb.get(k)["name"], self.kb.get(k)["name"], self.kb.picture(k)) for k in keys]
+        self.farm_input = EntityPicker(rows, self._p(t("farm_placeholder", n=f"{len(rows):,}")), icon=32, rtl=t.rtl)
+        self.farm_input.picked.connect(self._farm_pick)
+        self.farm_input.textChanged.connect(lambda text: None if text.strip() else self._farm_pick())
+        bl.addWidget(self.farm_input)
+        # the wishlist's items as one-click picks (only the ones some monster drops)
+        self.farm_wish_head = self._fl("", "RowHint")
+        bl.addWidget(self.farm_wish_head)
+        self.farm_wished = FlowLayout(spacing=6)
+        bl.addLayout(self.farm_wished)
+        want.add_widget(box)
+        lay.addWidget(want)
+        self.farm_item = QVBoxLayout()
+        self.farm_item.setSpacing(8)
+        lay.addLayout(self.farm_item)
+        lay.addWidget(self._farm_header(t("farm_worth")))
+        self.farm_worth_head = self._fl("", "RowHint")
+        lay.addWidget(self.farm_worth_head)
+        self.farm_targets = QVBoxLayout()
+        self.farm_targets.setSpacing(8)
+        lay.addLayout(self.farm_targets)
+        lay.addWidget(self._farm_session_section())
+        rec = Section(t("farm_records"), t.rtl)
+        box = QWidget()
+        self.farm_records = QVBoxLayout(box)
+        self.farm_records.setContentsMargins(0, 8, 0, 8)
+        self.farm_records.setSpacing(6)
+        rec.add_widget(box)
+        lay.addWidget(rec)
+        lay.addStretch(1)
+        return sc
+
+    def _farm_header(self, text: str) -> QLabel:
+        """A list's title above its cards, as a Section's header looks."""
+        lb = QLabel(self._p(text if self.t.rtl else text.upper()), objectName="SectionHeader")
+        lb.setWordWrap(True)
+        return lb
+
+    def _farm_session_section(self) -> Section:
+        t = self.t
+        sec = Section(t("farm_session"), t.rtl)
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.farm_tag = tag("", "TagGood")
+        self.farm_state = self._fl("", "RowLabel")
+        tl.addLayout(chip_row([self.farm_tag], self.farm_state, lead=True))
+        self.farm_mob = self._fl("", "CardSub")
+        tl.addWidget(self.farm_mob)
+        sec.add_widget(top)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.farm_cells = {}
+        for i, key in enumerate(self.FARM_CELLS):
+            box = QWidget()
+            bl = self._big("–", self._p(t(f"farm_cell_{key}")), explain=False)      # the tooltip explains it
+            bl.setContentsMargins(0, 0, 0, 0)
+            box.setLayout(bl)
+            grid.addWidget(box, i // 2, i % 2)
+            grid.setColumnStretch(i % 2, 1)
+            self.farm_cells[key] = (box, bl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.farm_lines = QVBoxLayout(lines)
+        self.farm_lines.setContentsMargins(0, 8, 0, 8)
+        self.farm_lines.setSpacing(6)
+        sec.add_widget(lines)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.farm_status = self._fl("", "RowHint")
+        fl.addWidget(self.farm_status)
+        btns = QHBoxLayout()
+        btns.setSpacing(8)
+        self.farm_start = QPushButton(self._p(t("grind_start")), objectName="Primary")
+        self.farm_update = QPushButton(self._p(t("grind_update")), objectName="Primary")
+        self.farm_end = QPushButton(self._p(t("grind_end")), objectName="Secondary")
+        for b, then in ((self.farm_start, "start"), (self.farm_update, "update"), (self.farm_end, "end")):
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, w=then: self._grind_read(w))
+            btns.addWidget(b)
+        btns.addStretch(1)
+        fl.addLayout(btns)
+        sec.add_widget(foot)
+        return sec
+
+    def _fl(self, text: str, obj: str) -> QLabel:
+        """A farm page label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._farm_seen))
+
+    def _fs(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._farm_seen))
+
+    def _farm_target(self) -> str | None:
+        """The item the active character farms for (settings "farm_target", per character), if the KB has it."""
+        c = self.c
+        key = (self.settings["farm_target"] or {}).get(c.id) if c else None
+        return key if key and self.kb.get(key) else None
+
+    def _set_farm_target(self, key: str | None) -> None:
+        c = self.c
+        if not c:
+            return
+        data = dict(self.settings["farm_target"] or {})
+        if key:
+            data[c.id] = key
+        else:
+            data.pop(c.id, None)
+        self.settings["farm_target"] = data
+        self.settings.save()
+
+    def _farm_pick(self):
+        """The item box: an exact name, else the shortest item some monster drops whose name holds what was typed."""
+        name = self.farm_input.text().strip()
+        key = farm.item_key(self.kb, name) if name else None
+        if name and key not in self.kb.droppers:
+            q = name.lower()
+            part = sorted((self.kb.get(k)["name"] for k in farm.farmable(self.kb) if q in self.kb.get(k)["name"].lower()),
+                          key=lambda n: (len(n), n))
+            key = self.kb._item_by_name.get(part[0].lower()) if part else key
+        if name and not key:
+            self._set_farm_target(None)
+            self._fill_farm(missing=name)
+            return
+        self._set_farm_target(key)
+        self.refresh("farm")
+
+    def _farm_choose(self, key: str):
+        """An item picked from a list on the page (a wishlist chip, a drop of a monster worth farming)."""
+        self._set_farm_target(key)
+        self.refresh("farm")
+        try:
+            self.pages["farm"].verticalScrollBar().setValue(0)        # its droppers, at the top
+        except (KeyError, RuntimeError):
+            pass
+
+    def _farm_hunt(self, name: str):
+        """"Farm it": the monster becomes the session's main monster (its kills, and so each drop's rate, are
+        worked out from it), as the grind tracker's own monster box sets it."""
+        c = self.c
+        if c and self.grind.running(c.id):
+            self.grind.set_monster(c.id, name)
+        else:
+            self._grind_choice = name
+        if "exp" in self.pages:
+            self.refresh("exp")
+        self._fill_farm_session()
+
+    def _fill_farm(self, missing: str = ""):
+        t, c = self.t, self.c
+        for box in (self.farm_item, self.farm_targets, self.farm_wished):
+            clear(box)
+        if not c:
+            self.farm_wish_head.hide()
+            self.farm_worth_head.hide()
+            self._no_character(self.farm_item)
+            self._fill_farm_session()
+            self._fill_farm_records()
+            return
+        key = self._farm_target()
+        if not self.farm_input.hasFocus():
+            name = (self.kb.get(key) or {}).get("name", "") if key else missing
+            if self.farm_input.text() != name:
+                self.farm_input.blockSignals(True)
+                self.farm_input.setText(name)
+                self.farm_input.setCursorPosition(0)
+                self.farm_input.blockSignals(False)
+        from .. import wishlist
+        wished = [k for k in wishlist.items(self.settings, c.id) if k in self.kb.droppers and self.kb.get(k)]
+        self.farm_wish_head.setVisible(bool(wished))
+        if wished:
+            self._fs(self.farm_wish_head, t("farm_from_wishlist"))
+            for k in wished:
+                b = QPushButton(bidi.ltr_name(self.kb.get(k)["name"], t.rtl), objectName="Chip")
+                b.setCheckable(True)
+                b.setChecked(k == key)
+                b.setCursor(Qt.PointingHandCursor)
+                b.clicked.connect(lambda _=False, k=k: self._farm_choose(k))
+                self.farm_wished.addWidget(b)
+        if missing:
+            self.farm_item.addWidget(self._fl(t("farm_none", name=bidi.ltr_block(missing, t.rtl)), "RowHint"))
+        elif key:
+            self._fill_farm_item(key)
+        else:
+            self.farm_item.addWidget(self._fl(t("farm_pick"), "RowHint"))
+        self._fill_farm_targets()
+        self._fill_farm_session()
+        self._fill_farm_records()
+
+    def _fill_farm_item(self, key: str):
+        """The wanted item: what an NPC pays for it, then every monster that drops it and where."""
+        t, kb, c = self.t, self.kb, self.c
+        e = kb.get(key)
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 10, 12, 10)
+        row.setSpacing(12)
+        row.addWidget(self._picture(key, 48), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        title = QLabel(bidi.ltr_name(e["name"], t.rtl), objectName="CardName")
+        title.setWordWrap(True)
+        updated = updated_tag(t, kb, key)
+        if updated:
+            col.addLayout(chip_row([updated], title))
+        else:
+            col.addWidget(title)
+        v = farm.value(kb, key)
+        if v:
+            col.addLayout(chip_row([source_tag(t, v.source)],
+                                   self._fl(t("price_npc_buys", n=f"{v.price:,}"), "RowLabel"), lead=True))
+        else:
+            col.addWidget(self._fl(t("farm_no_npc_price"), "RowHint"))
+        # a label link, which wraps in a narrow window (a QPushButton#Link never does)
+        fm = WrapLink(t("farm_fm_price"), t.rtl)
+        fm.clicked.connect(lambda n=e["name"]: self._farm_price(n))
+        col.addWidget(fm)
+        row.addLayout(col, 1)
+        self.farm_item.addWidget(card)
+        ds = farm.droppers(kb, key, c.level if c else None)
+        head = self._fl(t("wish_dropped_by") if ds else t("wish_no_droppers"), "ToolHeader")
+        # each drop's list: one chip beside "Dropped by" when every dropper's drop is on the same one, else one on
+        # each dropper's card (as the wishlist window does)
+        mixed = len({d.source for d in ds}) > 1
+        chips = [] if mixed else source_tags(t, [d.source for d in ds])
+        self.farm_item.addLayout(chip_row(chips, head) if chips else _alone(head))
+        if not ds:
+            return
+        self.farm_item.addWidget(self._fl(quick.drops_note(t, [d.source for d in ds]), "RowHint"))
+        for d in ds:
+            self.farm_item.addWidget(self._dropper_card(d, mixed))
+
+    def _picture(self, key: str, size: int) -> QLabel:
+        pic = QLabel()
+        pic.setFixedSize(size, size)
+        pic.setAlignment(Qt.AlignCenter)
+        path = self.kb.picture(key)
+        if path:
+            pm = QPixmap(str(path))
+            if not pm.isNull():
+                pic.setPixmap(pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        return pic
+
+    def _fit_tag(self, fit: str, boss: bool = False) -> QLabel:
+        t = self.t
+        if boss:
+            return info_tag(t, t("farm_fit_boss"), t("farm_fit_boss_tip"), "TagWarn")
+        kind = {"easy": "TagGood", "range": "Tag", "hard": "TagWarn"}[fit]
+        return info_tag(t, t(f"farm_fit_{fit}"), t(f"farm_fit_{fit}_tip"), kind)
+
+    def _dropper_card(self, d: farm.Dropper, mixed: bool) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 8, 12, 8)
+        row.setSpacing(10)
+        row.addWidget(self._picture(d.key, 44), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        # "Name · Lv. N" as one English block, the same order as the training spots and the wishlist
+        name = QLabel(bidi.ltr_name(f"{d.name} · Lv. {d.level}" if d.level else d.name, t.rtl), objectName="CardName")
+        name.setWordWrap(True)
+        col.addWidget(name)
+        if d.map:
+            col.addWidget(self._fl(bidi.ltr_block(self.kb.map_label(d.map), t.rtl), "CardSub"))
+        chips = FlowLayout(spacing=5)
+        chips.addWidget(self._fit_tag(d.fit, d.boss))
+        if mixed:
+            chips.addWidget(source_tag(t, d.source))
+        if d.vote:
+            chips.addWidget(vote_tag(t, d.vote))
+        if d.mesos:
+            mt = tag(self._p(mesos_text(t, d.mesos)), "Tag")
+            mt.setToolTip(tip_html(mesos_tip(t, d.mesos), t.rtl))
+            chips.addWidget(mt)
+        col.addLayout(chips)
+        col.addLayout(self._farm_links(d.key, d.name, d.map, d.boss))
+        row.addLayout(col, 1)
+        return card
+
+    def _farm_links(self, key: str, name: str, map_name: str, boss: bool = False) -> QHBoxLayout:
+        """A monster's actions: farm it (the session's monster), the way to its map, ask the chat about it."""
+        t = self.t
+        links = QHBoxLayout()
+        links.setContentsMargins(0, 2, 0, 0)
+        links.setSpacing(14)
+        acts = [] if boss else [("farm_hunt", lambda _=False, n=name: self._farm_hunt(n))]
+        if map_name:
+            acts.append(("farm_route", lambda _=False, m=map_name: self._farm_route(m)))
+        acts.append(("ask_short", lambda _=False, k=key: self.tag_requested.emit(k)))
+        for text, then in acts:
+            b = QPushButton(self._p(t(text)), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.clicked.connect(then)
+            links.addWidget(b)
+        links.addStretch(1)
+        return links
+
+    def _farm_route(self, map_name: str):
+        """The way to a monster's map, from the character's map (the How to get there tab)."""
+        self.show_page(PAGES.index("route"))
+        g = self.route_graph
+        mid = g.find(map_name)
+        if mid:
+            self.route_to.setText(g.name(mid))
+            self.route_to.setCursorPosition(0)
+        self._find_route()
+
+    def _farm_price(self, name: str):
+        """The item's prices in full, the Free Market's too (the Item price tab)."""
+        self.show_page(PAGES.index("prices"))
+        self.price_input.setText(name)
+        self.price_input.setCursorPosition(0)
+        self._fill_prices()
+
+    def _fill_farm_targets(self):
+        """Monsters around the level whose drops pay most at an NPC (no drop rates in the KB: by the best drop)."""
+        t, c = self.t, self.c
+        rows = farm.targets(self.kb, c.level, n=6)
+        self.farm_worth_head.show()
+        self._fs(self.farm_worth_head, t("farm_worth_hint", lo=max(1, c.level - farm.FARM_BELOW),
+                                          hi=c.level + combat.SPOT_ABOVE))
+        if not rows:
+            self.farm_targets.addWidget(self._fl(t("farm_worth_none"), "RowHint"))
+            return
+        for r in rows:
+            self.farm_targets.addWidget(self._target_card(r))
+
+    def _target_card(self, r: farm.Target) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 10, 12, 10)
+        row.setSpacing(12)
+        row.addWidget(self._picture(r.key, 48), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        name = QLabel(bidi.ltr_name(f"{r.name} · Lv. {r.level}", t.rtl), objectName="CardName")
+        name.setWordWrap(True)
+        col.addWidget(name)
+        col.addWidget(self._fl(bidi.ltr_block(self.kb.map_label(r.map), t.rtl), "CardSub"))
+        chips = FlowLayout(spacing=5)
+        chips.addWidget(self._fit_tag(r.fit))
+        if r.mesos:
+            mt = tag(self._p(mesos_text(t, r.mesos)), "Tag")
+            mt.setToolTip(tip_html(mesos_tip(t, r.mesos), t.rtl))
+            chips.addWidget(mt)
+        col.addLayout(chips)
+        # its best-paying drops, each a link that makes it the wanted item, with the list it is on
+        for d in r.drops:
+            b = QPushButton(bidi.ltr_name(f"{d.name} · {d.value.price:,} mesos", t.rtl), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.setToolTip(tip_html(t("farm_drop_tip", item=d.name), t.rtl))
+            b.clicked.connect(lambda _=False, k=d.key: self._farm_choose(k))
+            col.addLayout(chip_row([source_tag(t, d.source)], b))     # the chip right after its drop
+        col.addLayout(self._farm_links(r.key, r.name, r.map))
+        row.addLayout(col, 1)
+        return card
+
+    def _farm_cell(self, key: str, value: str, tip: str = ""):
+        box, label = self.farm_cells[key]
+        label.setText(value)
+        box.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'farm_cell_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _farm_buttons(self, busy: bool = False):
+        if "farm_start" not in self.__dict__:
+            return
+        c = self.c
+        running = bool(c and self.grind.running(c.id))
+        self.farm_start.setVisible(not running)
+        self.farm_update.setVisible(running)
+        self.farm_end.setVisible(running)
+        for b in (self.farm_start, self.farm_update, self.farm_end):
+            b.setEnabled(bool(c) and not busy)
+
+    def _fill_farm_session(self):
+        """The grind tracker's session, as loot: what the Etc / Equip tab reads gained, what it sells for, and how
+        often each item dropped over the session's kills."""
+        t, c = self.t, self.c
+        clear(self.farm_lines)
+        self._farm_buttons(busy=self._asked_read())
+        s = self.grind.session(c.id) if c else None
+        if not s:
+            self.farm_tag.hide()
+            self._fs(self.farm_state, t("grind_idle_state") if c else t("tool_no_char"))
+            mob = self._grind_choice if c else ""
+            self.farm_mob.setVisible(bool(mob))
+            if mob:
+                self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)))
+            for k in self.FARM_CELLS:
+                self._farm_cell(k, "–")
+            self.farm_lines.parentWidget().hide()
+            self._fs(self.farm_status, t("farm_idle") if c else "")
+            return
+        self.farm_tag.show()
+        self.farm_tag.setObjectName("Tag" if s.ended else "TagGood")
+        self.farm_tag.setText(self._p(t("grind_tag_ended" if s.ended else "grind_tag_running")))
+        self.farm_tag.style().unpolish(self.farm_tag)
+        self.farm_tag.style().polish(self.farm_tag)
+        end = s.ended or time.time()
+        self._fs(self.farm_state, t("grind_ended_state", time=self._clock(end - s.start)) if s.ended else
+                 t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        mob = s.monster if not (s.ended and self._grind_choice) else self._grind_choice
+        self.farm_mob.show()
+        self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)) if mob else t("farm_mob_none"))
+        sm = grind.summarize(self.kb, s)
+        self._farm_cell("time", self._p(self._clock(sm.seconds)), t("grind_tip_time"))
+        wait = t("grind_tip_wait")
+        no_loot = t("farm_tip_no_loot")
+        self._farm_cell("loot", self._num(sm.loot_value), t("farm_tip_loot") if sm.loot_read else no_loot)
+        self._farm_cell("loot_h", self._num(sm.loot_h), "" if sm.loot_h is not None else
+                        (wait if sm.loot_read else no_loot))
+        if sm.kills is not None:
+            self._farm_cell("kills", self._num(sm.kills, approx=True),
+                            t("grind_tip_kills", mob=bidi.ltr_block(sm.monster, t.rtl), n=f"{sm.monster_exp:,}"))
+        else:
+            self._farm_cell("kills", "–", t("grind_tip_no_monster") if not sm.monster else wait)
+        self._farm_loot_lines(sm)
+        self.farm_lines.parentWidget().setVisible(self.farm_lines.count() > 0)
+        if self._asked_read():
+            self._fs(self.farm_status, t("grind_reading"))
+        elif self.runner.note:
+            # (the grind tracker's "open the Use tab" isn't this page's advice: the loot line says which tab)
+            self._fs(self.farm_status, "\n".join(t(k) for k in self.runner.note if k != "grind_no_inv"))
+        elif not s.ended:
+            self._fs(self.farm_status, t("farm_running_hint"))
+        else:
+            self._fs(self.farm_status, t("farm_idle"))
+
+    def _farm_loot_lines(self, sm):
+        t, add = self.t, self.farm_lines.addWidget
+        if not sm.loot_read:
+            add(self._fl(t("farm_loot_wait"), "RowHint"))
+            return
+        if not sm.loot:
+            add(self._fl(t("farm_loot_none"), "RowHint"))
+            return
+        target = (self.kb.get(self._farm_target() or "") or {}).get("name", "").lower()
+        for name, n, price, src in sm.loot:
+            bits = [bidi.ltr_block(f"{name} ×{n}", t.rtl)]
+            if price:
+                bits.append(t("farm_loot_value", n=f"{n * price:,}"))
+            if sm.kills:
+                bits.append(t("farm_every", n=f"{max(1, round(sm.kills / n)):,}"))
+            text = " · ".join(bits)
+            if target and name.lower() == target:
+                text = "**" + text + "**"          # the item the player farms for
+            label = self._fl(text, "RowHint")
+            self.farm_lines.addLayout(chip_row([source_tag(t, src)], label, lead=True) if price else _alone(label))
+        unpriced = [bidi.ltr_block(name, t.rtl) for name, _, price, _ in sm.loot if not price]
+        if unpriced:
+            add(self._fl(t("farm_unpriced", names=", ".join(unpriced)), "RowHint"))
+        if sm.kills:
+            add(self._fl(t("grind_approx"), "RowHint"))
+
+    def _fill_farm_records(self):
+        """The player's own drop counts across the saved sessions (farm.records): the only drop rates shown."""
+        t, c = self.t, self.c
+        clear(self.farm_records)
+        rows = farm.records(self.grind.recent(c.id)) if c else []
+        if not rows:
+            self.farm_records.addWidget(self._fl(t("farm_records_none"), "RowHint"))
+            return
+        for r in rows[:20]:
+            bits = [bidi.ltr_block(f"{r.monster}: {r.item} ×{r.got}", t.rtl)]
+            if r.every:
+                bits.append(t("farm_every", n=f"{r.every:,}"))
+            bits.append(t("farm_sessions", n=r.sessions))
+            self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
+        self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))
 
     # quick checks --------------------------------------------------------
 
