@@ -2607,6 +2607,8 @@ class ToolsDialog(GlassDialog):
     def _farm_session_section(self) -> Section:
         t = self.t
         sec = Section(t("farm_session"), t.rtl)
+        # how the session counts, under its heading (it was in the page's intro, far from it: the owner)
+        sec.add_widget(self._label(t("farm_session_about"), "RowHint", seen=self._farm_seen))
         top = QWidget()
         tl = QVBoxLayout(top)
         tl.setContentsMargins(0, 8, 0, 8)
@@ -2861,7 +2863,9 @@ class ToolsDialog(GlassDialog):
         if map_name:
             acts.append(("farm_route", lambda _=False, m=map_name: self._farm_route(m)))
         acts.append(("ask_short", lambda _=False, k=key: self.tag_requested.emit(k)))
-        for text, then in acts:
+        for i, (text, then) in enumerate(acts):
+            if i:
+                links.addWidget(self._fl("·", "RowHint"))
             b = QPushButton(self._p(t(text)), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
             b.setAutoDefault(False)
@@ -2939,7 +2943,11 @@ class ToolsDialog(GlassDialog):
                 if what:
                     need.setToolTip(tip_html(t(f"farm_need_{kind}_tip", name=what), t.rtl))
                 chips_.insert(0, need)
-            col.addLayout(chip_row(chips_, b))
+            line = QHBoxLayout()
+            line.setSpacing(6)
+            line.addWidget(self._picture(d.key, 24), 0, Qt.AlignVCenter)
+            line.addLayout(chip_row(chips_, b), 1)
+            col.addLayout(line)
         col.addLayout(self._farm_links(r.key, r.name, r.map))
         row.addLayout(col, 1)
         return card
