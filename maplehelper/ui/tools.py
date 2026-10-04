@@ -462,9 +462,8 @@ class ToolsDialog(GlassDialog):
     def show_page(self, i: int):
         # leaving the quests page: back on "Quests for level N" next time, every level (the owner)
         was = PAGES[self.stack.currentIndex()] if self.__dict__.get("stack") is not None else ""
-        if was == "quests" and PAGES[i] != "quests" and "quests" in self.pages:
-            self.q_mode.group.buttons()[0].setChecked(True)
-            self._q_level = None
+        if was != PAGES[i] and was in self.pages:
+            self._leave(was)
         self._build_page(PAGES[i])
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
@@ -1962,6 +1961,26 @@ class ToolsDialog(GlassDialog):
                 self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
             self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every and not query)))
 
+    def _leave(self, name: str) -> None:
+        """A page left: its picks and searches start fresh next time (a shopping map stayed: the owner). A page
+        another one opens fills them again on arrival (a quest jump, a monster's way there)."""
+        def empty(box):
+            box.blockSignals(True)
+            box.clear()
+            box.blockSignals(False)
+        if name == "quests":
+            self.q_mode.group.buttons()[0].setChecked(True)      # back on "Quests for level N", every level
+            self._q_level = None
+            empty(self.q_search)
+        elif name == "town":
+            self._town_grade_pick = None
+            empty(self.town_search)
+        elif name == "crafting":
+            self._craft_level_pick = None
+            empty(self.craft_search)
+        elif name == "more":
+            empty(self.shop_map)
+
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
         want = (name or "").rstrip("!").strip().lower()
@@ -2174,6 +2193,15 @@ class ToolsDialog(GlassDialog):
                 b.setAutoDefault(False)
                 b.clicked.connect(lambda _=False, v=value: (setattr(self, "_town_grade_pick", v), self._fill_town()))
                 self.town_grades.addWidget(b)
+        # the next grade's quests: from which level (only the grades open at this level have chips: "is there
+        # only one grade?", the owner)
+        top = max(grades, default=0)
+        later = sorted((q.grade[1], q.opens_at()) for k, e in self.kb.entities.items() if e.get("category") == "quest"
+                       for q in [quests.quest(self.kb, k)] if q and q.area == "Citizenship" and q.grade
+                       and quests.town_of(self.kb, q) == town and q.grade[1] > top)
+        if later:
+            self.town_list.addWidget(self._label(t("town_next_grade", n=later[0][0], lv=later[0][1],
+                                                   last=later[-1][0]), "RowHint"))
         if self._town_grade_pick is not None:
             rows = [q for q in rows if grade(q) == self._town_grade_pick]
         query = self.town_search.text().strip()

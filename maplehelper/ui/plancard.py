@@ -34,10 +34,13 @@ class ExpBar(QFrame):
         if not p:
             return
         self.bar.setValue(round(p["pct"] * 10))
+        # one short line (it wrapped onto a second: the owner); which monster the kills are of, on hover
         if p.get("kills"):
-            text = t("exp_line_kills", pct=f"{p['pct']:g}", left=f"{p['left']:,}", n=f"{p['kills']:,}", mob=p["mob"])
+            text = t("exp_line_kills", n=f"{p['kills']:,}", pct=f"{p['pct']:g}", left=f"{p['left']:,}")
+            self.text.setToolTip(t("exp_kills_tip", n=f"{p['kills']:,}", mob=p["mob"]))
         else:
             text = t("exp_line", pct=f"{p['pct']:g}", left=f"{p['left']:,}")
+            self.text.setToolTip("")
         from .. import glossary
         from . import terms
         if not getattr(self, "_terms", False):
