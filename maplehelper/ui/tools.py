@@ -9,9 +9,9 @@ import re
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
-from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
 from .. import (availability, bidi, buildplan, combat, crafting, farm, glossary, grind, guides, market, plan, quests, quick,
@@ -237,6 +237,20 @@ class EntityPicker(QLineEdit):
             self.open_list()
             return True
         return super().event(e)
+
+
+class _WheelToPage(QObject):
+    """A box that grows to its text inside a scrolling page: the wheel over it scrolls the page."""
+
+    def __init__(self, page):
+        super().__init__(page)
+        self._page = page
+
+    def eventFilter(self, obj, e):
+        if e.type() == QEvent.Wheel:
+            QApplication.sendEvent(self._page.viewport(), e)
+            return True
+        return False
 
 
 CITIZEN_GRADES = ("Helpful Stranger", "Distinguished Citizen", "Guardian of the Village")
@@ -924,6 +938,12 @@ class ToolsDialog(GlassDialog):
         self.build_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.build_view.document().documentLayout().documentSizeChanged.connect(
             lambda size: self.build_view.setFixedHeight(int(size.height()) + 12))
+        # the wheel scrolls the page, never the text inside its box: it moved the text up and cut the first
+        # heading (the owner)
+        self.build_view.verticalScrollBar().valueChanged.connect(
+            lambda v: v and self.build_view.verticalScrollBar().setValue(0))
+        self._build_wheel = _WheelToPage(w)
+        self.build_view.viewport().installEventFilter(self._build_wheel)
         # breaks between words only, a wide table in a smaller font, as in the guides reader ("crafti" / "ng 1")
         self.build_view.setWordWrapMode(QTextOption.WordWrap)
         from .guides import ImageZoom
@@ -1281,6 +1301,8 @@ class ToolsDialog(GlassDialog):
         self.q_search.blockSignals(False)
         self._fill_quests(new_list=True)
         self.pages["quests"].verticalScrollBar().setValue(0)
+        # the link's card was rebuilt: focus on the page, not on the window's close button (the owner)
+        self.pages["quests"].setFocus(Qt.OtherFocusReason)
 
     def _level_chips(self, rows: list) -> None:
         """ "הכל" and one chip per level with its count ("13 (4)"): a tap shows that level's quests only."""
