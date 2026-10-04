@@ -148,7 +148,8 @@ def test_a_quest_finished_at_a_higher_level_waits_for_it():
     quests._quest.cache_clear()
     kb = quest_kb(Area="Victoria Island")
     assert quests.for_level(kb, 20)["now"] == []                                  # taken at 12, done at 52
-    assert [q.key for q in quests.for_level(kb, 50)["soon"]] == ["quest/1"]
+    assert [q.key for q in quests.for_level(kb, 50)["later"]] == ["quest/1"]                 # 2 levels up: later
+    assert [q.key for q in quests.for_level(kb, 51)["soon"]] == ["quest/1"]                  # the next level
     assert [q.key for q in quests.for_level(kb, 52)["now"]] == ["quest/1"]
     kb = quest_kb()
     # the quest asks Henesys citizenship grade 9: a Henesys quest, whatever its NPC page says

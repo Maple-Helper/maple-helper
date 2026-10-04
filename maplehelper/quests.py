@@ -8,7 +8,8 @@ from functools import lru_cache
 
 from . import availability
 
-WINDOW_BELOW = 12     # quests this many levels under you still show (cheap EXP you may have skipped)
+WINDOW_BELOW = 200    # every quest under you that isn't done (a Lv. 13 one skipped at 31 must still show: the
+                      # owner); best EXP first, so the old cheap ones sit at the end
 WINDOW_ABOVE = 4      # and these coming soon
 
 
@@ -236,13 +237,14 @@ def craft_fits(q: Quest, crafts: dict | None) -> bool:
 
 def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
               crafts: dict | None = None) -> dict:
-    """{"now": quests you can take (best EXP first), "soon": unlocking in the next levels,
+    """{"now": quests you can take (best EXP first), "level": those opening at this level, "missed": those from
+    earlier levels not done, "soon": unlocking at the next level, "later": every one after it,
     "town": the citizenship donations (repeatable, 100 items each), "done": count}.
 
     A quest finished only from a higher level ("Level 52+ to complete") counts at that level; one that asks a
     profession level the character doesn't have (crafts given) is left out."""
     done_set = set(done or [])
-    now, soon, town = [], [], []
+    now, future, town = [], [], []
     open_ = availability.of(kb)
     for k, e in kb.entities.items():
         # only quests the KB confirms are in the game: none in Ossyria, no event the KB marks "Ended"
@@ -256,12 +258,21 @@ def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[st
         lv = q.opens_at()
         if level - WINDOW_BELOW <= lv <= level:
             (town if q.area == "Citizenship" else now).append(q)
-        elif level < lv <= level + WINDOW_ABOVE:
-            soon.append(q)
+        elif lv > level and q.area != "Citizenship":
+            future.append(q)
     now.sort(key=lambda q: (-q.exp, q.level))
-    soon.sort(key=lambda q: (q.opens_at(), -q.exp))
+    future.sort(key=lambda q: (q.opens_at(), -q.exp))
+    # the play tools' tabs (the owner's): the next level alone is "coming up", every level after it "later"; one
+    # level up, each list moves along (32's become this level's, 33's come up next)
+    soon = [q for q in future if q.opens_at() == level + 1]
+    later = [q for q in future if q.opens_at() > level + 1]
     town.sort(key=lambda q: -q.exp)
-    return {"now": now, "soon": soon, "town": town, "done": len(done_set)}
+    # the play tools' two lists (the owner's): the quests that open at this very level, and every one from a level
+    # before it that isn't done, newest level first (a Lv. 31 quest left undone moves there at 32)
+    at_level = [q for q in now if q.opens_at() == level]
+    missed = sorted((q for q in now if q.opens_at() < level), key=lambda q: (-q.opens_at(), -q.exp))
+    return {"now": now, "level": at_level, "missed": missed, "soon": soon, "later": later, "town": town,
+            "done": len(done_set)}
 
 
 # ------------------------------------------------------------------ citizenship

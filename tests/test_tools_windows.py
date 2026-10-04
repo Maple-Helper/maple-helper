@@ -81,7 +81,8 @@ def test_quest_lists_past_40_say_so_and_show_the_rest(tools):
     from maplehelper import quests
     from maplehelper.ui.tools import MAX_QUESTS
     d, c = tools("Warrior", "Fighter", 20, "quests")
-    rows = len(quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)["now"])
+    d.q_mode.group.buttons()[1].click()            # the quests not done from earlier levels: the long list
+    rows = len(quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)["missed"])
     assert rows > MAX_QUESTS
     assert len(cards(d.q_list)) == MAX_QUESTS
     btn = more_button(d.q_list)
@@ -138,6 +139,7 @@ def test_tab_switch_back_keeps_the_quest_cards(tools):
     """Every switch to Quests / Citizenship rebuilt up to 40 cards (~0.3 s) though nothing had changed."""
     from maplehelper.ui.tools import PAGES
     d, c = tools("Thief", "Assassin", 34, "quests")
+    d.q_mode.group.buttons()[1].click()            # (a list that has cards at any level)
     first = cards(d.q_list)[0]
     d.show_page(PAGES.index("train"))
     d.show_page(PAGES.index("quests"))

@@ -99,14 +99,8 @@ class EntityPicker(QLineEdit):
         self.setPlaceholderText(placeholder)
         self.setAccessibleName(placeholder)         # a placeholder isn't read as the field's name
         self.setClearButtonEnabled(True)
-        model = _LazyIcons(self, icon)
-        for shown, name, path in rows:
-            item = QStandardItem(shown)
-            item.setData(name, NAME_ROLE)
-            if path:
-                item.setData(str(path), PATH_ROLE)      # the picture itself: when its row is first shown
-            item.setEditable(False)
-            model.appendRow(item)
+        self._icon = icon
+        model = self._model(rows)
         comp = QCompleter(self)
         comp.setCompletionRole(NAME_ROLE)
         comp.setCaseSensitivity(Qt.CaseInsensitive)
@@ -134,6 +128,21 @@ class EntityPicker(QLineEdit):
         arrow.triggered.connect(self.open_list)
         self.setMinimumHeight(34)
         follow_typing(self, rtl)
+
+    def _model(self, rows: list[tuple[str, str, object]]):
+        model = _LazyIcons(self, self._icon)
+        for shown, name, path in rows:
+            item = QStandardItem(shown)
+            item.setData(name, NAME_ROLE)
+            if path:
+                item.setData(str(path), PATH_ROLE)      # the picture itself: when its row is first shown
+            item.setEditable(False)
+            model.appendRow(item)
+        return model
+
+    def set_rows(self, rows: list[tuple[str, str, object]]) -> None:
+        """A new list to pick from (the quests change with the level and the Available / Coming up switch)."""
+        self.completer().setModel(self._model(rows))
 
     @staticmethod
     def _chevron() -> QIcon:
@@ -1022,14 +1031,14 @@ class ToolsDialog(GlassDialog):
     def _page_quests(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
-        self.q_mode = Segmented([(t("q_now"), "now"), (t("q_soon"), "soon")], "now", t.rtl)
+        self.q_mode = Segmented([(t("q_level", lv=""), "level"), (t("q_missed"), "missed"), (t("q_soon"), "soon"),
+                                 (t("q_later"), "later")], "level", t.rtl)
         self.q_mode.changed.connect(lambda *_: self._fill_quests(new_list=True))
         lay.addWidget(self.q_mode, 0, Qt.AlignHCenter)
         # search within the list shown (the quests that fit the character's level), not all quests
-        self.q_search = QLineEdit()
-        self.q_search.setPlaceholderText(t("q_search"))
-        self.q_search.setAccessibleName(t("q_search"))        # a placeholder isn't read as the field's name
-        self.q_search.setClearButtonEnabled(True)
+        # a list of the quests to pick from opens on a click, as the map and monster pickers do; typing still filters
+        # by name, NPC, monster or item (a bare box opened nothing: the owner)
+        self.q_search = EntityPicker([], self._p(t("q_search")), icon=32, rtl=t.rtl)
         self._q_search_timer = QTimer(self, singleShot=True, interval=200)     # rebuild once typing pauses
         self._q_search_timer.timeout.connect(lambda: self._fill_quests(new_list=True))
         self.q_search.textChanged.connect(lambda *_: self._q_search_timer.start())
@@ -1068,6 +1077,11 @@ class ToolsDialog(GlassDialog):
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
         mode = self.q_mode.value()
         rows = r[mode]
+        self.q_mode.group.buttons()[0].setText(self._p(t("q_level", lv=c.level)))       # "קווסטים ללבל 31"
+        if new_list or not getattr(self, "_q_rows_for", None) == (c.id, c.level, mode):
+            self._q_rows_for = (c.id, c.level, mode)
+            self.q_search.set_rows([(f"{q.name}  ·  Lv. {q.opens_at()}", q.name,
+                                     self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
         # how many are marked done is on the toggle right under the header, not here again
         self._set(self.q_head, t(f"q_head_{mode}", n=len(rows), lv=c.level))
         query = self.q_search.text().strip()
@@ -1079,10 +1093,16 @@ class ToolsDialog(GlassDialog):
                 self.q_list.addWidget(self._label(t("q_no_match"), "RowHint"))
         elif not rows:
             self.q_list.addWidget(self._label(t("q_none"), "RowHint"))
+        last = None
         for q in rows[:self._q_limit]:
+            if mode in ("missed", "later") and q.opens_at() != last:
+                last = q.opens_at()          # the quests not done, level by level (the owner)
+                self.q_list.addWidget(self._label(t("q_level_group", lv=last), "SectionHeader"))
             self.q_list.addWidget(self._quest_card(q))
         self._more_quests(self.q_list, len(rows), self._q_limit, "_q_limit")
         self._add_done(self.q_done_toggle, self.q_done, list(c.quests_done))
+        # what is on screen now (a tab or a search changed it here, not through refresh): a switch back keeps it
+        self.__dict__.setdefault("_filled", {})["quests"] = self._page_state("quests")
 
     def _more_quests(self, layout: QVBoxLayout, total: int, shown: int, limit: str):
         """Under a list cut at `shown` cards: "Showing 40 of 56 quests" and "Show more quests". The header counts
@@ -1101,6 +1121,10 @@ class ToolsDialog(GlassDialog):
             self._refresh_in_place()
         more.clicked.connect(lambda *_: show_more())
         layout.addWidget(more, 0, Qt.AlignHCenter)
+
+    def _picture_path(self, kind: str, name: str):
+        uri = self._picture_uri(kind, name)
+        return QUrl(uri).toLocalFile() if uri else None
 
     def _picture_uri(self, kind: str, name: str) -> str | None:
         """The KB picture of a monster / item / NPC by its name, as a file URI."""
@@ -1131,17 +1155,38 @@ class ToolsDialog(GlassDialog):
         return (f"<span style='white-space: nowrap'>{bidi.LRE}{img}{html.escape(name)} x{n}{bidi.PDF}{bidi.RLM}</span>"
                 + html.escape(note or ""))
 
-    def _things_label(self, head: str, things: list[str], extra: str = "") -> QLabel:
-        """A heading, then one thing per line: its picture beside its own name, never split by a wrap."""
+    def _things_label(self, head: str, things: list[str], extra: str = "", droppers: bool = False) -> QLabel:
+        """A heading, then one thing per line: its picture beside its own name, never split by a wrap.
+        droppers: under each item, the monsters in the game that drop it (lowest level first): a quest's needs
+        named the items but not where to get them (the owner)."""
         side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
         lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(head)}</b></p>"]
-        lines += [f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>" for x in things]
+        for x in things:
+            lines.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>")
+            who = self._droppers_line(x) if droppers else ""
+            if who:
+                lines.append(f"<p {side} style='margin:0 0 6px 0; color:#8E8E93; font-size:small;'>{who}</p>")
         if extra:
             lines.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(extra)}{bidi.PDF}</p>")
         lb = QLabel("".join(lines), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
         return lb
+
+    def _droppers_line(self, thing: str) -> str:
+        """ "מפילים: Ligator (Lv. 32), Croco (Lv. 52)" for a needed item ("Alligator Skin Pouch x 10"), as HTML."""
+        name = re.sub(r"\s*x\s*[\d,]+$", "", thing).strip().lower()
+        key = self.kb._item_by_name.get(name)
+        mons = [m for m in self.kb.droppers.get(key, [])] if key else []
+        if not mons:
+            return ""
+        def lv(m):
+            return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
+        mons = sorted(mons, key=lv)
+        names = ", ".join(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})" for m in mons[:3])
+        more = len(mons) - 3
+        text = self.t("q_dropped_by", names=names) + (" " + self.t("pn_more", n=more) if more > 0 else "")
+        return html.escape(bidi.plain(text, self.t.rtl))
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
         t = self.t
@@ -1175,7 +1220,7 @@ class ToolsDialog(GlassDialog):
         if where:
             col.addWidget(self._label(" · ".join(where), "CardSub"))
         if q.needs:
-            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4]))
+            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4], droppers=True))
         gets = q.rewards[:3]
         extra = " · ".join(x for x in (f"{q.mesos:,} mesos" if q.mesos else "", f"+{q.fame} Fame" if q.fame else "") if x)
         if gets or extra:
