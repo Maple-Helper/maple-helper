@@ -1,4 +1,4 @@
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 APP_NAME = "Maple Helper"
 
 # Before anything imports numpy: its OpenBLAS starts a worker thread per CPU core and commits a buffer for each
