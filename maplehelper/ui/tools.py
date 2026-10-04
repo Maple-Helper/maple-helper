@@ -2232,7 +2232,6 @@ class ToolsDialog(GlassDialog):
         tl.addLayout(chip_row([self.grind_tag], self.grind_state, lead=True))
         self.grind_map = self._gl("", "CardSub")
         tl.addWidget(self.grind_map)
-        sec.add_widget(top)
         mon = QWidget()
         ml = QVBoxLayout(mon)
         ml.setContentsMargins(0, 8, 0, 8)
@@ -2249,6 +2248,8 @@ class ToolsDialog(GlassDialog):
             ("farm_route", lambda: self.grind_monster.text().strip() and self._go_route(self.grind_monster.text())),
             ("tool_calc", lambda: self.grind_monster.text().strip() and self._go_calc(self.grind_monster.text()))]))
         sec.add_widget(mon)
+        # the session's state right over its numbers, under the monster and its links (the owner)
+        sec.add_widget(top)
         cells = QWidget()
         grid = QGridLayout(cells)
         grid.setContentsMargins(0, 10, 0, 6)
