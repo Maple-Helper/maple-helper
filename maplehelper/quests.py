@@ -280,6 +280,19 @@ def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[st
             "done": len(done_set)}
 
 
+def closed_areas(kb) -> list[str]:
+    """The areas whose quests the KB doesn't confirm are in the game yet ("El Nath"), most quests first."""
+    from collections import Counter
+    open_ = availability.of(kb)
+    found = Counter()
+    for k, e in kb.entities.items():
+        if e.get("category") == "quest" and not open_.quest_open(k):
+            q = quest(kb, k)
+            if q and q.area and "event" not in q.area.lower():      # an ended event is no area to open
+                found[q.area] += 1
+    return [a for a, _ in found.most_common()]
+
+
 # ------------------------------------------------------------------ citizenship
 
 TOWNS = ("Henesys", "Kerning City")          # the towns with citizenship (their donation boards in the KB)

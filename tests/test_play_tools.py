@@ -333,3 +333,11 @@ def test_maple_island_quests_leave_once_a_job_is_taken(kb):
     q = quests.Quest(key="quest/x", name="Bringing a Mirror to Heena", level=1, area="Maple Island")
     assert quests.job_fits(q, "Beginner", "Beginner") and not quests.job_fits(q, "Thief", "Assassin")
     assert quests.job_fits(quests.Quest(key="quest/y", name="Y", level=1, area="Victoria Island"), "Thief", "Assassin")
+
+
+def test_the_later_tab_says_which_areas_are_not_open_yet(kb):
+    """Quests in an area the KB doesn't confirm are hidden: the "later" tab names those areas, and the note goes
+    once every area is open (the owner)."""
+    from maplehelper import quests
+    areas = quests.closed_areas(kb)
+    assert all("event" not in a.lower() for a in areas)

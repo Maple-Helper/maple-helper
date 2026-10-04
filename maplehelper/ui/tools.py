@@ -592,6 +592,9 @@ class ToolsDialog(GlassDialog):
         rows = combat.spots(self.kb, c.level, acc, dmg, magic, n=6)
         # what the list is for, not the stats again (they are in "My stats" right below: the owner's report)
         head = t("train_for_level", n=c.level)
+        # why these monsters (the owner): the level range, the maps in the game, and what ranks them
+        lo, hi = max(1, c.level - combat.SPOT_BELOW), c.level + combat.SPOT_ABOVE
+        head += "\n" + t("train_why_stats" if acc and dmg and not magic else "train_why", lo=lo, hi=hi)
         if not (acc and dmg):
             head += "\n" + t("train_need_stats")
         elif magic:
@@ -714,7 +717,12 @@ class ToolsDialog(GlassDialog):
     def _calc_monster(self) -> combat.Monster | None:
         q = self.calc_input.text().strip().lower()
         if not q:
-            spots = combat.spots(self.kb, self.c.level, n=1) if self.c else []
+            # the first of the "Grind spots" page, with the same stats, so the two pages agree (they didn't: the
+            # calculator ranked without the player's ACC and damage)
+            if not self.c:
+                return None
+            acc, dmg = self._stats()
+            spots = combat.spots(self.kb, self.c.level, acc, dmg, self.c.base_class == combat.MAGE, n=1)
             return spots[0].monster if spots else None
         # only monsters the KB confirms are in the game, like the list: a typed "Star Pixie" (Orbis) or "Ratz" (no
         # map at all) got a full hits-to-kill card as if it could be met
@@ -740,6 +748,9 @@ class ToolsDialog(GlassDialog):
             return
         acc, dmg = self._stats()
         magic = c.base_class == combat.MAGE
+        if not self.calc_input.text().strip():
+            # why this monster when nothing was typed (the owner)
+            self.calc_box.addWidget(self._label(t("calc_default", name=bidi.ltr_block(m.name, t.rtl)), "RowHint"))
         sec = Section(bidi.ltr_block(f"{m.name} · Lv. {m.level}", t.rtl), t.rtl)
         nums = QHBoxLayout()
         # the monster's picture leads the row (the start side), as on the training-spot cards
@@ -1123,6 +1134,11 @@ class ToolsDialog(GlassDialog):
             picked = sum(1 for q in rows if q.opens_at() == self._q_level)
             self._set(self.q_head, t(f"q_head_{mode}_at", n=picked, lv=self._q_level))
         self._level_chips(rows if mode in ("missed", "later") else [])
+        if mode == "later":
+            # the quests above are where the game hasn't opened yet: said, not just missing (the owner)
+            closed = quests.closed_areas(self.kb)
+            if closed:
+                self.q_list.addWidget(self._label(t("q_closed_note", areas=", ".join(closed)), "RowHint"))
         if self._q_level is not None:
             rows = [q for q in rows if q.opens_at() == self._q_level]
         query = self.q_search.text().strip()
