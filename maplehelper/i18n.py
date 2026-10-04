@@ -594,7 +594,7 @@ STRINGS = {
     "craft_head": {"he": "**{n} מתכונים** שאפשר להכין עכשיו ב-{prof} רמה {lv}. החדשים למעלה.", "en": "**{n} recipes** you can make now at {prof} level {lv}. Newest first."},
     "craft_lv_tag": {"he": "רמה {n}", "en": "Level {n}"},
     "craft_next": {"he": "כדי לעלות ל-{prof} רמה {lv}: עוד **{exp} EXP** במקצוע, והדמות צריכה להיות לפחות ברמה {char}.", "en": "To reach {prof} level {lv}: **{exp} more profession EXP**, and your character at level {char} or more."},
-    "craft_makes_smithing": {"he": "מזקקים עפרות למטילים ומחשלים שריון מתכת בסיסי.", "en": "Refine ores into bars and forge basic metal armor."},
+    "craft_makes_smithing": {"he": "מתיכים Ore ל-Ingot, ומכינים ציוד מתכת: קסדות, כפפות, מגפיים ומגינים.", "en": "Smelt ore into ingots, and make metal gear: helmets, gloves, boots and shields."},
     "craft_makes_weaponcrafting": {"he": "מכינים נשק לקרב צמוד: חרבות, גרזנים, פטישים, פגיונות ורמחים.", "en": "Make melee weapons: swords, axes, blunt weapons, daggers and polearms."},
     "craft_makes_tailoring": {"he": "תופרים בגדים: כובעים, חולצות ואוברולים.", "en": "Sew clothes: hats, tops and overalls."},
     "craft_makes_woodcrafting": {"he": "מכינים נשק מעץ: קשתות, קרוסבואים, שרביטים ומטות.", "en": "Make wooden weapons: bows, crossbows, wands and staves."},
