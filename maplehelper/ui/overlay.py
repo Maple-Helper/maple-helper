@@ -1804,6 +1804,10 @@ class Overlay(QWidget):
         focus_name = ", ".join(self.kb.get(k)["name"] for k in focus)
         if not force_claude:          # "Ask Claude anyway" re-asks a question already in the chat
             self.add_bubble(label, "user", focus_name)
+            if focus:
+                # the tags went with this question (its bubble names them): the next one starts untagged, as the
+                # owner expects (they stayed on, and the next question was asked about them too)
+                self.set_tags([])
             if self.stats:
                 self.stats.question(c)     # once per question, however it gets answered
             if not focus and not shown and self.settings["instant_answers"]:

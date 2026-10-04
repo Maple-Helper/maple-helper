@@ -161,9 +161,16 @@ REPLY_RULES = """<reply_rules>
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
-    Right: "Iron Mace הוא נשק חד-ידני בסיסי לבל 20, לוריורים ולמג'ים. לא מתאים לכם: אתם Assassin בלבל 31."
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לבל 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin בלבל 31."
+  * Jobs and classes in English, always ("Warrior", "Mage", "Assassin"), never "וריור" or "מג'".
+  * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
+- A name in Hebrew letters is a game name written the way it sounds ("סאונה רוב כחול" is "Blue Sauna Robe", "בלו
+  סנייל" is "Blue Snail"): work out the English and grep names.tsv for it. Never answer about a different entity
+  (one from the conversation) instead; if no name matches, say so and ask.
+- "Send me a picture of X": the app shows X's picture on its card under the answer. Find X, put its key in META
+  entities, and say in a line that its picture is in the card below; never say you can't send pictures.
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
   page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
@@ -270,7 +277,9 @@ def reply_language(question: str, ui_lang: str = "he") -> str:
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[֐-׿]", question):
         return "Hebrew"
-    if re.search(r"[A-Za-z]", _FOCUS_TAG.sub("", question)):
+    bare = _FOCUS_TAG.sub("", question)
+    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English)
+    if re.search(r"[A-Za-z]", bare) and len(re.findall(r"[A-Za-z']+", bare)) > 4:
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
 
@@ -432,6 +441,8 @@ _KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|clas
 # "אתם ב-31": the player's level with no word for it (the owner: say "לבל" before the number)
 _BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
                          r"(?![\d%.,:]\d|\d|%)")
+# "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
+_SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
 
 
@@ -440,6 +451,7 @@ def drop_keys(text: str) -> str:
     named as one ("אתם בלבל 31", not "אתם ב-31")."""
     text = _KEY_IN_TEXT.sub("", text)
     text = _BARE_LEVEL.sub(r"\1 בלבל \2", text)
+    text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 

@@ -225,3 +225,10 @@ def test_the_players_level_is_named_as_one():
     assert drop_keys("אתם ב31 עכשיו") == "אתם בלבל 31 עכשיו"
     assert drop_keys("אתם בלבל 31") == "אתם בלבל 31"
     assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+
+
+
+def test_slashed_stat_bonuses_are_written_one_per_stat():
+    from maplehelper.brain import drop_keys
+    assert drop_keys("עם STR/DEX/INT/LUK +1 ו-HP/MP +10") == "עם STR +1, DEX +1, INT +1, LUK +1 ו-HP +10, MP +10"
+    assert drop_keys("W.DEF/M.DEF -2") == "W.DEF -2, M.DEF -2" and drop_keys("HP/MP recovery") == "HP/MP recovery"
