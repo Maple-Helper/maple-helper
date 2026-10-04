@@ -172,7 +172,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   - **Crafting:** all six professions explained (what they make, the teacher and town, the first and master quests, where to craft), then every recipe for your level, best EXP per meso first.
   - **Citizenship:** Henesys or Kerning City advice for your class, and the town's quests.
   - **Prices:** NPC buy and sell prices, and a live Free Market median from player reports on NiaMeowDB.
-  - **EXP meter, bag & shopping:** EXP per hour and time to level, what to sell or keep, and a shopping list for a map.
+  - **Grind tracker, bag & shopping:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare), what to sell or keep, and a shopping list for a map.
 - **Game terms explained:** An orange **?** beside terms like ACC, Avoid or AP shows what they mean on hover.
 - **Items I'm looking for:** Star an item to keep a list of what you hunt, with who drops it and where.
 - **Hebrew and English:** Use either language, including mixed text with English game names.
@@ -250,7 +250,7 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 | **Window buttons** | Minimize or close the overlay (F9 opens it again). |
 | **Tap a card** | Tag it for the next question; tap again to untag. |
 | **Camera button** | Take a fresh screenshot of the game window. |
-| **Tools button** | Open the play tools (where to train, calculator, build, quests, crafting, citizenship, prices, EXP meter, bag & shopping). |
+| **Tools button** | Open the play tools (where to train, calculator, build, quests, crafting, citizenship, prices, grind tracker, bag & shopping). |
 | **Character card** | Open its menu to switch, edit, delete, add or copy characters; **What now?** asks for the best next step. |
 | **Orange ?** | Hover it to see what a game term means. |
 | **System tray menu** | Show the overlay, open settings, or quit the app. |

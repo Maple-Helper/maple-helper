@@ -46,6 +46,24 @@ class AskWorker(QObject):
         self.done.emit(ans)
 
 
+class GrindReadWorker(AskWorker):
+    """A grind tracker read: the app first matches the inventory's icons to the KB (inventory.py: exact where the
+    AI guessed names), so the AI is told which slots hold which potions and only reads their counts."""
+
+    def __init__(self, *args, full=None, cursor=None, kb=None, **kw):
+        super().__init__(*args, **kw)
+        self.full, self.cursor, self.kb = full, cursor, kb
+
+    def run(self):
+        if self.full is not None and self.kb is not None:
+            try:
+                from .. import grind, inventory
+                self.question += grind.inventory_hint(inventory.read(self.full, self.kb, cursor=self.cursor), self.kb)
+            except Exception:      # noqa: BLE001 - the AI still has the screenshot
+                pass
+        super().run()
+
+
 class TitleBar(QWidget):
     """Drag handle: follows the pointer 1:1 from where it was grabbed."""
 
@@ -308,6 +326,7 @@ class Overlay(QWidget):
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
+    grind_read = Signal(object)       # (character id, profile_update, grind) of a grind tracker read, before sync_finished
     tools_requested = Signal()
     edit_character_requested = Signal(str)
     delete_character_requested = Signal(str)      # plan usage read in the background after an answer (ChatGPT)
@@ -1833,19 +1852,29 @@ class Overlay(QWidget):
                      "it even if the profile calls it otherwise, base_class if visible, "
                      "exp_percent, stats) and avatar_box. If the game or the character is not visible, say so briefly "
                      "and leave profile_update empty.")
+    # the play tools' grind tracker: the same read, plus what a session measures (grind.py)
+    GRIND_QUESTION = (" This read is also for the grind tracker: add \"grind\" to the META object: {\"map\": the map's "
+                      "name as the game shows it, \"monster\": the monster the player is hunting (the kind most often on "
+                      "screen, its English name, only if you recognise it), \"inventory_open\": true or false, "
+                      "\"mesos\": the meso amount at the bottom of the inventory window (an integer, only when the "
+                      "inventory is open), \"potions\": {\"<item name>\": count} for every HP/MP recovery item in the "
+                      "inventory's Use tab with its stack count, summed per item (only when the Use tab is the one "
+                      "shown; {} when it shows none)}. Leave out anything you can't read clearly.")
 
     SYNC_TIMEOUT_MS = 60_000       # a read still going after a minute is stopped (the button spun on, seen live)
 
-    def sync_profile(self):
+    def sync_profile(self, grind: bool = False):
+        """grind: a grind tracker read (the play tools), which also reads the map, the monster, mesos and potions."""
         if getattr(self, "_syncing", False):
             return                 # a read is on its way already; it ends with sync_finished for every caller
         if self._is_busy():
-            # an answer or an inventory check is running: say so, and end the request (the play tools' EXP meter
-            # waited forever on "Reading the EXP bar…", then took a later, unrelated read as its sample)
+            # an answer or an inventory check is running: say so, and end the request (the play tools' grind tracker
+            # waited forever on its read, then took a later, unrelated read as its sample)
             self._say_busy()
             self.sync_finished.emit(False)
             return
         self._syncing = True
+        self._sync_grind = grind is True        # (a button's clicked(bool) never makes it one)
         self.profile_card.set_busy(True, self.t("syncing"), self.t("sync_reading"))
         if not hasattr(self, "_sync_timer"):
             self._sync_timer = QTimer(self, singleShot=True, interval=self.SYNC_TIMEOUT_MS, timeout=self._sync_timed_out)
@@ -1877,7 +1906,13 @@ class Overlay(QWidget):
             # reading a name, a level and a bar off a screenshot: no knowledge base, no file tools (it went looking
             # through the pages). The player's own model: measured 2026-10-02, Sonnet answered this read in ~3 s and
             # Haiku in 13-50 s, so the "light" model is no faster here
-            self._sync_worker = AskWorker(self.brain, self.SYNC_QUESTION, self.profiles.active, None, shot, light=True)
+            if getattr(self, "_sync_grind", False):
+                self._sync_worker = GrindReadWorker(self.brain, self.SYNC_QUESTION + self.GRIND_QUESTION,
+                                                    self.profiles.active, None, shot, light=True, full=self._sync_full,
+                                                    cursor=capture.LAST_CURSOR, kb=self.kb)
+            else:
+                self._sync_worker = AskWorker(self.brain, self.SYNC_QUESTION, self.profiles.active, None, shot,
+                                              light=True)
             self._sync_worker.moveToThread(self._sync_thread)
             self._sync_thread.started.connect(self._sync_worker.run)
             self._sync_worker.done.connect(self._on_sync_done)      # bound method → runs on the GUI thread
@@ -1925,6 +1960,9 @@ class Overlay(QWidget):
             self._sync_full = None
             self.sync_finished.emit(False)
             return             # another character is in game: the saved one stays as it is
+        if getattr(self, "_sync_grind", False):
+            # the read as the AI gave it: the tracker compares this moment's numbers, never a stale saved EXP %
+            self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
         changes = self.profiles.apply_update(ans.profile_update or {})
         full, self._sync_full = getattr(self, "_sync_full", None), None
         self._syncing = True            # until the portrait is cropped (a worker thread): no other read meanwhile
@@ -2105,7 +2143,7 @@ class Overlay(QWidget):
 
     def _show_changes(self, changes):
         if changes:
-            self.profile_changed.emit()        # the play tools (stats, EXP meter) follow the profile
+            self.profile_changed.emit()        # the play tools (stats, grind tracker) follow the profile
         changes = [ch for ch in changes if ch[0] != "exp"]     # the EXP bar shows it; no chat line per percent
         self.refresh_plan()
         for field, value in changes:

@@ -390,6 +390,8 @@ class Profiles:
         if c.avatar:
             (AVATAR_DIR / c.avatar).unlink(missing_ok=True)
         History(cid).clear()
+        from .grind import Store as GrindStore
+        GrindStore().forget(cid)            # its grind sessions go with it
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

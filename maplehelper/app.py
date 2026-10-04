@@ -158,10 +158,12 @@ class MapleHelperApp:
         self.overlay.add_character_requested.connect(self.add_character)
         self.overlay.edit_character_requested.connect(self.edit_character)
         self.overlay.delete_character_requested.connect(self.delete_character)
-        # play tools: the EXP meter lives as long as the app (the window may close in between)
+        # play tools: a grind tracker read on its way lives as long as the app (the window may close in between);
+        # the session itself is saved (grind.py)
         self.exp_meter: dict = {}
         self.overlay.tools_requested.connect(lambda: self.show_tools())
         self.overlay.profile_changed.connect(self.on_profile_changed)
+        self.overlay.grind_read.connect(lambda r: self._tools_call("grind_read", r))
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
         self.hotkeys = osapi.Hotkeys()
@@ -791,6 +793,7 @@ class MapleHelperApp:
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
                               self.exp_meter, page)
             dlg.sync_requested.connect(self.overlay.sync_profile)
+            dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
             dlg.detail_ask_requested.connect(lambda q, shown: self.ask_from_tools(q, True, detail=True, shown=shown))
             dlg.tag_requested.connect(self.ask_about_guide)
