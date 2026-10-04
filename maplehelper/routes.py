@@ -417,6 +417,8 @@ def ai_context(kb, question: str, character=None, tagged=()) -> str:
     if any(leg.kind == "taxi" for leg in r.legs):
         walk = graph.route(start, end, taxi=False)
         if walk:
-            lines.append(f"Walking instead (free): {len(walk.legs)} steps: "
+            # "free" only when it is: from Maple Island even the walk starts with the paid boat
+            cost = "free" if not walk.paid else "no cab, but the boat still costs mesos"
+            lines.append(f"Without a cab ({cost}): {len(walk.legs)} steps: "
                          + " → ".join(graph.name(m) for m in walk.maps))
     return "\n".join(lines)

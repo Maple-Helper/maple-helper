@@ -2346,7 +2346,7 @@ class ToolsDialog(GlassDialog):
         self.route_out.addLayout(tags)
         notes = []
         if "taxi" in kinds and (walk := g.route(a, b, taxi=False)):
-            notes.append(t("route_walk_alt", n=len(walk.legs)))
+            notes.append(t("route_walk_alt" if not walk.paid else "route_walk_alt_boat", n=len(walk.legs)))
         if unpriced := [leg for leg in r.paid if not leg.fare]:
             paid = {leg.kind for leg in unpriced}
             notes.append(t("route_fares" if len(paid) > 1 else f"route_fares_{paid.pop()}"))

@@ -1954,7 +1954,8 @@ class Overlay(QWidget):
                      "and leave profile_update empty.")
     # the play tools' grind tracker: the same read, plus what a session measures (grind.py)
     GRIND_QUESTION = (" This read is also for the grind tracker: add \"grind\" to the META object: {\"map\": the map's "
-                      "name as the game shows it, \"monster\": the monster the player is hunting (the kind most often on "
+                      "name: the minimap's title has the street on its first line (\"Victoria Road\") and the map on "
+                      "the second (\"Henesys\"), give the second line only, \"monster\": the monster the player is hunting (the kind most often on "
                       "screen, its English name, only if you recognise it), \"inventory_open\": true or false, "
                       "\"mesos\": the meso amount at the bottom of the inventory window (an integer, only when the "
                       "inventory is open), \"potions\": {\"<item name>\": count} for every HP/MP recovery item in the "
@@ -1987,7 +1988,7 @@ class Overlay(QWidget):
     def auto_grind_read(self):
         """The grind tracker's read every minute while a session runs. Quiet: no chat line, no portrait crop, no
         spinner on the card, and a tick that can't run (an answer or another read on its way, the game closed or
-        covered) is skipped with grind_skipped, never queued. On the provider's light model, to spare the plan.
+        covered) is skipped with grind_skipped, never queued. On the player's own model, like the ⟳ read.
         The capture is a screen grab, so only our windows that are over the game step aside, and only for the
         grab: beside the game (the usual place while playing) nothing moves at all."""
         if getattr(self, "_syncing", False) or self._is_busy():
@@ -2045,14 +2046,11 @@ class Overlay(QWidget):
             # through the pages). The player's own model: measured 2026-10-02, Sonnet answered this read in ~3 s and
             # Haiku in 13-50 s, so the "light" model is no faster here
             if getattr(self, "_sync_grind", False):
-                # an automatic read (one a minute) on the provider's light model: it is the plan's quota that a
-                # minute-by-minute tracker spends (a slower answer is fine, the next tick waits for it)
-                light_model = getattr(getattr(self.brain, "_provider", None), "saver_model", None) \
-                    if getattr(self, "_sync_auto", False) else None
+                # the automatic read (one a minute) too: on the light model it took 44 s live (2026-10-04) and
+                # misread "KalimeroZz" as "KalimerZz", which isn't the character, so the read was dropped
                 self._sync_worker = GrindReadWorker(self.brain, self.SYNC_QUESTION + self.GRIND_QUESTION,
                                                     self.profiles.active, None, shot, light=True, full=self._sync_full,
-                                                    cursor=capture.LAST_CURSOR, kb=self.kb,
-                                                    model=light_model if isinstance(light_model, str) else None)
+                                                    cursor=capture.LAST_CURSOR, kb=self.kb)
             else:
                 self._sync_worker = AskWorker(self.brain, self.SYNC_QUESTION, self.profiles.active, None, shot,
                                               light=True)

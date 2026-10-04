@@ -123,7 +123,7 @@ def test_names_and_the_ai_context(world):
     assert routes.endpoints(kb, g, "how do I get from Perion to Henesys?") == (PERION, HENESYS)
     text = routes.ai_context(kb, "how do I get to Perion?", me)
     assert "From Snail Garden to Perion, 2 steps" in text and "take the taxi to Perion (costs mesos)" in text
-    assert "Orbis" not in text and "Walking instead" not in text          # no walk: it would cross Orbis
+    assert "Orbis" not in text and "Without a cab" not in text          # no walk: it would cross Orbis
     assert routes.ai_context(kb, "what does Snail drop?", me) == ""
     assert routes.ai_context(kb, "how do I get to level 30?", me) == ""
     # no map known: from the nearest taxi town
@@ -316,3 +316,11 @@ def test_a_map_card_offers_the_way_there(world, qt):
     closed = EntityCard(kb, f"map/{ORBIS}", "en")                # not in the game: no way there to offer
     assert not [b for b in closed.findChildren(QToolButton) if b.toolTip() == "How to get here from my map"]
     ROUTE_REQUESTS.requested.disconnect(got.append)
+
+
+@needs_routes
+def test_the_no_cab_way_from_maple_island_is_not_called_free():
+    """The walk from Southperry still starts with Shanks' boat (300 mesos): "free" only when no step costs."""
+    from maplehelper.kb import KnowledgeBase
+    text = routes.ai_context(KnowledgeBase(REAL_KB), "how do I get from Southperry to Henesys?")
+    assert "Without a cab (no cab, but the boat still costs mesos)" in text and "(free)" not in text

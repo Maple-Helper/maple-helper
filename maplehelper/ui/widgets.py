@@ -345,7 +345,7 @@ def vote_tag(t, vote: dict) -> QLabel:
 
 
 def mesos_text(t, mesos) -> str:
-    """ "מזו 18–23 (קהילה)" / "Mesos 18–23 (Community)" (sources.mesos_line)."""
+    """ "mesos 18–23 (קהילה)" / "Mesos 18–23 (Community)" (sources.mesos_line)."""
     from .. import sources
     return sources.mesos_line(t, mesos)
 
@@ -577,7 +577,7 @@ class EntityCard(Selectable, QFrame):
                 pill.setLayoutDirection(Qt.LeftToRight)
                 flow.addWidget(pill)
             col.addWidget(pills)
-        # a monster's mesos, as players reported them: "מזו 18–23 (קהילה)", its own line (it isn't the page's stat
+        # a monster's mesos, as players reported them: "mesos 18–23 (קהילה)", its own line (it isn't the page's stat
         # and doesn't share the stat line's source)
         mesos = kb.community_mesos(key) if key.startswith("monster/") else None
         if mesos:

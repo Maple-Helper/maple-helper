@@ -301,7 +301,7 @@ def test_ai_prefetch_and_prompt(ckb):
 
 
 def test_instant_drops_answer_says_the_mesos(ckb):
-    for lang, line in (("en", "Mesos 18–23 (Community)"), ("he", "מזו 18–23 (קהילה)")):
+    for lang, line in (("en", "Mesos 18–23 (Community)"), ("he", "mesos 18–23 (קהילה)")):
         a = quick.answer("what does Snail drop" if lang == "en" else "מה Snail מפיל", ckb, I18n(lang))
         assert line in a.text and a.entities[:3] == [SNAIL, "item/413", "item/348"]
     who = quick.answer("who drops Bronze Ore", ckb, I18n("en"))
@@ -316,11 +316,11 @@ def _texts(w) -> list[str]:
 
 def test_cards_tiles_and_groups_show_votes_and_mesos(ckb, app):
     from maplehelper.ui.widgets import DropGroupCard, EntityCard, TileGrid
-    for lang, mesos, single in (("he", "מזו 18–23 (קהילה)", "דיווח יחיד"), ("en", "Mesos 18–23 (Community)",
+    for lang, mesos, single in (("he", "mesos 18–23 (קהילה)", "דיווח יחיד"), ("en", "Mesos 18–23 (Community)",
                                                                            "Single report")):
         t = I18n(lang)
         card = EntityCard(ckb, SNAIL, lang)
-        assert mesos in bidi_free(card.mesos_label.text())
+        assert mesos in bidi_free(card.mesos_label.text()).replace(chr(0xa0), " ")     # (kept together)
         assert "12" in card.mesos_label.toolTip()
         assert not hasattr(EntityCard(ckb, "monster/130101", lang), "mesos_label")
         grid = TileGrid(ckb, ["item/413", "item/709"], "x", t.rtl, t=t, srcs=[sources.COMMUNITY], monster=SNAIL)

@@ -517,7 +517,7 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
         assert win.windowOpacity() == 1.0 and not getattr(win, "_syncing", False)
         if case == "read":
             assert skipped == [] and finished == [True] and got[0][1] == {"exp_percent": 40.0}
-            assert brain.ask.call_args.kwargs.get("model") == "haiku" and brain.ask.call_args.kwargs["light"]
+            assert brain.ask.call_args.kwargs.get("model") is None and brain.ask.call_args.kwargs["light"]
         else:
             assert skipped == [case] and finished == [] and not brain.ask.called
     finally:
