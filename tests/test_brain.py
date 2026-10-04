@@ -215,3 +215,13 @@ def test_a_monster_details_question_shows_every_drop(kb_copy, q):
     b.kb.monster_drops = lambda key: items if key == "monster/130101" else []      # (the fixture's has none)
     ans = b.ask(q, None, None, None)
     assert ans.entities[:4] == ["monster/130101"] + items
+
+
+
+def test_the_players_level_is_named_as_one():
+    """"אתם ב-31" reads "אתם בלבל 31" (the owner: the word for level before the number)."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם בלבל 31)"
+    assert drop_keys("אתם ב31 עכשיו") == "אתם בלבל 31 עכשיו"
+    assert drop_keys("אתם בלבל 31") == "אתם בלבל 31"
+    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"

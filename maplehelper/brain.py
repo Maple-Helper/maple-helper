@@ -151,6 +151,7 @@ REPLY_RULES = """<reply_rules>
   is best, what is worth it, a recent change; at most one notable drop by name. A question for one number ("how much
   HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
 - Correct Hebrew grammar: an adjective agrees with its noun ("מונסטר בסיסי", never "מונסטר בסיס").
+- A level number always says so: "אתם בלבל 31", "לבל 31", never "אתם ב-31".
 - Hebrew words: "לבל", never "רמה"; "mesos" in English letters, never "מזו", "מזוס", "מסוס" or "מסות".
 - In a Hebrew answer only game names and stat names stay in English; every other word is Hebrew ("קווסט", not
   "quest"; "קהילה", not "community"; never "This", "drop" or "and" in a Hebrew sentence). Write stat bonuses one
@@ -422,12 +423,17 @@ _KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|clas
 
 
 # "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
+# "אתם ב-31": the player's level with no word for it (the owner: say "לבל" before the number)
+_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
 
 
 def drop_keys(text: str) -> str:
-    """The answer text as the player reads it: no knowledge-base keys, and "לעשות גריינד" for "לגרינד"."""
+    """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
+    named as one ("אתם בלבל 31", not "אתם ב-31")."""
     text = _KEY_IN_TEXT.sub("", text)
+    text = _BARE_LEVEL.sub(r"\1 בלבל \2", text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
