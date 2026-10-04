@@ -923,41 +923,43 @@ class ToolsDialog(GlassDialog):
         table under it is the page's own content."""
         if not rows:
             return None
+        # a list in plain words, one row a category: a grid of eight letters under short column names read as
+        # a code nobody could crack ("what does this even mean?", the owner)
         t, data = self.t, sitedata.tier_data(self.kb)
         level = data.get("level") or ""
         card = QFrame(objectName="Card")
         lay = QVBoxLayout(card)
         lay.setContentsMargins(12, 8, 12, 10)
         lay.setSpacing(6)
-        title = QLabel(self._p(t("tier_title", n=level)), objectName="CardName")
-        src = source_tag(t, sources.COMMUNITY)
-        src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
-        lay.addLayout(chip_row([src], title))
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(4)
-        grid.setVerticalSpacing(4)
         cols = list(data.get("columns") or [])
-        for j, col in enumerate(cols, start=1):
-            name, tip = self._tier_column(col)
-            head = QLabel(self._p(name), objectName="CardSub")
-            head.setAlignment(Qt.AlignCenter)
-            head.setWordWrap(True)
-            if tip:
-                head.setToolTip(tip_html(tip, t.rtl))
-            grid.addWidget(head, 0, j, Qt.AlignBottom)
-        for i, r in enumerate(rows, start=1):
-            grid.addWidget(QLabel(bidi.ltr_name(r.name, t.rtl), objectName="CardStat"), i, 0)
-            for j, col in enumerate(cols, start=1):
+        for n, r in enumerate(rows):
+            title = QLabel(self._p(t("tier_title", job=bidi.ltr_name(r.name, t.rtl))), objectName="CardName")
+            if n == 0:
+                src = source_tag(t, sources.COMMUNITY)
+                src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
+                lay.addLayout(chip_row([src], title))
+                lay.addWidget(self._label(t("tier_legend", n=level), "RowHint"))
+            else:
+                lay.addWidget(title)
+            for col in cols:
                 cell = r.cells.get(col) or {}
-                grade, value = cell.get("grade") or "", cell.get("value") or "N/A"
-                place, name = r.ranks.get(col), self._tier_column(col)[0]
-                tip = (t("tier_cell_tip", col=name, value=value, place=place[0], total=place[1]) if place
-                       else f"{name}: {value}")
+                grade, value = cell.get("grade") or "", cell.get("value") or ""
+                name, tip = self._tier_column(col)
+                place = r.ranks.get(col)
                 kind = {"S": "TagGood", "A": "TagWarn"}.get(grade, "Tag")
-                grid.addWidget(info_tag(t, grade or "—", tip, kind), i, j, Qt.AlignCenter)
-        for j in range(1, len(cols) + 1):
-            grid.setColumnStretch(j, 1)          # equal columns: a two-word name wraps under its own grade
-        lay.addLayout(grid)
+                chip = info_tag(t, grade or "—", tip_html(f"{name}: {value}" if value else name, t.rtl), kind)
+                chip.setFixedWidth(30)
+                what = QLabel(self._p(name), objectName="RowLabel")
+                if tip:
+                    what.setToolTip(tip_html(tip, t.rtl))
+                where = QLabel(self._p(t("tier_place", place=place[0], total=place[1]) if place
+                                       else t("tier_none")), objectName="RowHint")
+                row = QHBoxLayout()
+                row.setSpacing(8)
+                row.addWidget(chip)
+                row.addWidget(what, 1)
+                row.addWidget(where)
+                lay.addLayout(row)
         return card
 
     def _tier_column(self, col: str) -> tuple[str, str]:
