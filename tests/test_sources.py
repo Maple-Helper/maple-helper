@@ -312,7 +312,7 @@ FAMILIES = {
     "respawn": re.compile(r"^\S+ map data stores "),
     "drops": re.compile(r"^MSEA reference drops$", re.I),
     "community_list": re.compile(r"^Community sourced"),
-    "fm_reports": re.compile(r"^Community price check$"),
+    "fm_reports": re.compile(r"^(Community price check|Player reported|Saw it in a shop[?] Add a price)$"),
     "official": re.compile(r"^Source ?: .*\bNexon\b|^Official sources:"),
     ("shop_list", "source"): re.compile(r"^Source ?: (?!.*\bNexon\b)"),
     "guide_data": re.compile(r"\buse current [A-Z0-9]\S* data\b"),
