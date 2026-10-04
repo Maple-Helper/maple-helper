@@ -653,3 +653,17 @@ def test_no_card_for_what_is_not_in_the_game(tmp_path):
     b.backend = SimpleNamespace(exe="fake", run=lambda *a, **k: RawResult(
         text='El Nath isn\'t out yet; stay around Henesys.\n@@META@@\n{"entities": ["map/1", "map/2"]}'))
     assert b.ask("how do I get to El Nath?", None, None, None).entities == ["map/2"]
+
+
+
+@needs_kb
+def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
+    """"Forgotten Hollow is closed during Founder's Access": its maps (Shallow / Deep Passage) and their monsters are
+    out, while the rest of Victoria Island (whose towns the Hollow's guide also names) stays in."""
+    from maplehelper import availability, combat
+    o = availability.of(real)
+    if "Forgotten Hollow" not in o.closed_areas:
+        pytest.skip("the release guide no longer calls Forgotten Hollow closed")
+    assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
+    assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
+    assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))

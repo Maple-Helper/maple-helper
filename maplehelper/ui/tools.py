@@ -1633,7 +1633,8 @@ class ToolsDialog(GlassDialog):
         if i.teacher:
             col.addWidget(self._label(t("craft_teacher", npc=i.teacher, town=i.teacher_town or "?"), "RowLabel"))
         if i.station_towns:
-            col.addWidget(self._label(t("craft_station", station=i.station, towns=" · ".join(i.station_towns), n=len(i.station_towns)),
+            col.addWidget(self._label(t("craft_station", station=i.station,
+                                        towns=(" וב-" if t.rtl else ", ").join(i.station_towns)),
                                       "RowLabel"))
         name = crafting.NAMES[prof]
         col.addWidget(self._ask_link(lambda: self.ask_requested.emit(t("craft_ask", prof=name), False)))
