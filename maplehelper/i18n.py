@@ -174,7 +174,7 @@ STRINGS = {
     "note": {"he": "הערה", "en": "Note"},
     # last-session summary (in Hebrew the arrow points left: the text reads right to left)
     "exp_line": {"he": "{pct}% · נשארו {left} EXP לרמה הבאה", "en": "{pct}% · {left} EXP to the next level"},
-    "exp_line_kills": {"he": "{pct}% · עוד כ-{n} הריגות של {mob}", "en": "{pct}% · ~{n} {mob} kills to go"},
+    "exp_line_kills": {"he": "{pct}% · עוד כ-{n} הריגות של {mob} לעליית רמה", "en": "{pct}% · ~{n} {mob} kills to level up"},
     "exp_kills_tip": {"he": "נשארו {left} EXP לרמה הבאה", "en": "{left} EXP to the next level"},
     "plan_what_now": {"he": "מה עכשיו?", "en": "What now?"},
     "what_now_tip": {"he": "מצלם את המסך ושואל מה הכי כדאי לעשות כרגע", "en": "Takes a screenshot and asks what's best to do right now"},
@@ -1147,7 +1147,7 @@ STRINGS = {
     "grind_started_ago_one": {"he": "התחיל לפני דקה", "en": "Started 1 min ago"},
     "grind_last_mins_one": {"he": "עודכן לפני דקה", "en": "Updated 1 min ago"},
     "spot_kills_one": {"he": "עוד הריגה אחת לרמה הבאה", "en": "1 more kill to the next level"},
-    "exp_line_kills_one": {"he": "{pct}% · עוד הריגה אחת של {mob}", "en": "{pct}% · 1 {mob} kill to go"},
+    "exp_line_kills_one": {"he": "{pct}% · עוד הריגה אחת של {mob} לעליית רמה", "en": "{pct}% · 1 {mob} kill to level up"},
     "calc_more_acc_one": {"he": "חסר ACC אחד, בערך {pts} {stat}", "en": "1 ACC short, about {pts} {stat}"},
     "pn_affects_one": {"he": "שינוי אחד שנוגע בכם", "en": "1 change that affects you"},
     "patch_notes_affects_one": {"he": "שינוי אחד במאגר נוגע בכם: {names}", "en": "1 database change affects you: {names}"},
