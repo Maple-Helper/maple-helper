@@ -277,7 +277,7 @@ def test_the_news_strip_shows_the_newest_unread_and_dismisses_per_item(chat):
     assert chat.news_strip.isVisible()
     # the Hebrew title (assets/news/he.json), its English names kept whole
     assert "תקרת לבל" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
-    assert "ועוד" in chat.news_strip.head.text() and "1" in chat.news_strip.head.text()
+    assert "ועוד אחת שלא קראתם" in chat.news_strip.head.text() and "חדשה מ-" in chat.news_strip.head.text()
     chat.news_strip.close_btn.click()
     assert chat.settings["news_read"] == ["founders-access-release-notes"]
     assert "Classic World opens" in chat.news_strip.title.text()
