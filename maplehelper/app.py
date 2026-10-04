@@ -158,12 +158,17 @@ class MapleHelperApp:
         self.overlay.add_character_requested.connect(self.add_character)
         self.overlay.edit_character_requested.connect(self.edit_character)
         self.overlay.delete_character_requested.connect(self.delete_character)
-        # play tools: a grind tracker read on its way lives as long as the app (the window may close in between);
-        # the session itself is saved (grind.py)
-        self.exp_meter: dict = {}
+        # play tools: the grind tracker's reads and its minute timer live as long as the app (the tools window may
+        # be closed); the session itself is saved (grind.py)
+        from .ui.grindrunner import GrindRunner
+        self.grind = GrindRunner(self.kb, self.profiles, self.settings)
+        self.grind.auto_requested.connect(self.overlay.auto_grind_read)
+        self.overlay.grind_read.connect(self.grind.grind_read)
+        self.overlay.grind_skipped.connect(self.grind.skipped)
+        self.overlay.sync_finished.connect(self.grind.sync_done)     # before the tools window redraws (below)
+        self.grind.sync()          # a session running when the app last closed goes on (unless it was left idle)
         self.overlay.tools_requested.connect(lambda: self.show_tools())
         self.overlay.profile_changed.connect(self.on_profile_changed)
-        self.overlay.grind_read.connect(lambda r: self._tools_call("grind_read", r))
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
         self.hotkeys = osapi.Hotkeys()
@@ -791,7 +796,7 @@ class MapleHelperApp:
 
         def make():
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
-                              self.exp_meter, page)
+                              self.grind, page)
             dlg.sync_requested.connect(self.overlay.sync_profile)
             dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
@@ -818,6 +823,7 @@ class MapleHelperApp:
             getattr(tools, method)(*args)
 
     def on_profile_changed(self):
+        self.grind.sync()          # another character: its own session's minute reads (or none)
         self._tools_call("profile_changed")
 
     def show_guides(self, open_key: str | None = None):
@@ -905,10 +911,12 @@ class MapleHelperApp:
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb
         self.overlay.kb = self.kb
+        self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
 
     def shutdown(self):
         telemetry.flush()
+        self.grind.stop()                        # no minute read while the app goes
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

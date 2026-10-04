@@ -252,6 +252,12 @@ def test_tracker_page_start_update_end(tmp_path, monkeypatch, store):
     d.sync_done(True)
     assert d.grind_start.isHidden() and not d.grind_update.isHidden() and d.grind_update.isEnabled()
     assert "inventory was closed" in d.grind_status.text() and d.grind_monster.text() == "Horny Mushroom"
+    # auto-update is on by default: the minute timer runs, and its line says when the numbers were read
+    assert d.grind_auto.isChecked() and d.runner.timer.isActive() and "Updated" in d.grind_auto_state.text()
+    d.runner.waiting = "no_game"
+    d._fill_auto_state()
+    assert "Waiting for the game" in d.grind_auto_state.text()
+    d.runner.waiting = ""
     # an Update that couldn't read the game changes nothing
     clock[0] += 600
     d.grind_update.click()
@@ -292,8 +298,7 @@ def test_tracker_page_missing_reads_and_a_lost_read(tmp_path, monkeypatch, store
     monkeypatch.setattr(st.Settings, "path", tmp_path / "settings.json")
     p = st.Profiles()
     c = p.add("Kiwi", "Thief", "Assassin", 24)
-    meter = {}
-    d = ToolsDialog(KnowledgeBase(REAL_KB), p, st.Settings(), "he", "", meter, "exp")
+    d = ToolsDialog(KnowledgeBase(REAL_KB), p, st.Settings(), "he", "", None, "exp")
     monkeypatch.setattr(d, "_step_aside", lambda then: None)       # the read never comes back (window closed)
     # no EXP bar in the read: no session
     d._grind_read("start")
@@ -303,9 +308,10 @@ def test_tracker_page_missing_reads_and_a_lost_read(tmp_path, monkeypatch, store
     # a read lost on the way keeps the buttons off only for a while
     d._grind_read("start")
     assert not d.grind_start.isEnabled()
-    meter["pending"] = meter["pending"][:2] + (time.time() - d.READ_WAIT - 1,)
+    r = d.runner
+    r.pending = r.pending[:2] + (time.time() - r.READ_WAIT - 1,) + r.pending[3:]
     d.refresh("exp")
-    assert d.grind_start.isEnabled() and "pending" not in meter
+    assert d.grind_start.isEnabled() and r.pending is None
     # another character's read is never taken
     d._grind_read("start")
     d.grind_read(("someone-else", {"level": 50, "exp_percent": 5.0}, {}))
@@ -368,3 +374,175 @@ def test_the_meta_grind_object_must_be_an_object():
     from maplehelper.brain import split_meta
     assert split_meta('Read.\n@@META@@ {"grind": {"mesos": 5}}')[1]["grind"] == {"mesos": 5}
     assert "grind" not in split_meta('Read.\n@@META@@ {"grind": [5]}')[1]
+
+
+# ---------------------------------------------------------------- auto-update every minute
+
+@pytest.fixture
+def runner(isolated_store, math):
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui.grindrunner import GrindRunner
+    QApplication.instance() or QApplication([])
+    profiles = isolated_store.Profiles()
+    c = profiles.add("Kiwi", "Thief", "Assassin", 21)
+    r = GrindRunner(math, profiles, isolated_store.Settings())
+    asked = []
+    r.auto_requested.connect(lambda: asked.append(1))
+    r.asked, r.cid = asked, c.id
+    yield r
+    r.stop()
+
+
+def test_the_minute_timer_runs_only_with_a_session_and_auto_on(runner, isolated_store):
+    r = runner
+    r.sync()
+    assert not r.timer.isActive()                        # no session
+    assert r.ask("start", r.cid) == "read"
+    r.grind_read((r.cid, {"level": 21, "exp_percent": 10.0}, {}))
+    r.sync_done(True)
+    assert r.store.running(r.cid) and r.timer.isActive() and r.timer.interval() == 60_000
+    r.set_auto(False)
+    assert not r.timer.isActive() and isolated_store.Settings()["grind_auto"] is False     # remembered
+    r.set_auto(True)
+    assert r.timer.isActive() and isolated_store.Settings()["grind_auto"] is True
+    # another character: its own session (none), so no reads
+    other = r.profiles.add("Mango", "Warrior", "Fighter", 30)
+    r.sync()
+    assert not r.timer.isActive()
+    r.profiles.set_active(r.cid)
+    r.sync()
+    assert r.timer.isActive()
+    assert r.ask("end", r.cid) == "read"
+    r.sync_done(False)
+    assert r.store.running(r.cid) is None and not r.timer.isActive()
+    assert other.id != r.cid
+
+
+def test_a_tick_reads_quietly_and_skips_while_a_read_runs(runner):
+    r = runner
+    r.store.start(r.cid, grind.Reading(time.time(), 21, 10.0))
+    r.sync()
+    r._tick()
+    assert r.asked == [1] and r.busy()[0] == "auto"
+    r._tick()                                             # the last read is still on its way: skipped, not queued
+    assert r.asked == [1]
+    # Update pressed meanwhile rides on that read: no second screenshot
+    assert r.ask("update", r.cid) == "joined" and r.busy()[0] == "update"
+    r.grind_read((r.cid, {"level": 21, "exp_percent": 20.0}, {}))
+    r.sync_done(True)
+    assert len(r.store.running(r.cid).reads) == 2 and r.note == ["grind_updated", "grind_no_inv"]
+    # an automatic read adds what it read and says nothing
+    r._tick()
+    r.grind_read((r.cid, {"level": 21, "exp_percent": 30.0}, {}))
+    r.sync_done(True)
+    assert len(r.store.running(r.cid).reads) == 3 and r.note == ["grind_updated", "grind_no_inv"]
+    # one that failed or read nothing adds nothing
+    r._tick()
+    r.sync_done(False)
+    r._tick()
+    r.grind_read((r.cid, {}, {}))
+    r.sync_done(True)
+    assert len(r.store.running(r.cid).reads) == 3 and r.busy() is None
+
+
+def test_a_tick_with_no_game_waits_quietly(runner):
+    r = runner
+    r.store.start(r.cid, grind.Reading(time.time(), 21, 10.0))
+    r.sync()
+    for reason in ("no_game", "covered"):
+        r._tick()
+        r.skipped(reason)
+        assert r.busy() is None and r.waiting == reason
+    r._tick()
+    r.skipped("busy")                                     # the chat was answering: the next minute tries again
+    assert r.busy() is None and r.waiting == "covered" and r.timer.isActive()
+    r._tick()
+    r.grind_read((r.cid, {"level": 21, "exp_percent": 12.0}, {}))
+    r.sync_done(True)
+    assert r.waiting == ""
+
+
+def test_a_session_left_idle_does_not_start_reading_by_itself(runner):
+    r = runner
+    r.store.start(r.cid, grind.Reading(time.time() - r.IDLE - 60, 21, 10.0))
+    r.sync()
+    assert not r.timer.isActive() and r.idle(r.store.running(r.cid))
+    assert r.ask("update", r.cid) == "read"               # Update resumes it
+    r.grind_read((r.cid, {"level": 21, "exp_percent": 12.0}, {}))
+    r.sync_done(True)
+    assert r.timer.isActive()
+
+
+@pytest.mark.parametrize("case", ["busy", "no_game", "covered", "read"])
+def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypatch, case):
+    from unittest.mock import Mock
+
+    from PySide6.QtWidgets import QApplication
+    from maplehelper import capture
+    from maplehelper.brain import Answer
+    from maplehelper.ui import overlay
+
+    qapp = QApplication.instance() or QApplication([])
+    profiles = isolated_store.Profiles()
+    profiles.add("Kiwi", "Thief", "Assassin", 24)
+    brain = Mock()
+    brain._provider.saver_model = "haiku"
+    brain.ask.return_value = Answer(profile_update={"exp_percent": 40.0}, grind={"map": "Ant Tunnel I"})
+    win = overlay.Overlay(isolated_store.Settings(), profiles, kb, brain)
+    win.add_system = Mock()
+    win._update_avatar = Mock()
+    skipped, got, finished = [], [], []
+    win.grind_skipped.connect(skipped.append)
+    win.grind_read.connect(got.append)
+    win.sync_finished.connect(finished.append)
+    monkeypatch.setattr(overlay.osapi, "find_game_window", lambda: None if case == "no_game" else 123)
+    monkeypatch.setattr(overlay.osapi, "window_rect", lambda hwnd: (5000, 5000, 800, 600))   # beside our windows
+
+    def grab(hwnd):
+        capture.LAST_PROBLEM = "covered" if case == "covered" else None
+        return None if case == "covered" else b"screenshot"
+    monkeypatch.setattr(overlay.osapi, "capture_game", grab)
+    win.setWindowOpacity(1.0)
+    if case == "busy":
+        win.busy = True
+    try:
+        win.auto_grind_read()
+        deadline = time.monotonic() + 5
+        while not (skipped or finished) and time.monotonic() < deadline:
+            qapp.processEvents()
+            time.sleep(0.005)
+        win.add_system.assert_not_called()                # no chat line a minute, whatever happened
+        win._update_avatar.assert_not_called()
+        assert win.windowOpacity() == 1.0 and not getattr(win, "_syncing", False)
+        if case == "read":
+            assert skipped == [] and finished == [True] and got[0][1] == {"exp_percent": 40.0}
+            assert brain.ask.call_args.kwargs.get("model") == "haiku" and brain.ask.call_args.kwargs["light"]
+        else:
+            assert skipped == [case] and finished == [] and not brain.ask.called
+    finally:
+        from shiboken6 import isValid
+        thread = getattr(win, "_sync_thread", None)
+        if thread is not None and isValid(thread):
+            thread.quit()
+            thread.wait(2000)
+        win.deleteLater()
+
+
+def test_windows_over_the_game_step_aside(monkeypatch):
+    from PySide6.QtWidgets import QApplication, QWidget
+
+    from maplehelper.ui import overlay
+    QApplication.instance() or QApplication([])
+    monkeypatch.setattr(overlay.osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
+    w = QWidget()
+    w.setGeometry(100, 100, 300, 200)
+    w.show()
+    try:
+        assert w in overlay.windows_over((0, 0, 1000, 1000))
+        assert w not in overlay.windows_over((2000, 0, 800, 600))
+        w.hide()
+        overlay.show_quietly(w)
+        assert w.isVisible() and not w.testAttribute(overlay.Qt.WA_ShowWithoutActivating)
+    finally:
+        w.close()

@@ -24,7 +24,7 @@ LOG_FILE = LOG_DIR / "maplehelper.log"
 REPORT_SETTINGS = ("language", "hotkey_toggle", "hotkey_voice", "appearance", "font_size", "answer_length",
                    "start_with_windows", "voice_send_immediately", "provider", "model", "codex_model", "grok_model",
                    "gemini_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "usage",
-                   "saver_mode", "seen_version", "instant_answers", "telemetry")
+                   "saver_mode", "seen_version", "instant_answers", "telemetry", "grind_auto")
 log = logging.getLogger("maplehelper")
 
 

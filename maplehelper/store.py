@@ -127,6 +127,7 @@ DEFAULT_SETTINGS = {
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
     "telemetry": False,           # anonymous usage stats, opt-in (see telemetry.py)
     "install_id": "",             # random id for those stats, created on first use
+    "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
 }
 
 

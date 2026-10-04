@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacit
 from .. import availability, bidi, buildplan, combat, crafting, glossary, grind, guides, market, plan, quests, sources
 from ..i18n import I18n
 from . import terms, theme
-from .controls import FlowLayout, Section, Segmented, Stepper, WrapLink, follow_typing, rtl_buttons
+from .controls import FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .widgets import chip_row, source_tag, source_tags, tip_html, updated_tag
 from .patchnotes import gutter
@@ -231,10 +231,18 @@ class ToolsDialog(GlassDialog):
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
 
-    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, exp_meter: dict, page: str = "train"):
+    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tools"), t.rtl)
-        self.kb, self.profiles, self.settings, self.meter = kb, profiles, settings, exp_meter
+        self.kb, self.profiles, self.settings = kb, profiles, settings
+        # the grind tracker's reads and its session: the app's (they go on with this window closed), or its own
+        from .grindrunner import GrindRunner
+        self._own_runner = not isinstance(runner, GrindRunner)
+        self.runner = GrindRunner(kb, profiles, settings) if self._own_runner else runner
+        if self._own_runner:
+            self.runner.setParent(self)         # its timer goes with this window
+        self.grind = self.runner.store
+        self.runner.changed.connect(self.grind_changed)
         self.setStyleSheet(stylesheet)
         self.fit_screen(580, 800)
         rtl = t.rtl
@@ -352,8 +360,8 @@ class ToolsDialog(GlassDialog):
     def sync_done(self, ok: bool):
         """A screenshot read ended: a grind tracker read waiting for it takes it (a failed one says so)."""
         self.setWindowOpacity(1.0)
-        if self._grind_pending():
-            self._grind_reading(ok)
+        if self._own_runner:
+            self.runner.sync_done(ok)
         self.refresh()
 
     def _step_aside(self, then) -> None:
@@ -1468,7 +1476,6 @@ class ToolsDialog(GlassDialog):
     def _page_exp(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
-        self.grind = grind.Store()
         # a term gets its "?" once on this page, in the intro (as on the prices page)
         self._grind_seen: set = set()
         lay.addWidget(self._label(t("grind_intro"), "ToolHeader", seen=self._grind_seen))
@@ -1515,6 +1522,23 @@ class ToolsDialog(GlassDialog):
         self.grind_lines.setContentsMargins(0, 8, 0, 8)
         self.grind_lines.setSpacing(6)
         sec.add_widget(lines)
+        auto = QWidget()
+        arow = QHBoxLayout(auto)
+        arow.setContentsMargins(0, 8, 0, 8)
+        arow.setSpacing(10)
+        acol = QVBoxLayout()
+        acol.setSpacing(1)
+        acol.addWidget(self._gl(t("grind_auto"), "RowLabel"))
+        acol.addWidget(self._gl(t("grind_auto_hint"), "RowHint"))
+        self.grind_auto_state = self._gl("", "RowHint")
+        acol.addWidget(self.grind_auto_state)
+        arow.addLayout(acol, 1)
+        self.grind_auto = Switch(self.runner.auto)
+        self.grind_auto.setAccessibleName(t("grind_auto"))
+        self.grind_auto.setAccessibleDescription(t("grind_auto_hint"))
+        self.grind_auto.toggled.connect(self._grind_set_auto)
+        arow.addWidget(self.grind_auto, 0, Qt.AlignVCenter)
+        sec.add_widget(auto)
         foot = QWidget()
         fl = QVBoxLayout(foot)
         fl.setContentsMargins(0, 8, 0, 8)
@@ -1534,7 +1558,6 @@ class ToolsDialog(GlassDialog):
         fl.addLayout(btns)
         sec.add_widget(foot)
         lay.addWidget(sec)
-        lay.addWidget(self._gl(t("grind_cost_hint"), "RowHint"))
         recent = Section(t("grind_recent"), t.rtl)
         box = QWidget()
         self.grind_table = QGridLayout(box)
@@ -1555,8 +1578,8 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(recent)
         lay.addStretch(1)
         self._grind_choice = ""            # a monster picked before the session starts
-        # the session time moves on between reads (only the clock: the numbers change at a read)
-        self._grind_clock = QTimer(self, interval=30_000, timeout=self._grind_tick)
+        # the session time and "updated 20 s ago" move on between reads (only the clock: the numbers change at a read)
+        self._grind_clock = QTimer(self, interval=10_000, timeout=self._grind_tick)
         self._grind_clock.start()
         return sc
 
@@ -1567,70 +1590,42 @@ class ToolsDialog(GlassDialog):
     def _gs(self, label: QLabel, text: str) -> None:
         self._set(label, text, set(self._grind_seen))
 
-    READ_WAIT = 90         # s: a read asked for this long ago is over (the chat stops one after a minute)
-
-    def _grind_pending(self) -> tuple | None:
-        """The grind read on its way, or None. One asked while this window was closed never reached it (the chat's
-        reply had no window to go to): past READ_WAIT it is dropped, or the buttons stayed off for good."""
-        p = self.meter.get("pending")
-        if p and time.time() - p[2] > self.READ_WAIT:
-            self.meter.pop("pending", None)
-            p = None
-        return p
-
     def _grind_read(self, what: str):
-        """Start / Update / End: a screenshot read (the chat runs it), then the session takes it (_grind_reading)."""
+        """Start / Update / End: a screenshot read (the chat runs it), then the runner takes it into the session. An
+        Update or End pressed while the minute's automatic read is on its way rides on that read."""
         c = self.c
-        if not c or self._grind_pending():
+        if not c:
             return
-        self.meter.pop("grind_read", None)
-        self.meter["pending"] = (what, c.id, time.time())
-        self._grind_note = ""
+        how = self.runner.ask(what, c.id, self._grind_choice if what == "start" else "")
+        if not how:
+            return
         self._gs(self.grind_status, self.t("grind_reading"))
         self._grind_buttons(busy=True)
-        self._step_aside(self.grind_sync_requested.emit)
+        if how == "read":
+            self._step_aside(self.grind_sync_requested.emit)
 
     def grind_read(self, r):
-        """The AI's reply to a grind read (character id, profile_update, grind), just before sync_done."""
-        self.meter["grind_read"] = r
+        """The AI's reply to a grind read (character id, profile_update, grind), just before sync_done (a window
+        with its own runner: the app's gets it from the chat itself)."""
+        if self._own_runner:
+            self.runner.grind_read(r)
 
-    def _grind_reading(self, ok: bool):
-        what, cid, _ = self.meter.pop("pending")
-        got = self.meter.pop("grind_read", None)
-        c = self.c
-        if not c or c.id != cid:
-            return
-        now = time.time()
-        if ok and got and got[0] == cid:
-            r = grind.reading(now, got[1], got[2])
-            if r.exp_pct is not None and r.level is None:
-                r.level = c.level              # the HUD's level unread, its bar read: the level hasn't changed
-        elif ok:
-            # a read already on its way when this one was asked (the ⟳ on the card): its profile is all there is
-            r = grind.reading(now, {"level": c.level, "exp_percent": c.exp_pct}, None)
-        else:
-            r = None
-        t, store = self.t, self.grind
-        if what == "start":
-            if r is None or r.exp_pct is None:
-                self._grind_note = t("exp_failed") if r is None else t("grind_no_exp")
-                return
-            store.start(cid, r, self._grind_choice, picked=bool(self._grind_choice))
-            self._grind_note = t("grind_started_ok") + ("" if r.inventory else "\n" + t("grind_no_inv"))
-            return
-        if r is not None:
-            store.add(cid, r)
-        if what == "update":
-            if r is None:
-                self._grind_note = t("exp_failed")
-            elif r.exp_pct is None:
-                self._grind_note = t("grind_no_exp")
-            else:
-                self._grind_note = t("grind_updated") + ("" if r.inventory else "\n" + t("grind_no_inv"))
-            return
-        rec = store.end(cid, self.kb)
-        self._grind_note = (t("grind_end_no_read") + "\n" if r is None else "") + \
-            t("grind_saved" if rec else "grind_not_saved")
+    def grind_changed(self):
+        """A read landed, failed or was skipped: the page follows, once it is built."""
+        try:
+            if "exp" not in self.__dict__.get("_pending", ()):
+                self.refresh("exp")
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _grind_set_auto(self, on: bool):
+        self.runner.set_auto(on)
+        self._fill_auto_state()
+
+    def _asked_read(self) -> bool:
+        """A read the player asked for is on its way (the buttons wait for it; the minute's own read doesn't)."""
+        p = self.runner.busy()
+        return bool(p and p[0] != "auto")
 
     def _grind_pick_monster(self):
         c = self.c
@@ -1659,7 +1654,7 @@ class ToolsDialog(GlassDialog):
 
     def _grind_tick(self):
         try:
-            if self.stack.currentIndex() == PAGES.index("exp") and self.isVisible() and not self._grind_pending():
+            if self.stack.currentIndex() == PAGES.index("exp") and self.isVisible() and not self._asked_read():
                 self._fill_exp_clock()
         except RuntimeError:       # the window closed meanwhile
             pass
@@ -1693,6 +1688,7 @@ class ToolsDialog(GlassDialog):
         s = self.grind.session(c.id) if c else None
         if not s:
             self.grind_tag.hide()
+            self.grind_auto_state.hide()
             self._gs(self.grind_state, t("grind_idle_state"))
             self._cell("time", "–")
             return
@@ -1704,13 +1700,32 @@ class ToolsDialog(GlassDialog):
         end = s.ended or time.time()
         self._cell("time", self._p(self._clock(end - s.start)), t("grind_tip_time"))
         if s.ended:
+            self.grind_auto_state.hide()
             self._gs(self.grind_state, t("grind_ended_state", time=self._clock(end - s.start)))
             return
-        since = round((time.time() - s.reads[-1].t) / 60)
-        line = t("grind_started_ago", n=round((time.time() - s.start) / 60))
-        if len(s.reads) > 1:
-            line += " · " + (t("grind_read_now") if since < 1 else t("grind_read_ago", n=since))
-        self._gs(self.grind_state, line)
+        self._gs(self.grind_state, t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        self._fill_auto_state(s)
+
+    def _fill_auto_state(self, s=None):
+        """Under the auto-update switch: when the numbers were last read, or why they wait."""
+        t, c, r = self.t, self.c, self.runner
+        s = s or (self.grind.running(c.id) if c else None)
+        if not s or s.ended:
+            self.grind_auto_state.hide()
+            return
+        p = r.busy()
+        if p and p[0] == "auto":
+            text = t("grind_auto_reading")
+        elif r.auto and r.waiting:
+            text = t("grind_waiting_covered" if r.waiting == "covered" else "grind_waiting")
+        elif r.auto and r.idle(s):
+            text = t("grind_auto_idle")
+        else:
+            ago = max(0, round(time.time() - s.reads[-1].t))
+            text = t("grind_last_now") if ago < 10 else t("grind_last_secs", n=ago) if ago < 60 else \
+                t("grind_last_mins", n=ago // 60)
+        self._gs(self.grind_auto_state, text)
+        self.grind_auto_state.show()
 
     def _fill_exp(self):
         t, c = self.t, self.c
@@ -1726,7 +1741,7 @@ class ToolsDialog(GlassDialog):
             self._fill_recent()
             return
         s = self.grind.session(c.id)
-        self._grind_buttons(busy=bool(self._grind_pending()))
+        self._grind_buttons(busy=self._asked_read())
         self._fill_exp_clock()
         sm = grind.summarize(self.kb, s) if s else None
         where = sm.map if sm else ""
@@ -1743,10 +1758,10 @@ class ToolsDialog(GlassDialog):
         if sm:
             self._fill_lines(sm)
         self.grind_lines.parentWidget().setVisible(self.grind_lines.count() > 0)     # no empty row in the card
-        if self._grind_pending():
+        if self._asked_read():
             self._gs(self.grind_status, t("grind_reading"))
-        elif getattr(self, "_grind_note", ""):
-            self._gs(self.grind_status, self._grind_note)
+        elif self.runner.note:
+            self._gs(self.grind_status, "\n".join(t(k) for k in self.runner.note))
         elif s and not s.ended:
             self._gs(self.grind_status, t("grind_running_hint"))
         else:
