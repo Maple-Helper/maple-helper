@@ -360,6 +360,7 @@ class ToolsDialog(GlassDialog):
     grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
     inventory_ready = Signal(object)          # the inventory slots a sell-or-keep read found (or None: no shot)
+    sell_market_ready = Signal(object)        # (read id, key -> the usual Free Market price) for those items
     ask_requested = Signal(str, bool)          # question for the chat, with a fresh screenshot?
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
@@ -2268,6 +2269,12 @@ class ToolsDialog(GlassDialog):
             if name:
                 self.price_box.addWidget(self._label(t("price_none"), "RowHint"))
             return
+        # an untradeable Cash Shop item (a pet): no NPC and no player buys or sells it, so no price here (the owner)
+        if str((self.kb.get(key) or {}).get("type") or "").startswith("Cash") and sitedata.untradeable(self.kb, key):
+            nx = sitedata.cash_price(self.kb, key)
+            self.price_box.addWidget(self._label(t("price_untradeable", n=f"{nx[0]:,}") if nx else
+                                                 t("price_untradeable_no_nx"), "RowHint"))
+            return
         npc = market.npc_prices(self.kb, key)
         card = QFrame(objectName="Card")
         outer = QHBoxLayout(card)
@@ -3497,6 +3504,7 @@ class ToolsDialog(GlassDialog):
         lay.addLayout(self.sell_box)
         lay.addStretch(1)
         self.inventory_ready.connect(self._show_sell)
+        self.sell_market_ready.connect(self._on_sell_market)
         return sc
 
     def _page_pets(self):
@@ -3641,8 +3649,46 @@ class ToolsDialog(GlassDialog):
             return
         verdicts = sellkeep.classify(self.kb, slots, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
                                      wishlist.items(self.settings, c.id))
+        self._sell_verdicts = verdicts
+        self._render_sell(verdicts, checking=True)
+        # the Free Market's usual price of each item to sell, from NiaMeowDB (live: its pages have no numbers),
+        # one item after another in the background; the cards follow when they're in
+        keys = sellkeep.for_market(self.kb, verdicts)[:30]
+        self._sell_read = read_id = self.__dict__.get("_sell_read", 0) + 1
+        if not keys:
+            self._render_sell(verdicts)
+            return
+        import threading
+
+        def look():
+            usual = {}
+            for k in keys:
+                slug = k.split("/", 1)[1]
+                if slug.isdigit():
+                    m = market.item_market(int(slug))
+                    if m is not None and m.usual:
+                        usual[k] = m.usual
+            try:
+                self.sell_market_ready.emit((read_id, usual))
+            except RuntimeError:
+                pass
+        threading.Thread(target=look, daemon=True).start()
+
+    def _on_sell_market(self, r) -> None:
+        from .. import sellkeep
+        read_id, usual = r
+        if read_id != self.__dict__.get("_sell_read") or not self.__dict__.get("_sell_verdicts"):
+            return
+        self._sell_verdicts = sellkeep.with_market(self._sell_verdicts, usual)
+        self._render_sell(self._sell_verdicts)
+
+    def _render_sell(self, verdicts, checking: bool = False) -> None:
+        t = self.t
+        clear(self.sell_box)
         total = sum(v.price for v in verdicts if v.kind == "sell")
         self.sell_box.addWidget(self._label(t("sell_summary", n=len(verdicts), mesos=f"{total:,}"), "ToolHeader"))
+        if checking:
+            self.sell_box.addWidget(self._label(t("sell_fm_checking"), "RowHint"))
         last = None
         for v in verdicts:
             if v.kind != last:
@@ -3672,6 +3718,7 @@ class ToolsDialog(GlassDialog):
                "wish": t("sell_why_wish"), "wear": t("sell_why_wear", lv=v.why or "-"),
                "not_yet": t("sell_why_not_yet", lv=v.why), "other_job": t("sell_why_other_job"),
                "sell": t("sell_why_sell", n=f"{v.price:,}"), "no_price": t("sell_why_no_price"),
+               "fm": t("sell_why_fm", n=f"{v.fm:,}") + (" " + t("sell_or_npc", n=f"{v.price:,}") if v.price else ""),
                "unknown": t("sell_why_unknown")}[v.kind]
         if v.kind in ("not_yet", "other_job") and v.price:
             why += " " + t("sell_or_npc", n=f"{v.price:,}")

@@ -873,19 +873,7 @@ STRINGS = {
     "exp_no_gain": {"he": "עוד לא נצבר EXP מאז תחילת הסשן.", "en": "No EXP gained since the session started yet."},
     "exp_no_table": {"he": "במאגר אין טבלת EXP אחרי רמה 99, אז את הרמה הזו אי אפשר למדוד כאן עדיין.", "en": "The database has no EXP table past Lv. 99, so this level can't be measured here yet."},
     "sell_title": {"he": "מה כדאי למכור?", "en": "What should I sell?"},
-    "sell_body": {"he": "פתחו את **האינבנטורי** במשחק (כל לשונית) ולחצו על הכפתור.
-האפליקציה תצלם ותגיד לכל פריט:
-• **לשמור לקווסט**
-• **לשמור לקראפטינג**, למשל ל-Smithing או ל-Tailoring
-• **לשמור**, כי סימנתם אותו בכוכב
-• **לשמור לציוד** שאפשר ללבוש
-• **למכור ל-NPC**, ובכמה", "en": "Open your **inventory** in the game (any tab) and click the button.
-The app takes a screenshot and tells you, for each item:
-• **Keep for a quest**
-• **Keep for crafting** (Smithing or Tailoring, say)
-• **Keep**, you starred it
-• **Keep as gear** you can wear
-• **Sell to an NPC**, and for how much"},
+    "sell_body": {"he": "פתחו את **האינבנטורי** במשחק (כל לשונית) ולחצו על הכפתור.\nהאפליקציה תצלם ותגיד לכל פריט:\n• **לשמור לקווסט**\n• **לשמור לקראפטינג**, למשל ל-Smithing או ל-Tailoring\n• **לשמור**, כי סימנתם אותו בכוכב\n• **לשמור לציוד** שאפשר ללבוש\n• **למכור ל-NPC**, ובכמה", "en": "Open your **inventory** in the game (any tab) and click the button.\nThe app takes a screenshot and tells you, for each item:\n• **Keep for a quest**\n• **Keep for crafting** (Smithing or Tailoring, say)\n• **Keep**, you starred it\n• **Keep as gear** you can wear\n• **Sell to an NPC**, and for how much"},
     "sell_reading": {"he": "מצלמים את המסך ומזהים את הפריטים", "en": "Taking a screenshot and naming the items"},
     "sell_no_game": {"he": "לא נמצא חלון של המשחק לצלם. פתחו את MapleStory ונסו שוב.", "en": "No game window to capture. Open MapleStory and try again."},
     "sell_no_inventory": {"he": "לא נמצא אינבנטורי פתוח בצילום. פתחו אותו במשחק ונסו שוב.", "en": "No open inventory in the shot. Open it in the game and try again."},
@@ -896,6 +884,11 @@ The app takes a screenshot and tells you, for each item:
     "sell_kind_wear": {"he": "ציוד שאפשר ללבוש", "en": "Gear you can wear"},
     "sell_kind_not_yet": {"he": "ציוד לרמה גבוהה יותר", "en": "Gear for a higher level"},
     "sell_kind_other_job": {"he": "ציוד לג'וב אחר", "en": "Gear for another job"},
+    "price_untradeable": {"he": "אי אפשר לסחור בפריט הזה (Untradeable): לא מוכרים ולא קונים אותו מ-NPC או משחקנים. הוא נמכר רק בקאש שופ, ב-{n} NX.", "en": "This item is untradeable: no NPC or player buys or sells it. Only the Cash Shop sells it, for {n} NX."},
+    "price_untradeable_no_nx": {"he": "אי אפשר לסחור בפריט הזה (Untradeable): לא מוכרים ולא קונים אותו מ-NPC או משחקנים.", "en": "This item is untradeable: no NPC or player buys or sells it."},
+    "sell_kind_fm": {"he": "למכור ב-Free Market", "en": "Sell on the Free Market"},
+    "sell_why_fm": {"he": "ב-Free Market בדרך כלל {n} mesos (דיווחי שחקנים ב-NiaMeowDB).", "en": "Usually {n} mesos on the Free Market (players' reports on NiaMeowDB)."},
+    "sell_fm_checking": {"he": "בודקים מחירי Free Market ב-NiaMeowDB", "en": "Checking Free Market prices on NiaMeowDB"},
     "sell_kind_sell": {"he": "למכור ל-NPC", "en": "Sell to an NPC"},
     "sell_kind_no_price": {"he": "אין מחיר NPC במאגר", "en": "No NPC price in the database"},
     "sell_kind_unknown": {"he": "לא זוהו", "en": "Not named"},

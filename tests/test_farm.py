@@ -468,3 +468,12 @@ def test_sell_or_keep_sorts_the_bag_by_the_kb():
     assert v[1].kind == "quest" and v[1].why
     assert v[2].kind == "other_job"
     assert v[3].kind == "unknown" and not v[3].name
+
+
+def test_an_item_the_free_market_pays_more_for_is_sold_there():
+    from maplehelper import sellkeep
+    v = [sellkeep.Verdict("sell", "item/1", "A", price=10), sellkeep.Verdict("no_price", "item/2", "B"),
+         sellkeep.Verdict("sell", "item/3", "C", price=500), sellkeep.Verdict("quest", "item/4", "D")]
+    out = {x.key: x for x in sellkeep.with_market(v, {"item/1": 900, "item/2": 50, "item/3": 100, "item/4": 9999})}
+    assert (out["item/1"].kind, out["item/1"].fm) == ("fm", 900) and out["item/2"].kind == "fm"
+    assert out["item/3"].kind == "sell" and out["item/4"].kind == "quest"     # an NPC pays more; a quest keeps it

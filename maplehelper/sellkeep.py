@@ -15,13 +15,14 @@ _JOB_WORD = {"Mage": "Magician"}
 
 @dataclass
 class Verdict:
-    kind: str           # quest | recipe | wish | wear | not_yet | other_job | sell | no_price | unknown
+    kind: str           # quest | recipe | wish | wear | not_yet | other_job | fm | sell | no_price | unknown
     key: str = ""
     name: str = ""
     why: str = ""        # the quest or recipe it's kept for; the level it's worn from
     price: int = 0       # what an NPC pays for one
     slot: int = 0        # the inventory slot, 1-based
     picture: bytes = b""  # the icon as the game showed it (an item the read couldn't name)
+    fm: int = 0          # the usual Free Market price, by the players' reports on NiaMeowDB
 
 
 def _wear(kb, key: str) -> tuple[int, list[str]] | None:
@@ -70,6 +71,31 @@ def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", d
             continue
         sell = market.npc_prices(kb, key).sell_back or 0
         out.append(Verdict("sell" if sell else "no_price", key, name, price=sell, slot=s.index))
-    order = ["quest", "recipe", "wish", "wear", "not_yet", "other_job", "sell", "no_price", "unknown"]
-    out.sort(key=lambda v: (order.index(v.kind), -v.price, v.slot))
-    return out
+    return _sorted(out)
+
+
+ORDER = ["quest", "recipe", "wish", "wear", "not_yet", "other_job", "fm", "sell", "no_price", "unknown"]
+
+
+def _sorted(out: list[Verdict]) -> list[Verdict]:
+    return sorted(out, key=lambda v: (ORDER.index(v.kind), -max(v.fm, v.price), v.slot))
+
+
+def for_market(kb, verdicts: list[Verdict]) -> list[str]:
+    """The items worth a Free Market lookup: ones to sell or without an NPC price that players can trade."""
+    from . import sitedata
+    keys = []
+    for v in verdicts:
+        if v.kind in ("sell", "no_price") and v.key not in keys and not sitedata.untradeable(kb, v.key):
+            keys.append(v.key)
+    return keys
+
+
+def with_market(verdicts: list[Verdict], usual: dict[str, int]) -> list[Verdict]:
+    """An item the Free Market usually pays more for than an NPC: sell it there (usual: key -> the site's usual
+    price over its window). No report: as it was."""
+    for v in verdicts:
+        price = usual.get(v.key) or 0
+        if v.kind in ("sell", "no_price") and price > v.price:
+            v.kind, v.fm = "fm", price
+    return _sorted(verdicts)
