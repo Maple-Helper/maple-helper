@@ -21,7 +21,7 @@ from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag,
-                      vote_tag)
+                      vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
 PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
@@ -460,6 +460,11 @@ class ToolsDialog(GlassDialog):
         return self.profiles.active
 
     def show_page(self, i: int):
+        # leaving the quests page: back on "Quests for level N" next time, every level (the owner)
+        was = PAGES[self.stack.currentIndex()] if self.__dict__.get("stack") is not None else ""
+        if was == "quests" and PAGES[i] != "quests" and "quests" in self.pages:
+            self.q_mode.group.buttons()[0].setChecked(True)
+            self._q_level = None
         self._build_page(PAGES[i])
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
@@ -726,6 +731,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(52, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(3)
@@ -854,6 +860,7 @@ class ToolsDialog(GlassDialog):
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
             pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(pic, path)
             nums.addWidget(pic, 0, Qt.AlignVCenter)
         # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
         for value, label, term in ((f"{m.hp:,}", "HP", "Monster HP"), (f"{m.exp:,}", "EXP", None),
@@ -1313,6 +1320,16 @@ class ToolsDialog(GlassDialog):
         c, t = self.c, self.t
         if not c:
             return
+        # on the crafting page, a profession's quest is right there: its card (the owner)
+        if PAGES[self.stack.currentIndex()] == "crafting":
+            for i in range(self.craft_info.count()):
+                w = self.craft_info.itemAt(i).widget()
+                head = w.findChild(QLabel, "CardName") if w is not None else None
+                if head is not None and bidi.plain(name, False) in head.text():
+                    self.pages["crafting"].ensureWidgetVisible(w, 0, 40)
+                    return
+        if PAGES[self.stack.currentIndex()] != "quests":
+            self.show_page(PAGES.index("quests"))
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
         modes = ("level", "missed", "soon", "later")
         mode = next((m for m in modes if any(q.name == name for q in r[m])), None)
@@ -1383,6 +1400,12 @@ class ToolsDialog(GlassDialog):
         path = self._picture_path("npc", q.npc) if q.npc else None
         if path:
             return path
+        for name in re.findall(r"[A-Z][\w'.]+(?: [A-Z][\w'.]+)*", self.kb.page(q.key).split("NPC Dialogue")[0]):
+            for n in (name, name.split(" ")[0]):
+                if self.kb._npc_by_name.get(n.lower()):
+                    path = self._picture_path("npc", n)
+                    if path:
+                        return path
         from ..kb import FALLBACK_DIR
         quest = FALLBACK_DIR / "quest.png"
         return str(quest) if quest.exists() else None
@@ -1526,6 +1549,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 npc.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(npc, path)
         outer.addWidget(npc, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(4)
@@ -1877,6 +1901,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(6)
@@ -1910,6 +1935,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(4)
@@ -2100,6 +2126,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(6)
@@ -2958,6 +2985,7 @@ class ToolsDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         return pic
 
     def _fit_tag(self, fit: str, boss: bool = False) -> QLabel:
@@ -3368,6 +3396,7 @@ class ToolsDialog(GlassDialog):
         pm = QPixmap(str(path)) if path else QPixmap()
         if not pm.isNull():
             pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(pic, path)
         lay.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(4)

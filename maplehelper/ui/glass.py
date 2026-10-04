@@ -7,7 +7,7 @@ times a second. Sampling happens at quarter resolution, so it stays cheap.
 from __future__ import annotations
 
 from PIL import ImageEnhance, ImageFilter
-from PySide6.QtCore import QObject, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QTimer, Signal
 from PySide6.QtGui import QImage, QPixmap
 
 from .. import osapi
@@ -203,10 +203,12 @@ class GlassDialog(QDialog):
         self.close_btn.setAccessibleName(I18n("he" if rtl else "en")("close"))     # an ✕ glyph, read as nothing
         self.close_btn.clicked.connect(self.reject)
         bl.addWidget(self.close_btn)
+        self.close_btn.installEventFilter(self)
         # only once it's in the bar: shown while it had no parent, it flashed as a tiny window of its own
         self.close_btn.setVisible(closable)
         root.addWidget(bar)
         self.content = QWidget(objectName="Feed")
+        self.content.setFocusPolicy(Qt.ClickFocus)       # holds the focus when the focused control goes away
         root.addWidget(self.content, 1)
 
     initial_focus = None       # the control a window opens focused on (a search field); else its first control
@@ -222,6 +224,14 @@ class GlassDialog(QDialog):
             w = first_control(self.content)
         if w is not None and (self.focusWidget() in (None, self.close_btn) or not self.focusWidget().isVisible()):
             w.setFocus(Qt.OtherFocusReason)
+
+    def eventFilter(self, obj, e):
+        # the X takes the focus by Tab or a click only: when a page rebuilt its chips or cards the focused one went
+        # away and Qt handed the focus to the X, which then lit up (the owner)
+        if obj is self.__dict__.get("close_btn") and e.type() == QEvent.FocusIn and e.reason() not in (
+                Qt.TabFocusReason, Qt.BacktabFocusReason, Qt.MouseFocusReason, Qt.ShortcutFocusReason):
+            QTimer.singleShot(0, lambda: self.close_btn.hasFocus() and self.content.setFocus(Qt.OtherFocusReason))
+        return super().eventFilter(obj, e)
 
     def fit_screen(self, width: int, height: int) -> None:
         """Open at (width, height), but never taller than the screen: on a small or scaled display the

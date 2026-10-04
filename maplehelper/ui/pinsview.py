@@ -15,6 +15,7 @@ from . import theme
 from .controls import follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
+from .widgets import zoom_on_hover
 
 
 def short_text(text: str, limit: int) -> str:
@@ -432,6 +433,7 @@ class HistoryDialog(GlassDialog):
             lb.setFixedSize(30, 30)
             lb.setAlignment(Qt.AlignCenter)
             lb.setPixmap(pm.scaled(30, 30, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(lb, path, e.get("name", ""))
             lb.setToolTip(e.get("name", k))
             row.addWidget(lb)
             shown += 1

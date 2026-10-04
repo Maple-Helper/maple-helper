@@ -11,7 +11,7 @@ from ..kb import KnowledgeBase
 from .controls import rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag
+from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
 
 
 class WishlistDialog(GlassDialog):
@@ -139,6 +139,7 @@ class WishlistDialog(GlassDialog):
             pm = QPixmap(str(path))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)

@@ -338,3 +338,32 @@ def test_the_search_box_x_shows_however_the_text_got_there():
     p.clear()
     p.blockSignals(False)
     assert not p._clear.isVisible() and app
+
+
+@needs_kb
+def test_a_quest_jump_from_crafting_opens_the_quests_page(monkeypatch, tmp_path):
+    # "go to the quest" on a profession's quest did nothing on the crafting page (the owner)
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    from maplehelper import store
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.tools import PAGES, ToolsDialog
+    from maplehelper.ui.widgets import zoom_on_hover
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
+    p = store.Profiles()
+    p.add("Kiwi", "Warrior", "Fighter", 30)
+    d = ToolsDialog(KnowledgeBase(REAL_KB), p, store.Settings(), "he", "", {}, page="crafting")
+    try:
+        app.processEvents()
+        d._goto_quest("Silas Irons in Need of an Apprentice")       # Smithing's own quest: its card right there
+        assert PAGES[d.stack.currentIndex()] == "crafting"
+        d._goto_quest("Jane and the Mushroom")                      # any other: the quests page
+        assert PAGES[d.stack.currentIndex()] == "quests"
+        from PySide6.QtWidgets import QLabel
+        lb = QLabel()
+        zoom_on_hover(lb, REAL_KB / "index.json", "x")      # a picture's hover shows it large
+        assert "<img" in lb.toolTip() and "x" in lb.toolTip()
+    finally:
+        d.close()

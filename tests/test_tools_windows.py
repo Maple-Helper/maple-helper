@@ -138,13 +138,16 @@ def test_done_toggle_closes_when_the_last_done_quest_is_undone(tools):
 def test_tab_switch_back_keeps_the_quest_cards(tools):
     """Every switch to Quests / Citizenship rebuilt up to 40 cards (~0.3 s) though nothing had changed."""
     from maplehelper.ui.tools import PAGES
-    d, c = tools("Thief", "Assassin", 34, "quests")
-    d.q_mode.group.buttons()[1].click()            # (a list that has cards at any level)
+    d, c = tools("Thief", "Thief", 15, "quests")      # (quests open at 15: the level tab has cards)
+    d.q_mode.group.buttons()[1].click()            # another tab: back on "Quests for level N" after leaving
+    d.show_page(PAGES.index("train"))
+    d.show_page(PAGES.index("quests"))
+    assert d.q_mode.group.buttons()[0].isChecked()
     first = cards(d.q_list)[0]
     d.show_page(PAGES.index("train"))
     d.show_page(PAGES.index("quests"))
     assert cards(d.q_list)[0] is first
-    c.level = 35                                    # the character changed: the page follows
+    c.level = 16                                    # the character changed: the page follows
     d.show_page(PAGES.index("train"))
     d.show_page(PAGES.index("quests"))
     assert cards(d.q_list)[0] is not first

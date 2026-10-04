@@ -12,7 +12,7 @@ from ..kb import KnowledgeBase
 from . import newsview
 from .controls import Section, Segmented, rtl_buttons
 from .glass import GlassDialog
-from .widgets import EntityCard, Selectable
+from .widgets import EntityCard, Selectable, zoom_on_hover
 
 SHOWN = 80   # rows per list; the rest is counted
 
@@ -105,6 +105,7 @@ class ChangeCard(Selectable, QFrame):
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
             pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)

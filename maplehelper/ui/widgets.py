@@ -379,6 +379,17 @@ def mesos_tip(t, mesos) -> str:
         tip += " " + t("mesos_chance", pct=f"{chance:g}")
     return tip
 
+def zoom_on_hover(label, path, caption: str = "", height: int = 96) -> None:
+    """A small picture shows large on hover, as the quests' and recipes' pictures do: at 30-56 px a sprite hid
+    what it shows (the owner)."""
+    if not path:
+        return
+    from html import escape
+    from pathlib import Path as _P
+    uri = _P(str(path)).resolve().as_uri()
+    cap = f"<br>{escape(caption)}" if caption else ""
+    label.setToolTip(f"<div align='center'><img src='{uri}' height='{height}'>{cap}</div>")
+
 def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
     """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
     lb = QLabel(bidi.plain(text, t.rtl), objectName=kind)
@@ -565,6 +576,7 @@ class EntityCard(Selectable, QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
 
         col = QVBoxLayout()
@@ -1106,6 +1118,7 @@ class EntityTile(Selectable, QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img, e.get("name", ""))
         row.addWidget(pic)
         col = QVBoxLayout()
         col.setSpacing(1)
@@ -1246,6 +1259,7 @@ class DropGroupCard(QFrame):
             pm = QPixmap(str(img))
             if not pm.isNull():
                 pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                zoom_on_hover(pic, img)
         head.addWidget(pic)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         col = QVBoxLayout()
