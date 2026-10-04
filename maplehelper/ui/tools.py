@@ -549,12 +549,8 @@ class ToolsDialog(GlassDialog):
         acc, dmg = self._stats()
         magic = c.base_class == combat.MAGE
         rows = combat.spots(self.kb, c.level, acc, dmg, magic, n=6)
-        bits = [t("lv_short", n=c.level)]
-        if acc:
-            bits.append(f"ACC {acc}")
-        if dmg:
-            bits.append(t("dmg_short", lo=dmg[0], hi=dmg[1]))
-        head = " · ".join(bits)
+        # what the list is for, not the stats again (they are in "My stats" right below: the owner's report)
+        head = t("train_for_level", n=c.level)
         if not (acc and dmg):
             head += "\n" + t("train_need_stats")
         elif magic:
