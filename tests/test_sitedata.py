@@ -321,3 +321,15 @@ def test_play_tools_build_and_bag_pages(real_site, isolated_store, lang):
     d.pet_filter.group.buttons()[2].click()
     assert names()[0] == "Brown Kitty" and names()[-1] == "Snail"
     d.close()
+
+
+def test_a_skill_change_note_reads_in_hebrew_when_translated(real_site):
+    """The tooltip showed NiaMeowDB's English note under "(in English)" and read as a jumble (the owner's report)."""
+    from maplehelper.i18n import I18n
+    from maplehelper.sitedata import SkillChange, change_tip, note_he
+    ch = sitedata.skill_change(real_site, "skill/assassin__drain")
+    tip = bare(change_tip(I18n("he"), ch))
+    assert "בסיכוי של 12%" in tip and "באנגלית" not in tip and "always absorbed" not in tip
+    # NiaMeowDB rewrote the note since: the English comes back, said to be English
+    changed = SkillChange(**{**ch.__dict__, "note": ch.note + " (updated)"})
+    assert note_he(changed) is None and "always absorbed" in change_tip(I18n("he"), changed)

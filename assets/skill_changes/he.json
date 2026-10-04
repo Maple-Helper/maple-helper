@@ -1,0 +1,54 @@
+{
+ "skill/assassin__drain": {
+  "en": "COT1: Drain always absorbed 15% of the damage dealt as HP. COT2: that absorb now triggers with a 12% chance. Damage and MP cost are unchanged at max level.",
+  "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP בלבל המקסימלי לא השתנו."
+ },
+ "skill/bowman__the-eye-of-amazon": {
+  "en": "Renamed from Amazon's Judgement to The Eye of Amazon .",
+  "he": "השם שונה מ-Amazon's Judgement ל-The Eye of Amazon."
+ },
+ "skill/crusader__power-guard": {
+  "en": "New to the Crusader book in COT2. In COT1 Power Guard was a Fighter (2nd job) skill.",
+  "he": "חדש בספר של Crusader ב-COT2. ב-COT1, Power Guard היה סקיל של Fighter (ג'וב 2)."
+ },
+ "skill/dragon-knight__hyper-body": {
+  "en": "New to the Dragon Knight book in COT2. In COT1 Hyper Body was a Spearman (2nd job) skill.",
+  "he": "חדש בספר של Dragon Knight ב-COT2. ב-COT1, Hyper Body היה סקיל של Spearman (ג'וב 2)."
+ },
+ "skill/f-p-wizard__poison-breath": {
+  "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
+  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן בלבל המקסימלי הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. בלבל המקסימלי יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+ },
+ "skill/f-p-wizard__slow": {
+  "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
+  "he": "חדש ב-COT2: מפלצת שנפגעת מ-Slow מאבדת גם 5 Evasion כל עוד הוא פועל. הורדת ה-Speed נשארה 30-."
+ },
+ "skill/fighter__rush": {
+  "en": "COT1: this slot was Power Guard (Fighter, 2nd job). COT2: Power Guard moved to Crusader (3rd job) and the slot is now Rush.",
+  "he": "ב-COT1 המקום הזה היה Power Guard (של Fighter, ג'וב 2). ב-COT2, Power Guard עבר ל-Crusader (ג'וב 3), ובמקומו יש עכשיו Rush."
+ },
+ "skill/i-l-wizard__slow": {
+  "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
+  "he": "חדש ב-COT2: מפלצת שנפגעת מ-Slow מאבדת גם 5 Evasion כל עוד הוא פועל. הורדת ה-Speed נשארה 30-."
+ },
+ "skill/page__blunt-weapon-mastery": {
+  "en": "COT1: Blunt Weapon Mastery gave Attack Power +20 plus a 25% chance to stun for 3 sec. COT2 reworked the secondary bonus into a 20% chance to ignore the enemy's Weapon Defense; the attack bonus and the stun are removed. The old 25% and the new 20% describe different effects, so they are not shown as a before and after. Mastery level 10 is unchanged.",
+  "he": "ב-COT1, Blunt Weapon Mastery נתן Attack Power +20 ועוד סיכוי של 25% להמם ל-3 שניות. ב-COT2 הבונוס הזה הוחלף בסיכוי של 20% להתעלם מה-Weapon Defense של המפלצת, ותוספת ה-Attack Power וההימום הוסרו. ה-25% הישנים וה-20% החדשים הם אפקטים שונים, ולכן הם לא מוצגים כ\"לפני ואחרי\". ה-Mastery בלבל 10 לא השתנה."
+ },
+ "skill/page__final-attack-blunt-weapon": {
+  "en": "Renamed from Final Attack: Blunt Weapon to Final Attack: Blunt Weapon .",
+  "he": "השם של הסקיל עודכן (Final Attack: Blunt Weapon)."
+ },
+ "skill/page__rush": {
+  "en": "COT1: this slot was Power Guard (Page, 2nd job). COT2: Power Guard moved to White Knight (3rd job) and the slot is now Rush.",
+  "he": "ב-COT1 המקום הזה היה Power Guard (של Page, ג'וב 2). ב-COT2, Power Guard עבר ל-White Knight (ג'וב 3), ובמקומו יש עכשיו Rush."
+ },
+ "skill/spearman__rush": {
+  "en": "COT1: this slot was Hyper Body (Spearman, 2nd job). COT2: Hyper Body moved to Dragon Knight (3rd job) and the slot is now Rush.",
+  "he": "ב-COT1 המקום הזה היה Hyper Body (של Spearman, ג'וב 2). ב-COT2, Hyper Body עבר ל-Dragon Knight (ג'וב 3), ובמקומו יש עכשיו Rush."
+ },
+ "skill/white-knight__power-guard": {
+  "en": "New to the White Knight book in COT2. In COT1 Power Guard was a Page (2nd job) skill.",
+  "he": "חדש בספר של White Knight ב-COT2. ב-COT1, Power Guard היה סקיל של Page (ג'וב 2)."
+ }
+}

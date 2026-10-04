@@ -116,16 +116,29 @@ def change_text(t, ch: SkillChange, sep: str = " · ") -> str:
     return sep.join(f"{field_name(t, f)}: {bidi.LRI}{old}\u00a0→\u00a0{new}{bidi.PDI}" for f, old, new in ch.changes)
 
 
+def note_he(ch: SkillChange) -> str | None:
+    """The site's note in Hebrew (assets/skill_changes/he.json), only while it was made from this very English: a
+    note NiaMeowDB rewrites shows in English until it is translated again."""
+    try:
+        from .store import ASSETS
+        tr = json.loads((ASSETS / "skill_changes" / "he.json").read_text(encoding="utf-8")).get(ch.key) or {}
+    except (OSError, ValueError, AttributeError):
+        return None
+    return tr.get("he") if tr.get("en", "").strip() == (ch.note or "").strip() and tr.get("he") else None
+
+
 def change_tip(t, ch: SkillChange) -> str:
-    """The chip's tooltip: the skill, its changes at max level, and the site's note when a change has no numbers."""
+    """The chip's tooltip: the skill and the two builds, its changes at the skill's max level, and the site's note
+    (in Hebrew when translated; the English one came under a "(in English)" line and read as a jumble)."""
     lines = [t("skill_changed_head", name=bidi.ltr_block(ch.name, t.rtl), before=sources.tag(t, ch.before or "?"),
                after=sources.tag(t, ch.after or "?"))]
     if ch.changes:
-        lines.append(change_text(t, ch))
+        lines.append(t("skill_changed_max") + " " + change_text(t, ch))
     if ch.note:
-        if t.rtl:
+        he = note_he(ch) if t.rtl else None
+        if t.rtl and not he:
             lines.append(t("skill_changed_note"))
-        lines.append(ch.note)
+        lines.append(he or ch.note)
     return "\n".join(lines)
 
 

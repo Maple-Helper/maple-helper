@@ -1156,8 +1156,9 @@ STRINGS = {
     # NiaMeowDB's list pages (sitedata.py): skill changes between builds, pets, the community tier list
     "skill_changed": {"he": "השתנה ב-{label}", "en": "Changed in {label}"},
     "skill_changed_word": {"he": "השתנה ב{label}", "en": "Changed in {label}"},
-    "skill_changed_head": {"he": "{name}: מה השתנה מ-{before} ל-{after} (ברמה המקסימלית)",
-                           "en": "{name}: what changed from {before} to {after} (at max level)"},
+    "skill_changed_head": {"he": "{name}: מה השתנה בין {before} ל-{after}",
+                           "en": "{name}: what changed from {before} to {after}"},
+    "skill_changed_max": {"he": "בלבל המקסימלי של הסקיל:", "en": "At the skill's max level:"},
     "skill_changed_note": {"he": "פירוט מ-NiaMeowDB (באנגלית):", "en": "From NiaMeowDB:"},
     "skf_chance": {"he": "סיכוי", "en": "Chance"},
     "skf_damage": {"he": "נזק", "en": "Damage"},
