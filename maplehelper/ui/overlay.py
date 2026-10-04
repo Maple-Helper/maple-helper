@@ -700,7 +700,7 @@ class Overlay(QWidget):
         from . import terms
         # a grey "?" says the line explains itself on hover
         self.scope_note.setText(terms.hint_badge_html() + html.escape(bidi.plain(text, self.t.rtl)))
-        tip = self.t("scope_tip") + ("\n" + self.t("scope_tip_changed", date=changed) if changed else "")
+        tip = self.t("scope_tip") + ("\n" + self.t("scope_tip_changed", date=changed, checked=checked or changed) if changed else "")
         self.scope_note.setToolTip(tip)
         self.beta_badge.setToolTip(self.t("beta_tip"))
 
