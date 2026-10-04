@@ -1,5 +1,24 @@
 [
  {
+  "version": "0.9.0",
+  "he": [
+   "כלי משחק חדשים: פארם (מי מפיל כל פריט ומה משתלם לעשות עליו פארם), למכור או לשמור (האפליקציה מזהה את התיק ואומרת מה לעשות עם כל פריט), וחיות מחמד עם הסקילים שלהן.",
+   "קווסטים מחדש: לפי רמה, כרטיס מלא לכל קווסט (מאיפה משיגים, איך מקבלים, מה עושים ואצל מי מסיימים), וקווסטים יומיים ושבועיים שחוזרים לרשימה.",
+   "קראפטינג ואזרחות: קווסטים ומתכונים לכל מקצוע לפי רמות, חיפוש, ודרגות האזרחות של Henesys ו-Kerning City.",
+   "כל העמודים מחוברים: מכל מפלצת, פריט או NPC מגיעים בלחיצה לאיך מגיעים, פגיעה ונזק, מעקב גריינד, פארם ומחיר.",
+   "עמוד חדשות עם הכתבות המלאות בעברית, תמונות שגדלות בריחוף, חיפוש שמבין שגיאות כתיב, ומקורות הנתונים (קהילה, COT1, COT2, MSEA) ליד כל מספר.",
+   "עברית נקייה בכל האפליקציה (רמה, mesos, שמות הג'ובים כמו במשחק) ומאות תיקונים מבדיקה מקיפה."
+  ],
+  "en": [
+   "New play tools: Farm (who drops each item and what's worth farming), Sell or keep (the app reads your bag and says what to do with each item), and Pets with their skills.",
+   "Quests rebuilt: by level, a full card for each quest (where to get what it needs, how to get it, what to do, who to finish with), and daily and weekly quests that come back.",
+   "Crafting and citizenship: each profession's quests and recipes by level, search, and the Henesys and Kerning City citizenship grades.",
+   "Every page is linked: from any monster, item or NPC, one tap to the way there, hit & damage, the grind tracker, farming and prices.",
+   "A news page with the full articles, pictures that grow on hover, a search that forgives typos, and the data's source (community, COT1, COT2, MSEA) beside every number.",
+   "Cleaner Hebrew across the app, job names as the game writes them, and hundreds of fixes from a full review."
+  ]
+ },
+ {
   "version": "0.8.3",
   "he": [
    "רק מה שקיים במשחק: האפליקציה וה-AI מציגים רק תוכן שהמאגר מאשר שנמצא במשחק עכשיו (בלי Orbis, El Nath וג'וב שלישי). כשתוכן חדש ייצא והמאגר יאשר אותו, הוא יתווסף לבד.",
