@@ -1606,9 +1606,17 @@ class ToolsDialog(GlassDialog):
         if q.cycle:
             # the page's "Daily" / "Weekly"; the KB names no reset time, the tip says so
             top.addWidget(info_tag(t, t(f"q_{q.cycle}"), t(f"q_{q.cycle}_tip"), "TagAccent"))
+
         if q.exp:
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
+        when = (self.c.cycle_done or {}).get(q.key) if done and q.cycle and self.c else None
+        if isinstance(when, (int, float)):
+            # marked done: when it's back, right under its name (a line at the bottom was missed: the owner)
+            from datetime import datetime
+            back = datetime.fromtimestamp(quests.back_at(q.cycle, when))
+            col.addLayout(chip_row([tag(self._p(t("q_back_at", when=f"{back.day}.{back.month}")), "TagAccent")],
+                                   lead=True))
         # the town, under its heading, with the way there (the NPC's name said nothing: the owner)
         npc_key = self.kb._npc_by_name.get(re.sub(r"\s*\(.*\)$", "", q.npc or "").lower())
         town = (crafting._town(self.kb, npc_key) if npc_key else "") or quests.town_of(self.kb, q) or \
@@ -1703,10 +1711,6 @@ class ToolsDialog(GlassDialog):
             col.addWidget(self._label("\n".join(hints), "RowHint"))
         acts = QHBoxLayout()
         acts.setSpacing(16)        # the link has no padding of its own: apart from the button, not glued to it
-        if done and q.cycle and self.c and isinstance((self.c.cycle_done or {}).get(q.key), (int, float)):
-            from datetime import datetime
-            back = datetime.fromtimestamp(quests.back_at(q.cycle, self.c.cycle_done[q.key]))
-            col.addWidget(self._label(t("q_back_at", when=f"{back.day}.{back.month}"), "RowHint"))
         if done:
             # marked done by mistake (or a repeatable donation to do again): back to the list
             btn = QPushButton(self._p(t("q_undo")), objectName="Secondary")
@@ -1756,7 +1760,20 @@ class ToolsDialog(GlassDialog):
         self.refresh()
         if bar:
             bar.setValue(at)
-            QTimer.singleShot(0, lambda: bar.setValue(at))      # again once the new cards have their size
+            # again whenever the new cards get their size (the range grows over a few layout passes; set once
+            # before it had, the page stayed at the top: the owner)
+
+            def keep(_lo=0, hi=0):
+                if bar.value() != at and hi >= at:
+                    bar.setValue(at)
+            bar.rangeChanged.connect(keep)
+
+            def stop():
+                try:
+                    bar.rangeChanged.disconnect(keep)
+                except (RuntimeError, TypeError):         # the window closed meanwhile
+                    pass
+            QTimer.singleShot(400, self, stop)
 
     def _done_toggle(self) -> QPushButton:
         """The "show quests marked done (n)" toggle; open, _add_done lists those quests under it."""
@@ -1764,7 +1781,8 @@ class ToolsDialog(GlassDialog):
         b.setCheckable(True)
         b.setCursor(Qt.PointingHandCursor)
         b.setAutoDefault(False)
-        b.toggled.connect(lambda *_: self.refresh())
+        # where the player is reading: a redraw from the top jumped the page up (the owner)
+        b.toggled.connect(lambda *_: self._refresh_in_place())
         return b
 
     def _add_done(self, toggle: QPushButton, layout: QVBoxLayout, keys: list[str]):
