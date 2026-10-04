@@ -358,6 +358,45 @@ def mesos_tip(t, mesos) -> str:
         tip += " " + t("mesos_chance", pct=f"{chance:g}")
     return tip
 
+def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
+    """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
+    lb = QLabel(bidi.plain(text, t.rtl), objectName=kind)
+    lb.setAlignment(Qt.AlignCenter)
+    lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
+    if tip:
+        lb.setToolTip(tip_html(tip, t.rtl))
+    lb.setAccessibleName(f"{text}: {tip}" if tip else text)
+    return lb
+
+
+def changed_tag(t, kb, key: str) -> QLabel | None:
+    """ "Changed in COT2" on a skill whose values changed between two builds (sitedata.py); the tooltip lists the
+    changes ("Chance: 35% → 50% · Damage: 180% → 140%")."""
+    from .. import sitedata
+    ch = sitedata.skill_change(kb, key)
+    if not ch:
+        return None
+    return info_tag(t, sitedata.chip_label(t, ch), sitedata.change_tip(t, ch), "ChangedTag")
+
+
+def pet_parts(t, kb, key: str) -> tuple[list[str], list[QLabel]] | None:
+    """A pet's numbers as pill texts (lifespan, hunger, commands to Lv 30) and its chips (sold now or not, and
+    "Closed test" for a value from the closed tests); None for an item that is no pet."""
+    from .. import sitedata, sources
+    p = sitedata.pet(kb, key)
+    if not p:
+        return None
+    pills = [t("pet_life", v=sitedata.lifespan_text(t, p)), t("pet_hunger", n=p.hunger)]
+    if p.commands_text:
+        pills.append(t("pet_commands", level=p.level, n=p.commands_text.lstrip("~")))
+    chips = [info_tag(t, t("pet_sold" if p.sold else "pet_not_sold"), p.availability, "TagGood" if p.sold else "Tag")]
+    if p.closed_test:
+        chip = source_tag(t, sources.CLOSED_TEST)
+        if "lifespan" in p.closed_test:
+            chip.setToolTip(tip_html(t("pet_life_closed_tip"), t.rtl))
+        chips.append(chip)
+    return pills, chips
+
 
 def chip_row(chips: list[QWidget], text: QWidget | None = None, spacing: int = 6, lead: bool = False) -> QHBoxLayout:
     """[text] [chip] [chip], anchored at the reading start (mirrored in Hebrew): the chips follow the data they
@@ -514,6 +553,10 @@ class EntityCard(Selectable, QFrame):
 
         stats = self._stats(e, t)
         main, bonuses = stat_parts(e)
+        # a pet: its lifespan, hunger and commands to Lv 30 as pills, sold now (or not) as a chip (sitedata.py)
+        pet = pet_parts(t, kb, key) if key.startswith("item/") else None
+        if pet:
+            main = main + pet[0]
         if main or bonuses:
             # one small pill per stat ("Lv. 30", "DEF 75", "STR DEX INT LUK +1"): a single long line mixed Hebrew
             # labels with English stats and wrapped into a scrambled order in a Hebrew chat
@@ -521,7 +564,7 @@ class EntityCard(Selectable, QFrame):
             pills = QWidget()
             flow = FlowLayout(pills, spacing=4)
             for text in main + bonuses:
-                pill = QLabel(text, objectName="StatPill")
+                pill = QLabel(bidi.plain(text, he) if bidi._RTL.search(text) else text, objectName="StatPill")
                 pill.setLayoutDirection(Qt.LeftToRight)
                 flow.addWidget(pill)
             col.addWidget(pills)
@@ -541,6 +584,11 @@ class EntityCard(Selectable, QFrame):
             stamp = sources.stat_source(kb, key)
             self.source_chip = source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp)
             chips.append(self.source_chip)
+        if pet:
+            chips += pet[1]
+        changed = changed_tag(t, kb, key) if key.startswith("skill/") else None
+        if changed:
+            chips.append(changed)          # "Changed in COT2", its changes in the tooltip
         updated = updated_tag(t, kb, key)
         if updated:
             chips.append(updated)

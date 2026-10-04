@@ -57,6 +57,7 @@ ORANGE_TEXT_LIGHT = "#C9620A"     # orange as text on white: #FF9533 / #F07A12 a
 # row): white, the brand look the owner chose (a darker text read better but changed the look)
 ON_ORANGE = "#FFFFFF"
 GOOD_TEXT_LIGHT = "#2E9E5B"
+CHANGED = {"light": "#0A6CD6", "dark": "#64B5FF"}    # the "Changed in COT2" chip's text, readable on either glass
 
 
 def accent_text(deep: bool = False) -> str:
@@ -283,6 +284,9 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     #VoteTag[single="true"] {{ color: #C9620A; }}
     #UpdatedTag {{ font-size: {s - 4}px; font-weight: 700; color: {otd}; background: rgba(255,149,51,0.14);
                    border: 1px solid rgba(255,149,51,0.45); border-radius: 7px; padding: 1px 5px; }}
+    /* a skill whose values changed between two builds (sitedata.py): blue, apart from the orange "Updated" */
+    #ChangedTag {{ font-size: {s - 4}px; font-weight: 700; color: {CHANGED[MODE]}; background: rgba(10,132,255,0.12);
+                   border: 1px solid rgba(10,132,255,0.40); border-radius: 7px; padding: 1px 5px; }}
     #BigStat {{ font-size: {s + 10}px; font-weight: 700; letter-spacing: -0.4px; color: {c['text']}; }}
     #BigStatLabel {{ font-size: {s - 3}px; color: {c['muted']}; }}
     QPushButton#NowChip {{ background: rgba(255,149,51,0.12); border: 1px solid rgba(255,149,51,0.55); border-radius: 12px;

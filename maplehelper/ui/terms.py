@@ -128,6 +128,14 @@ def show(link: str, lang: str, near: QRect | None = None) -> bool:
     return True
 
 
+def show_html(body: str, rtl: bool = False) -> None:
+    """Any explanation in the same card beside the mouse (a skill's changes on the build table's chip)."""
+    global _popup
+    if _popup is None:
+        _popup = _Popup()
+    _popup.show_text(f"<div dir='{'rtl' if rtl else 'ltr'}'>{body}</div>", rtl=rtl)
+
+
 def hide():
     if _popup is not None:
         _popup.hide()

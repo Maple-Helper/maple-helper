@@ -38,6 +38,12 @@ COMMUNITY = "community.json"
 # (maplehelper/kb.py COMMUNITY_MIN_SCORE), repeated here because CI runs this file without the app's packages
 COMMUNITY_MIN_SCORE = 1
 
+# the list pages read beside the entity pages (tools/meowdb_sections.py): file -> (its list, the fields each row
+# needs, the fewest rows a good read has)
+SECTIONS = {"skill_changes.json": ("skills", ("key", "name", "changes"), 10),
+            "pets.json": ("pets", ("key", "name", "lifespan", "sold"), 5),
+            "tiers.json": ("rows", ("key", "name", "cells"), 5)}
+
 
 class InvalidKB(Exception):
     pass
@@ -97,6 +103,10 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
         except InvalidKB as e:
             problems.append(str(e))
 
+    keys = {e.get("key") for e in index if isinstance(e, dict)}
+    for name in SECTIONS:
+        problems += _section_problems(kb, name, keys)
+
     if problems:
         raise InvalidKB("; ".join(problems))
     return {"count": count, "categories": sorted(seen)}
@@ -148,6 +158,27 @@ def community_changes(old: dict, new: dict) -> int:
     mesos range moved. Votes alone don't count, or every night would publish a new KB."""
     return sum(1 for k in old.keys() | new.keys()
                if _shown(old.get(k)) != _shown(new.get(k)) or _mesos_range(old.get(k)) != _mesos_range(new.get(k)))
+
+def _section_problems(kb: Path, name: str, keys: set) -> list[str]:
+    """A list page's file, when there is one: its rows, each with the fields the app reads, most naming a KB entry
+    (a row whose entry is missing is skipped by the app; most of them missing is a broken read)."""
+    path = kb / name
+    if not path.exists():
+        return []
+    field, needs, least = SECTIONS[name]
+    try:
+        rows = json.loads(path.read_text(encoding="utf-8")).get(field)
+    except (OSError, ValueError, AttributeError) as e:
+        return [f"{name} unreadable: {e}"]
+    if not isinstance(rows, list) or len(rows) < least:
+        return [f"{name}: {len(rows) if isinstance(rows, list) else 0} {field} (minimum {least})"]
+    bad = [r for r in rows if not isinstance(r, dict) or any(f not in r for f in needs)]
+    if bad:
+        return [f"{name}: {len(bad)} malformed {field}, e.g. {str(bad[0])[:80]}"]
+    lost = [r["key"] for r in rows if r["key"] not in keys]
+    if len(lost) * 2 > len(rows):
+        return [f"{name}: {len(lost)} of {len(rows)} {field} name no KB entry, e.g. {', '.join(lost[:3])}"]
+    return []
 
 
 # ---------------------------------------------------------------- patch notes
@@ -228,9 +259,84 @@ def diff_kb(old: Path, new: Path) -> dict:
             changed.append(c)
         elif a[k].get("hash") != b[k].get("hash"):
             updated.append(_brief(b[k]))
+    # the list pages' changes (a skill's COT change, a pet's lifespan, a class's tier) land on their entries, so the
+    # patch notes and the "Updated" chips show them like any stat change
+    by_key = {c["key"]: c for c in changed}
+    for row in section_changes(old, new):
+        c = by_key.get(row["key"])
+        if c:
+            c.setdefault("props", []).extend(row["props"])
+        else:
+            changed.append(row)
+            by_key[row["key"]] = row
+    updated = [u for u in updated if u["key"] not in by_key]
+    changed.sort(key=lambda c: c["key"])
     counts = {"added": len(added), "removed": len(removed), "changed": len(changed), "updated": len(updated)}
     return {"counts": counts, "added": added[:MAX_LISTED], "removed": removed[:MAX_LISTED],
             "changed": changed[:MAX_LISTED], "updated": updated[:MAX_LISTED]}
+
+
+def _section(kb: Path, name: str) -> dict | None:
+    try:
+        data = json.loads((kb / name).read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def _rows(data: dict | None, field: str, key=lambda r: r.get("key")) -> dict:
+    return {key(r): r for r in (data or {}).get(field) or [] if isinstance(r, dict) and r.get("key")}
+
+
+def _graded(cell: dict) -> str | None:
+    """A tier cell as the patch notes show it: "A 4,390"."""
+    return " ".join(x for x in (cell.get("grade"), cell.get("value")) if x) or None
+
+
+def section_changes(old: Path, new: Path) -> list[dict]:
+    """Changed rows ({key, name, category, props: [[field, old, new]]}) from the list pages' files. A file the old
+    KB didn't have yet is where the list starts, not news: its first publish lists nothing."""
+    out: list[dict] = []
+    a, b = _section(old, "skill_changes.json"), _section(new, "skill_changes.json")
+    if a is not None and b is not None:
+        ra, rb = _rows(a, "skills"), _rows(b, "skills")
+        for k, r in rb.items():
+            was = {c.get("field"): c for c in (ra.get(k) or {}).get("changes") or []}
+            props = []
+            for c in r.get("changes") or []:
+                old_c = was.get(c.get("field"))
+                if old_c is None:
+                    props.append([c.get("field"), c.get("before"), c.get("after")])      # a new change record
+                elif old_c.get("after") != c.get("after"):
+                    props.append([c.get("field"), old_c.get("after"), c.get("after")])  # its new value moved
+            if props:          # (a change told only in words, a skill that moved job, has no value to list)
+                out.append({"key": k, "name": r.get("name") or k, "category": "skill", "props": props})
+    a, b = _section(old, "pets.json"), _section(new, "pets.json")
+    if a is not None and b is not None:
+        ra, rb = _rows(a, "pets"), _rows(b, "pets")
+        fields = (("lifespan", "Lifespan"), ("hunger", "Hunger"), ("commands_text", "Commands to Lv 30"),
+                  ("availability", "Cash Shop"))
+        for k, r in rb.items():
+            was = ra.get(k) or {}
+            props = [[label, was.get(f), r.get(f)] for f, label in fields if was.get(f) != r.get(f)]
+            if props:
+                out.append({"key": k, "name": r.get("name") or k, "category": "item", "props": props})
+    a, b = _section(old, "tiers.json"), _section(new, "tiers.json")
+    if a is not None and b is not None:
+        base = lambda r: r.get("key") if not r.get("variant") else None  # noqa: E731  (the class's own row)
+        ra, rb = _rows(a, "rows", base), _rows(b, "rows", base)
+        for k, r in rb.items():
+            if k is None:
+                continue
+            was = (ra.get(k) or {}).get("cells") or {}
+            props = []
+            for col, cell in (r.get("cells") or {}).items():
+                old_c = was.get(col) or {}
+                if (old_c.get("grade"), old_c.get("value")) != (cell.get("grade"), cell.get("value")):
+                    props.append([f"{col} (community tier list)", _graded(old_c), _graded(cell)])
+            if props:
+                out.append({"key": k, "name": r.get("name") or k, "category": "class", "props": props})
+    return out
 
 
 def record_changes(kb: Path, previous_kb: Path, version: str) -> dict | None:

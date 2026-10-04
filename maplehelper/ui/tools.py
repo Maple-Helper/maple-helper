@@ -13,17 +13,18 @@ from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel, QTe
 from PySide6.QtWidgets import (QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, sources
+from .. import availability, bidi, buildplan, combat, crafting, glossary, guides, market, plan, quests, sitedata, sources
 from ..i18n import I18n
 from . import terms, theme
 from .controls import FlowLayout, Section, Segmented, Stepper, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import chip_row, mesos_text, mesos_tip, source_tag, source_tags, updated_tag
+from .widgets import chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag
 from .patchnotes import gutter
 
 PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "more")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
+CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
 
 
 def clear(layout):
@@ -776,8 +777,14 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(self.build_head)
         self.build_src = QHBoxLayout()
         lay.addLayout(self.build_src)
+        # the community tier list's row for the player's job (before the 2nd job: the branches to pick from)
+        self.build_tier = QVBoxLayout()
+        lay.addLayout(self.build_tier)
         self.build_view = QTextBrowser(objectName="GuideText")
         self.build_view.setOpenLinks(False)
+        # a skill's "Changed in COT2" chip in the table: its changes on hover, and on a click (touch, keyboard)
+        self.build_view.highlighted.connect(lambda url: self._skill_change_tip(url.toString()))
+        self.build_view.anchorClicked.connect(lambda url: self._skill_change_tip(url.toString()))
         self.build_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         # breaks between words only, a wide table in a smaller font, as in the guides reader ("crafti" / "ng 1")
         self.build_view.setWordWrapMode(QTextOption.WordWrap)
@@ -793,6 +800,7 @@ class ToolsDialog(GlassDialog):
 
     def _fill_build(self):
         t, c = self.t, self.c
+        clear(self.build_tier)
         if not c:
             self._set(self.build_head, t("tool_no_char"))
             self._source_line(self.build_src, None)
@@ -806,11 +814,15 @@ class ToolsDialog(GlassDialog):
         self._set(self.build_head, t("build_head", job=c.job_label or c.base_class, n=c.level))
         # the class guide's numbers: "use current COT2 data" on its page, else MeowDB's own
         self._source_line(self.build_src, (sources.guide_source(self.kb, key) or sources.MEOWDB) if tables else None)
+        tier = self._tier_card(sitedata.tiers_for(self.kb, c.base_class, c.job))
+        if tier:
+            self.build_tier.addWidget(tier)
         if not tables:
             self.build_view.setHtml(f"<p>{t('build_none')}</p>")
             return
         he = t.lang != "en"
         icons = self._skill_icons()
+        changed = sitedata.changes_for(self.kb, c.base_class, c.job)
         col = guides.NOTE_COLORS.get(theme.MODE, guides.NOTE_COLORS["light"])
         side = "dir='rtl' align='right'" if he else ""
         out = []
@@ -824,6 +836,7 @@ class ToolsDialog(GlassDialog):
             # a cell may name a skill short ("Booster 9" beside "Claw Booster +2"): the table's own full names
             # give those their icons too
             names = icons + self._short_skill_icons(rows, icons) if tb.kind == "sp" else icons
+            chips = self._change_chips(rows, changed) if tb.kind == "sp" else {}
             for n, row in enumerate(rows):
                 # the player's row: a clear orange, bold (the guides' cream note color was too faint here)
                 now = n == tb.current
@@ -833,7 +846,7 @@ class ToolsDialog(GlassDialog):
                 cells.append("<tr>" + "".join(
                     f"<{tagname}{bg}><p {'dir=rtl align=right' if he and bidi._RTL.search(x) else ''} style='margin:0;{weight}'>"
                     f"{self._with_skill_icon(x, names) if tb.kind == 'sp' and n else ''}"
-                    f"{guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}</p></{tagname}>"
+                    f"{guides._rich(x, he and bool(bidi._RTL.search(x)), 18)}{chips.get((n, i), '')}</p></{tagname}>"
                     for i, x in enumerate(row)) + "</tr>")
             out.append(f"<table {side} width='100%' cellspacing='0' cellpadding='5' border='1' "
                        f"style='border-color: {col['line']}; border-style: solid; margin: 4px 0 12px 0;'>{''.join(cells)}</table>")
@@ -844,6 +857,83 @@ class ToolsDialog(GlassDialog):
         self.build_view.setHtml("\n".join(out))
         from .guides import fit_tables
         fit_tables(self.build_view)
+
+    def _change_chips(self, rows: list[list[str]], changed: list) -> dict[tuple[int, int], str]:
+        """(row, column) -> the "Changed in COT2" chips of the skills a SP table cell names, each skill only where
+        the table first names it (a chip on every "Final Attack: Axe +n" row was noise). Only the "spend" and
+        "result" columns (1 and 2, in either language's order) name skills; the reasons are prose."""
+        fg, bg = CHANGED_CHIP.get(theme.MODE, CHANGED_CHIP["dark"])
+        out: dict[tuple[int, int], str] = {}
+        done: set[str] = set()
+        for n, row in enumerate(rows[1:], start=1):
+            for i in (1, 2):
+                cell = row[i] if i < len(row) else ""
+                for ch in changed:
+                    if ch.key in done or not re.search(rf"(?<![\w:]){re.escape(ch.name)}(?![\w:])", cell):
+                        continue
+                    done.add(ch.key)
+                    label = html.escape(sitedata.chip_label(self.t, ch)).replace(" ", "&nbsp;")
+                    out[(n, i)] = out.get((n, i), "") + (
+                        f" <a href='change:{ch.key}' style='text-decoration: none;'><span style='color: {fg}; "
+                        f"background-color: {bg}; font-size: small; font-weight: 700;'>&nbsp;{label}&nbsp;</span></a>")
+        return out
+
+    def _skill_change_tip(self, link: str) -> None:
+        if not link.startswith("change:"):
+            terms.hide()
+            return
+        ch = sitedata.skill_change(self.kb, link.partition(":")[2])
+        if ch:
+            terms.show_html(bidi.to_html(sitedata.change_tip(self.t, ch), "rtl" if self.t.rtl else "ltr"), self.t.rtl)
+
+    def _tier_card(self, rows: list) -> QFrame | None:
+        """The community tier list for the player's job: one grade chip per column (S / A / B: the upper, middle
+        and lower third of the ten 2nd jobs), the value and its place among them on hover. Compact: the build
+        table under it is the page's own content."""
+        if not rows:
+            return None
+        t, data = self.t, sitedata.tier_data(self.kb)
+        level = data.get("level") or ""
+        card = QFrame(objectName="Card")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(12, 8, 12, 10)
+        lay.setSpacing(6)
+        title = QLabel(self._p(t("tier_title", n=level)), objectName="CardName")
+        src = source_tag(t, sources.COMMUNITY)
+        src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
+        lay.addLayout(chip_row([src], title))
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(4)
+        grid.setVerticalSpacing(4)
+        cols = list(data.get("columns") or [])
+        for j, col in enumerate(cols, start=1):
+            name, tip = self._tier_column(col)
+            head = QLabel(self._p(name), objectName="CardSub")
+            head.setAlignment(Qt.AlignCenter)
+            head.setWordWrap(True)
+            if tip:
+                head.setToolTip(tip_html(tip, t.rtl))
+            grid.addWidget(head, 0, j, Qt.AlignBottom)
+        for i, r in enumerate(rows, start=1):
+            grid.addWidget(QLabel(bidi.ltr_name(r.name, t.rtl), objectName="CardStat"), i, 0)
+            for j, col in enumerate(cols, start=1):
+                cell = r.cells.get(col) or {}
+                grade, value = cell.get("grade") or "", cell.get("value") or "N/A"
+                place, name = r.ranks.get(col), self._tier_column(col)[0]
+                tip = (t("tier_cell_tip", col=name, value=value, place=place[0], total=place[1]) if place
+                       else f"{name}: {value}")
+                kind = {"S": "TagGood", "A": "TagWarn"}.get(grade, "Tag")
+                grid.addWidget(info_tag(t, grade or "—", tip, kind), i, j, Qt.AlignCenter)
+        for j in range(1, len(cols) + 1):
+            grid.setColumnStretch(j, 1)          # equal columns: a two-word name wraps under its own grade
+        lay.addLayout(grid)
+        return card
+
+    def _tier_column(self, col: str) -> tuple[str, str]:
+        """A tier list column's short name and what it measures, in the UI language ("ST DPS" -> "DPS יחיד")."""
+        k = "tier_col_" + re.sub(r"[^a-z0-9]+", "_", col.lower()).strip("_")
+        t = self.t
+        return (t(k) if t(k) != k else col), (t(k + "_tip") if t(k + "_tip") != k + "_tip" else "")
 
     def _skill_icons(self) -> list[tuple[str, str]]:
         """(skill name, picture file URI), longest names first so "Power Strike" wins over "Power"."""
@@ -1627,8 +1717,88 @@ class ToolsDialog(GlassDialog):
         go2.clicked.connect(self._shopping)
         shop.add_widget(go2)
         lay.addWidget(shop)
+        lay.addWidget(self._pets_section())
         lay.addStretch(1)
         return sc
+
+    def _pets_section(self) -> Section:
+        """Every pet: lifespan, hunger rate, commands to Lv 30, and whether the Cash Shop sells it now (sitedata.py).
+        Twelve pets are a section of the bag page, not a page of their own; sold now is shown first."""
+        t = self.t
+        sec = Section(t("pets_title"), t.rtl)
+        sec.add_widget(self._label(t("pets_intro"), "RowLabel"))
+        self.pet_filter = Segmented([(t("pets_sold"), "sold"), (t("pets_easy"), "easy"), (t("pets_all"), "all")],
+                                    "sold", t.rtl)
+        self.pet_filter.set_label(t("pets_title"))
+        self.pet_filter.changed.connect(lambda *_: self._fill_pets())
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(8)
+        bl.addWidget(self.pet_filter)
+        self.pet_src = QHBoxLayout()
+        bl.addLayout(self.pet_src)
+        self.pet_list = QVBoxLayout()
+        self.pet_list.setSpacing(6)
+        bl.addLayout(self.pet_list)
+        sec.add_widget(box)
+        self._fill_pets()
+        sec.setVisible(bool(sitedata.pets(self.kb)))       # a KB from before the pets page: no empty section
+        return sec
+
+    def _fill_pets(self):
+        t = self.t
+        clear(self.pet_list)
+        every = sitedata.pets(self.kb)
+        mode = self.pet_filter.value()
+        shown = [p for p in every if p.sold] if mode == "sold" else sitedata.easiest(every) if mode == "easy" else every
+        self._source_line(self.pet_src, sources.MEOWDB if every else None)
+        if not shown and every:
+            self.pet_list.addWidget(self._label(t("pets_none_sold"), "RowHint"))
+        for p in shown:
+            self.pet_list.addWidget(self._pet_row(p))
+
+    def _pet_row(self, p) -> QFrame:
+        """One pet: picture, name and "Ask in chat", then its numbers as chips, each explained on hover."""
+        t = self.t
+        row = QFrame(objectName="Card")
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(10)
+        pic = QLabel()
+        pic.setFixedSize(40, 40)
+        pic.setAlignment(Qt.AlignCenter)
+        path = self.kb.picture(p.key)
+        pm = QPixmap(str(path)) if path else QPixmap()
+        if not pm.isNull():
+            pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        lay.addWidget(pic, 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        head.addWidget(QLabel(bidi.ltr_name(p.name, t.rtl), objectName="CardName"), 0, Qt.AlignVCenter)
+        head.addStretch(1)
+        ask = QPushButton(self._p(t("ask_short")), objectName="Link")
+        ask.setCursor(Qt.PointingHandCursor)
+        ask.setAutoDefault(False)
+        ask.clicked.connect(lambda _=False, k=p.key: self.tag_requested.emit(k))
+        head.addWidget(ask, 0, Qt.AlignVCenter)
+        col.addLayout(head)
+        parts = pet_parts(t, self.kb, p.key)
+        tags = FlowLayout(spacing=5)
+        if parts:
+            tips = [t("pet_life_tip"), t("pet_hunger_tip"), t("pet_commands_tip", level=p.level)]
+            for text, tip in zip(parts[0], tips):
+                tags.addWidget(info_tag(t, text, tip))
+            for chip in parts[1]:
+                tags.addWidget(chip)
+        updated = updated_tag(t, self.kb, p.key)
+        if updated:
+            tags.addWidget(updated)
+        col.addLayout(tags)
+        lay.addLayout(col, 1)
+        return row
 
     def _sell_check(self):
         # the inventory must be in the screenshot, not this window; the chat bubble says "Inventory check",
