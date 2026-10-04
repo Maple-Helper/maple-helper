@@ -800,9 +800,9 @@ class ToolsDialog(GlassDialog):
     # build ---------------------------------------------------------------
 
     def _page_build(self):
-        w = QWidget()
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(0, 0, 0, 0)
+        # one scrolling page: the build text grows to its full height under the ranking card (it had the space
+        # left over and scrolled inside itself, a small box of its own: the owner's report)
+        w, lay = scroll_page(self.t.rtl)
         lay.setSpacing(8)
         self.build_head = self._label("", "ToolHeader")
         lay.addWidget(self.build_head)
@@ -817,16 +817,20 @@ class ToolsDialog(GlassDialog):
         self.build_view.highlighted.connect(lambda url: self._skill_change_tip(url.toString()))
         self.build_view.anchorClicked.connect(lambda url: self._skill_change_tip(url.toString()))
         self.build_view.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.build_view.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.build_view.document().documentLayout().documentSizeChanged.connect(
+            lambda size: self.build_view.setFixedHeight(int(size.height()) + 12))
         # breaks between words only, a wide table in a smaller font, as in the guides reader ("crafti" / "ng 1")
         self.build_view.setWordWrapMode(QTextOption.WordWrap)
         from .guides import ImageZoom
         self.build_zoom = ImageZoom(self.build_view)
-        lay.addWidget(self.build_view, 1)
+        lay.addWidget(self.build_view)
         self.build_guide_btn = QPushButton(self._p(self.t("build_open_guide")), objectName="Link")
         self.build_guide_btn.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.build_guide_btn, 0, (Qt.AlignRight if self.t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         self._build_key = None
         self.build_guide_btn.clicked.connect(lambda: self._build_key and self.guide_requested.emit(self._build_key))
+        lay.addStretch(1)
         return w
 
     def _fill_build(self):
