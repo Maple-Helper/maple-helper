@@ -89,13 +89,24 @@ class Segmented(QFrame):
     def showEvent(self, e):
         # the chosen segment is bold: reserve that width, or "Kerning City" loses a letter when picked.
         # Measured once styled (the stylesheet's size and letter spacing), not with the default font
-        from PySide6.QtGui import QFontMetrics
         for b in self.group.buttons():
-            b.ensurePolished()
-            bold = b.font()
-            bold.setBold(True)
-            b.setMinimumWidth(QFontMetrics(bold).horizontalAdvance(b.text()) + 30)
+            self._fit(b)
         super().showEvent(e)
+
+    @staticmethod
+    def _fit(b) -> None:
+        from PySide6.QtGui import QFontMetrics
+        b.ensurePolished()
+        bold = b.font()
+        bold.setBold(True)
+        b.setMinimumWidth(QFontMetrics(bold).horizontalAdvance(b.text()) + 30)
+
+    def set_text(self, i: int, text: str) -> None:
+        """A segment's new text, its width measured again ("Quests for level 31" was cut to the width of the
+        label it had before the level was known)."""
+        b = self.group.buttons()[i]
+        b.setText(text)
+        self._fit(b)
 
     def value(self):
         b = self.group.checkedButton()

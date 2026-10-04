@@ -1077,7 +1077,7 @@ class ToolsDialog(GlassDialog):
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
         mode = self.q_mode.value()
         rows = r[mode]
-        self.q_mode.group.buttons()[0].setText(self._p(t("q_level", lv=c.level)))       # "קווסטים ללבל 31"
+        self.q_mode.set_text(0, self._p(t("q_level", lv=c.level)))       # "קווסטים ללבל 31"
         if new_list or not getattr(self, "_q_rows_for", None) == (c.id, c.level, mode):
             self._q_rows_for = (c.id, c.level, mode)
             self.q_search.set_rows([(f"{q.name}  ·  Lv. {q.opens_at()}", q.name,
