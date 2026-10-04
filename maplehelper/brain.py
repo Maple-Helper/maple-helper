@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, providers, sources
+from . import availability, providers, sitedata, sources
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -22,6 +22,11 @@ META = "@@META@@"
 _FOCUS_TAG = re.compile(r"^\s*\[about [^\]]*\]\s*")      # "[about Mano] " the chat puts before a tagged question
 REVERSE_WORDS = re.compile(r"(מאיז[הו]|מאילו|איזה|אילו)\s+מפלצ|מי\s+מפיל|which\s+monsters?|who\s+drops|what\s+drops", re.I)
 # "נופל" alone is also falling ("למה אני נופל מהחבל ליד Mano" showed Mano's whole drop list): only as "what drops"
+# questions the list pages answer (sitedata.py): pets, which job is strongest, a build's skills
+PET_WORDS = re.compile(r"(?<![א-ת])(?:ה|ל|ב)?(?:חיית|חיות|חיה|פט|פטים)(?![א-ת])|\bpets?\b", re.I)
+TIER_WORDS = re.compile(r"טייר|דירוג|(?:איזה|איזו)\s+(?:ג'וב|מקצוע|קלאס)|ג'וב\s+הכי|\btier|\bbest\s+(?:class|job)|"
+                        r"\bwhich\s+(?:class|job)|\bstrongest\s+(?:class|job)", re.I)
+BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskills?\b|\bbuild\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
                   "what the player worked on, decisions, open goals. Same language as the conversation.")
@@ -32,7 +37,7 @@ What you receive with each question:
 - A screenshot of the game window, taken the moment the player opened the chat (when available).
 - The player's character profile, recent conversation, and knowledge-base context the app pre-fetched.
 
-Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) database for MapleStory Classic: index.json (every entity: key, name, category, props), names.tsv (key, category, name, type: one entity per line, the file to grep for a name or a key) and pages/<category>/<id>.md (full details: stats, drops, maps, quests). Categories: monster, item, map, quest, npc, skill, class, guide, shop, crafting, formula.
+Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) database for MapleStory Classic: index.json (every entity: key, name, category, props), names.tsv (key, category, name, type: one entity per line, the file to grep for a name or a key) and pages/<category>/<id>.md (full details: stats, drops, maps, quests); skill_changes.json (skills changed between two test builds), pets.json and tiers.json (the community tier list) are NiaMeowDB's list pages. Categories: monster, item, map, quest, npc, skill, class, guide, shop, crafting, formula.
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
@@ -55,7 +60,8 @@ reports, the game's scope is official (Nexon), and anything unlabeled is MeowDB'
 prices or stats, name their source in a word or two right after them: "(MSEA)", "(community)", "(COT2)", "(official)",
 "(MeowDB)" in English; in a Hebrew answer "(MSEA)", "(קהילה)", "(COT2)", "(רשמי)", "(MeowDB)". When players reported
 nothing, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
-point the change out briefly (old → new).
+point the change out briefly (old → new). "Skill change COT1 -> COT2" lines give a skill's values before and after the
+latest test: build advice uses the newer values. The "Community tier list" is community opinion: say so when you cite it.
 
 Advice must fit the player's level and job. If the profile lacks level or job, ask for it before recommending.
 
@@ -149,6 +155,32 @@ def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
     if body and not availability.of(kb).entity_open(key):
         return f"[{key}] ({NOT_OUT})\n{body}"
     return f"[{key}]\n{body}" if body else ""
+
+
+def _site_context(kb: KnowledgeBase, question: str, character: Character | None, shown: list[str]) -> list[str]:
+    """What NiaMeowDB's list pages add (sitedata.py): the build changes of the skills in the context (and of the
+    player's job line when the question is about skills or a build), the pets when one is named or pets are asked
+    about, and the community tier list when the question compares jobs."""
+    out = []
+    skills = [k for k in shown if k.startswith("skill/")]
+    if character and character.job and BUILD_WORDS.search(question):
+        skills += [c.key for c in sitedata.changes_for(kb, character.base_class, character.job)]
+    lines = sitedata.ai_skill_lines(kb, skills)
+    if lines:
+        out.append("\n".join(lines))
+    named = [k for k in shown if k.startswith("item/") and sitedata.pet(kb, k)]
+    lines = sitedata.ai_pet_lines(kb, None if PET_WORDS.search(question) else named) if named or PET_WORDS.search(question) else []
+    if lines:
+        out.append("\n".join(lines))
+    if TIER_WORDS.search(question):
+        lines = sitedata.ai_tier_lines(kb)
+    elif character and BUILD_WORDS.search(question):
+        lines = sitedata.ai_tier_lines(kb, sitedata.tiers_for(kb, character.base_class, character.job))
+    else:
+        lines = []
+    if lines:
+        out.append("\n".join(lines))
+    return out
 
 
 def _mark_droppers(kb: KnowledgeBase, body: str) -> str:
@@ -247,6 +279,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
     changes = kb_changes.ai_lines(kb, shown)
     if changes:
         ctx.append("\n".join(changes))
+    ctx += _site_context(kb, question, character, shown)
     if ctx:
         parts.append("<kb_context>\n" + "\n\n".join(ctx) + "\n</kb_context>")
     if has_screenshot is True:

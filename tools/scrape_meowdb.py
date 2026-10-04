@@ -7,6 +7,7 @@ fetches what is missing.
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
     index.json                   compact index: id, name, category, url, image, props
+    skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
 
 Usage:
@@ -286,6 +287,10 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
         list(pool.map(work, jobs))
 
     write_index(index_path, list(index.values()))
+    # the list pages (skill changes, pets, tier list): one at a time after the entity pages, counted as changes
+    # so a night that only moves a pet's lifespan still publishes
+    import meowdb_sections
+    changes[0] += meowdb_sections.scrape(KB, fetch, DELAY_SECONDS)
     meta_path = KB / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     meta.update({"source": "NiaMeowDB (meowdb.com)", "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
