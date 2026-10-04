@@ -133,7 +133,12 @@ def _isolate_runs(text: str) -> str:
         start, end = m.start(), m.start() + len(run)
         if not run:
             continue
-        out.append(text[pos:start])
+        before = text[pos:start]
+        # a Hebrew prefix with its hyphen ("ל-", "מ-", "ב-") never ends a line: the line broke after "ל-" and the
+        # English or the number went to the next line, out of order ("ל-" ... "10,500 mesos", the owner's report)
+        if re.search(r"(?:^|[^\u0590-\u05FF])[\u05D1\u05D4\u05D5\u05DB\u05DC\u05DE\u05E9]{1,2}-$", before):
+            before += "\u2060"
+        out.append(before)
         # the RLM after the block keeps following punctuation (") - ", ", ") in the Hebrew flow,
         # so two English blocks never glue into one left-to-right chunk
         # Qt mirrors a ">" that follows a digit inside a Hebrew line ("Line 2 <Area 1>" shows "<Area 1<"),

@@ -415,3 +415,25 @@ def test_an_item_tile_has_the_wishlist_star_and_the_tiles_name_their_stats_build
     builds = {sources.source_of(ckb, k) for k in ("item/413", "item/709") if sources.stat_source(ckb, k)}
     assert all(any(b in bidi_free(x) for x in tags) for b in builds)
     WISHLIST.bind(None, None)
+
+
+def test_a_star_taken_off_leaves_the_open_wishlist_at_once(ckb, app, isolated_store):
+    """The item stayed in the wishlist window until it was reopened (the owner's report)."""
+    from maplehelper.ui.widgets import WISHLIST, EntityCard
+    from maplehelper.ui.wishlist import WishlistDialog
+    profiles = isolated_store.Profiles()
+    profiles.set_active(profiles.add("Kiwi", "Thief", "Assassin", 24).id)
+    WISHLIST.bind(isolated_store.Settings(), profiles)
+    WISHLIST.toggle("item/709")
+    WISHLIST.toggle("item/413")
+    dlg = WishlistDialog(WISHLIST.keys(), ckb, "he", "")
+    try:
+        def shown():
+            app.processEvents()
+            return sorted(c.key for c in dlg.findChildren(EntityCard) if c.isVisibleTo(dlg))
+        assert shown() == ["item/413", "item/709"]
+        WISHLIST.toggle("item/709")                  # the star off
+        assert shown() == ["item/413"]
+    finally:
+        dlg.close()
+        WISHLIST.bind(None, None)

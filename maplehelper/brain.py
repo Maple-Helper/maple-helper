@@ -150,12 +150,18 @@ REPLY_RULES = """<reply_rules>
   "Tell me about X" gets 2-3 lines of what the cards can't say: who it suits (against the player's level), where it
   is best, what is worth it, a recent change; at most one notable drop by name. A question for one number ("how much
   HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
-- Correct Hebrew grammar: an adjective agrees with its noun ("מונסטר בסיסי", never "מונסטר בסיס").
-- A level number always says so: "אתם בלבל 31", "לבל 31", never "אתם ב-31".
-- Hebrew words: "לבל", never "רמה"; "mesos" in English letters, never "מזו", "מזוס", "מסוס" or "מסות".
-- In a Hebrew answer only game names and stat names stay in English; every other word is Hebrew ("קווסט", not
-  "quest"; "קהילה", not "community"; never "This", "drop" or "and" in a Hebrew sentence). Write stat bonuses one
-  per item ("STR +1, DEX +1"), never slashed together ("STR/DEX +1").
+- A Hebrew answer reads as if a fluent Israeli gamer wrote it: plain, short sentences in natural Hebrew word order,
+  never English sentence structure in Hebrew words. Before replying, reread it once as a Hebrew reader would.
+  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מונסטר בסיסי", never "מונסטר בסיס").
+  * A level always says so: "אתם בלבל 31", "נשק לבל 20", never "(31)", "ב-31" or "רמה".
+  * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
+    letters (never "מזו", "מזוס", "מסוס", "מסות").
+  * English only for game names and stat names, joined to a Hebrew prefix with a hyphen ("ל-Henesys",
+    "מ-Blue Snail"); never "This", "drop", "and" or "community" in a Hebrew sentence.
+  * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
+  * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
+  * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לבל 20, לוריורים ולמג'ים. לא מתאים לכם: אתם Assassin בלבל 31."
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).

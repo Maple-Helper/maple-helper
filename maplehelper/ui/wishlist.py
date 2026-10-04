@@ -13,8 +13,6 @@ from .glass import GlassDialog
 from .patchnotes import gutter
 from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag
 
-SHOWN_DROPPERS = 5
-
 
 class WishlistDialog(GlassDialog):
     ask_requested = Signal(str)          # a question for the chat (where to hunt a dropper)
@@ -38,6 +36,28 @@ class WishlistDialog(GlassDialog):
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
 
+        self._fill(keys)
+        from .widgets import WISHLIST
+        WISHLIST.changed.connect(self._refill)
+
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 10, 0, 0)
+        row.addStretch(1)
+        ok = QPushButton(t("close"), objectName="Primary")
+        ok.setCursor(Qt.PointingHandCursor)
+        ok.setMinimumWidth(160)
+        ok.clicked.connect(self.accept)
+        row.addWidget(ok)
+        row.addStretch(1)
+        outer.addLayout(row)
+        rtl_buttons(self, rtl)
+
+    def _fill(self, keys: list[str]) -> None:
+        """The wished items and their droppers; run again whenever the wishlist changes (a star taken off here or
+        on a card left its item in the window until it was reopened: the owner's report)."""
+        from .tools import clear
+        t, kb, lay, rtl = self.t, self.kb, self.lay, self.t.rtl
+        clear(lay)
         keys = [k for k in keys if kb.get(k)]
         if not keys:
             empty = QLabel(bidi.plain(t("wishlist_empty"), rtl), objectName="DialogBody")
@@ -72,26 +92,18 @@ class WishlistDialog(GlassDialog):
             item = (kb.get(k) or {}).get("name", k)
             # each dropper as a row with its picture, level, map and a way to ask the chat about it (live feedback:
             # a small text list was hard to read and led nowhere)
-            for m in droppers[:SHOWN_DROPPERS]:
+            # every dropper ("and 4 more" hid them, and the window scrolls anyway: the owner's report)
+            for m in droppers:
                 lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None, kb.community_vote(m, k)))
-            if len(droppers) > SHOWN_DROPPERS:
-                more = QLabel(bidi.plain(t("pn_more", n=len(droppers) - SHOWN_DROPPERS), rtl), objectName="RowHint")
-                more.setAlignment(self._align)
-                lay.addWidget(more)
             lay.addSpacing(10)
         lay.addStretch(1)
 
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 10, 0, 0)
-        row.addStretch(1)
-        ok = QPushButton(t("close"), objectName="Primary")
-        ok.setCursor(Qt.PointingHandCursor)
-        ok.setMinimumWidth(160)
-        ok.clicked.connect(self.accept)
-        row.addWidget(ok)
-        row.addStretch(1)
-        outer.addLayout(row)
-        rtl_buttons(self, rtl)
+    def _refill(self) -> None:
+        from .widgets import WISHLIST
+        try:
+            self._fill(WISHLIST.keys())
+        except RuntimeError:          # the window was closed and deleted meanwhile
+            pass
 
     def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None) -> QFrame:
         t, kb = self.t, self.kb
