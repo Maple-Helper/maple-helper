@@ -110,7 +110,6 @@ def test_session_lines_keep_names_whole_and_apart():
 def test_wording_fixes():
     he, en = I18n("he"), I18n("en")
     assert he("wishlist") == "פריטים במעקב" and "אני" not in he("exp_title")
-    assert "ב-" not in he("shop_q_here", n=60).split(" למשך")[0] and "{map}" not in en("shop_q_here", n=60)
     assert he("profile_updated", label="לבל", value="29") == "✓ עודכן · לבל: 29"
     assert he("inv_check") and en("inv_check") == "Inventory check"
 

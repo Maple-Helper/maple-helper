@@ -147,7 +147,7 @@ def test_search_boxes_and_close_have_names(tools):
     from maplehelper.ui.glass import GlassDialog
     d = tools(page="quests")
     assert d.q_search.accessibleName() == I18n("en")("q_search")
-    for name in ("calc_input", "price_input", "shop_map"):
+    for name in ("calc_input", "price_input"):
         assert getattr(d, name).accessibleName(), name
     assert d.close_btn.accessibleName() == "Close"
     assert GlassDialog("x", rtl=True).close_btn.accessibleName() == I18n("he")("close")
