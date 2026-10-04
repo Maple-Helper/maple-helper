@@ -4,7 +4,7 @@ from __future__ import annotations
 import html
 import time
 
-from PySide6.QtCore import (QEasingCurve, QObject, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRect, QRectF,
+from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPropertyAnimation, QRect, QRectF,
                             Qt, QThread, QTimer, Signal)
 from PySide6.QtGui import QGuiApplication, QIcon, QPainterPath, QPixmap
 from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -424,11 +424,10 @@ class Overlay(QWidget):
         tb = QHBoxLayout(self.title_bar)
         tb.setContentsMargins(2, 2, 0, 0)
         tb.setSpacing(8)
-        logo = QLabel()
-        icon = ASSETS / "brand" / "icon-64.png"
-        if icon.exists():
-            logo.setPixmap(QPixmap(str(icon)).scaled(22, 22, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        tb.addWidget(logo)
+        self.logo = QLabel()
+        self.logo.setFixedSize(22, 22)
+        self._paint_logo()
+        tb.addWidget(self.logo)
         self.title = QLabel("Maple Helper", objectName="Title")
         tb.addWidget(self.title)
         # the app is still in beta: always shown beside the name, never hidden for room like the version
@@ -923,8 +922,26 @@ class Overlay(QWidget):
         news.mark_read(self.settings, [nid])
         self.show_news()                # the next unread item, if any
 
+    def _paint_logo(self) -> None:
+        """The app mark from the 256 px source at the screen's own pixels: drawn from the 64 px one at 22 logical px,
+        Windows stretched it to 125% and it read blurred (a player's report)."""
+        icon = ASSETS / "brand" / "icon-256.png"
+        if not icon.exists():
+            return
+        dpr = self.devicePixelRatioF() or 1.0
+        side = round(22 * dpr)
+        pm = QPixmap(str(icon)).scaled(side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
+        self.logo.setPixmap(pm)
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() == QEvent.DevicePixelRatioChange and hasattr(self, "logo"):
+            self._paint_logo()             # moved to a screen with another scale
+
     def showEvent(self, e):
         super().showEvent(e)
+        self._paint_logo()
         self.server_poller.start()
 
     def hideEvent(self, e):
@@ -1221,7 +1238,7 @@ class Overlay(QWidget):
             s = QGuiApplication.screenAt(QPoint(rect[0] + rect[2] // 2, rect[1] + rect[3] // 2))
             screen = s or screen
         a = screen.availableGeometry()
-        w, h = 420, min(640, a.height() - 80)
+        w, h = min(600, a.width() - 48), min(640, a.height() - 80)     # the size the owner set by hand (2026-10-04)
         self.setGeometry(a.right() - w - 24, a.top() + 60, w, h)
 
     def save_geometry(self):
