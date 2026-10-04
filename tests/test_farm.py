@@ -451,3 +451,20 @@ def test_a_daily_quest_comes_back_after_the_reset():
     assert quests.expire_cycles(kb, c) and c.quests_done == ["quest/506000"] and not c.cycle_done
     c = SimpleNamespace(quests_done=["quest/506002"], cycle_done={"quest/506002": now})
     assert not quests.expire_cycles(kb, c) and c.quests_done == ["quest/506002"]
+
+
+@needs_kb
+def test_sell_or_keep_sorts_the_bag_by_the_kb():
+    # the inventory check's answer on the page, by what the KB says of each item: no AI, nothing guessed
+    from maplehelper import sellkeep
+    from maplehelper.inventory import Slot
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    key = lambda n: kb._item_by_name[n.lower()]  # noqa: E731
+    slots = [Slot(1, b"", [(key("Stirge Wing"), 0.0)]),                # a quest of a level-20 Bowman asks for it
+             Slot(2, b"", [(key("Adamantium Knuckle"), 0.0)]),         # Warrior gloves, level 40
+             Slot(3, b"", [], "unknown")]
+    v = {x.slot: x for x in sellkeep.classify(kb, slots, 20, "Bowman", "Bowman")}
+    assert v[1].kind == "quest" and v[1].why
+    assert v[2].kind == "other_job"
+    assert v[3].kind == "unknown" and not v[3].name

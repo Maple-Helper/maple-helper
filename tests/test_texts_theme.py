@@ -108,7 +108,7 @@ def test_short_english_names_stay_whole_in_hebrew():
     he, en = I18n("he"), I18n("en")
     plan = he("ob_need_plan")
     assert f"Claude{NBSP}Pro" in plan
-    assert f"Free{NBSP}Market" in he("sell_body")
+    assert f"Free{NBSP}Market" in he("sell_why_no_price")
     assert "Claude Pro" in en("ob_need_plan")                    # English lines wrap normally
     # a name through a placeholder; a long KB name stays as spelled (bidi keeps it whole by that spelling)
     assert f"Red{NBSP}Snail" in he("other_char_switch", name="Red Snail")

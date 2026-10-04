@@ -275,7 +275,7 @@ def test_chat_cards_show_skill_changes_and_pets(real_site):
     assert EntityCard(real_site, "skill/crusader__power-guard", "en").findChild(QLabel, "ChangedTag") is None
     pet = EntityCard(real_site, "item/1524", "en")
     pills = [bare(w.text()) for w in pet.findChildren(QLabel, "StatPill")]
-    assert pills == ["Lifespan: 7 days", "Hunger: 2", "Lv 30: ~25.0k commands"]
+    assert pills == ["Lifespan: 7 days", "Hunger: 2", "Lv 30: ~25,000 commands"]
     assert bare(pet.findChild(QLabel, "TagGood").text()) == "In Cash Shop"
     assert any(bare(w.text()) == "Closed test" for w in pet.findChildren(QLabel, "SourceTag"))
 

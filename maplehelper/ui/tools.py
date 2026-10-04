@@ -305,9 +305,12 @@ def monster_rows(kb) -> list[tuple[str, str, object]]:
 
 def item_rows(kb) -> list[tuple[str, str, object]]:
     """Every item once, by name."""
+    from .. import sitedata
     seen = {}
     for k, e in kb.entities.items():
         if e.get("category") == "item" and e["name"].strip() and e["name"] not in seen:
+            if str(e.get("type") or "").startswith("Cash") and sitedata.untradeable(kb, k):
+                continue          # a pet: the Cash Shop's NX only, no price to look up (the owner)
             seen[e["name"]] = k
     return [(name, name, kb.picture(k)) for name, k in sorted(seen.items(), key=lambda x: x[0].lower())]
 
@@ -356,6 +359,7 @@ class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
     grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
+    inventory_ready = Signal(object)          # the inventory slots a sell-or-keep read found (or None: no shot)
     ask_requested = Signal(str, bool)          # question for the chat, with a fresh screenshot?
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
@@ -1980,6 +1984,8 @@ class ToolsDialog(GlassDialog):
             empty(self.craft_search)
         elif name == "farm":
             self._farm_mob_pick = None
+        elif name == "more":
+            clear(self.sell_box)
         elif name == "route":
             empty(self.route_to)
             clear(self.route_out)
@@ -3483,8 +3489,14 @@ class ToolsDialog(GlassDialog):
         go.setCursor(Qt.PointingHandCursor)
         go.clicked.connect(self._sell_check)
         sell.add_widget(go)
+        self.sell_go = go
         lay.addWidget(sell)
+        # the answer here, as cards by what to do with each item (it came as a chat message: the owner)
+        self.sell_box = QVBoxLayout()
+        self.sell_box.setSpacing(8)
+        lay.addLayout(self.sell_box)
         lay.addStretch(1)
+        self.inventory_ready.connect(self._show_sell)
         return sc
 
     def _page_pets(self):
@@ -3501,6 +3513,8 @@ class ToolsDialog(GlassDialog):
         t = self.t
         sec = Section(t("pets_title"), t.rtl)
         sec.add_widget(self._label(t("pets_intro"), "RowLabel"))
+        # what each chip means, in words (on hover alone it went unseen: the owner)
+        sec.add_widget(self._label(t("pets_legend"), "RowHint"))
         self.pet_filter = Segmented([(t("pets_sold"), "sold"), (t("pets_easy"), "easy"), (t("pets_all"), "all")],
                                     "sold", t.rtl)
         self.pet_filter.set_label(t("pets_title"))
@@ -3554,14 +3568,7 @@ class ToolsDialog(GlassDialog):
         head.setSpacing(8)
         head.addWidget(QLabel(bidi.ltr_name(p.name, t.rtl), objectName="CardName"), 0, Qt.AlignVCenter)
         head.addStretch(1)
-        # its price (the Free Market's too), then the chat
-        for text, then in (("go_price", lambda _=False, n=p.name: self._farm_price(n)),
-                           ("ask_short", lambda _=False, k=p.key: self.tag_requested.emit(k))):
-            b = QPushButton(self._p(t(text)), objectName="Link")
-            b.setCursor(Qt.PointingHandCursor)
-            b.setAutoDefault(False)
-            b.clicked.connect(then)
-            head.addWidget(b, 0, Qt.AlignVCenter)
+        head.addLayout(self._links_row([("ask_short", lambda k=p.key: self.tag_requested.emit(k))]))
         col.addLayout(head)
         parts = pet_parts(t, self.kb, p.key)
         tags = FlowLayout(spacing=5)
@@ -3571,6 +3578,11 @@ class ToolsDialog(GlassDialog):
                 tags.addWidget(info_tag(t, text, tip))
             for chip in parts[1]:
                 tags.addWidget(chip)
+        # untradeable (its page): no NPC and no player buys it, the Cash Shop sells it for NX
+        nx = sitedata.cash_price(self.kb, p.key)
+        if nx:
+            tags.addWidget(info_tag(t, t("pet_nx", n=f"{nx[0]:,}"),
+                                    t("pet_nx_tip") + (" " + t("pet_nx_closed") if nx[1] else ""), "Tag"))
         updated = updated_tag(t, self.kb, p.key)
         if updated:
             tags.addWidget(updated)
@@ -3579,9 +3591,96 @@ class ToolsDialog(GlassDialog):
         return row
 
     def _sell_check(self):
-        # the inventory must be in the screenshot, not this window; the chat bubble says "Inventory check",
-        # not the nine lines of instructions the AI gets
-        self._step_aside(lambda: self.detail_ask_requested.emit(self.t("sell_q"), self.t("inv_check")))
+        """The inventory read here, no AI: this window steps out of the shot, the icons are matched to the KB's
+        pictures (inventory.py) off the GUI thread, and each item is sorted by what the KB says (sellkeep.py)."""
+        clear(self.sell_box)
+        self.sell_box.addWidget(self._label(self.t("sell_reading"), "RowHint"))
+        self.sell_go.setEnabled(False)
+
+        def shoot():
+            import threading
+
+            from .. import capture, inventory, osapi
+            capture.LAST_FULL = None
+            try:
+                hwnd = osapi.find_game_window()
+                if hwnd:
+                    osapi.capture_game(hwnd)
+            except Exception:      # noqa: BLE001 - no shot: said on the page
+                pass
+            full, cursor, kb = capture.LAST_FULL, capture.LAST_CURSOR, self.kb
+            if full is None:
+                self.inventory_ready.emit(None)
+                return
+
+            def read():
+                try:
+                    slots = inventory.read(full, kb, cursor=cursor)
+                except Exception:      # noqa: BLE001
+                    slots = []
+                try:
+                    self.inventory_ready.emit(slots)
+                except RuntimeError:   # the window closed meanwhile
+                    pass
+            threading.Thread(target=read, daemon=True).start()
+        self._step_aside(shoot)
+
+    def _show_sell(self, slots) -> None:
+        from .. import sellkeep, wishlist
+        t, c = self.t, self.c
+        self.sell_go.setEnabled(True)
+        clear(self.sell_box)
+        if slots is None:
+            self.sell_box.addWidget(self._label(t("sell_no_game"), "RowHint"))
+            return
+        if not slots:
+            self.sell_box.addWidget(self._label(t("sell_no_inventory"), "RowHint"))
+            return
+        if not c:
+            self._no_character(self.sell_box)
+            return
+        verdicts = sellkeep.classify(self.kb, slots, c.level, c.base_class, c.job, c.quests_done, c.crafts or None,
+                                     wishlist.items(self.settings, c.id))
+        total = sum(v.price for v in verdicts if v.kind == "sell")
+        self.sell_box.addWidget(self._label(t("sell_summary", n=len(verdicts), mesos=f"{total:,}"), "ToolHeader"))
+        last = None
+        for v in verdicts:
+            if v.kind != last:
+                last = v.kind
+                self.sell_box.addWidget(self._label(t(f"sell_kind_{v.kind}"), "SectionHeader"))
+            self.sell_box.addWidget(self._sell_card(v))
+
+    def _sell_card(self, v) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 8, 12, 8)
+        row.setSpacing(10)
+        if v.key:
+            row.addWidget(self._picture(v.key, 36), 0, Qt.AlignVCenter)
+        elif v.picture:
+            pic = QLabel()
+            pm = QPixmap()
+            pm.loadFromData(v.picture)
+            pic.setPixmap(pm.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            row.addWidget(pic, 0, Qt.AlignVCenter)
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        name = v.name or t("sell_unknown_slot", n=v.slot)
+        col.addWidget(QLabel(bidi.ltr_name(name, t.rtl) if v.name else self._p(name), objectName="CardName"))
+        why = {"quest": t("farm_need_quest_tip", name=v.why), "recipe": t("farm_need_recipe_tip", name=v.why),
+               "wish": t("sell_why_wish"), "wear": t("sell_why_wear", lv=v.why or "-"),
+               "not_yet": t("sell_why_not_yet", lv=v.why), "other_job": t("sell_why_other_job"),
+               "sell": t("sell_why_sell", n=f"{v.price:,}"), "no_price": t("sell_why_no_price"),
+               "unknown": t("sell_why_unknown")}[v.kind]
+        if v.kind in ("not_yet", "other_job") and v.price:
+            why += " " + t("sell_or_npc", n=f"{v.price:,}")
+        col.addWidget(self._label(why, "CardSub"))
+        row.addLayout(col, 1)
+        if v.key:
+            acts = [("go_price", lambda n=v.name: self._farm_price(n))]
+            col.addLayout(self._links_row(acts))
+        return card
 
     # how to get there ----------------------------------------------------
 

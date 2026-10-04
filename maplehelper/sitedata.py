@@ -174,6 +174,18 @@ class Pet:
     closed_test: tuple[str, ...] = ()     # fields the site marks as closed-test values ("lifespan")
 
 
+def cash_price(kb, key: str) -> tuple[int, bool] | None:
+    """A Cash Shop item's price in NX from its page ("Cash Shop / 100 NX / Closed-test price"): (NX, from the closed
+    test), or None."""
+    m = re.search(r"^Cash Shop\n([\d,]+) NX\n(Closed-test price)?", kb.page(key), re.M)
+    return (int(m.group(1).replace(",", "")), bool(m.group(2))) if m else None
+
+
+def untradeable(kb, key: str) -> bool:
+    """The item page says "Untradeable": no NPC buys it and no player can (a pet: the Cash Shop only)."""
+    return bool(re.search(r"^Untradeable\b", kb.page(key), re.M))
+
+
 def pets(kb) -> list[Pet]:
     """The pets in the order the site lists them, each one the KB has an item page for."""
     out = []

@@ -1,0 +1,75 @@
+"""Sell or keep: each item an inventory read found (inventory.py), sorted by what the KB says about it, with no AI and
+nothing guessed. Kept: an item a quest the player can do now asks for, an ingredient of a recipe of a profession they
+work, an item they starred, equipment they can wear (its page's REQ LEV and JOB). Sold: what an NPC pays for the rest
+(the item page's sell price). An item the read couldn't name is said so, never named by a guess."""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+
+from . import farm, market
+
+# the page's "JOB Mage" means a Magician (jobs.py's class name)
+_JOB_WORD = {"Mage": "Magician"}
+
+
+@dataclass
+class Verdict:
+    kind: str           # quest | recipe | wish | wear | not_yet | other_job | sell | no_price | unknown
+    key: str = ""
+    name: str = ""
+    why: str = ""        # the quest or recipe it's kept for; the level it's worn from
+    price: int = 0       # what an NPC pays for one
+    slot: int = 0        # the inventory slot, 1-based
+    picture: bytes = b""  # the icon as the game showed it (an item the read couldn't name)
+
+
+def _wear(kb, key: str) -> tuple[int, list[str]] | None:
+    """(the level it asks, the classes it's for) from an equipment page's "REQ LEV 40 ... JOB Warrior"."""
+    e = kb.get(key) or {}
+    if not str(e.get("type") or "").startswith("Equip"):
+        return None
+    page = kb.page(key)
+    lv = (e.get("props") or {}).get("Level Requirement")
+    m = re.search(r"REQ LEV (\d+)", page)
+    level = int(m.group(1)) if m else int(lv) if isinstance(lv, (int, float)) else 0
+    j = re.search(r"\bJOB ([A-Za-z/]+)", page)
+    jobs = [_JOB_WORD.get(x, x) for x in j.group(1).split("/")] if j else []
+    return level, jobs
+
+
+def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
+             crafts: dict | None = None, wished: list[str] | None = None) -> list[Verdict]:
+    """One verdict per inventory slot the read found, in the order of the groups the page shows."""
+    wanted = farm.needs(kb, level, base_class, job, done, crafts, wished)
+    out: list[Verdict] = []
+    for s in slots:
+        if s.status == "hovered":
+            continue
+        if s.status != "certain" or not s.matches:
+            out.append(Verdict("unknown", slot=s.index, picture=s.picture))
+            continue
+        key = s.matches[0][0]
+        e = kb.get(key) or {}
+        name = e.get("name", key)
+        need = wanted.get(name.lower())
+        if need:
+            out.append(Verdict(need[0], key, name, need[1], slot=s.index))
+            continue
+        wear = _wear(kb, key)
+        if wear is not None:
+            lv, jobs = wear
+            if jobs and base_class and base_class not in jobs:
+                kind = "other_job"
+            elif lv and level < lv:
+                kind = "not_yet"
+            else:
+                kind = "wear"
+            sell = market.npc_prices(kb, key).sell_back or 0
+            out.append(Verdict(kind, key, name, str(lv or ""), sell, s.index))
+            continue
+        sell = market.npc_prices(kb, key).sell_back or 0
+        out.append(Verdict("sell" if sell else "no_price", key, name, price=sell, slot=s.index))
+    order = ["quest", "recipe", "wish", "wear", "not_yet", "other_job", "sell", "no_price", "unknown"]
+    out.sort(key=lambda v: (order.index(v.kind), -v.price, v.slot))
+    return out

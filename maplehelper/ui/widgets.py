@@ -426,8 +426,11 @@ def pet_parts(t, kb, key: str) -> tuple[list[str], list[QLabel]] | None:
         return None
     pills = [t("pet_life", v=sitedata.lifespan_text(t, p)), t("pet_hunger", n=p.hunger)]
     if p.commands_text:
-        pills.append(t("pet_commands", level=p.level, n=p.commands_text.lstrip("~")))
-    chips = [info_tag(t, t("pet_sold" if p.sold else "pet_not_sold"), p.availability, "TagGood" if p.sold else "Tag")]
+        # the whole number ("25,000"), not the site's "25.0k" shorthand
+        pills.append(t("pet_commands", level=p.level,
+                       n=f"{p.commands:,}" if isinstance(p.commands, int) else p.commands_text.lstrip("~")))
+    chips = [info_tag(t, t("pet_sold" if p.sold else "pet_not_sold"), t("pet_sold_tip" if p.sold else "pet_not_sold_tip"),
+                      "TagGood" if p.sold else "Tag")]
     if p.closed_test:
         chip = source_tag(t, sources.CLOSED_TEST)
         if "lifespan" in p.closed_test:
