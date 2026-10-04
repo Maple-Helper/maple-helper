@@ -1338,8 +1338,8 @@ class ToolsDialog(GlassDialog):
                 for prof, plv, what in made[:2]:
                     # the profession, then each ingredient on its own line with its picture (one long line of
                     # five ingredients wrapped in the middle of a name: the owner)
-                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{bidi.LRE}<i>{html.escape(f'{prof} Lv. {plv}')}"
-                                f"</i>{bidi.PDF}{bidi.RLM}:</p>")
+                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{bidi.LRE}<b>{html.escape(f'{prof} Lv. {plv}')}"
+                                f"</b>{bidi.PDF}{bidi.RLM}:</p>")       # (italics leaned and clipped the "5")
                     for n, part in re.findall(r"(\d[\d,]*) x (.+?)(?=\s+\d[\d,]* x |$)", what):
                         rows.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(f'{part.strip()} x {n}')}</p>")
             blocks.append("".join(rows))
