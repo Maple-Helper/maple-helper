@@ -1336,8 +1336,12 @@ class ToolsDialog(GlassDialog):
                 # in one line read backwards)
                 rows.append(f"<p {side} style='margin:0 0 2px 0;'>{html.escape(bidi.plain(t('q_made_from'), t.rtl))}</p>")
                 for prof, plv, what in made[:2]:
-                    rows.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(f'{what} · {prof} Lv. {plv}')}"
-                                f"{bidi.PDF}</p>")
+                    # the profession, then each ingredient on its own line with its picture (one long line of
+                    # five ingredients wrapped in the middle of a name: the owner)
+                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{bidi.LRE}<i>{html.escape(f'{prof} Lv. {plv}')}"
+                                f"</i>{bidi.PDF}{bidi.RLM}:</p>")
+                    for n, part in re.findall(r"(\d[\d,]*) x (.+?)(?=\s+\d[\d,]* x |$)", what):
+                        rows.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(f'{part.strip()} x {n}')}</p>")
             blocks.append("".join(rows))
         if not blocks:
             return None
