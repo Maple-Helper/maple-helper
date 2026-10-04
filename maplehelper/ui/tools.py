@@ -1328,6 +1328,26 @@ class ToolsDialog(GlassDialog):
                 if head is not None and bidi.plain(name, False) in head.text():
                     self.pages["crafting"].ensureWidgetVisible(w, 0, 40)
                     return
+        # a citizenship quest: on the citizenship page, its town picked, every grade, searched by its name
+        cq = next((q for k, e in self.kb.entities.items() if e.get("category") == "quest" and e.get("name") == name
+                   for q in [quests.quest(self.kb, k)] if q and q.area == "Citizenship"), None)
+        if cq is not None:
+            self.show_page(PAGES.index("town"))
+            town = quests.town_of(self.kb, cq)
+            if town and town != self.town_pick.value():
+                for b in self.town_pick.group.buttons():
+                    if b.property("value") == town:
+                        b.setChecked(True)
+                c.town = town
+                self.profiles.save()
+            self._town_grade_pick = None
+            self.town_search.blockSignals(True)
+            self.town_search.setText(name)
+            self.town_search.blockSignals(False)
+            self._fill_town()
+            self.pages["town"].verticalScrollBar().setValue(0)
+            self.pages["town"].setFocus(Qt.OtherFocusReason)
+            return
         if PAGES[self.stack.currentIndex()] != "quests":
             self.show_page(PAGES.index("quests"))
         r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
@@ -2003,7 +2023,7 @@ class ToolsDialog(GlassDialog):
         sec.add_widget(self.town_basics)
         lay.addWidget(sec)
         # a search and a chip a grade, as on the quests and crafting pages (the owner)
-        self.town_search = EntityPicker([], self._p(t("q_search")), icon=32, rtl=t.rtl)
+        self.town_search = EntityPicker([], self._p(t("town_search")), icon=32, rtl=t.rtl)
         self._town_search_timer = QTimer(self, singleShot=True, interval=200)
         self._town_search_timer.timeout.connect(lambda: self._fill_town())
         self.town_search.textChanged.connect(lambda *_: self._town_search_timer.start())
@@ -2038,6 +2058,20 @@ class ToolsDialog(GlassDialog):
         self._town_limit = MAX_QUESTS         # another town's list: its first cards
         self.refresh("town")
 
+    def _npc_towns(self, text: str) -> str:
+        """Each NPC a sentence names, with the town it stands in: "Raymond (ב-Henesys) sells ..."."""
+        done = set()
+
+        def one(m):
+            name = m.group(0)
+            key = self.kb._npc_by_name.get(name.lower())
+            if not key or name in done:
+                return name
+            done.add(name)
+            town = crafting._town(self.kb, key)
+            return f"{name} ({self.t('in_town', town=town)})" if town and town not in text and town != name else name
+        return re.sub(r"\b[A-Z][a-z]+(?: [A-Z][a-z]+)?\b", one, text)
+
     def _fill_town(self):
         t, c = self.t, self.c
         clear(self.town_list)
@@ -2052,13 +2086,30 @@ class ToolsDialog(GlassDialog):
         for b in self.town_pick.findChildren(QPushButton):
             b.setChecked(b.property("value") == town or b.text() == town)
         self.town_pick.blockSignals(False)
-        # the guide's advice, one sentence per line, the grades and towns in bold
-        lines = [t("town_recommended", town=rec, job=c.job_label or c.base_class)] if rec else []
-        for para in paras[:2]:
-            for sentence in re.split(r"(?<=[.!?])\s+", guides._ICON.sub("", para).strip()):
-                if sentence.strip():
-                    lines.append("• " + _bold_names(sentence.strip()))
-        self._set(self.town_advice, "\n".join(lines) if lines else t("town_no_advice"))
+        # the guide's advice, short: what it recommends and where to sign up; the reasons behind a "?", each NPC
+        # with the town it stands in ("Raymond" alone said nothing: the owner)
+        sentences = [x.strip() for para in paras[:2]
+                     for x in re.split(r"(?<=[.!?])\s+", guides._ICON.sub("", para).strip()) if x.strip()]
+        sentences = [re.sub(r"\*\*", "", x) for x in sentences]
+        reasons = [x for x in sentences
+                   if not re.search(r"best|הכי טוב|הטובה|ממליץ|Pick |\bsign|נרשמ|להירשם|תבחרו|תירשמו", x, re.I)]
+        # where to sign up in the town picked: its clerk from the KB (the guide's line is the recommended town's)
+        clerk = next(((e["name"], crafting._town(self.kb, k)) for k, e in self.kb.entities.items()
+                      if e.get("category") == "npc" and crafting._town(self.kb, k).startswith(town)
+                      and re.search(r"^(Town Clerk|City Clerk)$", self.kb.page(k), re.M)), None)
+        sign_line = t("town_sign", npc=clerk[0], place=clerk[1]) if clerk else ""
+        if rec:
+            badge = terms._badge_uri()
+            head = f"<b>{html.escape(bidi.plain(t('town_recommended_short', town=rec, job=c.job or c.base_class), t.rtl))}</b>"
+            if badge and reasons:
+                head += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+            text = head + (f"<br>{html.escape(bidi.plain(sign_line, t.rtl))}" if sign_line else "")
+            self.town_advice.setText(text)
+            self.town_advice.setToolTip(tip_html("\n".join("• " + self._npc_towns(x) for x in reasons), t.rtl)
+                                        if reasons else "")
+        else:
+            self._set(self.town_advice, t("town_no_advice"))
+            self.town_advice.setToolTip("")
         rows = quests.citizenship(self.kb, town, c.level, c.quests_done)
         self._set(self.town_head, t("town_head", n=len(rows), town=town))
         clear(self.town_grades)

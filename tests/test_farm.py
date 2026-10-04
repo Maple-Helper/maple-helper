@@ -392,3 +392,27 @@ def test_a_quest_says_who_it_is_finished_with():
     kerning = quests.quest(kb, "quest/506100")
     assert kerning.npc == "Arthur" and kerning.turn_in == "Roxy"
     assert quests.quest(kb, "quest/506000").turn_in == ""
+
+
+@needs_kb
+def test_a_citizenship_quest_jump_stays_on_citizenship(monkeypatch, tmp_path):
+    # Kerning City's opener asks for "To Henesys" first: its jump went to the quests page, "not on your lists"
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication(sys.argv)
+    from maplehelper import store
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.tools import PAGES, ToolsDialog
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
+    p = store.Profiles()
+    c = p.add("Kiwi", "Thief", "Thief", 15)
+    c.town = "Kerning City"
+    d = ToolsDialog(KnowledgeBase(REAL_KB), p, store.Settings(), "he", "", {}, page="town")
+    try:
+        app.processEvents()
+        d._goto_quest("To Henesys, the Prairie Town")
+        assert PAGES[d.stack.currentIndex()] == "town" and d.town_pick.value() == "Henesys"
+        assert d.town_search.text() == "To Henesys, the Prairie Town"
+    finally:
+        d.close()
