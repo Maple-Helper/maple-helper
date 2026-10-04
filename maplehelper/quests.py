@@ -272,12 +272,16 @@ def expire_cycles(kb, c, now: float | None = None) -> bool:
 _TASKS_HE: dict | None = None
 
 
-def task_text(q: Quest, lang: str) -> str:
+def task_text(q: Quest, lang: str, kb=None) -> str:
     """What to do, in the player's language: the Hebrew of assets/quest_tasks/he.json while its English is still
     the page's (a changed journal line falls back to the English until it is translated again)."""
     global _TASKS_HE
     if lang != "he" or not q.task:
         return q.task
+    from . import translations
+    made = translations.he(getattr(kb, "root", None), "quest_tasks", q.key, q.task)
+    if made:
+        return made
     if _TASKS_HE is None:
         path = Path(__file__).resolve().parent.parent / "assets" / "quest_tasks" / "he.json"
         try:

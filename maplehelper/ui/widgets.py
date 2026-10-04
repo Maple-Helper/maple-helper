@@ -414,7 +414,7 @@ def changed_tag(t, kb, key: str) -> QLabel | None:
     ch = sitedata.skill_change(kb, key)
     if not ch:
         return None
-    return info_tag(t, sitedata.chip_label(t, ch), sitedata.change_tip(t, ch), "ChangedTag")
+    return info_tag(t, sitedata.chip_label(t, ch), sitedata.change_tip(t, ch, kb), "ChangedTag")
 
 
 def pet_parts(t, kb, key: str) -> tuple[list[str], list[QLabel]] | None:

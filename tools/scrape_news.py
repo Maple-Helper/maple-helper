@@ -105,12 +105,21 @@ def _body_hash(i: dict) -> str:
     return _hash(" | ".join(i.get("highlights") or []), str(i.get("commentary") or ""))
 
 
-def translations(lang: str = "he") -> dict[str, dict]:
+def translations(lang: str = "he", kb: Path | None = None) -> dict[str, dict]:
+    """Each item's Hebrew: the app's own file, then the KB's he.json "news" (tools/translate_kb.py, every night)."""
     try:
         data = json.loads((TRANSLATIONS / f"{lang}.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {}
-    return data if isinstance(data, dict) else {}
+        data = {}
+    data = data if isinstance(data, dict) else {}
+    if kb is not None:
+        try:
+            made = json.loads((Path(kb) / "he.json").read_text(encoding="utf-8")).get("news") or {}
+        except (OSError, json.JSONDecodeError, AttributeError):
+            made = {}
+        if isinstance(made, dict):
+            data = {**data, **made}       # the night's, made from the newest English, over the app's older ones
+    return data
 
 
 def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
@@ -121,18 +130,38 @@ def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
         raise NewsError("the news list is empty")
     items = [i for i in items if i["date"] >= SINCE]
     for i in items:
-        tr = he.get(i["id"])
-        if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and str(tr.get("summary") or "").strip():
-            i["summary_he"] = tr["summary"].strip()
-            if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
-                i["title_he"] = tr["title"].strip()
-            # the article's body: its highlights and NiaMeowDB's note, when translated from the current English
-            if tr.get("body_hash") == _body_hash(i):
-                if isinstance(tr.get("highlights"), list) and len(tr["highlights"]) == len(i["highlights"]):
-                    i["highlights_he"] = [str(x).strip() for x in tr["highlights"]]
-                if str(tr.get("commentary") or "").strip() and i.get("commentary"):
-                    i["commentary_he"] = tr["commentary"].strip()
+        _with_he(i, he)
     return sorted(items, key=lambda i: (i["date"], i["id"]), reverse=True)
+
+
+def _with_he(i: dict, he: dict) -> None:
+    """An item's Hebrew, from a translation made from its current English (its title and summary hash, its body's)."""
+    for f in ("summary_he", "title_he", "highlights_he", "commentary_he"):
+        i.pop(f, None)
+    tr = he.get(i["id"])
+    if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and str(tr.get("summary") or "").strip():
+        i["summary_he"] = tr["summary"].strip()
+        if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
+            i["title_he"] = tr["title"].strip()
+        # the article's body: its highlights and NiaMeowDB's note, when translated from the current English
+        if tr.get("body_hash") == _body_hash(i):
+            if isinstance(tr.get("highlights"), list) and len(tr["highlights"]) == len(i.get("highlights") or []):
+                i["highlights_he"] = [str(x).strip() for x in tr["highlights"]]
+            if str(tr.get("commentary") or "").strip() and i.get("commentary"):
+                i["commentary_he"] = tr["commentary"].strip()
+
+
+def apply_translations(kb: Path) -> None:
+    """news.json's items with the Hebrew there is now (tools/translate_kb.py, after it adds some)."""
+    path = kb / "news.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    he = translations(kb=kb)
+    for i in data.get("items") or []:
+        _with_he(i, he)
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 
 def update(kb: Path, fetch) -> int:
@@ -149,7 +178,7 @@ def update(kb: Path, fetch) -> int:
         print("news: the news page could not be fetched; keeping the news there is", flush=True)
         return 0
     try:
-        items = build(page)
+        items = build(page, translations(kb=kb))
     except NewsError as e:
         print(f"news: {e}; keeping the news there is", flush=True)
         return 0

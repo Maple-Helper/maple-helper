@@ -73,6 +73,23 @@ jobs:
           python tools/scrape_meowdb.py --community || echo "::warning::community reports not updated tonight"
           cat data/kb/last_run.json
 
+      # pictures the pages above didn't bring (an NPC's portrait, a map's minimap): only the ones still missing, so
+      # most nights this is a quick check. If the site doesn't answer, the night still publishes (a warning).
+      - name: Fill missing pictures
+        if: steps.rel.outputs.exists == 'true'
+        run: |
+          python tools/scrape_meowdb.py --images || echo "::warning::pictures not filled tonight"
+
+      # Hebrew for what came in English tonight (a new quest's journal line, a pet skill, a skill note, a news item):
+      # into the KB's own he.json, so it reads in Hebrew from tomorrow with no app release. A capped number of texts
+      # a night; no key, a bad key or the API down only warns.
+      - name: Translate what's new into Hebrew
+        if: steps.rel.outputs.exists == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python tools/translate_kb.py data/kb || echo "::warning::translations not made tonight"
+
       # a broken scrape (site down, layout change) must never reach players: this fails the run instead
       - name: Validate before publishing
         if: steps.rel.outputs.exists == 'true'

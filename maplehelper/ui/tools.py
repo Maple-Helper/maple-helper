@@ -1133,7 +1133,7 @@ class ToolsDialog(GlassDialog):
             return
         ch = sitedata.skill_change(self.kb, link.partition(":")[2])
         if ch:
-            terms.show_html(bidi.to_html(sitedata.change_tip(self.t, ch), "rtl" if self.t.rtl else "ltr"), self.t.rtl)
+            terms.show_html(bidi.to_html(sitedata.change_tip(self.t, ch, self.kb), "rtl" if self.t.rtl else "ltr"), self.t.rtl)
 
     def _tier_card(self, rows: list) -> QWidget | None:
         """The community tier list for the player's job: one grade chip per column (S / A / B: the upper, middle
@@ -1661,7 +1661,7 @@ class ToolsDialog(GlassDialog):
                          f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
         # what to do, when there is nothing to bring: the game's own quest journal
         if q.task and not q.needs:
-            task = quests.task_text(q, t.lang)
+            task = quests.task_text(q, t.lang, self.kb)
             hebrew = task != q.task
             parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_task_head'))}</b></p>"
                          + (f"<p {side} style='margin:0'>{html.escape(bidi.plain(task, True))}</p>" if hebrew else
@@ -3606,7 +3606,7 @@ class ToolsDialog(GlassDialog):
         col = QVBoxLayout()
         col.setSpacing(4)
         col.addWidget(QLabel(bidi.ltr_name(s.name, t.rtl), objectName="CardName"))
-        col.addWidget(self._label(sitedata.pet_skill_text(s, t.lang), "CardSub"))
+        col.addWidget(self._label(sitedata.pet_skill_text(s, t.lang, self.kb), "CardSub"))
         tags = FlowLayout(spacing=5)
         if s.sold and s.nx:
             trade = sitedata.trade(self.kb, s.key)

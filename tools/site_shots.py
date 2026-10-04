@@ -134,7 +134,7 @@ if what in ("all", "tools"):
     d = ToolsDialog(kb, p, s, LANG, css, {})
     d.resize(500, 760)
     d.show()
-    for page in ("train", "calc", "crafting", "quests", "build"):
+    for page in ("train", "calc", "crafting", "quests", "build", "farm", "town", "pets", "more"):
         d.show_page(PAGES.index(page))
         if page == "crafting":
             d.craft_pick.button(3).click()          # Woodcrafting: Vicious in Henesys Market

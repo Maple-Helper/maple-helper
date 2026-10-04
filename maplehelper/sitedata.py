@@ -116,9 +116,13 @@ def change_text(t, ch: SkillChange, sep: str = " · ") -> str:
     return sep.join(f"{field_name(t, f)}: {bidi.LRI}{old}\u00a0→\u00a0{new}{bidi.PDI}" for f, old, new in ch.changes)
 
 
-def note_he(ch: SkillChange) -> str | None:
+def note_he(ch: SkillChange, kb=None) -> str | None:
     """The site's note in Hebrew (assets/skill_changes/he.json), only while it was made from this very English: a
     note NiaMeowDB rewrites shows in English until it is translated again."""
+    from . import translations
+    made = translations.he(getattr(kb, "root", None), "skill_changes", ch.key, ch.note or "")
+    if made:
+        return made
     try:
         from .store import ASSETS
         tr = json.loads((ASSETS / "skill_changes" / "he.json").read_text(encoding="utf-8")).get(ch.key) or {}
@@ -127,7 +131,7 @@ def note_he(ch: SkillChange) -> str | None:
     return tr.get("he") if tr.get("en", "").strip() == (ch.note or "").strip() and tr.get("he") else None
 
 
-def change_tip(t, ch: SkillChange) -> str:
+def change_tip(t, ch: SkillChange, kb=None) -> str:
     """The chip's tooltip: the skill and the two builds, its changes at the skill's max level, and the site's note
     (in Hebrew when translated; the English one came under a "(in English)" line and read as a jumble)."""
     lines = [t("skill_changed_head", name=bidi.ltr_block(ch.name, t.rtl), before=sources.tag(t, ch.before or "?"),
@@ -135,7 +139,7 @@ def change_tip(t, ch: SkillChange) -> str:
     if ch.changes:
         lines.append(t("skill_changed_max") + " " + change_text(t, ch))
     if ch.note:
-        he = note_he(ch) if t.rtl else None
+        he = note_he(ch, kb) if t.rtl else None
         if t.rtl and not he:
             lines.append(t("skill_changed_note"))
         lines.append(he or ch.note)
@@ -214,11 +218,15 @@ def pet_skills(kb) -> list[PetSkill]:
 _SKILLS_HE: dict | None = None
 
 
-def pet_skill_text(s: PetSkill, lang: str) -> str:
+def pet_skill_text(s: PetSkill, lang: str, kb=None) -> str:
     """Its description in the player's language (assets/pet_skills/he.json while its English is the page's)."""
     global _SKILLS_HE
     if lang != "he":
         return s.text
+    from . import translations
+    made = translations.he(getattr(kb, "root", None), "pet_skills", s.key, s.text)
+    if made:
+        return made
     if _SKILLS_HE is None:
         import json
         from pathlib import Path
