@@ -448,7 +448,7 @@ class HistoryDialog(GlassDialog):
 def character_card_image(c, avatar, kb, progress: dict | None, t) -> QPixmap:
     """A shareable picture of the character: portrait, name, level and job, EXP bar, map."""
     from ..store import ASSETS
-    from .widgets import Avatar, character_image
+    from .widgets import Avatar, character_image, level_job
     w = QFrame(objectName="ShareCard")
     w.setLayoutDirection(Qt.LeftToRight)
     w.setFixedWidth(380)
@@ -464,7 +464,7 @@ def character_card_image(c, avatar, kb, progress: dict | None, t) -> QPixmap:
     col.addWidget(name)
     # the text column's width: the card less its margins, the portrait and the gap beside it
     text_w = 380 - 18 - 18 - 96 - 16
-    col.addWidget(QLabel(f"Lv. {c.level} · {c.job_label}", objectName="ShareMeta"))
+    col.addWidget(QLabel(level_job(c, t.rtl), objectName="ShareMeta"))
     if progress:
         bar = QProgressBar(objectName="ExpBar")
         bar.setRange(0, 1000)

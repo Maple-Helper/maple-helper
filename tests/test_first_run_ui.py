@@ -32,11 +32,12 @@ def test_every_job_has_a_hebrew_name():
             assert job in JOB_HE, job
 
 
-def test_hebrew_form_lists_hebrew_names_and_keeps_english(qapp, kb):
+def test_hebrew_form_lists_the_games_job_names(qapp, kb):
+    # one name for a job everywhere in the app, the game's (the owner): no "פייטר · Fighter" here alone
     form = _form("he", kb)
     _pick(form, "Warrior", 35)
-    assert "פייטר · Fighter" in form.job._items
-    form.job.setCurrentIndex(form.job._items.index("פייטר · Fighter"))
+    assert "Fighter" in form.job._items and all("·" not in item for item in form.job._items)
+    form.job.setCurrentIndex(form.job._items.index("Fighter"))
     form._job_picked = True                     # as a click on the list does
     assert form.current_job() == "Fighter"
     form.level.setValue(40)                     # the pick survives a level change
@@ -54,7 +55,7 @@ def test_load_selects_the_saved_job_in_hebrew(qapp, kb):
     from maplehelper.store import Character
     form = _form("he", kb)
     form.load(Character(id="x", name="Amit", base_class="Warrior", job="Page", level=35))
-    assert form.job.currentText() == "פייג' · Page"
+    assert form.job.currentText() == "Page"
     assert form.current_job() == "Page"
 
 

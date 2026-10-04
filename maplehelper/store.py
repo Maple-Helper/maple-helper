@@ -204,7 +204,7 @@ class Character:
     @property
     def job_label(self) -> str:
         """The job as the player sees it in game (the app works with the MapleStory Classic name inside)."""
-        return self.job_shown or self.job
+        return self.job        # the KB's name everywhere; job_shown only tells the HUD's reading apart
 
     def finish_quest(self, name: str) -> list[str]:
         """The started quests this name finishes, removed from active_quests and returned: compared by

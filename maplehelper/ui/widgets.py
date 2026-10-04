@@ -379,6 +379,12 @@ def mesos_tip(t, mesos) -> str:
         tip += " " + t("mesos_chance", pct=f"{chance:g}")
     return tip
 
+def level_job(c, rtl: bool) -> str:
+    """ "רמה 15 · Bowman" / "Lv. 15 · Bowman": the same words as the rest of the app."""
+    from ..i18n import I18n
+    return bidi.plain(f"{I18n('he' if rtl else 'en')('lv_short', n=c.level)} · {c.job_label}", rtl)
+
+
 def zoom_on_hover(label, path, caption: str = "", height: int = 96) -> None:
     """A small picture shows large on hover, as the quests' and recipes' pictures do: at 30-56 px a sprite hid
     what it shows (the owner)."""
@@ -867,10 +873,10 @@ class ProfileCard(QFrame):
 
     def show_character(self, c, avatar_path, kb, rtl: bool) -> None:
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
-        self.setAccessibleDescription(f"{c.name} · Lv. {c.level} · {c.job_label}")
+        self.setAccessibleDescription(f"{c.name} · {level_job(c, rtl)}")
         self.name.setText(bidi.plain(c.name, rtl))
         self.name.setAlignment(align)
-        self.meta.setText(f"Lv. {c.level} · {c.job_label}")
+        self.meta.setText(level_job(c, rtl))
         self.meta.setAlignment(align)
         self.avatar.set_image(character_image(c, avatar_path, kb))
 
@@ -989,7 +995,7 @@ class CharacterChoice(QFrame):
         col.setSpacing(1)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         name = QLabel(bidi.plain(c.name, rtl), objectName="ProfileName")
-        meta = QLabel(f"Lv. {c.level} · {c.job_label}", objectName="ProfileMeta")
+        meta = QLabel(level_job(c, rtl), objectName="ProfileMeta")
         for lb in (name, meta):
             lb.setAlignment(align)
             col.addWidget(lb)
@@ -1041,7 +1047,7 @@ class CharacterRow(QFrame):
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
         name = QLabel(bidi.plain(c.name, rtl), objectName="ProfileName")
         name.setAlignment(align)
-        meta = QLabel(f"Lv. {c.level} · {c.job_label}", objectName="ProfileMeta")
+        meta = QLabel(level_job(c, rtl), objectName="ProfileMeta")
         meta.setAlignment(align)
         col.addWidget(name)
         col.addWidget(meta)
