@@ -137,7 +137,21 @@ class BalancedRow(QWidget):
         self._place(len(self._buttons))
 
     def _need(self) -> int:
-        return sum(b.sizeHint().width() for b in self._buttons) + self._spacing * (len(self._buttons) - 1)
+        return sum(self._width(b) for b in self._buttons) + self._spacing * (len(self._buttons) - 1)
+
+    @staticmethod
+    def _width(b) -> int:
+        """The width a button needs when picked: its text in bold (picked, "Leatherworking" lost its last letter)."""
+        from PySide6.QtGui import QFontMetrics
+        b.ensurePolished()
+        bold = b.font()
+        bold.setBold(True)
+        return max(b.sizeHint().width(), QFontMetrics(bold).horizontalAdvance(b.text()) + 14)
+
+    def showEvent(self, e):
+        for b in self._buttons:
+            b.setMinimumWidth(self._width(b))
+        super().showEvent(e)
 
     def _place(self, per_row: int) -> None:
         if per_row == self._per_row:
@@ -152,7 +166,7 @@ class BalancedRow(QWidget):
 
     def minimumSizeHint(self):
         from PySide6.QtCore import QSize
-        widest = max((b.sizeHint().width() for b in self._buttons), default=0)
+        widest = max((self._width(b) for b in self._buttons), default=0)
         return QSize(widest * 3 + self._spacing * 2, super().minimumSizeHint().height())
 
     def resizeEvent(self, e):
