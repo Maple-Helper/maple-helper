@@ -302,6 +302,7 @@ def source_tag(t, source: str, stamp=None) -> QLabel:
     from .. import sources
     lb = QLabel(bidi.plain(sources.tag(t, source), t.rtl), objectName="SourceTag")
     lb.setAlignment(Qt.AlignCenter)
+    lb.setFixedHeight(17)              # as tall as the BETA badge it looks like
     lb.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Preferred)
     text = sources.stamp_tip(t, source, stamp)
     lb.setToolTip(tip_html(text, t.rtl))

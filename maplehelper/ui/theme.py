@@ -291,9 +291,9 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     #TagGood {{ color: {good}; background: rgba(52,199,89,0.16); }}
     #TagWarn {{ color: #C9620A; background: rgba(255,149,51,0.18); }}
     #TagAccent {{ color: {otd}; background: rgba(255,149,51,0.12); }}
-    /* where a datum comes from (sources.py): quieter than the tags above, an outline beside the data */
-    #SourceTag {{ font-size: {s - 4}px; font-weight: 600; color: {c['muted']}; background: transparent;
-                  border: 1px solid {c['stroke']}; border-radius: 7px; padding: 1px 5px; }}
+    /* where a datum comes from (sources.py): the BETA badge's look, orange outline and letters (the owner's call) */
+    #SourceTag {{ font-size: {s - 5}px; font-weight: 700; color: {accent_text()}; background: transparent;
+                  border: 1px solid rgba(255,149,51,0.6); border-radius: 5px; padding: 0 4px; min-height: 0; }}
     /* a community drop's votes: "16 ✓" in green, "single report" (one player alone) in the warning colour */
     #VoteTag {{ font-size: {s - 4}px; font-weight: 600; color: {good}; background: transparent; padding: 0 1px; }}
     #VoteTag[single="true"] {{ color: #C9620A; }}
