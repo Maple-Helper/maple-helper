@@ -736,6 +736,8 @@ STRINGS = {
     "q_from_npc": {"he": "מדברים עם {npc}", "en": "Talk to {npc}"},
     "q_from_board": {"he": "לוקחים מלוח המודעות (Community Board) מול בית העירייה", "en": "From the Community Board in front of the town hall"},
     "q_task_head": {"he": "מה עושים:", "en": "What to do:"},
+    "q_finish_head": {"he": "מסיימים אצל:", "en": "Finish with:"},
+    "q_role_clerk": {"he": "פקיד העירייה", "en": "the town clerk"},
     "q_gets_head": {"he": "מקבלים:", "en": "Rewards:"},
     "q_mark_done": {"he": "סיימתי", "en": "Done"},
     "q_undo": {"he": "החזרה לרשימה", "en": "Back to the list"},

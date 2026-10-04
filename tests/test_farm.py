@@ -381,3 +381,14 @@ def test_what_to_do_reads_in_hebrew():
     talk = [q for k, e in kb.entities.items() if e.get("category") == "quest"
             for q in [quests.quest(kb, k)] if q and q.task and not q.needs]
     assert talk and all(quests.task_text(q, "he") != q.task for q in talk)
+
+
+@needs_kb
+def test_a_quest_says_who_it_is_finished_with():
+    # the opener starts on its own and ends with Arthur; Kerning City's starts with Arthur and ends with Roxy
+    from maplehelper import quests
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    kerning = quests.quest(kb, "quest/506100")
+    assert kerning.npc == "Arthur" and kerning.turn_in == "Roxy"
+    assert quests.quest(kb, "quest/506000").turn_in == ""

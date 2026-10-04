@@ -1395,17 +1395,31 @@ class ToolsDialog(GlassDialog):
         more.clicked.connect(lambda *_: show_more())
         layout.addWidget(more, 0, Qt.AlignHCenter)
 
+    def _journal_npc(self, q) -> str:
+        """The first NPC a quest's page names ("Arthur, the Town Clerk I met at Henesys Town Hall"), with a picture."""
+        for name in re.findall(r"[A-Z][\w'.]+(?: [A-Z][\w'.]+)*", self.kb.page(q.key).split("NPC Dialogue")[0]):
+            for n in (name, name.split(" ")[0]):
+                if self.kb._npc_by_name.get(n.lower()) and self._picture_path("npc", n):
+                    return n
+        return ""
+
+    def _finish_with(self, q) -> str:
+        """Who a quest is finished with, when that's not who gives it: its page's "Turn in", else (a quest that
+        starts on its own) the NPC its journal names."""
+        if q.turn_in and q.turn_in != q.npc:
+            return q.turn_in
+        if q.self_start or not q.npc:
+            return self._journal_npc(q)
+        return ""
+
     def _quest_picture(self, q):
         """The quest's NPC, or the quest picture when the KB names none ("To Henesys" showed a blank)."""
         path = self._picture_path("npc", q.npc) if q.npc else None
         if path:
             return path
-        for name in re.findall(r"[A-Z][\w'.]+(?: [A-Z][\w'.]+)*", self.kb.page(q.key).split("NPC Dialogue")[0]):
-            for n in (name, name.split(" ")[0]):
-                if self.kb._npc_by_name.get(n.lower()):
-                    path = self._picture_path("npc", n)
-                    if path:
-                        return path
+        n = self._journal_npc(q)
+        if n:
+            return self._picture_path("npc", n)
         from ..kb import FALLBACK_DIR
         quest = FALLBACK_DIR / "quest.png"
         return str(quest) if quest.exists() else None
@@ -1584,6 +1598,18 @@ class ToolsDialog(GlassDialog):
             t("q_from_npc", npc=f"{bidi.LRE}{q.npc}{bidi.PDF}")
         parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_get_head'))}</b></p>"
                      f"<p {side} style='margin:0 0 4px 0;'>{html.escape(who)}</p>")
+        # who it's finished with, when someone else (the opener's Arthur, the Town Clerk; Roxy in Kerning City)
+        end = self._finish_with(q)
+        if end:
+            key = self.kb._npc_by_name.get(end.lower())
+            role = re.search(r"^(Town Clerk|City Clerk)$", self.kb.page(key), re.M) if key else None
+            text = f"{bidi.LRE}{html.escape(end)}{bidi.PDF}"
+            if role:
+                text += f", {html.escape(t('q_role_clerk'))}"
+            if routes.of(self.kb).find(end):
+                text += " · " + self._nav_html([("farm_route", "route", end)])
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_finish_head'))}</b></p>"
+                         f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
         # what to do, when there is nothing to bring: the game's own quest journal
         if q.task and not q.needs:
             task = quests.task_text(q, t.lang)

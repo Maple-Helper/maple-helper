@@ -45,6 +45,7 @@ class Quest:
     notes: list[str] = field(default_factory=list)
     self_start: bool = False            # "Self-Starting": it opens on its own, no NPC hands it out
     task: str = ""                      # what to do, the game's quest journal ("Arthur asked me to greet Rina ...")
+    turn_in: str = ""                   # who it is finished with, when not its giver ("Start: Arthur · Turn in: Roxy")
 
     def matches(self, query: str) -> bool:
         """The quest search: every word of the query in its name, NPC, area, what it asks or what it gives."""
@@ -189,6 +190,13 @@ def _quest(kb, key: str) -> Quest | None:
         q.needs += [f"{name.strip()} x {n}" for name, n in _ITEM.findall(ln)] or [ln]
     head = lines[:lines.index("Pre-requisites")] if "Pre-requisites" in lines else lines[:12]
     q.self_start = "Self-Starting" in head
+    for ln in head:
+        m = re.search(r"Turn in: (.+?)(?:\s+·|$)", ln)
+        if m:
+            q.turn_in = m.group(1).strip()
+        m = re.search(r"Start: (.+?)(?:\s+·|$)", ln)
+        if m and not q.npc:
+            q.npc = m.group(1).strip()
     # the journal's step that says what to do ("02 ..."), else the description's first line ("01 ...")
     for ln in lines:
         if ln.startswith("Quest journal"):
