@@ -713,7 +713,8 @@ class ToolsDialog(GlassDialog):
                 why += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
             self.train_why.setToolTip(tip_html(rule, t.rtl))
         self.train_why.setText(why)
-        self.train_why.setVisible(bool(why))
+        # no setVisible(True) here: the label has no parent yet, so it flashed as a window of its own on every
+        # fill. It shows with the list it's added to below (there is a "why" exactly when there are rows).
         if not rows:
             self.train_list.addWidget(self._label(t("train_none"), "RowHint"))
             return
@@ -3555,7 +3556,8 @@ class ToolsDialog(GlassDialog):
         bl.addLayout(self.pet_list)
         sec.add_widget(box)
         self._fill_pets()
-        sec.setVisible(bool(sitedata.pets(self.kb)))       # a KB from before the pets page: no empty section
+        if not sitedata.pets(self.kb):       # a KB from before the pets page: no empty section
+            sec.hide()                       # (never show(): not in the page yet, it flashed as a window)
         return sec
 
     def _fill_pets(self):

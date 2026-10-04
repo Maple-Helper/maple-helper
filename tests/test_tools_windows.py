@@ -511,3 +511,33 @@ def test_a_prerequisite_already_done_is_not_mentioned(tools):
     assert mentions()
     c.quests_done.append(before)
     assert not mentions()
+
+
+@needs_kb
+def test_opening_the_tools_shows_no_stray_windows(tools):
+    """A widget shown before it is in a page is a window of its own: it flashed behind the tools window on open
+    (the train page's "why" line, the pets section)."""
+    from PySide6.QtCore import QObject
+    from PySide6.QtWidgets import QWidget
+    from maplehelper.ui.tools import PAGES
+    stray, own = [], []
+
+    class Watch(QObject):
+        def eventFilter(self, o, e):
+            if e.type() == QEvent.Show and isinstance(o, QWidget) and o.isWindow() and o not in own:
+                stray.append(f"{type(o).__name__} {o.objectName()}")
+            return False
+    w = Watch()
+    app.installEventFilter(w)
+    try:
+        d, _ = tools("Warrior", "Fighter", 35, "train")
+        own.append(d)
+        d._build_rest()
+        for i in range(len(PAGES)):
+            d.show_page(i)
+            pump()
+    finally:
+        app.removeEventFilter(w)
+    assert not stray
+    d.show_page(PAGES.index("train"))
+    assert d.train_why.text() and d.train_why.isVisibleTo(d)
