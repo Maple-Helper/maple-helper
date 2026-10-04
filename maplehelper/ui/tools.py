@@ -1539,6 +1539,11 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(sec)
         self.craft_info = QVBoxLayout()           # who teaches the profession, where you work it
         lay.addLayout(self.craft_info)
+        # what you can make now, or every recipe of the profession by level: how a later one is made (scrolls at
+        # Arcforge's higher levels) was nowhere to see (the owner)
+        self.craft_mode = Segmented([(t("craft_mode_now"), "now"), (t("craft_mode_all"), "all")], "now", t.rtl)
+        self.craft_mode.changed.connect(lambda *_: self._fill_crafting())
+        lay.addWidget(self.craft_mode, 0, Qt.AlignHCenter)
         self.craft_head = self._label("", "ToolHeader")
         lay.addWidget(self.craft_head)
         self.craft_src = QHBoxLayout()
@@ -1585,9 +1590,12 @@ class ToolsDialog(GlassDialog):
         self.craft_level.setValue(min(lv, top))
         self.craft_level.blockSignals(False)
         _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
-        # everything you can craft so far, not only what this exact level opened (newest first)
-        recipes = crafting.up_to(self.kb, prof, min(lv, top))
-        head = t("craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
+        # everything you can craft so far, not only what this exact level opened (newest first); or all of them
+        every = self.craft_mode.value() == "all"
+        recipes = crafting.up_to(self.kb, prof, top if every else min(lv, top))
+        if every:
+            recipes.sort(key=lambda r: (r.level, -r.exp_per_meso, -r.exp))
+        head = t("craft_head_all" if every else "craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
         if nxt and nxt.needs_exp:
             head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
                               char=nxt.char_level or "?")
@@ -1595,8 +1603,12 @@ class ToolsDialog(GlassDialog):
         if not recipes:
             self.craft_list.addWidget(self._label(t("craft_none"), "RowHint"))
             return
+        last = None
         for i, r in enumerate(recipes):
-            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0)))
+            if every and r.level != last:
+                last = r.level            # all the recipes, level by level
+                self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
+            self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every)))
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -1666,7 +1678,11 @@ class ToolsDialog(GlassDialog):
         why.addWidget(tag(f"+{r.exp} EXP", "TagGood"))
         why.addWidget(tag(self._p(t("craft_cost", n=f"{r.catalyst:,}")), "Tag"))
         col.addLayout(why)
-        col.addWidget(self._things_label(t("craft_needs"), [f"{name} x {n}" for n, name in r.ingredients]))
+        needs = [f"{name} x {n}" for n, name in r.ingredients]
+        col.addWidget(self._things_label(t("craft_needs"), needs))
+        where = self._droppers_label(needs)          # where each ingredient comes from, as on a quest card
+        if where is not None:
+            col.addWidget(where)
         net = t("craft_net_gain", n=f"{r.net:,}") if r.net >= 0 else t("craft_net_loss", n=f"{-r.net:,}")
         col.addWidget(self._label(net, "RowHint"))
         col.addWidget(self._ask_link(lambda: self.ask_requested.emit(t("craft_ask_recipe", item=r.name), False)))
