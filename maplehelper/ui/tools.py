@@ -20,7 +20,7 @@ from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, source_tag, source_tags, tip_html, updated_tag,
+from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html, updated_tag,
                       vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
@@ -3510,6 +3510,13 @@ class ToolsDialog(GlassDialog):
     def _page_pets(self):
         sc, lay = scroll_page(self.t.rtl)
         lay.addWidget(self._pets_section())
+        skills = self.__dict__.get("_pet_skills") or []
+        if skills:
+            box = Section(self.t("pet_skills_title"), self.t.rtl)
+            box.add_widget(self._label(self.t("pet_skills_intro"), "RowLabel"))
+            for s in skills:
+                box.add_widget(self._pet_skill_card(s))
+            lay.addWidget(box)
         if not sitedata.pets(self.kb):        # a KB from before the pets page
             lay.addWidget(self._label(self.t("pets_empty"), "RowHint"))
         lay.addStretch(1)
@@ -3522,7 +3529,10 @@ class ToolsDialog(GlassDialog):
         sec = Section(t("pets_title"), t.rtl)
         sec.add_widget(self._label(t("pets_intro"), "RowLabel"))
         # what each chip means, in words (on hover alone it went unseen: the owner)
-        sec.add_widget(self._label(t("pets_legend"), "RowHint"))
+        # the Cash Shop's pet skills (auto potions, auto move): they were nowhere (the owner)
+        skills = sitedata.pet_skills(self.kb)
+        if skills:
+            self.__dict__["_pet_skills"] = skills
         self.pet_filter = Segmented([(t("pets_sold"), "sold"), (t("pets_easy"), "easy"), (t("pets_all"), "all")],
                                     "sold", t.rtl)
         self.pet_filter.set_label(t("pets_title"))
@@ -3554,6 +3564,55 @@ class ToolsDialog(GlassDialog):
         for p in shown:
             self.pet_list.addWidget(self._pet_row(p))
 
+    def _pet_line(self, col, name_key: str, value: str, tip_key: str, extra: str = "") -> None:
+        """ "תוחלת חיים ?: 7 ימים": the name bold with its "?" (the explanation on hover), then the value."""
+        t = self.t
+        badge = terms._badge_uri()
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        name = f"<b>{html.escape(t(name_key))}</b>"
+        if badge:
+            name += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+        lines = value.split("\n")
+        tail = f" <span style='color:#F07A12'>{html.escape(extra)}</span>" if extra else ""
+        if len(lines) == 1:
+            body = f"<p {side} style='margin:0'>{name}: {html.escape(bidi.plain(value, t.rtl))}{tail}</p>"
+        else:                               # several lines: each its own label under the name, at the reading start
+            body = f"<p {side} style='margin:0'>{name}:</p>"
+        lb = QLabel(body, objectName="CardSub")
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        lb.setToolTip(tip_html(t(tip_key, level=30), t.rtl))
+        col.addWidget(lb)
+        if len(lines) > 1:
+            for v in lines:
+                one = QLabel(bidi.plain(v, t.rtl), objectName="CardSub")
+                one.setWordWrap(True)
+                one.setAlignment((Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+                col.addWidget(one)
+
+    def _pet_skill_card(self, s) -> QFrame:
+        t = self.t
+        card = QFrame(objectName="Card")
+        row = QHBoxLayout(card)
+        row.setContentsMargins(10, 8, 10, 8)
+        row.setSpacing(10)
+        row.addWidget(self._picture(s.key, 36), 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        col.addWidget(QLabel(bidi.ltr_name(s.name, t.rtl), objectName="CardName"))
+        col.addWidget(self._label(sitedata.pet_skill_text(s, t.lang), "CardSub"))
+        tags = FlowLayout(spacing=5)
+        if s.sold and s.nx:
+            trade = sitedata.trade(self.kb, s.key)
+            tags.addWidget(info_tag(t, t("pet_nx", n=f"{s.nx:,}"),
+                                    t("pet_shop_tip") + (" " + t("pet_nx_closed") if s.closed_test else "")
+                                    + (" " + t(f"pet_trade_{trade}_tip") if trade else ""), "TagGood"))
+        else:
+            tags.addWidget(info_tag(t, t("pet_not_sold"), t("pet_not_sold_tip"), "Tag"))
+        col.addLayout(tags)
+        row.addLayout(col, 1)
+        return card
+
     def _pet_row(self, p) -> QFrame:
         """One pet: picture, name and "Ask in chat", then its numbers as chips, each explained on hover."""
         t = self.t
@@ -3576,25 +3635,39 @@ class ToolsDialog(GlassDialog):
         head.setSpacing(8)
         head.addWidget(QLabel(bidi.ltr_name(p.name, t.rtl), objectName="CardName"), 0, Qt.AlignVCenter)
         head.addStretch(1)
-        head.addLayout(self._links_row([("ask_short", lambda k=p.key: self.tag_requested.emit(k))]))
+        trade = sitedata.trade(self.kb, p.key)
+        acts = [("go_price", lambda n=p.name: self._farm_price(n))] if trade in ("once", "tradeable") else []
+        acts.append(("ask_short", lambda k=p.key: self.tag_requested.emit(k)))
+        head.addLayout(self._links_row(acts))
         col.addLayout(head)
-        parts = pet_parts(t, self.kb, p.key)
-        tags = FlowLayout(spacing=5)
-        if parts:
-            tips = [t("pet_life_tip"), t("pet_hunger_tip"), t("pet_commands_tip", level=p.level)]
-            for text, tip in zip(parts[0], tips):
-                tags.addWidget(info_tag(t, text, tip))
-            for chip in parts[1]:
-                tags.addWidget(chip)
-        # untradeable (its page): no NPC and no player buys it, the Cash Shop sells it for NX
+        # one line a detail, its name with a "?" that explains it (all in one row of chips was hard to read; the
+        # explanations sat in a paragraph above the list: the owner)
+        closed = set(p.closed_test or [])
+        if p.lifespan:
+            self._pet_line(col, "pet_line_life", sitedata.lifespan_text(t, p), "pet_life_tip",
+                           t("pet_closed_mark") if "lifespan" in closed else "")
+        if p.hunger is not None:
+            top = sitedata.hunger_top(self.kb, p.key)
+            self._pet_line(col, "pet_line_hunger", t("pet_hunger_of", n=p.hunger, top=top) if top else str(p.hunger),
+                           "pet_hunger_tip")
+        if isinstance(p.commands, int):
+            self._pet_line(col, "pet_line_commands", t("pet_commands_n", n=f"{p.commands:,}", level=p.level),
+                           "pet_commands_tip")
+        fast = sitedata.fastest_commands(self.kb, p.key)
+        if fast:
+            # a range a line, the commands one English block ("sit / bad / stupid" read backwards otherwise)
+            self._pet_line(col, "pet_line_fastest",
+                           "\n".join(t("pet_fast_at", cmds=bidi.ltr_block(c, t.rtl), lv=bidi.ltr_block(lv, t.rtl))
+                                     for c, lv in fast), "pet_fastest_tip")
         nx = sitedata.cash_price(self.kb, p.key)
-        if nx:
-            tags.addWidget(info_tag(t, t("pet_nx", n=f"{nx[0]:,}"),
-                                    t("pet_nx_tip") + (" " + t("pet_nx_closed") if nx[1] else ""), "Tag"))
+        shop = (t("pet_nx", n=f"{nx[0]:,}") + (" " + t("pet_closed_mark") if nx[1] else "")) if nx and p.sold \
+            else t("pet_not_sold")
+        self._pet_line(col, "pet_line_shop", shop, "pet_shop_tip")
+        if trade:
+            self._pet_line(col, "pet_line_trade", t(f"pet_trade_{trade}"), f"pet_trade_{trade}_tip")
         updated = updated_tag(t, self.kb, p.key)
         if updated:
-            tags.addWidget(updated)
-        col.addLayout(tags)
+            col.addLayout(chip_row([updated], lead=True))
         lay.addLayout(col, 1)
         return row
 

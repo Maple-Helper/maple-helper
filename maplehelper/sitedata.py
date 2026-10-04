@@ -181,6 +181,76 @@ def cash_price(kb, key: str) -> tuple[int, bool] | None:
     return (int(m.group(1).replace(",", "")), bool(m.group(2))) if m else None
 
 
+@dataclass
+class PetSkill:
+    key: str
+    name: str
+    text: str                   # what it does, its page's words
+    nx: int | None              # its Cash Shop price, None when not sold
+    closed_test: bool           # the price is the closed test's
+    sold: bool
+
+
+def pet_skills(kb) -> list[PetSkill]:
+    """The Cash Shop's pet skills (items typed "Cash / Pet Skill"): sold ones first, by name."""
+    out = []
+    for k, e in kb.entities.items():
+        if str(e.get("type") or "") != "Cash / Pet Skill":
+            continue
+        lines = [ln.strip() for ln in kb.page(k).split("\n---", 2)[-1].splitlines()]
+        head = lines.index("# " + e["name"]) if "# " + e["name"] in lines else -1
+        text = []
+        for ln in lines[head + 1:]:
+            if ln == e["name"]:
+                break
+            if ln:
+                text.append(ln)
+        nx = cash_price(kb, k)
+        out.append(PetSkill(k, e["name"], " ".join(text), nx[0] if nx else None, bool(nx and nx[1]),
+                            bool(re.search(r"Available in Cash Shop", kb.page(k)))))
+    return sorted(out, key=lambda s: (not s.sold, s.name))
+
+
+_SKILLS_HE: dict | None = None
+
+
+def pet_skill_text(s: PetSkill, lang: str) -> str:
+    """Its description in the player's language (assets/pet_skills/he.json while its English is the page's)."""
+    global _SKILLS_HE
+    if lang != "he":
+        return s.text
+    if _SKILLS_HE is None:
+        import json
+        from pathlib import Path
+        try:
+            _SKILLS_HE = json.loads((Path(__file__).resolve().parent.parent / "assets" / "pet_skills" / "he.json")
+                                    .read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _SKILLS_HE = {}
+    row = _SKILLS_HE.get(s.key) or {}
+    return row["he"] if row.get("en") == s.text and row.get("he") else s.text
+
+
+def trade(kb, key: str) -> str:
+    """How an item trades, by its page: "untradeable", "once" ("Tradeable once") or "tradeable"; "" unsaid."""
+    m = re.search(r"^(Untradeable|Tradeable once|Tradeable)\b", kb.page(key), re.M)
+    return {"Untradeable": "untradeable", "Tradeable once": "once", "Tradeable": "tradeable"}[m.group(1)] if m else ""
+
+
+def fastest_commands(kb, key: str) -> list[tuple[str, str]]:
+    """A pet page's "Fastest to level: sit / bad at Lv 1-9 (0.40 per try), hand at Lv 10-19 ...": (commands, "1-9")."""
+    m = re.search(r"Fastest to level: (.+)", kb.page(key))
+    if not m:
+        return []
+    return [(c.strip(), lv) for c, lv in re.findall(r"([a-z][a-z /]*?) at Lv (\d+-\d+)", m.group(1))]
+
+
+def hunger_top(kb, key: str) -> int | None:
+    """ "Pets range from 1 to 5" on a pet page: the scale's top."""
+    m = re.search(r"Pets range from \d+ to (\d+)", kb.page(key))
+    return int(m.group(1)) if m else None
+
+
 def untradeable(kb, key: str) -> bool:
     """The item page says "Untradeable": no NPC buys it and no player can (a pet: the Cash Shop only)."""
     return bool(re.search(r"^Untradeable\b", kb.page(key), re.M))
