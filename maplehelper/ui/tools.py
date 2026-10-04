@@ -1278,37 +1278,47 @@ class ToolsDialog(GlassDialog):
         lb.setWordWrap(True)
         return self._zoomable(lb)
 
-    DROPPERS_SHOWN = 6
+    DROPPERS_SHOWN = 4
 
     def _droppers_label(self, needs: list[str]) -> QLabel | None:
-        """ "מפילים:" under "צריך:", one monster a line as the items are: its picture, its name and level, and which
-        of the needed items it drops; lowest level first. A quest named the items but not where to get them."""
+        """ "מאיפה משיגים:" under "צריך:", item by item: the monsters that drop it, one a line with its picture
+        (lowest level first), or the recipe that makes it ("Woodcrafting: 10 x Tree Branch"). By monster, one item
+        repeated down the list; and a crafted one said nothing at all (the owner)."""
         def lv(m):
             return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
-        drops: dict[str, list[str]] = {}
+        t = self.t
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        blocks = []
         for x in needs:
             name = re.sub(r"\s*x\s*[\d,]+$", "", x).strip()
             key = self.kb._item_by_name.get(name.lower())
-            for m in (self.kb.droppers.get(key, []) if key else []):
-                drops.setdefault(m, []).append(name)
-        if not drops:
+            mons = sorted(self.kb.droppers.get(key, []) if key else [], key=lv)
+            made = crafting.made_from(self.kb, name) if not mons else []
+            if not mons and not made:
+                continue
+            rows = [f"<p {side} style='margin:4px 0 2px 0;'>{bidi.LRE}<u>{html.escape(name)}</u>{bidi.PDF}"
+                    f"{bidi.RLM}:</p>"]
+            for m in mons[:self.DROPPERS_SHOWN]:
+                path = self.kb.picture(m)
+                img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
+                who = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
+                            f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span></p>")
+            if len(mons) > self.DROPPERS_SHOWN:
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'>"
+                            f"{html.escape(t('pn_more', n=len(mons) - self.DROPPERS_SHOWN))}</p>")
+            if made:
+                # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
+                # in one line read backwards)
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'>{html.escape(bidi.plain(t('q_made_from'), t.rtl))}</p>")
+                for prof, plv, what in made[:2]:
+                    rows.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(f'{what} · {prof} Lv. {plv}')}"
+                                f"{bidi.PDF}</p>")
+            blocks.append("".join(rows))
+        if not blocks:
             return None
-        t = self.t
-        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
-        mons = sorted(drops, key=lv)
-        lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_droppers_head'))}</b></p>"]
-        for m in mons[:self.DROPPERS_SHOWN]:
-            path = self.kb.picture(m)
-            img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
-            who = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
-            what = html.escape(", ".join(drops[m])) if len(needs) > 1 else ""
-            tail = f"{bidi.RLM} · {bidi.LRE}{what}{bidi.PDF}" if what else ""
-            lines.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
-                         f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span>{tail}</p>")
-        if len(mons) > self.DROPPERS_SHOWN:
-            lines.append(f"<p {side} style='margin:0 0 2px 0;'>"
-                         f"{html.escape(t('pn_more', n=len(mons) - self.DROPPERS_SHOWN))}</p>")
-        lb = QLabel("".join(lines), objectName="CardSub")
+        head = f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_droppers_head'))}</b></p>"
+        lb = QLabel(head + "".join(blocks), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
         return self._zoomable(lb)
@@ -1364,14 +1374,22 @@ class ToolsDialog(GlassDialog):
         if by_gender:
             col.addWidget(self._things_label(t("q_gender_head"), by_gender))
         hints = []
+        finished = {(self.kb.get(k) or {}).get("name") for k in (self.c.quests_done if self.c else [])}
         for name in q.afters:
-            # the quest that opens this one, a tap away (the owner): its tab, it alone
-            hint = QPushButton(self._p(t("q_after", name=bidi.ltr_block(name, t.rtl)) + " · " + t("q_go_after")),
-                               objectName="Link")
-            hint.setCursor(Qt.PointingHandCursor)
-            hint.setAutoDefault(False)
-            hint.clicked.connect(lambda _=False, n=name: self._goto_quest(n))
-            col.addWidget(hint, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+            if name in finished:
+                continue                 # done already: nothing left to say about it (the owner)
+            # the quest that opens this one, a tap away (the owner): its tab, it alone. A label that wraps, not a
+            # button: a long name held the card wider than the page and every tab switch shifted it sideways
+            side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+            text = html.escape(bidi.plain(t("q_after", name=bidi.ltr_block(name, t.rtl)), t.rtl))
+            go = html.escape(t("q_go_after"))
+            hint = QLabel(f"<p {side} style='margin:0'>{text} · <a href='go' style='color:{theme.accent_text()};"
+                          f" text-decoration:none'>{go}</a></p>", objectName="RowHint")
+            hint.setTextFormat(Qt.RichText)
+            hint.setWordWrap(True)
+            hint.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)
+            hint.linkActivated.connect(lambda _href, n=name: self._goto_quest(n))
+            col.addWidget(hint)
         if q.complete_level > q.level:
             hints.append(t("q_complete_lv", n=q.complete_level, take=q.level))
         if q.grade:

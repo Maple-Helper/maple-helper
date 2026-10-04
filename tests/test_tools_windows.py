@@ -493,3 +493,18 @@ def test_a_quests_prerequisite_is_a_tap_away(tools):
     assert d.q_search.text() == later.afters[0]
     names = [w.text() for w in d.findChildren(QLabel, "CardName") if w.isVisibleTo(d)]
     assert names and all(later.afters[0] in n for n in names)
+
+
+@needs_kb
+def test_a_prerequisite_already_done_is_not_mentioned(tools):
+    from maplehelper import quests
+    d, c = tools("Thief", "Assassin", 31, "quests")
+    r = quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)
+    q = next(q for m in ("level", "missed", "soon", "later") for q in r[m] if len(q.afters) == 1)
+    before = next(k for k, e in d.kb.entities.items() if e.get("category") == "quest" and e["name"] == q.afters[0])
+    def mentions():
+        card = d._quest_card(q)              # (kept while read: a card nobody holds goes at once)
+        return [w.text() for w in card.findChildren(QLabel) if "href='go'" in w.text()]
+    assert mentions()
+    c.quests_done.append(before)
+    assert not mentions()
