@@ -110,7 +110,8 @@ def tip_html(term: str, lang: str) -> str | None:
     if not text:
         return None
     d = "rtl" if lang != "en" else "ltr"
-    return (f"<div dir='{d}'><b style='color:{theme.accent_text(deep=True)};'>{html.escape(term)}</b><br>"
+    title = glossary.TITLES.get(term, term)
+    return (f"<div dir='{d}'><b style='color:{theme.accent_text(deep=True)};'>{html.escape(title)}</b><br>"
             f"<span style='line-height:135%;'>{html.escape(text)}</span></div>")
 
 

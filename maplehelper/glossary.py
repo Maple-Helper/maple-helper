@@ -31,6 +31,13 @@ TERMS = {
 
 # clearer or missing definitions, written for the app
 APP = {
+    # a monster's own numbers (the calculator's big numbers): the plain "HP" entry is the player's HP / MP
+    "Monster P.DEF": ("ההגנה של המפלצת מפני מכות פיזיות: מורידה מהנזק שאתם עושים לה במכות רגילות (לא בקסמים). "
+                      "0 = לא מורידה כלום.",
+                      "The monster's defence against physical hits: it lowers the damage your basic attacks do to it "
+                      "(not magic). 0 = nothing off."),
+    "Monster HP": ("כמה נזק צריך כדי להרוג את המפלצת: כל מכה מורידה ממנו, וכשהוא מגיע ל-0 היא מתה.",
+                   "How much damage the monster takes before it dies: every hit takes some off, and at 0 it dies."),
     # "a bit over 3x": the class guides' "ACC to never miss at equal level" tables (pages/guide/cleric-class-guide.md:
     # Jr. Wraith Avoid 24 -> 79 ACC, Rotten Mushroom 33 -> 108) and Zombie Mushroom's page (Avoid 14 -> 47)
     "ACC": ("Accuracy: כמה טוב אתם פוגעים. ככל שה-ACC שלכם גבוה יותר מה-Avoid של המפלצת, אתם מפספסים פחות. "
@@ -157,6 +164,10 @@ def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None
     # only text between tags, never inside a tag or an existing link
     parts = re.split(r"(<a\b.*?</a>|<[^>]+>)", html_text, flags=re.S)
     return "".join(p if p.startswith("<") else text_part(p) for p in parts)
+
+
+# a term's title in its explanation, when the term isn't the word shown ("Monster HP" explains an "HP")
+TITLES = {"Monster HP": "HP", "Monster P.DEF": "P.DEF"}
 
 
 def term_of(link: str) -> str | None:

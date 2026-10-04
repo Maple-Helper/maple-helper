@@ -316,3 +316,12 @@ def test_quest_matches_name_npc_and_what_it_asks():
               needs=["Green Mushroom Cap x 20"], rewards=["Red Potion x 20"])
     assert q.matches("pio") and q.matches("mushroom cap") and q.matches("red potion") and q.matches("LITH")
     assert not q.matches("mushroom snail")
+
+
+def test_the_calculators_hp_hint_explains_the_monsters_hp():
+    """The "?" beside a monster's HP explained the player's HP / MP and levels (the owner's report)."""
+    from maplehelper import glossary
+    from maplehelper.ui import terms
+    tip = terms.tip_html("Monster HP", "he")
+    assert "להרוג את המפלצת" in tip and "<b style" in tip and ">HP<" in tip
+    assert "MP" not in glossary.explain("Monster HP", "he")

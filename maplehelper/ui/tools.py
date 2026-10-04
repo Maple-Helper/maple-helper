@@ -461,14 +461,18 @@ class ToolsDialog(GlassDialog):
         bl.addStretch(1)
         return box
 
-    def _big(self, value: str, label: str, explain: bool = True) -> QVBoxLayout:
-        """A big number with its (explained) name under it."""
+    def _big(self, value: str, label: str, explain: bool = True, term: str | None = None) -> QVBoxLayout:
+        """A big number with its (explained) name under it. term: the explanation to use instead of the label's own
+        ("Monster HP" for a monster's HP: the glossary's "HP" is the player's HP / MP)."""
         box = QVBoxLayout()
         box.setSpacing(0)
         v = QLabel(value, objectName="BigStat")
         v.setAlignment(Qt.AlignCenter)
         text = html.escape(label)
-        lb = QLabel(glossary.annotate(text, self.t.lang) if explain else text, objectName="BigStatLabel")
+        if term:
+            text += (f"<a href='g:{html.escape(term)}' style='color:#F07A12; text-decoration:none;'>"
+                     f"&nbsp;{glossary.MARK}</a>")
+        lb = QLabel(glossary.annotate(text, self.t.lang) if explain and not term else text, objectName="BigStatLabel")
         lb.setAlignment(Qt.AlignCenter)
         terms.watch(lb, self.t.lang)
         box.addWidget(v)
@@ -711,8 +715,9 @@ class ToolsDialog(GlassDialog):
             pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
             nums.addWidget(pic, 0, Qt.AlignVCenter)
         # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
-        for value, label in ((f"{m.hp:,}", "HP"), (f"{m.exp:,}", "EXP"), (str(m.avoid), "Avoid"), (str(m.pdef), "P.DEF")):
-            nums.addLayout(self._big(value, label))
+        for value, label, term in ((f"{m.hp:,}", "HP", "Monster HP"), (f"{m.exp:,}", "EXP", None),
+                                   (str(m.avoid), "Avoid", None), (str(m.pdef), "P.DEF", "Monster P.DEF")):
+            nums.addLayout(self._big(value, label, term=term))
         holder = QWidget()
         both = QVBoxLayout(holder)
         both.setContentsMargins(0, 0, 0, 0)
@@ -766,13 +771,15 @@ class ToolsDialog(GlassDialog):
             sec.add_widget(self._label(t("calc_need_stats"), "RowHint"))
         sec.add_widget(self._ask_link(lambda: self.tag_requested.emit(m.key)))
         self.calc_box.addWidget(sec)
-        if m.avoid > 0:
-            # ACC to never miss as your level changes: three big numbers, not a list
+        levels = [lv for lv in (c.level - 5, c.level, c.level + 5) if lv >= 1]
+        needs = [combat.acc_needed(lv, m.level, m.avoid) for lv in levels]
+        if m.avoid > 0 and len(set(needs)) > 1:
+            # ACC to never miss as your level changes: three big numbers, not a list. Only when the level changes
+            # it: at or above the monster's level it doesn't, and three equal numbers read as nonsense (the owner)
             lv_sec = Section(t("calc_acc_by_level_head"), t.rtl)
             strip = QHBoxLayout()
-            for lv in (c.level - 5, c.level, c.level + 5):
-                if lv >= 1:
-                    strip.addLayout(self._big(str(combat.acc_needed(lv, m.level, m.avoid)), f"Lv. {lv}", explain=False))
+            for lv, need in zip(levels, needs):
+                strip.addLayout(self._big(str(need), f"Lv. {lv}", explain=False))
             holder2 = QWidget()
             holder2.setLayout(strip)
             lv_sec.add_widget(holder2)
