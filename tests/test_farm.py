@@ -367,3 +367,17 @@ def test_a_quest_jump_from_crafting_opens_the_quests_page(monkeypatch, tmp_path)
         assert "<img" in lb.toolTip() and "x" in lb.toolTip()
     finally:
         d.close()
+
+
+@needs_kb
+def test_what_to_do_reads_in_hebrew():
+    # the quest journal showed in English in the Hebrew app (the owner): every line has its Hebrew
+    from maplehelper import quests
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    rina = quests.quest(kb, "quest/506001")
+    assert "Rina" in quests.task_text(rina, "he") and "ביקש" in quests.task_text(rina, "he")
+    assert quests.task_text(rina, "en") == rina.task and not rina.task.startswith(("⌄", "02"))
+    talk = [q for k, e in kb.entities.items() if e.get("category") == "quest"
+            for q in [quests.quest(kb, k)] if q and q.task and not q.needs]
+    assert talk and all(quests.task_text(q, "he") != q.task for q in talk)

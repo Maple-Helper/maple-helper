@@ -734,6 +734,7 @@ STRINGS = {
     "q_get_head": {"he": "איך מקבלים:", "en": "How to get it:"},
     "q_self_start": {"he": "מתחיל מעצמו, לא צריך לדבר עם אף אחד", "en": "Starts on its own, no one to talk to"},
     "q_from_npc": {"he": "מדברים עם {npc}", "en": "Talk to {npc}"},
+    "q_from_board": {"he": "לוקחים מלוח המודעות (Community Board) מול בית העירייה", "en": "From the Community Board in front of the town hall"},
     "q_task_head": {"he": "מה עושים:", "en": "What to do:"},
     "q_gets_head": {"he": "מקבלים:", "en": "Rewards:"},
     "q_mark_done": {"he": "סיימתי", "en": "Done"},

@@ -1,7 +1,7 @@
 {
  "skill/assassin__drain": {
   "en": "COT1: Drain always absorbed 15% of the damage dealt as HP. COT2: that absorb now triggers with a 12% chance. Damage and MP cost are unchanged at max level.",
-  "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP בלבל המקסימלי לא השתנו."
+  "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP ברמה המקסימלי לא השתנו."
  },
  "skill/bowman__the-eye-of-amazon": {
   "en": "Renamed from Amazon's Judgement to The Eye of Amazon .",
@@ -17,7 +17,7 @@
  },
  "skill/f-p-wizard__poison-breath": {
   "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
-  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן בלבל המקסימלי הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. בלבל המקסימלי יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלי הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלי יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
  },
  "skill/f-p-wizard__slow": {
   "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
@@ -33,7 +33,7 @@
  },
  "skill/page__blunt-weapon-mastery": {
   "en": "COT1: Blunt Weapon Mastery gave Attack Power +20 plus a 25% chance to stun for 3 sec. COT2 reworked the secondary bonus into a 20% chance to ignore the enemy's Weapon Defense; the attack bonus and the stun are removed. The old 25% and the new 20% describe different effects, so they are not shown as a before and after. Mastery level 10 is unchanged.",
-  "he": "ב-COT1, Blunt Weapon Mastery נתן Attack Power +20 ועוד סיכוי של 25% להמם ל-3 שניות. ב-COT2 הבונוס הזה הוחלף בסיכוי של 20% להתעלם מה-Weapon Defense של המפלצת, ותוספת ה-Attack Power וההימום הוסרו. ה-25% הישנים וה-20% החדשים הם אפקטים שונים, ולכן הם לא מוצגים כ\"לפני ואחרי\". ה-Mastery בלבל 10 לא השתנה."
+  "he": "ב-COT1, Blunt Weapon Mastery נתן Attack Power +20 ועוד סיכוי של 25% להמם ל-3 שניות. ב-COT2 הבונוס הזה הוחלף בסיכוי של 20% להתעלם מה-Weapon Defense של המפלצת, ותוספת ה-Attack Power וההימום הוסרו. ה-25% הישנים וה-20% החדשים הם אפקטים שונים, ולכן הם לא מוצגים כ\"לפני ואחרי\". ה-Mastery ברמה 10 לא השתנה."
  },
  "skill/page__final-attack-blunt-weapon": {
   "en": "Renamed from Final Attack: Blunt Weapon to Final Attack: Blunt Weapon .",

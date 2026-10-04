@@ -2,9 +2,11 @@
 what they pay. Done quests are kept per character (Character.quests_done)."""
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
+from pathlib import Path
 
 from . import availability
 
@@ -197,6 +199,7 @@ def _quest(kb, key: str) -> Quest | None:
     if not q.task:
         first = next((ln for ln in lines if ln.startswith("01 ")), "")
         q.task = first[3:].strip()
+    q.task = re.sub(r"^(?:⌄\s*)?(?:\d\d\s+)?", "", q.task).strip()      # "⌄ 02 I met Heena": the page's markers
     pick = False                     # inside "Pick one (class-specific):"
     for ln in _section(lines, "Rewards"):
         fame = re.search(r"\+ ?(\d+) Fame", ln)
@@ -225,6 +228,25 @@ def _quest(kb, key: str) -> Quest | None:
         lines, "Random reward - one of:",
         lambda ln: [f"{name.strip()} x {n} ({pct}%)" for name, n, pct in _ODDS_ITEM.findall(ln)])
     return q
+
+
+_TASKS_HE: dict | None = None
+
+
+def task_text(q: Quest, lang: str) -> str:
+    """What to do, in the player's language: the Hebrew of assets/quest_tasks/he.json while its English is still
+    the page's (a changed journal line falls back to the English until it is translated again)."""
+    global _TASKS_HE
+    if lang != "he" or not q.task:
+        return q.task
+    if _TASKS_HE is None:
+        path = Path(__file__).resolve().parent.parent / "assets" / "quest_tasks" / "he.json"
+        try:
+            _TASKS_HE = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            _TASKS_HE = {}
+    row = _TASKS_HE.get(q.key) or {}
+    return row.get("he") if row.get("en") == q.task and row.get("he") else q.task
 
 
 def quest(kb, key: str) -> Quest | None:

@@ -1579,14 +1579,18 @@ class ToolsDialog(GlassDialog):
             parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_town_head'))}</b></p>"
                          f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
         # how you get it: an NPC hands it out, or it opens on its own (the owner: "how do I get it?")
-        who = t("q_self_start") if q.self_start or not q.npc else \
+        board = re.match(r"Community Board", q.npc or "")      # a board in front of the town hall, not someone
+        who = t("q_self_start") if q.self_start or not q.npc else t("q_from_board") if board else \
             t("q_from_npc", npc=f"{bidi.LRE}{q.npc}{bidi.PDF}")
         parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_get_head'))}</b></p>"
                      f"<p {side} style='margin:0 0 4px 0;'>{html.escape(who)}</p>")
         # what to do, when there is nothing to bring: the game's own quest journal
         if q.task and not q.needs:
+            task = quests.task_text(q, t.lang)
+            hebrew = task != q.task
             parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_task_head'))}</b></p>"
-                         f"<p dir='ltr' align='{'right' if t.rtl else 'left'}' style='margin:0'>{html.escape(q.task)}</p>")
+                         + (f"<p {side} style='margin:0'>{html.escape(bidi.plain(task, True))}</p>" if hebrew else
+                            f"<p dir='ltr' align='{'right' if t.rtl else 'left'}' style='margin:0'>{html.escape(task)}</p>"))
         if parts:
             lb = QLabel("".join(parts), objectName="CardSub")
             lb.setTextFormat(Qt.RichText)
