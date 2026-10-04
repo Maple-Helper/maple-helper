@@ -951,9 +951,17 @@ class ToolsDialog(GlassDialog):
                 name, tip = self._tier_column(col)
                 place = r.ranks.get(col)
                 kind = {"S": "TagGood", "A": "TagWarn"}.get(grade, "Tag")
-                chip = info_tag(t, grade or "—", tip_html(f"{name}: {value}" if value else name, t.rtl), kind)
+                # (info_tag lays its tip out itself: a tip given as HTML showed its tags as text)
+                shown = value if value and value != "N/A" else t("tier_none")
+                chip = info_tag(t, grade or "—", f"{name}: {shown}", kind)
                 chip.setFixedWidth(30)
-                what = QLabel(self._p(name), objectName="RowLabel")
+                # the name with an orange "?" that explains it on hover, as the other explained terms
+                badge = terms._badge_uri()
+                text = html.escape(bidi.plain(name, t.rtl))
+                if tip and badge:
+                    text += f"&nbsp;<img src='{badge}' width='13' height='13' style='vertical-align: middle'>"
+                what = QLabel(text, objectName="RowLabel")
+                what.setTextFormat(Qt.RichText)
                 if tip:
                     what.setToolTip(tip_html(tip, t.rtl))
                 where = QLabel(self._p(t("tier_place", place=place[0], total=place[1]) if place
