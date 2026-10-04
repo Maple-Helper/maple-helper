@@ -64,6 +64,15 @@ jobs:
           fi
           cat data/kb/last_run.json
 
+      # the drops and mesos players report per monster (community.json): MeowDB's monster pages load them in the
+      # browser, so the page scrape above never sees them. Every night, all monsters (~6 min); their changes add to
+      # last_run.json's "changed". If the site doesn't answer, the published copy stays (a warning, not a failure).
+      - name: Fetch players' drop and mesos reports
+        if: steps.rel.outputs.exists == 'true'
+        run: |
+          python tools/scrape_meowdb.py --community || echo "::warning::community reports not updated tonight"
+          cat data/kb/last_run.json
+
       # a broken scrape (site down, layout change) must never reach players: this fails the run instead
       - name: Validate before publishing
         if: steps.rel.outputs.exists == 'true'

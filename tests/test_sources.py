@@ -204,7 +204,7 @@ def test_drops_split_by_list(tiny):
 def test_drop_table_has_a_source_column(tiny):
     tiny.ensure_drop_table()
     rows = (tiny.root / "drops.tsv").read_text(encoding="utf-8").splitlines()
-    assert rows[0].split("\t")[-1] == "source"
+    assert rows[0].split("\t")[6:] == ["source", "votes"]     # (votes: players' votes on a community drop)
     by_item = {r.split("\t")[5]: r.split("\t")[6] for r in rows[1:]}
     assert by_item == {"item/11": "community", "item/13": "MSEA"}
     # a table from before the column is redone

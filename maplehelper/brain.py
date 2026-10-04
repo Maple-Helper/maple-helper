@@ -36,8 +36,9 @@ Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) databas
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
-Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source) lists the monster→item
-drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops below). Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
+Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source, votes) lists the
+monster→item drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops
+below), votes a community drop's "16 up 1 down". Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
 grouped per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
 An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
 not in the game, so never name it as a source.
@@ -45,8 +46,13 @@ not in the game, so never name it as a source.
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
-which list each drop is on. When asked what a monster drops, list the drops by name (grouped: Etc / Use / Equipment is
-fine), say which list they come from, and return every dropped item's key in entities.
+which list each drop is on. The community list comes from players' reports on MeowDB, each with its votes (players
+who confirmed / denied it); the app hides drops more players denied than confirmed. Name a community drop's votes
+briefly the first time: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
+"(קהילה, דיווח יחיד)" / "(community, single report)": it is not confirmed yet. Mesos: the pre-fetched "Mesos of"
+line is the median of the players' reports (per drop, and how often a kill drops mesos): give it as
+"מזו 18–23 (קהילה)" / "18–23 mesos (community)". When asked what a monster drops, list the drops by name (grouped: Etc / Use / Equipment is fine), the
+community list first, say which list they come from, and return every dropped item's key in entities.
 
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
@@ -121,7 +127,9 @@ REPLY_RULES = """<reply_rules>
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: "(MSEA)", "(COT2)", "(MeowDB)", and in the
-  answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; none reported: "אין נתונים מהקהילה".
+  answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; a community drop with its votes ("16 ✓",
+  one report alone: "דיווח יחיד" / "single report"); mesos or drops nobody reported: "אין נתונים מהקהילה" /
+  "no community data".
 - Then the line @@META@@ and the JSON object. Always include it, even when empty. If the player states a new level/job, put it in profile_update.
 - profile_update describes ONLY the character in <player_profile>. If the player says they are on another character,
   or the screenshot's HUD shows another name, put that character's facts in profile_update WITH its "name" (the app
@@ -219,6 +227,8 @@ def build_prompt(question: str, character: Character | None, history: History | 
             sel.append(_page(kb, k, per))
             if k.startswith("monster/"):
                 sel.append(kb.drops_digest(k))
+            elif k.startswith("item/"):
+                sel.append(kb.droppers_digest(k))
         ctx.append("<selected>\n" + "\n".join(x for x in sel if x) + "\n</selected>")
     if is_reverse(question, kb):
         items = item_keys_for_question(question, kb)
@@ -231,7 +241,9 @@ def build_prompt(question: str, character: Character | None, history: History | 
                 m = kb.get(g["monster"])
                 lv = (m.get("props") or {}).get("Level", "?")
                 lines.append(f"- {m['name']} (Lv {lv}) [{g['monster']}]: "
-                             + ", ".join(f"{kb.get(i)['name']} [{i}] ({g['sources'].get(i, sources.MSEA)})"
+                             + ", ".join(f"{kb.get(i)['name']} [{i}] ({g['sources'].get(i, sources.MSEA)}"
+                                         + (f", {g['votes'][i][0]} confirmed {g['votes'][i][1]} denied"
+                                            if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
     for key in kb.find_mentions(question, max_results=4):
@@ -242,6 +254,9 @@ def build_prompt(question: str, character: Character | None, history: History | 
             drops = kb.drops_digest(key)
             if drops:
                 ctx.append(drops)
+        elif key.startswith("item/"):
+            # the players' reports of who drops it, with votes (its page's "Dropped By" doesn't have them)
+            ctx.append(kb.droppers_digest(key))
     # what a KB update changed this week in the entities above (and the level digest's monsters)
     shown = re.findall(r"\[((?:monster|item|npc|map|quest|skill)/[^\]\s]+)\]", "\n".join(ctx))
     changes = kb_changes.ai_lines(kb, shown)

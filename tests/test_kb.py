@@ -45,7 +45,7 @@ def test_image_path(kb):
 
 def test_level_digest(kb):
     d = kb.level_digest(5)
-    assert "Red Snail | 4 | 45 | 8 | Henesys Hunting Ground I, Snail Garden, Henesys Hunting Ground II" in d
+    assert "Red Snail | 4 | 45 | 8 | - | Henesys Hunting Ground I, Snail Garden, Henesys Hunting Ground II" in d
     assert "Axe Stump" not in d                              # level 17 is outside 5-5..5+8
     assert kb.level_digest(200) == ""
 

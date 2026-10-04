@@ -230,7 +230,8 @@ class PatchNotesDialog(GlassDialog):
             # to new), with the builds when the page's change history shows that very change
             rc = recent.Recent(r["key"], r.get("name") or r["key"], "", {f: [a, b] for f, a, b in r.get("props", [])},
                                list(r.get("drops_added") or []), list(r.get("drops_removed") or []),
-                               r.get("old_name") or "")
+                               r.get("old_name") or "", list(r.get("community_added") or []),
+                               list(r.get("community_removed") or []), list(r.get("mesos") or []))
             return ChangeCard(self.kb, r, sub, recent.lines(t, self.kb, rc), rtl)
         if self.kb.get(r["key"]) and not reason:
             return EntityCard(self.kb, r["key"], t.lang)     # exactly the chat's card
