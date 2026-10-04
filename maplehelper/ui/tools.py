@@ -470,6 +470,7 @@ class ToolsDialog(GlassDialog):
         self.stack.setCurrentIndex(i)
         # the quest pages rebuild up to 40 cards (~0.3 s): a tab switch back to one that would show the same thing
         # keeps it as it is. Every other redraw (a quest marked done, a new reading, the search) still fills.
+        self._expire_cycles()
         state = self._page_state(PAGES[i])
         if state is not None and state == self.__dict__.get("_filled", {}).get(PAGES[i]):
             return
@@ -487,8 +488,15 @@ class ToolsDialog(GlassDialog):
         return common + (c.town, self._town_limit, self.town_done_toggle.isChecked(), self.__dict__.get("_town_grade_pick"),
                          self.town_search.text().strip())
 
+    def _expire_cycles(self) -> None:
+        """Daily / weekly quests done before the last reset come back (quests.expire_cycles)."""
+        c = self.c
+        if c and c.cycle_done and quests.expire_cycles(self.kb, c):
+            self.profiles.save()
+
     def refresh(self, name: str | None = None):
         """Redraw a page (or the current one) from the character and the KB."""
+        self._expire_cycles()
         name = name or PAGES[self.stack.currentIndex()]
         getattr(self, f"_fill_{name}", lambda: None)()
         if name in ("quests", "town"):
@@ -1595,6 +1603,11 @@ class ToolsDialog(GlassDialog):
         top.addWidget(name, 1)
         # the level it can be done at: one taken at 12 but finished only at 32 is a Lv. 32 quest ("soon" at 31)
         top.addWidget(tag(self._p(t("lv_short", n=q.opens_at())), "Tag"))
+        if q.cycle:
+            # done again every day / week: when it comes back, in the player's own time
+            back = self._reset_text(q.cycle)
+            cyc = info_tag(t, t(f"q_{q.cycle}"), t(f"q_{q.cycle}_tip", when=back), "TagAccent")
+            top.addWidget(cyc)
         if q.exp:
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
@@ -1692,6 +1705,8 @@ class ToolsDialog(GlassDialog):
             col.addWidget(self._label("\n".join(hints), "RowHint"))
         acts = QHBoxLayout()
         acts.setSpacing(16)        # the link has no padding of its own: apart from the button, not glued to it
+        if done and q.cycle:
+            col.addWidget(self._label(t("q_back_at", when=self._reset_text(q.cycle)), "RowHint"))
         if done:
             # marked done by mistake (or a repeatable donation to do again): back to the list
             btn = QPushButton(self._p(t("q_undo")), objectName="Secondary")
@@ -1714,6 +1729,9 @@ class ToolsDialog(GlassDialog):
         c = self.c
         if c and key not in c.quests_done:
             c.quests_done.append(key)
+            q = quests.quest(self.kb, key)
+            if q and q.cycle:
+                c.cycle_done[key] = time.time()        # back on the list after the next reset
             # done here is done for the chat too: the started quest leaves "Active quests" in the AI's prompt
             q = quests.quest(self.kb, key)
             if q:
@@ -1725,6 +1743,7 @@ class ToolsDialog(GlassDialog):
         c = self.c
         if c and key in c.quests_done:
             c.quests_done.remove(key)
+            c.cycle_done.pop(key, None)
             self.profiles.save()
         self._refresh_in_place()
 
@@ -1924,6 +1943,15 @@ class ToolsDialog(GlassDialog):
                 last = r.level            # level by level, as the quests are
                 self.craft_list.addWidget(self._label(t("craft_level_group", n=r.level), "SectionHeader"))
             self.craft_list.addWidget(self._recipe_card(r, best=(i == 0 and not every and not query)))
+
+    def _reset_text(self, cycle: str) -> str:
+        """The next reset in the player's own clock: "03:00" (daily), "יום חמישי ב-03:00" (weekly)."""
+        from datetime import datetime
+        at = datetime.fromtimestamp(quests.next_reset(cycle))
+        clock = at.strftime("%H:%M")
+        if cycle != "weekly":
+            return clock
+        return self.t("q_reset_weekly", day=self.t(f"weekday_{at.weekday()}"), time=clock)
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""

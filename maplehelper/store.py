@@ -198,6 +198,7 @@ class Character:
     job_shown: str = ""     # the job as the game's HUD names it ("Archer" on an Old School server for a Bowman)
     name_seen: bool = False  # the name was read off the HUD once: from then on only that exact name is this character
     crafts: dict = field(default_factory=dict)        # crafting profession -> its level
+    cycle_done: dict = field(default_factory=dict)    # a daily / weekly quest marked done -> when (it comes back)
     updated_at: float = field(default_factory=time.time)
 
     @property

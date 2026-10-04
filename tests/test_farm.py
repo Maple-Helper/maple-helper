@@ -416,3 +416,31 @@ def test_a_citizenship_quest_jump_stays_on_citizenship(monkeypatch, tmp_path):
         assert d.town_search.text() == "To Henesys, the Prairie Town"
     finally:
         d.close()
+
+
+def test_daily_and_weekly_resets():
+    # daily at 00:00 UTC, weekly on Thursday 00:00 UTC (the GMS servers' reset: the owner's choice)
+    from datetime import datetime, timezone
+
+    from maplehelper import quests
+    sat = datetime(2026, 10, 3, 15, 30, tzinfo=timezone.utc).timestamp()          # a Saturday afternoon
+    assert quests.last_reset("daily", sat) == datetime(2026, 10, 3, tzinfo=timezone.utc).timestamp()
+    assert quests.last_reset("weekly", sat) == datetime(2026, 10, 1, tzinfo=timezone.utc).timestamp()   # Thu
+    assert quests.next_reset("weekly", sat) == datetime(2026, 10, 8, tzinfo=timezone.utc).timestamp()
+
+
+@needs_kb
+def test_a_daily_quest_comes_back_after_the_reset():
+    # 71 of the 88 citizenship quests are daily or weekly: marked done they left the list for good
+    from types import SimpleNamespace
+
+    from maplehelper import quests
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    rina = quests.quest(kb, "quest/506001")
+    assert rina.cycle == "daily" and quests.quest(kb, "quest/506000").cycle == ""
+    reset = quests.last_reset("daily")
+    c = SimpleNamespace(quests_done=["quest/506001", "quest/506000"], cycle_done={"quest/506001": reset - 60})
+    assert quests.expire_cycles(kb, c) and c.quests_done == ["quest/506000"] and not c.cycle_done
+    c = SimpleNamespace(quests_done=["quest/506001"], cycle_done={"quest/506001": reset + 60})
+    assert not quests.expire_cycles(kb, c) and c.quests_done == ["quest/506001"]

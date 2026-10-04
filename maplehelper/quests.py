@@ -46,6 +46,7 @@ class Quest:
     self_start: bool = False            # "Self-Starting": it opens on its own, no NPC hands it out
     task: str = ""                      # what to do, the game's quest journal ("Arthur asked me to greet Rina ...")
     turn_in: str = ""                   # who it is finished with, when not its giver ("Start: Arthur · Turn in: Roxy")
+    cycle: str = ""                     # "daily" / "weekly": done again every day / week (the page's "Daily")
 
     def matches(self, query: str) -> bool:
         """The quest search: every word of the query in its name, NPC, area, what it asks or what it gives."""
@@ -190,6 +191,7 @@ def _quest(kb, key: str) -> Quest | None:
         q.needs += [f"{name.strip()} x {n}" for name, n in _ITEM.findall(ln)] or [ln]
     head = lines[:lines.index("Pre-requisites")] if "Pre-requisites" in lines else lines[:12]
     q.self_start = "Self-Starting" in head
+    q.cycle = "daily" if "Daily" in head else "weekly" if "Weekly" in head else ""
     for ln in head:
         m = re.search(r"Turn in: (.+?)(?:\s+·|$)", ln)
         if m:
@@ -236,6 +238,39 @@ def _quest(kb, key: str) -> Quest | None:
         lines, "Random reward - one of:",
         lambda ln: [f"{name.strip()} x {n} ({pct}%)" for name, n, pct in _ODDS_ITEM.findall(ln)])
     return q
+
+
+# when a daily / weekly quest comes back: the GMS servers' reset, 00:00 UTC, the week's on Thursday. Not in the KB:
+# the owner's choice (2026-10-04)
+WEEKLY_RESET_DAY = 3        # Monday = 0
+
+
+def last_reset(cycle: str, now: float | None = None) -> float:
+    """The last daily (00:00 UTC) or weekly (Thursday 00:00 UTC) reset, as a timestamp."""
+    import time
+    from datetime import datetime, timedelta, timezone
+    t = datetime.fromtimestamp(time.time() if now is None else now, timezone.utc)
+    day = t.replace(hour=0, minute=0, second=0, microsecond=0)
+    if cycle == "weekly":
+        day -= timedelta(days=(day.weekday() - WEEKLY_RESET_DAY) % 7)
+    return day.timestamp()
+
+
+def next_reset(cycle: str, now: float | None = None) -> float:
+    return last_reset(cycle, now) + (7 if cycle == "weekly" else 1) * 86400
+
+
+def expire_cycles(kb, c, now: float | None = None) -> bool:
+    """A daily / weekly quest marked done before its last reset is to do again: off the done list. True if any."""
+    changed = False
+    for key, when in list((c.cycle_done or {}).items()):
+        q = quest(kb, key)
+        if q is None or not q.cycle or not isinstance(when, (int, float)) or when < last_reset(q.cycle, now):
+            c.cycle_done.pop(key, None)
+            if key in c.quests_done:
+                c.quests_done.remove(key)
+            changed = True
+    return changed
 
 
 _TASKS_HE: dict | None = None
