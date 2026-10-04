@@ -604,6 +604,7 @@ STRINGS = {
     "craft_start": {"he": "קווסט פתיחה · מרמה {lv}", "en": "First quest · from level {lv}"},
     "craft_master": {"he": "קווסט מומחה · מרמה {lv}", "en": "Master quest · from level {lv}"},
     "craft_station": {"he": "איפה יוצרים: **{station}**\nבערים: {towns}", "en": "Where to craft: **{station}**\nin {towns}"},
+    "craft_station_one": {"he": "איפה יוצרים: **{station}**\nבעיר: {towns}", "en": "Where to craft: **{station}**\nin {towns}"},
     "craft_none": {"he": "אין מתכונים עד הרמה הזו.", "en": "No recipes up to this level."},
     "craft_best": {"he": "הכי משתלם", "en": "Best value"},
     "craft_cost": {"he": "{n} mesos ליצירה", "en": "{n} mesos to craft"},
