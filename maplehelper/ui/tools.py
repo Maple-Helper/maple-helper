@@ -25,11 +25,6 @@ from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, sour
 from .patchnotes import gutter
 
 PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "farm", "more", "route", "pets")
-# the pages by subject: twelve chips in one grid were hard to scan (the owner)
-CATEGORIES = (("training", ("train", "exp", "route")),
-              ("stats", ("calc", "build")),
-              ("quests", ("quests", "town", "crafting")),
-              ("items", ("more", "prices", "farm", "pets")))
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -311,13 +306,11 @@ class ToolsDialog(GlassDialog):
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(10)
-        # the subjects on top (Training, Stats, Quests & crafts, Items & prices), the chosen one's pages as chips
-        # under them in one row
-        self.nav_cats = Segmented([(t(f"tool_cat_{key}"), key) for key, _ in CATEGORIES], CATEGORIES[0][0], rtl)
-        self.nav_cats.changed.connect(self._show_category)
-        outer.addWidget(self.nav_cats)
-        row = QHBoxLayout()
-        row.setSpacing(6)
+        # the pages as chips, three a row so every label stays readable; a shorter last row fills the width
+        # (on a grid of six columns: a chip of a full row spans two, the one chip of a last row all six)
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(6)
         self.nav = QButtonGroup(self)
         for i, name in enumerate(PAGES):
             b = QPushButton(bidi.plain(t(f"tool_{name}"), rtl).replace("&", "&&"), objectName="Chip")   # "&" isn't a shortcut
@@ -325,11 +318,13 @@ class ToolsDialog(GlassDialog):
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("page", name)
             self.nav.addButton(b, i)
-        for _, names in CATEGORIES:
-            for name in names:
-                row.addWidget(self.nav.button(PAGES.index(name)), 1)
+            row, col = divmod(i, 3)
+            span = 6 // min(3, len(PAGES) - row * 3)
+            grid.addWidget(b, row, col * span, 1, span)
+        for col in range(6):
+            grid.setColumnStretch(col, 1)
         self.nav.idClicked.connect(self.show_page)
-        outer.addLayout(row)
+        outer.addLayout(grid)
         self.stack = QStackedWidget()
         outer.addWidget(self.stack, 1)
         # only the page asked for is built before the window shows; the others follow right after it is up
@@ -391,24 +386,8 @@ class ToolsDialog(GlassDialog):
     def c(self):
         return self.profiles.active
 
-    def _category_of(self, name: str) -> str:
-        return next(key for key, names in CATEGORIES if name in names)
-
-    def _show_category(self, key: str) -> None:
-        """A subject's page chips; a tap on a subject opens its first page."""
-        names = dict(CATEGORIES)[key]
-        for i, name in enumerate(PAGES):
-            self.nav.button(i).setVisible(name in names)
-        if PAGES[self.stack.currentIndex()] not in names:
-            self.show_page(PAGES.index(names[0]))
-
     def show_page(self, i: int):
         self._build_page(PAGES[i])
-        key = self._category_of(PAGES[i])
-        if self.nav_cats.value() != key:
-            self.nav_cats.set_value(key)
-        for j, name in enumerate(PAGES):
-            self.nav.button(j).setVisible(self._category_of(name) == key)
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
         # the quest pages rebuild up to 40 cards (~0.3 s): a tab switch back to one that would show the same thing

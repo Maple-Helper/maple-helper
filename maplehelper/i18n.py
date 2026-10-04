@@ -554,10 +554,6 @@ STRINGS = {
     # play tools
     "tools": {"he": "כלי משחק", "en": "Play tools"},
     "tool_train": {"he": "גריינד", "en": "Grind spots"},
-    "tool_cat_training": {"he": "אימון", "en": "Training"},
-    "tool_cat_stats": {"he": "סטטיסטיקות", "en": "Stats"},
-    "tool_cat_quests": {"he": "קווסטים ומקצועות", "en": "Quests & crafts"},
-    "tool_cat_items": {"he": "פריטים ומחירים", "en": "Items & prices"},
     "train_why": {"he": "איך נבחרות המפלצות:\n• רק במפות שפתוחות במשחק, בלי בוסים\n• ברמה קרובה לשלכם\n• מסודרות לפי כמה EXP הן נותנות ביחס ל-HP שלהן",
                   "en": "How the monsters are picked:\n• only on maps in the game, no bosses\n• near your level\n• ranked by the EXP they give for their HP"},
     "train_why_stats": {"he": "איך נבחרות המפלצות:\n• רק במפות שפתוחות במשחק, בלי בוסים\n• ברמה קרובה לשלכם\n• מסודרות לפי כמה EXP כל מכה שלכם שווה, עם ה-ACC והנזק שלכם\n• לא מוצגות: מפלצות שתפספסו בהן הרבה, או שצריך יותר מ-12 מכות כדי להרוג אותן",
