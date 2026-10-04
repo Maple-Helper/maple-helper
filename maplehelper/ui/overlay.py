@@ -454,34 +454,45 @@ class Overlay(QWidget):
         for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
+        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
+        self.history_btn = self._icon_button(theme.ICON["search"])
+        self.history_btn.clicked.connect(self.history_requested.emit)
+        tb.addWidget(self.history_btn)
         # MapleStory Classic news: its own window; orange while there is news the player hasn't read
         from .newsview import glyph as news_glyph
         self.news_btn = self._icon_button(news_glyph())
         self.news_btn.clicked.connect(self.news_requested.emit)
         tb.addWidget(self.news_btn)
-        self.history_btn = self._icon_button(theme.ICON["search"])
-        self.history_btn.clicked.connect(self.history_requested.emit)
-        tb.addWidget(self.history_btn)
-        self.tools_btn = self._icon_button(theme.ICON["tools"])
-        self.tools_btn.clicked.connect(self.tools_requested.emit)
-        tb.addWidget(self.tools_btn)
         self.guides_btn = self._icon_button(theme.ICON["book"])
         self.guides_btn.clicked.connect(self.guides_requested.emit)
         tb.addWidget(self.guides_btn)
         self.wish_btn = self._icon_button(theme.ICON["star"])
         self.wish_btn.clicked.connect(self.wishlist_requested.emit)
         tb.addWidget(self.wish_btn)
+        self.tools_btn = self._icon_button(theme.ICON["game"])       # a game controller: the play tools
+        self.tools_btn.clicked.connect(self.tools_requested.emit)
+        tb.addWidget(self.tools_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         tb.addWidget(self.settings_btn)
-        # window controls sit at the header's edge (left in Hebrew, right in English)
+        # window controls sit at the header's edge (left in Hebrew, right in English), apart from the rest
+        # (one group: the bar and the two buttons don't each add the header's gap, which kept the chat off 470 px)
+        controls = QWidget()
+        cl = QHBoxLayout(controls)
+        cl.setContentsMargins(0, 0, 0, 0)
+        cl.setSpacing(3)
+        self.header_sep = QFrame(objectName="HeaderSep")
+        self.header_sep.setFixedSize(1, 16)
+        cl.addWidget(self.header_sep, 0, Qt.AlignVCenter)
+        cl.addSpacing(2)
         self.min_btn = self._icon_button(theme.ICON["minimize"])
         self.min_btn.clicked.connect(self.minimize)
-        tb.addWidget(self.min_btn)
+        cl.addWidget(self.min_btn)
         self.close_btn = self._icon_button(theme.ICON["close"])
         self.close_btn.setObjectName("IconClose")
         self.close_btn.clicked.connect(self.close_overlay)
-        tb.addWidget(self.close_btn)
+        cl.addWidget(self.close_btn)
+        tb.addWidget(controls)
         lay.addWidget(self.title_bar)
 
         # a new version is downloaded: one tap installs it and reopens the app
@@ -718,8 +729,8 @@ class Overlay(QWidget):
         self.saver_badge.setVisible(self._saver_on)
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.news_btn, self.history_btn, self.tools_btn, self.guides_btn, self.wish_btn, self.settings_btn, self.min_btn,
-                   self.close_btn)
+        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.settings_btn,
+                   self.min_btn, self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
             b.setMinimumWidth(24)

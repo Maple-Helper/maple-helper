@@ -75,12 +75,12 @@ BORDER = "rgba(255,149,51,0.55)"
 
 FONT_FAMILY = "Rubik"
 ICON_FONT = "Segoe Fluent Icons"
-ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue82d", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707"}
+ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue82d", "search": "\ue721", "tools": "\ue90f", "game": "\ue7fc", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707"}
 # the same keys without an icon font (a trailing U+FE0E asks for the plain glyph, not the color emoji)
 SYMBOL_ICONS = {"open": "\u2197", "refresh": "\u21bb", "info": "\u24d8", "edit": "\u270e", "delete": "\u232b", "add": "+", "minimize": "\u2013",
                 "close": "\u2715", "settings": "\u2699\ufe0e", "camera": "\ud83d\udcf7\ufe0e", "mic": "\ud83c\udf99\ufe0e", "send": "\u27a4", "stop": "\u25a0",
                 "copy": "\u29c9", "star": "\u2606", "star_on": "\u2605", "plan": "\u2261", "book": "\u2630", "search": "\u2315",
-                "tools": "\u2692\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
+                "tools": "\u2692\ufe0e", "game": "\U0001F3AE\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
                 "route": "\u2316"}
 
 
@@ -184,10 +184,11 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QToolButton#Icon[active="true"] {{ color: #FF453A; }}
     QToolButton#Icon[unread="true"] {{ color: {ORANGE}; }}
     QToolButton#Icon[wished="true"] {{ color: {ot}; }}
-    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {c['muted']}; background: transparent;
+    #HeaderSep {{ background: {c['stroke']}; border: none; }}
+    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {ot}; background: transparent;
                              border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
-    QToolButton#IconClose:hover {{ background: #FF453A; color: #FFFFFF; }}
-    QToolButton#IconClose:pressed {{ background: #D70015; color: #FFFFFF; }}
+    QToolButton#IconClose:hover {{ background: {ORANGE}; color: #FFFFFF; }}
+    QToolButton#IconClose:pressed {{ background: {ORANGE_DEEP}; color: #FFFFFF; }}
 
     QScrollArea, QScrollArea > QWidget > QWidget {{ background: transparent; border: none; }}
     QScrollBar:vertical {{ background: transparent; width: 6px; margin: 4px 1px; }}
