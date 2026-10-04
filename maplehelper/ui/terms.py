@@ -69,6 +69,8 @@ class _Popup(QLabel):
 
     def __init__(self):
         super().__init__(None, Qt.ToolTip | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        # shown, never activated: it took the window's focus away (Tab moved on, then nothing had the focus)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setWordWrap(True)
         self.setTextFormat(Qt.RichText)
         self.setMaximumWidth(320)

@@ -437,11 +437,17 @@ class ToolsDialog(GlassDialog):
     def _build_next(self) -> None:
         """One more page per turn of the event loop, so the window stays responsive while they are made."""
         try:
+            if self.__dict__.get("_closed"):
+                return              # closed meanwhile: no pages built behind a window that's gone
             if self._pending:
                 self._build_page(self._pending[0])
                 QTimer.singleShot(0, self._build_next)
         except RuntimeError:      # the window closed meanwhile
             pass
+
+    def closeEvent(self, e):
+        self._closed = True
+        super().closeEvent(e)
 
     def _build_rest(self) -> None:
         while self._pending:
