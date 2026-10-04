@@ -1982,6 +1982,9 @@ class ToolsDialog(GlassDialog):
             empty(self.shop_map)
         elif name == "farm":
             self._farm_mob_pick = None
+        elif name == "route":
+            empty(self.route_to)
+            clear(self.route_out)
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -3629,10 +3632,10 @@ class ToolsDialog(GlassDialog):
         self.route_to = EntityPicker(rows, ph, icon=40, rtl=t.rtl)
         for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
             picker.setMinimumWidth(280)
-            picker.picked.connect(self._find_route)
             sec.add_row(t(label), picker)
         self.route_taxi = Switch(True)
-        self.route_taxi.toggled.connect(lambda *_: self._find_route())
+        # a way already shown follows the switch; before one is asked for, nothing yet
+        self.route_taxi.toggled.connect(lambda *_: self.route_out.count() > 1 and self._find_route())
         sec.add_row(t("route_taxi"), self.route_taxi, hint=t("route_taxi_hint"))
         go = QPushButton(self._p(t("route_go")), objectName="Primary")
         go.setCursor(Qt.PointingHandCursor)
@@ -3664,7 +3667,9 @@ class ToolsDialog(GlassDialog):
             self._route_auto = self.route_graph.name(mid)
             self.route_from.setText(self._route_auto)
             self.route_from.setCursorPosition(0)
-        self._find_route()
+        # the way shows on the button (or a link from another page), not on its own (the owner)
+        if self.route_out.count() == 0:
+            self._route_hint(self.t("route_pick" if self.route_graph.maps else "route_no_data"))
 
     def route_to_map(self, key: str) -> None:
         """Open on the way to this map (a map card's "How to get here"), from the character's map."""
@@ -3679,7 +3684,8 @@ class ToolsDialog(GlassDialog):
         a, b = self.route_from.text(), self.route_to.text()
         self.route_from.setText(b)
         self.route_to.setText(a)
-        self._find_route()
+        if self.route_out.count() > 1:          # a way shown follows the swap; none asked for yet, none now
+            self._find_route()
 
     def _route_hint(self, text: str) -> None:
         self.route_out.addWidget(self._label(text, "RowHint"))
