@@ -479,3 +479,17 @@ def test_share_card_ellipsizes_a_long_name_and_wraps_a_long_map(isolated_store, 
     names = [t for o, t, _ in labels if o == "ShareName"]
     assert "Kiwi" in names and any(t.endswith("…") and t.startswith("ElipazTheVery") for t in names)
     assert a.width() == b.width() and b.height() >= a.height()        # the long map took a second line
+
+
+@needs_kb
+def test_a_quests_prerequisite_is_a_tap_away(tools):
+    """"Opens once you finish X": a tap shows X, on its own tab, alone (the owner)."""
+    from maplehelper import quests
+    d, c = tools("Thief", "Assassin", 31, "quests")
+    r = quests.for_level(d.kb, c.level, c.base_class, c.job, c.quests_done)
+    later = next(q for m in ("level", "missed", "soon", "later") for q in r[m] if q.afters
+                 and any(p.name == q.afters[0] for mm in ("level", "missed", "soon", "later") for p in r[mm]))
+    d._goto_quest(later.afters[0])
+    assert d.q_search.text() == later.afters[0]
+    names = [w.text() for w in d.findChildren(QLabel, "CardName") if w.isVisibleTo(d)]
+    assert names and all(later.afters[0] in n for n in names)

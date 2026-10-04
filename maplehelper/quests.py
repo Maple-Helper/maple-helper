@@ -218,12 +218,17 @@ def quest(kb, key: str) -> Quest | None:
 
 
 def job_fits(q: Quest, base_class: str, job: str) -> bool:
+    beginner = base_class == "Beginner" or (job or "") == "Beginner"
+    # Maple Island is behind a one-way boat: once a job is taken its quests can't be done (one of them stayed in
+    # the list of a Lv. 31 Assassin's skipped quests, the owner)
+    if q.area == "Maple Island" and base_class and not beginner:
+        return False
     if not q.job:
         return True
     j = q.job.lower()
     if "beginner" in j:
         # a character still a Beginner, whatever class they plan (the profile's class can be set ahead)
-        return base_class == "Beginner" or (job or "") == "Beginner"
+        return beginner
     return base_class.lower() in j or (job or "").lower() in j
 
 

@@ -325,3 +325,11 @@ def test_the_calculators_hp_hint_explains_the_monsters_hp():
     tip = terms.tip_html("Monster HP", "he")
     assert "להרוג את המפלצת" in tip and "<b style" in tip and ">HP<" in tip
     assert "MP" not in glossary.explain("Monster HP", "he")
+
+
+def test_maple_island_quests_leave_once_a_job_is_taken(kb):
+    """Maple Island is behind a one-way boat: its quests show for a Beginner, not for a Lv. 31 Assassin."""
+    from maplehelper import quests
+    q = quests.Quest(key="quest/x", name="Bringing a Mirror to Heena", level=1, area="Maple Island")
+    assert quests.job_fits(q, "Beginner", "Beginner") and not quests.job_fits(q, "Thief", "Assassin")
+    assert quests.job_fits(quests.Quest(key="quest/y", name="Y", level=1, area="Victoria Island"), "Thief", "Assassin")

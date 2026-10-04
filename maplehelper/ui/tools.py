@@ -1116,6 +1116,9 @@ class ToolsDialog(GlassDialog):
                                      self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
         # how many are marked done is on the toggle right under the header, not here again
         self._set(self.q_head, t(f"q_head_{mode}", n=len(rows), lv=c.level))
+        if self._q_level is not None and mode in ("missed", "later"):
+            picked = sum(1 for q in rows if q.opens_at() == self._q_level)
+            self._set(self.q_head, t(f"q_head_{mode}_at", n=picked, lv=self._q_level))
         self._level_chips(rows if mode in ("missed", "later") else [])
         if self._q_level is not None:
             rows = [q for q in rows if q.opens_at() == self._q_level]
@@ -1139,6 +1142,26 @@ class ToolsDialog(GlassDialog):
         # what is on screen now (a tab or a search changed it here, not through refresh): a switch back keeps it
         self.__dict__.setdefault("_filled", {})["quests"] = self._page_state("quests")
 
+    def _goto_quest(self, name: str) -> None:
+        """Show one quest by its name: the tab it is on, the whole level range, the search set to its name."""
+        c, t = self.c, self.t
+        if not c:
+            return
+        r = quests.for_level(self.kb, c.level, c.base_class, c.job, c.quests_done, crafts=c.crafts or None)
+        modes = ("level", "missed", "soon", "later")
+        mode = next((m for m in modes if any(q.name == name for q in r[m])), None)
+        if mode is None:
+            done = any((self.kb.get(k) or {}).get("name") == name for k in c.quests_done)
+            self._set(self.q_head, t("q_after_done" if done else "q_after_missing", name=name))
+            return
+        self._q_level = None
+        self.q_mode.group.buttons()[modes.index(mode)].setChecked(True)
+        self.q_search.blockSignals(True)
+        self.q_search.setText(name)
+        self.q_search.blockSignals(False)
+        self._fill_quests(new_list=True)
+        self.pages["quests"].verticalScrollBar().setValue(0)
+
     def _level_chips(self, rows: list) -> None:
         """ "הכל" and one chip per level with its count ("13 (4)"): a tap shows that level's quests only."""
         clear(self.q_levels)
@@ -1151,7 +1174,8 @@ class ToolsDialog(GlassDialog):
             return
         if self._q_level not in levels:
             self._q_level = None
-        options = [(None, self.t("q_all_levels", n=len(rows)))] + [(lv, f"{lv} ({n})") for lv, n in levels.items()]
+        # "לבל 22", the count on hover and in the header once picked ("22 (3)" read as a riddle: the owner)
+        options = [(None, self.t("q_all_levels"))] + [(lv, self.t("q_level_group", lv=lv)) for lv in levels]
         for lv, text in options:
             b = QPushButton(self._p(text), objectName="Chip")
             b.setCheckable(True)
@@ -1337,8 +1361,14 @@ class ToolsDialog(GlassDialog):
         if by_gender:
             col.addWidget(self._things_label(t("q_gender_head"), by_gender))
         hints = []
-        if q.after:
-            hints.append(t("q_after", name=bidi.ltr_block(q.after, t.rtl)))
+        for name in q.afters:
+            # the quest that opens this one, a tap away (the owner): its tab, it alone
+            hint = QPushButton(self._p(t("q_after", name=bidi.ltr_block(name, t.rtl)) + " · " + t("q_go_after")),
+                               objectName="Link")
+            hint.setCursor(Qt.PointingHandCursor)
+            hint.setAutoDefault(False)
+            hint.clicked.connect(lambda _=False, n=name: self._goto_quest(n))
+            col.addWidget(hint, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         if q.complete_level > q.level:
             hints.append(t("q_complete_lv", n=q.complete_level, take=q.level))
         if q.grade:
