@@ -25,6 +25,11 @@ from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, sour
 from .patchnotes import gutter
 
 PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "farm", "more", "route", "pets")
+# the pages by subject: twelve chips in one grid were hard to scan (the owner)
+CATEGORIES = (("training", ("train", "exp", "route")),
+              ("stats", ("calc", "build")),
+              ("quests", ("quests", "town", "crafting")),
+              ("items", ("more", "prices", "farm", "pets")))
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -192,7 +197,9 @@ class EntityPicker(QLineEdit):
         n = min(comp.completionCount(), comp.maxVisibleItems())
         if n <= 0:
             return
-        h = sum(pop.sizeHintForRow(i) for i in range(n)) + 2 * pop.frameWidth() + 10
+        rows = sum(pop.sizeHintForRow(i) for i in range(n))
+        chrome = pop.height() - pop.viewport().height()       # frame, padding: what the rows don't fill
+        h = rows + max(chrome, 2 * pop.frameWidth())
         if abs(pop.height() - h) > 1:
             pop.setFixedHeight(h)
         pop.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if comp.completionCount() > n else Qt.ScrollBarAlwaysOff)
@@ -304,11 +311,13 @@ class ToolsDialog(GlassDialog):
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(10)
-        # the pages as chips, three a row so every label stays readable; a shorter last row fills the width
-        # (on a grid of six columns: a chip of a full row spans two, the one chip of a last row all six)
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(6)
-        grid.setVerticalSpacing(6)
+        # the subjects on top (Training, Stats, Quests & crafts, Items & prices), the chosen one's pages as chips
+        # under them in one row
+        self.nav_cats = Segmented([(t(f"tool_cat_{key}"), key) for key, _ in CATEGORIES], CATEGORIES[0][0], rtl)
+        self.nav_cats.changed.connect(self._show_category)
+        outer.addWidget(self.nav_cats)
+        row = QHBoxLayout()
+        row.setSpacing(6)
         self.nav = QButtonGroup(self)
         for i, name in enumerate(PAGES):
             b = QPushButton(bidi.plain(t(f"tool_{name}"), rtl).replace("&", "&&"), objectName="Chip")   # "&" isn't a shortcut
@@ -316,13 +325,11 @@ class ToolsDialog(GlassDialog):
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("page", name)
             self.nav.addButton(b, i)
-            row, col = divmod(i, 3)
-            span = 6 // min(3, len(PAGES) - row * 3)
-            grid.addWidget(b, row, col * span, 1, span)
-        for col in range(6):
-            grid.setColumnStretch(col, 1)
+        for _, names in CATEGORIES:
+            for name in names:
+                row.addWidget(self.nav.button(PAGES.index(name)), 1)
         self.nav.idClicked.connect(self.show_page)
-        outer.addLayout(grid)
+        outer.addLayout(row)
         self.stack = QStackedWidget()
         outer.addWidget(self.stack, 1)
         # only the page asked for is built before the window shows; the others follow right after it is up
@@ -384,8 +391,24 @@ class ToolsDialog(GlassDialog):
     def c(self):
         return self.profiles.active
 
+    def _category_of(self, name: str) -> str:
+        return next(key for key, names in CATEGORIES if name in names)
+
+    def _show_category(self, key: str) -> None:
+        """A subject's page chips; a tap on a subject opens its first page."""
+        names = dict(CATEGORIES)[key]
+        for i, name in enumerate(PAGES):
+            self.nav.button(i).setVisible(name in names)
+        if PAGES[self.stack.currentIndex()] not in names:
+            self.show_page(PAGES.index(names[0]))
+
     def show_page(self, i: int):
         self._build_page(PAGES[i])
+        key = self._category_of(PAGES[i])
+        if self.nav_cats.value() != key:
+            self.nav_cats.set_value(key)
+        for j, name in enumerate(PAGES):
+            self.nav.button(j).setVisible(self._category_of(name) == key)
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
         # the quest pages rebuild up to 40 cards (~0.3 s): a tab switch back to one that would show the same thing
@@ -925,8 +948,10 @@ class ToolsDialog(GlassDialog):
         col = guides.NOTE_COLORS.get(theme.MODE, guides.NOTE_COLORS["light"])
         side = "dir='rtl' align='right'" if he else ""
         out = []
-        for tb in tables:
-            out.append(f"<h3 {side}>{guides._rich(tb.heading, he and bool(bidi._RTL.search(tb.heading)))}</h3>")
+        split = [(path, part) for tb in tables for path, part in buildplan.split_paths(self.kb, tb)]
+        for path, tb in split:
+            heading = f"{tb.heading} · {path}" if path else tb.heading      # one table a 2nd-job path (the owner)
+            out.append(f"<h3 {side}>{guides._rich(heading, he and bool(bidi._RTL.search(heading)))}</h3>")
             cells = []
             rows = tb.rows
             if tb.kind == "sp" and he:
@@ -985,7 +1010,7 @@ class ToolsDialog(GlassDialog):
         if ch:
             terms.show_html(bidi.to_html(sitedata.change_tip(self.t, ch), "rtl" if self.t.rtl else "ltr"), self.t.rtl)
 
-    def _tier_card(self, rows: list) -> QFrame | None:
+    def _tier_card(self, rows: list) -> QWidget | None:
         """The community tier list for the player's job: one grade chip per column (S / A / B: the upper, middle
         and lower third of the ten 2nd jobs), the value and its place among them on hover. Compact: the build
         table under it is the page's own content."""
@@ -995,20 +1020,24 @@ class ToolsDialog(GlassDialog):
         # a code nobody could crack ("what does this even mean?", the owner)
         t, data = self.t, sitedata.tier_data(self.kb)
         level = data.get("level") or ""
-        card = QFrame(objectName="Card")
-        lay = QVBoxLayout(card)
-        lay.setContentsMargins(12, 8, 12, 10)
-        lay.setSpacing(6)
+        # a card a 2nd job: a first job's two paths in one card read as one (the owner)
+        holder = QWidget()
+        cards = QVBoxLayout(holder)
+        cards.setContentsMargins(0, 0, 0, 0)
+        cards.setSpacing(8)
         cols = list(data.get("columns") or [])
         for n, r in enumerate(rows):
+            card = QFrame(objectName="Card")
+            lay = QVBoxLayout(card)
+            lay.setContentsMargins(12, 8, 12, 10)
+            lay.setSpacing(6)
+            cards.addWidget(card)
             title = QLabel(self._p(t("tier_title", job=bidi.ltr_name(r.name, t.rtl))), objectName="CardName")
+            src = source_tag(t, sources.COMMUNITY)
+            src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
+            lay.addLayout(chip_row([src], title))
             if n == 0:
-                src = source_tag(t, sources.COMMUNITY)
-                src.setToolTip(tip_html(t("tier_tip", n=level), t.rtl))
-                lay.addLayout(chip_row([src], title))
                 lay.addWidget(self._label(t("tier_legend", n=level), "RowHint"))
-            else:
-                lay.addWidget(title)
             for col in cols:
                 cell = r.cells.get(col) or {}
                 grade, value = cell.get("grade") or "", cell.get("value") or ""
@@ -1036,7 +1065,7 @@ class ToolsDialog(GlassDialog):
                 row.addWidget(what, 1)
                 row.addWidget(where)
                 lay.addLayout(row)
-        return card
+        return holder
 
     def _tier_column(self, col: str) -> tuple[str, str]:
         """A tier list column's short name and what it measures, in the UI language ("ST DPS" -> "DPS יחיד")."""
@@ -1104,7 +1133,7 @@ class ToolsDialog(GlassDialog):
         # the skipped and the later quests by level: a chip per level jumps to it (a Lv. 13 quest sat at the end of a
         # long scroll: the owner)
         self.q_levels_box = QWidget()
-        self.q_levels = FlowLayout(self.q_levels_box, spacing=6)
+        self.q_levels = FlowLayout(self.q_levels_box, spacing=6, per_row=6)      # six a line (the owner)
         self.q_levels_box.hide()
         lay.addWidget(self.q_levels_box)
         self._q_level = None              # the level picked there; None: every level
@@ -1142,8 +1171,8 @@ class ToolsDialog(GlassDialog):
         self.q_mode.set_text(0, self._p(t("q_level", lv=c.level)))       # "קווסטים לרמה 31"
         if new_list or not getattr(self, "_q_rows_for", None) == (c.id, c.level, mode):
             self._q_rows_for = (c.id, c.level, mode)
-            self.q_search.set_rows([(f"{q.name}  ·  Lv. {q.opens_at()}", q.name,
-                                     self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
+            self.q_search.set_rows([(f"{q.name}  ·  {t('craft_level_group', n=q.opens_at())}", q.name,
+                                     self._quest_picture(q)) for q in rows])
         # how many are marked done is on the toggle right under the header, not here again
         self._set(self.q_head, t(f"q_head_{mode}", n=len(rows), lv=c.level))
         if self._q_level is not None and mode in ("missed", "later"):
@@ -1246,6 +1275,15 @@ class ToolsDialog(GlassDialog):
             self._refresh_in_place()
         more.clicked.connect(lambda *_: show_more())
         layout.addWidget(more, 0, Qt.AlignHCenter)
+
+    def _quest_picture(self, q):
+        """The quest's NPC, or the quest picture when the KB names none ("To Henesys" showed a blank)."""
+        path = self._picture_path("npc", q.npc) if q.npc else None
+        if path:
+            return path
+        from ..kb import FALLBACK_DIR
+        quest = FALLBACK_DIR / "quest.png"
+        return str(quest) if quest.exists() else None
 
     def _picture_path(self, kind: str, name: str):
         uri = self._picture_uri(kind, name)
@@ -1365,9 +1403,9 @@ class ToolsDialog(GlassDialog):
         npc = QLabel()
         npc.setFixedSize(52, 60)
         npc.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-        uri = self._picture_uri("npc", q.npc) if q.npc else None
-        if uri:
-            pm = QPixmap(QUrl(uri).toLocalFile())
+        path = self._quest_picture(q)
+        if path:
+            pm = QPixmap(str(path))
             if not pm.isNull():
                 npc.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         outer.addWidget(npc, 0, Qt.AlignTop)
@@ -1564,7 +1602,7 @@ class ToolsDialog(GlassDialog):
         self.craft_head = self._label("", "ToolHeader")
         lay.addWidget(self.craft_head)
         self.craft_levels_box = QWidget()
-        self.craft_levels = FlowLayout(self.craft_levels_box, spacing=6)
+        self.craft_levels = FlowLayout(self.craft_levels_box, spacing=6, per_row=6)
         self.craft_levels_box.hide()
         lay.addWidget(self.craft_levels_box)
         self._craft_level_pick = None
@@ -1769,7 +1807,7 @@ class ToolsDialog(GlassDialog):
         self.town_head = self._label("", "ToolHeader")
         lay.addWidget(self.town_head)
         self.town_grades_box = QWidget()
-        self.town_grades = FlowLayout(self.town_grades_box, spacing=6)
+        self.town_grades = FlowLayout(self.town_grades_box, spacing=6, per_row=6)
         self.town_grades_box.hide()
         lay.addWidget(self.town_grades_box)
         self._town_grade_pick = None
@@ -1827,7 +1865,7 @@ class ToolsDialog(GlassDialog):
         def grade(q):
             return q.grade[1] if q.grade else 0
         rows = sorted(rows, key=lambda q: (grade(q), -q.exp))      # by the grade they ask, lowest first
-        self.town_search.set_rows([(q.name, q.name, self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
+        self.town_search.set_rows([(q.name, q.name, self._quest_picture(q)) for q in rows])
         grades: dict[int, int] = {}
         for q in rows:
             grades[grade(q)] = grades.get(grade(q), 0) + 1

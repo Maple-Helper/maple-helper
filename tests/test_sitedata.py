@@ -304,7 +304,9 @@ def test_play_tools_build_and_bag_pages(real_site, isolated_store, lang):
         terms.show_html = real
     assert shown and "35" in shown[0] and "40" in shown[0]
     # the community tier card: one row for a Fighter, a grade per column
-    card = d.build_tier.itemAt(0).widget()
+    cards = d.build_tier.itemAt(0).widget().findChildren(QFrame, "Card")
+    assert len(cards) == 1                                     # a card a 2nd job (a Bowman gets two)
+    card = cards[0]
     assert isinstance(card, QFrame) and any(bare(w.text()) in ("קהילה", "Community") for w in card.findChildren(QLabel, "SourceTag"))
     assert len(card.findChildren(QLabel, "TagGood")) + len(card.findChildren(QLabel, "TagWarn")) + \
         len([w for w in card.findChildren(QLabel, "Tag")]) == 8
@@ -333,3 +335,19 @@ def test_a_skill_change_note_reads_in_hebrew_when_translated(real_site):
     # NiaMeowDB rewrote the note since: the English comes back, said to be English
     changed = SkillChange(**{**ch.__dict__, "note": ch.note + " (updated)"})
     assert note_he(changed) is None and "always absorbed" in change_tip(I18n("he"), changed)
+
+
+@needs_kb
+def test_a_first_jobs_table_of_both_paths_splits_into_one_a_path():
+    # "Bowman" over a table of Bow and Crossbow columns read as one job: a table a path, the shared columns in each
+    from maplehelper import buildplan
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    _, tables = buildplan.tables(kb, "Bowman", "Bowman", 20, "en")
+    parts = [(path, part) for tb in tables for path, part in buildplan.split_paths(kb, tb)]
+    ap = [(path, part.rows[0]) for path, part in parts if part.kind == "ap"]
+    assert [p for p, _ in ap] == ["Bow", "Crossbow"]
+    assert all(not any("Crossbow" in h for h in head) for p, head in ap if p == "Bow")
+    assert all(head[0].startswith("Level") for _, head in ap)
+    _, tables = buildplan.tables(kb, "Thief", "Thief", 20, "en")
+    assert all(path == "" for tb in tables for path, _ in buildplan.split_paths(kb, tb))

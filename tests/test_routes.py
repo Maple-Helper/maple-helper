@@ -287,17 +287,24 @@ def test_route_page(world, qt, isolated_store, lang):
         d.close()
 
 
-def test_a_shorter_last_row_of_tool_chips_fills_the_width(world, qt, isolated_store):
-    from maplehelper.ui.tools import PAGES, ToolsDialog
+def test_the_tool_pages_are_grouped_by_subject(world, qt, isolated_store):
+    # the subjects on top, the chosen one's pages under them in one row (twelve chips were hard to scan)
+    from maplehelper.ui.tools import CATEGORIES, PAGES, ToolsDialog
     kb, _ = world
+    assert sorted(n for _, names in CATEGORIES for n in names) == sorted(PAGES)
     d = ToolsDialog(kb, isolated_store.Profiles(), isolated_store.Settings(), "en", "", {}, "train")
     try:
         d.resize(470, 800)
         d.show()
         qt.processEvents()
-        first, last = d.nav.button(0), d.nav.button(len(PAGES) - 1)
-        alone = len(PAGES) % 3 or 3                  # chips on the last row
-        assert last.width() > (3 / alone - 0.2) * first.width() and last.y() > d.nav.button(len(PAGES) - alone - 1).y()
+        shown = [PAGES[i] for i in range(len(PAGES)) if d.nav.button(i).isVisible()]
+        assert shown == ["train", "exp", "route"] and d.nav_cats.value() == "training"
+        assert len({d.nav.button(PAGES.index(n)).y() for n in shown}) == 1
+        d.nav_cats.group.buttons()[3].click()              # Items & prices: opens its first page
+        qt.processEvents()
+        assert PAGES[d.stack.currentIndex()] == "more" and not d.nav.button(0).isVisible()
+        d.show_page(PAGES.index("build"))                  # a page opened from elsewhere names its subject
+        assert d.nav_cats.value() == "stats" and d.nav.button(PAGES.index("calc")).isVisible()
     finally:
         d.close()
 

@@ -1,9 +1,9 @@
 {
- "title": "מדריך Forgotten Hollow: קווסטים, מפלצות ומפות (לבל 39-60)",
+ "title": "מדריך Forgotten Hollow: קווסטים, מפלצות ומפות (רמה 39-60)",
  "intro": "Forgotten Hollow לא קיים בשום מקום אחר ב-MapleStory: 15 קווסטים, עיר פיות במערה, עשר מפלצות חדשות והבוס Rotten Mushmom.",
  "blocks": [
   {
-   "p": "[[img:99e27e8c542fc6.png]] Forgotten Hollow הוא אזור חדש לגמרי שלא קיים בשום מקום אחר ב-MapleStory. זו מערה עם עיר פיות משלה, עשר מפלצות חדשות, הבוס Rotten Mushmom ו-15 קווסטים. הסיפור מתחיל בלבל 39 אצל Grendel the Really Old ב-Ellinia. הוא גם נגמר אצלו."
+   "p": "[[img:99e27e8c542fc6.png]] Forgotten Hollow הוא אזור חדש לגמרי שלא קיים בשום מקום אחר ב-MapleStory. זו מערה עם עיר פיות משלה, עשר מפלצות חדשות, הבוס Rotten Mushmom ו-15 קווסטים. הסיפור מתחיל ברמה 39 אצל Grendel the Really Old ב-Ellinia. הוא גם נגמר אצלו."
   },
   {
    "img": "666c9e9d0a6175.png",
@@ -87,10 +87,10 @@
    "p": "הסיפור של ה-Hollow מתחיל ב-Magic Library של Grendel עם The Roots of Regret. The Sage's Burden ו-Myra's Old Friend שניהם נגמרים שם."
   },
   {
-   "h2": "טווח לבלים"
+   "h2": "טווח רמות"
   },
   {
-   "p": "עשר המפלצות החדשות נעות מלבל 39 (Glowshroom) עד 59 (Sporewood). Rotten Mushmom הוא לבל 60. הקווסטים נפתחים בשלבים: שרשרת Ellinia ושני הקווסטים הראשונים של Zelya ב-39, The Road Back Home ב-43, השרשרת של Nyroth ב-45, Myra ב-49 ו-Daniel ב-50. מפלצות ותיקות חולקות את המפות: Zombie Mushrooms, Zombie Lupins, Lupins, Curse Eyes, Evil Eyes ו-Fairies."
+   "p": "עשר המפלצות החדשות נעות מרמה 39 (Glowshroom) עד 59 (Sporewood). Rotten Mushmom הוא רמה 60. הקווסטים נפתחים בשלבים: שרשרת Ellinia ושני הקווסטים הראשונים של Zelya ב-39, The Road Back Home ב-43, השרשרת של Nyroth ב-45, Myra ב-49 ו-Daniel ב-50. מפלצות ותיקות חולקות את המפות: Zombie Mushrooms, Zombie Lupins, Lupins, Curse Eyes, Evil Eyes ו-Fairies."
   },
   {
    "h2": "שרשרת הקווסטים, קווסט אחרי קווסט"
@@ -105,7 +105,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -154,7 +154,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -189,7 +189,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -238,7 +238,7 @@
    "table": [
     [
      "קווסט",
-     "לבל",
+     "רמה",
      "התחלה והגשה",
      "מה עושים",
      "פרסים"
@@ -364,13 +364,13 @@
    "h2": "המפלצות החדשות"
   },
   {
-   "p": "עשר מפלצות רגילות חדשות ב-Hollow, ועוד הבוס. לבלים, HP, EXP ואלמנטים:"
+   "p": "עשר מפלצות רגילות חדשות ב-Hollow, ועוד הבוס. רמות, HP, EXP ואלמנטים:"
   },
   {
    "table": [
     [
      "מפלצת",
-     "לבל",
+     "רמה",
      "HP",
      "EXP",
      "חולשה",
@@ -462,7 +462,7 @@
    "h2": "הבוס: Rotten Mushmom"
   },
   {
-   "p": "Rotten Mushmom עושה ספאון רק ב-Someone Else's Grave, מפה נסתרת ליד Decayed Tunnel I. היא Mushmom אנדד, לבל 60 לעומת 40 של המקורית."
+   "p": "Rotten Mushmom עושה ספאון רק ב-Someone Else's Grave, מפה נסתרת ליד Decayed Tunnel I. היא Mushmom אנדד, רמה 60 לעומת 40 של המקורית."
   },
   {
    "p": "[[img:c090f6e4b73be2.png]]\nRotten Mushmom"
@@ -471,7 +471,7 @@
    "table": [
     [
      "בוס",
-     "לבל",
+     "רמה",
      "HP",
      "EXP",
      "חולשה",

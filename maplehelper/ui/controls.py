@@ -112,6 +112,12 @@ class Segmented(QFrame):
         b = self.group.checkedButton()
         return b.property("value") if b else None
 
+    def set_value(self, value) -> None:
+        """Pick a segment without the changed signal (a page opened from elsewhere names its subject)."""
+        for b in self.group.buttons():
+            if b.property("value") == value:
+                b.setChecked(True)
+
     def set_label(self, label: str) -> None:
         """What a screen reader says for it: the row's label for the control, and as context on each segment
         (alone, "Dark" or "A" says nothing about what it sets)."""
@@ -500,9 +506,11 @@ class FlowLayout(QLayout):
     """Items in a row from the leading edge (right in Hebrew), wrapping onto the next line when the row is full:
     a row of tags or chips never makes the window wider than it is (one long row pushed it past 470 px)."""
 
-    def __init__(self, parent: QWidget | None = None, spacing: int = 6, line_spacing: int | None = None):
+    def __init__(self, parent: QWidget | None = None, spacing: int = 6, line_spacing: int | None = None,
+                 per_row: int = 0):
         super().__init__(parent)
         self._items = []
+        self._per_row = per_row           # at most this many a line (0: as many as fit)
         self._h = spacing
         self._v = spacing if line_spacing is None else line_spacing
         self.setContentsMargins(0, 0, 0, 0)
@@ -556,7 +564,7 @@ class FlowLayout(QLayout):
             if item.isEmpty():
                 continue
             w = min(item.sizeHint().width(), max(1, area.width()))
-            if line and x + self._h + w > area.width():
+            if line and (x + self._h + w > area.width() or (self._per_row and len(line) >= self._per_row)):
                 lines.append(line)
                 line, x = [], 0
             x += (self._h if line else 0) + w

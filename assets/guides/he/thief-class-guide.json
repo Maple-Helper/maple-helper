@@ -1,6 +1,6 @@
 {
- "title": "מדריך בילד ולבלינג ל-Thief ב-MapleStory Classic: לבל 1-30",
- "intro": "Thief מתאמן אצל ה-Dark Lord מתחת ל-Kerning City. Lucky Seven הוא הבילד המהיר יותר ללבל 10-30 ל-Assassin ו-Bandit עתידיים. הרבה Bandits ישחקו כ-Sindit, ואז יעבירו את ה-SP של הג'וב הראשון לסקילי dagger אחרי ההתקדמות לג'וב השני עם SP reset.",
+ "title": "מדריך בילד ולבלינג ל-Thief ב-MapleStory Classic: רמה 1-30",
+ "intro": "Thief מתאמן אצל ה-Dark Lord מתחת ל-Kerning City. Lucky Seven הוא הבילד המהיר יותר לרמה 10-30 ל-Assassin ו-Bandit עתידיים. הרבה Bandits ישחקו כ-Sindit, ואז יעבירו את ה-SP של הג'וב הראשון לסקילי dagger אחרי ההתקדמות לג'וב השני עם SP reset.",
  "blocks": [
   {
    "p": "**יתרונות**"
@@ -38,7 +38,7 @@
    "note": "**Base Accuracy**\nfloor((1.2 x Total DEX + 2 x Level + 0.6 x Total LUK) x 0.25 + 15)\nTotal Accuracy הוא Base Accuracy ועוד Accuracy ישיר מ-Nimble Body, ציוד או פוטים."
   },
   {
-   "p": "**+0.50** Base ACC לכל לבל"
+   "p": "**+0.50** Base ACC לכל רמה"
   },
   {
    "p": "**+0.30** Base ACC לכל DEX"
@@ -50,10 +50,10 @@
    "p": "**+1.00** Total ACC לכל ACC ישיר"
   },
   {
-   "p": "**DEX הוא לא סטט ה-Accuracy היחיד שלכם.** לבל הדמות ו-LUK גם מעלים Base Accuracy, ו-Nimble Body מקסימלי מוסיף 15 Accuracy ישיר. לכל מוב יש Avoidability, ולהילחם במובים מעל הלבל שלכם מעלה עוד את דרישת ה-Accuracy. מפת אימון \"גרועה\" יכולה להפוך לטובה פשוט מעליית לבל או מהעלאת עוד LUK."
+   "p": "**DEX הוא לא סטט ה-Accuracy היחיד שלכם.** רמה הדמות ו-LUK גם מעלים Base Accuracy, ו-Nimble Body מקסימלי מוסיף 15 Accuracy ישיר. לכל מוב יש Avoidability, ולהילחם במובים מעל הרמה שלכם מעלה עוד את דרישת ה-Accuracy. מפת אימון \"גרועה\" יכולה להפוך לטובה פשוט מעליית רמה או מהעלאת עוד LUK."
   },
   {
-   "note": "**אחוז פגיעה: פער לבלים ו-Avoidability של המוב**\nL = max(0, Mob Level - Your Level)\nA = Total Accuracy x 100 / (10 x L + 255)\nD = A - Mob Avoidability\nמוב עם Avoidability גבוה יותר קשה יותר לפגיעה. פער לבלים חיובי גם מוריד את הערך של ה-Accuracy שלכם לפני שהמשחק בודק את ה-Avoidability של המוב."
+   "note": "**אחוז פגיעה: פער רמות ו-Avoidability של המוב**\nL = max(0, Mob Level - Your Level)\nA = Total Accuracy x 100 / (10 x L + 255)\nD = A - Mob Avoidability\nמוב עם Avoidability גבוה יותר קשה יותר לפגיעה. פער רמות חיובי גם מוריד את הערך של ה-Accuracy שלכם לפני שהמשחק בודק את ה-Avoidability של המוב."
   },
   {
    "h3": "דוגמאות Accuracy אמיתיות"
@@ -65,9 +65,9 @@
    "table": [
     [
      "מוב",
-     "לבל המוב",
+     "רמה המוב",
      "Avoid של המוב",
-     "הלבל שלך",
+     "הרמה שלך",
      "100% פגיעה",
      "סה\"כ בבילד לדוגמה"
     ],
@@ -106,13 +106,13 @@
    ]
   },
   {
-   "p": "ההשוואה של Zombie Mushroom מראה כמה הלבל משנה. הבילד לדוגמה של לבל 20 יכול לפספס למרות שהבילד שלו בסדר ל-Stirges. חמישה לבלים אחר כך, אותו מוב צריך שבעה ACC פחות ו-Nimble Body קיבל עוד שמונה לבלים של סקיל."
+   "p": "ההשוואה של Zombie Mushroom מראה כמה הרמה משנה. הבילד לדוגמה של רמה 20 יכול לפספס למרות שהבילד שלו בסדר ל-Stirges. חמישה רמות אחר כך, אותו מוב צריך שבעה ACC פחות ו-Nimble Body קיבל עוד שמונה רמות של סקיל."
   },
   {
-   "h2": "לבלים 1-10: מ-Beginner ל-Thief"
+   "h2": "רמות 1-10: מ-Beginner ל-Thief"
   },
   {
-   "p": "תעשו את הקווסטים של Maple Island עד לבל 10, תעלו על הספינה ל-Victoria Island ותלכו ל-Dark Lord מתחת ל-Fusion Jazz Bar ב-Kerning City. MSClassic World הוריד את כל דרישות הסטטים להתקדמות לג'וב הראשון."
+   "p": "תעשו את הקווסטים של Maple Island עד רמה 10, תעלו על הספינה ל-Victoria Island ותלכו ל-Dark Lord מתחת ל-Fusion Jazz Bar ב-Kerning City. MSClassic World הוריד את כל דרישות הסטטים להתקדמות לג'וב הראשון."
   },
   {
    "img": "fbe95061f04380.png",
@@ -132,21 +132,21 @@
    "p": "[[img:edc2244a5bda10.png]] **Nimble Feet 3**\nבאף Speed קצר"
   },
   {
-   "p": "מקבלים 9 SP של Beginner עד לבל 10, מספיק כדי למקסם את שלושת הסקילים ב-3/3/3. תעלו אותם באיזה סדר שבא לכם."
+   "p": "מקבלים 9 SP של Beginner עד רמה 10, מספיק כדי למקסם את שלושת הסקילים ב-3/3/3. תעלו אותם באיזה סדר שבא לכם."
   },
   {
-   "note": "**תשתמשו ב-Club עד לבל 4, ואז תעברו ל-Razor בלבל 5.** ל-Club יש את הסיכוי הכי טוב לחסוך התקפה בסיסית נגד המובים המוקדמים של Maple Island. Razor הוא הנשק הטוב יותר ברגע שאפשר ללבוש אותו. אחרי שהופכים ל-Thief, תלבשו Beginner's Garnier ו-Subi Throwing-Stars."
+   "note": "**תשתמשו ב-Club עד רמה 4, ואז תעברו ל-Razor ברמה 5.** ל-Club יש את הסיכוי הכי טוב לחסוך התקפה בסיסית נגד המובים המוקדמים של Maple Island. Razor הוא הנשק הטוב יותר ברגע שאפשר ללבוש אותו. אחרי שהופכים ל-Thief, תלבשו Beginner's Garnier ו-Subi Throwing-Stars."
   },
   {
-   "h3": "חלוקת AP: לבלים 1-10"
+   "h3": "חלוקת AP: רמות 1-10"
   },
   {
-   "p": "הדוגמה למטה מתחילה ב-4 STR / 5 DEX / 4 INT / 12 LUK. תשימו כל AP שמקבלים בלבלים 2-10 ב-LUK. לא צריך DEX כדי להפוך ל-Thief."
+   "p": "הדוגמה למטה מתחילה ב-4 STR / 5 DEX / 4 INT / 12 LUK. תשימו כל AP שמקבלים ברמות 2-10 ב-LUK. לא צריך DEX כדי להפוך ל-Thief."
   },
   {
    "table": [
     [
-     "לבל",
+     "רמה",
      "AP שהתקבל",
      "להשקיע",
      "סטטים בסיסיים אחרי ההשקעה",
@@ -225,7 +225,7 @@
    ]
   },
   {
-   "h3": "בילד לדוגמה של Thief בלבל 10"
+   "h3": "בילד לדוגמה של Thief ברמה 10"
   },
   {
    "img": "7288dd21424dd4.png",
@@ -242,7 +242,7 @@
    "p": "[[img:0b5577c5eb5bd4.png]]Beginner's Garnier [[img:49136f0c4908d9.png]]Subi Throwing-Stars [[img:3ffd417559f412.png]]Black Ghetto Beanie [[img:2832fe6032f890.png]]Black Cloth Vest [[img:b28464f5d1c174.png]]Black Cloth Pants [[img:0d868cf83e4f11.png]]Blue Gidder Shoes"
   },
   {
-   "note": "תשתמשו ב-Beginner's Garnier עם Subis. Dr. Faymus מוכר Subis, ו-Don Hwang מוכר את שריון ה-Thief של לבל 10 ב-Kerning City."
+   "note": "תשתמשו ב-Beginner's Garnier עם Subis. Dr. Faymus מוכר Subis, ו-Don Hwang מוכר את שריון ה-Thief של רמה 10 ב-Kerning City."
   },
   {
    "p": "**הטרגטים המובטחים הכי טובים ל-Lucky Seven**"
@@ -251,7 +251,7 @@
    "p": "[[img:2884cdb372bd03.png]] **Blue Snail** 100% פגיעה · מובטח בקאסט אחד · 4 EXP לקאסט [[img:ca2dec0d81316e.png]] **Red Snail** 100% פגיעה · מובטח בשני קאסטים · 4 EXP לקאסט"
   },
   {
-   "h2": "לבלים 10-30: בילד סקילים ולבלינג ל-Thief"
+   "h2": "רמות 10-30: בילד סקילים ולבלינג ל-Thief"
   },
   {
    "img": "d46094244fa2cd.png",
@@ -262,16 +262,16 @@
    "p": "תשתמשו ב-Lucky Seven לדרך המהירה. נקודה אחת ב-Keen Eyes נותנת +50 טווח זריקה מוקדם, ואז תמקסמו Lucky Seven לפני שמסיימים טווח ו-Accuracy."
   },
   {
-   "h3": "אזרחות מומלצת בלבל 12"
+   "h3": "אזרחות מומלצת ברמה 12"
   },
   {
-   "p": "**Kerning City היא האזרחות הכי טובה ל-Thief.** אזרחות נפתחת בלבל 12. תירשמו ב-Kerning City Civic Center כדי שהתרומה שלכם תתחיל להצטבר מוקדם."
+   "p": "**Kerning City היא האזרחות הכי טובה ל-Thief.** אזרחות נפתחת ברמה 12. תירשמו ב-Kerning City Civic Center כדי שהתרומה שלכם תתחיל להצטבר מוקדם."
   },
   {
-   "p": "בלבל 22 וב-Helpful Stranger, Max מוכר Wolbi Throwing-Stars עם +17 W.ATK ב-1,000 מסוס. Helpful Stranger היא דרגת האזרחות השלישית ודורשת 2,000 תרומה, שלוח המודעות של Kerning City נותן במשך בערך שבועיים של דיילים ותרומות שבועיות. דרגות אזרחות מאוחרות יותר מוסיפות Overall Armor LUK Scroll: Lesser ו-Gloves Attack Scroll: Lesser. ההנחות של האזרחות חלות על מחירים זכאים בעיר הפעילה שלכם."
+   "p": "ברמה 22 וב-Helpful Stranger, Max מוכר Wolbi Throwing-Stars עם +17 W.ATK ב-1,000 מסוס. Helpful Stranger היא דרגת האזרחות השלישית ודורשת 2,000 תרומה, שלוח המודעות של Kerning City נותן במשך בערך שבועיים של דיילים ותרומות שבועיות. דרגות אזרחות מאוחרות יותר מוסיפות Overall Armor LUK Scroll: Lesser ו-Gloves Attack Scroll: Lesser. ההנחות של האזרחות חלות על מחירים זכאים בעיר הפעילה שלכם."
   },
   {
-   "h3": "יעד הסקילים של Thief בלבל 30"
+   "h3": "יעד הסקילים של Thief ברמה 30"
   },
   {
    "table": [
@@ -313,7 +313,7 @@
    ]
   },
   {
-   "h3": "חלוקת SP ל-Thief: לבלים 10-30"
+   "h3": "חלוקת SP ל-Thief: רמות 10-30"
   },
   {
    "note": "תוצאה מצטברת: L7 = Lucky Seven, NB = Nimble Body, KE = Keen Eyes, DIS = Disorder, DS = Dark Sight."
@@ -321,7 +321,7 @@
   {
    "table": [
     [
-     "לבל",
+     "רמה",
      "להשקיע",
      "תוצאה מצטברת",
      "סיבה"
@@ -395,13 +395,13 @@
    ]
   },
   {
-   "p": "אי אפשר להשקיע SP של ג'וב שני בסקילים של ג'וב ראשון, אז תסיימו את התוכנית של הג'וב הראשון עד לבל 30. Character Builder מסמן כל בילד ששובר את זה."
+   "p": "אי אפשר להשקיע SP של ג'וב שני בסקילים של ג'וב ראשון, אז תסיימו את התוכנית של הג'וב הראשון עד רמה 30. Character Builder מסמן כל בילד ששובר את זה."
   },
   {
    "note": "הטבלה למעלה היא סדר ה-Lucky Seven ש-Assassins ו-Sindits משתמשים בו. Bandits של dagger אמיתי יכולים למקסם Dark Sight ו-Double Stab במקום."
   },
   {
-   "h3": "חלוקת AP ל-Thief: לבלים 10-30"
+   "h3": "חלוקת AP ל-Thief: רמות 10-30"
   },
   {
    "p": "תעלו DEX רק כשה-claw הבא צריך את זה, ואת השאר תשימו ב-LUK. הדוגמה הנקייה משתמשת ב-15 DEX בסיסי ל-Steel Titans, 20 ל-Steel Igor, 25 ל-Meba ו-30 ל-Adamantium Guards. DEX מציוד יכול להוריד את ה-DEX הבסיסי שצריך אם הציוד הזה כבר עליכם."
@@ -412,7 +412,7 @@
   {
    "table": [
     [
-     "לבל",
+     "רמה",
      "STR בסיסי",
      "DEX בסיסי",
      "LUK בסיסי",
@@ -459,7 +459,7 @@
    "h3": "למה כל Thief צריך לעשות לבלינג עם Lucky Seven"
   },
   {
-   "p": "Lucky Seven מקסימלי עושה שתי שורות של 140% ב-16 MP ושני כוכבים. Keen Eyes מקסימלי מעלה את טווח הזריקה ל-400 px. המרחק הנוסף שומר עליכם בטוחים יותר ומאפשר לפארם Stirges ביעילות. Lucky Seven הוא הסקיל הברור ללבלים 10-30 גם ל-Assassins וגם ל-Bandits העתידיים."
+   "p": "Lucky Seven מקסימלי עושה שתי שורות של 140% ב-16 MP ושני כוכבים. Keen Eyes מקסימלי מעלה את טווח הזריקה ל-400 px. המרחק הנוסף שומר עליכם בטוחים יותר ומאפשר לפארם Stirges ביעילות. Lucky Seven הוא הסקיל הברור לרמות 10-30 גם ל-Assassins וגם ל-Bandits העתידיים."
   },
   {
    "note": "**Bandit עתידי? תעשו לבלינג כ-Sindit.** תשאירו את Lucky Seven לאורך הג'וב הראשון, תשימו את ה-SP הראשון של Bandit ב-Haste, ותשתמשו ב-Lucky Seven בזמן ש-Savage Blow גדל. המחיר הנוכחי של SP Reset לא מאומת."
@@ -477,7 +477,7 @@
    "cap": "Double Stab: האופציה המלי לבילד Bandit של dagger אמיתי."
   },
   {
-   "p": "Bandit של dagger אמיתי יכול למקסם Double Stab במקום, אם המטרה היא לסיים את הג'וב הראשון עם Dark Sight מקסימלי. נקודת הסיום הזו היא Double Stab 20, Nimble Body 15, Disorder 6 ו-Dark Sight 20. היא מוותרת על Lucky Seven ו-Keen Eyes, אז הגרינד של לבלים 10-30 איטי יותר ומלי לגמרי."
+   "p": "Bandit של dagger אמיתי יכול למקסם Double Stab במקום, אם המטרה היא לסיים את הג'וב הראשון עם Dark Sight מקסימלי. נקודת הסיום הזו היא Double Stab 20, Nimble Body 15, Disorder 6 ו-Dark Sight 20. היא מוותרת על Lucky Seven ו-Keen Eyes, אז הגרינד של רמות 10-30 איטי יותר ומלי לגמרי."
   },
   {
    "p": "האופציה השנייה היא לעשות לבלינג כ-Sindit, להפוך ל-Bandit, ואז לעשות reset ל-SP של הג'וב הראשון מיד או אחרי ש-Savage Blow מוכן. מורידים את Lucky Seven ו-Keen Eyes, ואז מסיימים את Double Stab ו-Dark Sight."
@@ -502,10 +502,10 @@
    "p": "ב-Lucky Seven, LUK אחד מוסיף 125% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד, לפני הגנה. ב-Double Stab בלי Dagger Mastery, LUK אחד מוסיף בערך 8% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד. Dagger Mastery מקסימלי מרחיב את היתרון הזה לבערך 88%."
   },
   {
-   "note": "**אל תוסיפו STR בשביל dagger של STR, אלא אם שדרוג הנשק שווה את ה-LUK שאתם מפסידים.** תבדקו את הדרישה המדויקת של ה-dagger ב-Character Builder. Reef Claw הוא ה-dagger הנקי הכי חזק בלבל 30. הוא משתמש ב-DEX ואין לו דרישת STR."
+   "note": "**אל תוסיפו STR בשביל dagger של STR, אלא אם שדרוג הנשק שווה את ה-LUK שאתם מפסידים.** תבדקו את הדרישה המדויקת של ה-dagger ב-Character Builder. Reef Claw הוא ה-dagger הנקי הכי חזק ברמה 30. הוא משתמש ב-DEX ואין לו דרישת STR."
   },
   {
-   "h3": "ציוד מומלץ: לבלים 10-30"
+   "h3": "ציוד מומלץ: רמות 10-30"
   },
   {
    "p": "תשדרגו קודם את הנשק. Lucky Seven משתמש ב-W.ATK של ה-claw ועוד ה-W.ATK של כוכב הזריקה, אז שניהם חשובים. שריון הוא בעיקר בשביל סטטים שימושיים ובשביל לשרוד דמג' ממגע."
@@ -518,7 +518,7 @@
   {
    "table": [
     [
-     "לבלים",
+     "רמות",
      "Claw וכוכבים",
      "ציוד שימושי",
      "איפה להשיג"
@@ -559,10 +559,10 @@
    "h3": "כמה Meba טוב?"
   },
   {
-   "p": "Meba הוא ה-claw היחיד עם Speed 3 בלבלים 10-30. ל-Adamantium Guards יש 4 W.ATK יותר ו-+1% Critical Damage, אבל אנימציית ההתקפה שלו ב-Speed 4 נותנת ל-Meba מקום להתחרות."
+   "p": "Meba הוא ה-claw היחיד עם Speed 3 ברמות 10-30. ל-Adamantium Guards יש 4 W.ATK יותר ו-+1% Critical Damage, אבל אנימציית ההתקפה שלו ב-Speed 4 נותנת ל-Meba מקום להתחרות."
   },
   {
-   "p": "התוצאות האלה משתמשות באותו בילד לדוגמה של לבל 30, Wolbi Throwing-Stars, Lucky Seven מקסימלי וטרגט עם 0 WDEF. Claw עם סקרולים מלאים משתמש בשבעה [[img:0082dba2f07247.png]]Claw Attack Scroll: Lesser מוצלחים, שמוסיפים 7 W.ATK ב-100% הצלחה."
+   "p": "התוצאות האלה משתמשות באותו בילד לדוגמה של רמה 30, Wolbi Throwing-Stars, Lucky Seven מקסימלי וטרגט עם 0 WDEF. Claw עם סקרולים מלאים משתמש בשבעה [[img:0082dba2f07247.png]]Claw Attack Scroll: Lesser מוצלחים, שמוסיפים 7 W.ATK ב-100% הצלחה."
   },
   {
    "table": [
@@ -607,7 +607,7 @@
    "p": "**Meba הרבה יותר טוב ממה שה-19 W.ATK שלו רומזים.** Adamantium Guards נקי עושה רק 2.7% יותר DPS. עם שבעה סקרולי Lesser על שני ה-claws, Adamantium Guards מוביל רק ב-0.9% DPS. Adamantium Guards עדיין מנצח בדמג' לקאסט ובדמג' לכל MP, אז הוא טוב יותר כשכל מכה חשובה יותר ממהירות ההתקפה."
   },
   {
-   "note": "**אל תעשו סקרולים לשניהם אלא אם הסקרולים זולים.** Meba חזק מספיק כדי להישאר איתו בלבל 30, בזמן ש-Adamantium Guards חוסך יותר MP והופך לבסיס הטוב יותר לסקרולינג כבד יותר."
+   "note": "**אל תעשו סקרולים לשניהם אלא אם הסקרולים זולים.** Meba חזק מספיק כדי להישאר איתו ברמה 30, בזמן ש-Adamantium Guards חוסך יותר MP והופך לבסיס הטוב יותר לסקרולינג כבד יותר."
   },
   {
    "h3": "Daggers ומגנים"
@@ -640,7 +640,7 @@
    "h3": "W.ATK או Critical Rate על הכפפות?"
   },
   {
-   "p": "בדוגמת ה-Lucky Seven של לבל 30, חמישה סקרולי כפפות Lesser מוצלחים נותנים את התוצאות הצפויות האלה:"
+   "p": "בדוגמת ה-Lucky Seven של רמה 30, חמישה סקרולי כפפות Lesser מוצלחים נותנים את התוצאות הצפויות האלה:"
   },
   {
    "h3": "5x Gloves Attack Scroll: Lesser"
@@ -661,7 +661,7 @@
    "h3": "מגדר ו-overalls של Thief"
   },
   {
-   "p": "בלבל 30, דמויות זכרים יכולות להשיג Blue Sauna Robe ודמויות נקבות Red Sauna Robe משרשרת הקווסטים של Mr. Wetbottom ב-Sleepywood. שניהם נותנים +1 STR, DEX, INT ו-LUK עם 10 סלוטים לסקרולים."
+   "p": "ברמה 30, דמויות זכרים יכולות להשיג Blue Sauna Robe ודמויות נקבות Red Sauna Robe משרשרת הקווסטים של Mr. Wetbottom ב-Sleepywood. שניהם נותנים +1 STR, DEX, INT ו-LUK עם 10 סלוטים לסקרולים."
   },
   {
    "p": "[[img:ce6353bc3a96de.png]]Blue Sauna Robe [[img:28e63130664b1b.png]]Red Sauna Robe [[img:b5f669e7b60ead.png]]Overall Armor LUK Scroll: Lesser"
@@ -670,16 +670,16 @@
    "p": "סקרולי Lesser Overall LUK מוסיפים +1 LUK ב-100%. סקרולי Intermediate מוסיפים +2 LUK ב-60%. לחולצות ולמכנסיים אין סקרולים של STR, DEX, INT או LUK, אז הרבה יותר קל לבנות overall של 10 סלוטים לדמג'."
   },
   {
-   "note": "**Thieves נקבות מקבלות overall של הקלאס חזק יותר בלבל 35.** Dark Avenger מתחיל עם +6 LUK ו-10 סלוטים. Sauna Robe מתחיל עם +1 LUK. Thieves זכרים לא מקבלים overall מקביל של Thief בלבל הזה."
+   "note": "**Thieves נקבות מקבלות overall של הקלאס חזק יותר ברמה 35.** Dark Avenger מתחיל עם +6 LUK ו-10 סלוטים. Sauna Robe מתחיל עם +1 LUK. Thieves זכרים לא מקבלים overall מקביל של Thief ברמה הזה."
   },
   {
-   "h3": "מפות אימון: לבלים 10-30"
+   "h3": "מפות אימון: רמות 10-30"
   },
   {
    "p": "ה-Training Advisor של NiaMeowDB, שנקרא Recommended Training ב-Character Builder, מותאם לדמות ולבילד שלכם. הוא מדרג מובים ומפות לפי EXP למכה או לקאסט של סקיל."
   },
   {
-   "p": "לכל שורה של לבלים 15-30 למטה יש 100% פגיעה, וכל ספאון ברשימה מת תוך שני קאסטים של Lucky Seven עם הדמג' הכי חלש האפשרי של הבילד. לבילד של לבל 10 אין מפה ב-Victoria Island שבה כל ספאון עובר את הבדיקה הזו, אז השורה שלו מראה את שתי המפות הבטוחות הכי טובות של ה-Advisor ואת הקאסטים הנוספים שהן צריכות."
+   "p": "לכל שורה של רמות 15-30 למטה יש 100% פגיעה, וכל ספאון ברשימה מת תוך שני קאסטים של Lucky Seven עם הדמג' הכי חלש האפשרי של הבילד. לבילד של רמה 10 אין מפה ב-Victoria Island שבה כל ספאון עובר את הבדיקה הזו, אז השורה שלו מראה את שתי המפות הבטוחות הכי טובות של ה-Advisor ואת הקאסטים הנוספים שהן צריכות."
   },
   {
    "p": "**מה זה אומר דמג' הכי חלש?** הדמג' שלכם משתנה בכל התקפה. הדמג' הכי חלש הוא המכה הכי נמוכה שהבילד שלכם יכול להוציא. מובטח בשני קאסטים אומר ששני קאסטים של Lucky Seven בלי מזל עדיין הורגים את המוב. רולים רגילים וגבוהים יכולים להרוג אותו מהר יותר."
@@ -688,12 +688,12 @@
    "p": "נתוני ה-EXP/min הם הערכות של ה-Advisor לבילד הדוגמה בכל שורה. הם משתמשים בנתוני הספאון הנוכחיים ומפעילים קנס Danger קטן יותר לקלאסים של טווח. תנועה וצפיפות משנות את התוצאה. וגם איסוף לוט והציוד האמיתי שלכם. Stirges נכללים כי Lucky Seven יכול לפגוע במובים מעופפים ביעילות."
   },
   {
-   "note": "**צפו לעומס כבד אצל ה-Stirges ברכבת התחתית של Kerning.** מפות ה-Stirge היו בפער מקומות האימון הכי פופולריים ל-Lucky Seven ב-COT2. Transfer Area גם מוביל ב-Training Advisor בלבלים 20, 25 ו-30 למטה, אז צפיפות ו-KS יכולים למחוק את יתרון ה-EXP שלה."
+   "note": "**צפו לעומס כבד אצל ה-Stirges ברכבת התחתית של Kerning.** מפות ה-Stirge היו בפער מקומות האימון הכי פופולריים ל-Lucky Seven ב-COT2. Transfer Area גם מוביל ב-Training Advisor ברמות 20, 25 ו-30 למטה, אז צפיפות ו-KS יכולים למחוק את יתרון ה-EXP שלה."
   },
   {
    "table": [
     [
-     "לבל",
+     "רמה",
      "בילד שנבדק",
      "הבחירות של Training Advisor",
      "הריגות עם הדמג' הכי חלש"
@@ -734,7 +734,7 @@
    "p": "**זמן המילוי משנה את המפה הכי טובה.** Transfer Area נמצאת ליד Kerning City בשביל פוטים וטעינת כוכבים. ה-tree dungeons של Ellinia רחוקים יותר בהליכה מ-Ellinia. Damp Forest קרובה ל-Sleepywood, בזמן ש-Dangerous Steam נמצאת עמוק יותר בתוך הדאנג'ן. יתרון EXP קטן יכול להיעלם אם כל מילוי דורש הליכה ארוכה."
   },
   {
-   "h3": "בילד לדוגמה של Thief בלבל 30"
+   "h3": "בילד לדוגמה של Thief ברמה 30"
   },
   {
    "p": "4 STR בסיסי / 30 DEX בסיסי / 4 INT בסיסי / 132 LUK בסיסי\n5 STR / 34 DEX / 5 INT / 139 LUK / 40 W.ATK כולל / 77 ACC עם ציוד"
@@ -743,7 +743,7 @@
    "p": "**סקילים:** Nimble Body 15, Keen Eyes 15, Disorder 3, Dark Sight 8, Lucky Seven 20."
   },
   {
-   "p": "**אחרי ההתקדמות לג'וב השני:** 1,134 HP בסיסי ו-953 MP בסיסי לפני ציוד. Lucky Seven עושה 366-622 לקאסט נגד טרגט באותו לבל עם 0 WDEF, בממוצע בערך 502 אחרי ה-7% Critical Rate וה-21% Critical Damage של הדוגמה."
+   "p": "**אחרי ההתקדמות לג'וב השני:** 1,134 HP בסיסי ו-953 MP בסיסי לפני ציוד. Lucky Seven עושה 366-622 לקאסט נגד טרגט באותו רמה עם 0 WDEF, בממוצע בערך 502 אחרי ה-7% Critical Rate וה-21% Critical Damage של הדוגמה."
   },
   {
    "p": "[[img:7f4e91463e6782.png]]Adamantium Guards [[img:6b8e85bc094214.png]]Wolbi [[img:b7bfab8434bc30.png]]Dark Guise [[img:b7809c05ccf52e.png]]Steel Sylvia [[img:ce6353bc3a96de.png]]Sauna Robe [[img:7016676a1496a2.png]]Bronze Chain Boots [[img:756539415b1d40.png]]Old Raggedy Cape"
@@ -767,7 +767,7 @@
    "cap": "Razor, הנפה 1. כל מפלצת שהגוף שלה נוגע בתיבה הכחולה נפגעת: 11-85 px מולכם, מ-11 עד 51 px מעל הרגליים."
   },
   {
-   "p": "ל-Thief עם dagger, הטווח תלוי ב-dagger. ה-daggers מסוג Zamadar (מלבל 10), Forked Dagger (27) ו-Cass (30) עומדים בממוצע על 86 px להתקפה בסיסית. שאר ה-daggers עד לבל 30, מ-Razor ועד Reef Claw, בממוצע 74 px. לטווח יש השפעה ישירה על ה-DPS בפועל. טווח ארוך יותר הופך מובים לקלים יותר לפגיעה ממרחק ומונע מהם להתקרב מספיק כדי לפגוע בכם. השוו כל משפחת נשק במדריך טווח הנשקים."
+   "p": "ל-Thief עם dagger, הטווח תלוי ב-dagger. ה-daggers מסוג Zamadar (מרמה 10), Forked Dagger (27) ו-Cass (30) עומדים בממוצע על 86 px להתקפה בסיסית. שאר ה-daggers עד רמה 30, מ-Razor ועד Reef Claw, בממוצע 74 px. לטווח יש השפעה ישירה על ה-DPS בפועל. טווח ארוך יותר הופך מובים לקלים יותר לפגיעה ממרחק ומונע מהם להתקרב מספיק כדי לפגוע בכם. השוו כל משפחת נשק במדריך טווח הנשקים."
   },
   {
    "p": "**86 px טווח ממוצע**"
@@ -799,7 +799,7 @@
     [
      "[[img:3c37dc4ebd42ec.png]]Double Stab",
      "כן, רק דקירות",
-     "Double Stab תמיד משתמש בדקירה 1 או בדקירה 2. הן מגיעות ל-84 ו-83 px עם ה-daggers מסוג Zamadar, Forked Dagger ו-Cass, ול-74 ו-70 px עם כל dagger אחר עד לבל 30."
+     "Double Stab תמיד משתמש בדקירה 1 או בדקירה 2. הן מגיעות ל-84 ו-83 px עם ה-daggers מסוג Zamadar, Forked Dagger ו-Cass, ול-74 ו-70 px עם כל dagger אחר עד רמה 30."
     ],
     [
      "[[img:15c4a6d43a4751.png]]Disorder",
@@ -856,7 +856,7 @@
   {
    "ol": [
     "**להוסיף DEX בשביל ההתקדמות לג'וב הראשון.** MSClassic World הוריד את דרישת הסטטים להתקדמויות ג'וב. תוסיפו DEX רק כשה-claw או השריון הבא צריכים את זה.",
-    "**לבנות Double Stab בלי להתחייב ללבלינג אמיתי עם dagger.** Lucky Seven הוא הבילד הקל יותר ללבלים 10-30 ל-Bandits עתידיים. Double Stab שייך לאלטרנטיבה בלי reset ועם Dark Sight מקסימלי.",
+    "**לבנות Double Stab בלי להתחייב ללבלינג אמיתי עם dagger.** Lucky Seven הוא הבילד הקל יותר לרמות 10-30 ל-Bandits עתידיים. Double Stab שייך לאלטרנטיבה בלי reset ועם Dark Sight מקסימלי.",
     "**להוסיף DEX בלי לבדוק ציוד.** תעמדו בדרישת הנשק עם הסטטים הכוללים מהציוד האחר שעליכם, ואז תשימו את השאר ב-LUK.",
     "**לקנות כוכבים נדירים לפני שדרוגים בסיסיים.** תקנו קודם claw עדכני ומספיק אוכל ל-MP. תסחבו כמה ערימות שאפשר לטעון לפני שאתם מוציאים על כוכבי זריקה יקרים.",
     "**לשכוח את זמן המילוי.** מפת אימון מומלצת יכולה להיות פחות אידיאלית אם היא רחוקה מחנויות פוטים וטעינת כוכבים.",
@@ -865,7 +865,7 @@
    ]
   },
   {
-   "h2": "בחירת הג'וב השני בלבל 30"
+   "h2": "בחירת הג'וב השני ברמה 30"
   },
   {
    "p": "תחזרו ל-Dark Lord ב-Kerning City, תסיימו את מבחן ההתקדמות ותבחרו Assassin או Bandit. ה-AP וה-SP של הג'וב הראשון נשארים איתכם."
@@ -883,7 +883,7 @@
   },
   {
    "guide": "assassin-class-guide",
-   "text": "המשיכו למדריך Assassin לבל 30-70"
+   "text": "המשיכו למדריך Assassin רמה 30-70"
   },
   {
    "h3": "Bandit"
@@ -893,7 +893,7 @@
   },
   {
    "guide": "bandit-class-guide",
-   "text": "המשיכו למדריך Bandit לבל 30-70"
+   "text": "המשיכו למדריך Bandit רמה 30-70"
   }
  ],
  "source_hash": "66f35e287223"
