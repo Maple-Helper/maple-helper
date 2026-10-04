@@ -7,6 +7,7 @@ import html
 import math
 import re
 import time
+from pathlib import Path
 
 from PySide6.QtCore import QEvent, QPoint, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
@@ -122,6 +123,11 @@ class EntityPicker(QLineEdit):
         comp.setModel(model)          # after the style: polishing a full list measured every row
         comp.activated.connect(lambda *_: QTimer.singleShot(0, self._chosen))
         self.setCompleter(comp)
+        # as tall as its rows: two quests opened a nine-row box with a scrollbar into blank space (the owner)
+        comp.popup().installEventFilter(self)
+        cm = comp.completionModel()       # typing narrows the list: the box follows
+        for sig in (cm.modelReset, cm.layoutChanged, cm.rowsInserted, cm.rowsRemoved):
+            sig.connect(lambda *_: QTimer.singleShot(0, self._fit_popup))
         self.returnPressed.connect(self.picked.emit)
         # a chevron says "this opens a list" before anyone clicks
         arrow = self.addAction(self._chevron(), QLineEdit.TrailingPosition)
@@ -169,6 +175,25 @@ class EntityPicker(QLineEdit):
     def mousePressEvent(self, e):
         super().mousePressEvent(e)
         self.open_list()                      # a click shows the whole list, not only after typing
+
+    def eventFilter(self, obj, e):
+        comp = self.completer()
+        if comp is not None and obj is comp.popup() and e.type() in (QEvent.Show, QEvent.Resize):
+            QTimer.singleShot(0, self._fit_popup)
+        return super().eventFilter(obj, e)
+
+    def _fit_popup(self) -> None:
+        comp = self.completer()
+        pop = comp.popup() if comp else None
+        if pop is None or not pop.isVisible():
+            return
+        n = min(comp.completionCount(), comp.maxVisibleItems())
+        if n <= 0:
+            return
+        h = sum(pop.sizeHintForRow(i) for i in range(n)) + 2 * pop.frameWidth() + 10
+        if abs(pop.height() - h) > 1:
+            pop.setFixedHeight(h)
+        pop.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded if comp.completionCount() > n else Qt.ScrollBarAlwaysOff)
 
     def event(self, e):
         if e.type() == QEvent.KeyPress and e.key() == Qt.Key_Down and not self.completer().popup().isVisible():
@@ -1183,10 +1208,16 @@ class ToolsDialog(GlassDialog):
         def lv(m):
             return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
         mons = sorted(mons, key=lv)
-        names = ", ".join(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})" for m in mons[:3])
+        def one(m):
+            path = self.kb.picture(m)
+            pic = (f"<img src='{Path(path).resolve().as_uri()}' width='20' height='20' style='vertical-align: middle'>"
+                   "&nbsp;" if path else "")
+            name = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
+            return f"<span style='white-space:nowrap'>{pic}{bidi.LRE}{name}{bidi.PDF}</span>"
         more = len(mons) - 3
-        text = self.t("q_dropped_by", names=names) + (" " + self.t("pn_more", n=more) if more > 0 else "")
-        return html.escape(bidi.plain(text, self.t.rtl))
+        head = html.escape(bidi.plain(self.t("q_dropped_by", names=""), self.t.rtl).rstrip())
+        tail = html.escape(" " + self.t("pn_more", n=more)) if more > 0 else ""
+        return f"{head} " + ", ".join(one(m) for m in mons[:3]) + tail
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
         t = self.t
