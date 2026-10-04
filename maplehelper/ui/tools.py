@@ -399,7 +399,7 @@ class ToolsDialog(GlassDialog):
             return None
         common = (c.id, c.level, c.base_class, c.job, tuple(c.quests_done), theme.MODE)
         if name == "quests":
-            return common + (tuple(sorted((c.crafts or {}).items())), self.q_mode.value(),
+            return common + (tuple(sorted((c.crafts or {}).items())), self.q_mode.value(), self.__dict__.get("_q_level"),
                              self.q_search.text().strip(), self._q_limit, self.q_done_toggle.isChecked())
         return common + (c.town, self._town_limit, self.town_done_toggle.isChecked())
 
@@ -1058,7 +1058,7 @@ class ToolsDialog(GlassDialog):
         sc, lay = scroll_page(self.t.rtl)
         self.q_mode = Segmented([(t("q_level", lv=""), "level"), (t("q_missed"), "missed"), (t("q_soon"), "soon"),
                                  (t("q_later"), "later")], "level", t.rtl)
-        self.q_mode.changed.connect(lambda *_: self._fill_quests(new_list=True))
+        self.q_mode.changed.connect(lambda *_: (setattr(self, "_q_level", None), self._fill_quests(new_list=True)))
         lay.addWidget(self.q_mode, 0, Qt.AlignHCenter)
         # search within the list shown (the quests that fit the character's level), not all quests
         # a list of the quests to pick from opens on a click, as the map and monster pickers do; typing still filters
@@ -1071,6 +1071,13 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(self.q_search)
         self.q_head = self._label("", "ToolHeader")
         lay.addWidget(self.q_head)
+        # the skipped and the later quests by level: a chip per level jumps to it (a Lv. 13 quest sat at the end of a
+        # long scroll: the owner)
+        self.q_levels_box = QWidget()
+        self.q_levels = FlowLayout(self.q_levels_box, spacing=6)
+        self.q_levels_box.hide()
+        lay.addWidget(self.q_levels_box)
+        self._q_level = None              # the level picked there; None: every level
         self.q_src = QHBoxLayout()
         lay.addLayout(self.q_src)
         self._source_line(self.q_src, sources.MEOWDB)
@@ -1109,6 +1116,9 @@ class ToolsDialog(GlassDialog):
                                      self._picture_path("npc", q.npc) if q.npc else None) for q in rows])
         # how many are marked done is on the toggle right under the header, not here again
         self._set(self.q_head, t(f"q_head_{mode}", n=len(rows), lv=c.level))
+        self._level_chips(rows if mode in ("missed", "later") else [])
+        if self._q_level is not None:
+            rows = [q for q in rows if q.opens_at() == self._q_level]
         query = self.q_search.text().strip()
         if query:
             found = [q for q in rows if q.matches(query)]
@@ -1128,6 +1138,35 @@ class ToolsDialog(GlassDialog):
         self._add_done(self.q_done_toggle, self.q_done, list(c.quests_done))
         # what is on screen now (a tab or a search changed it here, not through refresh): a switch back keeps it
         self.__dict__.setdefault("_filled", {})["quests"] = self._page_state("quests")
+
+    def _level_chips(self, rows: list) -> None:
+        """ "הכל" and one chip per level with its count ("13 (4)"): a tap shows that level's quests only."""
+        clear(self.q_levels)
+        levels: dict[int, int] = {}
+        for q in rows:
+            levels[q.opens_at()] = levels.get(q.opens_at(), 0) + 1
+        self.q_levels_box.setVisible(len(levels) > 1)
+        if len(levels) <= 1:
+            self._q_level = None
+            return
+        if self._q_level not in levels:
+            self._q_level = None
+        options = [(None, self.t("q_all_levels", n=len(rows)))] + [(lv, f"{lv} ({n})") for lv, n in levels.items()]
+        for lv, text in options:
+            b = QPushButton(self._p(text), objectName="Chip")
+            b.setCheckable(True)
+            b.setChecked(lv == self._q_level)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            tip = text if lv is None else self.t("q_level_count", n=levels[lv], lv=lv)
+            b.setAccessibleName(tip)
+            b.setToolTip(tip)
+            b.clicked.connect(lambda _=False, lv=lv: self._pick_level(lv))
+            self.q_levels.addWidget(b)
+
+    def _pick_level(self, lv) -> None:
+        self._q_level = lv
+        self._fill_quests(new_list=True)
 
     def _more_quests(self, layout: QVBoxLayout, total: int, shown: int, limit: str):
         """Under a list cut at `shown` cards: "Showing 40 of 56 quests" and "Show more quests". The header counts
@@ -1165,6 +1204,26 @@ class ToolsDialog(GlassDialog):
             return self._picture_uri(kind, re.sub(r" x ?[\d,]+$", "", n))
         return path.as_uri() if path else None
 
+    @staticmethod
+    def _zoom_img(uri: str, height: int = 24) -> str:
+        """A picture that shows large on hover (_zoomable): pictures this small hid what they show (the owner)."""
+        return (f"<a href='zoom:{uri}' style='text-decoration:none'>"
+                f"<img src='{uri}' height='{height}' style='vertical-align: middle'></a>&nbsp;")
+
+    @staticmethod
+    def _zoomable(lb: QLabel) -> QLabel:
+        from PySide6.QtGui import QCursor
+        from PySide6.QtWidgets import QToolTip
+        lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
+
+        def hovered(href: str):
+            if href.startswith("zoom:"):
+                QToolTip.showText(QCursor.pos(), f"<img src='{href[5:]}' height='96'>", lb)
+            else:
+                QToolTip.hideText()
+        lb.linkHovered.connect(hovered)
+        return lb
+
     def _thing_html(self, text: str) -> str:
         """ "Defeat Blue Snail x 10" / "Red Potion x 20" -> its picture, then the name (kept as one English block)."""
         m = re.fullmatch(r"(Defeat |Collect )?(.+?) x ([\d,]+)( \([\d.]+%\))?( \(.+\))?", text.strip())
@@ -1174,50 +1233,58 @@ class ToolsDialog(GlassDialog):
         n += odds or ""                 # a random reward keeps its odds: "Bronze Ore x7 (16.7%)"
         uri = self._picture_uri("monster" if verb == "Defeat " else "item", name) or \
             self._picture_uri("item" if verb == "Defeat " else "monster", name)
-        img = f"<img src='{uri}' height='24' style='vertical-align: middle'>&nbsp;" if uri else ""
+        img = self._zoom_img(uri) if uri else ""
         # picture and name in one left-to-right unit, so in Hebrew the picture stays beside its own name
         # a note in the player's language after it ("(male character)", Quest.rewards_gender), outside the block
         return (f"<span style='white-space: nowrap'>{bidi.LRE}{img}{html.escape(name)} x{n}{bidi.PDF}{bidi.RLM}</span>"
                 + html.escape(note or ""))
 
-    def _things_label(self, head: str, things: list[str], extra: str = "", droppers: bool = False) -> QLabel:
-        """A heading, then one thing per line: its picture beside its own name, never split by a wrap.
-        droppers: under each item, the monsters in the game that drop it (lowest level first): a quest's needs
-        named the items but not where to get them (the owner)."""
+    def _things_label(self, head: str, things: list[str], extra: str = "") -> QLabel:
+        """A heading, then one thing per line: its picture beside its own name, never split by a wrap."""
         side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
         lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(head)}</b></p>"]
-        for x in things:
-            lines.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>")
-            who = self._droppers_line(x) if droppers else ""
-            if who:
-                lines.append(f"<p {side} style='margin:0 0 6px 0; color:#8E8E93; font-size:small;'>{who}</p>")
+        lines += [f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(x)}</p>" for x in things]
         if extra:
             lines.append(f"<p {side} style='margin:0 0 2px 0;'>{bidi.LRE}{html.escape(extra)}{bidi.PDF}</p>")
         lb = QLabel("".join(lines), objectName="CardSub")
         lb.setTextFormat(Qt.RichText)
         lb.setWordWrap(True)
-        return lb
+        return self._zoomable(lb)
 
-    def _droppers_line(self, thing: str) -> str:
-        """ "מפילים: Ligator (Lv. 32), Croco (Lv. 52)" for a needed item ("Alligator Skin Pouch x 10"), as HTML."""
-        name = re.sub(r"\s*x\s*[\d,]+$", "", thing).strip().lower()
-        key = self.kb._item_by_name.get(name)
-        mons = [m for m in self.kb.droppers.get(key, [])] if key else []
-        if not mons:
-            return ""
+    DROPPERS_SHOWN = 6
+
+    def _droppers_label(self, needs: list[str]) -> QLabel | None:
+        """ "מפילים:" under "צריך:", one monster a line as the items are: its picture, its name and level, and which
+        of the needed items it drops; lowest level first. A quest named the items but not where to get them."""
         def lv(m):
             return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
-        mons = sorted(mons, key=lv)
-        def one(m):
+        drops: dict[str, list[str]] = {}
+        for x in needs:
+            name = re.sub(r"\s*x\s*[\d,]+$", "", x).strip()
+            key = self.kb._item_by_name.get(name.lower())
+            for m in (self.kb.droppers.get(key, []) if key else []):
+                drops.setdefault(m, []).append(name)
+        if not drops:
+            return None
+        t = self.t
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        mons = sorted(drops, key=lv)
+        lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_droppers_head'))}</b></p>"]
+        for m in mons[:self.DROPPERS_SHOWN]:
             path = self.kb.picture(m)
-            pic = (f"<img src='{Path(path).resolve().as_uri()}' width='20' height='20' style='vertical-align: middle'>"
-                   "&nbsp;" if path else "")
-            name = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
-            return f"<span style='white-space:nowrap'>{pic}{bidi.LRE}{name}{bidi.PDF}</span>"
-        more = len(mons) - 3
-        head = html.escape(bidi.plain(self.t("q_dropped_by", names=""), self.t.rtl).rstrip())
-        tail = html.escape(" " + self.t("pn_more", n=more)) if more > 0 else ""
-        return f"{head} " + ", ".join(one(m) for m in mons[:3]) + tail
+            img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
+            who = html.escape(f"{(self.kb.get(m) or {}).get('name', m)} (Lv. {lv(m)})")
+            what = html.escape(", ".join(drops[m])) if len(needs) > 1 else ""
+            tail = f"{bidi.RLM} · {bidi.LRE}{what}{bidi.PDF}" if what else ""
+            lines.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
+                         f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span>{tail}</p>")
+        if len(mons) > self.DROPPERS_SHOWN:
+            lines.append(f"<p {side} style='margin:0 0 2px 0;'>"
+                         f"{html.escape(t('pn_more', n=len(mons) - self.DROPPERS_SHOWN))}</p>")
+        lb = QLabel("".join(lines), objectName="CardSub")
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        return self._zoomable(lb)
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
         t = self.t
@@ -1251,7 +1318,10 @@ class ToolsDialog(GlassDialog):
         if where:
             col.addWidget(self._label(" · ".join(where), "CardSub"))
         if q.needs:
-            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4], droppers=True))
+            col.addWidget(self._things_label(t("q_needs_head"), q.needs[:4]))
+            who = self._droppers_label(q.needs[:4])
+            if who is not None:
+                col.addWidget(who)
         gets = q.rewards[:3]
         extra = " · ".join(x for x in (f"{q.mesos:,} mesos" if q.mesos else "", f"+{q.fame} Fame" if q.fame else "") if x)
         if gets or extra:
