@@ -481,7 +481,7 @@ def test_windows_reopen_where_the_player_was():
         show_history=lambda cid: calls.append(("history", cid)), show_wishlist=lambda cid: calls.append(("wish", cid)))
     fake._character = lambda cid: MapleHelperApp._character(fake, cid)
     reopen = lambda kind, dlg: MapleHelperApp._reopen_call(fake, kind, dlg)  # noqa: E731
-    reopen("tools", SimpleNamespace(stack=SimpleNamespace(currentIndex=lambda: 2)))()
+    reopen("tools", SimpleNamespace(stack=SimpleNamespace(currentIndex=lambda: 6)))()
     reopen("guides", SimpleNamespace(_reading="guide/x"))()
     reopen("patch_notes", SimpleNamespace(entries=["e"], tab="news"))()     # on the tab it was on
     reopen("whats_new", SimpleNamespace(notes=["n"]))()

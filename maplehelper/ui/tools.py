@@ -24,7 +24,7 @@ from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, pet_parts, sour
                       vote_tag)
 from .patchnotes import gutter
 
-PAGES = ("train", "calc", "build", "quests", "crafting", "town", "prices", "exp", "farm", "more", "route", "pets")
+PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
