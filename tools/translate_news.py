@@ -1,5 +1,5 @@
 """Translation round-trip for the news summaries (tools/scrape_news.py), the way tools/translate_guides.py does the
-guides: titles stay as published; each item's one-line summary gets a Hebrew version.
+guides: each item's title and one-line summary get a Hebrew version.
 
   export <lang> <out.json> [--kb data/kb]   writes {"strings": {id: English summary}, "hashes": {id: hash}} for every
                                             news item whose translation is missing or stale
@@ -38,30 +38,51 @@ def _current(lang: str) -> dict:
         return {}
 
 
+def _body_hash(i: dict) -> str:
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import scrape_news
+    return scrape_news._body_hash(i)
+
+
 def export(lang: str, out: Path, kb: Path) -> int:
+    """Every item whose title + summary or whose body (highlights, note) has no current translation."""
     have = _current(lang)
-    todo = [i for i in _items(kb) if (have.get(i["id"]) or {}).get("source_hash") != i["hash"]]
+    todo = [i for i in _items(kb) if (have.get(i["id"]) or {}).get("source_hash") != i["hash"]
+            or (have.get(i["id"]) or {}).get("body_hash") != _body_hash(i)]
     out.write_text(json.dumps({"strings": {i["id"]: i["summary"] for i in todo},
-                               "hashes": {i["id"]: i["hash"] for i in todo}}, ensure_ascii=False, indent=1),
+                               "titles": {i["id"]: i["title"] for i in todo},
+                               "highlights": {i["id"]: i.get("highlights") or [] for i in todo},
+                               "commentary": {i["id"]: i.get("commentary") or "" for i in todo},
+                               "hashes": {i["id"]: i["hash"] for i in todo},
+                               "body_hashes": {i["id"]: _body_hash(i) for i in todo}}, ensure_ascii=False, indent=1),
                    encoding="utf-8")
-    print(f"{len(todo)} summaries to translate -> {out}")
+    print(f"{len(todo)} news items to translate -> {out}")
     return len(todo)
 
 
 def import_(lang: str, src: Path) -> int:
+    """{"strings", "titles", "highlights", "commentary"} translated, next to the export's hashes."""
     data = json.loads(src.read_text(encoding="utf-8"))
-    hashes = data.get("hashes") or {}
+    hashes, body_hashes = data.get("hashes") or {}, data.get("body_hashes") or {}
     done = data.get("strings") or {}
+    titles, highlights, notes = data.get("titles") or {}, data.get("highlights") or {}, data.get("commentary") or {}
     have = _current(lang)
     n = 0
     for nid, text in done.items():
         if nid in hashes and isinstance(text, str) and text.strip():
             have[nid] = {"summary": text.strip(), "source_hash": hashes[nid]}
+            if isinstance(titles.get(nid), str) and titles[nid].strip():
+                have[nid]["title"] = titles[nid].strip()
+            if nid in body_hashes and isinstance(highlights.get(nid), list):
+                have[nid]["highlights"] = [str(x).strip() for x in highlights[nid]]
+                have[nid]["commentary"] = str(notes.get(nid) or "").strip()
+                have[nid]["body_hash"] = body_hashes[nid]
             n += 1
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / f"{lang}.json").write_text(json.dumps(dict(sorted(have.items())), ensure_ascii=False, indent=1) + "\n",
                                       encoding="utf-8")
-    print(f"{n} summaries imported into assets/news/{lang}.json")
+    print(f"{n} news items imported into assets/news/{lang}.json")
     return n
 
 

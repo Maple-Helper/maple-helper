@@ -27,6 +27,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NEWS_URL = "https://meowdb.com/msclassic/news"
+# the app's news start here (the owner's call, 2026-10-04): every item from then on, none older (maplehelper/news.py)
+SINCE = "2026-10-02"
 TRANSLATIONS = ROOT / "assets" / "news"
 OFFICIAL_PUBLISHERS = {"Nexon", "Shengqu", "Gamania"}       # the operators of Global, China and Taiwan Classic
 # content whose opening news may announce: a hint list, matched as whole words (case-insensitive)
@@ -97,6 +99,12 @@ def item(e: dict) -> dict | None:
     return out
 
 
+def _body_hash(i: dict) -> str:
+    """The highlights and the note, which the title + summary hash doesn't cover: a translation of the body is kept
+    only while it was made from this text."""
+    return _hash(" | ".join(i.get("highlights") or []), str(i.get("commentary") or ""))
+
+
 def translations(lang: str = "he") -> dict[str, dict]:
     try:
         data = json.loads((TRANSLATIONS / f"{lang}.json").read_text(encoding="utf-8"))
@@ -109,12 +117,21 @@ def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
     """news.json's items, newest first, each with its Hebrew summary when one was made from its current text."""
     he = translations() if he is None else he
     items = [i for i in (item(e) for e in entries(page)) if i]
+    if not items:
+        raise NewsError("the news list is empty")
+    items = [i for i in items if i["date"] >= SINCE]
     for i in items:
         tr = he.get(i["id"])
         if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and str(tr.get("summary") or "").strip():
             i["summary_he"] = tr["summary"].strip()
-    if not items:
-        raise NewsError("the news list is empty")
+            if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
+                i["title_he"] = tr["title"].strip()
+            # the article's body: its highlights and NiaMeowDB's note, when translated from the current English
+            if tr.get("body_hash") == _body_hash(i):
+                if isinstance(tr.get("highlights"), list) and len(tr["highlights"]) == len(i["highlights"]):
+                    i["highlights_he"] = [str(x).strip() for x in tr["highlights"]]
+                if str(tr.get("commentary") or "").strip() and i.get("commentary"):
+                    i["commentary_he"] = tr["commentary"].strip()
     return sorted(items, key=lambda i: (i["date"], i["id"]), reverse=True)
 
 

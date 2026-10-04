@@ -18,6 +18,7 @@ from datetime import date, timedelta
 NEWS_PAGE = "https://meowdb.com/msclassic/news"
 SETTING = "news_read"   # the ids the player dismissed or read (store.Settings), newest kept
 KEEP = 300
+SINCE = "2026-10-02"    # news start here (the owner's call, 2026-10-04); tools/scrape_news.py cuts the same
 NEW_DAYS = 14          # how long an item can still come up as unread news in the chat
 SHOWN_REGION = "gms"   # the app is for Global Classic: China / Taiwan news stay in the News tab only
 REGIONS = ("gms", "cms", "tms")
@@ -39,7 +40,8 @@ def items(kb) -> list[dict]:
         found = data.get("items") if isinstance(data, dict) else None
     except (OSError, json.JSONDecodeError):
         found = None
-    out = [i for i in found or [] if isinstance(i, dict) and i.get("id") and i.get("title") and i.get("date")]
+    out = [i for i in found or [] if isinstance(i, dict) and i.get("id") and i.get("title") and i.get("date")
+           and str(i["date"]) >= SINCE]        # (a KB from before the cut still carries older news)
     out.sort(key=lambda i: (str(i["date"]), str(i["id"])), reverse=True)
     try:
         kb._news = (stamp, out)
@@ -80,6 +82,27 @@ def summary(i: dict, lang: str) -> tuple[str, bool]:
             return he, True
         return str(i.get("summary") or ""), False
     return str(i.get("summary") or ""), True
+
+
+def body(i: dict, lang: str) -> tuple[list[str], str, bool]:
+    """The article's body: (highlights, NiaMeowDB's note, whether in the UI's language). Hebrew when translated from
+    the current English (highlights_he / commentary_he), else the English."""
+    hl, note = [str(x) for x in i.get("highlights") or []], str(i.get("commentary") or "")
+    if lang != "he":
+        return hl, note, True
+    he_hl, he_note = i.get("highlights_he"), str(i.get("commentary_he") or "")
+    if (not hl or (isinstance(he_hl, list) and len(he_hl) == len(hl))) and (not note or he_note):
+        return [str(x) for x in he_hl or []], he_note, True
+    return hl, note, False
+
+
+def title(i: dict, lang: str) -> str:
+    """The title in the UI's language: Hebrew when translated from its current English (title_he), else as published."""
+    if lang == "he":
+        he = str(i.get("title_he") or "").strip()
+        if he:
+            return he
+    return str(i.get("title") or "")
 
 
 def short_date(i: dict) -> str:

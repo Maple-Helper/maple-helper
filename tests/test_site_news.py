@@ -26,6 +26,32 @@ PAGE = (FIX / "news_page.html").read_text(encoding="utf-8")
 TODAY = date(2026, 10, 4)
 
 
+@pytest.fixture(autouse=True)
+def every_fixture_item(monkeypatch, request):
+    """The five recorded items reach back to April: the app's cut (news.SINCE, from 2026-10-02) is off here, so the
+    tests see them all; test_news_start_at_the_cut puts it back."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+    import scrape_news
+    if request.node.name != "test_news_start_at_the_cut":
+        monkeypatch.setattr(news, "SINCE", "2000-01-01")
+        monkeypatch.setattr(scrape_news, "SINCE", "2000-01-01")
+
+
+def test_news_start_at_the_cut(tmp_path):
+    """Only news from 2026-10-02 on (the owner's call): the scrape keeps none older, and the app shows none older
+    from a KB that still has them; everything after it comes in."""
+    import scrape_news
+    assert scrape_news.SINCE == news.SINCE == "2026-10-02"
+    kept = scrape_news.build(PAGE, he={})
+    assert kept and all(i["date"] >= "2026-10-02" for i in kept)
+    (tmp_path / "news.json").write_text(json.dumps({"items": [
+        {"id": "old", "title": "Old", "date": "2026-09-29"}, {"id": "new", "title": "New", "date": "2026-10-09"}]}),
+        encoding="utf-8")
+    from types import SimpleNamespace
+    assert [i["id"] for i in news.items(SimpleNamespace(root=tmp_path))] == ["new"]
+
+
 def pump(ms=60):
     end = time.time() + ms / 1000
     while time.time() < end:
@@ -219,7 +245,7 @@ def test_the_dot_tooltip_says_where_it_comes_from():
     for lang in ("he", "en"):
         t = I18n(lang)
         tip = serverdot.tip(t, st, now)
-        assert serverdot.when(st.notice_end) in tip and t("server_source", ago=t("server_just_now")) in tip
+        assert serverdot.when(st.notice_end) in tip and t("server_source", time=serverdot.when(st.checked)) in tip
     assert I18n("en")("server_unknown") in serverdot.tip(I18n("en"), None)
 
 
@@ -249,7 +275,8 @@ def chat(isolated_store, news_kb, monkeypatch):
 def test_the_news_strip_shows_the_newest_unread_and_dismisses_per_item(chat):
     chat.show_news()
     assert chat.news_strip.isVisible()
-    assert "Founder's Access release notes" in chat.news_strip.title.text()
+    # the Hebrew title (assets/news/he.json), its English names kept whole
+    assert "תקרת לבל" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
     assert "ועוד" in chat.news_strip.head.text() and "1" in chat.news_strip.head.text()
     chat.news_strip.close_btn.click()
     assert chat.settings["news_read"] == ["founders-access-release-notes"]
@@ -424,3 +451,38 @@ def test_the_megaphone_opens_the_news_window_and_marks_it_read(chat, news_kb):
     chat.show_news()
     assert chat.news_btn.property("unread") == "false"
     dlg.close()
+
+
+def test_an_article_reads_in_full_in_the_app_and_back_returns_to_the_list(news_kb):
+    """The whole item in the News window, like a guide: summary, every highlight and NiaMeowDB's note, in Hebrew
+    when translated; Back and Esc return to the list."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLabel, QPushButton
+    from maplehelper.ui.newsview import news_dialog
+    i = news.items(news_kb)[0]
+    i = dict(i, summary_he="תקציר", highlights_he=[f"עיקר {n}" for n in range(len(i["highlights"]))],
+             commentary_he="הערה" if i.get("commentary") else "")
+    dlg = news_dialog("he", "", news_kb)
+    reads = [b for b in dlg.findChildren(QPushButton) if "לקריאת הכתבה" in b.text()]
+    assert reads
+    dlg.open_article(i)
+    texts = re.sub("[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "",
+                   " ".join(lb.text() for lb in dlg.stack.currentWidget().findChildren(QLabel)))
+    assert "עיקר 0" in texts and f"עיקר {len(i['highlights']) - 1}" in texts and "העיקר" in texts
+    QTest.keyClick(dlg, Qt.Key_Escape)
+    assert dlg.stack.count() == 1 and dlg.stack.currentIndex() == 0
+    dlg.close()
+
+
+def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_days_time():
+    """The tooltip stays until the next answer, so it names the check's time, never a frozen "just now"; a date
+    and a time read "6.10, 21:00"."""
+    from datetime import datetime
+
+    from maplehelper.ui import serverdot
+    other_day = datetime(2026, 10, 6, 21, 0).timestamp()
+    assert serverdot.when(other_day) == "6.10, 21:00"
+    st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
+    tip = serverdot.tip(I18n("he"), st)
+    assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and "6.10, 21:00" in tip

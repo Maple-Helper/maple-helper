@@ -77,16 +77,11 @@ class StatusPoller(QObject):
 
 
 def when(ts: float | None) -> str:
-    """A local time a player reads at a glance: "21:00" today, "6.10 21:00" another day."""
+    """A local time a player reads at a glance: "21:00" today, "6.10, 21:00" another day."""
     if not ts:
         return ""
     d = datetime.fromtimestamp(ts)
-    return d.strftime("%H:%M") if d.date() == datetime.now().date() else f"{d.day}.{d.month} {d:%H:%M}"
-
-
-def ago(t, ts: float, now: float | None = None) -> str:
-    mins = int(max(0, (now or time.time()) - ts) // 60)
-    return t("server_just_now") if mins < 1 else t("server_min_ago", n=mins)
+    return d.strftime("%H:%M") if d.date() == datetime.now().date() else f"{d.day}.{d.month}, {d:%H:%M}"
 
 
 def tip(t, st: serverstatus.Status | None, now: float | None = None, asked: bool = True) -> str:
@@ -107,7 +102,8 @@ def tip(t, st: serverstatus.Status | None, now: float | None = None, asked: bool
         head = t("server_prelaunch_at", time=when(st.opens_at)) if st.opens_at else t("server_prelaunch")
     else:
         head = t("server_unknown")
-    src = t("server_source", ago=ago(t, st.checked, now)) if st else t("server_source_offline")
+    # the time of the check, not "just now": the tooltip is set when the answer comes and stays until the next one
+    src = t("server_source", time=when(st.checked)) if st else t("server_source_offline")
     return f"{head}\n{src}"
 
 

@@ -35,9 +35,16 @@ def _align(rtl: bool):
     return (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
 
 
+def _title(i: dict, rtl: bool) -> str:
+    """The Hebrew title as a Hebrew line (English names inside it kept whole); an English one as one
+    left-to-right block, right-aligned in Hebrew."""
+    he = news.title(i, "he" if rtl else "en")
+    return sentences(he, rtl) if he != i["title"] else bidi.ltr_name(i["title"], rtl)
+
+
 def title_label(i: dict, rtl: bool, name: str = "CardName") -> QLabel:
-    """The title as published: an English one is one left-to-right block, right-aligned in Hebrew."""
-    lb = QLabel(bidi.ltr_name(i["title"], rtl), objectName=name)
+    """The title: in Hebrew when translated (news.title), else as published."""
+    lb = QLabel(_title(i, rtl), objectName=name)
     lb.setWordWrap(True)
     lb.setAlignment(_align(rtl))
     return lb
@@ -106,14 +113,14 @@ class NewsStrip(QFrame):
         if len(unread) > 1:
             head += " · " + t("news_strip_more", n=len(unread) - 1)
         self.head.setText(bidi.plain(head, rtl))
-        self.title.setText(bidi.ltr_name(i["title"], rtl))
+        self.title.setText(_title(i, rtl))
         for lb in (self.head, self.title):
             lb.setAlignment(_align(rtl))
         text, _ = news.summary(i, t.lang)
         self.setToolTip(sentences(text, rtl) if text else "")
         self.close_btn.setToolTip(t("news_dismiss"))
         self.close_btn.setAccessibleName(t("news_dismiss"))
-        self.setAccessibleName(f"{head}: {i['title']}")
+        self.setAccessibleName(f"{head}: {news.title(i, t.lang)}")
         self.setAccessibleDescription(t("news_open_a11y"))
 
     def keyPressEvent(self, e):
@@ -130,9 +137,10 @@ class NewsStrip(QFrame):
 
 
 class NewsCard(QFrame):
-    """One news item: chips (source, region, new), the title as published, date, summary, links."""
+    """One news item: chips (source, region, new), the title, date, summary, links. on_open(item): the full
+    article in the app ("Read the article"); without it the card links to MeowDB."""
 
-    def __init__(self, t, i: dict, unread: bool = False):
+    def __init__(self, t, i: dict, unread: bool = False, on_open=None):
         super().__init__(objectName="Card")
         rtl = t.rtl
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
@@ -167,9 +175,13 @@ class NewsCard(QFrame):
             col.addWidget(body)
         links = QHBoxLayout()
         links.setSpacing(16)
-        read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
+        if on_open:
+            read = QPushButton(bidi.plain(t("news_read_full"), rtl), objectName="Link")
+            read.clicked.connect(lambda _=False, item=i: on_open(item))
+        else:
+            read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
+            read.clicked.connect(lambda _=False, u=i.get("url"): webbrowser.open(u))
         read.setCursor(Qt.PointingHandCursor)
-        read.clicked.connect(lambda _=False, u=i.get("url"): webbrowser.open(u))
         links.addWidget(read)
         src = i.get("source_url") or ""
         if src.startswith("https://") and i.get("publisher"):
@@ -181,7 +193,7 @@ class NewsCard(QFrame):
         col.addLayout(links)
 
 
-def news_page(t, kb, unread_ids=()) -> QWidget:
+def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
     """The News tab's content: Global news, then China and Taiwan, newest first, each section up to SHOWN."""
     page = QWidget()
     lay = QVBoxLayout(page)
@@ -207,7 +219,7 @@ def news_page(t, kb, unread_ids=()) -> QWidget:
         hl = QLabel(bidi.plain(t(head, n=len(rows)), rtl), objectName="SectionHeader")
         lay.addWidget(hl)
         for i in rows[:SHOWN]:
-            lay.addWidget(NewsCard(t, i, i["id"] in unread))
+            lay.addWidget(NewsCard(t, i, i["id"] in unread, on_open))
         if len(rows) > SHOWN:
             more = QPushButton(bidi.plain(t("news_more_site", n=len(rows) - SHOWN), rtl), objectName="Link")
             more.setCursor(Qt.PointingHandCursor)
@@ -216,11 +228,64 @@ def news_page(t, kb, unread_ids=()) -> QWidget:
     return page
 
 
+def article(t, i: dict) -> QWidget:
+    """A news item in full, like a guide: chips, title, date, the summary, every highlight, NiaMeowDB's note and the
+    links to MeowDB and the publisher. Hebrew where it is translated; English text reads left to right."""
+    rtl = t.rtl
+    page = QWidget()
+    page.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+    lay = QVBoxLayout(page)
+    lay.setContentsMargins(0, 0, 0, 0)
+    lay.setSpacing(10)
+    chips = QHBoxLayout()
+    chips.setSpacing(6)
+    chips.addWidget(source_chip(t, i))
+    chips.addWidget(QLabel(bidi.plain(news.short_date(i), rtl), objectName="CardSub"))
+    chips.addStretch(1)
+    lay.addLayout(chips)
+    lay.addWidget(title_label(i, rtl, "ProfileName"))
+
+    def para(text: str, translated: bool, name: str = "DialogBody") -> QLabel:
+        lb = QLabel(sentences(text, rtl) if translated else text, objectName=name)
+        lb.setWordWrap(True)
+        lb.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        lb.setAlignment(_align(rtl and translated))
+        if not translated:
+            lb.setLayoutDirection(Qt.LeftToRight)
+        return lb
+
+    text, translated = news.summary(i, t.lang)
+    if text:
+        lay.addWidget(para(text, translated))
+    points, note, body_translated = news.body(i, t.lang)
+    if points:
+        lay.addWidget(QLabel(bidi.plain(t("news_key_points"), rtl), objectName="SectionHeader"))
+        if not body_translated:
+            lay.addWidget(para(t("news_english_body"), True, "RowHint"))
+        for p in points:
+            lay.addWidget(para("• " + p, body_translated))
+    if note:
+        lay.addWidget(QLabel(bidi.plain(t("news_meowdb_note"), rtl), objectName="SectionHeader"))
+        lay.addWidget(para(note, body_translated, "RowLabel"))
+    links = QHBoxLayout()
+    links.setSpacing(16)
+    for label, url in ((t("news_read_meowdb"), i.get("url") or ""),
+                       (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "")):
+        if url.startswith("https://") and i.get("publisher"):
+            b = QPushButton(bidi.plain(label, rtl), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.clicked.connect(lambda _=False, u=url: webbrowser.open(u))
+            links.addWidget(b)
+    links.addStretch(1)
+    lay.addLayout(links)
+    return page
+
+
 def news_dialog(lang: str, stylesheet: str, kb, unread=()):
     """The News window (the megaphone in the chat's header, or the news strip tapped): every news item, newest
     first; the unread ones are marked "New" and count as read once it shows (news_seen)."""
     from PySide6.QtCore import QTimer
-    from PySide6.QtWidgets import QScrollArea
+    from PySide6.QtWidgets import QScrollArea, QStackedWidget
 
     from ..i18n import I18n
     from .glass import GlassDialog
@@ -237,17 +302,52 @@ def news_dialog(lang: str, stylesheet: str, kb, unread=()):
             self.resize(520, 680)
             outer = QVBoxLayout(self.content)
             outer.setContentsMargins(0, 0, 0, 0)
+            # the list, and an article opened from it (Back / Esc return to the list, where it was scrolled to)
+            self.stack = QStackedWidget()
+            self.stack.addWidget(self._scroll(news_page(t, kb, self.unread, self.open_article)))
+            outer.addWidget(self.stack, 1)
+            if self.unread:      # once the opener has connected news_seen
+                QTimer.singleShot(0, lambda: self.news_seen.emit(list(self.unread)))
+
+        def _scroll(self, inner: QWidget) -> QScrollArea:
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
             scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
             body = QWidget(objectName="Feed")
             lay = QVBoxLayout(body)
-            lay.setContentsMargins(*gutter(t.rtl))
-            lay.addWidget(news_page(t, kb, self.unread))
+            lay.setContentsMargins(*gutter(self.t.rtl))
+            lay.addWidget(inner)
             lay.addStretch(1)
             scroll.setWidget(body)
-            outer.addWidget(scroll, 1)
-            if self.unread:      # once the opener has connected news_seen
-                QTimer.singleShot(0, lambda: self.news_seen.emit(list(self.unread)))
+            return scroll
+
+        def open_article(self, i: dict) -> None:
+            self.close_article()
+            t, rtl = self.t, self.t.rtl
+            box = QWidget()
+            col = QVBoxLayout(box)
+            col.setContentsMargins(0, 0, 0, 0)
+            col.setSpacing(12)
+            back = QPushButton(bidi.plain(t("news_back"), rtl), objectName="Link")
+            back.setCursor(Qt.PointingHandCursor)
+            back.clicked.connect(self.close_article)
+            col.addWidget(back, 0, _align(rtl))
+            col.addWidget(article(t, i))
+            self.stack.addWidget(self._scroll(box))
+            self.stack.setCurrentIndex(1)
+            back.setFocus()
+
+        def close_article(self) -> None:
+            while self.stack.count() > 1:
+                w = self.stack.widget(1)
+                self.stack.removeWidget(w)
+                w.deleteLater()
+            self.stack.setCurrentIndex(0)
+
+        def keyPressEvent(self, e):
+            if e.key() == Qt.Key_Escape and self.stack.count() > 1:
+                self.close_article()          # Esc in an article: back to the list, not out of the window
+                return
+            super().keyPressEvent(e)
 
     return NewsDialog()

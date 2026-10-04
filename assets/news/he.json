@@ -1,210 +1,34 @@
 {
- "classic-world-opening-time-confirmed": {
-  "summary": "ה-FAQ החדש של Classic World מאשר את שעת הפתיחה: Founder's Access מתחיל ביום שלישי, 6 באוקטובר, ב-11:00 בבוקר (שעון פסיפיק). ה-Grand Launch מתחיל ביום רביעי, 21 באוקטובר, באותה שעה.",
-  "source_hash": "b105b910e6104cdb"
- },
- "closed-online-test-content-update": {
-  "summary": "עדכון תוכן ב-21 באפריל הוסיף שני קווסטים של אירוע, Classic Beginnings Chat Ring קבועה, שלושה קופונים של 1,000 Leaf Points ופריטי Cash Shop במחירי טסט. האירוע הסתיים ב-23 באפריל.",
-  "source_hash": "b5966377e0875878"
- },
- "closed-online-test-release-notes": {
-  "summary": "הטסט הסגור הראשון רץ מ-16 עד 24 באפריל 2026. בודקי MapleCon, PC Cafe והבודקים הפנימיים התחילו ב-14 באפריל. השטח הפתוח כלל את Maple Island ואת Victoria Island.",
-  "source_hash": "58003cb9de781fca"
- },
- "cms-cbt-content-preview": {
-  "summary": "הטסט הראשון בסין כלל חמישה ג'ובים, תקרת לבל 100, ג'וב 2, Florina Beach ו-Sleepywood. הכלכלה שלו נשענה על בית מכירות עם נקודות מיוחדות וזהב קשור לחשבון.",
-  "source_hash": "f17f5943be54d16f"
- },
- "cms-cbt-cut-short-economy-walked-back": {
-  "summary": "Shengqu התנצלה וסיימה מוקדם את הטסט הראשון של Classic בסין, ב-31 במאי. היא הבטיחה להחזיר זהב רגיל לבית המכירות ולהוציא ציוד מקופסאות הפרסים של Mushroom Pass ו-Sky Pig Egg.",
-  "source_hash": "c72032262e2d07d9"
- },
- "cms-cbt-may-20-confirmed": {
-  "summary": "הטסט הראשון של Classic בסין, שנקרא Return Island Test (归岛测试), נפתח ב-20 במאי 2026. Shengqu הציעה 2,000 מקומות ובחרה שחקנים מרשימת ההרשמה ב-15 במאי.",
-  "source_hash": "f20583f8da3f8939"
- },
- "cms-cbt-opens-may-20": {
-  "summary": "הטסט הראשון של Classic בסין נפתח ב-20 במאי עם 2,000 מקומות לציבור. הדמויות נמחקו בסוף, וכניסה יומית נתנה Adventure Coupons לטסט בלבד, לשימוש ב-Cash Shop.",
-  "source_hash": "e63c9a12aef21f2d"
- },
- "cms-cbt-qualification-rules": {
-  "summary": "Shengqu בחרה את שחקני הטסט הראשון באקראי. כל מספר תעודת זהות סינית או טלפון יכול להחזיק חשבון טסט אחד, שנשאר קשור לזהות הזו. סטרימרים של Douyin קיבלו מקומות נוספים מחוץ למכסת 2,000 השחקנים.",
-  "source_hash": "d9a11a45a55d82a6"
- },
- "cms-cbt2-confirmed-july-2": {
-  "summary": "Shengqu קבעה את הטסט השני של Classic בסין ל-2 ביולי. שחקני הטסט הראשון קיבלו גישה אוטומטית, ו-2,000 שחקנים חדשים הוגרלו מרשימת ההרשמה המוקדמת ב-25 ביוני.",
-  "source_hash": "bfa5a48a6ee230cb"
- },
- "cms-cbt2-eligibility-download-portal": {
-  "summary": "Shengqu פתחה פורטל אחד לבדיקת הגישה לטסט השני ולהורדת המשחק. הוא שירת את שחקני הטסט הראשון שחזרו ו-2,000 שחקנים חדשים שנבחרו.",
-  "source_hash": "583a6f5693f3fed8"
- },
- "cms-cbt2-ends-july-15": {
-  "summary": "הטסט השני של Classic בסין נסגר ב-15 ביולי ב-23:39 (שעון סין). כל דמויות הטסט נמחקו כמתוכנן, ו-Shengqu אמרה שתמשיך לכוונן את המשחק לקראת ההשקה.",
-  "source_hash": "0e7749ec11c0b0f0"
- },
- "cms-cbt2-opening-details": {
-  "summary": "הטסט השני בסין נפתח ב-2 ביולי עם זהב לא קשור (unbound), מסחר פנים מול פנים, חנויות אישיות, Hired Merchants וזהב רגיל בבית המכירות. עמלת המסחר ירדה מ-10% ל-5%.",
-  "source_hash": "0a2156476452bb71"
- },
- "cms-classic-account-and-platform-rules": {
-  "summary": "ב-Classic של סין אפשר להריץ קליינט אחד בכל פעם. כל מספר תעודת זהות או טלפון מקושר לחשבון אחד. הקליינט דורש Windows 10 ומעלה ב-64 ביט; אין תמיכה ב-macOS.",
-  "source_hash": "e4c9b12ef9ceec5f"
- },
- "cms-classic-fourth-server-character-creation": {
-  "summary": "השרת Blue Snail הגיע למכסת הדמויות שתוכננה, אז Shengqu פתחה שרת רביעי ל-Classic של סין. גם שני השרתים המקוריים האחרים היו קרובים למלא. אפשר היה ליצור דמות לפני 3 באוגוסט.",
-  "source_hash": "e918bba43c46cf56"
- },
- "cms-classic-opening-august-3": {
-  "summary": "Classic של סין נפתח ב-3 באוגוסט ב-14:00 (שעון סין) עם חמישה ג'ובים, תקרת לבל 100 וג'וב 2. יצירת הדמויות נסגרת ב-10:00. לפי Shengqu, יותר ממיליון שחקנים נרשמו מראש.",
-  "source_hash": "e7a153a373d0f1b2"
- },
- "cms-classic-site-launch": {
-  "summary": "Shengqu פתחה את האתר של Classic בסין ב-29 באפריל. השירות נקרא 冒险岛怀旧服 (MapleStory Classic Server), ובשבועיים הראשונים נרשמו אליו כמעט 500,000 שחקנים.",
-  "source_hash": "02365e0b60bde73e"
- },
- "cms-economy-changes-response": {
-  "summary": "Shengqu הגנה על כלכלת בית המכירות של הטסט הראשון אחרי תלונות של שחקנים. היא ציינה כמעט 20 מיליון חסימות של חשבונות בוט מינואר עד מרץ 2026, והשאירה את קשירת הזהב ואת כלל תעודת הזהות האחת.",
-  "source_hash": "f6feb3c431496b22"
- },
- "cms-launch-date-august-3": {
-  "summary": "Shengqu הודיעה על השקה מלאה של Classic בסין ב-3 באוגוסט 2026. השירות הקבוע נפתח עם חמישה ג'ובים, תקרת לבל 100, ג'וב 2, Victoria Island, Nautilus וחנויות ב-Free Market.",
-  "source_hash": "aa1e8885c7a44934"
- },
- "cms-letter-to-players-anti-farm": {
-  "summary": "במכתב שפורסם עם פתיחת הטסט הראשון בסין, Shengqu הגנה על קשירת הזהב ועל מגבלות המסחר. לדבריה, המטרה היא חוות בוטים גדולות, ומסחר בין חברים עדיין בבדיקה.",
-  "source_hash": "1b93ea30d887427d"
- },
- "cms-team-video-letter": {
-  "summary": "Shengqu פרסמה מכתב וידאו מצוותי התפעול והפיתוח כשהטסט השני נפתח. בדף הרשמי אין תמלול, ולכן אין כאן סיכום של הסרטון.",
-  "source_hash": "0ff7fddc326935c1"
- },
- "cms-test-key-resale-scam-warning": {
-  "summary": "Shengqu הזהירה מפני מפתחות טסט מזויפים ב-Xianyu וב-Xiaohongshu. המפתחות האמיתיים עוד לא נשלחו, כך שכל מודעת מכירה באותו זמן הייתה מזויפת.",
-  "source_hash": "3487e53c432b5240"
- },
- "cot-sign-ups-closed": {
-  "summary": "ההרשמה לטסט הראשון נסגרה ב-7 באפריל. משתתפי MapleCon, PC Cafe והפלייטסט של Nexon כבר קיבלו מיילים עם גישה. Nexon בחרה את שאר השחקנים מרשימת ההרשמה ושלחה את המפתחות האחרונים ב-16 באפריל.",
-  "source_hash": "6df2a0438132144a"
- },
- "cot-sign-ups-open": {
-  "summary": "ההרשמה לטסט הראשון פתוחה עד 7 באפריל 2026, לפני הפתיחה ב-16 באפריל. משתתפי MapleCon LA 2025 ו-PC Cafe קיבלו גישה אוטומטית ועוד יומיים מוקדמים.",
-  "source_hash": "0cd8812794737e06"
- },
- "cot2-meowdb-exploration-report": {
-  "summary": "הדוח של NiaMeowDB על COT2: מה שחקנים פתחו, בנו ותיעדו באתר במהלך הטסט של 4 עד 13 באוגוסט.",
-  "source_hash": "620c160d74691bde"
- },
- "founders-access-pre-download": {
-  "summary": "Nexon פרסמה הוראות להורדה מוקדמת ל-Founder's Access. ב-Nexon Launcher, Classic World היא הורדה נפרדת וקטנה יותר שנפתחת ב-6 באוקטובר. ב-Steam היא מגיעה יחד עם MapleStory, אז אפשר להתקין כבר עכשיו.",
-  "source_hash": "483f531c204f0408"
- },
  "founders-access-release-notes": {
   "summary": "Nexon פרסמה את ה-release notes של Founder's Access, שנפתח ב-6 באוקטובר ב-11:00 בבוקר (שעון פסיפיק). אפשר להגיע עד לבל 100. Forgotten Hollow נשאר סגור בינתיים.",
-  "source_hash": "767a970325241815"
- },
- "founders-package-prices-and-items": {
-  "summary": "Nexon חשפה שלוש חבילות Founder's Package ל-MapleStory Classic World. חבילת Snail ב-$29.99 כוללת קוסמטיקה ולא נותנת Founder's Access. חבילות Orange Mushroom ב-$59.99 ו-Zakum ב-$79.99 כוללות גישה מ-6 באוקטובר.",
-  "source_hash": "e495e8cb60b21339"
- },
- "founders-packages-on-sale": {
-  "summary": "מכירת ה-Founder's Packages נפתחה ב-2 בספטמבר בחנות של Nexon וב-Steam. אפשר לקנות, או לשדרג רכישה מהחנות, עד 14 באוקטובר ב-23:59 (שעון פסיפיק). שלוש הדרגות עדיין עולות $29.99, $59.99 ו-$79.99.",
-  "source_hash": "09933123c3ad61b4"
- },
- "frieren-signature-style-collection": {
-  "summary": "בחנות של Classic World נמכרת עכשיו Frieren Signature Style Collection. כל קופסה עולה 7,900 NX ונותנת סט אקראי אחד; עשר עולות 79,000 NX. לכל אחת משלוש הגרסאות של Frieren יש סיכוי של 1.5%, הנמוך ביותר. המכירה נסגרת ב-7 באוקטובר ב-16:59 (שעון פסיפיק).",
-  "source_hash": "5c059e101992fd59"
- },
- "ign-live-2026-special-trailer": {
-  "summary": "ב-IGN Live 2026 שודר טריילר מיוחד ל-Global MapleStory Classic World. בסרטון לא הוכרזו תאריך השקה או תוכן חדש.",
-  "source_hash": "26fed284dafed3a1"
+  "source_hash": "767a970325241815",
+  "title": "ה-release notes של Founder's Access: תקרת לבל 100, Forgotten Hollow מתוכנן להמשך",
+  "highlights": [
+   "תקרת הלבל היא 100. את הג'וב הראשון לוקחים בלבל 10 ואת השני בלבל 30.",
+   "Forgotten Hollow לא פתוח ב-Founder's Access. לפי Nexon, הדרך אליו עוד לא התגלתה, והם מתכננים להוסיף אותו בהמשך.",
+   "חמישה בוסים במשחק: Mano, Mushmom, Shade, Zombie Mushmom ו-Jr. Balrog.",
+   "בכל חשבון אפשר ליצור עד 3 דמויות. דמות שנמחקת עוברת תקופת המתנה לפני שהיא נמחקת סופית.",
+   "Founder's First Step הוא צ'ק-אין יומי לדמויות מלבל 10 ומעלה. הוא רץ מ-6 עד 20 באוקטובר ונותן קופונים של Leaf Points, פוטים ומגפונים.",
+   "ה-GMs מריצים ארבעה אירועים לפני ה-Grand Launch: Physical Fitness Challenge, Coconut Harvest, Up and Up ו-Monster Invasion.",
+   "אירוע Mark of Beta אמור להתחיל ב-Grand Launch, ב-21 באוקטובר."
+  ],
+  "commentary": "הוספנו את תקרת הלבל, רשימת הבוסים ושעות האירועים למדריך תאריך ההשקה שלנו.",
+  "body_hash": "7f6a417e7109cb4b"
  },
  "inkwell-interview-roadmap-at-maplestory-fest": {
   "summary": "Nexon פרסמה ראיון ארוך עם Inkwell, שמנהל את Global MapleStory. לדבריו, הצוות יציג את מפת הדרכים לאחרי ההשקה ב-MapleStory Fest ב-17 באוקטובר. גם בוס חדש בעבודה.",
-  "source_hash": "84f77e66b9a5c293"
- },
- "maple-fest-2026-tickets-classic-world-rewards": {
-  "summary": "הכרטיסים ל-MapleStory Fest 2026 כוללים פריטים ל-Classic World. האירוע ב-17 באוקטובר ב-The Hill ביוניברסל סיטי, לוס אנג'לס. הכרטיסים עולים $220 (Bronze), $270 (Silver) ו-$320 (Gold).",
-  "source_hash": "da7b6abb67fa5475"
- },
- "ossyria-report-confirms-october-launch": {
-  "summary": "Nexon קבעה את לוח ההשקה של MapleStory Classic World: Founder's Access מתחיל ב-6 באוקטובר וה-Grand Launch נפתח ב-21 באוקטובר 2026. ההתקדמות מהגישה המוקדמת נשמרת. אין תוכנית לטסט סגור שלישי.",
-  "source_hash": "fe22d6c7365cfbe1"
- },
- "pc-cafe-event-sign-up": {
-  "summary": "Nexon ערכה סשנים חינמיים של Classic World ב-PC Cafe בלוס אנג'לס מ-15 בינואר עד 13 בפברואר 2026. הנרשמים היו צריכים דמות MapleStory בת 60 יום לפחות ולהגיע פיזית.",
-  "source_hash": "d8b280d733620f64"
- },
- "pc-cafe-giveaway-winners": {
-  "summary": "Nexon פרסמה את הזוכים בהגרלת PC Cafe. זוכה אחד קיבל 20th Anniversary Pure Silver Medal, ועשרה זכו בתקליטי ויניל. לזוכים היו שבעה ימים לממש את הפרס.",
-  "source_hash": "851d424d00c6a84e"
- },
- "pc-cafe-perks-revealed": {
-  "summary": "כל מבקר ב-PC Cafe יכול היה לשחק שעתיים ב-Forgotten Hollow, אזור ש-Nexon קראה לו בלעדי ל-Global Classic World. מי שמילא את סקר האירוע קיבל גם גישה אוטומטית לטסט.",
-  "source_hash": "fec89072f0bcd759"
- },
- "playtest-sign-up": {
-  "summary": "Nexon הזמינה שחקנים מדרום קליפורניה לבדוק את Classic World במשרדים שלה ב-El Segundo. הבודקים קיבלו כרטיסי מתנה ו-NX Cash. ההודעה תיארה את המשחק כבלעדי ל-Global.",
-  "source_hash": "f33bc4d19b2bc18a"
- },
- "playtest-sneak-peek": {
-  "summary": "Nexon שיתפה קטעים מהפלייטסט שנערך במשרדים שלה בקיץ 2025. הסיכום לא כלל תאריכים, פרטי משחק או release notes.",
-  "source_hash": "94648a13056fde36"
- },
- "second-cot-announced": {
-  "summary": "Nexon הכריזה על טסט סגור שני ל-Global מ-4 עד 12 באוגוסט. ההרשמה נפתחה ב-16 ביולי, ושחקני הטסט הראשון היו צריכים להירשם שוב כדי לקבל סיכוי להשתתף.",
-  "source_hash": "192fc1109edabc07"
- },
- "second-cot-dupe-fix-maintenance": {
-  "summary": "תחזוקה ב-10 באוגוסט תיקנה שכפול פריטים ומקרים שבהם מוות לא הוריד EXP. שרתי הטסט השני היו למטה מ-15:00 עד בערך 16:05 (שעון פסיפיק).",
-  "source_hash": "1c94c992dbe5b92b"
- },
- "second-cot-hired-merchant-fix": {
-  "summary": "ה-Hired Merchants חזרו אחרי שתחזוקה ב-7 באוגוסט תיקנה ציוד שאיבד סטטים כשחנות נסגרה. Nexon שחזרה את רוב הפריטים שנפגעו והוסיפה עוד שבעה תיקונים.",
-  "source_hash": "690cbe0d9c72cbb3"
- },
- "second-cot-known-issues": {
-  "summary": "Nexon כיבתה את ה-Hired Merchants ב-6 באוגוסט אחרי שציוד שנאסף מחנויות סגורות איבד סטטים. ההודעה פירטה גם חמש תקלות בשליטה, בקרב וב-Cash Shop.",
-  "source_hash": "2f7974dcef5c7c61"
- },
- "second-cot-mobility-balance-update": {
-  "summary": "עדכון האיזון של 11 באוגוסט קיצר או ביטל את ה-cooldown של סקילי התנועה החדשים והעלה את עלות ה-MP שלהם. הוא שינה גם את Arrow Rain, Arrow Eruption, Assaulter ואת זמן החסינות אחרי פגיעה.",
-  "source_hash": "d6bc6bad3e265bb2"
- },
- "second-cot-release-notes": {
-  "summary": "הטסט הסגור השני רץ מ-4 באוגוסט ב-11:00 (שעון פסיפיק) עד 12 באוגוסט ב-17:00. Ossyria נפתחת במהלך הטסט, ובוסט מאוחר יותר מאפשר לנסות את הסקילים של ג'וב 3.",
-  "source_hash": "5380860e5843e0b3"
- },
- "second-cot-sign-ups-closed": {
-  "summary": "ההרשמה לטסט השני נסגרה. Nexon מתחילה לשלוח מיילים לשחקנים שנבחרו ב-31 ביולי, ארבעה ימים לפני הפתיחה ב-4 באוגוסט. לא נמסר כמה בודקים יהיו או מתי יישלח המייל האחרון.",
-  "source_hash": "d610544efea4ddfb"
- },
- "second-cot-signups-open": {
-  "summary": "ההרשמה לטסט השני פתוחה עד 29 ביולי. הטסט, מ-4 עד 12 באוגוסט, מוסיף ג'וב 3, Orbis, El Nath, תמיכה ב-macOS, שלטים, עוד שפות ואירועי GM נוספים.",
-  "source_hash": "d3887cbdd7b79464"
- },
- "second-cot-test-is-live": {
-  "summary": "הטסט השני נפתח עם כל עשרת הענפים של ג'וב 3 ו-70 סקילים חדשים. ספרנו 116 מפות חדשות, 98 מפלצות חדשות ו-148 קווסטים חדשים. Ossyria נפתחת במהלך הטסט, ב-8 באוגוסט.",
-  "source_hash": "a5402e1ae1574da7"
- },
- "tms-classic-july-launch-date": {
-  "summary": "לפי OMG News, Gamania הודיעה על יצירת דמויות ב-23 ביולי ופתיחה ב-29 ביולי לשירות של טייוואן, הונג קונג ומקאו.",
-  "source_hash": "fb06949ea748fe0f"
- },
- "tms-emergency-maintenance-server-crashes": {
-  "summary": "Gamania הודיעה על תחזוקה בכל השרתים ב-2 באוגוסט כדי לתקן קריסות שרת. כפיצוי על ה-rollback הובטחו שני קופונים של 2x EXP לחצי שעה ו-100 שיקויים מיוחדים.",
-  "source_hash": "8957d9b38323ccdd"
- },
- "unauthorized-access-bans": {
-  "summary": "Nexon חסמה לצמיתות חשבונות שנכנסו לטסט בלי הרשאה. ההודעה לא הסבירה איך זה קרה, והמקרה עדיין פתוח.",
-  "source_hash": "4cf983349d5d0235"
- },
- "unscheduled-maintenance-april-17": {
-  "summary": "Nexon הקדימה שבעה תיקונים לתחזוקה ב-17 באפריל, מ-5:00 עד 7:00 בבוקר (שעון פסיפיק). העדכון נגע ב-crafting, מפלצות של קווסטים, חנויות, ספאונים, עיבוד אבני חן, אנימציות של שיקויים ותצוגת מספרי הנזק.",
-  "source_hash": "2ac73531427bfde0"
- },
- "victoria-island-exploration-report": {
-  "summary": "Nexon פרסמה מכתב תודה אחרי הטסט הראשון, מפי Inkwell: הקמע שנקרא כמחבר הספרים שבתוך המשחק של MapleStory.",
-  "source_hash": "0556a49d0f62c35f"
+  "source_hash": "84f77e66b9a5c293",
+  "title": "Inkwell: מפת הדרכים של Classic World תוצג ב-MapleStory Fest, ובוס חדש בעבודה",
+  "highlights": [
+   "MapleStory Fest מתקיים בשבת, 17 באוקטובר, בלוס אנג'לס. שם Nexon מתכננת להציג את מפת הדרכים של Classic World.",
+   "הצוות עובד על בוס חדש. Inkwell לא אמר מתי הוא יגיע.",
+   "ה-Grand Launch ב-21 באוקטובר מוסיף עוד תוכן חדש לגמרי. הראיון לא אומר מה הוא.",
+   "Nexon לא מתכננת להעתיק בדיוק את סדר העדכונים הישן. ג'וב 3 ואזורים חדשים עשויים להגיע אחד אחד, וחלק מהתוכן הישן עשוי להשתנות.",
+   "Forgotten Hollow ו-Citizenship נבנו במיוחד בשביל Classic World.",
+   "תוכן חדש יגיע לאט יותר מאשר ב-MapleStory המודרני, בכוונה. כמה עדכונים עתידיים כבר מוכנים.",
+   "Nemi, שעבד על עיצוב המשחק של MapleStory המקורי, ו-Dr. Lim, שהוביל את הארט של MapleStory עוד מלפני עדכון ה-Big Bang, נמצאים בצוות יחד עם ותיקים נוספים שחזרו."
+  ],
+  "commentary": "הוספנו את התאריך של מפת הדרכים למדריך תאריך ההשקה שלנו.",
+  "body_hash": "6f41cf94948f42eb"
  }
 }
