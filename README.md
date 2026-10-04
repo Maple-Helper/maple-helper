@@ -132,7 +132,51 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   </picture>
 </p>
 <h3 align="center">Crafting</h3>
-<p align="center">Every profession explained, from the teacher and the quests to where to craft, then the best recipes for your level.</p>
+<p align="center">Each profession's teacher and quests, and every recipe by level, searchable by name or ingredient, with who drops each ingredient.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tools-farm-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/tools-farm-light.webp" width="380" alt="Farming">
+  </picture>
+</p>
+<h3 align="center">Farming</h3>
+<p align="center">Who drops each item and where. What your quests, recipes and starred items need comes first, then what an NPC pays most for.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tools-town-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/tools-town-light.webp" width="380" alt="Citizenship">
+  </picture>
+</p>
+<h3 align="center">Citizenship</h3>
+<p align="center">The Henesys and Kerning City quests by grade: how to get each one, what to do and who to finish with.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tools-pets-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/tools-pets-light.webp" width="380" alt="Pets">
+  </picture>
+</p>
+<h3 align="center">Pets</h3>
+<p align="center">Lifespan, hunger, commands to level 30, the fastest command at each stage, Cash Shop prices and the pet skills.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tools-more-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/tools-more-light.webp" width="380" alt="Sell or keep">
+  </picture>
+</p>
+<h3 align="center">Sell or keep</h3>
+<p align="center">Open your inventory: the app names every item and says to keep it for a quest, a recipe or as gear, or to sell it to an NPC or on the Free Market, and for how much.</p>
 
 <br>
 
@@ -164,15 +208,21 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **Who drops it:** Ask which monsters drop an item and get the answer grouped by monster, with pictures.
 - **Guides library:** 32 full guides (every class, grind maps, the EXP table, the damage formula and more) with skill and item icons, character art, tables and tips, in English and Hebrew. The ones that fit your character come first.
 - **Plan usage:** See how much of your Claude, ChatGPT or Gemini plan is used, with a heads-up in the chat before the 5-hour limit runs out, and a saver mode.
-- **Play tools:** A window of calculators and planners beside the chat, built from the game database and your character:
-  - **Where to train:** maps for your level, ranked, with your hit chance, hits to kill, EXP per kill and kills to level.
+- **Play tools:** A window of calculators and planners beside the chat, built from the game database and your character, every page linked to the others (a monster's way there, its hit & damage, an item's droppers and price):
+  - **Grind spots:** maps for your level, ranked, with your hit chance, hits to kill, EXP per kill and kills to level.
+  - **Grind tracker:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare).
+  - **Farming:** who drops each item, where and at what level; monsters that drop what your quests, recipes and starred items need come first, then what an NPC pays most for; a farm session counts what lands in your bag.
+  - **Quests:** by level, a full card for each quest (where to get it, what to do, what to bring and where to get it, who to finish with, the rewards), daily and weekly quests that come back, and a search that forgives typos.
+  - **Crafting:** each profession's teacher and quests, and every recipe by level, searchable by name or ingredient, with who drops each ingredient.
+  - **Citizenship:** the Henesys and Kerning City quests by citizenship grade, and the town the guide recommends for your class.
+  - **Build plan:** your class guide's AP, SP and gear tables, your level's row highlighted, a table for each 2nd job, and the community tier list for your job.
   - **Hit & damage:** pick a monster to see the ACC you need to never miss, your hit chance and hits to kill.
-  - **Build plan:** your class guide's AP, SP and gear tables, with your current level highlighted.
-  - **Quests:** the quests you can take now (and soon), with the NPC, what they need and the rewards, best EXP first, and a search by quest name, NPC, monster or item.
-  - **Crafting:** all six professions explained (what they make, the teacher and town, the first and master quests, where to craft), then every recipe for your level, best EXP per meso first.
-  - **Citizenship:** Henesys or Kerning City advice for your class, and the town's quests.
-  - **Prices:** NPC buy and sell prices, and a live Free Market median from player reports on NiaMeowDB.
-  - **Grind tracker, bag & shopping:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare), what to sell or keep, and a shopping list for a map.
+  - **Item price:** NPC buy and sell prices, and a live Free Market median from player reports on NiaMeowDB.
+  - **Sell or keep:** open your inventory and the app names each item and says whether to keep it (a quest, a recipe, gear you can wear, a starred item) or sell it to an NPC or on the Free Market, and for how much. No AI: straight from the database.
+  - **How to get there:** the way from your map to any map, monster or NPC, with taxis and boats.
+  - **Pets:** lifespan, hunger, commands to level 30 and the fastest command at each stage, Cash Shop prices, and the pet skills.
+- **News:** MapleStory Classic news with the full articles in the app, in English and Hebrew.
+- **Sources on every number:** a tag says where each value comes from (community reports, the COT1 / COT2 test builds, MSEA, or official game data once it's out).
 - **Game terms explained:** An orange **?** beside terms like ACC, Avoid or AP shows what they mean on hover.
 - **Items I'm looking for:** Star an item to keep a list of what you hunt, with who drops it and where.
 - **Hebrew and English:** Use either language, including mixed text with English game names.
