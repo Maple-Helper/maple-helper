@@ -387,3 +387,16 @@ def test_the_prices_page_shows_the_item_market(isolated_store, kb, monkeypatch):
             assert w in text, (lang, w)
         d.deleteLater()
         pump()
+
+
+def test_the_first_kb_with_news_lists_none_as_new(tmp_path):
+    import json
+    import kb_release
+    old, new = tmp_path / "old", tmp_path / "new"
+    for d in (old, new):
+        d.mkdir()
+        (d / "index.json").write_text("[]", encoding="utf-8")
+    (new / "news.json").write_text(json.dumps({"items": [{"id": "a", "title": "T", "date": "2026-10-01"}]}), encoding="utf-8")
+    assert "news" not in kb_release.diff_kb(old, new)["counts"]          # no news.json before: the list starts
+    (old / "news.json").write_text(json.dumps({"items": []}), encoding="utf-8")
+    assert kb_release.diff_kb(old, new)["counts"]["news"] == 1

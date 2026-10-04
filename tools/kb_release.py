@@ -334,7 +334,8 @@ def diff_kb(old: Path, new: Path) -> dict:
     # news items new since the previous KB (tools/scrape_news.py): the patch notes' News tab and the chat's news
     # card read news.json itself; the changelog says an update brought news, so a news-only night is an update too
     na, nb = _news(old), _news(new)
-    fresh = [nb[i] for i in nb if i not in na]
+    # the first KB with news.json is where the list starts, not 52 news items for every player at once
+    fresh = [nb[i] for i in nb if i not in na] if (old / NEWS).exists() else []
     if fresh:
         counts["news"] = len(fresh)
         out["news"] = [{k: n.get(k) for k in ("id", "title", "date", "region", "official")} for n in fresh[:MAX_LISTED]]
