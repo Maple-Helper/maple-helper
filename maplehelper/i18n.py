@@ -873,7 +873,19 @@ STRINGS = {
     "exp_no_gain": {"he": "עוד לא נצבר EXP מאז תחילת הסשן.", "en": "No EXP gained since the session started yet."},
     "exp_no_table": {"he": "במאגר אין טבלת EXP אחרי רמה 99, אז את הרמה הזו אי אפשר למדוד כאן עדיין.", "en": "The database has no EXP table past Lv. 99, so this level can't be measured here yet."},
     "sell_title": {"he": "מה כדאי למכור?", "en": "What should I sell?"},
-    "sell_body": {"he": "פתחו את **האינבנטורי** במשחק (כל לשונית) ולחצו על הכפתור. לכל פריט תופיע המלצה: לשמור לקווסט, לשמור למתכון, פריט במעקב, ציוד שאפשר ללבוש, או למכור ל-NPC ובכמה.", "en": "Open the **inventory** in the game (any tab) and press the button. Each item gets a verdict: keep for a quest, keep for a recipe, a starred item, equipment you can wear, or sell to an NPC and for how much."},
+    "sell_body": {"he": "פתחו את **האינבנטורי** במשחק (כל לשונית) ולחצו על הכפתור.
+האפליקציה תצלם ותגיד לכל פריט:
+• **לשמור לקווסט**
+• **לשמור לקראפטינג**, למשל ל-Smithing או ל-Tailoring
+• **לשמור**, כי סימנתם אותו בכוכב
+• **לשמור לציוד** שאפשר ללבוש
+• **למכור ל-NPC**, ובכמה", "en": "Open your **inventory** in the game (any tab) and click the button.
+The app takes a screenshot and tells you, for each item:
+• **Keep for a quest**
+• **Keep for crafting** (Smithing or Tailoring, say)
+• **Keep**, you starred it
+• **Keep as gear** you can wear
+• **Sell to an NPC**, and for how much"},
     "sell_reading": {"he": "מצלמים את המסך ומזהים את הפריטים", "en": "Taking a screenshot and naming the items"},
     "sell_no_game": {"he": "לא נמצא חלון של המשחק לצלם. פתחו את MapleStory ונסו שוב.", "en": "No game window to capture. Open MapleStory and try again."},
     "sell_no_inventory": {"he": "לא נמצא אינבנטורי פתוח בצילום. פתחו אותו במשחק ונסו שוב.", "en": "No open inventory in the shot. Open it in the game and try again."},
