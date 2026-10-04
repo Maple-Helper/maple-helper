@@ -41,6 +41,8 @@ class Quest:
     accept_cost: int = 0                # "Pay 1,000 mesos to accept." (pages/quest/10303.md)
     # any other pre-requisite line, kept word for word so it is never lost ("Must not already have: ...")
     notes: list[str] = field(default_factory=list)
+    self_start: bool = False            # "Self-Starting": it opens on its own, no NPC hands it out
+    task: str = ""                      # what to do, the game's quest journal ("Arthur asked me to greet Rina ...")
 
     def matches(self, query: str) -> bool:
         """The quest search: every word of the query in its name, NPC, area, what it asks or what it gives."""
@@ -183,6 +185,18 @@ def _quest(kb, key: str) -> Quest | None:
             q.notes.append(ln)
     for ln in _section(lines, "Requirements"):
         q.needs += [f"{name.strip()} x {n}" for name, n in _ITEM.findall(ln)] or [ln]
+    head = lines[:lines.index("Pre-requisites")] if "Pre-requisites" in lines else lines[:12]
+    q.self_start = "Self-Starting" in head
+    # the journal's step that says what to do ("02 ..."), else the description's first line ("01 ...")
+    for ln in lines:
+        if ln.startswith("Quest journal"):
+            m = re.search(r"\b02 (.+?)$", ln)
+            if m:
+                q.task = m.group(1).strip()
+            break
+    if not q.task:
+        first = next((ln for ln in lines if ln.startswith("01 ")), "")
+        q.task = first[3:].strip()
     pick = False                     # inside "Pick one (class-specific):"
     for ln in _section(lines, "Rewards"):
         fame = re.search(r"\+ ?(\d+) Fame", ln)

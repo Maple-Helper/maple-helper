@@ -1493,15 +1493,30 @@ class ToolsDialog(GlassDialog):
             top.addWidget(tag(f"+{q.exp:,} EXP", "TagGood"))
         col.addLayout(top)
         # the town, under its heading, with the way there (the NPC's name said nothing: the owner)
-        npc_key = self.kb._npc_by_name.get((q.npc or "").lower())
-        town = (crafting._town(self.kb, npc_key) if npc_key else "") or q.area
+        npc_key = self.kb._npc_by_name.get(re.sub(r"\s*\(.*\)$", "", q.npc or "").lower())
+        town = (crafting._town(self.kb, npc_key) if npc_key else "") or quests.town_of(self.kb, q) or \
+            (q.area if q.area not in ("Citizenship", "Crafting") else "")
+        side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        parts = []
         if town:
             text = f"{bidi.LRE}{html.escape(town)}{bidi.PDF}"
             if q.npc and routes.of(self.kb).find(q.npc):
                 text += " · " + self._nav_html([("farm_route", "route", q.npc)])
-            side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
-            lb = QLabel(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_town_head'))}</b></p>"
-                        f"<p {side} style='margin:0'>{text}</p>", objectName="CardSub")
+            elif routes.of(self.kb).find(town):
+                text += " · " + self._nav_html([("farm_route", "route", town)])
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_town_head'))}</b></p>"
+                         f"<p {side} style='margin:0 0 4px 0;'>{text}</p>")
+        # how you get it: an NPC hands it out, or it opens on its own (the owner: "how do I get it?")
+        who = t("q_self_start") if q.self_start or not q.npc else \
+            t("q_from_npc", npc=f"{bidi.LRE}{q.npc}{bidi.PDF}")
+        parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_get_head'))}</b></p>"
+                     f"<p {side} style='margin:0 0 4px 0;'>{html.escape(who)}</p>")
+        # what to do, when there is nothing to bring: the game's own quest journal
+        if q.task and not q.needs:
+            parts.append(f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_task_head'))}</b></p>"
+                         f"<p dir='ltr' align='{'right' if t.rtl else 'left'}' style='margin:0'>{html.escape(q.task)}</p>")
+        if parts:
+            lb = QLabel("".join(parts), objectName="CardSub")
             lb.setTextFormat(Qt.RichText)
             lb.setWordWrap(True)
             lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)

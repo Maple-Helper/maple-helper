@@ -309,3 +309,15 @@ def test_the_pages_link_to_each_other(monkeypatch, tmp_path):
         assert "item:" in d._gear_links("[[img:x.png]]Hunter's Bow 42 W.ATK", "<img src='x.png'> Hunter's Bow 42 W.ATK")
     finally:
         d.close()
+
+
+@needs_kb
+def test_a_quest_says_how_you_get_it_and_what_to_do():
+    # a citizenship quest with no NPC and nothing to bring said nothing about how to do it (the owner)
+    from maplehelper import quests
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    q = quests.quest(kb, "quest/506000")
+    assert q.self_start and "Henesys" in q.task and quests.town_of(kb, q) == "Henesys"
+    rina = quests.quest(kb, "quest/506001")
+    assert not rina.self_start and "greet Rina" in rina.task
