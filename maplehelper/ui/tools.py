@@ -197,6 +197,15 @@ class EntityPicker(QLineEdit):
             if _close(typed, str(it.data(NAME_ROLE))):
                 it.setData(f"{it.data(NAME_ROLE)}\u2063{typed}", FIND_ROLE)
 
+    def setText(self, text: str) -> None:
+        # set from a page's button with its signals held back (an item picked from a card): the X still shows
+        super().setText(text)
+        self._clear.setVisible(bool(text))
+
+    def clear(self) -> None:
+        super().clear()
+        self._clear.setVisible(False)
+
     @staticmethod
     def _cross() -> QIcon:
         from PySide6.QtGui import QColor, QPainter, QPen

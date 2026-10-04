@@ -321,3 +321,20 @@ def test_a_quest_says_how_you_get_it_and_what_to_do():
     assert q.self_start and "Henesys" in q.task and quests.town_of(kb, q) == "Henesys"
     rina = quests.quest(kb, "quest/506001")
     assert not rina.self_start and "greet Rina" in rina.task
+
+
+def test_the_search_box_x_shows_however_the_text_got_there():
+    # an item picked from a card fills the box with its signals held back: the X showed only after typing (the owner)
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui.tools import EntityPicker
+    app = QApplication.instance() or QApplication(sys.argv)
+    p = EntityPicker([("Bronze Helmet", "Bronze Helmet", None)], "x")
+    p.blockSignals(True)
+    p.setText("Bronze Helmet")
+    p.blockSignals(False)
+    assert p._clear.isVisible()
+    p.blockSignals(True)
+    p.clear()
+    p.blockSignals(False)
+    assert not p._clear.isVisible() and app
