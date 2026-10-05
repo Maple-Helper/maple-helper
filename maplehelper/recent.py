@@ -240,7 +240,8 @@ def split(entries: list[dict], kb, char, wished) -> tuple[list[tuple[str, str, d
         for kind in KINDS:
             keep = []
             for r in e.get(kind) or []:
-                reason = why(kb, r, char, wished) if isinstance(r, dict) else None
+                # a page whose text alone changed ("updated") is no change to the game: never "affects you"
+                reason = why(kb, r, char, wished) if isinstance(r, dict) and kind != "updated" else None
                 if reason:
                     if r.get("key") not in seen:
                         seen.add(r.get("key"))
