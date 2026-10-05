@@ -73,10 +73,10 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/wishlist-dark.webp">
-    <img src="https://www.maplehelper.app/assets/shots/en/wishlist-light.webp" width="380" alt="Items I'm looking for">
+    <img src="https://www.maplehelper.app/assets/shots/en/wishlist-light.webp" width="380" alt="Tracked items">
   </picture>
 </p>
-<h3 align="center">Items I'm looking for</h3>
+<h3 align="center">Tracked items</h3>
 <p align="center">Star an item to keep a list of what you hunt, with the monsters that drop each one and where to find them.</p>
 
 <br>
@@ -224,7 +224,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **News:** MapleStory Classic news with the full articles in the app, in English and Hebrew.
 - **Sources on every number:** a tag says where each value comes from (community reports, the COT1 / COT2 test builds, MSEA, or official game data once it's out).
 - **Game terms explained:** An orange **?** beside terms like ACC, Avoid or AP shows what they mean on hover.
-- **Items I'm looking for:** Star an item to keep a list of what you hunt, with who drops it and where.
+- **Tracked items:** Star an item to keep a list of what you hunt, with who drops it and where.
 - **Hebrew and English:** Use either language, including mixed text with English game names.
 - **Local speech recognition:** Transcribe voice input on your computer using ivrit.ai Whisper models.
 
@@ -300,7 +300,7 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 | **Window buttons** | Minimize or close the overlay (F9 opens it again). |
 | **Tap a card** | Tag it for the next question; tap again to untag. |
 | **Camera button** | Take a fresh screenshot of the game window. |
-| **Tools button** | Open the play tools (where to train, calculator, build, quests, crafting, citizenship, prices, grind tracker, bag & shopping). |
+| **Tools button** | Open the play tools (grind spots, grind tracker, farm, quests, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, pets). |
 | **Character card** | Open its menu to switch, edit, delete, add or copy characters; **What now?** asks for the best next step. |
 | **Orange ?** | Hover it to see what a game term means. |
 | **System tray menu** | Show the overlay, open settings, or quit the app. |
