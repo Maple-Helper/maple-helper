@@ -332,7 +332,9 @@ class TestBackend:
         assert p.kw["env"]["HOME"] == str(home) and "GEMINI_API_KEY" not in p.kw["env"]
         assert p.shots == {"screenshot-0.jpg": b"JPEGDATA"}                  # there while it ran
         assert "<question>" in p.stdin.getvalue().decode()
-        assert str(kb.root.resolve()) in p.agent and "screenshot-0.jpg" in p.agent and "  - view_file" in p.agent
+        assert str(kb.root.resolve()) in p.agent and "  - view_file" in p.agent
+        # the screenshot's path (a folder per run) comes with the question: the agent file stays the same
+        assert "screenshot-0.jpg" in p.stdin.getvalue().decode() and "screenshot-0.jpg" not in p.agent
         assert not list(gemini.shots_dir().rglob("*.jpg"))                    # and gone after
         run_tmp = Path(p.kw["env"]["TEMP"])                                   # a temp folder of the run's own
         assert run_tmp.parent == gemini.tmp_dir() and p.kw["env"]["TMP"] == str(run_tmp) and not run_tmp.exists()
@@ -344,11 +346,28 @@ class TestBackend:
         p = FakePopen.calls[0]
         assert p.cmd[p.cmd.index("--agent") + 1] == gemini.SHOT_AGENT
         assert "tools:\n  - view_file\nexcludeDefaultComponents" in p.agent
-        assert "quick screenshot read" in p.agent and "screenshot-0.jpg" in p.agent and "grep_search," not in p.agent
+        assert "quick screenshot read" in p.agent and "grep_search," not in p.agent
+        assert "screenshot-0.jpg" in p.stdin.getvalue().decode()
         b = self.make(kb, monkeypatch, ANSWER)                       # no screenshot: no tools at all
         b.ask("hi", None, None, None, light=True)
         assert FakePopen.calls[0].cmd[FakePopen.calls[0].cmd.index("--agent") + 1] == gemini.QUICK_AGENT
         assert "tools: []" in FakePopen.calls[0].agent
+
+    def test_the_agent_and_settings_files_are_written_only_when_they_change(self, kb, home, monkeypatch):
+        """Each question used to rewrite the agent file (the screenshot's per-run folder was in it)."""
+        written = []
+        real = gemini.os.replace
+        # (the knowledge base's own tables are written the same way before the first question: not counted)
+        monkeypatch.setattr(gemini.os, "replace", lambda a, b: (
+            Path(b).parent == Path(kb.root) or written.append(Path(b).name), real(a, b)))
+        b = self.make(kb, monkeypatch, ANSWER, ANSWER, ANSWER)
+        b.ask("where is Red Snail?", None, None, b"JPEGDATA")
+        assert sorted(written) == ["maplehelper.md", "settings.json"]
+        b.ask("and Blue Snail?", None, None, b"JPEGDATA2")                # another screenshot, another run folder
+        assert len(written) == 2
+        b.length = "detailed"                                              # other instructions: the agent again
+        b.ask("and Mano?", None, None, b"JPEGDATA3")
+        assert written[2:] == ["maplehelper.md"]
 
     def test_api_key(self, kb, home, monkeypatch):
         b = self.make(kb, monkeypatch, ANSWER, api_key="AIzaKEY")

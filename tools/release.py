@@ -59,12 +59,14 @@ def record_patch_notes(version: str) -> None:
         prev = Path(tmp) / "kb"
         with zipfile.ZipFile(Path(tmp) / "kb.zip") as z:
             z.extractall(prev)
+        kb_release.refresh_tables(prev)     # both sides' drops by today's rules: only data changes are notes
         entry = kb_release.record_changes(KB, prev, version)
         print("patch notes:", json.dumps(entry["counts"]) if entry else "no visible changes")
 
 
 def build_kb(patch_notes: bool = False) -> tuple[Path, Path]:
     version = time.strftime("%Y.%m.%d.%H%M", time.gmtime())   # UTC, like kb_release.pack
+    kb_release.refresh_tables(KB)       # the zip (and the app bundling data/kb) carries tables of this very KB
     if patch_notes:
         record_patch_notes(version)
     meta = json.loads((KB / "meta.json").read_text(encoding="utf-8")) if (KB / "meta.json").exists() else {}

@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, news, official, providers, routes, sitedata, sources
+from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -31,6 +31,13 @@ BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskill
 # repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report)
 DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
+# a comparison or a list ("Mano, Mushmom, King Slime and Jr. Balrog", "הרמיט או צ'יף בנדיט"): the pages of up to
+# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages
+LIST_WORDS = re.compile(r",|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|בין|השוו\w*|"
+                        r"השוואה|ההבדל|הבדל)(?![א-ת])|(?:^|\s)ו(?=[א-ת]{2})", re.I)
+MENTIONS, LIST_MENTIONS = 4, 8
+PAGE_CHARS = 2500          # a pre-fetched page, MENTIONS of them at most at full length
+MIN_PAGE_CHARS = 800       # a page cut for a long list still keeps its head: level, HP, EXP, where
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
                   "what the player worked on, decisions, open goals. Same language as the conversation.")
 
@@ -44,12 +51,13 @@ Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) databas
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
-Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source, votes) lists the
-monster→item drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops
-below), votes a community drop's "16 up 1 down". Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
-grouped per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
+""" + tables.prompt_note() + """
+
+Which monsters drop something: grep drops.tsv for the item name or type ("Throwing Star", "Scroll"). Answer grouped
+per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
 An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
-not in the game, so never name it as a source.
+not in the game, so never name it as a source. Which quests give something: grep rewards.tsv once for the item name or
+type ("Cape", "Overall").
 
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
@@ -135,14 +143,18 @@ class Answer:
     cost_usd: float | None = None
     limits: dict | None = None          # Claude plan usage (usage.parse of Claude Code's rate_limit_event)
     model: str | None = None            # the model that answered, when the CLI says
+    tool_calls: int | None = None       # tools the AI ran for it, where its CLI tells (RawResult): evals only
+    turns: int | None = None
 
 
 REPLY_RULES = """<reply_rules>
 - Only MapleStory Classic and Maple Helper itself (its features, settings, which AI and model answers): anything else
   gets one short line saying you only help with the game.
 - Only what the game scope in your instructions says is in the game: never send the player to a place it says is not
-  out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet.
+  out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet
+  ("what is X" still gets a short description of X from the context, then that it isn't out yet).
 - At most {length} short lines. No filler, no follow-up offers.
+- Only the answer itself: never narrate your process or plans in it ("I'll mention...", "Now for the answer...").
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
 - Under the answer the app shows a card for every entity in META: a monster's level, HP, EXP, maps and what changed
   since the last test build, an item's stats, and a monster's drops as tiles with their votes and sources.
@@ -172,6 +184,12 @@ REPLY_RULES = """<reply_rules>
   (one from the conversation) instead; if no name matches, say so and ask.
 - "Send me a picture of X": the app shows X's picture on its card under the answer. Find X, put its key in META
   entities, and say in a line that its picture is in the card below; never say you can't send pictures.
+- A <table_rows complete="yes"> block is THE answer data: every KB row matching the question. It outranks the
+  pages above it: answer from it with no tool call and
+  name every row that answers it (a long list: how many, then the best ones); complete="no" holds the best rows first.
+  Put the keys of the rows you name in META entities. "Best" / "top N" follows the block's order.
+- Never name files or tables in the answer (".tsv", pages, knowledge-base files); the source tags stay. Write every
+  game name whole: "Mithril Guards, Adamantium Guards", never "Mithril/Adamantium Guards".
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
   page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
@@ -213,6 +231,17 @@ def without_superseded(kb: KnowledgeBase, key: str, body: str) -> str:
     if stamp and not sources.test_build(stamp.source):
         body = _cut(body, "Change history")
     return body
+
+
+def mention_cap(question: str) -> int:
+    """How many entities a question's pre-fetch may name: more for a comparison or a list (a 4 cap left the fifth
+    of "compare Mano, Mushmom, King Slime, Jr. Balrog and Crimson Balrog" for the AI to look up, ~20 s more)."""
+    return LIST_MENTIONS if LIST_WORDS.search(question) else MENTIONS
+
+
+def page_chars(n: int) -> int:
+    """The length of each of n pre-fetched pages: PAGE_CHARS up to MENTIONS pages, then shorter, the same total."""
+    return PAGE_CHARS if n <= MENTIONS else PAGE_CHARS * MENTIONS // n
 
 
 def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
@@ -273,14 +302,21 @@ def _mark_droppers(kb: KnowledgeBase, body: str) -> str:
     return body[:i] + "\n".join(lines)
 
 
+ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats", "what's", "is", "are", "does", "do",
+                 "can", "should", "give", "gives", "sells", "sell", "drop", "drops", "best", "the", "for", "to", "in",
+                 "of", "my", "me", "i"}
+
+
 def reply_language(question: str, ui_lang: str = "he") -> str:
     """The answer's language: the question's (Hebrew letters: Hebrew, Latin ones: English), else the app's.
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[֐-׿]", question):
         return "Hebrew"
     bare = _FOCUS_TAG.sub("", question)
-    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English)
-    if re.search(r"[A-Za-z]", bare) and len(re.findall(r"[A-Za-z']+", bare)) > 4:
+    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English);
+    # a short question with an English question or function word is one ("which quests reward scrolls?" got Hebrew)
+    words = re.findall(r"[A-Za-z']+", bare)
+    if len(words) > 4 or (len(words) >= 2 and any(w.lower() in ENGLISH_WORDS for w in words)):
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
 
@@ -314,8 +350,13 @@ def build_prompt(question: str, character: Character | None, history: History | 
                           f"<question>\n{question}\n</question>", language,
                           REPLY_RULES.format(length=LENGTH_LINES["short"])]
         return "\n\n".join(parts + question_parts)
-    if character:
-        digest = kb.level_digest(character.level)
+    reverse = is_reverse(question, kb)
+    # a list / filter question ("which quests give capes", "gloves for a Lv. 30 Thief"): its table rows, all of them
+    rows_block, plan = planner.context(question, kb, character, reverse=reverse)
+    # "where to grind at level 45" is about level 45, whatever the profile says
+    level = plan.level if plan and plan.level else character.level if character else None
+    if level:
+        digest = kb.level_digest(level)
         if digest:
             ctx.append(digest)
     tagged = [k for k in ([focus] if isinstance(focus, str) else (focus or [])) if k and kb.get(k)]
@@ -334,7 +375,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
     way = routes.ai_context(kb, question, character, tagged)
     if way:
         ctx.append(way)
-    if is_reverse(question, kb):
+    if reverse:
         items = item_keys_for_question(question, kb)
         groups = kb.drop_groups(items, limit=10)
         if groups:
@@ -350,17 +391,17 @@ def build_prompt(question: str, character: Character | None, history: History | 
                                             if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
-    for key in kb.find_mentions(question, max_results=4):
-        body = _page(kb, key, 2500)
-        if body:
-            ctx.append(body)
-        if key.startswith("monster/"):
-            drops = kb.drops_digest(key)
-            if drops:
-                ctx.append(drops)
-        elif key.startswith("item/"):
-            # the players' reports of who drops it, with votes (its page's "Dropped By" doesn't have them)
-            ctx.append(kb.droppers_digest(key))
+    named = kb.find_mentions(question, max_results=mention_cap(question))
+    for key in named:
+        # a monster's drops and mesos; an item's droppers by the players' reports, with votes (its page's
+        # "Dropped By" doesn't have them)
+        digest = (kb.drops_digest(key) if key.startswith("monster/")
+                  else kb.droppers_digest(key) if key.startswith("item/") else "")
+        limit = page_chars(len(named))
+        if len(named) > MENTIONS:      # past MENTIONS entities their digests come out of the pages' share too
+            limit = max(MIN_PAGE_CHARS, limit - len(digest))
+        body = _page(kb, key, limit)
+        ctx += [x for x in (body, digest) if x]
     # what a KB update changed this week in the entities above (and the level digest's monsters)
     shown = re.findall(r"\[((?:monster|item|npc|map|quest|skill)/[^\]\s]+)\]", "\n".join(ctx))
     changes = kb_changes.ai_lines(kb, shown)
@@ -372,6 +413,14 @@ def build_prompt(question: str, character: Character | None, history: History | 
     # announced, never what is released (the game scope says that)
     if news.asks_news(question) and (announced := news.ai_lines(kb)):
         ctx.append("\n".join(announced))
+    # the KB's guide on what the question names ("what is Forgotten Hollow": its endgame-area guide; "when does it
+    # release": the release-date guide, the grand launch beside Founder's Access in the news)
+    for key in guides_for(question, kb, named):
+        ctx.append(_page(kb, key, GUIDE_CHARS))
+    # last, nearest the question: the answer read off the tables. Before the pages, the model followed a page
+    # ("Steel Guards ... Needed By 2 recipes": "it isn't crafted") over the complete recipe rows
+    if rows_block:
+        ctx.append(rows_block)
     if ctx:
         parts.append("<kb_context>\n" + "\n\n".join(ctx) + "\n</kb_context>")
     if has_screenshot is True:
@@ -409,6 +458,29 @@ ITEM_FAMILIES = [
     (r"עגיל|\bearrings?\b", "Earring"),
     (r"גלימ(ה|ות)|\bcapes?\b", "Cape"),
 ]
+
+
+GUIDE_CHARS = 2000
+# "when does it release / launch", "מתי המשחק יוצא": the release-date guide (the news alone gave Founder's Access)
+RELEASE_WORDS = re.compile(r"\b(?:release|launch)\w*|(?<![א-ת])(?:יוצא|ייצא|יצא|השקה|ההשקה|שחרור)(?![א-ת])", re.I)
+
+
+def guides_for(question: str, kb: KnowledgeBase, named: list[str]) -> list[str]:
+    """The KB guides about what the question names: a place's own guide ("Forgotten Hollow" -> "Forgotten Hollow
+    Guide", which tells what the Hollow is while its map page says only "a town"), and the release-date guide for a
+    question on when the game comes out."""
+    names = {str((kb.get(k) or {}).get("name", "")).lower() for k in named if k.startswith("map/")}
+    release = bool(RELEASE_WORDS.search(question) and news.asks_news(question))
+    if not names and not release:
+        return []
+    out = []
+    for key, e in kb.entities.items():
+        if e.get("category") != "guide" or key in named:
+            continue
+        title = str(e.get("name", "")).lower()
+        if (title.endswith(" guide") and title[:-len(" guide")] in names) or (release and "release date" in title):
+            out.append(key)
+    return out[:2]
 
 
 def is_reverse(question: str, kb: KnowledgeBase) -> bool:
@@ -460,11 +532,45 @@ def drop_keys(text: str) -> str:
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
+_HEBREW = re.compile(r"[֐-׿]")
+# the model talking to itself after its tool calls, seen live at the start of a Hebrew answer: "This quest is in Kerning
+# City (Victoria Island) - good, in game. Now for answer, I'll mention Stranger's Identity as doable now, ..."
+_NARRATION = re.compile(r"\b(?:I'll|I will|I'm going to|I am going to|I need to|I should|I can see|Let me|Let's|"
+                        r"Now (?:for|I|to|let)|for (?:the |my )?(?:answer|reply)|in (?:the )?answer,|"
+                        r"the (?:player|user)(?:'s)? (?:is|asks|asked|wants|question)|(?:good|ok|okay|great)\s*[,-]\s+"
+                        r"(?:it'?s |that'?s |in )|(?:is|it's|that's) in (?:the )?game\b|the (?:data|kb|knowledge base|"
+                        r"page|grep|search) (?:says|shows|lists|confirms|returned)|I'?ve (?:got|found|checked))", re.I)
+# a line that is part of an answer's layout, never a monologue: a list item, a bold name, a heading, a table row
+_LAYOUT = re.compile(r"\s*(?:[-*•#|>]|\d+[.)]|\*\*)")
+
+
+def _narration(lines: list[str]) -> bool:
+    """English lines that read as the model's own planning: prose (no list or bold layout), at least a short
+    sentence, and in its words ("I'll", "Now for the answer", "good, in game")."""
+    lines = [s for s in lines if s.strip()]
+    if not lines or any(_LAYOUT.match(s) for s in lines):
+        return False
+    head = " ".join(lines)
+    return len(head.split()) >= 6 and bool(_NARRATION.search(head))
+
+
+def strip_lead_in(text: str) -> str:
+    """A Hebrew answer without the English planning paragraph the model sometimes starts it with. Only English prose
+    before the first Hebrew line goes, and only when it reads as planning: an English answer, or an English game
+    name or list line before the Hebrew, stays."""
+    lines = text.split("\n")
+    first = next((i for i, s in enumerate(lines) if _HEBREW.search(s)), None)
+    if not first or not _narration(lines[:first]):
+        return text
+    return "\n".join(lines[first:])
+
+
 def split_meta(raw: str) -> tuple[str, dict]:
     """Separate the visible answer from the trailing @@META@@ JSON."""
     if META not in raw:
-        return drop_keys(raw).strip(), {}
+        return drop_keys(strip_lead_in(raw)).strip(), {}
     text, _, meta = raw.partition(META)
+    text = strip_lead_in(text)
     m = re.search(r"\{.*\}", meta, re.S)
     try:
         data = json.loads(m.group(0)) if m else {}
@@ -513,15 +619,21 @@ def _numbers(update) -> None:
             del update["stats"]
 
 
-def streamed_text(raw: str) -> str:
+def streamed_text(raw: str, hebrew: bool = False) -> str:
     """The visible part of a reply still streaming: before @@META@@, and without a marker that has only
-    partly arrived (the stream can end a chunk on "…answer.\\n@@ME")."""
+    partly arrived (the stream can end a chunk on "…answer.\\n@@ME").
+    hebrew: the answer should be Hebrew. Until its first Hebrew letter arrives, English text waits for its first
+    line to end, and English planning (strip_lead_in) waits for the Hebrew after it: it never flashes up."""
     text = raw.split(META)[0]
     for n in range(len(META) - 1, 0, -1):
         if text.endswith(META[:n]):
             text = text[:-n]
             break
-    return drop_keys(text).strip()
+    if hebrew and not _HEBREW.search(text):
+        lines = text.split("\n")
+        if len(lines) == 1 or _narration(lines):
+            return ""
+    return drop_keys(strip_lead_in(text)).strip()
 
 
 class Brain:
@@ -628,7 +740,8 @@ class Brain:
         has = (len(shots) - 1 if len(shots) > 1 else True) if shots else False
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
-        raw_delta = (lambda raw: on_delta(streamed_text(raw))) if on_delta else None
+        hebrew = reply_language(question, self.ui_lang) == "Hebrew"
+        raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
         if model or light:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta, model=model, tools=not light)
         else:
@@ -689,7 +802,7 @@ class Brain:
             self.last_model = result.model
         return Answer(text=text, entities=entities if every_drop else entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
                       grind=meta.get("grind") or {}, avatar_box=box if screenshot_jpeg else None, cost_usd=result.cost_usd,
-                      limits=result.limits, model=result.model)
+                      limits=result.limits, model=result.model, tool_calls=result.tool_calls, turns=result.turns)
 
     def summarize(self, transcript: str) -> str | None:
         """One-paragraph summary of a finished session, kept as long-term context."""

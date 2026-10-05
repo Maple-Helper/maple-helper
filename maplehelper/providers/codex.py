@@ -25,8 +25,8 @@ import tempfile
 import threading
 from pathlib import Path
 
-from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, \
-    find_windows_exe, http_ok, open_login, run_installer
+from .base import CREATE_NO_WINDOW, Installer, Lines, Provider, RawResult, classify_error, child_env, find_posix, \
+    find_windows_exe, http_ok, line_kind, open_login, run_installer
 
 log = logging.getLogger(__name__)
 ANSWER_TIMEOUT_S = 300
@@ -145,6 +145,7 @@ def codex_command(exe: str, workdir, instructions: str, model: str | None = None
 def parse_events(lines, stderr: str = "") -> RawResult:
     """The answer is the run's last agent message; earlier ones are lead-ins ("I'll check the database")."""
     answer, errors, failed, completed = None, [], False, False
+    tools: set = set()      # the commands (and other tool items) it ran, by item id: the evals count them
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -155,6 +156,9 @@ def parse_events(lines, stderr: str = "") -> RawResult:
         if not isinstance(ev, dict):
             continue
         t = ev.get("type")
+        item = ev.get("item") if isinstance(ev.get("item"), dict) else {}
+        if t in ("item.started", "item.completed") and item.get("type") in TOOL_ITEMS:
+            tools.add(item.get("id") or f"#{len(tools)}")
         if t == "item.completed" and (ev.get("item") or {}).get("type") == "agent_message":
             answer = ev["item"].get("text") or ""
         elif t == "error":
@@ -172,7 +176,11 @@ def parse_events(lines, stderr: str = "") -> RawResult:
     if failed or answer is None:
         log.warning("Codex gave no answer: %s", detail.strip()[-1500:])   # the cause, for "Report a problem"
         return RawResult(error=classify_error(detail) or ("api_error" if failed else "no_result"))
-    return RawResult(text=answer)
+    return RawResult(text=answer, tool_calls=len(tools))
+
+
+# `codex exec --json` items that are a tool run (its answer and reasoning are items too)
+TOOL_ITEMS = ("command_execution", "mcp_tool_call", "web_search", "file_change")
 
 
 def reply_result(lines) -> dict | None:
@@ -354,12 +362,20 @@ class CodexBackend:
             p.stdin.close()
         except OSError:        # it exited at once (e.g. an older CLI rejecting a flag): stderr says why
             pass
-        lines = list(p.stdout)
-        p.wait()
+        # read until the turn ends, not until the process exits (see base.Lines)
+        out, lines, done = Lines(p, None, "Codex"), [], False
+        for line in out:
+            if line is not None:
+                lines.append(line)
+                if line_kind(line) in ("turn.completed", "turn.failed"):
+                    done = line_kind(line) == "turn.completed"
+                    break
+        out.finish()
         self._running.discard(p)
         if killer:
             killer.cancel()
-        reader.join(timeout=5)
+        if not done:
+            reader.join(timeout=5)        # its words say what went wrong (an answer doesn't wait for them)
         return parse_events(lines, b"".join(err).decode("utf-8", errors="replace"))
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,

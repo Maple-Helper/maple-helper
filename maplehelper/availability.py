@@ -325,6 +325,10 @@ class Availability:
             parts.append(f"NOT in the game (the KB does not confirm them): {', '.join(shut)} — never send the player "
                          "there, never suggest their maps, monsters, NPCs or quests, and if asked say they are not in "
                          "the game yet.")
+        # said both ways: with only "3rd job is not in the game" the AI answered that the 2nd job isn't out either
+        # (to an Assassin, live)
+        tiers = ["1st", "2nd", "3rd", "4th"][:max(1, self.job_tier)]
+        parts.append(f"Job advancements in the game: {', '.join(tiers)} (players do them now).")
         if self.job_tier < 3:
             parts.append("3rd job advancement is not in the game; never present 3rd-job jobs or skills as available.")
         parts.append("Anything the KB does not confirm is not in the game: say so instead of guessing.")

@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, news, osapi, providers, report, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, news, osapi, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n
 from .kb import KnowledgeBase
@@ -88,6 +88,7 @@ class MapleHelperApp:
         self.settings = Settings()
         self.profiles = Profiles()
         self.kb = load_kb()
+        tables.ensure_async(self.kb)        # the KB's grep tables, off the GUI thread: ready before the first question
         self.font_family = theme.load_fonts()
         theme.FONT_FAMILY = self.font_family
         qapp.setWindowIcon(QIcon(str(ASSETS / "brand" / APP_ICON)))
@@ -664,9 +665,12 @@ class MapleHelperApp:
 
     def _stop_ai_for_kb_swap(self) -> bool:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
-        player is waiting on an answer (then _retry_kb_update tries again in a few minutes)."""
+        player is waiting on an answer or the KB's tables are being built (then _retry_kb_update tries again in a
+        few minutes)."""
         if self.overlay.busy or getattr(self.overlay, "_syncing", False):
             return False
+        if tables.building():
+            return False            # the KB's tables are being written into the folder that would be swapped
         self.brain.drop_warm()      # not shutdown(): that also cancels, and a question may start right now
         return True
 
@@ -975,6 +979,7 @@ class MapleHelperApp:
 
     def reload_kb(self):
         self.kb = load_kb()
+        tables.ensure_async(self.kb)        # a new KB's tables (a downloaded one usually brings them current)
         from . import inventory
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb

@@ -201,11 +201,21 @@
    "kind": "stats",
    "checks": {
     "must_mention": [
-     "Crimson Balrog",
-     "עוד לא נמצא במשחק"
+     "Crimson Balrog"
+    ],
+    "must_mention_any": [
+     "לא נמצא במשחק",
+     "לא קיים במשחק",
+     "לא במשחק",
+     "עוד לא יצא",
+     "לא יצא",
+     "לא זמין",
+     "isn't out",
+     "not in the game"
     ],
     "instant": true
-   }
+   },
+   "why": "Crimson Balrog (monster/700005) is not in the game per availability: the answer says so in any wording ('עוד לא נמצא במשחק' is the instant answer's; the AI wrote 'שעוד לא קיים במשחק', just as right)."
   },
   {
    "id": "stats-cold-eye-exp",
@@ -634,13 +644,13 @@
    "kind": "quest",
    "checks": {
     "must_mention": [
-     "21",
-     "Lakelis"
+     "21"
     ],
     "entities_include": [
      "quest/10311"
     ]
-   }
+   },
+   "why": "The question asks the level only: Proof of Companionship (quest/10311) opens at Lv 21. Its NPC (Lakelis) is a nice extra, not the answer: on main and this branch the AI answered '21' without her."
   },
   {
    "id": "quest-mai-training-he",
@@ -829,6 +839,701 @@
     "must_mention_any": [
      "Rotten Mushmom",
      "cave fairy"
+    ]
+   }
+  },
+  {
+   "id": "list-cape-quests-en",
+   "question": "which quests give a cape as a reward?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest"
+   ],
+   "why": "Every quest page's Rewards section (pages/quest/*.md), reward items looked up in index.json: type 'Equip / Cape' (Green Napoleon is a cape without 'Cape' in its name). Items handed 'On Acceptance' are not rewards (Pia's Gift's Red Cape is an Etc quest item). In game per availability.quest_open: Stranger's Identity (Old Raggedy Cape), Delivering the Flying Medicine (Icarus Capes), Maya's Last Collection (Green Napoleon). Not in game: The Book of Ancient is Back! and Nick's Ring (El Nath).",
+   "checks": {
+    "must_list": [
+     "Stranger's Identity",
+     "Delivering the Flying Medicine",
+     "Maya's Last Collection"
+    ],
+    "must_not_list": [
+     "The Book of Ancient is Back!",
+     "Nick's Ring"
+    ]
+   }
+  },
+  {
+   "id": "list-cape-quests-he",
+   "question": "איזה קווסטים נותנים גלימה?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest"
+   ],
+   "why": "Every quest page's Rewards section (pages/quest/*.md), reward items looked up in index.json: type 'Equip / Cape' (Green Napoleon is a cape without 'Cape' in its name). Items handed 'On Acceptance' are not rewards (Pia's Gift's Red Cape is an Etc quest item). In game per availability.quest_open: Stranger's Identity (Old Raggedy Cape), Delivering the Flying Medicine (Icarus Capes), Maya's Last Collection (Green Napoleon). Not in game: The Book of Ancient is Back! and Nick's Ring (El Nath).",
+   "checks": {
+    "must_list": [
+     "Stranger's Identity",
+     "Delivering the Flying Medicine",
+     "Maya's Last Collection"
+    ],
+    "must_not_list": [
+     "The Book of Ancient is Back!",
+     "Nick's Ring"
+    ]
+   }
+  },
+  {
+   "id": "list-earring-scroll-quests-en",
+   "question": "which quests reward earring scrolls?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest",
+    "scroll"
+   ],
+   "why": "Quest Rewards sections with 'Earring ... Scroll' items: Proof of Companionship (Kerning City) and Regained Vitality (Citizenship) are in game; The Road Back Home (Forgotten Hollow), A Report from Corporal Easy and Alcaster and the Dark Crystal (El Nath) are not (availability.quest_open).",
+   "checks": {
+    "must_list": [
+     "Proof of Companionship",
+     "Regained Vitality"
+    ],
+    "must_not_list": [
+     "The Road Back Home",
+     "A Report from Corporal Easy",
+     "Alcaster and the Dark Crystal"
+    ]
+   }
+  },
+  {
+   "id": "list-cape-scroll-quests-he",
+   "question": "אילו קווסטים נותנים סקרול לגלימה?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest",
+    "scroll"
+   ],
+   "why": "Quest Rewards sections with 'Cape ... Scroll' items: Pia's Gift (Greater STR/DEX/INT/LUK) and Taking Out the Alligators 2 (Intermediate) are in game; Matters of the Heart (Forgotten Hollow) and Acquiring the Fairy Dust (El Nath) are not.",
+   "checks": {
+    "must_list": [
+     "Pia's Gift",
+     "Taking Out the Alligators 2"
+    ],
+    "must_not_list": [
+     "Matters of the Heart",
+     "Acquiring the Fairy Dust"
+    ]
+   }
+  },
+  {
+   "id": "list-claw-scroll-quests-en",
+   "question": "which quests can give me a claw attack scroll?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest",
+    "scroll"
+   ],
+   "why": "Quest Rewards sections listing 'Claw Attack Scroll': Jane and the Mushroom (Intermediate, random), Welcome to the Hollow, Building a New House For Blackbull and Taking Out the Alligators 1 (Greater, pick one per class); all four in game per availability.quest_open.",
+   "checks": {
+    "must_list": [
+     "Jane and the Mushroom",
+     "Welcome to the Hollow",
+     "Building a New House For Blackbull",
+     "Taking Out the Alligators 1"
+    ]
+   }
+  },
+  {
+   "id": "list-gloves-scroll-quests-he",
+   "question": "מאיזה קווסטים אפשר לקבל סקרול התקפה לכפפות?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest",
+    "scroll"
+   ],
+   "why": "Quest Rewards sections listing 'Gloves Attack Scroll': Jane's Final Challenge (Lv 44) and Collecting 150 Cursed Dolls (Lv 36); no other quest page has one.",
+   "checks": {
+    "must_list": [
+     "Jane's Final Challenge",
+     "Collecting 150 Cursed Dolls"
+    ]
+   }
+  },
+  {
+   "id": "equip-claw-31-he",
+   "question": "איזה קלו הכי טוב בשבילי עכשיו?",
+   "lang": "he",
+   "kind": "equip",
+   "tags": [
+    "hard",
+    "equip"
+   ],
+   "why": "Equip / Claw items in index.json with Level Requirement <= 31 (default profile: Assassin 31): the Lv 30 Guards are the strongest (Steel 22, Mithril and Adamantium Guards 23 W.ATK); Guardians need Lv 35.",
+   "checks": {
+    "must_mention_any": [
+     "Mithril Guards",
+     "Adamantium Guards"
+    ]
+   }
+  },
+  {
+   "id": "equip-claw-31-en",
+   "question": "what's the best claw I can use right now?",
+   "lang": "en",
+   "kind": "equip",
+   "tags": [
+    "hard",
+    "equip"
+   ],
+   "why": "Equip / Claw items with Level Requirement <= 31 (default profile: Assassin 31): Mithril / Adamantium Guards, 23 W.ATK at Lv 30.",
+   "checks": {
+    "must_mention_any": [
+     "Mithril Guards",
+     "Adamantium Guards"
+    ]
+   }
+  },
+  {
+   "id": "equip-bow-hunter-35-en",
+   "question": "what's the best bow I can equip?",
+   "lang": "en",
+   "kind": "equip",
+   "tags": [
+    "hard",
+    "equip"
+   ],
+   "profile": {
+    "name": "EvalArcher",
+    "base_class": "Bowman",
+    "job": "Hunter",
+    "level": 35
+   },
+   "why": "Equip / Bow items with Level Requirement <= 35: Red Viper (Lv 35, 52 W.ATK) over Ryden (Lv 30, 50); Vaulter 2000 needs Lv 40.",
+   "checks": {
+    "must_mention": [
+     "Red Viper"
+    ]
+   }
+  },
+  {
+   "id": "equip-gloves-assassin-he",
+   "question": "איזה כפפות כדאי לי לשים?",
+   "lang": "he",
+   "kind": "equip",
+   "tags": [
+    "hard",
+    "equip"
+   ],
+   "why": "Equip / Gloves pages with JOB Thief and REQ LEV <= 31: the Lv 30 Sylvia gloves (W.DEF 14); Steel Sylvia is the LUK +3 one, an Assassin's main stat (Silver = DEX, Gold = STR). Arbion needs Lv 35.",
+   "checks": {
+    "must_mention": [
+     "Steel Sylvia"
+    ]
+   }
+  },
+  {
+   "id": "shop-arrows-en",
+   "question": "who sells arrows?",
+   "lang": "en",
+   "kind": "shop",
+   "tags": [
+    "hard",
+    "shop",
+    "list"
+   ],
+   "why": "Arrows for Bows (item/209) page, 'Where to buy': Luna (Henesys), Arturo (Perion), Len the Fairy (Ellinia), Dr. Faymus (Kerning City), Mina (Lith Harbor), Mr. Sweatbottom (Sleepywood), Valen (Florina Beach), plus the 24 Hr Mobile Store in Ant Tunnel Park; place_open() true for those. Edel the Fairy (Orbis), Hana and Glibber (El Nath) and Luma (Forgotten Hollow) are not in the game.",
+   "checks": {
+    "must_list": [
+     "Henesys",
+     "Perion",
+     "Ellinia",
+     "Kerning City",
+     "Lith Harbor",
+     "Sleepywood",
+     "Florina Beach"
+    ],
+    "must_not_list": [
+     "Edel the Fairy",
+     "Hana",
+     "Glibber",
+     "Luma"
+    ]
+   }
+  },
+  {
+   "id": "shop-arrows-he",
+   "question": "איפה קונים חיצים לקשת?",
+   "lang": "he",
+   "kind": "shop",
+   "tags": [
+    "hard",
+    "shop",
+    "list"
+   ],
+   "why": "Arrows for Bows (item/209) page, 'Where to buy': Luna (Henesys), Arturo (Perion), Len the Fairy (Ellinia), Dr. Faymus (Kerning City), Mina (Lith Harbor), Mr. Sweatbottom (Sleepywood), Valen (Florina Beach), plus the 24 Hr Mobile Store in Ant Tunnel Park; place_open() true for those. Edel the Fairy (Orbis), Hana and Glibber (El Nath) and Luma (Forgotten Hollow) are not in the game.",
+   "checks": {
+    "must_list": [
+     "Henesys",
+     "Perion",
+     "Ellinia",
+     "Kerning City",
+     "Lith Harbor",
+     "Sleepywood",
+     "Florina Beach"
+    ],
+    "must_not_list": [
+     "Edel the Fairy",
+     "Hana",
+     "Glibber",
+     "Luma"
+    ]
+   }
+  },
+  {
+   "id": "shop-elixir-en",
+   "question": "where can I buy Elixir and how much does it cost?",
+   "lang": "en",
+   "kind": "shop",
+   "tags": [
+    "hard",
+    "shop"
+   ],
+   "why": "Elixir (item/274) page, 'Where to buy': only Max (City General Store, Kerning City Civic Center) and Raymond (Town General Store, Henesys Town Hall), 3,000 mesos each (COT2 prices).",
+   "checks": {
+    "must_mention": [
+     "3000"
+    ],
+    "must_list": [
+     "Raymond",
+     "Henesys",
+     "Kerning City"
+    ]
+   }
+  },
+  {
+   "id": "list-ant-tunnel-monsters-en",
+   "question": "what monsters are in Ant Tunnel?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "monsters"
+   ],
+   "why": "Ant Tunnel I-IV map pages, monster table: Horny Mushroom (Lv 22) and Zombie Mushroom (Lv 24) on every one; Deep Ant Tunnel / Ant Tunnel Park add Evil Eye.",
+   "checks": {
+    "must_list": [
+     "Horny Mushroom",
+     "Zombie Mushroom"
+    ]
+   }
+  },
+  {
+   "id": "list-deep-ant-tunnel-monsters-he",
+   "question": "אילו מפלצות יש ב-Deep Ant Tunnel I?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "monsters"
+   ],
+   "why": "Deep Ant Tunnel I (map/010005066) monster table: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27, Jr. Boogie 2 35 (2 spawns, 3 min respawn). 'Jr. Boogie' matches the name with or without the 2.",
+   "checks": {
+    "must_list": [
+     "Horny Mushroom",
+     "Zombie Mushroom",
+     "Evil Eye",
+     "Jr. Boogie"
+    ]
+   }
+  },
+  {
+   "id": "train-exp-maps-35-en",
+   "question": "what are the best EXP maps for level 35?",
+   "lang": "en",
+   "kind": "training",
+   "tags": [
+    "hard",
+    "training"
+   ],
+   "profile": {
+    "level": 35
+   },
+   "why": "Map pages in game whose 'Monster levels' range holds 35 and whose 'EXP rank' is in the top 70 (by the page's EXP /hr estimate); none of them is in Ludibrium, Orbis or El Nath.",
+   "checks": {
+    "must_mention_any": [
+     "Line 2 <Area 2>",
+     "Line 1 <Area 3>",
+     "Kerning City Subway",
+     "Sleepy Dungeon V",
+     "Sleepy Dungeon III",
+     "Dangerous Croko II",
+     "East Rocky Mountain VII",
+     "Forbidden Entrance",
+     "Monkey Swamp III",
+     "Forgotten Entrance III",
+     "Precipice of Darkness",
+     "Hunting Ground in the Deep Forest II",
+     "Dilapidated Tomb",
+     "The Burnt Land V",
+     "Deep Ant Tunnel I",
+     "Drake's Meal Table"
+    ],
+    "must_not_list": [
+     "Ludibrium",
+     "Orbis",
+     "El Nath"
+    ]
+   }
+  },
+  {
+   "id": "list-top-exp-30-40-en",
+   "question": "which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "monsters"
+   ],
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "checks": {
+    "must_list": [
+     "Cold Eye",
+     "Glowshroom",
+     "Lorang"
+    ],
+    "must_not_list": [
+     "Tick-Tock",
+     "Raffle",
+     "Barnard Gray",
+     "Tweeter",
+     "Toy Trojan"
+    ]
+   }
+  },
+  {
+   "id": "list-top-exp-30-40-he",
+   "question": "אילו 3 מפלצות רגילות (לא בוסים) בין רמה 30 ל-40 נותנות הכי הרבה EXP?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "monsters"
+   ],
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "checks": {
+    "must_list": [
+     "Cold Eye",
+     "Glowshroom",
+     "Lorang"
+    ],
+    "must_not_list": [
+     "Tick-Tock",
+     "Raffle",
+     "Barnard Gray",
+     "Tweeter",
+     "Toy Trojan"
+    ]
+   }
+  },
+  {
+   "id": "craft-steel-guards-en",
+   "question": "how do I craft Steel Guards?",
+   "lang": "en",
+   "kind": "craft",
+   "tags": [
+    "hard",
+    "craft",
+    "list"
+   ],
+   "why": "Steel Guards (item/689) page, Craftable: Weaponcrafting, recipe Lv 6, 6,500 mesos: Bronze Ingot x3, Iron Ingot x3, Processed Leather x40, Screw x18 (+ optional Two-Handed Weapon Crafting Catalyst).",
+   "checks": {
+    "must_mention": [
+     "Weaponcrafting"
+    ],
+    "must_list": [
+     "Bronze Ingot",
+     "Iron Ingot",
+     "Processed Leather",
+     "Screw"
+    ]
+   }
+  },
+  {
+   "id": "craft-red-viper-he",
+   "question": "איך מכינים Red Viper? מה צריך בשביל זה?",
+   "lang": "he",
+   "kind": "craft",
+   "tags": [
+    "hard",
+    "craft",
+    "list"
+   ],
+   "why": "Red Viper (item/669) page, Craftable: Woodcrafting, recipe Lv 7, 9,000 mesos: Processed Wood x9, Silver Ingot x1, Garnet x1, Opal x1, Screw x21 (+ optional catalyst).",
+   "checks": {
+    "must_mention": [
+     "Woodcrafting"
+    ],
+    "must_list": [
+     "Processed Wood",
+     "Silver Ingot",
+     "Garnet",
+     "Opal",
+     "Screw"
+    ]
+   }
+  },
+  {
+   "id": "list-bronze-ore-uses-en",
+   "question": "what is Bronze Ore used for?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "craft"
+   ],
+   "why": "Bronze Ore (item/413) page, Needed By: 1 recipe (Bronze Ingot, Smithing Lv 1, 5 ore) and 1 quest (Silas Irons in Need of an Apprentice, 5 ore).",
+   "checks": {
+    "must_list": [
+     "Bronze Ingot",
+     "Silas Irons in Need of an Apprentice"
+    ]
+   }
+  },
+  {
+   "id": "skills-assassin-he",
+   "question": "אילו סקילים יש ל-Assassin?",
+   "lang": "he",
+   "kind": "skills",
+   "tags": [
+    "hard",
+    "skills",
+    "list"
+   ],
+   "why": "pages/class/assassin.md, 'Assassin skills · 2nd job · 6 skills' (one skill page each under pages/skill/assassin__*): Claw Mastery, Critical Throw, Claw Booster, Critical Recovery, Drain, Haste.",
+   "checks": {
+    "must_list": [
+     "Claw Mastery",
+     "Critical Throw",
+     "Claw Booster",
+     "Critical Recovery",
+     "Drain",
+     "Haste"
+    ]
+   }
+  },
+  {
+   "id": "skills-hunter-en",
+   "question": "what skills does a Hunter get?",
+   "lang": "en",
+   "kind": "skills",
+   "tags": [
+    "hard",
+    "skills",
+    "list"
+   ],
+   "profile": {
+    "name": "EvalArcher",
+    "base_class": "Bowman",
+    "job": "Hunter",
+    "level": 35
+   },
+   "why": "pages/class/hunter.md, 'Hunter skills · 2nd job · 6 skills' (pages/skill/hunter__*): Bow Mastery, Amazon's Judgement, Final Attack: Bow, Bow Booster, Soul Arrow: Bow, Arrow Bomb: Bow. The needles leave out ': Bow' so 'Soul Arrow' and 'Arrow Bomb' count as named.",
+   "checks": {
+    "must_list": [
+     "Bow Mastery",
+     "Amazon's Judgement",
+     "Final Attack",
+     "Bow Booster",
+     "Soul Arrow",
+     "Arrow Bomb"
+    ]
+   }
+  },
+  {
+   "id": "list-zombie-mushroom-quests-en",
+   "question": "which quests need me to kill Zombie Mushrooms?",
+   "lang": "en",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest"
+   ],
+   "why": "Quest pages whose Requirements say 'Defeat Zombie Mushroom x N' (the (alt) level-30 copy excluded): Arcon's Blood? (x75), Stranger's Identity (x50), A Blacksmith in My Own Right! (x30); all in game per availability.quest_open. Cross-checked with Ant Tunnel I's 'Quests on this map' list.",
+   "checks": {
+    "must_list": [
+     "Arcon's Blood?",
+     "Stranger's Identity",
+     "A Blacksmith in My Own Right!"
+    ]
+   }
+  },
+  {
+   "id": "list-zombie-mushroom-quests-he",
+   "question": "באילו קווסטים צריך להרוג Zombie Mushroom?",
+   "lang": "he",
+   "kind": "list",
+   "tags": [
+    "hard",
+    "list",
+    "quest"
+   ],
+   "why": "Quest pages whose Requirements say 'Defeat Zombie Mushroom x N' (the (alt) level-30 copy excluded): Arcon's Blood? (x75), Stranger's Identity (x50), A Blacksmith in My Own Right! (x30); all in game per availability.quest_open. Cross-checked with Ant Tunnel I's 'Quests on this map' list.",
+   "checks": {
+    "must_list": [
+     "Arcon's Blood?",
+     "Stranger's Identity",
+     "A Blacksmith in My Own Right!"
+    ]
+   }
+  },
+  {
+   "id": "npc-maya-quests-en",
+   "question": "where is Maya and what quests does she give?",
+   "lang": "en",
+   "kind": "npc",
+   "tags": [
+    "hard",
+    "npc",
+    "list",
+    "quest"
+   ],
+   "why": "Maya (npc/207) page: Location 'Henesys Townstreet, Victoria Road'; 'Quests Given (5)': Maya of Henesys, Maya's First, Second, Third and Last Collection (all in game).",
+   "checks": {
+    "must_mention": [
+     "Henesys"
+    ],
+    "must_list": [
+     "Maya of Henesys",
+     "Maya's First Collection",
+     "Maya's Second Collection",
+     "Maya's Third Collection",
+     "Maya's Last Collection"
+    ]
+   }
+  },
+  {
+   "id": "npc-manji-quests-he",
+   "question": "איפה מנג'י ואיזה קווסטים הוא נותן?",
+   "lang": "he",
+   "kind": "npc",
+   "tags": [
+    "hard",
+    "npc",
+    "list",
+    "quest"
+   ],
+   "why": "Manji (npc/502) page: Location 'Perion, Victoria Road'; 'Quests Given (3)': Arcon's Blood?, Getting Arcon's Blood, Old Gladius (all in game).",
+   "checks": {
+    "must_mention": [
+     "Perion"
+    ],
+    "must_list": [
+     "Arcon's Blood?",
+     "Getting Arcon's Blood",
+     "Old Gladius"
+    ]
+   }
+  },
+  {
+   "id": "compare-ilbi-subi-en",
+   "question": "Ilbi vs Subi Throwing Stars: what's the difference?",
+   "lang": "en",
+   "kind": "compare",
+   "tags": [
+    "hard",
+    "compare"
+   ],
+   "why": "index.json / item pages: Subi Throwing Stars (item/294) W.ATK +15, sold for 500 mesos by every Victoria grocer; Ilbi Throwing Stars (item/300) W.ATK +27, no NPC sells it. Both need level 10.",
+   "checks": {
+    "must_mention": [
+     "Ilbi",
+     "Subi",
+     "27",
+     "15"
+    ]
+   }
+  },
+  {
+   "id": "compare-ilbi-subi-he",
+   "question": "מה ההבדל בין אילבי לסובי?",
+   "lang": "he",
+   "kind": "compare",
+   "tags": [
+    "hard",
+    "compare"
+   ],
+   "why": "Ilbi Throwing Stars W.ATK +27, Subi Throwing Stars W.ATK +15 (index.json props, item pages).",
+   "checks": {
+    "must_mention": [
+     "Ilbi",
+     "Subi",
+     "27",
+     "15"
+    ]
+   }
+  },
+  {
+   "id": "compare-four-monsters-en",
+   "question": "Fire Boar, Ligator, Curse Eye or Jr. Wraith: which one gives the most EXP per kill?",
+   "lang": "en",
+   "kind": "compare",
+   "tags": [
+    "hard",
+    "compare",
+    "monsters"
+   ],
+   "why": "index.json EXP: Fire Boar 62, Ligator 59, Curse Eye 66, Jr. Wraith 70 (the in-game entries, not the Lv 30 (alt) copies).",
+   "checks": {
+    "must_mention": [
+     "Jr. Wraith",
+     "70"
+    ],
+    "must_list": [
+     "Fire Boar",
+     "Ligator",
+     "Curse Eye",
+     "Jr. Wraith"
+    ]
+   }
+  },
+  {
+   "id": "compare-three-monsters-he",
+   "question": "מה הרמה של Horny Mushroom, Zombie Mushroom ו-Evil Eye?",
+   "lang": "he",
+   "kind": "compare",
+   "tags": [
+    "hard",
+    "compare",
+    "monsters"
+   ],
+   "why": "index.json Level: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27 (in-game entries).",
+   "checks": {
+    "must_mention": [
+     "22",
+     "24",
+     "27"
     ]
    }
   }

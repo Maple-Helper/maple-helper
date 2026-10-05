@@ -86,6 +86,27 @@ def test_unknown_prerequisite_lines_are_kept_word_for_word(tmp_path):
     assert q.notes == ["Must not already have: Pale Maple Leaf"] and q.prereq_hints(t) == q.notes
 
 
+def test_rewards_table_lists_every_quest_reward_with_its_key(tmp_path):
+    # "which quests give a cape" took Claude 35 tool calls over the item pages: rewards.tsv answers it in one grep
+    page = ("---\n{}\n---\n\n# Q\n\nRewards\n100 EXP\nOld Raggedy Cape x 1\nRandom reward - one of:\n"
+            "Green Icarus Cape x 1 50 % Blue Icarus Cape x 1 50 %\nDescription\n")
+    (tmp_path / "pages" / "quest").mkdir(parents=True)
+    (tmp_path / "pages" / "quest" / "1.md").write_text(page, encoding="utf-8")
+    items = [{"key": f"item/{i}", "name": n, "category": "item", "type": "Equip / Cape"}
+             for i, n in ((1, "Old Raggedy Cape"), (2, "Green Icarus Cape"), (3, "Blue Icarus Cape"))]
+    (tmp_path / "index.json").write_text(json.dumps(items + [{"key": "quest/1", "name": "Q", "category": "quest",
+                                                              "props": {"Minimum Level": 23, "Area": "Kerning City"}}]),
+                                         encoding="utf-8")
+    (tmp_path / "aliases.json").write_text("{}", encoding="utf-8")
+    KnowledgeBase(tmp_path).ensure_drop_table()
+    rows = [r.split("\t") for r in (tmp_path / "rewards.tsv").read_text(encoding="utf-8").splitlines()]
+    assert rows[0][:5] == ["quest", "quest_level", "quest_key", "area", "item"]
+    assert [(r[4], r[7], r[8]) for r in rows[1:]] == [("Old Raggedy Cape", "item/1", "sure"),
+                                                      ("Green Icarus Cape", "item/2", "random 50%"),
+                                                      ("Blue Icarus Cape", "item/3", "random 50%")]
+    assert all(r[:4] == ["Q", "23", "quest/1", "Kerning City"] and r[6] == "Equip / Cape" for r in rows[1:])
+
+
 # ------------------------------------------------------------------ citizenship
 
 @needs_kb

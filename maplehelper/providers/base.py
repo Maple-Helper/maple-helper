@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import logging
 import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -28,6 +30,307 @@ class RawResult:
     cost_usd: float | None = None
     limits: dict | None = None     # plan usage, when the CLI reports it with the answer (Claude Code, see usage.py)
     model: str | None = None       # the model that answered, when the CLI says ("claude-sonnet-5")
+    # how the answer was reached, where the CLI's stream tells (None: it doesn't): tools run (file reads, greps,
+    # shell commands) and model turns. For the speed evals (tools/eval_answers.py); the app shows neither
+    tool_calls: int | None = None
+    turns: int | None = None
+
+
+def note_tool_use(ev: dict, ids: set) -> bool:
+    """A Claude-Code-format stream line's tool calls, into ids (Claude Code, Grok): the partial stream's
+    content_block_start and the whole "assistant" message both carry each tool_use block, so they're counted
+    once by id. True when the line carries content blocks at all (the stream tells about tools)."""
+    blocks = []
+    if ev.get("type") == "stream_event" and (ev.get("event") or {}).get("type") == "content_block_start":
+        blocks = [(ev["event"].get("content_block") or {})]
+    elif ev.get("type") == "assistant":
+        blocks = ((ev.get("message") or {}).get("content")) or []
+        blocks = blocks if isinstance(blocks, list) else []
+    else:
+        return False
+    for b in blocks:
+        if isinstance(b, dict) and b.get("type") in ("tool_use", "server_tool_use"):
+            ids.add(b.get("id") or f"#{len(ids)}")
+    return True
+
+
+# Hedging: a run with no sign of life this long after its question was sent starts a second, identical run, and the
+# first to answer wins. The server sometimes sits on a request for minutes (a question with no tool calls took 338 s
+# once and 10 s when asked again), and a cap on time would cut off the slow answers that are working. A healthy run
+# shows its first sign of life in 1-2 s, ~13 s when the server first caches a long prompt (measured, Sonnet 5).
+HEDGE_AFTER_S = 25.0
+
+
+def _kill(proc) -> None:
+    try:
+        if proc.poll() is None:
+            proc.kill()
+    except OSError:
+        pass
+
+
+class Attempt:
+    """One run in a Race. The run reports each sign of life (activity) and its visible text (delta) here, and
+    registers its processes (track) so the race can stop them."""
+
+    def __init__(self, race: Race, n: int):
+        self.race, self.n = race, n
+        self.active = False            # a sign of life from the model: any streamed event, thinking included
+        self.procs: list = []
+        self.result: RawResult | None = None
+
+    @property
+    def lost(self) -> bool:
+        """Another run won or the question was cancelled: this one is stopped, and its output goes nowhere."""
+        return self in self.race.losers or self.race.cancelled
+
+    def track(self, proc) -> bool:
+        """A process of this run. False (and it is stopped right away) when the run is already out."""
+        with self.race.cond:
+            self.procs.append(proc)
+            out = self.lost
+        if out:
+            _kill(proc)
+        return not out
+
+    def activity(self) -> None:
+        with self.race.cond:
+            if not self.active:
+                self.active = True
+                self.race.cond.notify_all()
+
+    def delta(self, text: str) -> None:
+        """Visible text so far. The first run to stream text wins the question (the other one is stopped), and only
+        its text reaches the chat: two answers never interleave."""
+        race = self.race
+        stop = []
+        with race.cond:
+            self.active = True
+            if race.owner is None and not self.lost:
+                race.owner = self
+                stop = race._lose_others(self)
+                race.cond.notify_all()
+            mine = race.owner is self and not race.cancelled
+        for p in stop:
+            _kill(p)
+        if mine and race.on_delta:
+            race.on_delta(text)
+
+
+class Race:
+    """Runs one question, hedged (see HEDGE_AFTER_S). run_one(attempt) does one full run and returns its RawResult;
+    a second one starts at most once, only while the first has shown no sign of life and no text has streamed.
+    The first success wins and the other run is stopped; a run that streams text wins at once."""
+
+    def __init__(self, on_delta=None, label: str = "AI"):
+        self.on_delta, self.label = on_delta, label
+        self.cond = threading.Condition()
+        self.attempts: list[Attempt] = []
+        self.losers: set[Attempt] = set()
+        self.owner: Attempt | None = None
+        self.winner: Attempt | None = None
+        self.cancelled = False
+
+    def cancel(self) -> None:
+        """Stop every run of the question."""
+        with self.cond:
+            self.cancelled = True
+            procs = [p for a in self.attempts for p in a.procs]
+            self.cond.notify_all()
+        for p in procs:
+            _kill(p)
+
+    def _lose_others(self, keep: Attempt) -> list:
+        """(under the lock) every other unfinished run is out; their processes, to stop outside the lock."""
+        procs = []
+        for a in self.attempts:
+            if a is not keep and a.result is None and a not in self.losers:
+                self.losers.add(a)
+                procs += a.procs
+        return procs
+
+    def _start(self, run_one) -> None:
+        a = Attempt(self, len(self.attempts))
+        self.attempts.append(a)
+
+        def go():
+            try:
+                r = run_one(a)
+            except Exception:      # noqa: BLE001 - a run that breaks must never leave the question waiting
+                log.exception("%s run %s failed", self.label, a.n)
+                r = RawResult(error="no_result")
+            self._finish(a, r)
+        threading.Thread(target=go, daemon=True).start()
+
+    def _finish(self, a: Attempt, r: RawResult) -> None:
+        stop = []
+        with self.cond:
+            a.result = r
+            if self.winner is None and not a.lost:
+                others = [o for o in self.attempts if o is not a and o.result is None and o not in self.losers]
+                # a failed run waits for the other one, still going, to answer instead
+                if self.owner is a or r.error is None or not others:
+                    self.winner = a
+                    stop = self._lose_others(a)
+                    if len(self.attempts) > 1:
+                        log.info("%s: run %s answered first (%s)", self.label, a.n, r.error or "ok")
+            self.cond.notify_all()
+        for p in stop:
+            _kill(p)
+
+    def _outcome(self) -> RawResult | None:
+        if self.winner is not None:
+            r = self.winner.result
+            if r.limits is None:          # the plan usage another run reported still counts
+                r.limits = next((o.result.limits for o in self.attempts if o.result and o.result.limits), None)
+            return r
+        if self.cancelled and all(a.result is not None for a in self.attempts):
+            return self.attempts[0].result
+        return None
+
+    def run(self, run_one, hedge_after: float | None = HEDGE_AFTER_S) -> RawResult:
+        began = time.monotonic()
+        with self.cond:
+            self._start(run_one)
+            while (r := self._outcome()) is None:
+                first = self.attempts[0]
+                if hedge_after is not None and len(self.attempts) == 1 and not self.cancelled and \
+                        self.owner is None and not first.active and first.result is None:
+                    wait = began + hedge_after - time.monotonic()
+                    if wait <= 0:
+                        log.info("%s: no sign of life %g s after the question, asking again in parallel",
+                                 self.label, hedge_after)
+                        self._start(run_one)
+                        continue
+                    self.cond.wait(wait)
+                else:
+                    self.cond.wait()
+        return r
+
+
+EXIT_GRACE_S = 3.0      # a CLI that has exited but whose output pipe stays open: read no longer than this
+OUTLIVE_LOG_S = 5.0     # a CLI still running this long after its final event is logged, then stopped
+
+
+class Lines:
+    """A CLI's output lines, read on a thread of their own, so that reading never outlasts the answer:
+      * the caller stops at its final event ("result") and calls finish(): the process is left to end in the
+        background (stopped after OUTLIVE_LOG_S, with what it printed meanwhile in the log);
+      * no meaningful output for stall_s (the caller says what counts, with touch()): the process is stopped and
+        `stalled` is set; status or keep-alive chatter can't keep a dead run going;
+      * the process has exited but its output stays open (a child process of its own holds the pipe: an answer
+        once sat 501 s after it was complete): reading ends EXIT_GRACE_S later.
+    Iterating yields each line, and None about every half second while nothing comes (for the caller's own
+    checks)."""
+
+    def __init__(self, proc, stall_s: float | None, label: str = "CLI", deadline_s: float | None = None):
+        self.proc, self.stall_s, self.label = proc, stall_s, label
+        self.q: queue.Queue = queue.Queue()
+        self.began = self.last = time.monotonic()
+        self.deadline = self.began + deadline_s if deadline_s else None
+        self.stalled = self.orphaned = False
+        self.done = False
+
+        def pump():
+            try:
+                for line in proc.stdout:
+                    self.q.put(line)
+            except (OSError, ValueError):
+                pass
+            self.q.put(b"")              # end of output
+        threading.Thread(target=pump, daemon=True).start()
+
+    def touch(self) -> None:
+        """A meaningful event: the stall clock starts again."""
+        self.last = time.monotonic()
+
+    def __iter__(self):
+        exited = None
+        while True:
+            try:
+                line = self.q.get(timeout=0.5)
+            except queue.Empty:
+                line = None
+            now = time.monotonic()
+            # (checked whatever comes: a stream of status lines must not hold a stalled run open)
+            if (self.stall_s and now - self.last > self.stall_s) or (self.deadline and now > self.deadline):
+                self.stalled = True
+                _kill(self.proc)
+                return
+            if line is None:
+                if self.proc.poll() is not None:
+                    exited = exited or now
+                    if now - exited > EXIT_GRACE_S:
+                        self.orphaned = True
+                        log.info("%s exited but its output stayed open: stopped reading", self.label)
+                        return
+                yield None
+                continue
+            if line == b"":
+                self.done = True
+                return
+            yield line
+
+    def finish(self) -> None:
+        """The answer is complete: the process ends in the background. Still running OUTLIVE_LOG_S later, it is
+        logged with the kinds of lines it printed meanwhile, and stopped."""
+        if self.done:
+            return
+        proc, label, q = self.proc, self.label, self.q
+
+        def reap():
+            end = time.monotonic() + OUTLIVE_LOG_S
+            kinds: list[str] = []
+            while time.monotonic() < end:
+                try:
+                    line = q.get(timeout=max(0.05, end - time.monotonic()))
+                except queue.Empty:
+                    continue
+                if line == b"":
+                    break
+                kinds.append(line_kind(line))
+            if proc.poll() is None:
+                log.info("%s still running %.0f s after its answer (printed since: %s): stopped", label,
+                         OUTLIVE_LOG_S, ", ".join(kinds[-8:]) or "nothing")
+                _kill(proc)
+            elif kinds:
+                log.info("%s printed after its answer: %s", label, ", ".join(kinds[-8:]))
+        threading.Thread(target=reap, daemon=True).start()
+
+
+def line_kind(line: bytes) -> str:
+    """"stream_event/message_stop", "system/status": what an output line was, for the log (never its text)."""
+    import json
+    try:
+        ev = json.loads(line)
+    except (ValueError, UnicodeDecodeError):
+        return "text"
+    if not isinstance(ev, dict):
+        return "json"
+    inner = ev.get("event")
+    t = str(ev.get("type") or (inner if isinstance(inner, str) else "?"))
+    sub = ev.get("subtype") or (inner.get("type") if isinstance(inner, dict) else None)
+    return f"{t}/{sub}" if sub else t
+
+
+class StreamText:
+    """The answer in a Claude-format stream (Claude Code, Grok): the text of the last message after its last tool
+    call. Text before a tool call, in an earlier message or earlier in the same one, was a lead-in."""
+
+    def __init__(self):
+        self.text = ""
+
+    def feed(self, se: dict) -> bool:
+        """One stream event (the "event" of a stream_event line); True when the visible text grew."""
+        t = se.get("type")
+        if t == "message_start":
+            self.text = ""
+        elif t == "content_block_start" and (se.get("content_block") or {}).get("type") not in (None, "text"):
+            self.text = ""         # a tool call (or thinking) after text: that text led in to it
+        elif t == "content_block_delta" and (se.get("delta") or {}).get("type") == "text_delta":
+            self.text += str(se["delta"].get("text", ""))
+            return True
+        return False
 
 
 def model_name(model_id: str) -> str:

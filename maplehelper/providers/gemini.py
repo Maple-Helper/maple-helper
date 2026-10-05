@@ -165,23 +165,24 @@ def _write(path: Path, text: str) -> None:
             pass
 
 
-def tools_note(kb_root, shots: list[Path]) -> str:
+def tools_note(kb_root) -> str:
     """Without the default prompt the agent doesn't know where it is: the folder goes in by full path."""
-    note = (f"\n\nTools: the knowledge base is the folder {Path(kb_root).resolve()} - read it with view_file, "
+    return (f"\n\nTools: the knowledge base is the folder {Path(kb_root).resolve()} - read it with view_file, "
             "grep_search, list_dir and find_by_name, always with absolute paths. Nothing outside that folder "
             "(and the screenshot) is open to you: never list or open other folders, they are blocked. You cannot "
             "write files, run commands or use the network.")
-    if shots:
-        note += ("\nThe player's game screenshot is attached as " + ", ".join(str(s) for s in shots) +
-                 ": open it with view_file first, before answering.")
-    return note
 
 
-def shot_note(shots: list[Path]) -> str:
-    """A quick screenshot read: the knowledge base isn't open, so the agent doesn't go looking for it."""
-    return ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
-            "list or open any folder. Your only tool is view_file, for the player's game screenshot: "
-            + ", ".join(str(s) for s in shots) + ". Open it first, then answer from it and the player's profile.")
+SHOT_NOTE = ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
+             "list or open any folder. Your only tool is view_file, for the player's game screenshot (its path comes "
+             "with the question). Open it first, then answer from it and the player's profile.")
+
+
+def shots_line(shots: list[Path]) -> str:
+    """The screenshot's path, with the question: each run has a folder of its own, so in the agent's instructions it
+    rewrote the agent file for every question."""
+    return ("\n\nThe player's game screenshot is attached as " + ", ".join(str(s) for s in shots) +
+            ": open it with view_file first, before answering.") if shots else ""
 
 
 def agy_command(exe: str, agent: str, model: str | None = None) -> list[str]:
@@ -202,10 +203,12 @@ def classify(text: str) -> str | None:
     return classify_error(text)
 
 
-def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str | None]:
+def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, dict | None, list[str], str | None]:
     """(answer text, the result, errors, conversation id) from agy's stream-json output. The answer is the
-    text after the last tool step: earlier text is a lead-in ("I'll check the database")."""
+    text after the last tool step: earlier text is a lead-in ("I'll check the database"). stats: filled with
+    "tool_calls", the tool steps it ran (the evals)."""
     current, result, errors, conv = "", None, [], None
+    tools, active = 0, False      # a tool step reports ACTIVE, then DONE: counted when it turns active
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -221,6 +224,9 @@ def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str
         elif kind == "step_update":
             s = ev.get("step_update") or {}
             conv = s.get("conversation_id") or conv
+            if s.get("step_type") == "tool":
+                tools += s.get("state") == "ACTIVE" and not active
+                active = s.get("state") == "ACTIVE"
             if s.get("step_type") == "tool" and s.get("state") == "ACTIVE":
                 current = ""
             elif s.get("step_type") == "agent_response" and s.get("text_delta"):
@@ -233,6 +239,9 @@ def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str
         elif kind == "result":
             result = ev.get("result") or {}
             conv = result.get("conversation_id") or conv
+            break                   # the answer is complete: whatever the process does next doesn't matter
+    if stats is not None:
+        stats["tool_calls"] = tools
     return current, result, errors, conv
 
 
@@ -575,30 +584,25 @@ class GeminiBackend:
             except OSError:
                 pass
         threading.Thread(target=feed, daemon=True).start()
-        last, began, stalled = [time.monotonic()], time.monotonic(), threading.Event()
-
-        def watchdog():
-            while p.poll() is None:
-                now = time.monotonic()
-                if now - last[0] > STALL_TIMEOUT_S or (timeout and now - began > timeout):
-                    stalled.set()
-                    p.kill()
-                    return
-                time.sleep(1)
-        threading.Thread(target=watchdog, daemon=True).start()
+        # read until the result line, not until the process exits (see base.Lines)
+        out = base.Lines(p, STALL_TIMEOUT_S, "Gemini", deadline_s=timeout)
 
         def lines():
-            for line in p.stdout:
-                last[0] = time.monotonic()
+            for line in out:
+                if line is None:
+                    continue
+                out.touch()
                 if AUTH_NEEDED in line:
                     stop_signed_out()
                     break
                 yield line
         conv = None
+        stats: dict = {}
         try:
-            text, result, _errors, conv = parse_events(lines(), on_delta)
-            p.wait()
-            reader.join(timeout=5)
+            text, result, _errors, conv = parse_events(lines(), on_delta, stats)
+            out.finish()
+            if not result or result.get("status") != "SUCCESS":
+                reader.join(timeout=5)       # its words say what went wrong (an answer doesn't wait for them)
             stderr = b"".join(err).decode("utf-8", errors="replace")
         finally:
             self._running.discard(p)
@@ -606,12 +610,14 @@ class GeminiBackend:
         if signed_out.is_set():
             log.warning("Gemini is signed out: the question stopped before agy opened a sign-in")
             return RawResult(error="not_logged_in")
-        if stalled.is_set():
+        if out.stalled:
             log.warning("Gemini stalled, stopped: %s", stderr[-1000:])
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):
             return RawResult(error="bad_model")
-        return to_result(text, result, stderr, model)
+        r = to_result(text, result, stderr, model)
+        r.tool_calls = stats.get("tool_calls")
+        return r
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
@@ -626,15 +632,17 @@ class GeminiBackend:
                     shots.append(folder / f"screenshot-{i}.jpg")
                     shots[-1].write_bytes(jpeg)
             if tools:
-                agent, allowed, note = AGENT, TOOLS, tools_note(b.kb.root, shots)
+                agent, allowed, note = AGENT, TOOLS, tools_note(b.kb.root)
             elif shots:
                 # the ⟳ sync: the screenshot only (opened with view_file). With the knowledge-base tools too, the
                 # agent grepped the knowledge base for over two minutes and the sync gave up at 60 s
-                agent, allowed, note = SHOT_AGENT, SHOT_TOOLS, shot_note(shots)
+                agent, allowed, note = SHOT_AGENT, SHOT_TOOLS, SHOT_NOTE
             else:
                 agent, allowed, note = QUICK_AGENT, [], ""
-            return self._exec(agent, b.system_prompt() + note, allowed, prompt, resolve_model(model or b.model),
-                              on_raw_delta)
+            # the agent file stays the same from question to question (written only when it changes): the
+            # screenshot's per-run path goes with the question
+            return self._exec(agent, b.system_prompt() + note, allowed, prompt + shots_line(shots),
+                              resolve_model(model or b.model), on_raw_delta)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
 

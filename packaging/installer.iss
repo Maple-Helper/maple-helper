@@ -71,8 +71,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [InstallDelete]
-; a bundled KB that is replaced goes first (dropped pages, an old drops.tsv); one that is kept stays (see
-; KbNeedsInstall). Only the KB: removing all of _internal would leave nothing that can even start if a silent
+; a bundled KB that is replaced goes first (dropped pages, old generated tables: drops.tsv and the rest of
+; maplehelper/tables.py, which the app rebuilds anyway when their mark doesn't fit the KB); one that is kept stays
+; (see KbNeedsInstall). Only the KB: removing all of _internal would leave nothing that can even start if a silent
 ; update stopped halfway
 Type: filesandordirs; Name: "{app}\_internal\data\kb"; Check: KbNeedsInstall
 
