@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import os
+import queue
 import re
 import shutil
 import subprocess
@@ -205,6 +206,111 @@ class Race:
                 else:
                     self.cond.wait()
         return r
+
+
+EXIT_GRACE_S = 3.0      # a CLI that has exited but whose output pipe stays open: read no longer than this
+OUTLIVE_LOG_S = 5.0     # a CLI still running this long after its final event is logged, then stopped
+
+
+class Lines:
+    """A CLI's output lines, read on a thread of their own, so that reading never outlasts the answer:
+      * the caller stops at its final event ("result") and calls finish(): the process is left to end in the
+        background (stopped after OUTLIVE_LOG_S, with what it printed meanwhile in the log);
+      * no meaningful output for stall_s (the caller says what counts, with touch()): the process is stopped and
+        `stalled` is set; status or keep-alive chatter can't keep a dead run going;
+      * the process has exited but its output stays open (a child process of its own holds the pipe: an answer
+        once sat 501 s after it was complete): reading ends EXIT_GRACE_S later.
+    Iterating yields each line, and None about every half second while nothing comes (for the caller's own
+    checks)."""
+
+    def __init__(self, proc, stall_s: float | None, label: str = "CLI", deadline_s: float | None = None):
+        self.proc, self.stall_s, self.label = proc, stall_s, label
+        self.q: queue.Queue = queue.Queue()
+        self.began = self.last = time.monotonic()
+        self.deadline = self.began + deadline_s if deadline_s else None
+        self.stalled = self.orphaned = False
+        self.done = False
+
+        def pump():
+            try:
+                for line in proc.stdout:
+                    self.q.put(line)
+            except (OSError, ValueError):
+                pass
+            self.q.put(b"")              # end of output
+        threading.Thread(target=pump, daemon=True).start()
+
+    def touch(self) -> None:
+        """A meaningful event: the stall clock starts again."""
+        self.last = time.monotonic()
+
+    def __iter__(self):
+        exited = None
+        while True:
+            try:
+                line = self.q.get(timeout=0.5)
+            except queue.Empty:
+                line = None
+            now = time.monotonic()
+            # (checked whatever comes: a stream of status lines must not hold a stalled run open)
+            if (self.stall_s and now - self.last > self.stall_s) or (self.deadline and now > self.deadline):
+                self.stalled = True
+                _kill(self.proc)
+                return
+            if line is None:
+                if self.proc.poll() is not None:
+                    exited = exited or now
+                    if now - exited > EXIT_GRACE_S:
+                        self.orphaned = True
+                        log.info("%s exited but its output stayed open: stopped reading", self.label)
+                        return
+                yield None
+                continue
+            if line == b"":
+                self.done = True
+                return
+            yield line
+
+    def finish(self) -> None:
+        """The answer is complete: the process ends in the background. Still running OUTLIVE_LOG_S later, it is
+        logged with the kinds of lines it printed meanwhile, and stopped."""
+        if self.done:
+            return
+        proc, label, q = self.proc, self.label, self.q
+
+        def reap():
+            end = time.monotonic() + OUTLIVE_LOG_S
+            kinds: list[str] = []
+            while time.monotonic() < end:
+                try:
+                    line = q.get(timeout=max(0.05, end - time.monotonic()))
+                except queue.Empty:
+                    continue
+                if line == b"":
+                    break
+                kinds.append(line_kind(line))
+            if proc.poll() is None:
+                log.info("%s still running %.0f s after its answer (printed since: %s): stopped", label,
+                         OUTLIVE_LOG_S, ", ".join(kinds[-8:]) or "nothing")
+                _kill(proc)
+            elif kinds:
+                log.info("%s printed after its answer: %s", label, ", ".join(kinds[-8:]))
+        threading.Thread(target=reap, daemon=True).start()
+
+
+def line_kind(line: bytes) -> str:
+    """"stream_event/message_stop", "system/status": what an output line was, for the log (never its text)."""
+    import json
+    try:
+        ev = json.loads(line)
+    except (ValueError, UnicodeDecodeError):
+        return "text"
+    if not isinstance(ev, dict):
+        return "json"
+    inner = ev.get("event")
+    t = str(ev.get("type") or (inner if isinstance(inner, str) else "?"))
+    sub = ev.get("subtype") or (inner.get("type") if isinstance(inner, dict) else None)
+    return f"{t}/{sub}" if sub else t
 
 
 class StreamText:

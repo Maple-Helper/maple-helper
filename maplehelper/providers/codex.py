@@ -25,8 +25,8 @@ import tempfile
 import threading
 from pathlib import Path
 
-from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, \
-    find_windows_exe, http_ok, open_login, run_installer
+from .base import CREATE_NO_WINDOW, Installer, Lines, Provider, RawResult, classify_error, child_env, find_posix, \
+    find_windows_exe, http_ok, line_kind, open_login, run_installer
 
 log = logging.getLogger(__name__)
 ANSWER_TIMEOUT_S = 300
@@ -362,12 +362,20 @@ class CodexBackend:
             p.stdin.close()
         except OSError:        # it exited at once (e.g. an older CLI rejecting a flag): stderr says why
             pass
-        lines = list(p.stdout)
-        p.wait()
+        # read until the turn ends, not until the process exits (see base.Lines)
+        out, lines, done = Lines(p, None, "Codex"), [], False
+        for line in out:
+            if line is not None:
+                lines.append(line)
+                if line_kind(line) in ("turn.completed", "turn.failed"):
+                    done = line_kind(line) == "turn.completed"
+                    break
+        out.finish()
         self._running.discard(p)
         if killer:
             killer.cancel()
-        reader.join(timeout=5)
+        if not done:
+            reader.join(timeout=5)        # its words say what went wrong (an answer doesn't wait for them)
         return parse_events(lines, b"".join(err).decode("utf-8", errors="replace"))
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,

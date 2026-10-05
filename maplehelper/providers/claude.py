@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from .. import usage
-from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Provider, Race, RawResult, StreamText, \
+from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Lines, Provider, Race, RawResult, StreamText, \
     classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer
 
 log = logging.getLogger(__name__)
@@ -28,6 +28,8 @@ INSTALL_CMD_MAC = "curl -fsSL https://claude.ai/install.sh | bash"
 # An app opened from Finder gets PATH=/usr/bin:/bin:/usr/sbin:/sbin, so the usual install spots are listed here.
 STALL_TIMEOUT_S = 150   # no output from the CLI for this long = stuck (tools and streaming print all along)
 WARM_MAX_AGE_S = 15 * 60    # a warm process waiting longer is replaced by a fresh one
+RESULT_GRACE_S = 5.0        # the answer's turn ended (with its META block) and no "result" line came: done anyway
+META_MARK = "@@META@@"
 POSIX_DIRS = ["~/.local/bin", "~/.claude/local", "/opt/homebrew/bin", "/usr/local/bin", "~/.npm-global/bin"]
 
 
@@ -311,20 +313,18 @@ class ClaudeBackend:
         err_reader = threading.Thread(target=lambda: err_chunks.extend(iter(lambda: proc.stderr.read(4096), b"")),
                                       daemon=True)
         err_reader.start()
-        # a stalled CLI (network retries, a hung login) must not leave the chat on "thinking" forever
-        last = [time.monotonic()]
-        stalled = threading.Event()
-
-        def watchdog():
-            while proc.poll() is None:
-                if time.monotonic() - last[0] > STALL_TIMEOUT_S:
-                    stalled.set()
-                    proc.kill()
-                    return
-                time.sleep(2)
-        threading.Thread(target=watchdog, daemon=True).start()
-        for line in proc.stdout:
-            last[0] = now = time.monotonic()
+        # read until the "result" line, never until the process exits: an answer once stayed "answering" 501 s after
+        # it was complete. A run with no sign of life for STALL_TIMEOUT_S (network retries, a hung login; status
+        # lines don't count) is stopped: the chat must not stay on "thinking" forever
+        lines = Lines(proc, STALL_TIMEOUT_S, f"Claude Code (run {a.n})")
+        ended = None            # when the last message ended its turn (end_turn): the answer if "result" never comes
+        for line in lines:
+            now = time.monotonic()
+            if ended and now - ended > RESULT_GRACE_S and META_MARK in text.text:
+                log.info("Claude Code sent no result %.0f s after its answer ended: taken as is", RESULT_GRACE_S)
+                break
+            if line is None:
+                continue
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
@@ -334,23 +334,32 @@ class ClaudeBackend:
             first_event = first_event or now
             if _alive(ev):
                 first_life = first_life or now
+                lines.touch()
                 a.activity()
             t = ev.get("type")
             blocks = note_tool_use(ev, calls) or blocks
             if t == "stream_event":
                 se = ev.get("event") or {}
-                if se.get("type") == "message_start":
+                kind = se.get("type")
+                if kind == "message_start":
                     used = (se.get("message") or {}).get("model") or used
+                    ended = None
+                elif kind == "message_delta":
+                    stop_reason = (se.get("delta") or {}).get("stop_reason")
+                    ended = now if stop_reason == "end_turn" else None
                 if text.feed(se):
                     a.delta(text.text)
             elif t == "result":
                 result = ev
+                break                   # the answer is complete: the process ends in the background
             elif t == "system" and ev.get("subtype") == "init":
                 used = ev.get("model") or used
             elif t == "rate_limit_event":
                 limits = usage.parse(ev.get("rate_limit_info"))
-        proc.wait()
-        err_reader.join(timeout=2)
+        lines.finish()
+        if not result or result.get("is_error"):
+            err_reader.join(timeout=2)        # its words say what went wrong (an answer doesn't wait for them)
+        stalled = lines.stalled
 
         def since(t):
             return f"{t - sent:.1f} s" if t else "none"
@@ -360,12 +369,14 @@ class ClaudeBackend:
                  "%.1f s%s", a.n, how, sent - began, since(first_event), since(first_life), time.monotonic() - sent,
                  " (stopped: the other run answered)" if a.lost else "")
         stderr = b"".join(err_chunks).decode("utf-8", errors="replace")
-        if stalled.is_set():
+        if not result and ended and META_MARK in text.text and not stalled:
+            result = {"result": text.text}      # the answer ended its turn; Claude Code never said "result"
+        if stalled:
             log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
             return RawResult(error="timeout", limits=limits)
         if not result:
             if not limits and not a.lost:
-                log.warning("no result from Claude Code (exit %s): %s", proc.returncode, stderr[-1500:])
+                log.warning("no result from Claude Code (exit %s): %s", proc.poll(), stderr[-1500:])
             return RawResult(error=classify_error(stderr) or "no_result", limits=limits)
         if result.get("is_error"):
             log.warning("Claude Code error: %s | %s", str(result.get("result", ""))[:500], stderr[-1000:])

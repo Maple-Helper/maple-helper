@@ -239,6 +239,7 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
         elif kind == "result":
             result = ev.get("result") or {}
             conv = result.get("conversation_id") or conv
+            break                   # the answer is complete: whatever the process does next doesn't matter
     if stats is not None:
         stats["tool_calls"] = tools
     return current, result, errors, conv
@@ -583,21 +584,14 @@ class GeminiBackend:
             except OSError:
                 pass
         threading.Thread(target=feed, daemon=True).start()
-        last, began, stalled = [time.monotonic()], time.monotonic(), threading.Event()
-
-        def watchdog():
-            while p.poll() is None:
-                now = time.monotonic()
-                if now - last[0] > STALL_TIMEOUT_S or (timeout and now - began > timeout):
-                    stalled.set()
-                    p.kill()
-                    return
-                time.sleep(1)
-        threading.Thread(target=watchdog, daemon=True).start()
+        # read until the result line, not until the process exits (see base.Lines)
+        out = base.Lines(p, STALL_TIMEOUT_S, "Gemini", deadline_s=timeout)
 
         def lines():
-            for line in p.stdout:
-                last[0] = time.monotonic()
+            for line in out:
+                if line is None:
+                    continue
+                out.touch()
                 if AUTH_NEEDED in line:
                     stop_signed_out()
                     break
@@ -606,8 +600,9 @@ class GeminiBackend:
         stats: dict = {}
         try:
             text, result, _errors, conv = parse_events(lines(), on_delta, stats)
-            p.wait()
-            reader.join(timeout=5)
+            out.finish()
+            if not result or result.get("status") != "SUCCESS":
+                reader.join(timeout=5)       # its words say what went wrong (an answer doesn't wait for them)
             stderr = b"".join(err).decode("utf-8", errors="replace")
         finally:
             self._running.discard(p)
@@ -615,7 +610,7 @@ class GeminiBackend:
         if signed_out.is_set():
             log.warning("Gemini is signed out: the question stopped before agy opened a sign-in")
             return RawResult(error="not_logged_in")
-        if stalled.is_set():
+        if out.stalled:
             log.warning("Gemini stalled, stopped: %s", stderr[-1000:])
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):

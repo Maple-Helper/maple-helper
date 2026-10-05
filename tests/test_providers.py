@@ -366,9 +366,12 @@ class TestClaudeBackend:
 
 class ScriptProc:
     """A Claude Code process for the hedging tests. It replays its script once the question has arrived: a number
-    waits that many seconds (unless the process is killed), a dict is one output line."""
+    waits that many seconds (unless the process is killed), a dict is one output line, "exit" ends the process
+    while its output stays open (a child process of its own holding the pipe: nothing more comes, no end).
+    stderr_open: its stderr never ends either."""
     scripts: list = []
     procs: list = []
+    stderr_open = False
 
     def __init__(self, cmd, **kw):
         self.script = ScriptProc.scripts.pop(0)
@@ -378,7 +381,7 @@ class ScriptProc:
         self.returncode = None
         self.stdin = io.BytesIO()
         self.stdin.close = self.sent.set
-        self.stderr = io.BytesIO(b"")
+        self.stderr = _OpenPipe() if ScriptProc.stderr_open else io.BytesIO(b"")
         self.stdout = self._lines()
 
     def _lines(self):
@@ -386,6 +389,11 @@ class ScriptProc:
             self.sent.wait(10)
             for step in self.script:
                 if self.killed.is_set():
+                    return
+                if step == "exit":
+                    self.returncode = 0
+                    self.ended.set()
+                    time.sleep(30)               # the orphan holds the pipe; nothing ends it from here
                     return
                 if isinstance(step, (int, float)):
                     if self.killed.wait(step):
@@ -408,6 +416,14 @@ class ScriptProc:
         if self.returncode is None:
             self.returncode = -9
         self.killed.set()
+
+
+class _OpenPipe:
+    """A pipe nobody ever closes."""
+
+    def read(self, n=-1):
+        time.sleep(60)
+        return b""
 
 
 def _se(event):
@@ -573,6 +589,139 @@ class TestHedging:
         r = race.run(run_one, hedge_after=0.1)
         assert r.text == "quick" and seen == ["quick"]
         assert race.attempts[0].lost
+
+
+END_TURN = [_se({"type": "message_delta", "delta": {"stop_reason": "end_turn"}}), _se({"type": "message_stop"})]
+STATUS = {"type": "system", "subtype": "status", "status": "requesting"}
+
+
+class TestRunEnds:
+    """A run is over at its "result" line, not when the process ends: an eval answer was complete in 2 s and its run
+    ended after 501 s (the chat would have stayed on "answering")."""
+
+    @pytest.fixture(autouse=True)
+    def quick(self, monkeypatch):
+        monkeypatch.setattr(base, "OUTLIVE_LOG_S", 0.3)
+        monkeypatch.setattr(base, "EXIT_GRACE_S", 0.3)
+        monkeypatch.setattr(claude, "RESULT_GRACE_S", 0.3)
+        monkeypatch.setattr(ScriptProc, "stderr_open", False)
+
+    def ask(self, kb_copy, monkeypatch, script, **kw):
+        b = TestHedging().make(kb_copy, monkeypatch, script, after=60, **kw)
+        t = time.monotonic()
+        ans = b.ask("where should I go to hunt snails today?", None, None, None)
+        return ans, time.monotonic() - t
+
+    def test_a_cli_that_never_exits_after_its_result(self, kb_copy, monkeypatch, caplog):
+        caplog.set_level("INFO")
+        ans, took = self.ask(kb_copy, monkeypatch, _answer("Hunt snails.") + [STATUS, 30])
+        assert ans.text == "Hunt snails." and took < 2
+        for _ in range(40):                      # stopped in the background, and the log says what it did
+            if ScriptProc.procs[0].killed.is_set():
+                break
+            time.sleep(0.05)
+        assert ScriptProc.procs[0].killed.is_set()
+        assert "still running" in caplog.text and "system/status" in caplog.text
+
+    def test_status_chatter_after_the_answer_without_a_result(self, kb_copy, monkeypatch):
+        """No "result" line at all, only status lines: the answer's turn ended with its META block, so it's taken."""
+        script = [_se({"type": "message_start", "message": {}}), _text('Hunt snails.\n@@META@@\n{}')] + END_TURN
+        ans, took = self.ask(kb_copy, monkeypatch, script + [STATUS, 0.1] * 300)
+        assert ans.text == "Hunt snails." and took < 3
+
+    def test_status_chatter_is_no_sign_of_life(self, kb_copy, monkeypatch):
+        monkeypatch.setattr(claude, "STALL_TIMEOUT_S", 0.8)
+        ans, took = self.ask(kb_copy, monkeypatch, LOCAL + [STATUS, 0.1] * 300)
+        assert ans.error == "timeout" and took < 3 and ScriptProc.procs[0].killed.is_set()
+
+    def test_thinking_keeps_a_run_alive(self, kb_copy, monkeypatch):
+        monkeypatch.setattr(claude, "STALL_TIMEOUT_S", 0.8)
+        thinking = [{"type": "system", "subtype": "thinking_tokens", "estimated_tokens": 50}, 0.3]
+        ans, _ = self.ask(kb_copy, monkeypatch, thinking * 6 + _answer("Thought it over."))
+        assert ans.text == "Thought it over."
+
+    def test_a_cli_that_exits_but_its_output_stays_open(self, kb_copy, monkeypatch):
+        """Its own child process holds the pipe: reading stops shortly after the exit."""
+        script = [_se({"type": "message_start", "message": {}}), _text('Hi.\n@@META@@\n{}')] + END_TURN + ["exit"]
+        ans, took = self.ask(kb_copy, monkeypatch, script)
+        assert ans.text == "Hi." and took < 3
+        ans, took = self.ask(kb_copy, monkeypatch, LOCAL + ["exit"])       # nothing said: no answer, quickly
+        assert ans.error == "no_result" and took < 3
+
+    def test_an_answer_never_waits_for_stderr(self, kb_copy, monkeypatch):
+        monkeypatch.setattr(ScriptProc, "stderr_open", True)
+        ans, took = self.ask(kb_copy, monkeypatch, _answer("Hunt snails.") + [30])
+        assert ans.text == "Hunt snails." and took < 2
+
+    def test_the_plan_usage_comes_before_the_result(self, kb_copy, monkeypatch):
+        """Live order: rate_limit_event, then result (the run stops reading at the result)."""
+        rate = {"type": "rate_limit_event", "rate_limit_info": {"unifiedWindows": {
+            "five_hour": {"utilization": 0.3, "resetsAt": 2000}}}}
+        ans, _ = self.ask(kb_copy, monkeypatch, _answer("Hi.")[:-1] + [rate, _answer("Hi.")[-1], 30])
+        assert ans.limits["five_hour"]["used"] == 0.3
+
+
+class _Stuck:
+    """Lines, then a pipe that stays open (the process never ends by itself)."""
+
+    def __init__(self, lines):
+        self.lines, self.killed = lines, threading.Event()
+        self.stdout = self._out()
+        self.stderr = _OpenPipe()
+        self.stdin = io.BytesIO()
+        self.stdin.close = lambda: None
+        self.returncode = None
+
+    def _out(self):
+        yield from (line.encode() if isinstance(line, str) else line for line in self.lines)
+        self.killed.wait(30)
+
+    def poll(self):
+        return -9 if self.killed.is_set() else None
+
+    def kill(self):
+        self.killed.set()
+
+    def wait(self, timeout=None):
+        return 0
+
+
+def test_grok_gemini_and_codex_stop_reading_at_their_last_event(kb_copy, monkeypatch):
+    """The same for the other CLIs: done at Grok's "result", agy's "result" and Codex's turn.completed."""
+    from maplehelper.brain import Brain
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.providers import gemini, grok
+    monkeypatch.setattr(base, "OUTLIVE_LOG_S", 0.3)
+    kb = KnowledgeBase(kb_copy)
+    grok_out = [json.dumps(e) + "\n" for e in (
+        {"type": "stream_event", "event": {"type": "message_start", "message": {}}},
+        {"type": "stream_event", "event": {"type": "content_block_delta", "delta": {"type": "text_delta",
+                                                                                   "text": "Hi.\n@@META@@\n{}"}}},
+        {"type": "result", "subtype": "success", "is_error": False, "result": "Hi."})]
+    agy_out = [json.dumps(e) + "\n" for e in (
+        {"event": "step_update", "step_update": {"step_type": "agent_response", "text_delta": "Hi.\n@@META@@\n{}"}},
+        {"event": "result", "result": {"status": "SUCCESS"}})]
+    codex_out = [json.dumps(e) + "\n" for e in (
+        {"type": "item.completed", "item": {"type": "agent_message", "text": "Hi.\n@@META@@\n{}"}},
+        {"type": "turn.completed"})]
+    for mod, name, out in ((grok, "grok", grok_out), (gemini, "gemini", agy_out), (codex, "codex", codex_out)):
+        procs = []
+        monkeypatch.setattr(mod.subprocess, "Popen", lambda *a, _o=out, _p=procs, **k: _p.append(_Stuck(_o)) or _p[-1])
+        if mod is grok:
+            monkeypatch.setattr(grok, "guard_exe", lambda kb_root: None)
+            monkeypatch.setattr(grok, "home", lambda: kb_copy.parent / "grok-home")
+        if mod is gemini:
+            monkeypatch.setattr(gemini, "home", lambda: kb_copy.parent / "agy-home")
+        b = Brain(kb, provider=name)
+        b.backend.exe = name + ".exe"
+        t = time.monotonic()
+        ans = b.ask("where should I go to hunt snails today?", None, None, None)
+        assert ans.text == "Hi." and time.monotonic() - t < 3, name
+        for _ in range(40):
+            if procs[0].killed.is_set():
+                break
+            time.sleep(0.05)
+        assert procs[0].killed.is_set(), name               # stopped in the background
 
 
 class TestWarmProcess:

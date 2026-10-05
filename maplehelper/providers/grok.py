@@ -370,6 +370,8 @@ def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
     tools: set = set()
     blocks = False
     for line in lines:
+        if line is None:            # (base.Lines: nothing came for a moment)
+            continue
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
         try:
@@ -390,6 +392,7 @@ def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
             model = ev.get("model") or model
         elif t == "result":
             result = ev
+            break                   # the answer is complete: whatever the process does next doesn't matter
     if stats is not None:
         turns = (result or {}).get("num_turns")
         stats.update(tool_calls=len(tools) if blocks else None, turns=turns if isinstance(turns, int) else None)
@@ -616,31 +619,24 @@ class GrokBackend:
         err: list[bytes] = []
         reader = threading.Thread(target=lambda: err.extend(iter(lambda: p.stderr.read(4096), b"")), daemon=True)
         reader.start()
-        last, began, stalled = [time.monotonic()], time.monotonic(), threading.Event()
-
-        def watchdog():
-            while p.poll() is None:
-                now = time.monotonic()
-                if now - last[0] > STALL_TIMEOUT_S or (timeout and now - began > timeout):
-                    stalled.set()
-                    p.kill()
-                    return
-                time.sleep(1)
-        threading.Thread(target=watchdog, daemon=True).start()
+        # read until the result line, not until the process exits (see base.Lines); status lines aren't progress
+        out = base.Lines(p, STALL_TIMEOUT_S, "Grok", deadline_s=timeout)
 
         def lines():
-            for line in p.stdout:
-                last[0] = time.monotonic()
+            for line in out:
+                if line is not None and base.line_kind(line) != "system/status":
+                    out.touch()
                 yield line
         stats: dict = {}
         try:
             text, result, used = parse_stream(lines(), on_delta, stats)
-            p.wait()
-            reader.join(timeout=5)
+            out.finish()
+            if not result or result.get("is_error") or result.get("subtype") != "success":
+                reader.join(timeout=5)       # its words say what went wrong (an answer doesn't wait for them)
             stderr = b"".join(err).decode("utf-8", errors="replace")
         finally:
             self._running.discard(p)
-        if stalled.is_set():
+        if out.stalled:
             log.warning("Grok stalled, stopped: %s", stderr[-1000:])
             return RawResult(error="timeout")
         errors = " ".join(str(e) for e in ((result or {}).get("errors") or [])) + stderr
