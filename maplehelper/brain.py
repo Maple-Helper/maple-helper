@@ -143,6 +143,8 @@ class Answer:
     cost_usd: float | None = None
     limits: dict | None = None          # Claude plan usage (usage.parse of Claude Code's rate_limit_event)
     model: str | None = None            # the model that answered, when the CLI says
+    tool_calls: int | None = None       # tools the AI ran for it, where its CLI tells (RawResult): evals only
+    turns: int | None = None
 
 
 REPLY_RULES = """<reply_rules>
@@ -749,7 +751,7 @@ class Brain:
             self.last_model = result.model
         return Answer(text=text, entities=entities if every_drop else entities[:12], drop_groups=groups[:8], profile_update=meta.get("profile_update") or {},
                       grind=meta.get("grind") or {}, avatar_box=box if screenshot_jpeg else None, cost_usd=result.cost_usd,
-                      limits=result.limits, model=result.model)
+                      limits=result.limits, model=result.model, tool_calls=result.tool_calls, turns=result.turns)
 
     def summarize(self, transcript: str) -> str | None:
         """One-paragraph summary of a finished session, kept as long-term context."""

@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .. import usage
 from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Provider, Race, RawResult, StreamText, \
-    classify_error, child_env, find_posix, find_windows_exe, http_ok, open_login, run_installer
+    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer
 
 log = logging.getLogger(__name__)
 
@@ -304,6 +304,8 @@ class ClaudeBackend:
         limits = None
         used = None
         first_event = first_life = None
+        calls: set = set()      # tool calls (evals): the ids of the tool_use blocks
+        blocks = False
         # stderr is drained alongside: a CLI that writes a lot there would otherwise block both sides
         err_chunks: list[bytes] = []
         err_reader = threading.Thread(target=lambda: err_chunks.extend(iter(lambda: proc.stderr.read(4096), b"")),
@@ -334,6 +336,7 @@ class ClaudeBackend:
                 first_life = first_life or now
                 a.activity()
             t = ev.get("type")
+            blocks = note_tool_use(ev, calls) or blocks
             if t == "stream_event":
                 se = ev.get("event") or {}
                 if se.get("type") == "message_start":
@@ -370,8 +373,10 @@ class ClaudeBackend:
             return RawResult(error=classify_error(str(result.get("result", "")) + stderr) or "api_error",
                              limits=limits)
         # the streamed final message first: the result's own text has carried a lead-in before
+        turns = result.get("num_turns")
         return RawResult(text=text.text or result.get("result") or "", cost_usd=result.get("total_cost_usd"),
-                         limits=limits, model=used)
+                         limits=limits, model=used, tool_calls=len(calls) if blocks else None,
+                         turns=turns if isinstance(turns, int) else None)
 
     def summarize(self, instructions: str, text: str, timeout: int = 90) -> str | None:
         """One short call on Haiku, no tools: session summaries and guide summaries."""

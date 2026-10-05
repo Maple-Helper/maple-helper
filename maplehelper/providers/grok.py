@@ -362,10 +362,13 @@ def classify(text: str) -> str | None:
     return classify_error(text)
 
 
-def parse_stream(lines, on_delta=None) -> tuple[str, dict | None, str | None]:
+def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, dict | None, str | None]:
     """(answer, result event, model) from Claude-Code-format stream lines: the text of the last message after its
-    last tool call (text before a tool call is a lead-in)."""
+    last tool call (text before a tool call is a lead-in). stats: filled with "tool_calls" and "turns" where the
+    stream tells them (the evals)."""
     text, result, model = StreamText(), None, None
+    tools: set = set()
+    blocks = False
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -376,6 +379,7 @@ def parse_stream(lines, on_delta=None) -> tuple[str, dict | None, str | None]:
         if not isinstance(ev, dict):
             continue
         t = ev.get("type")
+        blocks = base.note_tool_use(ev, tools) or blocks
         if t == "stream_event":
             se = ev.get("event") or {}
             if se.get("type") == "message_start":
@@ -386,6 +390,9 @@ def parse_stream(lines, on_delta=None) -> tuple[str, dict | None, str | None]:
             model = ev.get("model") or model
         elif t == "result":
             result = ev
+    if stats is not None:
+        turns = (result or {}).get("num_turns")
+        stats.update(tool_calls=len(tools) if blocks else None, turns=turns if isinstance(turns, int) else None)
     return text.text, result, model
 
 
@@ -625,8 +632,9 @@ class GrokBackend:
             for line in p.stdout:
                 last[0] = time.monotonic()
                 yield line
+        stats: dict = {}
         try:
-            text, result, used = parse_stream(lines(), on_delta)
+            text, result, used = parse_stream(lines(), on_delta, stats)
             p.wait()
             reader.join(timeout=5)
             stderr = b"".join(err).decode("utf-8", errors="replace")
@@ -638,7 +646,9 @@ class GrokBackend:
         errors = " ".join(str(e) for e in ((result or {}).get("errors") or [])) + stderr
         if model and re.search(r"model.{0,40}(not found|unknown|invalid|not available)", errors, re.I):
             return RawResult(error="bad_model")
-        return to_result(text, result, stderr, used or model)
+        r = to_result(text, result, stderr, used or model)
+        r.tool_calls, r.turns = stats.get("tool_calls"), stats.get("turns")
+        return r
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:

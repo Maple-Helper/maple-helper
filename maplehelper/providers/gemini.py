@@ -203,10 +203,12 @@ def classify(text: str) -> str | None:
     return classify_error(text)
 
 
-def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str | None]:
+def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, dict | None, list[str], str | None]:
     """(answer text, the result, errors, conversation id) from agy's stream-json output. The answer is the
-    text after the last tool step: earlier text is a lead-in ("I'll check the database")."""
+    text after the last tool step: earlier text is a lead-in ("I'll check the database"). stats: filled with
+    "tool_calls", the tool steps it ran (the evals)."""
     current, result, errors, conv = "", None, [], None
+    tools, active = 0, False      # a tool step reports ACTIVE, then DONE: counted when it turns active
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -222,6 +224,9 @@ def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str
         elif kind == "step_update":
             s = ev.get("step_update") or {}
             conv = s.get("conversation_id") or conv
+            if s.get("step_type") == "tool":
+                tools += s.get("state") == "ACTIVE" and not active
+                active = s.get("state") == "ACTIVE"
             if s.get("step_type") == "tool" and s.get("state") == "ACTIVE":
                 current = ""
             elif s.get("step_type") == "agent_response" and s.get("text_delta"):
@@ -234,6 +239,8 @@ def parse_events(lines, on_delta=None) -> tuple[str, dict | None, list[str], str
         elif kind == "result":
             result = ev.get("result") or {}
             conv = result.get("conversation_id") or conv
+    if stats is not None:
+        stats["tool_calls"] = tools
     return current, result, errors, conv
 
 
@@ -596,8 +603,9 @@ class GeminiBackend:
                     break
                 yield line
         conv = None
+        stats: dict = {}
         try:
-            text, result, _errors, conv = parse_events(lines(), on_delta)
+            text, result, _errors, conv = parse_events(lines(), on_delta, stats)
             p.wait()
             reader.join(timeout=5)
             stderr = b"".join(err).decode("utf-8", errors="replace")
@@ -612,7 +620,9 @@ class GeminiBackend:
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):
             return RawResult(error="bad_model")
-        return to_result(text, result, stderr, model)
+        r = to_result(text, result, stderr, model)
+        r.tool_calls = stats.get("tool_calls")
+        return r
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
