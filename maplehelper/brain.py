@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, news, providers, routes, sitedata, sources
+from . import availability, news, official, providers, routes, sitedata, sources
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -552,7 +552,7 @@ class Brain:
 
     def system_prompt(self) -> str:
         return (SYSTEM_PROMPT.format(length=LENGTH.get(self.length, LENGTH["short"])) + self._scope()
-                + self._running_on())
+                + official.prompt_note() + self._running_on())
 
     def _scope(self) -> str:
         """What is in the game, as the KB states it (availability.py): the AI never sends a player to Orbis or
