@@ -2,10 +2,16 @@
  {
   "version": "0.9.5",
   "he": [
-   "אפשר לשתף את הצ'אט בשיתוף מסך בדיסקורד ובתוכנות שידור כמו OBS: הוא מופיע עכשיו ברשימת החלונות ובשורת המשימות."
+   "אפשר לשתף את הצ'אט בשיתוף מסך בדיסקורד ובתוכנות שידור כמו OBS: הוא מופיע עכשיו ברשימת החלונות ובשורת המשימות.",
+   "דיבור: בהגדרות יש קטגוריה חדשה, \"שמע\", שבה בוחרים מיקרופון ובודקים שהוא שומע אתכם. אם התמלול יצא לא קשור למה שאמרתם, כנראה שהוקלט מיקרופון אחר.",
+   "דיבור: התמלול נעשה בשפת האפליקציה (או בזיהוי אוטומטי, לבחירתכם), ובמחשב עם כרטיס NVIDIA הוא רץ על כרטיס המסך ולוקח פחות משנייה. בפעם הראשונה יורד קובץ נוסף של כ-550MB.",
+   "התשובות מתבססות גם על מידע רשמי מהמשחק, שגובר על המאגר כשהם לא מסכימים."
   ],
   "en": [
-   "You can now share the chat in a Discord screen share (and in OBS): it shows up in the window list, the taskbar and Alt+Tab."
+   "You can now share the chat in a Discord screen share (and in OBS): it shows up in the window list, the taskbar and Alt+Tab.",
+   "Voice: a new Audio section in Settings lets you pick the microphone and check that it hears you. If transcripts had nothing to do with what you said, another microphone was being recorded.",
+   "Voice: speech is transcribed in the app's language (or detected, your choice), and on a PC with an NVIDIA card it runs on the graphics card in under a second. The first time, an extra ~550MB file downloads.",
+   "Answers also rely on official game facts, which win over the database when the two disagree."
   ]
  },
  {
