@@ -964,10 +964,10 @@ STRINGS = {
     "card_route": {"he": "איך מגיעים לכאן מהמפה שלי", "en": "How to get here from my map"},
     "inv_check": {"he": "בדיקת האינבנטורי", "en": "Inventory check"},
     "telemetry": {"he": "שליחת נתוני שימוש אנונימיים", "en": "Share anonymous usage stats"},
-    "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: רק באילו אפשרויות משתמשים. אף פעם לא שאלות, "
-                             "צילומי מסך או הקלטות",
-                       "en": "Helps us improve the app: only which features get used. "
-                             "Never your questions, screenshots or voice"},
+    "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: באילו אפשרויות משתמשים, גרסת האפליקציה ומערכת "
+                             "ההפעלה, תחת מזהה אקראי. אף פעם לא שאלות, צילומי מסך או הקלטות",
+                       "en": "Helps us improve the app: which features get used, the app version and OS, "
+                             "under a random id. Never your questions, screenshots or voice"},
     # onboarding
     "ob_welcome": {"he": "ברוכים הבאים ל-Maple Helper", "en": "Welcome to Maple Helper"},
     "ob_connect": {"he": "חיבור ה-AI", "en": "Connect your AI"},
@@ -1138,14 +1138,14 @@ STRINGS = {
                        "en": "That's it, go play!"},
     "tour_done_body": {"he": "לחצו {toggle} בתוך המשחק ושאלו כל דבר. את הסיור אפשר להפעיל שוב מההגדרות.",
                       "en": "Press {toggle} in game and ask anything. You can replay this tour from Settings."},
-    "ob_privacy": {"he": "פרטיות: הכל נשמר על המחשב שלכם. רק השאלה והצילום של חלון המשחק נשלחים ל-AI שבחרתם (כרגע Claude של Anthropic), ורק כשאתם שואלים.",
-                   "en": "Privacy: everything stays on your PC. Only your question and the game-window screenshot go to the AI you chose (now Anthropic's Claude), and only when you ask."},
-    "ob_privacy_codex": {"he": "פרטיות: הכל נשמר על המחשב שלכם. רק השאלה והצילום של חלון המשחק נשלחים ל-AI שבחרתם (כרגע ChatGPT של OpenAI), ורק כשאתם שואלים.",
-                         "en": "Privacy: everything stays on your PC. Only your question and the game-window screenshot go to the AI you chose (now OpenAI's ChatGPT), and only when you ask."},
-    "ob_privacy_gemini": {"he": "פרטיות: הכל נשמר על המחשב שלכם. רק השאלה והצילום של חלון המשחק נשלחים ל-AI שבחרתם (כרגע Gemini של Google), ורק כשאתם שואלים.",
-                          "en": "Privacy: everything stays on your PC. Only your question and the game-window screenshot go to the AI you chose (now Google's Gemini), and only when you ask."},
-    "ob_privacy_grok": {"he": "פרטיות: הכל נשמר על המחשב שלכם. רק השאלה והצילום של חלון המשחק נשלחים ל-AI שבחרתם (כרגע Grok של xAI), ורק כשאתם שואלים.",
-                        "en": "Privacy: everything stays on your PC. Only your question and the game-window screenshot go to the AI you chose (now xAI's Grok), and only when you ask."},
+    "ob_privacy": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע Claude של Anthropic), ורק אז.",
+                   "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (now Anthropic's Claude), and only then."},
+    "ob_privacy_codex": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע ChatGPT של OpenAI), ורק אז.",
+                         "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (now OpenAI's ChatGPT), and only then."},
+    "ob_privacy_gemini": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע Gemini של Google), ורק אז.",
+                          "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (now Google's Gemini), and only then."},
+    "ob_privacy_grok": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע Grok של xAI), ורק אז.",
+                        "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (now xAI's Grok), and only then."},
     "ob_borderless": {"he": "טיפ: הריצו את המשחק במצב Borderless / Windowed Fullscreen כדי שהצ'אט יופיע מעליו.",
                       "en": "Tip: run the game in Borderless / Windowed Fullscreen so the chat can appear on top."},
     "ob_done_hint": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט.",
