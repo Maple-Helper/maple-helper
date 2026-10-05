@@ -238,6 +238,26 @@ def test_monsters_by_exp_in_a_range():
     p = plan("איזה מפלצות נותנות הכי הרבה EXP בין רמה 20 ל-30?")
     assert p.intent == "monsters_by_level" and p.level == 25
     assert [r["monster"] for r in p.blocks[0].rows] == ["Evil Eye", "Zombie Mushroom", "Horny Mushroom"]
+    assert [r["rank"] for r in p.blocks[0].rows] == [1, 2, 3]
+
+
+def test_top_n_regular_monsters_leave_the_bosses_out():
+    rows = dict(TINY, monsters=TINY["monsters"] + [{"monster": "Mushmom", "key": "monster/9", "level": 25, "hp": 9,
+                                                    "exp": 376, "boss": "yes", "maps": "x"}])
+    for q in ("which regular monsters (not bosses) between level 20 and 30 give the most EXP? top 2",
+              "אילו 2 מפלצות רגילות (לא בוסים) בין רמה 20 ל-30 נותנות הכי הרבה EXP?"):
+        p = plan(q, rows=rows.__getitem__)
+        assert p.intent == "monsters_by_level" and p.top == 2
+        assert [r["monster"] for r in p.blocks[0].rows][:2] == ["Evil Eye", "Zombie Mushroom"]
+        assert "first 2 rows" in p.render()
+    p = plan("which monsters give the most exp between level 20 and 30", rows=rows.__getitem__)
+    assert p.blocks[0].rows[0]["monster"] == "Mushmom" and p.top is None       # bosses stay, marked
+
+
+def test_a_common_word_is_no_map_name():
+    rows = dict(TINY, maps=TINY["maps"] + [{"map": "Regular Sauna", "key": "map/7", "street": "Dungeon"}])
+    assert planner.named_maps("which regular monsters are there", [], rows.__getitem__) == []
+    assert planner.named_maps("monsters in Regular Sauna", [], rows.__getitem__) == ["map/7"]
 
 
 def test_quests_now_by_exp_fit_the_job_level_and_skip_done():
@@ -251,8 +271,11 @@ def test_an_npcs_quests_and_place():
     kb = FakeKB({"Jane Doe": ["npc/7"]})
     p = plan("where is Jane Doe and her quests", kb)
     assert p.intent == "npc_quests"
-    assert [b.table for b in p.blocks] == ["npcs", "quests"]
-    assert [r["quest"] for r in p.blocks[1].rows] == ["Big One", "Too High"]          # gives one, takes the other
+    assert [b.table for b in p.blocks] == ["npcs", "quests", "quests"]
+    # the quests it gives apart from the ones only turned in to it
+    assert [r["quest"] for r in p.blocks[1].rows] == ["Big One"]
+    assert [r["quest"] for r in p.blocks[2].rows] == ["Too High"]
+    assert "GIVES" in p.blocks[1].what and "TURNED IN" in p.blocks[2].what
 
 
 def test_a_long_list_is_cut_with_the_count_and_the_grep():
@@ -371,6 +394,7 @@ def ask(real, question, character=THIEF):
     ("what's my next job advancement", None), ("how many quests are there in the game?", None),
     ("Where is Mano?", None), ("ספר לי על Kerning City", None), ("Is Hunter better than Crossbowman?", None),
     ("לאיזה ג'ובים אפשר להתקדם מקשת", None), ("כדאי לי לגרינד בלו סנייל?", None), ("who is Jane Doe", None),
+    ("which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3", "monsters_by_level"),
     ("איך מכינים Steel Plate?", None),          # no such item in the KB: nothing to list
 ])
 def test_real_intents(real, question, intent):
@@ -402,6 +426,14 @@ def test_real_gloves_a_level_30_thief_can_wear(real):
 def test_real_ant_tunnel_monsters(real):
     names = [r["monster"] for r in ask(real, "איזה מפלצות יש ב-Ant Tunnel?").blocks[0].rows]
     assert {"Horny Mushroom", "Zombie Mushroom", "Evil Eye"} <= set(names)
+
+
+@needs_kb
+def test_real_top_regular_monsters_and_manjis_quests(real):
+    p = ask(real, "which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3")
+    assert [r["monster"] for r in p.blocks[0].rows][:3] == ["Cold Eye", "Glowshroom", "Lorang"]
+    p = ask(real, "איפה מנג'י ואיזה קווסטים הוא נותן?")
+    assert {r["quest"] for r in p.blocks[1].rows} == {"Arcon's Blood?", "Getting Arcon's Blood", "Old Gladius"}
 
 
 @needs_kb

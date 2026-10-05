@@ -118,6 +118,13 @@ JOB_TALK = _rx("ג'וב(?:ים)?|מקצוע(?:ות)?|קלאס(?:ים)?|להתק�
 NOW = _rx("עכשיו|כרגע", r"now|currently")
 # the player speaks of themselves: the profile's job and level fill what the question leaves out
 PERSONAL = _rx("לי|אני|שלי|אותי|בשבילי|עבורי|אוכל|אנחנו|לנו", r"i|i'm|im|me|my|mine|we")
+# "regular monsters (not bosses)", "מפלצות רגילות (לא בוסים)": the bosses left out of the list
+NO_BOSS = re.compile(_he("לא בוס(?:ים)?|בלי בוס(?:ים)?|רגיל(?:ות|ים|ה)?|ללא בוס(?:ים)?") + "|"
+                     + _en(r"not (?:a )?boss(?:es)?|no boss(?:es)?|non-?boss(?:es)?|regular|normal|excluding boss(?:es)?"),
+                     re.I)
+# "top 3", "3 best", "אילו 3 מפלצות": how many rows the answer is
+TOP_N = re.compile(rf"\btop\s*(\d{{1,2}})\b|\b(\d{{1,2}})\s+(?:best|top|most)\b|(?<![{HE}])(?:איזה|אילו|איזו)\s+(\d{{1,2}})"
+                   rf"(?!\d)|(?<![\d\-])(\d{{1,2}})\s+(?:ה)?(?:מפלצות|מובים|קווסטים|משימות|מפות|הכי)(?![{HE}])", re.I)
 # "מאיזה מפלצות נופלות כפפות": drops, which brain's drop groups answer (its DROP_WORDS miss the glued "מאיזה")
 DROPPED = re.compile(_he("נופל(?:ת|ים|ות)?") + r"|\bdropp(?:ed|ing)\b", re.I)
 # the screenshot is the subject: what is on screen, never the tables'
@@ -209,8 +216,14 @@ class Plan:
     blocks: list[Block]
     level: int | None = None      # the level the question is about (the level digest follows it)
 
+    top: int | None = None        # "top 3", "אילו 3 מפלצות": the answer is the first rows, in order
+
     def render(self) -> str:
-        return "\n".join(b.render() for b in self.blocks if b.rows)
+        text = "\n".join(b.render() for b in self.blocks if b.rows)
+        if self.top and text:
+            text += (f"\nThe question asks for {self.top}: answer with the first {self.top} rows of the block above, "
+                     "in its order, skipping none.")
+        return text
 
 
 def _short(v):
@@ -296,7 +309,9 @@ def _phrase_maps(question: str, maps: list[dict]) -> tuple[str, list[str]]:
         for n in range(len(words), 0, -1):
             for i in range(len(words) - n + 1):
                 phrase = " ".join(words[i:i + n])
-                if all(w.lower() in _NOT_MAP for w in words[i:i + n]) or (n == 1 and len(phrase) < 5):
+                # one word only as a name ("Henesys", "Ellinia"): "regular monsters" is no "Regular Sauna"
+                if all(w.lower() in _NOT_MAP for w in words[i:i + n]) or \
+                        (n == 1 and (len(phrase) < 5 or not phrase[0].isupper())):
                     continue
                 pat = re.compile(rf"(?<![\w']){re.escape(phrase)}(?![\w'])", re.I)
                 street = [r["key"] for r in maps if (r.get("street") or "").lower() == phrase.lower()]
@@ -401,7 +416,11 @@ def equips(rows, s: Slots, base: str | None) -> Block:
     what += (f", req_lv {s.lo}-{s.hi}" if s.lo is not None else f", req_lv <= {s.level}" if s.level is not None else "")
     cols = ("item", *(("slot",) if len(slots_) > 1 else ()), "job", "req_lv", "req", "stats", "slots",
             *(("attack_speed",) if weapon else ()), "buy", "seller", "key")
-    return Block("equips", cols, out, what, sort, grep=f"grep -P '\\t({'|'.join(sorted(slots_))})\\t' equips.tsv")
+    # "the best claw I can use": the model picked a Lv 25 Meba over the Lv 30 Guards, unsure of the player's LUK
+    note = ("best first: the pick is the first row the player can wear; with no stats in the profile, recommend that "
+            "row and name its req" if weapon else "")
+    return Block("equips", cols, out, what, sort, grep=f"grep -P '\\t({'|'.join(sorted(slots_))})\\t' equips.tsv",
+                 note=note)
 
 
 def _item_match(s: Slots, kind_ok) -> tuple[set[str], set[str], str]:
@@ -548,12 +567,18 @@ def npc_quests(rows, s: Slots) -> list[Block]:
         return []
     who = [r for r in rows("npcs") if r["key"] in npcs]
     names = {r["npc"] for r in who}
-    out = [r for r in rows("quests") if r["npc_key"] in npcs or r["turn_in"] in names]
-    out.sort(key=lambda r: (_num(r["level"]), r["quest"]))
+    # the quests the NPC gives, and apart from them the ones only turned in to it: one mixed list made the answer
+    # drop a quest Manji gives ("Getting Arcon's Blood") and name one he only takes back
+    given = sorted((r for r in rows("quests") if r["npc_key"] in npcs), key=lambda r: (_num(r["level"]), r["quest"]))
+    taken = sorted((r for r in rows("quests") if r["turn_in"] in names and r["npc_key"] not in npcs),
+                   key=lambda r: (_num(r["level"]), r["quest"]))
+    who_ = ", ".join(sorted(names))
+    cols = (*_QUEST_COLS[:4], "turn_in", *_QUEST_COLS[4:])
     return [Block("npcs", ("npc", "role", "map", "street", "key", "map_key"), who, "npc " + ", ".join(npcs), "-"),
-            Block("quests", (*_QUEST_COLS[:4], "turn_in", *_QUEST_COLS[4:]), out,
-                  "npc or turn_in " + ", ".join(sorted(names)), "level",
-                  grep=f"grep '{next(iter(names), '')}' quests.tsv")]
+            Block("quests", cols, given, f"quests {who_} GIVES (npc {who_})", "level",
+                  grep=f"grep '{next(iter(names), '')}' quests.tsv"),
+            Block("quests", cols, taken, f"quests other NPCs give that are only TURNED IN to {who_}", "level",
+                  note=f"not quests {who_} gives")]
 
 
 def _job_ok(job_cell, character, s: Slots) -> bool:
@@ -656,15 +681,18 @@ def monsters_by(rows, s: Slots, by_exp: bool) -> Block | None:
         lo, hi = s.level - combat.SPOT_BELOW, s.level + combat.SPOT_ABOVE
     else:
         return None
+    no_boss = bool(NO_BOSS.search(s.question))
     out = [r for r in rows("monsters") if isinstance(r["level"], int) and lo <= r["level"] <= hi
-           and not combat.special_monster(r["monster"]) and r.get("maps")]
+           and not combat.special_monster(r["monster"]) and r.get("maps") and not (no_boss and r.get("boss"))]
     if by_exp:
         out.sort(key=lambda r: (-_num(r["exp"]), r["monster"]))
     else:
         out.sort(key=lambda r: (_num(r["level"]), r["monster"]))
-    cols = ("monster", "level", "hp", "exp", "hp_per_exp", "acc_needed", "element", "mesos", "boss", "maps", "key")
-    return Block("monsters", cols, out, f"level {lo}-{hi}", "exp desc" if by_exp else "level",
-                 grep="grep monsters.tsv by its level column")
+    out = [{**r, "rank": i} for i, r in enumerate(out, 1)]
+    cols = ("rank", "monster", "level", "hp", "exp", "hp_per_exp", "acc_needed", "element", "mesos", "boss", "maps",
+            "key")
+    return Block("monsters", cols, out, f"level {lo}-{hi}" + (", bosses left out" if no_boss else ""),
+                 "exp desc" if by_exp else "level", grep="grep monsters.tsv by its level column")
 
 
 def skills_of(rows, s: Slots, character) -> Block | None:
@@ -757,9 +785,12 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
     quest, give, sell = bool(QUEST.search(q)), bool(GIVE.search(q)), bool(SELL.search(q))
     named_items = [k for k in s.entities if k.startswith("item/")]
 
+    top = next((int(g) for m in [TOP_N.search(q)] if m for g in m.groups() if g), None)
+
     def made(intent: str, *blocks, level=None) -> Plan | None:
         blocks = [b for b in blocks if b is not None]
-        return Plan(intent, blocks, level) if any(b.rows for b in blocks) else None
+        return Plan(intent, blocks, level, top if top and 1 <= top <= 20 else None) \
+            if any(b.rows for b in blocks) else None
 
     if quest:
         if any(k.startswith("npc/") for k in s.entities):

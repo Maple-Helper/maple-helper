@@ -185,7 +185,9 @@ REPLY_RULES = """<reply_rules>
   entities, and say in a line that its picture is in the card below; never say you can't send pictures.
 - A <table_rows complete="yes"> block is every KB row matching the question: answer from it with no tool call and
   name every row that answers it (a long list: how many, then the best ones); complete="no" holds the best rows first.
-  Put the keys of the rows you name in META entities.
+  Put the keys of the rows you name in META entities. "Best" / "top N" follows the block's order.
+- Never name files or tables in the answer (".tsv", pages, knowledge-base files); the source tags stay. Write every
+  game name whole: "Mithril Guards, Adamantium Guards", never "Mithril/Adamantium Guards".
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
   page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
