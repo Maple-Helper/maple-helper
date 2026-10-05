@@ -26,9 +26,10 @@ SLOT_BG = np.array([224, 222, 212], np.int16)      # the beige of an inventory s
 SIZE = 24                                            # icons are compared at this size
 ICON_DIFF = 40         # a pixel this far off the beige is the icon's (the slot's speckle stays within ~35)
 TWIN = 3.0             # KB pictures this close to each other are one picture (every scroll of a tier)
-MARGIN = 2.0           # the best match must beat every other picture by this much to name the item
-UNKNOWN = 40.0         # a best match this far off is no item the KB has (or one it doesn't confirm is in the game)
-UNKNOWN_ALIKE = 45.0   # the same for a picture several items share (a scroll's is distinctive, its count covers it)
+RATIO, MARGIN = 1.08, 0.5   # the best match must beat every other item's picture by this much (d * RATIO + MARGIN)
+UNKNOWN = 25.0         # a best match this far off is no item the KB has a picture of
+UNKNOWN_ALIKE = 28.0   # the same for a picture several items share (a scroll's is distinctive, its count covers it)
+REFINE = 40            # the nearest pictures compared again with the icon moved by a pixel
 
 
 def _slot_mask(rgb: np.ndarray) -> np.ndarray:
@@ -196,11 +197,33 @@ def _icon_vectors(path) -> tuple[np.ndarray, np.ndarray] | None:
     return None if plain is None or shaded is None else (plain, shaded)
 
 
+def _soft(a: np.ndarray) -> np.ndarray:
+    """Pictures (... x SIZE x SIZE x 3) softened by a 3x3 box: a sharp pixel-art edge a pixel off (the crop of an
+    upscaled icon never lands exactly where the KB picture's does) no longer counts as a whole wrong pixel, while a
+    colour still does (a brown Tree Branch and a purple Rotten Root Fragment are one shape)."""
+    pad = [(0, 0)] * (a.ndim - 3) + [(1, 1), (1, 1), (0, 0)]
+    p = np.pad(a, pad, mode="edge")
+    return sum(p[..., i:i + SIZE, j:j + SIZE, :] for i in range(3) for j in range(3)) / 9
+
+
+def _shifts(v: np.ndarray) -> list[np.ndarray]:
+    """A reading moved by up to a pixel each way (itself first)."""
+    p = np.pad(v, [(1, 1), (1, 1), (0, 0)], mode="edge")
+    order = [(1, 1)] + [(i, j) for i in range(3) for j in range(3) if (i, j) != (1, 1)]
+    return [p[i:i + SIZE, j:j + SIZE] for i, j in order]
+
+
 @dataclass
 class Index:
     keys: list[str]
     vecs: np.ndarray                 # N x SIZE x SIZE x 3, the pictures without their shadow
     shaded: np.ndarray               # the same with it
+    soft: np.ndarray = None          # both softened (_soft), as compared
+    soft_shaded: np.ndarray = None
+
+    def __post_init__(self):
+        if self.soft is None:
+            self.soft, self.soft_shaded = _soft(self.vecs), _soft(self.shaded)
 
 
 _INDEX: dict[str, Index] = {}
@@ -215,14 +238,14 @@ def _index(kb) -> Index:
 
 
 def _build_index(kb, root: str) -> Index:
-    """Every picture of an item the KB confirms is in the game, as a comparable vector (called under _INDEX_LOCK).
-    An item whose only sources are unreleased (Return Scroll to Orbis) can't be in a bag: it is no candidate."""
-    from . import availability
-    open_ = availability.of(kb)
+    """Every item picture of the KB as a comparable vector (called under _INDEX_LOCK). Items the KB has no source
+    for in the game (half of them, availability.item_open) are candidates too: the bag is the truth. Left out, such
+    an item was named after a look-alike (its other colour) one time in three, and one drawn with the very picture
+    of an item in the game (Roger's Apple, the tutorial's Apple) was named as that one for certain."""
     _INDEX.clear()
     keys, vecs, shaded = [], [], []
     for k, e in kb.entities.items():
-        if e.get("category") != "item" or not open_.item_open(k):
+        if e.get("category") != "item":
             continue
         path = kb.image_path(k)
         v = _icon_vectors(path) if path else None
@@ -259,24 +282,41 @@ def _whole(c: np.ndarray) -> bool:
 
 
 def _count_box(c: np.ndarray) -> tuple[int, int] | None:
-    """(top, right) of the stack count the game prints at a slot's bottom left ("92": light digits outlined in
-    black), or None. Only its black outline is off the beige enough to look like the icon's."""
+    """(top, right) of the stack count the game prints at a slot's bottom left ("92": digits outlined in black,
+    filled white fading to blue), or None. The fill's columns (white or blue over a black outline; the slot's beige
+    and grey speckle are neither) are the digits, the outline next to them is theirs too. Digits stand a few
+    pixels apart at a big scale: a gap that narrow doesn't end the count (only the "1" of "16" was hidden, and the
+    "6" kept the item from matching)."""
     size = c.shape[0]
     top = int(size * 0.6)
-    band = c[top:, : int(size * 0.75)].astype(np.int16)
+    band = c[top:, : int(size * 0.8)].astype(np.int16)
     black = band.max(axis=2) <= 60
-    light = band.min(axis=2) >= 170
-    texty = (black.sum(axis=0) >= 2) & (light.sum(axis=0) >= 2)
-    start = int(np.argmax(texty)) if texty.any() else -1
-    if start < 0 or start > size * 0.12:
+    blue = (band[..., 2] - band[..., 0] >= 30) & (band[..., 2] >= 90)
+    white = (band.min(axis=2) >= 235) & (band.max(axis=2) - band.min(axis=2) <= 12)
+    outline = black.sum(axis=0) >= 2
+    texty = outline & ((blue | white).sum(axis=0) >= 1)
+    if not texty.any():
         return None
-    end = start
-    while end < len(texty) and (texty[end] or (end + 1 < len(texty) and texty[end + 1])):
+    start = end = int(np.argmax(texty))
+    gap = max(2, size // 10)
+    while end < len(texty) and texty[end:end + gap + 1].any():
         end += 1
-    if end - start < size * 0.08:
+    while not texty[end - 1]:
+        end -= 1
+    reach = max(2, size // 10)                  # the outline (and a "1"'s grey foot) around the fill
+    for _ in range(reach):
+        if start == 0 or not outline[start - 1]:
+            break
+        start -= 1
+    for _ in range(reach):
+        if end == len(outline) or not outline[end]:
+            break
+        end += 1
+    if start > size * 0.12 or end - start < size * 0.08:
         return None
     rows = np.flatnonzero(black[:, start:end].any(axis=1))
-    return top + int(rows[0]), end
+    first = max(int(rows[0]), int(rows[-1]) - int(size * 0.36))   # a digit's height: not the icon's outline above
+    return top + first, end
 
 
 def _vectors(c: np.ndarray) -> list[tuple[np.ndarray, np.ndarray | None, bool]]:
@@ -297,11 +337,23 @@ def _vectors(c: np.ndarray) -> list[tuple[np.ndarray, np.ndarray | None, bool]]:
 
 
 def _distances(vecs: list[tuple[np.ndarray, np.ndarray | None, bool]], index: Index) -> np.ndarray:
-    """Per KB picture, its distance to the slot's icon (the closest of the slot's readings)."""
+    """Per KB picture, its distance to the slot's icon (the closest of the slot's readings), both softened. The
+    REFINE nearest pictures are compared again with the reading moved by up to a pixel: an icon's crop can be a
+    pixel off the KB picture's, and every edge then counted as wrong (a plain copy of a KB icon missed its own
+    picture by 40-50, as far as another item)."""
     out = []
     for v, w, shaded in vecs:
-        diff = np.abs((index.shaded if shaded else index.vecs) - v).mean(axis=3)
-        out.append(diff.mean(axis=(1, 2)) if w is None else (diff * w).sum(axis=(1, 2)) / w.sum())
+        ref = index.soft_shaded if shaded else index.soft
+        sv = _soft(v)
+        sw = np.ones((SIZE, SIZE, 1), np.float32) if w is None else w[..., None]
+        d = (np.abs(ref - sv).mean(axis=3) * sw[..., 0]).sum(axis=(1, 2)) / sw.sum()
+        near = np.argsort(d, kind="stable")[:REFINE]
+        for mv, mw in zip(_shifts(sv)[1:], _shifts(sw)[1:]):
+            if mw.sum() <= 0:
+                continue
+            dn = (np.abs(ref[near] - mv).mean(axis=3) * mw[..., 0]).sum(axis=(1, 2)) / mw.sum()
+            d[near] = np.minimum(d[near], dn)
+        out.append(d)
     return np.min(out, axis=0)
 
 
@@ -317,8 +369,10 @@ def _match(vecs: list, index: Index, kb, top: int) -> tuple[str, list[tuple[str,
     alike = len({(kb.get(index.keys[j]) or {}).get("name") for j in twins}) > 1
     if d[b] > (UNKNOWN_ALIKE if alike else UNKNOWN):
         return "unknown", nearest
-    rival = next((j for j in order if not twin[j]), None)
-    if rival is not None and d[rival] - d[b] < MARGIN:
+    # the nearest other item (one of the same name drawn apart, like a quest's copy of an item, is no rival)
+    name = (kb.get(index.keys[b]) or {}).get("name")
+    rival = next((j for j in order if not twin[j] and (kb.get(index.keys[j]) or {}).get("name") != name), None)
+    if rival is not None and d[rival] < d[b] * RATIO + MARGIN:
         return "unknown", nearest          # another picture fits as well: no telling which
     if alike:
         return "ambiguous", [(index.keys[j], float(d[j])) for j in twins]
