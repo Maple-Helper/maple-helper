@@ -130,11 +130,15 @@ def test_damaged_install_is_explained_not_a_traceback(tmp_path, monkeypatch):
     shown, opened = [], []
     if sys.platform == "win32":
         monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", lambda *a: shown.append(a) or 6)
+    # a real osascript alert waits up to 10 minutes for a click that never comes on a headless runner
+    monkeypatch.setattr(setupwait, "_mac_alert", lambda message, buttons: shown.append(message) or "")
     monkeypatch.setattr(webbrowser, "open", opened.append)
     setupwait.report_broken_install(ModuleNotFoundError("No module named 'shiboken6.Shiboken'"))
     assert "shiboken6.Shiboken" in (tmp_path / "logs" / "startup-error.log").read_text(encoding="utf-8")
     if sys.platform == "win32":
         assert shown and opened == [setupwait.DOWNLOAD_URL]
+    elif sys.platform == "darwin":
+        assert shown and not opened
 
 
 def test_malformed_ai_profile_update_is_ignored(isolated_store):
