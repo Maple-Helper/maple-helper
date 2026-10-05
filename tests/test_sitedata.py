@@ -206,8 +206,12 @@ def test_third_job_skills_stay_hidden_until_3rd_job_is_out(site_kb):
     kb = KnowledgeBase(site_kb)
     assert availability.of(kb).job_tier == 2
     assert sitedata.skill_change(kb, "skill/crusader__power-guard") is None
+    # the prompt says which advancements ARE in the game too: told only "3rd job is not", the AI said 2nd wasn't
+    note = availability.of(kb).scope_note()
+    assert "Job advancements in the game: 1st, 2nd " in note and "3rd job advancement is not in the game" in note
     availability.of(kb).job_tier = 3            # the release guide confirms 3rd job
     assert sitedata.skill_change(kb, "skill/crusader__power-guard") is not None
+    assert "1st, 2nd, 3rd " in availability.of(kb).scope_note()
 
 
 def test_a_launch_comparison_reads_launch(site_kb, parsed):

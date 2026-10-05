@@ -396,10 +396,19 @@ def ask(real, question, character=THIEF):
     ("לאיזה ג'ובים אפשר להתקדם מקשת", None), ("כדאי לי לגרינד בלו סנייל?", None), ("who is Jane Doe", None),
     ("which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3", "monsters_by_level"),
     ("איך מכינים Steel Plate?", None),          # no such item in the KB: nothing to list
+    # the 2nd job with no job named: the player's class (the AI said "level 20" and "not out yet", live)
+    ("באיזה לבל עושים ג'וב שני", "job_advance"), ("at what level is the 2nd job?", "job_advance"),
+    ("מה צריך בשביל ה-job advancement השני?", "job_advance"),
 ])
 def test_real_intents(real, question, intent):
     p = ask(real, question)
     assert (p.intent if p else None) == intent
+
+
+@needs_kb
+def test_real_second_job_names_its_level_and_choices(real):
+    text = ask(real, "באיזה לבל עושים ג'וב שני").render()
+    assert "the 2nd job, at level 30, one of Assassin, Bandit" in text and "Dark Lord" in text
 
 
 @needs_kb

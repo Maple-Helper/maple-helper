@@ -127,9 +127,11 @@ TOP_N = re.compile(rf"\btop\s*(\d{{1,2}})\b|\b(\d{{1,2}})\s+(?:best|top|most)\b|
                    rf"(?!\d)|(?<![\d\-])(\d{{1,2}})\s+(?:ה)?(?:מפלצות|מובים|קווסטים|משימות|מפות|הכי)(?![{HE}])", re.I)
 # "how do I become a magician", "איך נהיים קוסם": the class's instructor and the job advancement
 BECOME = re.compile(_he("איך נהיים|איך נהיה|איך הופכים ל|איך להיות|איך נעשים|איך מתקדמים ל|להתקדם ל|ג'וב אדבנס|"
-                        "אדבנסמנט|התקדמות ל") + "|"
+                        "אדבנסמנט|התקדמות ל|ג'וב שני|ג'וב 2|ג'וב ראשון|ג'וב 1") + r"|advancement\s+ה?שני|"
                     + _en(r"how (?:do|can|to) (?:i |you |we )?(?:become|be|get|turn into)|become an?|"
                           r"job advance(?:ment)?|advance to|(?:1st|2nd|first|second) job"), re.I)
+SECOND_JOB = re.compile(_he("ג'וב שני|ג'וב 2|אדבנס שני|אדבנסמנט השני") + "|" + _en(r"2nd job|second job")
+                        + r"|advancement\s+ה?שני", re.I)      # "ה-job advancement השני"
 # "איפה יש סטירג'", "where can I find Stirge": the named monster's / NPC's place
 WHERE_IS = _rx("איפה|באיזה מקום|באיזו מפה|באיזה מפה|איפה אפשר למצוא|מיקום", r"where|location|find|spawns?")
 # "מאיזה מפלצות נופלות כפפות": drops, which brain's drop groups answer (its DROP_WORDS miss the glued "מאיזה")
@@ -617,7 +619,7 @@ def where_npc(rows, npcs: list[str]) -> Block:
                  "npc " + ", ".join(npcs), "-", note="connects: the maps next to it")
 
 
-def job_advance(rows, s: Slots, character=None) -> list[Block]:
+def job_advance(rows, s: Slots, character=None, second: bool = False) -> list[Block]:
     """How to become a job: the class's instructor (the 1st job, and the 2nd job's quest) and the job-advancement
     quests, at the level the official facts give."""
     from . import official
@@ -630,8 +632,16 @@ def job_advance(rows, s: Slots, character=None) -> list[Block]:
     quests_ = sorted((r for r in rows("quests") if r["area"] == "Job Advancement" and r["job"] == f"{base} only"),
                      key=lambda r: (_num(r["level"]), r["quest"]))
     who = _npc_rows(rows, keys)
-    lead = (f"{s.job}: the {'1st' if s.job == base else '2nd'} job, at level {tier if s.job != base else first}"
-            + (" (official)" if s.job == base and official.value("first_job_level") else "")
+    seconds = [(j, lv) for j, lv in jobs.JOBS.get(base, []) if lv == 30]
+    if second and s.job == base and seconds:
+        # "באיזה לבל עושים ג'וב שני" names no job: the player's class, its 2nd jobs and their level (from memory the AI
+        # said level 20, live)
+        head = (f"{base}: the 2nd job, at level {seconds[0][1]}, one of {', '.join(j for j, _ in seconds)} "
+                f"(the 1st job, {base}, at level {first})")
+    else:
+        head = (f"{s.job}: the {'1st' if s.job == base else '2nd'} job, at level {tier if s.job != base else first}"
+                + (" (official)" if s.job == base and official.value("first_job_level") else ""))
+    lead = (head
             + (f"; the job advancement is with {who[0]['npc']} ({who[0]['map']}, by {who[0]['connects']})" if who else "")
             + (f". The player's {character.base_class} can't change class: a new character is needed"
                if character and character.base_class not in (base, "Beginner") else "") + ".")
@@ -854,6 +864,11 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
 
     if BECOME.search(q) and s.job and s.job != "Beginner" and not s.families:
         return made("job_advance", *job_advance(rows, s, character))
+    # "2nd job" with no job named: the player's own class
+    if BECOME.search(q) and not s.job and not s.families and SECOND_JOB.search(q) and character \
+            and character.base_class in jobs.JOBS and character.base_class != "Beginner":
+        s.job = character.base_class
+        return made("job_advance", *job_advance(rows, s, character, second=True))
     if quest:
         if any(k.startswith("npc/") for k in s.entities):
             return made("npc_quests", *npc_quests(rows, s))
