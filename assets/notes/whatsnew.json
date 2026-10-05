@@ -1,5 +1,14 @@
 [
  {
+  "version": "0.9.4",
+  "he": [
+   "הודעת עדכון המאגר מדויקת יותר: \"נוגעים בכם\" כולל רק שינויים אמיתיים במשחק (נתונים, דרופים, פריטים חדשים), ולא דפים שרק הטקסט שלהם השתנה."
+  ],
+  "en": [
+   "The database update note is more accurate: \"affects you\" lists only real game changes (stats, drops, new entries), not pages whose text alone changed."
+  ]
+ },
+ {
   "version": "0.9.3",
   "he": [
    "כשהאפליקציה פתוחה היא בודקת אם יש מאגר חדש כל שעה (במקום כל 3 שעות), כך שהעדכון הלילי נכנס מהר יותר גם בלי לסגור ולפתוח."

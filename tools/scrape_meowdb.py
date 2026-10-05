@@ -116,6 +116,10 @@ def json_ld(page: str) -> list[dict]:
     return found
 
 
+# rows of the site's own tools, not game data: the monster page's "Check your build against <monster>" panel
+SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for ")
+
+
 def main_text(page: str, name: str) -> str:
     """Readable text of the entity's own content, without site navigation and footer."""
     body = re.sub(r"<script.*?</script>|<style.*?</style>|<svg.*?</svg>|<noscript.*?</noscript>", "", page, flags=re.S)
@@ -144,7 +148,8 @@ def main_text(page: str, name: str) -> str:
         if i > 200:
             text = text[:i]
     lines = [ln.strip() for ln in text.split("\n")]
-    lines = [ln for ln in lines if ln and ln not in {"Loading...", "Calculate", "Add to watchlist"}]
+    lines = [ln for ln in lines if ln and ln not in {"Loading...", "Calculate", "Add to watchlist"}
+             and not SITE_TOOLS.match(ln)]
     return "\n".join(lines).strip()
 
 
@@ -217,8 +222,10 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
     img_file = None
     img_path = KB / "img" / category / f"{slug}.png"
     if not img_path.exists() or refresh:
-        for url in image_candidates(entity, category, slug, name):
-            data = fetch(url, binary=True)
+        # not "url": that is the page's, written below (a loop over "url" put the picture's address in every page a
+        # picture was fetched for, and back the next night: ~3,800 pages "updated" twice a week for nothing)
+        for img_url in image_candidates(entity, category, slug, name):
+            data = fetch(img_url, binary=True)
             time.sleep(DELAY_SECONDS / 2)
             if data and save_image(data, img_path):
                 break
