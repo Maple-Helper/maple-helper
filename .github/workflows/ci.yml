@@ -28,14 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Defender scans every file a runner reads or writes: the frozen build's DLL scan took 5 s in one run and 184 s
-      # in the next, and dependency installs swing the same way. Throwaway VM, pinned dependencies: nothing to guard
-      - name: Turn off Defender real-time scanning
-        shell: pwsh
-        run: |
-          try { Set-MpPreference -DisableRealtimeMonitoring $true -ErrorAction Stop } catch { Write-Warning "$_" }
-          Write-Host "Real-time protection on: $((Get-MpComputerStatus).RealTimeProtectionEnabled)"
-
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
