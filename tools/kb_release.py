@@ -431,6 +431,23 @@ def record_changes(kb: Path, previous_kb: Path, version: str) -> dict | None:
     return entry
 
 
+def refresh_tables(kb: Path) -> bool:
+    """Rebuild the KB's grep tables (drops.tsv, rewards.tsv, equips.tsv ...: maplehelper/tables.py) from its own
+    files, so a published kb.zip carries tables of its own content, and the patch notes compare the drops of two KBs
+    by the same rules. Best effort: without the app's package the shipped tables may be old, and the app rebuilds
+    them (their mark names what they were built from, so a stale one is never used as current)."""
+    root = str(Path(__file__).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        from maplehelper import tables
+        from maplehelper.kb import KnowledgeBase
+        return tables.build(KnowledgeBase(kb))
+    except Exception as e:          # noqa: BLE001 - packing goes on: the app builds its own tables
+        print(f"KB tables not rebuilt ({e}); the app builds them")
+        return False
+
+
 def pack(kb: Path, out: Path, version: str | None = None, previous_kb: Path | None = None) -> dict:
     """Stamp the version into meta.json, zip the KB (files at the zip root) and write the manifest."""
     version = version or time.strftime("%Y.%m.%d.%H%M", time.gmtime())
@@ -472,6 +489,9 @@ def main(argv: list[str] | None = None) -> int:
         if a.cmd == "validate":
             print("KB valid:", json.dumps(validate(a.kb, a.previous, a.min_entities)))
         else:
+            for k in (a.kb, a.previous_kb):
+                if k:
+                    refresh_tables(k)
             print("Packed:", json.dumps(pack(a.kb, a.out, a.version, a.previous_kb)))
     except InvalidKB as e:
         print(f"::error::Knowledge base rejected: {e}")

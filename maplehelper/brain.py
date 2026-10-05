@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, news, official, providers, routes, sitedata, sources
+from . import availability, news, official, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -44,18 +44,13 @@ Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) databas
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
-Which monsters drop something: drops.tsv (monster, level, key, item, item type, item key, source, votes) lists the
-monster→item drops of the monsters in the game; source is the list the drop is on ("MSEA" or "community", see Drops
-below), votes a community drop's "16 up 1 down". Grep it for the item name or the item type (e.g. "Throwing Star", "Scroll", "Potion"). Answer
-grouped per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
-An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
-not in the game, so never name it as a source.
+""" + tables.prompt_note() + """
 
-Which quests give something: rewards.tsv (quest, quest level, quest key, area, item, count, item type, item key, kind,
-for) lists every item reward of the quests in the game; kind is "sure", "pick one" (the player picks one, for = the
-class), "random 16.7%" (one of a set, with its odds) or "gender". Grep it once for the item name or type (e.g. "Cape",
-"Overall", "Scroll"): it answers "which quests give X" in one step, so never open item or quest pages one by one for it.
-A quest it doesn't list is not in the game.
+Which monsters drop something: grep drops.tsv for the item name or type ("Throwing Star", "Scroll"). Answer grouped
+per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
+An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
+not in the game, so never name it as a source. Which quests give something: grep rewards.tsv once for the item name or
+type ("Cape", "Overall").
 
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
