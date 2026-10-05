@@ -86,8 +86,10 @@ _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
 PREFIX_FROM = 4        # Hebrew letters a name needs before a glued prefix counts ("לאן" is not ל + "אן")
 _PREFIX = "[בלמהושכ]{1,2}"
 DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
-              "and the players' votes on community drops\n")
+              "and the players' votes on community drops\n"
+              "rewards.tsv lists the item rewards of the quests the KB confirms are in the game\n")
 NAMES_TABLE = "names.tsv"     # key, category, name, type: one line per entity, for the AI to grep (see ensure_drop_table)
+REWARDS_TABLE = "rewards.tsv"  # quest -> item rewards, one line per reward (see ensure_drop_table)
 COMMUNITY_FILE = "community.json"     # players' drop and mesos reports per monster (tools/scrape_community.py)
 # a community drop is shown when more players confirmed it than denied it (score = up - down); one with a single
 # vote is shown marked "single report" (tools/kb_release.py repeats the rule for the patch notes)
@@ -540,14 +542,16 @@ class KnowledgeBase:
         """Write drops.tsv next to index.json so Claude can grep 'which monsters drop X' in one step: only monsters
         the KB confirms are in the game, each drop with the list it is on. A table from before those rules (no
         drops.ingame mark beside it, or an older mark) is redone.
-        names.tsv beside it is the index's names and keys, one entity per line."""
+        names.tsv beside it is the index's names and keys, one entity per line, and rewards.tsv the quests'
+        item rewards ("which quests give a cape" was 35 tool calls over the item pages, ~2-4 min)."""
         path = self.root / "drops.tsv"
         mark = self.root / "drops.ingame"
         names = self.root / NAMES_TABLE
+        rewards = self.root / REWARDS_TABLE
         idx = self.root / "index.json"
         try:
             community = self.root / COMMUNITY_FILE      # (a newer community.json redoes the table too)
-            if (path.exists() and mark.exists() and names.exists() and idx.exists()
+            if (path.exists() and mark.exists() and names.exists() and rewards.exists() and idx.exists()
                     and path.stat().st_mtime >= idx.stat().st_mtime
                     and (not community.exists() or path.stat().st_mtime >= community.stat().st_mtime)
                     and mark.read_text(encoding="utf-8") == DROPS_MARK):
@@ -571,8 +575,34 @@ class KnowledgeBase:
                                  f"{self.drop_source(m, ikey) or sources.MSEA}\t"
                                  + (f"{v['up']} up {v['down']} down" if v else ""))
             path.write_text("\n".join(lines), encoding="utf-8")
+            rewards.write_text("\n".join(self._reward_rows()), encoding="utf-8")
         except OSError:
             pass
+
+    def _reward_rows(self) -> list[str]:
+        """rewards.tsv: every item a quest in the game gives, one per line. kind: "sure" (always given), "pick one"
+        (the player chooses one of the class's), "random" (one of the set, with its odds), "gender"."""
+        from . import availability, quests
+        open_ = availability.of(self)
+        rows = ["quest\tquest_level\tquest_key\tarea\titem\tcount\titem_type\titem_key\tkind\tfor"]
+        for k, e in self.entities.items():
+            if e.get("category") != "quest" or not open_.quest_open(k):
+                continue
+            q = quests.quest(self, k)
+            if not q:
+                continue
+            given = [(r, "sure", "") for r in q.rewards]
+            given += [(r, "pick one", c) for c, rs in q.class_rewards.items() for r in rs]
+            given += [(r, "random", c) for c, rs in q.random_rewards.items() for r in rs]
+            given += [(r, "gender", g) for g, rs in q.gender_rewards.items() for r in rs]
+            for r, kind, who in given:
+                m = re.fullmatch(r"(.+?) x ([\d,]+)(?: \(([\d.]+)%\))?", r)
+                name, n, odds = (m.group(1), m.group(2), m.group(3)) if m else (r, "", None)
+                ikey = self._item_by_name.get(name.strip().lower(), "")
+                it = (self.get(ikey) if ikey else None) or {}
+                rows.append(f"{q.name}\t{q.opens_at()}\t{k}\t{q.area}\t{name}\t{n}\t{it.get('type') or ''}\t{ikey}\t"
+                            f"{kind + (f' {odds}%' if odds else '')}\t{who}")
+        return rows
 
     def drops_digest(self, key: str) -> str:
         """A monster's drops and mesos for the AI, list by list, each said for what it is: a community drop with its

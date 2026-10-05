@@ -51,6 +51,12 @@ grouped per monster (monster → the items it drops), lowest level first, and re
 An item page's "Dropped By" list names every monster that ever dropped it: one drops.tsv doesn't list for that item is
 not in the game, so never name it as a source.
 
+Which quests give something: rewards.tsv (quest, quest level, quest key, area, item, count, item type, item key, kind,
+for) lists every item reward of the quests in the game; kind is "sure", "pick one" (the player picks one, for = the
+class), "random 16.7%" (one of a set, with its odds) or "gender". Grep it once for the item name or type (e.g. "Cape",
+"Overall", "Scroll"): it answers "which quests give X" in one step, so never open item or quest pages one by one for it.
+A quest it doesn't list is not in the game.
+
 Drops: a monster page lists its drops in two lists under "Drops (MS Classic)": "Community sourced" (drops players
 saw in Classic themselves: community) and "MSEA reference drops" (what the monster dropped in old MapleSEA, which the KB
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
