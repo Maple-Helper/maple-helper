@@ -15,6 +15,7 @@ param(
     [switch]$SkipInstaller,
     [switch]$TestInstaller,    # silent install -> self-test the installed exe -> silent uninstall
     [switch]$FastInstaller,    # lighter installer compression: same installer, bigger file, much quicker (CI)
+    [string]$UpgradeFrom = "", # with -TestInstaller: install this (the published) installer first, then update over it
     [switch]$Force             # allow -TestInstaller outside CI (it installs/uninstalls "Maple Helper" for real)
 )
 $ErrorActionPreference = "Stop"
@@ -112,9 +113,9 @@ Invoke-Sign $setup
 if ($TestInstaller) {
     $target = Join-Path ([IO.Path]::GetTempPath()) "MapleHelper-install-test"
     Remove-Item -Recurse -Force $target -ErrorAction SilentlyContinue
-    function Install-Silently {
+    function Install-Silently([string]$Installer = $setup) {
         # not -Wait: in PowerShell 7 it also waits for child processes, and setup relaunches the app, so it never returns
-        $p = Start-Process $setup -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$target`"" -PassThru
+        $p = Start-Process $Installer -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$target`"" -PassThru
         $null = $p.Handle   # keep the handle, or ExitCode reads empty after the exit
         if (-not $p.WaitForExit(300000)) { throw "Installer did not finish within 5 minutes" }
         if ($p.ExitCode -ne 0) { throw "Installer exited with $($p.ExitCode)" }
@@ -125,7 +126,15 @@ if ($TestInstaller) {
                (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }
         Stop-InstalledApp $target
     }
-    Write-Host "== Installing silently into $target"
+    if ($UpgradeFrom -and (Test-Path $UpgradeFrom)) {
+        # what every existing player gets: this build updating over the version they have now (older KB, old files)
+        Write-Host "== Installing the published version first ($UpgradeFrom)"
+        Install-Silently (Resolve-Path $UpgradeFrom).Path
+        Write-Host "== Updating it to $Version"
+    } else {
+        if ($UpgradeFrom) { Write-Warning "No installer at $UpgradeFrom; testing a fresh install only" }
+        Write-Host "== Installing silently into $target"
+    }
     Install-Silently
     Invoke-SelfTest (Join-Path $target $AppExe)
 

@@ -82,6 +82,7 @@ jobs:
     needs: per-os
     if: always()
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Every OS passed
         run: |
