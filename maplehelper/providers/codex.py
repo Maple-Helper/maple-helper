@@ -145,6 +145,7 @@ def codex_command(exe: str, workdir, instructions: str, model: str | None = None
 def parse_events(lines, stderr: str = "") -> RawResult:
     """The answer is the run's last agent message; earlier ones are lead-ins ("I'll check the database")."""
     answer, errors, failed, completed = None, [], False, False
+    tools: set = set()      # the commands (and other tool items) it ran, by item id: the evals count them
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -155,6 +156,9 @@ def parse_events(lines, stderr: str = "") -> RawResult:
         if not isinstance(ev, dict):
             continue
         t = ev.get("type")
+        item = ev.get("item") if isinstance(ev.get("item"), dict) else {}
+        if t in ("item.started", "item.completed") and item.get("type") in TOOL_ITEMS:
+            tools.add(item.get("id") or f"#{len(tools)}")
         if t == "item.completed" and (ev.get("item") or {}).get("type") == "agent_message":
             answer = ev["item"].get("text") or ""
         elif t == "error":
@@ -172,7 +176,11 @@ def parse_events(lines, stderr: str = "") -> RawResult:
     if failed or answer is None:
         log.warning("Codex gave no answer: %s", detail.strip()[-1500:])   # the cause, for "Report a problem"
         return RawResult(error=classify_error(detail) or ("api_error" if failed else "no_result"))
-    return RawResult(text=answer)
+    return RawResult(text=answer, tool_calls=len(tools))
+
+
+# `codex exec --json` items that are a tool run (its answer and reasoning are items too)
+TOOL_ITEMS = ("command_execution", "mcp_tool_call", "web_search", "file_change")
 
 
 def reply_result(lines) -> dict | None:

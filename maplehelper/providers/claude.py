@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .. import usage
 from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, \
-    find_windows_exe, http_ok, open_login, run_installer
+    find_windows_exe, http_ok, note_tool_use, open_login, run_installer
 
 log = logging.getLogger(__name__)
 
@@ -266,6 +266,8 @@ class ClaudeBackend:
         result = None
         limits = None
         model = None
+        tools: set = set()      # tool calls (evals): the ids of the tool_use blocks
+        blocks = False
         proc = self._proc
         # stderr is drained alongside: a CLI that writes a lot there would otherwise block both sides
         err_chunks: list[bytes] = []
@@ -291,6 +293,7 @@ class ClaudeBackend:
             except json.JSONDecodeError:
                 continue
             t = ev.get("type")
+            blocks = note_tool_use(ev, tools) or blocks
             if t == "stream_event":
                 se = ev.get("event", {})
                 if se.get("type") == "message_start":
@@ -321,8 +324,10 @@ class ClaudeBackend:
             # with the plan usage: hitting the limit is exactly when the meter and its warning matter
             return RawResult(error=classify_error(str(result.get("result", "")) + stderr) or "api_error",
                              limits=limits)
+        turns = result.get("num_turns")
         return RawResult(text=result.get("result") or current, cost_usd=result.get("total_cost_usd"), limits=limits,
-                         model=model)
+                         model=model, tool_calls=len(tools) if blocks else None,
+                         turns=turns if isinstance(turns, int) else None)
 
     def summarize(self, instructions: str, text: str, timeout: int = 90) -> str | None:
         """One short call on Haiku, no tools: session summaries and guide summaries."""

@@ -28,6 +28,28 @@ class RawResult:
     cost_usd: float | None = None
     limits: dict | None = None     # plan usage, when the CLI reports it with the answer (Claude Code, see usage.py)
     model: str | None = None       # the model that answered, when the CLI says ("claude-sonnet-5")
+    # how the answer was reached, where the CLI's stream tells (None: it doesn't): tools run (file reads, greps,
+    # shell commands) and model turns. For the speed evals (tools/eval_answers.py); the app shows neither
+    tool_calls: int | None = None
+    turns: int | None = None
+
+
+def note_tool_use(ev: dict, ids: set) -> bool:
+    """A Claude-Code-format stream line's tool calls, into ids (Claude Code, Grok): the partial stream's
+    content_block_start and the whole "assistant" message both carry each tool_use block, so they're counted
+    once by id. True when the line carries content blocks at all (the stream tells about tools)."""
+    blocks = []
+    if ev.get("type") == "stream_event" and (ev.get("event") or {}).get("type") == "content_block_start":
+        blocks = [(ev["event"].get("content_block") or {})]
+    elif ev.get("type") == "assistant":
+        blocks = ((ev.get("message") or {}).get("content")) or []
+        blocks = blocks if isinstance(blocks, list) else []
+    else:
+        return False
+    for b in blocks:
+        if isinstance(b, dict) and b.get("type") in ("tool_use", "server_tool_use"):
+            ids.add(b.get("id") or f"#{len(ids)}")
+    return True
 
 
 def model_name(model_id: str) -> str:
