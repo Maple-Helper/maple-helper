@@ -110,6 +110,24 @@ def test_quick_open_close_keeps_the_window_size(overlay):
     assert (overlay.settings["window"]["w"], overlay.settings["window"]["h"]) == (start.width(), start.height())
 
 
+def test_the_chat_is_a_normal_window_so_discord_can_share_it(overlay):
+    import sys
+    from PySide6.QtCore import Qt
+    kind = overlay.windowFlags() & Qt.WindowType_Mask
+    # Discord, OBS and Alt+Tab skip tool windows (WS_EX_TOOLWINDOW): the chat couldn't be picked for a stream
+    assert kind == (Qt.Tool if sys.platform == "darwin" else Qt.Window)
+
+
+def test_f9_brings_a_minimized_chat_back(overlay):
+    overlay.save_geometry()
+    overlay.showMinimized()                 # Win+D / "Show desktop" minimizes a normal window
+    pump(overlay.app, 50)
+    assert overlay.isVisible() and not overlay.is_open()
+    overlay.toggle(lambda _hwnd: None)
+    pump(overlay.app, 400)
+    assert overlay.is_open() and not overlay.isMinimized()
+
+
 def test_a_failing_screenshot_brings_the_chat_back(overlay, monkeypatch):
     def boom(_hwnd):
         raise RuntimeError("capture failed")
@@ -243,7 +261,7 @@ def test_ask_in_chat_while_busy_says_so_and_continue_closes_the_history():
 
     from maplehelper.app import MapleHelperApp
     calls = []
-    ov = SimpleNamespace(isVisible=lambda: True, _is_busy=lambda: True, _say_busy=lambda: calls.append("busy"),
+    ov = SimpleNamespace(isVisible=lambda: True, is_open=lambda: True, _is_busy=lambda: True, _say_busy=lambda: calls.append("busy"),
                          ask=lambda q: calls.append("ask"), continue_from=lambda *a: calls.append("continue"))
     history = SimpleNamespace(close=lambda: calls.append("closed"))
     fake = SimpleNamespace(overlay=ov, profiles=SimpleNamespace(active=SimpleNamespace(id="c1")),
