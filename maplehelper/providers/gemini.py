@@ -165,23 +165,24 @@ def _write(path: Path, text: str) -> None:
             pass
 
 
-def tools_note(kb_root, shots: list[Path]) -> str:
+def tools_note(kb_root) -> str:
     """Without the default prompt the agent doesn't know where it is: the folder goes in by full path."""
-    note = (f"\n\nTools: the knowledge base is the folder {Path(kb_root).resolve()} - read it with view_file, "
+    return (f"\n\nTools: the knowledge base is the folder {Path(kb_root).resolve()} - read it with view_file, "
             "grep_search, list_dir and find_by_name, always with absolute paths. Nothing outside that folder "
             "(and the screenshot) is open to you: never list or open other folders, they are blocked. You cannot "
             "write files, run commands or use the network.")
-    if shots:
-        note += ("\nThe player's game screenshot is attached as " + ", ".join(str(s) for s in shots) +
-                 ": open it with view_file first, before answering.")
-    return note
 
 
-def shot_note(shots: list[Path]) -> str:
-    """A quick screenshot read: the knowledge base isn't open, so the agent doesn't go looking for it."""
-    return ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
-            "list or open any folder. Your only tool is view_file, for the player's game screenshot: "
-            + ", ".join(str(s) for s in shots) + ". Open it first, then answer from it and the player's profile.")
+SHOT_NOTE = ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
+             "list or open any folder. Your only tool is view_file, for the player's game screenshot (its path comes "
+             "with the question). Open it first, then answer from it and the player's profile.")
+
+
+def shots_line(shots: list[Path]) -> str:
+    """The screenshot's path, with the question: each run has a folder of its own, so in the agent's instructions it
+    rewrote the agent file for every question."""
+    return ("\n\nThe player's game screenshot is attached as " + ", ".join(str(s) for s in shots) +
+            ": open it with view_file first, before answering.") if shots else ""
 
 
 def agy_command(exe: str, agent: str, model: str | None = None) -> list[str]:
@@ -626,15 +627,17 @@ class GeminiBackend:
                     shots.append(folder / f"screenshot-{i}.jpg")
                     shots[-1].write_bytes(jpeg)
             if tools:
-                agent, allowed, note = AGENT, TOOLS, tools_note(b.kb.root, shots)
+                agent, allowed, note = AGENT, TOOLS, tools_note(b.kb.root)
             elif shots:
                 # the ⟳ sync: the screenshot only (opened with view_file). With the knowledge-base tools too, the
                 # agent grepped the knowledge base for over two minutes and the sync gave up at 60 s
-                agent, allowed, note = SHOT_AGENT, SHOT_TOOLS, shot_note(shots)
+                agent, allowed, note = SHOT_AGENT, SHOT_TOOLS, SHOT_NOTE
             else:
                 agent, allowed, note = QUICK_AGENT, [], ""
-            return self._exec(agent, b.system_prompt() + note, allowed, prompt, resolve_model(model or b.model),
-                              on_raw_delta)
+            # the agent file stays the same from question to question (written only when it changes): the
+            # screenshot's per-run path goes with the question
+            return self._exec(agent, b.system_prompt() + note, allowed, prompt + shots_line(shots),
+                              resolve_model(model or b.model), on_raw_delta)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
 

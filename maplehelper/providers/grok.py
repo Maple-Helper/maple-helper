@@ -28,8 +28,8 @@ import time
 from pathlib import Path
 
 from . import base
-from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, \
-    http_ok, run_installer
+from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, StreamText, classify_error, child_env, \
+    find_posix, http_ok, run_installer
 
 log = logging.getLogger(__name__)
 STALL_TIMEOUT_S = 150
@@ -133,12 +133,155 @@ exit 2
 """
 GUARD_ROOTS = "maplehelper-guard-roots.json"
 
+# The same guard as a small program, built with the C# compiler that comes with Windows (.NET Framework 4): a read
+# costs ~50 ms instead of ~650 ms. Grok runs a hook command with spaces or quotes in it through its shell (pwsh on
+# this PC), so the PowerShell guard started two PowerShells for every read_file, grep and list_dir; a bare path is
+# started directly. Same rules as GUARD_PS1, and stricter on odd input: a path that isn't a string is a deny.
+GUARD_CS = r"""// Maple Helper: Grok may read only the knowledge base and the screenshot (a PreToolUse hook).
+// Anything unexpected ends in the deny: Grok lets a read through unless the hook prints one.
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Web.Script.Serialization;
+
+static class Guard {
+    const string Deny = "{\"decision\":\"block\",\"reason\":\"Only the knowledge base and the screenshot can be read.\",\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"Only the knowledge base and the screenshot can be read.\"}}";
+
+    static int Main() {
+        try {
+            if (Allowed()) return 0;
+        } catch { }
+        try {
+            byte[] b = Encoding.ASCII.GetBytes(Deny);
+            Stream o = Console.OpenStandardOutput();
+            o.Write(b, 0, b.Length);
+            o.Flush();
+        } catch { }
+        return 2;
+    }
+
+    static bool Allowed() {
+        MemoryStream buf = new MemoryStream();
+        Console.OpenStandardInput().CopyTo(buf);
+        string text = new UTF8Encoding(false).GetString(buf.ToArray()).TrimStart('\uFEFF');
+        JavaScriptSerializer js = new JavaScriptSerializer();
+        js.MaxJsonLength = int.MaxValue;
+        Dictionary<string, object> input = js.DeserializeObject(text) as Dictionary<string, object>;
+        string roots = File.ReadAllText(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "maplehelper-guard-roots.json"), Encoding.UTF8);
+        Dictionary<string, object> cfg = js.DeserializeObject(roots) as Dictionary<string, object>;
+        object ti;
+        if (input == null || cfg == null || !input.TryGetValue("tool_input", out ti)) return false;
+        Dictionary<string, object> tool = ti as Dictionary<string, object>;
+        if (tool == null || tool.Count == 0) return false;
+        string p = ".";                                    // no path (a grep with none): the folder it runs in
+        foreach (string k in new string[] { "target_file", "target_directory", "path" }) {
+            object v;
+            if (tool.TryGetValue(k, out v) && v != null) {
+                string s = v as string;
+                if (s == null) return false;
+                if (s.Length > 0) { p = s; break; }
+            }
+        }
+        object cwd;
+        string at = input.TryGetValue("cwd", out cwd) && cwd is string && ((string)cwd).Length > 0
+            ? (string)cwd : Environment.CurrentDirectory;
+        string full = Path.GetFullPath(Path.Combine(at, p));
+        object list;
+        if (!cfg.TryGetValue("roots", out list) || list is string || !(list is IEnumerable)) return false;
+        foreach (object r in (IEnumerable)list) {
+            string root = r as string;
+            if (string.IsNullOrEmpty(root)) continue;
+            if (string.Equals(full, root, StringComparison.OrdinalIgnoreCase)
+                || full.StartsWith(root + "\\", StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+}
+"""
+GUARD_EXE = "maplehelper-guard.exe"
+# what Grok starts directly, without a shell: letters (Hebrew too), digits and _ . ~ - only (checked against Grok
+# 1.0.46 with a mock of the xAI API). A path with a space went to the shell unquoted, the hook failed and the read
+# went through: such a path never becomes the command (its 8.3 name does, else the PowerShell guard)
+BARE_PATH = re.compile(r"[A-Za-z]:\\[\w.~\\-]+")
+_guard_ok: dict[tuple, bool] = {}       # (exe, its mtime, the knowledge base) -> passed its check in this session
+_guard_lock = threading.Lock()
+
+
+def _csc() -> str | None:
+    windir = os.environ.get("WINDIR") or r"C:\Windows"
+    for fw in ("Framework64", "Framework"):
+        c = Path(windir) / "Microsoft.NET" / fw / "v4.0.30319" / "csc.exe"
+        if c.exists():
+            return str(c)
+    return None
+
+
+def _short(path: Path) -> str:
+    """The 8.3 name of a path (C:\\Users\\5D0B~1\\...): no spaces or Hebrew letters, where the drive keeps them."""
+    import ctypes
+    buf = ctypes.create_unicode_buffer(1024)
+    n = ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, 1024)
+    return buf.value if 0 < n < 1024 else str(path)
+
+
+def _guard_says(exe: Path, cwd: str, target) -> tuple[int, bytes] | None:
+    data = target if isinstance(target, bytes) else \
+        json.dumps({"cwd": cwd, "tool_name": "read_file", "tool_input": {"target_file": target}}).encode()
+    try:
+        r = subprocess.run([str(exe)], input=data, capture_output=True, timeout=20, creationflags=CREATE_NO_WINDOW)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return r.returncode, r.stdout
+
+
+def guard_exe(kb_root) -> str | None:
+    """The compiled guard, built when missing or out of date and checked once per session against the roots file
+    already written: it must allow a knowledge-base file and deny the folder above it and a broken request.
+    None (the PowerShell guard then) when it can't be built, fails the check, or its path would need a shell."""
+    d = grok_home()
+    exe, src = d / GUARD_EXE, d / "maplehelper-guard.cs"
+    try:
+        _write(src, GUARD_CS)
+        if not exe.exists() or exe.stat().st_mtime < src.stat().st_mtime:
+            csc = _csc()
+            if not csc:
+                return None
+            tmp = d / f"maplehelper-guard-{os.getpid()}.exe"
+            r = subprocess.run([csc, "-nologo", "-optimize+", "-target:exe", "-r:System.Web.Extensions.dll",
+                                f"-out:{tmp}", str(src)], capture_output=True, timeout=120, cwd=str(d),
+                               creationflags=CREATE_NO_WINDOW)
+            if r.returncode or not tmp.exists():
+                log.warning("Grok read guard not built (%s): %s", r.returncode,
+                            r.stdout.decode("utf-8", errors="replace")[-500:])
+                return None
+            os.replace(tmp, exe)       # fails while a run's hook has it open: the PowerShell guard this time
+        kb = str(Path(kb_root).resolve())
+        key = (str(exe), exe.stat().st_mtime_ns, kb)
+    except (OSError, subprocess.TimeoutExpired):
+        log.warning("Grok read guard not built", exc_info=True)
+        return None
+    if key not in _guard_ok:
+        deny = b'"permissionDecision":"deny"'
+        inside, above, broken = (_guard_says(exe, kb, "x.md"), _guard_says(exe, kb, r"..\x.md"),
+                                 _guard_says(exe, kb, b"not json {"))
+        _guard_ok[key] = inside == (0, b"") and bool(above) and above[0] == 2 and deny in above[1] and \
+            bool(broken) and broken[0] == 2 and deny in broken[1]
+        if not _guard_ok[key]:
+            log.warning("Grok read guard failed its check (%s, %s, %s): using the PowerShell one", inside, above, broken)
+    if not _guard_ok[key]:
+        return None
+    path = str(exe) if BARE_PATH.fullmatch(str(exe)) else _short(exe)
+    return path if BARE_PATH.fullmatch(path) else None
+
 
 def write_guard(kb_root) -> None:
     """Windows: the read guard (a hook in our Grok home). Written when the knowledge base path changes.
     The folders go in a JSON file of their own, not into the script: Windows PowerShell 5.1 read the script in the
     ANSI code page, a Hebrew user name in a pasted path turned into stray quote marks (ב/ג: a parse error, so the
-    hook failed and Grok read anything; other letters: garbled folders, so it read nothing)."""
+    hook failed and Grok read anything; other letters: garbled folders, so it read nothing).
+    The hook is the compiled guard where it builds and passes its check (guard_exe), else the PowerShell script."""
     if sys.platform != "win32":
         return
     roots = [str(Path(p).resolve()) for p in (kb_root, shots_dir())]
@@ -146,7 +289,10 @@ def write_guard(kb_root) -> None:
     _write(grok_home() / GUARD_ROOTS, json.dumps({"roots": roots}, indent=1))
     script = grok_home() / "maplehelper-guard.ps1"
     _write(script, GUARD_PS1, encoding="utf-8-sig")       # the BOM: PowerShell 5.1 reads it as UTF-8 regardless
-    cmd = f'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{script}"'
+    # a bare path: Grok starts it directly (with a space or a quote in it, Grok would hand it to its shell)
+    with _guard_lock:                  # the prewarm and a question can get here together
+        exe = guard_exe(kb_root)
+    cmd = exe or f'powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{script}"'
     # no matcher: it runs for each of the three tools (a tool-name matcher didn't match them)
     _write(grok_home() / "hooks" / "maplehelper.json",
            json.dumps({"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": cmd, "timeout": 10}]}]}},
@@ -217,9 +363,9 @@ def classify(text: str) -> str | None:
 
 
 def parse_stream(lines, on_delta=None) -> tuple[str, dict | None, str | None]:
-    """(answer, result event, model) from Claude-Code-format stream lines: the text of the last message
-    (earlier messages end in a tool call: their text is a lead-in)."""
-    current, result, model = "", None, None
+    """(answer, result event, model) from Claude-Code-format stream lines: the text of the last message after its
+    last tool call (text before a tool call is a lead-in)."""
+    text, result, model = StreamText(), None, None
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -233,17 +379,14 @@ def parse_stream(lines, on_delta=None) -> tuple[str, dict | None, str | None]:
         if t == "stream_event":
             se = ev.get("event") or {}
             if se.get("type") == "message_start":
-                current = ""
                 model = (se.get("message") or {}).get("model") or model
-            elif se.get("type") == "content_block_delta" and (se.get("delta") or {}).get("type") == "text_delta":
-                current += se["delta"].get("text", "")
-                if on_delta:
-                    on_delta(current)
+            if text.feed(se) and on_delta:
+                on_delta(text.text)
         elif t == "system" and ev.get("subtype") == "init":
             model = ev.get("model") or model
         elif t == "result":
             result = ev
-    return current, result, model
+    return text.text, result, model
 
 
 def to_result(text: str, result: dict | None, stderr: str, model: str | None) -> RawResult:
@@ -419,7 +562,10 @@ class GrokBackend:
         self._running: set[subprocess.Popen] = set()
 
     def prewarm(self) -> None:
-        pass
+        # no process can wait for the question: grok takes it as a file named on its command line. The read guard
+        # is built (~1 s, once) and checked ahead of the first question instead
+        if self.exe:
+            write_guard(self.brain.kb.root)
 
     def shutdown(self) -> None:
         self.cancel()
