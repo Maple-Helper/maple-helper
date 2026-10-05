@@ -311,6 +311,7 @@ class Select(QPushButton):
         self._items: list[str] = []
         self._index = -1
         self._label = ""
+        self.text_width = None        # cap on the shown value's width: a longer one is cut with "…" (the menu shows it whole)
         self.clicked.connect(self._open)
         if items:
             self.addItems(items)
@@ -354,7 +355,7 @@ class Select(QPushButton):
     def setCurrentIndex(self, i: int):
         if 0 <= i < len(self._items) and i != self._index:
             self._index = i
-            self.setText(self._items[i])
+            self.setText(self._shown(self._items[i]))
             self._name()
             self.currentIndexChanged.emit(i)
 
@@ -362,9 +363,25 @@ class Select(QPushButton):
         if text in self._items:
             self.setCurrentIndex(self._items.index(text))
 
+    def _shown(self, text: str) -> str:
+        if self.text_width is None:
+            return text
+        room = min(self.text_width, self.width() - 48) if self.isVisible() else self.text_width
+        cut = self.fontMetrics().elidedText(text, Qt.ElideRight, max(room, 20))
+        # an English name in a Hebrew window: one LTR block, or the "…" jumped to its left end
+        return bidi.ltr_name(cut, self.layoutDirection() == Qt.RightToLeft)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if self.text_width is not None and 0 <= self._index < len(self._items):
+            self.setText(self._shown(self._items[self._index]))      # the room the layout really gave it
+
     def sizeHint(self):
         s = super().sizeHint()
         longest = max((self.fontMetrics().horizontalAdvance(t) for t in self._items), default=40)
+        if self.text_width is not None:
+            longest = min(longest, self.text_width)
+            s.setWidth(longest + 48)        # the button's own hint measured the uncut text
         return s.expandedTo(QSize(longest + 48, 30))
 
     def _open(self):

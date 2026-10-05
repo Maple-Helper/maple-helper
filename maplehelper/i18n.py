@@ -326,6 +326,7 @@ STRINGS = {
     "close_chat": {"he": "סגירה (F9 פותח שוב)", "en": "Close (F9 opens it again)"},
     "sec_appearance": {"he": "תצוגה", "en": "Display"},
     "sec_keys": {"he": "מקשים", "en": "Keys"},
+    "sec_audio": {"he": "שמע", "en": "Audio"},
     "sec_answers": {"he": "תשובות", "en": "Answers"},
     "sec_system": {"he": "פרטיות ומערכת", "en": "Privacy & system"},
     "sec_data": {"he": "נתונים", "en": "Data"},

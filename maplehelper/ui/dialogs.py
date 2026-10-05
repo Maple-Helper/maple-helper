@@ -1,6 +1,7 @@
 """Onboarding (mandatory, no skipping), character editor and settings."""
 from __future__ import annotations
 
+import re
 import sys
 import threading
 
@@ -984,12 +985,18 @@ class SettingsDialog(GlassDialog):
         sec.add_widget(self.keys_error)
         self.voice_send = Switch(settings["voice_send_immediately"])
         sec.add_row(t("voice_send"), self.voice_send)
+        lay.addWidget(sec)
+
+        # audio
+        sec = Section(t("sec_audio"), rtl)
         # the microphone: the system default was a far webcam/USB mic on a PC whose player talks into a headset,
         # and the model then "heard" sentences nobody said
         from .. import voice
         self.mics = voice.input_devices()
         self.mic = Select()
-        self.mic.addItems([t("mic_default")] + self.mics)
+        self.mic.text_width = 190         # "Microphone (Logitech PRO X Wireless Gaming Headset)" widened the window
+        # "Microphone (Logitech PRO X …)" → "Logitech PRO X …": every Windows name starts the same way
+        self.mic.addItems([t("mic_default")] + [re.sub(r"^Microphone \((.+)\)$", r"\1", m) for m in self.mics])
         if settings["microphone"] in self.mics:
             self.mic.setCurrentIndex(self.mics.index(settings["microphone"]) + 1)
         sec.add_row(t("microphone"), self.mic)
