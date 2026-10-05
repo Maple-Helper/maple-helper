@@ -149,6 +149,7 @@ REPLY_RULES = """<reply_rules>
 - Only what the game scope in your instructions says is in the game: never send the player to a place it says is not
   out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet.
 - At most {length} short lines. No filler, no follow-up offers.
+- Only the answer itself: never narrate your process or plans in it ("I'll mention...", "Now for the answer...").
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
 - Under the answer the app shows a card for every entity in META: a monster's level, HP, EXP, maps and what changed
   since the last test build, an item's stats, and a monster's drops as tiles with their votes and sources.
@@ -466,11 +467,45 @@ def drop_keys(text: str) -> str:
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
+_HEBREW = re.compile(r"[֐-׿]")
+# the model talking to itself after its tool calls, seen live at the start of a Hebrew answer: "This quest is in Kerning
+# City (Victoria Island) - good, in game. Now for answer, I'll mention Stranger's Identity as doable now, ..."
+_NARRATION = re.compile(r"\b(?:I'll|I will|I'm going to|I am going to|I need to|I should|I can see|Let me|Let's|"
+                        r"Now (?:for|I|to|let)|for (?:the |my )?(?:answer|reply)|in (?:the )?answer,|"
+                        r"the (?:player|user)(?:'s)? (?:is|asks|asked|wants|question)|(?:good|ok|okay|great)\s*[,-]\s+"
+                        r"(?:it'?s |that'?s |in )|(?:is|it's|that's) in (?:the )?game\b|the (?:data|kb|knowledge base|"
+                        r"page|grep|search) (?:says|shows|lists|confirms|returned)|I'?ve (?:got|found|checked))", re.I)
+# a line that is part of an answer's layout, never a monologue: a list item, a bold name, a heading, a table row
+_LAYOUT = re.compile(r"\s*(?:[-*•#|>]|\d+[.)]|\*\*)")
+
+
+def _narration(lines: list[str]) -> bool:
+    """English lines that read as the model's own planning: prose (no list or bold layout), at least a short
+    sentence, and in its words ("I'll", "Now for the answer", "good, in game")."""
+    lines = [s for s in lines if s.strip()]
+    if not lines or any(_LAYOUT.match(s) for s in lines):
+        return False
+    head = " ".join(lines)
+    return len(head.split()) >= 6 and bool(_NARRATION.search(head))
+
+
+def strip_lead_in(text: str) -> str:
+    """A Hebrew answer without the English planning paragraph the model sometimes starts it with. Only English prose
+    before the first Hebrew line goes, and only when it reads as planning: an English answer, or an English game
+    name or list line before the Hebrew, stays."""
+    lines = text.split("\n")
+    first = next((i for i, s in enumerate(lines) if _HEBREW.search(s)), None)
+    if not first or not _narration(lines[:first]):
+        return text
+    return "\n".join(lines[first:])
+
+
 def split_meta(raw: str) -> tuple[str, dict]:
     """Separate the visible answer from the trailing @@META@@ JSON."""
     if META not in raw:
-        return drop_keys(raw).strip(), {}
+        return drop_keys(strip_lead_in(raw)).strip(), {}
     text, _, meta = raw.partition(META)
+    text = strip_lead_in(text)
     m = re.search(r"\{.*\}", meta, re.S)
     try:
         data = json.loads(m.group(0)) if m else {}
@@ -519,15 +554,21 @@ def _numbers(update) -> None:
             del update["stats"]
 
 
-def streamed_text(raw: str) -> str:
+def streamed_text(raw: str, hebrew: bool = False) -> str:
     """The visible part of a reply still streaming: before @@META@@, and without a marker that has only
-    partly arrived (the stream can end a chunk on "…answer.\\n@@ME")."""
+    partly arrived (the stream can end a chunk on "…answer.\\n@@ME").
+    hebrew: the answer should be Hebrew. Until its first Hebrew letter arrives, English text waits for its first
+    line to end, and English planning (strip_lead_in) waits for the Hebrew after it: it never flashes up."""
     text = raw.split(META)[0]
     for n in range(len(META) - 1, 0, -1):
         if text.endswith(META[:n]):
             text = text[:-n]
             break
-    return drop_keys(text).strip()
+    if hebrew and not _HEBREW.search(text):
+        lines = text.split("\n")
+        if len(lines) == 1 or _narration(lines):
+            return ""
+    return drop_keys(strip_lead_in(text)).strip()
 
 
 class Brain:
@@ -634,7 +675,8 @@ class Brain:
         has = (len(shots) - 1 if len(shots) > 1 else True) if shots else False
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
-        raw_delta = (lambda raw: on_delta(streamed_text(raw))) if on_delta else None
+        hebrew = reply_language(question, self.ui_lang) == "Hebrew"
+        raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
         if model or light:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta, model=model, tools=not light)
         else:

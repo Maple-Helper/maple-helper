@@ -1,6 +1,8 @@
 """AI providers (Claude Code, Codex CLI): commands, output parsing, discovery and keys (no real CLI calls)."""
 import io
 import json
+import threading
+import time
 import tomllib
 
 import pytest
@@ -337,6 +339,286 @@ class TestClaudeBackend:
         b = self.make(kb_copy, monkeypatch, self.RATE)
         ans = b.ask("hi", None, None, None)
         assert ans.error == "no_result" and ans.limits["five_hour"]["used"] == 0.7
+
+
+    def test_the_answer_is_the_text_after_the_last_tool_call(self, kb_copy, monkeypatch):
+        """A lead-in written before a tool call in the same message is no part of the answer, even when the
+        result's own text carries it."""
+        def se(event):
+            return {"type": "stream_event", "event": event}
+
+        def text(t):
+            return se({"type": "content_block_delta", "delta": {"type": "text_delta", "text": t}})
+        b = self.make(kb_copy, monkeypatch,
+                      se({"type": "message_start", "message": {"model": "claude-sonnet-5"}}),
+                      text("I'll grep drops.tsv. "), se({"type": "content_block_start",
+                                                         "content_block": {"type": "tool_use", "name": "Grep"}}),
+                      se({"type": "message_start", "message": {}}),
+                      se({"type": "content_block_start", "content_block": {"type": "thinking"}}),
+                      se({"type": "content_block_start", "content_block": {"type": "text"}}),
+                      text("Hunt Red Snail."),
+                      {"type": "result", "result": "I'll grep drops.tsv. Hunt Red Snail."})
+        seen = []
+        ans = b.ask("where should I hunt Red Snails today?", None, None, None, on_delta=seen.append)
+        assert ans.text == "Hunt Red Snail." and ans.model == "claude-sonnet-5"
+        assert seen[-1] == "Hunt Red Snail."
+
+
+class ScriptProc:
+    """A Claude Code process for the hedging tests. It replays its script once the question has arrived: a number
+    waits that many seconds (unless the process is killed), a dict is one output line."""
+    scripts: list = []
+    procs: list = []
+
+    def __init__(self, cmd, **kw):
+        self.script = ScriptProc.scripts.pop(0)
+        self.n = len(ScriptProc.procs)
+        ScriptProc.procs.append(self)
+        self.killed, self.sent, self.ended = threading.Event(), threading.Event(), threading.Event()
+        self.returncode = None
+        self.stdin = io.BytesIO()
+        self.stdin.close = self.sent.set
+        self.stderr = io.BytesIO(b"")
+        self.stdout = self._lines()
+
+    def _lines(self):
+        try:
+            self.sent.wait(10)
+            for step in self.script:
+                if self.killed.is_set():
+                    return
+                if isinstance(step, (int, float)):
+                    if self.killed.wait(step):
+                        return
+                else:
+                    yield (json.dumps(step) + "\n").encode()
+        finally:
+            if self.returncode is None:
+                self.returncode = 0
+            self.ended.set()
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        self.ended.wait(timeout or 10)
+        return self.returncode
+
+    def kill(self):
+        if self.returncode is None:
+            self.returncode = -9
+        self.killed.set()
+
+
+def _se(event):
+    return {"type": "stream_event", "event": event}
+
+
+def _text(t):
+    return _se({"type": "content_block_delta", "delta": {"type": "text_delta", "text": t}})
+
+
+def _answer(*parts, delay=0.0):
+    """A run that streams `parts` (with `delay` between them) and ends with its result."""
+    steps = [_se({"type": "message_start", "message": {"model": "claude-sonnet-5"}})]
+    for p in parts:
+        steps += [delay, _text(p)]
+    return steps + [{"type": "result", "result": "".join(parts)}]
+
+
+# what Claude Code prints the moment the question arrives, before the server has answered anything
+LOCAL = [{"type": "system", "subtype": "init", "model": "claude-sonnet-5"},
+         {"type": "system", "subtype": "status", "status": "requesting"}]
+
+
+class TestHedging:
+    """A run with no sign of life for HEDGE_AFTER_S gets a twin; the first to answer wins (claude.ClaudeBackend)."""
+
+    def make(self, kb_copy, monkeypatch, *scripts, after=0.3):
+        from maplehelper.brain import Brain
+        from maplehelper.kb import KnowledgeBase
+        ScriptProc.scripts, ScriptProc.procs = [list(s) for s in scripts], []
+        monkeypatch.setattr(claude.subprocess, "Popen", ScriptProc)
+        monkeypatch.setattr(claude, "HEDGE_AFTER_S", after)
+        b = Brain(KnowledgeBase(kb_copy), provider="claude")
+        b.backend.exe = "claude"
+        monkeypatch.setattr(b.backend, "prewarm", lambda: None)
+        return b
+
+    def ask(self, b, question="where should I go to hunt snails today?"):
+        seen = []
+        ans = b.ask(question, None, None, None, on_delta=seen.append)
+        return ans, seen
+
+    def test_a_silent_run_gets_a_twin_and_the_faster_one_answers(self, kb_copy, monkeypatch):
+        # the first run's server sits on the request (only Claude Code's own init/status lines): no sign of life
+        b = self.make(kb_copy, monkeypatch, LOCAL + [30] + _answer("Slow."), _answer("Hunt ", "snails."))
+        t = time.monotonic()
+        ans, seen = self.ask(b)
+        assert ans.text == "Hunt snails." and time.monotonic() - t < 5
+        assert len(ScriptProc.procs) == 2 and ScriptProc.procs[0].killed.is_set()
+        assert seen and all(s.startswith("Hunt") for s in seen)
+
+    def test_thinking_is_a_sign_of_life(self, kb_copy, monkeypatch):
+        """While the model thinks, Claude Code prints thinking_tokens: that run is working, no twin."""
+        thinking = [{"type": "system", "subtype": "thinking_tokens", "estimated_tokens": 50}]
+        b = self.make(kb_copy, monkeypatch, LOCAL + [0.05] + thinking + [1.5] + _answer("Thought it over."),
+                      _answer("Twin."), after=0.8)
+        ans, _ = self.ask(b)
+        assert ans.text == "Thought it over." and len(ScriptProc.procs) == 1
+
+    def test_the_first_run_wins_once_it_streams(self, kb_copy, monkeypatch):
+        """Slow to start, but its text reaches the chat before the twin's: it keeps the question, the twin stops."""
+        b = self.make(kb_copy, monkeypatch, [0.5] + _answer("First ", "answer.", delay=0.2),
+                      [3] + _answer("Twin answer."))
+        ans, seen = self.ask(b)
+        assert ans.text == "First answer." and len(ScriptProc.procs) == 2
+        assert ScriptProc.procs[1].killed.is_set() and all(s.startswith("First") for s in seen)
+
+    def test_two_streams_never_interleave(self, kb_copy, monkeypatch):
+        b = self.make(kb_copy, monkeypatch, [0.6] + _answer(*["A"] * 8, delay=0.05),
+                      [0.1] + _answer(*["B"] * 8, delay=0.05), after=0.2)
+        ans, seen = self.ask(b)
+        assert ans.text == "B" * 8
+        assert seen and all(set(s) == {"B"} for s in seen)
+
+    def test_cancel_stops_both_runs(self, kb_copy, monkeypatch):
+        b = self.make(kb_copy, monkeypatch, [30] + _answer("one"), [30] + _answer("two"), after=0.1)
+        out = {}
+        t = threading.Thread(target=lambda: out.update(ans=b.ask("hi", None, None, None)))
+        t.start()
+        for _ in range(100):
+            if len(ScriptProc.procs) == 2:
+                break
+            time.sleep(0.05)
+        b.cancel()
+        t.join(5)
+        assert not t.is_alive() and out["ans"].error
+        assert all(p.killed.is_set() for p in ScriptProc.procs) and len(ScriptProc.procs) == 2
+
+    def test_only_one_twin_and_never_after_text(self, kb_copy, monkeypatch):
+        # the twin is as slow: no third run, and whichever answers first wins
+        b = self.make(kb_copy, monkeypatch, [1.0] + _answer("one"), [3] + _answer("two"), [0] + _answer("three"),
+                      after=0.1)
+        ans, _ = self.ask(b)
+        assert ans.text == "one" and len(ScriptProc.procs) == 2
+
+    def test_a_quick_failure_is_no_reason_for_a_twin(self, kb_copy, monkeypatch):
+        b = self.make(kb_copy, monkeypatch, [{"type": "result", "is_error": True, "result": "Claude usage limit "
+                                                                                              "reached"}],
+                      _answer("never"))
+        ans, _ = self.ask(b)
+        assert ans.error == "usage_limit" and len(ScriptProc.procs) == 1
+
+    def test_a_failed_run_waits_for_its_twin(self, kb_copy, monkeypatch):
+        """The first run dies after the twin started (a dropped connection): the twin's answer still comes."""
+        b = self.make(kb_copy, monkeypatch, [0.4], [0.3] + _answer("Twin answer."), after=0.2)
+        ans, _ = self.ask(b)
+        assert ans.text == "Twin answer."
+
+    def test_the_plan_usage_and_model_come_from_the_winner(self, kb_copy, monkeypatch):
+        rate = {"type": "rate_limit_event", "rate_limit_info": {"unifiedWindows": {
+            "five_hour": {"utilization": 0.4, "resetsAt": 2000}}}}
+        b = self.make(kb_copy, monkeypatch, [30], [rate] + _answer("Hi."))
+        ans, _ = self.ask(b)
+        assert ans.text == "Hi." and ans.limits["five_hour"]["used"] == 0.4 and ans.model == "claude-sonnet-5"
+
+    def test_the_race_alone(self):
+        """base.Race without a CLI: what any provider's run would get."""
+        seen = []
+        race = base.Race(seen.append)
+
+        def run_one(a):
+            if a.n == 0:
+                time.sleep(1.0)
+                a.delta("late")
+                return base.RawResult(text="late")
+            a.activity()
+            a.delta("quick")
+            return base.RawResult(text="quick")
+        r = race.run(run_one, hedge_after=0.1)
+        assert r.text == "quick" and seen == ["quick"]
+        assert race.attempts[0].lost
+
+
+class TestWarmProcess:
+    def backend(self, kb, monkeypatch):
+        from maplehelper.brain import Brain
+        spawned = []
+
+        class Proc:
+            def __init__(self):
+                self.killed = False
+                spawned.append(self)
+
+            def poll(self):
+                return -9 if self.killed else None
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                return 0
+        b = Brain(kb, provider="claude").backend
+        b.exe = "claude"
+        monkeypatch.setattr(b, "_spawn", lambda *a, **k: Proc())
+        return b, spawned
+
+    def test_a_warm_process_that_waited_too_long_is_replaced(self, kb, monkeypatch):
+        b, spawned = self.backend(kb, monkeypatch)
+        b.prewarm()
+        proc, age = b._take_warm()
+        assert proc is spawned[0] and age < 5
+        b.prewarm()
+        b._warm_born -= claude.WARM_MAX_AGE_S + 1                 # it sat there past the limit
+        proc, _ = b._take_warm()
+        assert proc is None and spawned[1].killed                  # not used: the question starts a fresh one
+        b.prewarm()
+        b._warm_born -= claude.WARM_MAX_AGE_S + 1
+        b._refresh(spawned[2])                                     # the timer: a fresh one waits again
+        assert spawned[2].killed and b._warm is spawned[3]
+        b._refresh(spawned[2])                                     # an old timer for one already gone: nothing
+        assert len(spawned) == 4
+
+
+@pytest.mark.parametrize("raw,shown", [
+    # the leak seen live: English planning after the tool calls, then the Hebrew answer
+    ("This quest is in Kerning City (Victoria Island) - good, in game. Now for answer, I'll mention Stranger's "
+     "Identity as doable now, and list others for later.\n\n**Stranger's Identity** ב-Kerning City, מתאים לרמה שלכם.",
+     "**Stranger's Identity** ב-Kerning City, מתאים לרמה שלכם."),
+    ("Let me check what drops there. The data says Mano drops it.\nכדאי לעשות גריינד על Mano.",
+     "כדאי לעשות גריינד על Mano."),
+    # legit answers stay whole: English answers, English names and list lines before the Hebrew
+    ("I'll be honest: Mano is not worth it at your level. Go to Henesys instead.",
+     "I'll be honest: Mano is not worth it at your level. Go to Henesys instead."),
+    ("**Blue Snail Shell** (MSEA)\nנופל מ-Blue Snail ברמה 2.", "**Blue Snail Shell** (MSEA)\nנופל מ-Blue Snail ברמה 2."),
+    ("Henesys → Ellinia → Sleepywood\nזו הדרך הכי קצרה.", "Henesys → Ellinia → Sleepywood\nזו הדרך הכי קצרה."),
+    ("1. Talk to Shanks\n2. Now for the boat, I'll pay 150 mesos\nדברו עם Shanks.",
+     "1. Talk to Shanks\n2. Now for the boat, I'll pay 150 mesos\nדברו עם Shanks."),
+    ("Kerning City\n\nלכו ל-Kerning City.", "Kerning City\n\nלכו ל-Kerning City."),
+    ("לכו ל-Henesys. Let me know if you need more.", "לכו ל-Henesys. Let me know if you need more."),
+])
+def test_an_english_planning_paragraph_before_a_hebrew_answer_is_dropped(raw, shown):
+    from maplehelper.brain import split_meta, streamed_text
+    assert split_meta(raw + "\n@@META@@\n{}")[0] == shown
+    hebrew = any("֐" <= c <= "׿" for c in shown)     # an English answer is held back only as it streams
+    assert streamed_text(raw, hebrew=hebrew) == shown
+
+
+def test_planning_never_flashes_up_while_a_hebrew_answer_streams():
+    from maplehelper.brain import streamed_text
+    plan = "This quest is in Kerning City - good, in game. Now for answer, I'll mention it."
+    assert streamed_text("This quest is in Kerning", hebrew=True) == ""         # no line yet: wait
+    assert streamed_text(plan, hebrew=True) == ""
+    assert streamed_text(plan + "\n\n", hebrew=True) == ""                         # planning: wait for the Hebrew
+    assert streamed_text(plan + "\n\n**Stranger's Identity** ב-", hebrew=True) == "**Stranger's Identity** ב-"
+    assert streamed_text("**Blue Snail** (MSEA)\n", hebrew=True) == "**Blue Snail** (MSEA)"   # a name line shows
+    assert streamed_text("This quest is in Kerning", hebrew=False) == "This quest is in Kerning"   # English: as is
+
+
+def test_the_ai_is_told_not_to_narrate():
+    from maplehelper.brain import REPLY_RULES
+    assert "never narrate your process or plans" in REPLY_RULES
 
 
 def test_guide_summaries_go_through_the_active_provider(kb):

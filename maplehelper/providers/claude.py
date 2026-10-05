@@ -18,8 +18,8 @@ import time
 from pathlib import Path
 
 from .. import usage
-from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, \
-    find_windows_exe, http_ok, open_login, run_installer
+from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Provider, Race, RawResult, StreamText, \
+    classify_error, child_env, find_posix, find_windows_exe, http_ok, open_login, run_installer
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ INSTALL_CMD = "irm https://claude.ai/install.ps1 | iex"
 INSTALL_CMD_MAC = "curl -fsSL https://claude.ai/install.sh | bash"
 # An app opened from Finder gets PATH=/usr/bin:/bin:/usr/sbin:/sbin, so the usual install spots are listed here.
 STALL_TIMEOUT_S = 150   # no output from the CLI for this long = stuck (tools and streaming print all along)
+WARM_MAX_AGE_S = 15 * 60    # a warm process waiting longer is replaced by a fresh one
 POSIX_DIRS = ["~/.local/bin", "~/.claude/local", "/opt/homebrew/bin", "/usr/local/bin", "~/.npm-global/bin"]
 
 
@@ -127,23 +128,32 @@ class Claude(Provider):
         return ClaudeBackend(brain)
 
 
+def _alive(ev: dict) -> bool:
+    """A sign of life from the model: a streamed event (thinking too: "thinking_tokens" while it thinks), a whole
+    message, a tool result or the plan usage. Claude Code's own "init" and "status: requesting" lines come the moment
+    the question arrives, before the server has said anything, so they don't count."""
+    t = ev.get("type")
+    return t in ("stream_event", "assistant", "user", "rate_limit_event") or \
+        (t == "system" and ev.get("subtype") == "thinking_tokens")
+
+
 class ClaudeBackend:
     """Runs questions for a Brain through Claude Code, keeping the next process warm."""
-
-    _cancels = 0      # cancel() calls so far: a question being written when one lands isn't re-sent
 
     def __init__(self, brain):
         self.brain = brain
         self.exe = find_claude()
-        self._proc: subprocess.Popen | None = None
+        self._race: Race | None = None          # the question running now: cancel() stops all of its runs
         self._warm: subprocess.Popen | None = None
         self._warm_config: tuple | None = None
+        self._warm_born = 0.0                    # when the warm process started (time.monotonic)
         self._warm_lock = threading.Lock()
 
     # ------------------------------------------------------------ warm process
     # Claude Code needs ~3s to start. A process started ahead of time sits waiting for its first
     # stdin message, so a question skips that startup entirely. One fresh process per question
-    # keeps every answer's context clean.
+    # keeps every answer's context clean. One that waited longer than WARM_MAX_AGE_S is replaced:
+    # a question once sat ~100 s in a process started long before it (see _take_warm).
 
     def _config(self) -> tuple:
         b = self.brain
@@ -161,28 +171,42 @@ class ClaudeBackend:
                                 stderr=subprocess.PIPE, env=env(b.api_key), creationflags=CREATE_NO_WINDOW)
 
     def prewarm(self) -> None:
-        """Start the next question's process now (no-op if one is ready)."""
+        """Start the next question's process now (no-op if a fresh one is ready)."""
         if not self.exe:
             return
         with self._warm_lock:
-            if self._warm and self._warm.poll() is None and self._warm_config == self._config():
+            if self._warm and self._warm.poll() is None and self._warm_config == self._config() and \
+                    time.monotonic() - self._warm_born < WARM_MAX_AGE_S:
                 return
             self._discard_warm()
             cfg = self._config()          # before spawning: settings can change while it starts
             try:
-                self._warm, self._warm_config = self._spawn(), cfg
+                self._warm, self._warm_config, self._warm_born = self._spawn(), cfg, time.monotonic()
             except OSError:
                 self._warm = None
+                return
+            # replaced when it gets old, so the next question still finds a fresh one waiting
+            timer = threading.Timer(WARM_MAX_AGE_S + 1, self._refresh, args=(self._warm,))
+            timer.daemon = True
+            timer.start()
 
-    def _take_warm(self) -> subprocess.Popen | None:
+    def _refresh(self, proc: subprocess.Popen) -> None:
+        if self._warm is proc and proc.poll() is None:
+            log.info("warm Claude Code process is %d min old: starting a fresh one", WARM_MAX_AGE_S // 60)
+            self.prewarm()
+
+    def _take_warm(self) -> tuple[subprocess.Popen | None, float]:
+        """The waiting process and its age in seconds, when it fits this question. One older than WARM_MAX_AGE_S
+        is not used: a question once waited ~100 s for a process started long before it to take it."""
         with self._warm_lock:
-            p, cfg = self._warm, self._warm_config
+            p, cfg, born = self._warm, self._warm_config, self._warm_born
             self._warm = None
-        if p and p.poll() is None and cfg == self._config():
-            return p
+        age = time.monotonic() - born
+        if p and p.poll() is None and cfg == self._config() and age < WARM_MAX_AGE_S:
+            return p, age
         if p and p.poll() is None:
             p.kill()
-        return None
+        return None, 0.0
 
     def _discard_warm(self) -> None:
         if self._warm and self._warm.poll() is None:
@@ -204,9 +228,8 @@ class ClaudeBackend:
         self.cancel()
 
     def cancel(self) -> None:
-        self._cancels += 1            # a question being written when this lands is not sent again
-        if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+        if self._race:
+            self._race.cancel()       # both runs of a hedged question; a question being written isn't sent again
 
     @staticmethod
     def _send(proc: subprocess.Popen, data: bytes) -> bool:
@@ -241,32 +264,46 @@ class ClaudeBackend:
         msg = {"type": "user", "message": {"role": "user", "content": content}}
 
         own = (model in (None, self.brain.model)) and tools        # the player's setup: the warm process fits
-        cancels = self._cancels
         data = (json.dumps(msg) + "\n").encode("utf-8")
+        # hedged: with no sign of life from the server for HEDGE_AFTER_S, the same question goes out a second
+        # time (on the warm process when it's ready) and the first answer wins
+        race = self._race = Race(on_raw_delta, "Claude")
+        return race.run(lambda a: self._attempt(a, data, own, model, tools), HEDGE_AFTER_S)
+
+    def _attempt(self, a: Attempt, data: bytes, own: bool, model: str | None, tools: bool) -> RawResult:
+        """One run of the question: a process (the warm one when it fits), the question written to it, and its
+        stream read to the end. Progress and text go through `a`; the timings go to the log."""
+        began = time.monotonic()
+        proc, age = self._take_warm() if own else (None, 0.0)
         try:
-            self._proc = (self._take_warm() if own else None) or self._spawn(model, tools)
+            proc = proc or self._spawn(model, tools)
         except OSError as e:
             log.error("could not start Claude Code: %s", e)
             return RawResult(error=f"launch_failed: {e}")
-        if not self._send(self._proc, data):
-            if self._cancels != cancels:
-                return RawResult(error="no_result")      # stopped (sync timeout, quit): not sent again
+        how = f"warm process ({age:.0f} s old)" if age else "new process"
+        if not a.track(proc):
+            return RawResult(error="no_result")
+        if not self._send(proc, data):
+            if a.lost:
+                return RawResult(error="no_result")      # stopped (sync timeout, quit, the other run won): not re-sent
             # the warm process had died meanwhile: start fresh once
             try:
-                self._proc = self._spawn(model, tools)
+                proc = self._spawn(model, tools)
             except OSError as e:
                 return RawResult(error=f"launch_failed: {e}")
-            if not self._send(self._proc, data):
+            how = "new process (the warm one had ended)"
+            if not a.track(proc) or not self._send(proc, data):
                 return RawResult(error="no_result")
+        sent = time.monotonic()
         # get the next one ready while the player reads this answer
         if own:
             threading.Thread(target=self.prewarm, daemon=True).start()
 
-        current = ""       # text of the assistant message being streamed
+        text = StreamText()     # the answer: the last message's text after its last tool call
         result = None
         limits = None
-        model = None
-        proc = self._proc
+        used = None
+        first_event = first_life = None
         # stderr is drained alongside: a CLI that writes a lot there would otherwise block both sides
         err_chunks: list[bytes] = []
         err_reader = threading.Thread(target=lambda: err_chunks.extend(iter(lambda: proc.stderr.read(4096), b"")),
@@ -285,35 +322,46 @@ class ClaudeBackend:
                 time.sleep(2)
         threading.Thread(target=watchdog, daemon=True).start()
         for line in proc.stdout:
-            last[0] = time.monotonic()
+            last[0] = now = time.monotonic()
             try:
                 ev = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            if not isinstance(ev, dict):
+                continue
+            first_event = first_event or now
+            if _alive(ev):
+                first_life = first_life or now
+                a.activity()
             t = ev.get("type")
             if t == "stream_event":
-                se = ev.get("event", {})
+                se = ev.get("event") or {}
                 if se.get("type") == "message_start":
-                    current = ""
-                    model = (se.get("message") or {}).get("model") or model
-                elif se.get("type") == "content_block_delta" and se.get("delta", {}).get("type") == "text_delta":
-                    current += se["delta"]["text"]
-                    if on_raw_delta:
-                        on_raw_delta(current)
+                    used = (se.get("message") or {}).get("model") or used
+                if text.feed(se):
+                    a.delta(text.text)
             elif t == "result":
                 result = ev
             elif t == "system" and ev.get("subtype") == "init":
-                model = ev.get("model") or model
+                used = ev.get("model") or used
             elif t == "rate_limit_event":
                 limits = usage.parse(ev.get("rate_limit_info"))
         proc.wait()
         err_reader.join(timeout=2)
+
+        def since(t):
+            return f"{t - sent:.1f} s" if t else "none"
+        # for "why was it slow?" from the log: startup (a warm process takes the question at once), the server's
+        # first sign of life, and the whole answer
+        log.info("Claude run %s: %s, question sent in %.1f s, first event %s, first sign of life %s, ended after "
+                 "%.1f s%s", a.n, how, sent - began, since(first_event), since(first_life), time.monotonic() - sent,
+                 " (stopped: the other run answered)" if a.lost else "")
         stderr = b"".join(err_chunks).decode("utf-8", errors="replace")
         if stalled.is_set():
             log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
             return RawResult(error="timeout", limits=limits)
         if not result:
-            if not limits:
+            if not limits and not a.lost:
                 log.warning("no result from Claude Code (exit %s): %s", proc.returncode, stderr[-1500:])
             return RawResult(error=classify_error(stderr) or "no_result", limits=limits)
         if result.get("is_error"):
@@ -321,8 +369,9 @@ class ClaudeBackend:
             # with the plan usage: hitting the limit is exactly when the meter and its warning matter
             return RawResult(error=classify_error(str(result.get("result", "")) + stderr) or "api_error",
                              limits=limits)
-        return RawResult(text=result.get("result") or current, cost_usd=result.get("total_cost_usd"), limits=limits,
-                         model=model)
+        # the streamed final message first: the result's own text has carried a lead-in before
+        return RawResult(text=text.text or result.get("result") or "", cost_usd=result.get("total_cost_usd"),
+                         limits=limits, model=used)
 
     def summarize(self, instructions: str, text: str, timeout: int = 90) -> str | None:
         """One short call on Haiku, no tools: session summaries and guide summaries."""

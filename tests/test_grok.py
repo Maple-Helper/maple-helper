@@ -70,27 +70,45 @@ def test_env_keeps_the_players_setup_and_other_tools_out(home, monkeypatch):
     assert grok.env("xai-KEY")["XAI_API_KEY"] == "xai-KEY"
 
 
-def guard_decides(home, cwd, path, tool="read_file", key="target_file", raw=None):
-    """What the real hook (Windows PowerShell 5.1, as Grok runs it) answers for one read: allow / deny / fail."""
+def hook_command(home):
     hook = json.loads((home / ".grok" / "hooks" / "maplehelper.json").read_text(encoding="utf-8"))
-    cmd = hook["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+    assert "matcher" not in hook["hooks"]["PreToolUse"][0]
+    return hook["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+
+
+def guard_decides(home, cwd, path, tool="read_file", key="target_file", raw=None):
+    """What the real hook answers for one read, run as Grok runs it: allow / deny / fail. The compiled guard is a bare
+    path Grok starts directly; the PowerShell one is a command line (Windows PowerShell 5.1 running the script)."""
+    cmd = hook_command(home)
     script = str(home / ".grok" / "maplehelper-guard.ps1")
-    assert script in cmd and "matcher" not in hook["hooks"]["PreToolUse"][0]
+    if grok.BARE_PATH.fullmatch(cmd):
+        args = [cmd]
+    else:
+        assert script in cmd
+        args = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", script]
     data = raw if raw is not None else json.dumps({"cwd": str(cwd), "tool_name": tool, "tool_input": {key: path}},
                                                   ensure_ascii=False).encode("utf-8")     # Grok sends raw UTF-8
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File",
-                        script], input=data, capture_output=True)
+    r = subprocess.run(args, input=data, capture_output=True)
     if r.returncode == 2 and b'"permissionDecision":"deny"' in r.stdout:
         return "deny"
     # Grok lets anything but an explicit deny through: a hook that errors (exit 1, no JSON) is an open door
     return "allow" if r.returncode == 0 else f"fail {r.returncode}: {r.stderr[-300:]!r}"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a PowerShell hook")
-def test_read_guard_allows_only_the_knowledge_base_and_the_screenshot(home, tmp_path):
+@pytest.fixture(params=["compiled", "powershell"])
+def guard_kind(request, monkeypatch):
+    """Every guard test runs against both guards: the compiled one, and the PowerShell one it falls back to."""
+    if request.param == "powershell":
+        monkeypatch.setattr(grok, "guard_exe", lambda kb_root: None)
+    return request.param
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_read_guard_allows_only_the_knowledge_base_and_the_screenshot(home, tmp_path, guard_kind):
     kb = tmp_path / "kb"
     kb.mkdir()
     grok.write_guard(kb)
+    assert hook_command(home).endswith(".exe" if guard_kind == "compiled" else '.ps1"')
 
     def decide(path, tool="read_file", key="target_file"):
         return guard_decides(home, kb, path, tool, key)
@@ -101,9 +119,9 @@ def test_read_guard_allows_only_the_knowledge_base_and_the_screenshot(home, tmp_
     assert decide(r"C:\x", "grep", "path") == "deny"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a PowerShell hook")
-@pytest.mark.parametrize("user", ["גבי", "עמית", "O’Neil‘s ‚x‛"])
-def test_read_guard_holds_under_a_hebrew_or_quoted_user_folder(tmp_path, monkeypatch, user):
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+@pytest.mark.parametrize("user", ["גבי", "עמית", "O’Neil‘s ‚x‛", "John Smith"])
+def test_read_guard_holds_under_a_hebrew_or_quoted_user_folder(tmp_path, monkeypatch, user, guard_kind):
     """The data folder sits under the Windows user name. ב and ג are the bytes D7 91 / D7 92, which PowerShell 5.1
     read as ‘ ’ (quote marks) in a script without a BOM: the hook broke and Grok could read the whole disk. Other
     Hebrew letters garbled the folders, and Grok couldn't read the knowledge base at all. Curly quotes in a name are
@@ -116,6 +134,10 @@ def test_read_guard_holds_under_a_hebrew_or_quoted_user_folder(tmp_path, monkeyp
     grok.write_guard(kb)
     source = (home / ".grok" / "maplehelper-guard.ps1").read_bytes()
     assert source.startswith(b"\xef\xbb\xbf") and source[3:].isascii()       # a BOM, and no path in the source
+    cmd = hook_command(home)
+    # Grok hands a command with a space or a quote to its shell, unquoted: the hook broke and the read went through
+    # (checked with a mock of the xAI API). The compiled guard goes in only as a bare path (its 8.3 name if need be)
+    assert grok.BARE_PATH.fullmatch(cmd) or cmd.startswith("powershell ")
 
     def decide(path, tool="read_file", key="target_file"):
         return guard_decides(home, kb, path, tool, key)
@@ -125,14 +147,15 @@ def test_read_guard_holds_under_a_hebrew_or_quoted_user_folder(tmp_path, monkeyp
     assert decide(str(tmp_path / user / ".ssh"), "list_dir", "target_directory") == "deny"
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a PowerShell hook")
-def test_read_guard_fails_closed(home, tmp_path):
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_read_guard_fails_closed(home, tmp_path, guard_kind):
     """Anything the hook can't make sense of is a deny, never an error (which Grok would let through)."""
     kb = tmp_path / "kb"
     kb.mkdir()
     grok.write_guard(kb)
     assert guard_decides(home, kb, None, raw=b"not json {") == "deny"
     assert guard_decides(home, kb, None, raw=b"") == "deny"
+    assert guard_decides(home, kb, None, raw=b'{"cwd": "x"}') == "deny"                 # no tool call at all
     # no path at all: the folder it runs in decides (the knowledge base, where Grok runs)
     assert guard_decides(home, kb, None, raw=json.dumps({"cwd": str(kb), "tool_input": {"pattern": "x"}}).encode()) \
         == "allow"
@@ -145,6 +168,35 @@ def test_read_guard_fails_closed(home, tmp_path):
     assert guard_decides(home, kb, "henesys.md") == "deny"
     grok.write_guard(kb)                                     # written again when the next question starts
     assert guard_decides(home, kb, "henesys.md") == "allow"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_compiled_guard_is_stricter_on_odd_paths_and_rebuilt_when_gone(home, tmp_path):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    grok.write_guard(kb)
+    exe = home / ".grok" / grok.GUARD_EXE
+    assert hook_command(home) == str(exe)
+    odd = {"cwd": str(kb), "tool_name": "read_file", "tool_input": {"target_file": ["C:\\Windows\\win.ini"]}}
+    assert guard_decides(home, kb, None, raw=json.dumps(odd).encode()) == "deny"      # a path that isn't text
+    exe.unlink()                                          # removed (an antivirus): built again for the next question
+    grok.write_guard(kb)
+    assert exe.exists() and guard_decides(home, kb, "henesys.md") == "allow"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_a_compiled_guard_that_fails_its_check_is_not_used(home, tmp_path, monkeypatch):
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    monkeypatch.setattr(grok, "_guard_ok", {})
+    monkeypatch.setattr(grok, "_guard_says", lambda exe, cwd, target: (0, b""))       # it lets everything through
+    grok.write_guard(kb)
+    assert hook_command(home).startswith("powershell ") and guard_decides(home, kb, r"C:\Windows\win.ini") == "deny"
+    monkeypatch.setattr(grok, "_csc", lambda: None)                 # no C# compiler: the PowerShell guard too
+    (home / ".grok" / grok.GUARD_EXE).unlink()
+    monkeypatch.setattr(grok, "_guard_ok", {})
+    grok.write_guard(kb)
+    assert hook_command(home).startswith("powershell ")
 
 
 class TestStream:
@@ -252,6 +304,7 @@ class TestBackend:
     def make(self, kb, monkeypatch, *outputs, api_key=None):
         FakePopen.calls, FakePopen.outputs = [], [list(o) for o in outputs]
         monkeypatch.setattr(grok.subprocess, "Popen", FakePopen)
+        monkeypatch.setattr(grok, "guard_exe", lambda kb_root: None)       # the guard has tests of its own
         from maplehelper.brain import Brain
         b = Brain(kb, provider="grok", api_key=api_key)
         b.backend.exe = "grok.exe"
