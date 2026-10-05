@@ -187,6 +187,10 @@ class ClaudeBackend:
     def _discard_warm(self) -> None:
         if self._warm and self._warm.poll() is None:
             self._warm.kill()
+            try:
+                self._warm.wait(timeout=5)      # gone for real: on Windows it holds the KB folder until it exits
+            except subprocess.TimeoutExpired:
+                pass
         self._warm = None
 
     def drop_warm(self) -> None:

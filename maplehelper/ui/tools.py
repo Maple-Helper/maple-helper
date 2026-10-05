@@ -140,7 +140,7 @@ class EntityPicker(QLineEdit):
         comp.popup().installEventFilter(self)
         cm = comp.completionModel()       # typing narrows the list: the box follows
         for sig in (cm.modelReset, cm.layoutChanged, cm.rowsInserted, cm.rowsRemoved):
-            sig.connect(lambda *_: QTimer.singleShot(0, self._fit_popup))
+            sig.connect(self._fit_soon)     # a method, not a lambda: cut off when the picker is deleted
         self.returnPressed.connect(self.picked.emit)
         # a misspelt name ("stelly") found nothing: the names close to it are offered (the owner)
         self.textEdited.connect(self._near_names)
@@ -240,8 +240,11 @@ class EntityPicker(QLineEdit):
     def eventFilter(self, obj, e):
         comp = self.completer()
         if comp is not None and obj is comp.popup() and e.type() in (QEvent.Show, QEvent.Resize):
-            QTimer.singleShot(0, self._fit_popup)
+            QTimer.singleShot(0, self, self._fit_popup)     # with self: never fires once the picker is deleted
         return super().eventFilter(obj, e)
+
+    def _fit_soon(self, *_) -> None:
+        QTimer.singleShot(0, self, self._fit_popup)
 
     def _fit_popup(self) -> None:
         comp = self.completer()

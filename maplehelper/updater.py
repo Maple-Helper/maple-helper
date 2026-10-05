@@ -16,6 +16,7 @@ from __future__ import annotations
 import hashlib
 import http.client
 import io
+import logging
 import re
 import sys
 import json
@@ -26,6 +27,8 @@ import urllib.request
 import zipfile
 
 from .store import DATA_DIR, USER_KB, kb_dir
+
+log = logging.getLogger("maplehelper")
 
 # Set when the GitHub repository exists (see README, "Publishing").
 GITHUB_REPO = "Maple-Helper/maple-helper"
@@ -136,21 +139,23 @@ def fetch_kb(before_swap=None) -> str:
         return "uptodate"
     raw = _get(MANIFEST_URL, timeout=15)
     if not raw:
-        return "failed"
+        return _failed("the manifest didn't download")
     try:
         manifest = json.loads(raw)
     except json.JSONDecodeError:
-        return "failed"
+        return _failed("the manifest isn't JSON")
     if not (isinstance(manifest, dict) and release_url_ok(manifest.get("url"))
             and _SHA.fullmatch(str(manifest.get("sha256", "")).lower())
             and re.fullmatch(r"\d{4}\.\d{2}\.\d{2}(\.\d{1,6})?", str(manifest.get("version", "")))):
-        return "failed"          # only a KB from this repository's releases, with a real checksum and version
+        return _failed("the manifest isn't this repository's")    # a real checksum and version too
     _remember_checked(manifest.get("checked"))
     if str(manifest.get("version", "")) <= local_version():
         return "uptodate"
     data = _get(manifest["url"], timeout=300)
-    if not data or hashlib.sha256(data).hexdigest() != manifest["sha256"].lower():
-        return "failed"
+    if not data:
+        return _failed("kb.zip didn't download")
+    if hashlib.sha256(data).hexdigest() != manifest["sha256"].lower():
+        return _failed("kb.zip doesn't match its checksum")
     tmp = USER_KB.with_name("kb.new")
     shutil.rmtree(tmp, ignore_errors=True)
     try:
@@ -158,16 +163,16 @@ def fetch_kb(before_swap=None) -> str:
             z.extractall(tmp)
     except zipfile.BadZipFile:
         shutil.rmtree(tmp, ignore_errors=True)
-        return "failed"
+        return _failed("kb.zip isn't a zip")
     try:
         # it must load, not just exist: a bad release would otherwise stop every start
         index = json.loads((tmp / "index.json").read_text(encoding="utf-8"))
         if not (isinstance(index, list) and index and all(isinstance(e, dict) and e.get("key") and e.get("category")
                                                          for e in index)):
             raise ValueError("index.json has no usable entries")
-    except (OSError, ValueError):
+    except (OSError, ValueError) as e:
         shutil.rmtree(tmp, ignore_errors=True)
-        return "failed"
+        return _failed(f"the new KB doesn't load ({e})")
     meta_path = tmp / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     meta["version"] = manifest["version"]
@@ -176,23 +181,30 @@ def fetch_kb(before_swap=None) -> str:
     # can't be removed or renamed; then keep the current KB intact and try again next time
     if before_swap is not None and before_swap() is False:
         shutil.rmtree(tmp, ignore_errors=True)
-        return "postponed"            # an answer is running: the 3-hourly check tries again
+        log.info("knowledge base %s waits: an answer is running", manifest["version"])
+        return "postponed"            # an answer is running: the app tries again in a few minutes
     old = USER_KB.with_name("kb.old")
     shutil.rmtree(old, ignore_errors=True)
     try:
         if USER_KB.exists():
             _rename(USER_KB, old)
         _rename(tmp, USER_KB)
-    except OSError:
+    except OSError as e:
         if old.exists() and not USER_KB.exists():
             try:
                 _rename(old, USER_KB)
             except OSError:
                 pass        # the app falls back to the bundled KB (kb_dir) on its next reload
         shutil.rmtree(tmp, ignore_errors=True)
-        return "failed"
+        return _failed(f"the KB folder can't be swapped ({e})")    # mostly a process still working inside it
     shutil.rmtree(old, ignore_errors=True)
     return "updated"
+
+
+def _failed(why: str) -> str:
+    """Every failed check says why in the log ("Report a problem" sends it): it used to fail without a word."""
+    log.warning("knowledge base update failed: %s", why)
+    return "failed"
 
 
 # ---------------------------------------------------------------- app updates

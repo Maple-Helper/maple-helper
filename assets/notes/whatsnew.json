@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.9.2",
+  "he": [
+   "עדכון המאגר הלילי מגיע מהר יותר: אם ההורדה נכשלת או נדחית, האפליקציה מנסה שוב תוך דקות, ולא רק כעבור 3 שעות.",
+   "תוקנה שגיאה שקרתה לפעמים בסגירת חלון הכלים כשרשימת החיפוש הייתה פתוחה."
+  ],
+  "en": [
+   "The nightly database update arrives sooner: if it fails or has to wait, the app tries again within minutes instead of 3 hours later.",
+   "Fixed an error that sometimes happened when closing the play tools with a search list open."
+  ]
+ },
+ {
   "version": "0.9.1",
   "he": [
    "פתיחת חלון הכלים כבר לא מקפיצה חלונות קטנים שמהבהבים ברקע.",
