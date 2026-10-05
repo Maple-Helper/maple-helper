@@ -523,6 +523,40 @@ class TestHedging:
         ans, _ = self.ask(b)
         assert ans.text == "Hi." and ans.limits["five_hour"]["used"] == 0.4 and ans.model == "claude-sonnet-5"
 
+    def test_a_late_first_run_streams_the_moment_it_speaks(self, kb_copy, monkeypatch):
+        """An eval case's first text came exactly at the hedge time (25.06 s): the twin's start must never hold back
+        the first run's text. Silent past the hedge, then a slow stream: each piece reaches the chat as it comes."""
+        b = self.make(kb_copy, monkeypatch, [0.6] + _answer("One ", "two ", "three.", delay=0.3), [30] + _answer("x"))
+        times = []
+        t = time.monotonic()
+        ans = b.ask("where should I go to hunt snails today?", None, None, None,
+                    on_delta=lambda s: times.append((round(time.monotonic() - t, 2), s)))
+        assert ans.text == "One two three." and len(ScriptProc.procs) == 2
+        assert times[0][1] == "One" and times[0][0] < 1.3            # 0.6 s silent + 0.3 s to the first piece
+        assert times[-1][0] < 2.2 and time.monotonic() - t < 2.5      # the twin's kill doesn't hold the answer
+
+    def test_two_questions_at_once_on_one_backend(self, kb_copy, monkeypatch):
+        """Two asks together on one Brain, sharing its warm process (as the app's chat and its sync can): neither
+        waits for the other, and neither gets a twin."""
+        b = self.make(kb_copy, monkeypatch, *[_answer("Same ", "answer.", delay=0.2)] * 8, after=1.5)
+        monkeypatch.setattr(b.backend, "prewarm", claude.ClaudeBackend.prewarm.__get__(b.backend))
+        b.backend.prewarm()
+        out, firsts = {}, {}
+
+        def ask(k):
+            t = time.monotonic()
+            out[k] = b.ask("where should I go to hunt snails today?", None, None, None,
+                           on_delta=lambda s: firsts.setdefault(k, time.monotonic() - t))
+            out[k + "_s"] = time.monotonic() - t
+        threads = [threading.Thread(target=ask, args=(k,)) for k in ("a", "b")]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join(10)
+        assert out["a"].text == out["b"].text == "Same answer."
+        assert out["a_s"] < 1.4 and out["b_s"] < 1.4 and max(firsts.values()) < 1.0
+        b.backend.shutdown()
+
     def test_the_race_alone(self):
         """base.Race without a CLI: what any provider's run would get."""
         seen = []
