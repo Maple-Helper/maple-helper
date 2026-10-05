@@ -392,7 +392,7 @@ def ask(real, question, character=THIEF):
     ("מי ראש הממשלה?", None), ("write me a python script", None), ("tell me about Work Gloves", None),
     ("is Work Gloves good for me?", None), ("my gloves broke lol", None), ("אני ברמה 30 עכשיו", None),
     ("what's my next job advancement", None), ("how many quests are there in the game?", None),
-    ("Where is Mano?", None), ("ספר לי על Kerning City", None), ("Is Hunter better than Crossbowman?", None),
+    ("Where is Mano?", "where_monster"), ("איפה יש סטירג'", "where_monster"), ("where is Jane Doe", "where_npc"), ("how do I become a magician", "job_advance"), ("איך נהיים קשת?", "job_advance"), ("ספר לי על Kerning City", None), ("Is Hunter better than Crossbowman?", None),
     ("לאיזה ג'ובים אפשר להתקדם מקשת", None), ("כדאי לי לגרינד בלו סנייל?", None), ("who is Jane Doe", None),
     ("which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3", "monsters_by_level"),
     ("איך מכינים Steel Plate?", None),          # no such item in the KB: nothing to list
@@ -434,6 +434,38 @@ def test_real_top_regular_monsters_and_manjis_quests(real):
     assert [r["monster"] for r in p.blocks[0].rows][:3] == ["Cold Eye", "Glowshroom", "Lorang"]
     p = ask(real, "איפה מנג'י ואיזה קווסטים הוא נותן?")
     assert {r["quest"] for r in p.blocks[1].rows} == {"Arcon's Blood?", "Getting Arcon's Blood", "Old Gladius"}
+
+
+@needs_kb
+def test_real_where_a_monster_lives_every_map(real):
+    p = ask(real, "איפה יש סטירג'")
+    maps = [r["map"] for r in p.blocks[0].rows]
+    assert "Transfer Area" in maps and len(maps) == 5 and 'complete="yes"' in p.render()
+
+
+@needs_kb
+def test_real_becoming_a_magician(real):
+    text = ask(real, "how do I become a magician").render()
+    assert "Grendel the Really Old" in text and "Ellinia" in text and "level 10 (official)" in text
+    assert "can't change class" in text                         # the player is a Thief
+
+
+@needs_kb
+def test_real_leads_say_the_answer(real):
+    assert "Steel Guards IS crafted: Weaponcrafting Lv 6" in ask(real, "how do I craft Steel Guards?").render()
+    hunter = Character(id="h", name="H", base_class="Bowman", job="Hunter", level=35)
+    assert "Recommend row 1, Red Viper (req_lv 35" in ask(real, "what's the best bow I can equip?", hunter).render()
+
+
+@needs_kb
+def test_real_guides_for_a_place_and_the_release_date():
+    kb = KnowledgeBase(REAL_KB)
+    named = kb.find_mentions("what is Forgotten Hollow", 4)
+    assert brain.guides_for("what is Forgotten Hollow", kb, named) == ["guide/forgotten-hollow-the-new-endgame-area"]
+    release = "when does MapleStory Classic World release"
+    assert brain.guides_for(release, kb, []) == ["guide/maplestory-classic-worlds-release-date"]
+    assert brain.guides_for("how do I get to Kerning City", kb, kb.find_mentions("Kerning City", 4)) == []
+    assert brain.guides_for("what drops from Mano", kb, []) == []
 
 
 @needs_kb

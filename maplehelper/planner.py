@@ -125,6 +125,13 @@ NO_BOSS = re.compile(_he("לא בוס(?:ים)?|בלי בוס(?:ים)?|רגיל(?
 # "top 3", "3 best", "אילו 3 מפלצות": how many rows the answer is
 TOP_N = re.compile(rf"\btop\s*(\d{{1,2}})\b|\b(\d{{1,2}})\s+(?:best|top|most)\b|(?<![{HE}])(?:איזה|אילו|איזו)\s+(\d{{1,2}})"
                    rf"(?!\d)|(?<![\d\-])(\d{{1,2}})\s+(?:ה)?(?:מפלצות|מובים|קווסטים|משימות|מפות|הכי)(?![{HE}])", re.I)
+# "how do I become a magician", "איך נהיים קוסם": the class's instructor and the job advancement
+BECOME = re.compile(_he("איך נהיים|איך נהיה|איך הופכים ל|איך להיות|איך נעשים|איך מתקדמים ל|להתקדם ל|ג'וב אדבנס|"
+                        "אדבנסמנט|התקדמות ל") + "|"
+                    + _en(r"how (?:do|can|to) (?:i |you |we )?(?:become|be|get|turn into)|become an?|"
+                          r"job advance(?:ment)?|advance to|(?:1st|2nd|first|second) job"), re.I)
+# "איפה יש סטירג'", "where can I find Stirge": the named monster's / NPC's place
+WHERE_IS = _rx("איפה|באיזה מקום|באיזו מפה|באיזה מפה|איפה אפשר למצוא|מיקום", r"where|location|find|spawns?")
 # "מאיזה מפלצות נופלות כפפות": drops, which brain's drop groups answer (its DROP_WORDS miss the glued "מאיזה")
 DROPPED = re.compile(_he("נופל(?:ת|ים|ות)?") + r"|\bdropp(?:ed|ing)\b", re.I)
 # the screenshot is the subject: what is on screen, never the tables'
@@ -192,6 +199,7 @@ class Block:
     grep: str = ""             # the exact grep for the rows left out
     note: str = ""
     cap: int = CAP
+    lead: str = ""             # the answer in a line, right under the head ("Steel Guards IS crafted: ...")
 
     def render(self) -> str:
         total = len(self.rows)
@@ -199,7 +207,7 @@ class Block:
         whole = len(shown) == total
         head = (f'<table_rows table="{self.table}.tsv" match="{self.what}" sort="{self.sort}" '
                 f'rows="{total if whole else f"{len(shown)} of {total}"}" complete="{"yes" if whole else "no"}">')
-        lines = [head, "\t".join(self.cols)]
+        lines = [head, *([self.lead] if self.lead else []), "\t".join(self.cols)]
         lines += ["\t".join(tables._cell(_short(r.get(c)) if c in CUT else r.get(c)) for c in self.cols)
                   for r in shown]
         if not whole:
@@ -328,7 +336,7 @@ def slots(question: str, kb, character=None, rows=None) -> Slots:
     keshet = _KESHET.search(question)
     s.job = job_named(question)
     if keshet:
-        if fams or SKILL.search(question) or JOB_TALK.search(question):
+        if fams or SKILL.search(question) or JOB_TALK.search(question) or BECOME.search(question):
             s.job = s.job or "Bowman"
         elif "Bow" not in fams:
             fams.append("Bow")
@@ -417,10 +425,12 @@ def equips(rows, s: Slots, base: str | None) -> Block:
     cols = ("item", *(("slot",) if len(slots_) > 1 else ()), "job", "req_lv", "req", "stats", "slots",
             *(("attack_speed",) if weapon else ()), "buy", "seller", "key")
     # "the best claw I can use": the model picked a Lv 25 Meba over the Lv 30 Guards, unsure of the player's LUK
-    note = ("best first: the pick is the first row the player can wear; with no stats in the profile, recommend that "
-            "row and name its req" if weapon else "")
+    # (and a Lv 35 Hunter to the Lv 30 Ryden with Red Viper the first row): the pick is said outright
+    lead = (f"Recommend row 1, {out[0]['item']} (req_lv {out[0]['req_lv']}"
+            + (f", {out[0]['req']}" if out[0]["req"] else "") + "): the best the player can wear; with no stats in "
+            "the profile, name its req and a lower row only as the fallback." if weapon and out else "")
     return Block("equips", cols, out, what, sort, grep=f"grep -P '\\t({'|'.join(sorted(slots_))})\\t' equips.tsv",
-                 note=note)
+                 lead=lead)
 
 
 def _item_match(s: Slots, kind_ok) -> tuple[set[str], set[str], str]:
@@ -533,8 +543,11 @@ def recipes(rows, s: Slots, uses: bool) -> list[Block]:
         out = [r for r in rows("recipes") if r["product_key"] in items]
         cols = ("product", "recipe", "makes", "discipline", "prof_lv", "craft_exp", "meso_cost", "ingredient", "qty",
                 "optional", "ingredient_key", "product_key")
+        # the item page's "Needed By" (what it is an ingredient of) made the answer "it isn't crafted directly"
+        lead = (f"{', '.join(sorted({r['product'] for r in out}))} IS crafted: {out[0]['discipline']} Lv "
+                f"{out[0]['prof_lv']}, {out[0]['meso_cost']} mesos, the ingredients below." if out else "")
         return [Block("recipes", cols, out, "product " + ", ".join(items), "recipe",
-                      grep=f"grep '{items[0]}' recipes.tsv")]
+                      grep=f"grep '{items[0]}' recipes.tsv", lead=lead)]
     out = [r for r in rows("recipes") if r["ingredient_key"] in items]
     out.sort(key=lambda r: (r["discipline"], _num(r["prof_lv"]), r["product"]))
     used = [r for r in rows("quest_reqs") if r["target_key"] in items]
@@ -579,6 +592,53 @@ def npc_quests(rows, s: Slots) -> list[Block]:
                   grep=f"grep '{next(iter(names), '')}' quests.tsv"),
             Block("quests", cols, taken, f"quests other NPCs give that are only TURNED IN to {who_}", "level",
                   note=f"not quests {who_} gives")]
+
+
+def where_monster(rows, mons: list[str]) -> Block:
+    out = sorted((r for r in rows("spawns") if r["monster_key"] in mons),
+                 key=lambda r: (-_num(r["count"]), r["map"]))
+    names = sorted({r["monster"] for r in out})
+    return Block("spawns", ("monster", "level", "map", "street", "count", "share", "respawn", "map_key"), out,
+                 "monster " + ", ".join(names), "count desc",
+                 note="count: how many spawn on that map; share %: of the map's monsters", lead=(
+                     f"{', '.join(names)}: every map in the game, {len(out)} of them, the most spawns first."
+                     if out else ""))
+
+
+def _npc_rows(rows, keys: list[str]) -> list[dict]:
+    """NPC rows with the maps their map connects to: "Magic Library" alone doesn't say it is in Ellinia."""
+    maps = {r["key"]: r for r in rows("maps")}
+    return [{**r, "connects": (maps.get(r["map_key"]) or {}).get("connects", "")} for r in rows("npcs")
+            if r["key"] in keys]
+
+
+def where_npc(rows, npcs: list[str]) -> Block:
+    return Block("npcs", ("npc", "role", "map", "street", "connects", "key", "map_key"), _npc_rows(rows, npcs),
+                 "npc " + ", ".join(npcs), "-", note="connects: the maps next to it")
+
+
+def job_advance(rows, s: Slots, character=None) -> list[Block]:
+    """How to become a job: the class's instructor (the 1st job, and the 2nd job's quest) and the job-advancement
+    quests, at the level the official facts give."""
+    from . import official
+    base = _base(s.job)
+    first = (official.value("first_job_level") or {}).get(base) or next(
+        (lv for j, lv in jobs.JOBS.get(base, []) if j == base), None)
+    tier = next((lv for j, lv in jobs.JOBS.get(base, []) if j == s.job), None)
+    keys = [r["key"] for r in rows("npcs")
+            if f"{base} Instructor" in str(r.get("role") or "") or r["npc"] == f"{base} Job Instructor"]
+    quests_ = sorted((r for r in rows("quests") if r["area"] == "Job Advancement" and r["job"] == f"{base} only"),
+                     key=lambda r: (_num(r["level"]), r["quest"]))
+    who = _npc_rows(rows, keys)
+    lead = (f"{s.job}: the {'1st' if s.job == base else '2nd'} job, at level {tier if s.job != base else first}"
+            + (" (official)" if s.job == base and official.value("first_job_level") else "")
+            + (f"; the job advancement is with {who[0]['npc']} ({who[0]['map']}, by {who[0]['connects']})" if who else "")
+            + (f". The player's {character.base_class} can't change class: a new character is needed"
+               if character and character.base_class not in (base, "Beginner") else "") + ".")
+    return [Block("npcs", ("npc", "role", "map", "street", "connects", "key", "map_key"), who,
+                  f"the {base} instructors", "-", lead=lead),
+            Block("quests", ("quest", "level", "npc", "turn_in", "after", "key"), quests_,
+                  f"{base} job advancement quests (2nd job)", "level")]
 
 
 def _job_ok(job_cell, character, s: Slots) -> bool:
@@ -792,6 +852,8 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
         return Plan(intent, blocks, level, top if top and 1 <= top <= 20 else None) \
             if any(b.rows for b in blocks) else None
 
+    if BECOME.search(q) and s.job and s.job != "Beginner" and not s.families:
+        return made("job_advance", *job_advance(rows, s, character))
     if quest:
         if any(k.startswith("npc/") for k in s.entities):
             return made("npc_quests", *npc_quests(rows, s))
@@ -813,6 +875,14 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
         return made("shops", shops(rows, s))
     if s.maps and (MONSTER.search(q) or WHATS_IN.search(q)) and not s.families:
         return made("monsters_in_map", spawns_in(rows, s))
+    # "איפה יש סטירג'", "where is Jane Doe": every map it is on (the page's map table was cut off in the prompt)
+    if WHERE_IS.search(q) and not s.families and not named_items:
+        mons = [k for k in s.entities if k.startswith("monster/")]
+        npcs = [k for k in s.entities if k.startswith("npc/")]
+        if mons:
+            return made("where_monster", where_monster(rows, mons))
+        if npcs:
+            return made("where_npc", where_npc(rows, npcs))
     # "should I grind Blue Snail?" is about that monster: its page answers it
     if TRAIN.search(q) and (WHERE.search(q) or BEST.search(q) or LISTQ.search(q)) and not s.families and not s.maps \
             and not any(k.startswith(("monster/", "map/", "item/")) for k in s.entities):

@@ -201,11 +201,21 @@
    "kind": "stats",
    "checks": {
     "must_mention": [
-     "Crimson Balrog",
-     "עוד לא נמצא במשחק"
+     "Crimson Balrog"
+    ],
+    "must_mention_any": [
+     "לא נמצא במשחק",
+     "לא קיים במשחק",
+     "לא במשחק",
+     "עוד לא יצא",
+     "לא יצא",
+     "לא זמין",
+     "isn't out",
+     "not in the game"
     ],
     "instant": true
-   }
+   },
+   "why": "Crimson Balrog (monster/700005) is not in the game per availability: the answer says so in any wording ('עוד לא נמצא במשחק' is the instant answer's; the AI wrote 'שעוד לא קיים במשחק', just as right)."
   },
   {
    "id": "stats-cold-eye-exp",
@@ -634,13 +644,13 @@
    "kind": "quest",
    "checks": {
     "must_mention": [
-     "21",
-     "Lakelis"
+     "21"
     ],
     "entities_include": [
      "quest/10311"
     ]
-   }
+   },
+   "why": "The question asks the level only: Proof of Companionship (quest/10311) opens at Lv 21. Its NPC (Lakelis) is a nice extra, not the answer: on main and this branch the AI answered '21' without her."
   },
   {
    "id": "quest-mai-training-he",

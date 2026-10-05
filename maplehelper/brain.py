@@ -151,7 +151,8 @@ REPLY_RULES = """<reply_rules>
 - Only MapleStory Classic and Maple Helper itself (its features, settings, which AI and model answers): anything else
   gets one short line saying you only help with the game.
 - Only what the game scope in your instructions says is in the game: never send the player to a place it says is not
-  out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet.
+  out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet
+  ("what is X" still gets a short description of X from the context, then that it isn't out yet).
 - At most {length} short lines. No filler, no follow-up offers.
 - Only the answer itself: never narrate your process or plans in it ("I'll mention...", "Now for the answer...").
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
@@ -183,7 +184,8 @@ REPLY_RULES = """<reply_rules>
   (one from the conversation) instead; if no name matches, say so and ask.
 - "Send me a picture of X": the app shows X's picture on its card under the answer. Find X, put its key in META
   entities, and say in a line that its picture is in the card below; never say you can't send pictures.
-- A <table_rows complete="yes"> block is every KB row matching the question: answer from it with no tool call and
+- A <table_rows complete="yes"> block is THE answer data: every KB row matching the question. It outranks the
+  pages above it: answer from it with no tool call and
   name every row that answers it (a long list: how many, then the best ones); complete="no" holds the best rows first.
   Put the keys of the rows you name in META entities. "Best" / "top N" follows the block's order.
 - Never name files or tables in the answer (".tsv", pages, knowledge-base files); the source tags stay. Write every
@@ -389,8 +391,6 @@ def build_prompt(question: str, character: Character | None, history: History | 
                                             if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
-    if rows_block:
-        ctx.append(rows_block)
     named = kb.find_mentions(question, max_results=mention_cap(question))
     for key in named:
         # a monster's drops and mesos; an item's droppers by the players' reports, with votes (its page's
@@ -413,6 +413,14 @@ def build_prompt(question: str, character: Character | None, history: History | 
     # announced, never what is released (the game scope says that)
     if news.asks_news(question) and (announced := news.ai_lines(kb)):
         ctx.append("\n".join(announced))
+    # the KB's guide on what the question names ("what is Forgotten Hollow": its endgame-area guide; "when does it
+    # release": the release-date guide, the grand launch beside Founder's Access in the news)
+    for key in guides_for(question, kb, named):
+        ctx.append(_page(kb, key, GUIDE_CHARS))
+    # last, nearest the question: the answer read off the tables. Before the pages, the model followed a page
+    # ("Steel Guards ... Needed By 2 recipes": "it isn't crafted") over the complete recipe rows
+    if rows_block:
+        ctx.append(rows_block)
     if ctx:
         parts.append("<kb_context>\n" + "\n\n".join(ctx) + "\n</kb_context>")
     if has_screenshot is True:
@@ -450,6 +458,29 @@ ITEM_FAMILIES = [
     (r"עגיל|\bearrings?\b", "Earring"),
     (r"גלימ(ה|ות)|\bcapes?\b", "Cape"),
 ]
+
+
+GUIDE_CHARS = 2000
+# "when does it release / launch", "מתי המשחק יוצא": the release-date guide (the news alone gave Founder's Access)
+RELEASE_WORDS = re.compile(r"\b(?:release|launch)\w*|(?<![א-ת])(?:יוצא|ייצא|יצא|השקה|ההשקה|שחרור)(?![א-ת])", re.I)
+
+
+def guides_for(question: str, kb: KnowledgeBase, named: list[str]) -> list[str]:
+    """The KB guides about what the question names: a place's own guide ("Forgotten Hollow" -> "Forgotten Hollow
+    Guide", which tells what the Hollow is while its map page says only "a town"), and the release-date guide for a
+    question on when the game comes out."""
+    names = {str((kb.get(k) or {}).get("name", "")).lower() for k in named if k.startswith("map/")}
+    release = bool(RELEASE_WORDS.search(question) and news.asks_news(question))
+    if not names and not release:
+        return []
+    out = []
+    for key, e in kb.entities.items():
+        if e.get("category") != "guide" or key in named:
+            continue
+        title = str(e.get("name", "")).lower()
+        if (title.endswith(" guide") and title[:-len(" guide")] in names) or (release and "release date" in title):
+            out.append(key)
+    return out[:2]
 
 
 def is_reverse(question: str, kb: KnowledgeBase) -> bool:
