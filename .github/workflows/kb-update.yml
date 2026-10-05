@@ -6,7 +6,8 @@ name: Update knowledge base
 # test suite passes against the new KB; every installed Maple Helper picks it up on its next start.
 on:
   schedule:
-    - cron: "0 1 * * *"          # 01:00 UTC ≈ 04:00 Israel
+    # off the hour: GitHub queues runs at :00 behind everyone else's (01:00 runs started 5-6 hours late)
+    - cron: "23 0 * * *"         # 00:23 UTC ≈ 03:23 Israel (still the same UTC day, for the Sunday check)
   workflow_dispatch:
     inputs:
       full:

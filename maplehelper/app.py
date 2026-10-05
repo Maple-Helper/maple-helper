@@ -28,6 +28,7 @@ HOTKEY_VOICE = 2
 INSTANCE_SERVER = "MapleHelper-" + (os.environ.get("USERNAME") or os.environ.get("USER") or "app")
 BACKGROUND_ARG = "--background"   # start in the tray only (autostart at login, silent updates)
 UPDATED_ARG = "--updated"         # the installer reopens the app with it after "Update now": show what's new
+KB_RETRY_MS = 5 * 60 * 1000      # a failed or postponed KB update tries again this soon (then doubling)
 # the .ico carries every Windows size; macOS draws the menu bar and Dock from a PNG
 APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
@@ -684,7 +685,23 @@ class MapleHelperApp:
             if interactive:
                 self.toast(t({"uptodate": "kb_uptodate", "postponed": "kb_update_postponed"}.get(status,
                                                                                                "kb_update_failed")))
+        self._retry_kb_update(status)
         threading.Thread(target=self.brain.prewarm, daemon=True).start()     # whatever happened, warm again
+
+    def _retry_kb_update(self, status: str):
+        """A failed or postponed update tries again in minutes, not at the 3-hourly check: the night's KB reached
+        the player hours late (the AI's warm process held the folder at the start-up check). 5, 10, 20… minutes,
+        never more often than that, so a lasting fault doesn't download 20 MB again and again."""
+        if status in ("updated", "uptodate"):
+            self._kb_retries = 0
+            return
+        n = getattr(self, "_kb_retries", 0)
+        delay = KB_RETRY_MS * 2 ** n
+        timer = getattr(self, "_update_timer", None)
+        if timer is not None and delay >= timer.interval():
+            return                          # the 3-hourly check is as soon by now
+        self._kb_retries = n + 1
+        QTimer.singleShot(delay, self.main_thread, lambda: self._update_kb_in_background(interactive=False))
 
     def announce_update(self, version: str, url: str):
         if getattr(self, "_mac_announced", None) == version:
