@@ -357,7 +357,9 @@ class TestBackend:
         """Each question used to rewrite the agent file (the screenshot's per-run folder was in it)."""
         written = []
         real = gemini.os.replace
-        monkeypatch.setattr(gemini.os, "replace", lambda a, b: (written.append(Path(b).name), real(a, b)))
+        # (the knowledge base's own tables are written the same way before the first question: not counted)
+        monkeypatch.setattr(gemini.os, "replace", lambda a, b: (
+            Path(b).parent == Path(kb.root) or written.append(Path(b).name), real(a, b)))
         b = self.make(kb, monkeypatch, ANSWER, ANSWER, ANSWER)
         b.ask("where is Red Snail?", None, None, b"JPEGDATA")
         assert sorted(written) == ["maplehelper.md", "settings.json"]
