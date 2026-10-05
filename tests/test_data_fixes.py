@@ -270,6 +270,7 @@ def test_ordinary_hebrew_sentences_name_nothing(real):
         "רנה שלחה לי הודעה": ["Rene"], "יש לי חזיר בבית": ["Pig"], "יש פה עין מרושעת": ["Evil Eye"],
         "ראיתי סרט על זומבי קטן": ["Minor Zombie"], "זה שעון רפאים?": ["Phantom Watch"],
         "תמנון זה חיה מגניבה": ["Octopus"],
+        "מה ההבדל בין מג' לקלריק": ["Cleric"],       # jobs.JOB_HE's Hebrew name of the job
     }
     lines = [s.strip() for s in SENTENCES.read_text(encoding="utf-8").splitlines() if s.strip()]
     assert len(lines) >= 100
