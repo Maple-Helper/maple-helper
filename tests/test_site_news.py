@@ -481,7 +481,7 @@ def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_day
     from datetime import datetime
 
     from maplehelper.ui import serverdot
-    other_day = datetime(2026, 10, 6, 21, 0).timestamp()
+    other_day = datetime(2025, 10, 6, 21, 0).timestamp()    # never today (it was, on 6.10.2026)
     assert serverdot.when(other_day) == "6.10, 21:00"
     st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
     tip = serverdot.tip(I18n("he"), st)
