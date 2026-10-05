@@ -127,7 +127,7 @@ def test_a_stack_count_does_not_hide_the_item(tmp_path):
     font = ImageFont.truetype("arialbd.ttf", 20) if Path("C:/Windows/Fonts/arialbd.ttf").exists() else None
     if font is None:
         pytest.skip("no bold font to draw the count with")
-    ImageDraw.Draw(img).text((50 + 3, 40 + 83 - 22), "150", font=font, fill=(235, 235, 240),
+    ImageDraw.Draw(img).text((50 + 3, 40 + 83 - 22), "92", font=font, fill=(235, 235, 240),
                              stroke_width=2, stroke_fill=(0, 0, 0))
     (slot,) = inventory.read(img, kb)
     assert slot.status == "certain" and slot.matches[0][0] == "item/1"
@@ -195,9 +195,35 @@ def test_small_items_with_a_count_are_named_on_the_real_kb():
 
 
 @needs_kb
-def test_unreleased_items_are_no_candidates():
+def test_items_the_kb_has_no_source_for_are_candidates_too():
+    """Half the KB's items have no source in the game by its pages (Roger's Apple, the tutorial's): left out, they
+    were named after a look-alike for certain. One drawn with another's very picture is one of the two."""
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
     keys = set(inventory._index(kb).keys)
-    assert {"item/270", "item/348", "item/118"} <= keys                 # Red Potion, Snail Shell, a scroll
-    assert not {"item/2564", "item/2634"} & keys                        # Return Scroll to Orbis, Dark Jr. Yeti Skin
+    assert {"item/270", "item/348", "item/118", "item/2564", "item/2634"} <= keys
+
+
+ETC = Path(__file__).parent / "fixtures" / "inventory_etc_tab.png"   # a real game frame: Etc tab at 85 px slots
+
+
+@needs_kb
+def test_real_etc_items_with_counts_are_named():
+    """Real game pixels: two-digit counts ("16", "10") stand apart at this scale; only their first digit was
+    hidden and the slot went unnamed. Tree Branch and Rotten Root Fragment are one shape in two colours."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    read = inventory.read(Image.open(ETC), kb)
+    assert {s.status for s in read} == {"certain"}
+    assert [(s.index, kb.get(s.matches[0][0])["name"]) for s in read] == [
+        (1, "Jr. Sentinel Shellpiece"), (2, "Snail Shell"), (3, "Tree Branch"), (4, "Blue Snail Shell"),
+        (5, "Monster Card"), (6, "Mushroom Spore"), (7, "Old Wooden Board"), (8, "Omok Table"),
+        (9, "Red Snail Shell"), (10, "Silver Ore"), (11, "Squishy Liquid"), (13, "Orange Mushroom Cap")]
+
+
+def test_a_count_is_hidden_whole():
+    """The count's digits stand a few pixels apart at a big scale: the box reaches the last one."""
+    c = np.asarray(Image.open(ETC).convert("RGB"))
+    x, y, n = inventory.find_slots(c)[0]                     # "16" over a Jr. Sentinel Shellpiece
+    top, right = inventory._count_box(c[y:y + n, x:x + n])
+    assert n * 0.6 <= top < n * 0.7 and right >= n * 0.4

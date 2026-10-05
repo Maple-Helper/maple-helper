@@ -478,13 +478,11 @@ def test_an_article_reads_in_full_in_the_app_and_back_returns_to_the_list(news_k
 def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_days_time():
     """The tooltip stays until the next answer, so it names the check's time, never a frozen "just now"; a date
     and a time read "6.10, 21:00"."""
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     from maplehelper.ui import serverdot
-    # two days from now, never today (a fixed 6.10 failed on Oct 6 itself)
-    day = datetime.now().replace(hour=21, minute=0, second=0, microsecond=0) + timedelta(days=2)
-    other_day, shown = day.timestamp(), f"{day.day}.{day.month}, 21:00"
-    assert serverdot.when(other_day) == shown
+    other_day = datetime(2025, 10, 6, 21, 0).timestamp()    # never today (it was, on 6.10.2026)
+    assert serverdot.when(other_day) == "6.10, 21:00"
     st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
     tip = serverdot.tip(I18n("he"), st)
-    assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and shown in tip
+    assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and "6.10, 21:00" in tip

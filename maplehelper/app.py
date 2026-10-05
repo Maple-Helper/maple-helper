@@ -29,8 +29,9 @@ INSTANCE_SERVER = "MapleHelper-" + (os.environ.get("USERNAME") or os.environ.get
 BACKGROUND_ARG = "--background"   # start in the tray only (autostart at login, silent updates)
 UPDATED_ARG = "--updated"         # the installer reopens the app with it after "Update now": show what's new
 KB_RETRY_MS = 5 * 60 * 1000      # a failed or postponed KB update tries again this soon (then doubling)
-KB_CHECK_MS = 60 * 60 * 1000     # an open app looks for a new KB (and app release) this often: the night's KB within
-                                 # the hour (only a small manifest is read when there is nothing new)
+KB_CHECK_MS = 60 * 60 * 1000     # an open app looks for a new KB this often: the night's KB within the hour (only a
+                                 # small manifest is read when there is nothing new)
+APP_CHECK_MS = 15 * 60 * 1000    # and for a new app release this often: one small GitHub API call (60 an hour allowed)
 # the .ico carries every Windows size; macOS draws the menu bar and Dock from a PNG
 APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
@@ -203,9 +204,12 @@ class MapleHelperApp:
         QTimer.singleShot(9000, _remove_stray_screenshots)
         from . import inventory     # the icon index for "check the inventory", built before it's needed
         QTimer.singleShot(10000, lambda: threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start())
-        # a session can run for hours: look again every hour
-        self._update_timer = QTimer(interval=KB_CHECK_MS, timeout=self.check_kb_update_silently)
+        # a session can run for hours: look again for a new KB every hour, for a new release every 15 minutes
+        self._update_timer = QTimer(interval=KB_CHECK_MS,
+                                    timeout=lambda: self._update_kb_in_background(interactive=False))
         self._update_timer.start()
+        self._app_update_timer = QTimer(interval=APP_CHECK_MS, timeout=self.check_app_update_silently)
+        self._app_update_timer.start()
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
             t = I18n(self.settings["language"])
@@ -638,6 +642,11 @@ class MapleHelperApp:
     # ------------------------------------------------------------------ knowledge base updates
 
     def check_kb_update_silently(self):
+        """The start-up check: a new app release and a new KB."""
+        self.check_app_update_silently()
+        self._update_kb_in_background(interactive=False)
+
+    def check_app_update_silently(self):
         if getattr(sys, "frozen", False) and (osapi.IS_MAC or not updater.installed_copy()):
             # no silent self-update on macOS (the installer is a Windows .exe) or for a portable copy: point at
             # the new release instead
@@ -653,8 +662,6 @@ class MapleHelperApp:
                     return
                 self.main_thread.call.emit(lambda: self.update_found(rel[0]))
             threading.Thread(target=app_update, daemon=True).start()
-
-        self._update_kb_in_background(interactive=False)
 
     def _stop_ai_for_kb_swap(self) -> bool:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
@@ -718,7 +725,7 @@ class MapleHelperApp:
 
     def announce_update(self, version: str, url: str):
         if getattr(self, "_mac_announced", None) == version:
-            return                       # the hourly check found the same version again
+            return                       # a later check found the same version again
         self._mac_announced, self._announced_url = version, url
         t = I18n(self.settings["language"])
         self.toast(t("update_available", version=version), t("update_available_mac" if osapi.IS_MAC else "update_available_win"),
