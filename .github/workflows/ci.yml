@@ -1,5 +1,6 @@
-# Every push to main and every pull request: tests on Windows and macOS, and alongside them a full build on each
-# (Windows: frozen exe self-test, portable zip, installer round trip; macOS: .app self-test, DMG round trip).
+# Every push to main and every pull request: tests on Windows and macOS, and alongside them a full Windows build
+# (frozen exe self-test, portable zip, installer round trip). The macOS build (.app self-test, DMG round trip) runs
+# on pushes to main only: it isn't a required check, and Release builds and tests the DMG again before publishing.
 # Nothing is published, so the builds don't wait for the tests: the run is green only when all of them pass.
 name: CI
 
@@ -61,6 +62,7 @@ jobs:
 
   build-macos:
     name: Build & smoke test (macOS)
+    if: github.event_name != 'pull_request'
     runs-on: macos-latest
     timeout-minutes: 45
     steps:

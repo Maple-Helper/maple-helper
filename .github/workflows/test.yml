@@ -61,10 +61,12 @@ jobs:
       - name: Unpack the knowledge base
         run: python -m zipfile -e kb-in/kb.zip data/kb
 
+      # one worker per core (pytest-xdist): each worker is its own process with its own throwaway APPDATA/HOME
+      # (tests/conftest.py), so tests can't see each other's files
       - name: Test
         env:
           MAPLEHELPER_REQUIRE_REAL_KB: "1"    # a test that needs data/kb fails instead of skipping
-        run: python -m pytest --junitxml=test-results.xml -o junit_family=xunit2
+        run: python -m pytest -n auto --junitxml=test-results.xml -o junit_family=xunit2
 
       - name: Upload test results
         if: always()
