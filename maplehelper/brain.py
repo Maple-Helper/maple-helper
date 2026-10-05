@@ -298,14 +298,21 @@ def _mark_droppers(kb: KnowledgeBase, body: str) -> str:
     return body[:i] + "\n".join(lines)
 
 
+ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats", "what's", "is", "are", "does", "do",
+                 "can", "should", "give", "gives", "sells", "sell", "drop", "drops", "best", "the", "for", "to", "in",
+                 "of", "my", "me", "i"}
+
+
 def reply_language(question: str, ui_lang: str = "he") -> str:
     """The answer's language: the question's (Hebrew letters: Hebrew, Latin ones: English), else the app's.
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[֐-׿]", question):
         return "Hebrew"
     bare = _FOCUS_TAG.sub("", question)
-    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English)
-    if re.search(r"[A-Za-z]", bare) and len(re.findall(r"[A-Za-z']+", bare)) > 4:
+    # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English);
+    # a short question with an English question or function word is one ("which quests reward scrolls?" got Hebrew)
+    words = re.findall(r"[A-Za-z']+", bare)
+    if len(words) > 4 or (len(words) >= 2 and any(w.lower() in ENGLISH_WORDS for w in words)):
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
 

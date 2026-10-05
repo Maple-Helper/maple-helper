@@ -812,6 +812,9 @@ def test_an_api_key_without_credit_says_so():
     ("איפה מוצאים חלזונות?", "en", "Hebrew"),
     ("[about Mano] 42", "he", "Hebrew"),                 # nothing to tell by: the app's language
     ("42?", "en", "English"),
+    ("which quests reward scrolls?", "he", "English"),   # a short English question: English too
+    ("SAUNA ROB", "he", "Hebrew"),                      # a name alone is no sentence: the app's language
+    ("Red Snail", "he", "Hebrew"),
 ])
 def test_the_answer_language_follows_the_question(question, ui, lang):
     from maplehelper.brain import reply_language
