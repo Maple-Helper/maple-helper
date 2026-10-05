@@ -4,7 +4,7 @@ Everything runs in GitHub Actions. You decide *when*; CI does the rest.
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| **CI** (`ci.yml`) | every push to `main`, every PR | lint + tests on Windows and macOS and, alongside them, a full build on each (the installer is compressed lighter than in releases, to save time). Windows: frozen-exe self-test, portable zip, installer install → self-test → uninstall. macOS: `.app` self-test, DMG mount → self-test. The builds are downloadable from the run page (14 days). |
+| **CI** (`ci.yml`) | every push to `main`, every PR | lint + tests on Windows and macOS and, alongside them, a full Windows build (the installer is compressed lighter than in releases, to save time). The macOS build runs on pushes to `main` only, not on PRs. Windows: frozen-exe self-test, portable zip, installer install → self-test → uninstall. macOS: `.app` self-test, DMG mount → self-test. The builds are downloadable from the run page (14 days). |
 | **Release** (`release.yml`) | pushing a tag `vX.Y.Z` | the same checks with the real knowledge base bundled (both builds run alongside the tests), then, once everything passed, publishes the GitHub Release with the Windows installer + portable zip and the macOS DMG (both platforms or nothing). Installed Windows apps update themselves to it; Mac apps show a download notice. |
 | **Update knowledge base** (`kb-update.yml`) | nightly (changed pages), full refresh on Sundays, or the *Run workflow* button | scrapes NiaMeowDB politely, **validates**, and replaces `kb.zip` + `kb-manifest.json` on the latest release when content changed. |
 
@@ -44,8 +44,11 @@ Publish a seed from a PC with `data\kb`:
 python tools/kb_release.py validate data/kb --min-entities 500
 python tools/kb_release.py pack data/kb dist-kb
 gh release create kb-seed dist-kb/kb.zip dist-kb/kb-manifest.json --prerelease --latest=false --title "Knowledge base seed" --notes "Seed for the first release"
-``` `tools/release.py` on a PC with
-`data/kb` also still works, and now publishes `SHA256SUMS.txt` too.
+```
+
+Full releases come from the Release workflow (push a tag). `tools/release.py` without `--kb-only`
+uploads only the Windows installer, its `SHA256SUMS.txt` and the knowledge base (no DMG, no portable
+zip), so don't use it for a full release.
 
 ## What every release carries, and why
 
@@ -81,7 +84,8 @@ players who already have it. Fix forward:
 
 1. **Branch protection** on `main` (Settings → Branches): require a pull request and the status
    checks **`test / Lint & test`** (green only when the Windows and macOS test jobs both pass),
-   **`Build & smoke test`** and **`Build & smoke test (macOS)`** from CI.
+   and **`Build & smoke test`** from CI. Don't require **`Build & smoke test (macOS)`**: it doesn't
+   run on PRs (it's skipped there, so as a required check it would guard nothing).
 2. **Code signing (optional; removes the SmartScreen warning, and recommended now that updates
    install silently):** add a repository secret `MAPLEHELPER_SIGN` holding a sign command with a
    `{file}` placeholder. The build then signs `Maple Helper.exe` and the installer. For example:
