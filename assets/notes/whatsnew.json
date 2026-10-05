@@ -1,5 +1,14 @@
 [
  {
+  "version": "0.9.3",
+  "he": [
+   "כשהאפליקציה פתוחה היא בודקת אם יש מאגר חדש כל שעה (במקום כל 3 שעות), כך שהעדכון הלילי נכנס מהר יותר גם בלי לסגור ולפתוח."
+  ],
+  "en": [
+   "While the app is open it looks for a new database every hour (instead of every 3 hours), so the nightly update arrives sooner without a restart."
+  ]
+ },
+ {
   "version": "0.9.2",
   "he": [
    "עדכון המאגר הלילי מגיע מהר יותר: אם ההורדה נכשלת או נדחית, האפליקציה מנסה שוב תוך דקות, ולא רק כעבור 3 שעות.",
