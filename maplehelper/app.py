@@ -183,6 +183,7 @@ class MapleHelperApp:
         self.register_hotkeys()
 
         self.voice = VoiceController(self.settings["hotkey_voice"])
+        self.apply_voice_settings()
         self.register_voice_hotkey()
         self.voice.started.connect(self.on_voice_start)
         self.voice.state.connect(lambda s: self.overlay.voice_state(s))
@@ -219,7 +220,7 @@ class MapleHelperApp:
     def replay_tour(self, settings_dialog) -> None:
         """Settings → "Take the app tour": the settings window steps away and the chat shows the tour."""
         settings_dialog.close()
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         QTimer.singleShot(300, self.overlay.start_tour)
 
@@ -246,7 +247,7 @@ class MapleHelperApp:
     def show_chat(self):
         """Open the chat, or bring it forward when it is open already (never closes it: the tray's "Open chat"
         closed an open chat, a toggle under an "open" label)."""
-        if not self.overlay.isVisible() or self.overlay.windowOpacity() <= 0.5:
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         else:
             self.overlay.raise_()
@@ -346,23 +347,28 @@ class MapleHelperApp:
 
     def on_hotkey(self, hotkey_id: int):
         if hotkey_id == HOTKEY_TOGGLE:
-            if self.overlay.isVisible():
+            if self.overlay.is_open():
                 self.overlay.close_overlay()
             else:
                 self.overlay.toggle(self.capture)   # also restores from the minimized bubble
         elif hotkey_id == HOTKEY_VOICE:
             self.voice.toggle()
 
+    def apply_voice_settings(self):
+        self.voice.microphone = self.settings["microphone"]
+        self.voice.language = (None if self.settings["voice_language"] == "auto" else
+                               self.settings["language"] or "he")
+
     def on_voice_start(self):
         # the talk key in game opens the chat (with a fresh screenshot)
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
 
     def on_voice_failed(self, error: str):
         """No microphone, a blocked one, or the speech model failed to download/load: say so, don't go silent."""
         report.log.warning("voice failed: %s", error)
         t = I18n(self.settings["language"])
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         key = ("voice_mic_failed" if error.startswith("mic:") else
                "voice_download_failed" if error.startswith("download:") else "voice_failed")
@@ -613,6 +619,7 @@ class MapleHelperApp:
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.voice.set_key(self.settings["hotkey_voice"])
+        self.apply_voice_settings()
         self.hotkeys.unregister(HOTKEY_TOGGLE)      # free both first: a swap would otherwise collide
         self.hotkeys.unregister(HOTKEY_VOICE)
         self.register_hotkeys()
@@ -774,7 +781,7 @@ class MapleHelperApp:
     def update_now(self):
         """The player pressed "Update now": show the download, then install and reopen with what's new."""
         self._update_clicked = True
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         if self.pending_installer:
             self._install_now()
@@ -814,7 +821,7 @@ class MapleHelperApp:
                                                         wishlist.items(self.settings, self.profiles.active_id)),
                                 lambda t: t("patch_notes_show"),
                                 lambda: self.show_patch_notes(entries, "news" if only_news else "changes"))
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.toast(t("kb_updated"), t("kb_updated_open"))
 
     def show_tools(self, page: str = "train"):
@@ -848,7 +855,7 @@ class MapleHelperApp:
         self.show_tools("route").route_to_map(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         if self.overlay._is_busy():      # an answer is on its way: say so, don't drop the question silently
             self.overlay._say_busy()
@@ -879,7 +886,7 @@ class MapleHelperApp:
 
     def ask_about_guide(self, key: str):
         """Tag the guide in the chat, so the next question is about it (Claude reads the page)."""
-        if not self.overlay.isVisible():
+        if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         self.overlay.set_tags([key])
         self.overlay.input.setFocus()

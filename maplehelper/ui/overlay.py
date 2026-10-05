@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import sys
 import time
 
 from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF,
@@ -22,6 +23,8 @@ from .minibubble import MiniBubble
 from .widgets import (SELECTION, WISHLIST, Bubble, BubbleRow, DropGroupCard, EntityCard, NoticeCard, ProfileCard,
                       CharacterChoice, SessionCard, SplitMenu, SystemLine, TileGrid, source_tags,
                       character_image)
+
+WINDOW_KIND = Qt.Tool if sys.platform == "darwin" else Qt.Window
 
 
 
@@ -387,7 +390,9 @@ class Overlay(QWidget):
     news_requested = Signal()          # the megaphone or the news strip: the News window
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, brain: Brain):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        # a normal window on Windows, not a tool window: Discord, OBS and Alt+Tab list only those, so streamers can
+        # share the chat. macOS keeps the tool window, which floats over a full-screen game.
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | WINDOW_KIND)
         # the game is the active window while the chat floats over it, and Qt shows tooltips only in the active
         # window: without this, hovering a button explained it only sometimes
         self.setAttribute(Qt.WA_AlwaysShowToolTips)
@@ -1348,6 +1353,8 @@ class Overlay(QWidget):
             self.stats.touch(self.profiles.active)
             self._show_last_session()
         self.setWindowOpacity(0.0)
+        # Win+D or "Show desktop" can minimize it now that it is a normal window: F9 brings it back
+        self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
         self.show()
         self.raise_()
         self.activateWindow()
@@ -1447,9 +1454,13 @@ class Overlay(QWidget):
         hwnd = osapi.find_game_window()
         self.open_overlay(self._safe_shot(hwnd), hwnd)
 
+    def is_open(self) -> bool:
+        """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt)."""
+        return self.isVisible() and self.windowOpacity() > 0.5 and not self.isMinimized()
+
     def toggle(self, shot_provider):
         self.shot_provider = shot_provider
-        if self.isVisible() and self.windowOpacity() > 0.5:
+        if self.is_open():
             self.close_overlay()
         else:
             self.bubble.hide()

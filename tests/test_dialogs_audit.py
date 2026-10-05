@@ -319,3 +319,23 @@ def test_wrap_link_is_reachable_and_runs_from_the_keyboard(qapp):
     QTest.keyClick(link, Qt.Key_Return)
     QTest.keyClick(link, Qt.Key_Space)
     assert hits == [1, 1]
+
+
+def test_a_long_microphone_name_never_widens_settings(env, monkeypatch):
+    """"Microphone (Logitech PRO X Wireless Gaming Headset)" pushed the window wider than the screen showed."""
+    from PySide6.QtWidgets import QScrollArea
+    from maplehelper import voice
+    from maplehelper.ui.dialogs import SettingsDialog
+    s, profiles, kb = env
+    monkeypatch.setattr(voice, "input_devices",
+                        lambda: ["Microphone (USB microphone)", "Microphone (Logitech PRO X Wireless Gaming Headset)"])
+    s.data["microphone"] = "Microphone (Logitech PRO X Wireless Gaming Headset)"
+    dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
+    dlg.show()
+    area = dlg.findChild(QScrollArea)
+    assert area.widget().minimumSizeHint().width() <= area.viewport().width()
+    assert dlg.mic.currentIndex() == 2 and dlg._mic_value() == s.data["microphone"]
+    assert "Microphone (" not in dlg.mic.text()
+    dlg.mic.addItems(["Microphone Array (Realtek(R) High Definition Audio with a very long driver name)"])
+    assert dlg.mic.sizeHint().width() <= dlg.mic.text_width + 48
+    dlg.close()

@@ -104,7 +104,8 @@ DEFAULT_SETTINGS = {
     "bubble_pos": None,           # where the minimized bubble sits               # {"x","y","w","h","screen"} saved on move/resize
     "start_with_windows": False,
     "voice_send_immediately": True,
-    "microphone": None,
+    "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
+    "voice_language": "app",       # app: transcribe in the app's language | auto: the model guesses
     "provider": "claude",          # claude | codex | gemini | grok: which AI CLI answers (see providers/)
     "model": "sonnet",             # Claude's model
     "codex_model": None,           # Codex's model; None = the Codex CLI default

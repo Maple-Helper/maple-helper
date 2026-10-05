@@ -1,6 +1,7 @@
 """Onboarding (mandatory, no skipping), character editor and settings."""
 from __future__ import annotations
 
+import re
 import sys
 import threading
 
@@ -279,7 +280,7 @@ class CharacterForm(QWidget):
         hint = ""
         jobs = ["Beginner"] if cls == "Beginner" else []
         if cls and cls != "Beginner":
-            # a class is chosen at its 1st job, so its level starts there (Warrior 10, Magician 8…)
+            # a class is chosen at its 1st job, so its level starts there (10 for all four: assets/official)
             first_level = next(lv for j, lv in JOBS[cls] if j != "Beginner")
             self.level.setMinimum(first_level)
             jobs = [j for j in jobs_for(cls, self.level.value(), self.kb) if j != "Beginner"]
@@ -920,6 +921,7 @@ class SettingsDialog(GlassDialog):
     patch_notes_requested = Signal()
     whats_new_requested = Signal()
     tour_requested = Signal()
+    _mic_heard = Signal(float)       # the microphone test's loudness (RMS), -1 when it couldn't record
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, stylesheet_fn):
         self.t = t = I18n(settings["language"] or "he")
@@ -983,6 +985,32 @@ class SettingsDialog(GlassDialog):
         sec.add_widget(self.keys_error)
         self.voice_send = Switch(settings["voice_send_immediately"])
         sec.add_row(t("voice_send"), self.voice_send)
+        lay.addWidget(sec)
+
+        # audio
+        sec = Section(t("sec_audio"), rtl)
+        # the microphone: the system default was a far webcam/USB mic on a PC whose player talks into a headset,
+        # and the model then "heard" sentences nobody said
+        from .. import voice
+        self.mics = voice.input_devices()
+        self.mic = Select()
+        self.mic.text_width = 190         # "Microphone (Logitech PRO X Wireless Gaming Headset)" widened the window
+        # "Microphone (Logitech PRO X …)" → "Logitech PRO X …": every Windows name starts the same way
+        self.mic.addItems([t("mic_default")] + [re.sub(r"^Microphone \((.+)\)$", r"\1", m) for m in self.mics])
+        if settings["microphone"] in self.mics:
+            self.mic.setCurrentIndex(self.mics.index(settings["microphone"]) + 1)
+        sec.add_row(t("microphone"), self.mic)
+        self.mic_test = QPushButton(t("mic_test"), objectName="Link")
+        self.mic_test.clicked.connect(self._test_mic)
+        self.mic_result = QLabel("", objectName="RowHint")
+        self.mic_result.setWordWrap(True)
+        sec.add_row(t("mic_test_label"), self.mic_test)
+        sec.add_widget(self.mic_result)
+        self.mic_result.hide()
+        self._mic_heard.connect(self._mic_tested)
+        self.voice_lang = Segmented([(t("voice_lang_app"), "app"), (t("voice_lang_auto"), "auto")],
+                                    settings["voice_language"], rtl)
+        sec.add_row(t("voice_lang"), self.voice_lang, hint=t("voice_lang_hint"), hint_below=True)
         lay.addWidget(sec)
 
         # answers
@@ -1461,6 +1489,37 @@ class SettingsDialog(GlassDialog):
             History(c.id).clear()
             self.history_cleared.emit()
 
+    def _mic_value(self):
+        i = self.mic.currentIndex()
+        return self.mics[i - 1] if i > 0 else None
+
+    def _test_mic(self):
+        """Record 2.5 s from the chosen microphone and say whether it hears the player."""
+        from .. import voice
+        self.mic_test.setEnabled(False)
+        self.mic_result.setText(bidi.plain(self.t("mic_testing"), self.t.rtl))
+        self.mic_result.show()
+        device = voice.device_index(self._mic_value())
+
+        def run():
+            try:
+                import numpy as np
+                import sounddevice as sd
+                audio = sd.rec(int(2.5 * voice.SAMPLE_RATE), samplerate=voice.SAMPLE_RATE, channels=1,
+                               dtype="float32", device=device)
+                sd.wait()
+                level = float(np.sqrt(np.mean(np.square(audio))))
+            except Exception:      # noqa: BLE001
+                level = -1.0
+            self._mic_heard.emit(level)
+        threading.Thread(target=run, daemon=True).start()
+
+    def _mic_tested(self, level: float):
+        # speech into a headset measured RMS ~0.09; the same words on a far USB mic ~0.016 (heard as nothing)
+        key = "mic_test_failed" if level < 0 else "mic_test_quiet" if level < 0.03 else "mic_test_ok"
+        self.mic_result.setText(bidi.plain(self.t(key), self.t.rtl))
+        self.mic_test.setEnabled(True)
+
     def _values(self) -> dict:
         """What Save would store (the AI account and model act at once, they're not in here)."""
         return {
@@ -1470,6 +1529,8 @@ class SettingsDialog(GlassDialog):
             "hotkey_toggle": self.hk_toggle.currentText(),
             "hotkey_voice": self.hk_voice.currentText(),
             "voice_send_immediately": self.voice_send.isChecked(),
+            "microphone": self._mic_value(),
+            "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
