@@ -31,6 +31,13 @@ BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskill
 # repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report)
 DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
+# a comparison or a list ("Mano, Mushmom, King Slime and Jr. Balrog", "הרמיט או צ'יף בנדיט"): the pages of up to
+# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages
+LIST_WORDS = re.compile(r",|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|בין|השוו\w*|"
+                        r"השוואה|ההבדל|הבדל)(?![א-ת])|(?:^|\s)ו(?=[א-ת]{2})", re.I)
+MENTIONS, LIST_MENTIONS = 4, 8
+PAGE_CHARS = 2500          # a pre-fetched page, MENTIONS of them at most at full length
+MIN_PAGE_CHARS = 800       # a page cut for a long list still keeps its head: level, HP, EXP, where
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
                   "what the player worked on, decisions, open goals. Same language as the conversation.")
 
@@ -221,6 +228,17 @@ def without_superseded(kb: KnowledgeBase, key: str, body: str) -> str:
     return body
 
 
+def mention_cap(question: str) -> int:
+    """How many entities a question's pre-fetch may name: more for a comparison or a list (a 4 cap left the fifth
+    of "compare Mano, Mushmom, King Slime, Jr. Balrog and Crimson Balrog" for the AI to look up, ~20 s more)."""
+    return LIST_MENTIONS if LIST_WORDS.search(question) else MENTIONS
+
+
+def page_chars(n: int) -> int:
+    """The length of each of n pre-fetched pages: PAGE_CHARS up to MENTIONS pages, then shorter, the same total."""
+    return PAGE_CHARS if n <= MENTIONS else PAGE_CHARS * MENTIONS // n
+
+
 def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
     """A pre-fetched page, marked when the KB says it isn't in the game: the pages of Orbis, El Nath and the rest
     read like any town's ("El Nath is a town in El Nath, Ossyria"), and the AI sent players there."""
@@ -356,17 +374,16 @@ def build_prompt(question: str, character: Character | None, history: History | 
                                             if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
-    for key in kb.find_mentions(question, max_results=4):
-        body = _page(kb, key, 2500)
-        if body:
-            ctx.append(body)
-        if key.startswith("monster/"):
-            drops = kb.drops_digest(key)
-            if drops:
-                ctx.append(drops)
-        elif key.startswith("item/"):
-            # the players' reports of who drops it, with votes (its page's "Dropped By" doesn't have them)
-            ctx.append(kb.droppers_digest(key))
+    named = kb.find_mentions(question, max_results=mention_cap(question))
+    for key in named:
+        # a monster's drops and mesos; an item's droppers by the players' reports, with votes (its page's
+        # "Dropped By" doesn't have them)
+        digest = kb.drops_digest(key) if key.startswith("monster/") else             kb.droppers_digest(key) if key.startswith("item/") else ""
+        limit = page_chars(len(named))
+        if len(named) > MENTIONS:      # past MENTIONS entities their digests come out of the pages' share too
+            limit = max(MIN_PAGE_CHARS, limit - len(digest))
+        body = _page(kb, key, limit)
+        ctx += [x for x in (body, digest) if x]
     # what a KB update changed this week in the entities above (and the level digest's monsters)
     shown = re.findall(r"\[((?:monster|item|npc|map|quest|skill)/[^\]\s]+)\]", "\n".join(ctx))
     changes = kb_changes.ai_lines(kb, shown)

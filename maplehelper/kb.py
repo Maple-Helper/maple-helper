@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 from . import bidi, sources
@@ -60,6 +60,12 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
+@lru_cache(maxsize=32768)
+def _name_norm(name: str) -> str:
+    """_norm of a KB name: the name indexes normalize every name a few times over."""
+    return _norm(name)
+
+
 # aliases.json ships with the knowledge base release: its few bad entries are corrected here, in code.
 # Common Hebrew words and generic nouns an alias must never be ("מאי" is May, "פסל" any statue, "השף" any chef):
 ALIAS_DROP = {
@@ -96,6 +102,125 @@ COMMUNITY_FILE = "community.json"     # players' drop and mesos reports per mons
 COMMUNITY_MIN_SCORE = 1
 
 
+# --- the shorter forms a player writes a name in (a question only: an answer writes names exactly)
+# the categories whose names have them (a quest's or a guide's name is a sentence, nobody shortens it)
+SHORT_FORM_CATEGORIES = ("item", "npc", "map", "monster", "skill", "class")
+SHORT_FROM = 4         # letters a one-word short form needs ("ilbi", "lith"; "jr" or "red" is no name)
+# English words that are the first word of exactly one KB name: "work" is no Work Gloves, "summer" no Summer Store
+# Permit. A word the KB's quest and guide pages write in lower case is an everyday word too (_prose_words), this
+# list is the ones they happen not to write.
+COMMON_LEAD_WORDS = {
+    "aluminum", "amazon", "atmospheric", "band", "beetle", "biker", "blueberry", "bone", "bowling", "bygone",
+    "camo", "camouflaged", "cardboard", "cargo", "cashier", "charged", "checkered", "cherub", "christmas",
+    "collision", "composite", "construction", "copper", "cozy", "crescent", "crested", "crumbling", "cubic",
+    "cyclist", "dances", "deadly", "deer", "destructive", "detective", "dilapidated", "disposed", "downstairs",
+    "dried", "drumming", "eagle", "expanded", "faded", "fashionable", "fireman", "fish", "flash", "flipper",
+    "frameless", "fried", "fusion", "gargoyle", "gentleman", "glowing", "granny", "grape", "grim", "gross", "guild",
+    "haircutter", "halfmoon", "hardwood", "hired", "horny", "hotel", "hyper", "inkwell", "ivory", "janitor",
+    "jeweled", "jousting", "keen", "kitty", "knuckle", "luminous", "lunar", "marine", "mechanical", "medical",
+    "melting", "michael", "minor", "mortal", "nick", "olive", "ominous", "pale", "pansy", "phantom", "pointed",
+    "poisonous", "pole", "precipice", "premium", "puffy", "rabbit", "reddened", "reef", "ribbon", "ribboned",
+    "rolled", "rosy", "sandblasted", "scream", "sergeant", "sewing", "sharpness", "slash", "smelly", "smiley",
+    "smithing", "snowman", "soap", "soft", "spool", "spring", "starred", "stiff", "strolling", "studded", "stuffed",
+    "summer", "summoning", "sunflower", "sunrise", "swampy", "thieves", "tomato", "triangular", "triple",
+    "tutorial", "ultra", "vanilla", "victoria", "vitamin", "warfare", "whoa", "wind", "woodcrafting", "woodsman",
+    "fall", "life", "field", "hand", "speed", "spell", "solid", "recycled", "ripped", "rookie", "mountain",
+    "ocean", "camping", "archer", "blazing", "cursed", "death", "flame", "ancient", "equip", "weighted", "wing",
+    "maplestory", "platform", "mong", "fully", "door", "event", "monster", "magic", "dark", "golden", "steel",
+    "work", "lucky", "mana", "three", "stone", "little", "luck", "lead", "over", "single", "pure", "fresh", "cheap",
+    "broken", "space", "summon", "torn", "curse", "energy", "gift", "hero", "land", "right", "rock", "roll", "secret",
+    "table", "water", "flower", "clock", "cross", "flying", "memory", "special", "power", "fire", "iron", "gold",
+    "crimson", "luster",
+    "zakum", "nemi",       # a boss the KB has no page of (only the Zakum Helmet), a game designer (not the Nemi Hat)
+}
+FIRST_JOBS = {"Warrior", "Magician", "Bowman", "Thief"}
+_ROMAN_OR_NUMBER = re.compile(r"\s+(?:\d+|[IVX]+)$")
+
+
+def _fold(s: str) -> str:
+    """A normalized name without the apostrophes in its English words: "amazon's" = "amazons" (a Hebrew
+    geresh, "ג'וניור", stays)."""
+    return re.sub(r"(?<=[a-z0-9])'|'(?=[a-z])", "", s)
+
+
+def _no_possessive(s: str) -> str:
+    """ "amazon's judgement" -> "amazon judgement", "lupin's banana" -> "lupin banana"."""
+    return re.sub(r"(?<=[a-z])'s(?= |$)", "", s)
+
+
+# --- an English game name in Hebrew letters, as players transliterate it ("אילבי", "פאוור סטרייק", "צ'יף בנדיט")
+# English sounds (longest spelling first) -> (consonant class, the Hebrew letters that write it); a class of "" is a
+# letter Hebrew may leave out (h, w)
+_EN_SOUNDS = [
+    ("tch", "C", "(?:צ'|טש)"), ("sch", "S", "ש"), ("ch", "C", "(?:צ'|טש)"), ("sh", "S", "ש"), ("th", "T", "[תט]'?"),
+    ("ph", "P", "פ"), ("ck", "K", "[קכ]"), ("kn", "N", "נ"), ("wr", "R", "ר"), ("gh", "", ""), ("qu", "K", "[קכ]ו?"),
+    ("x", "KS", "[קכ]ס"), ("b", "B", "ב"), ("c", "K", "[קכ]"), ("d", "D", "ד"), ("f", "P", "פ"), ("g", "G", "ג"),
+    ("j", "J", "(?:ג'|ז')"), ("k", "K", "[קכ]"), ("l", "L", "ל"), ("m", "M", "מ"), ("n", "N", "נ"), ("p", "P", "פ"),
+    ("r", "R", "ר"), ("s", "S", "[סש]"), ("t", "T", "[טת]"), ("v", "B", "ב"), ("z", "Z", "ז"), ("h", "", "ה?"),
+    ("w", "", "(?:וו|ו)?"),
+]
+_HE_SOUNDS = [("צ'", "C"), ("ג'", "J"), ("ז'", "J"), ("ת'", "T"), ("קס", "KS"), ("כס", "KS")] + \
+    [(c, k) for k, cs in (("B", "ב"), ("G", "ג"), ("D", "ד"), ("Z", "ז"), ("K", "חכקך"), ("T", "טת"), ("L", "ל"),
+                          ("M", "מם"), ("N", "נן"), ("S", "סש"), ("P", "פף"), ("C", "צץ"), ("R", "ר")) for c in cs]
+
+
+def _en_sounds(word: str) -> list[tuple[str, str]]:
+    """An English word as (consonant class, Hebrew pattern) parts; a vowel run is ("", its pattern). A vowel run must
+    be written where Hebrew writes one: at the start (א), "o"/"u" inside (ו, or א for "lucky" = "לאקי"), "i"
+    inside or at the end (י), a final "a" (ה/א); a lone "e" may go unwritten ("seven" = "סבן")."""
+    out: list[tuple[str, str]] = []
+    i, n = 0, len(word)
+    while i < n:
+        run = re.match(r"[aeiouy]+", word[i:]) if not (word[i] == "y" and i == 0) else None
+        if run:
+            v = run.group(0)
+            at_end = i + len(v) == n
+            if set(v) & set("iy") or v == "ee":
+                pat = "א?י{1,2}"                      # "ilbi" = "אילבי", "steely" = "סטילי"
+            elif set(v) & set("ou"):
+                pat = "(?:א?ו{1,2}|א)"                # "subi" = "סובי", "lucky" = "לאקי"
+            elif at_end and v != "e":
+                pat = "[הא]"                          # "mana" = "מאנה"
+            else:
+                pat = "[אה]?" if v == "a" else "[אי]?"     # "stab" = "סטאב", "seven" = "סבן"
+            if i == 0:
+                pat = f"א(?:{pat})?"                  # a word starts with a vowel letter: "אתנה", "אליקסיר"
+            out.append(("", pat))
+            i += len(v)
+            continue
+        if word[i] == "y":                     # "yeti": a consonant y
+            out.append(("", "י"))
+            i += 1
+            continue
+        for spelled, cls, pat in _EN_SOUNDS:
+            if word.startswith(spelled, i):
+                if spelled == "c" and word[i + 1:i + 2] in ("e", "i", "y"):
+                    cls, pat = "S", "ס"
+                if not (cls and out and out[-1][0] == cls):     # "ll", "ss": one letter
+                    out.append((cls, pat))
+                i += len(spelled)
+                break
+        else:
+            return []                          # a digit or another letter: no transliteration
+    return out
+
+
+def _he_key(word: str) -> str:
+    """A Hebrew word's consonants as _EN_SOUNDS classes ("פאוור" -> "PR"): the bucket _translits looks in."""
+    w = word.translate(_FINALS)
+    out, i = [], 0
+    while i < len(w):
+        for spelled, cls in _HE_SOUNDS:
+            if w.startswith(spelled, i):
+                if not out or out[-1] != cls:
+                    out.append(cls)
+                i += len(spelled)
+                break
+        else:
+            i += 1                             # א ו י ה ע and anything else: no consonant
+    return "".join(out)
+
+
 class KnowledgeBase:
     def __init__(self, root: Path | None = None):
         self.root = root or kb_dir()
@@ -118,7 +243,15 @@ class KnowledgeBase:
                 key = keys[0] if len(keys) == 1 else self._base_entity(keys)
                 if key:
                     self.aliases[alias] = key
+        # "לאלינה" is the boat ride "To Ellinia" in aliases.json, and "how do I get to Ellinia" in a question: an
+        # alias that is a glued Hebrew prefix and another entity's alias is that other entity, with the prefix
+        for alias in [a for a in self.aliases if re.match(_PREFIX, a)]:
+            for rest in {alias[1:], alias[2:] if re.match(f"{_PREFIX}$", alias[:2]) else ""}:
+                if _heb_letters(rest) >= PREFIX_FROM and self.aliases.get(rest, self.aliases[alias]) != self.aliases[alias]:
+                    del self.aliases[alias]
+                    break
         self.aliases.update({_norm(a): k for a, k in ALIAS_SET.items() if k in self.entities})
+        self._family_cats: dict[str, set[str]] = {}     # (filled by _short_forms)
         # names with ", " ": " or "[ ]" ("Tree Dungeon, Monkey Forest I") stay one block in a Hebrew answer
         bidi.set_names(e.get("name", "") for e in self.entities.values())
 
@@ -217,7 +350,7 @@ class KnowledgeBase:
         a loose form two entities share, or that is another entity's exact name, is dropped (ambiguous)."""
         pairs = []
         for key, e in self.entities.items():
-            n = _norm(e["name"])
+            n = _name_norm(e["name"])
             if len(n) >= 3:
                 pairs.append((n, key, False))
         pairs += [(a, k, False) for a, k in self.aliases.items() if len(a) >= 2]
@@ -235,10 +368,178 @@ class KnowledgeBase:
         pairs += [(d, "", False) for d in ALIAS_DROP if HEBREW.search(d)]
         return sorted(pairs, key=lambda p: -len(p[0]))
 
+    @cached_property
+    def _question_names(self) -> list[tuple[str, str, bool]]:
+        """_names and, for a question, the shorter forms a player writes a name in (_short_forms), longest first;
+        a name as the KB writes it before a short form of the same length."""
+        return sorted(self._names + self._short_forms, key=lambda p: -len(p[0]))
+
+    @cached_property
+    def _first_key(self) -> dict[str, str]:
+        """Normalized name -> the entity a name several entities share means (the first, as _names finds it)."""
+        out: dict[str, str] = {}
+        for key, e in self.entities.items():
+            out.setdefault(_name_norm(e.get("name", "")), key)
+        return out
+
+    def _forms(self, name: str, cat: str) -> tuple[set[str], set[str]]:
+        """(spellings, bases) of a KB name, normalized and without apostrophes (_fold).
+
+        spellings: the same name typed loosely: "amazons judgement", "amazon judgement", "ticktock" (a hyphen
+        left out). bases: the name without the part that marks one entity of a family, as players say it:
+        "Arrow Bomb: Bow" -> "arrow bomb", "VIP Cab (Ellinia)" -> "vip cab", "The Pig Beach" -> "pig beach",
+        "Ant Tunnel II" -> "ant tunnel", a class's "Hermit skills" -> "hermit" (_short_forms keeps a base only
+        when it means one entity)."""
+        def spell(raw: str) -> set[str]:
+            n = _name_norm(raw)
+            out = {_fold(n), _fold(_no_possessive(n))}
+            if "-" in raw:
+                out.add(_fold(_name_norm(raw.replace("-", ""))))
+            return out
+
+        raw_bases = {name}
+        if cat == "class":
+            raw_bases.add(re.sub(r"\s+skills$", "", name))
+        for _ in range(3):              # "The Cave of Evil Eye I": the numeral, then "The"
+            for b in list(raw_bases):
+                for cut in (b.split(":")[0], b.split(" - ")[0], re.sub(r"\s*\(.*?\)", "", b),
+                            _ROMAN_OR_NUMBER.sub("", b), re.sub(r"^The\s+", "", b)):
+                    if cut.strip():
+                        raw_bases.add(cut.strip())
+        spellings = spell(name)
+        bases = set().union(*(spell(b) for b in raw_bases if b != name)) - spellings if len(raw_bases) > 1 else set()
+        return spellings - {_name_norm(name)}, bases
+
+    @cached_property
+    def _short_forms(self) -> list[tuple[str, str, bool]]:
+        """(form, key, False): the short forms of _forms that mean one entity, and (form, "", False) for one that
+        several entities share ("soul arrow": Soul Arrow: Bow or Soul Arrow: Crossbow), so it names nothing and
+        no shorter name inside it counts either ("the cave of evil eye" is no Evil Eye).
+        A form that is a KB name or alias itself is left to it; a base that starts a longer name of another entity
+        is that family's ("return scroll": "Return Scroll - Nearest Town" or "Return Scroll to Henesys"), except a
+        class's ("crusader" is the class, not the "Crusader T-Shirt"); a one-word base only a class's."""
+        exact = {n for n, _, _ in self._names}
+        no_the = lambda n: re.sub(r"^the ", "", n)  # noqa: E731
+        named: dict[str, set[str]] = {}        # a KB name without its "the" -> the names
+        for e in self.entities.values():
+            named.setdefault(no_the(_fold(_name_norm(e.get("name", "")))), set()).add(_name_norm(e.get("name", "")))
+        owners: dict[str, set[str]] = {}       # form -> the names it shortens
+        kinds: dict[str, set[str]] = {}        # form -> "spelling" / "base" / "class"
+        cats: dict[str, set[str]] = {}         # a name, folded -> the categories of the entities named so
+        for key, e in self.entities.items():
+            name, cat = e.get("name", ""), key.partition("/")[0]
+            cats.setdefault(_fold(_name_norm(name)), set()).add(cat)
+            if cat not in SHORT_FORM_CATEGORIES or key in self._common_npcs or not name:
+                continue
+            own = _name_norm(name)
+            spellings, bases = self._forms(name, cat)
+            for form, kind in [(f, "spelling") for f in spellings] + [(b, "class" if cat == "class" else "base")
+                                                                     for b in bases]:
+                if len(form) < 3 or form in exact or named.get(no_the(form), {own}) - {own}:
+                    continue      # a name itself: "the land of wild boar" is Land of Wild Boar, not its II
+                if kind == "base" and " " not in form:
+                    continue      # one word: "The Judgement" is no "judgement", "Vaulter 2000" no "vaulter"
+                owners.setdefault(form, set()).add(own)
+                kinds.setdefault(form, set()).add(kind)
+        starting: dict[str, set[str]] = {}     # the first words of a name -> the names that start so
+        for n in cats:
+            words = n.split()
+            for i in range(1, len(words)):
+                starting.setdefault(" ".join(words[:i]), set()).add(n)
+        out = []
+        self._family_cats = {}                 # a form that names nothing -> the categories of its family
+        for form, names in owners.items():
+            own = _fold(next(iter(names)))
+            longer = starting.get(form, set()) - {own} if kinds[form] == {"base"} else set()
+            if len(names) > 1 or longer:       # shared, or the start of another entity's name too
+                out.append((form, "", False))
+                self._family_cats[form] = set().union(*(cats.get(_fold(n), set()) for n in names | longer))
+                continue
+            out.append((form, self._first_key[next(iter(names))], False))
+        # the jobs' Hebrew names (jobs.JOB_HE: "הרמיט", "צ'יף בנדיט"), but the 1st jobs' ("קשת" is any bow, "גנב" any
+        # thief): the class pages are named "Hermit skills", and the alias list has none of them
+        from .jobs import JOB_HE
+        classes = {re.sub(r" skills$", "", _name_norm(e.get("name", ""))): k for k, e in self.entities.items()
+                   if k.startswith("class/")}
+        out += [(_norm(he), classes[_norm(job)], False) for job, he in JOB_HE.items()
+                if job not in FIRST_JOBS and _norm(job) in classes and _norm(he) not in exact]
+        return out
+
+    @cached_property
+    def _hebrew_words(self) -> set[str]:
+        """Everyday Hebrew: the words of the app's own Hebrew texts (the UI, the translated guides and news, ~6,500
+        words; they write game names in English). A transliteration is never one of them ("אורך" is "length", not
+        Eurek; "שעות" "hours", not Shout; "לפניך" "in front of you", not Panic). Read once (~90 ms)."""
+        from .i18n import STRINGS
+        texts = [str(v.get("he", "")) for v in STRINGS.values() if isinstance(v, dict)]
+
+        def walk(x) -> None:
+            if isinstance(x, str):
+                texts.append(x)
+            elif isinstance(x, dict):
+                for v in x.values():
+                    walk(v)
+            elif isinstance(x, list):
+                for v in x:
+                    walk(v)
+        for p in [*(ASSETS / "guides" / "he").glob("*.json"), ASSETS / "news" / "he.json"]:
+            try:
+                walk(json.loads(p.read_text(encoding="utf-8")))
+            except (OSError, ValueError):
+                pass
+        return {w.translate(_FINALS) for w in re.findall(r"[א-ת][א-ת'\"]*", fold_quotes("\n".join(texts)))}
+
+    @cached_property
+    def _prose_words(self) -> set[str]:
+        """The words the KB's quest and guide pages write in lower case inside a sentence: everyday English, so no
+        short name ("work" is no Work Gloves). Read once, the first time a question needs it (~60 ms)."""
+        words: set[str] = set()
+        for cat in ("quest", "guide"):
+            for p in (self.root / "pages" / cat).glob("*.md"):
+                try:
+                    words.update(re.findall(r"(?<=[a-z,;] )([a-z]{4,})\b", p.read_text(encoding="utf-8")))
+                except OSError:
+                    pass
+        return words
+
+    def _common_word(self, word: str) -> bool:
+        stem = word[:-1] if word.endswith("s") else word
+        return bool({word, stem, word + "s"} & (COMMON_LEAD_WORDS | self._prose_words))
+
+    @cached_property
+    def _lead_words(self) -> dict[str, str]:
+        """A name's first word alone -> its entity, when the word starts no other KB name: "ilbi" is Ilbi Throwing
+        Stars, "steely" Steely Throwing Knives. When it starts several names that all start with one entity's whole
+        name, that entity: "athena" (Athena Pierce, Athena Pierce's Letter), "kerning" (Kerning City and its shops).
+        A word under SHORT_FROM letters, a word that is a name itself, or an everyday word (_common_word) never."""
+        names: dict[str, str] = {}             # folded name without possessives -> key
+        exact = {n for n, _, _ in self._names} | {f for f, _, _ in self._short_forms}
+        for key, e in self.entities.items():
+            if key.partition("/")[0] in SHORT_FORM_CATEGORIES and key not in self._common_npcs and e.get("name"):
+                names.setdefault(_fold(_no_possessive(_name_norm(e["name"]))), key)
+        families: dict[str, list[list[str]]] = {}
+        for n in names:
+            words = n.split()
+            if len(words) > 1 and len(words[0]) >= SHORT_FROM and re.fullmatch("[a-z]+", words[0]):
+                families.setdefault(words[0], []).append(words)
+        out = {}
+        for word, fam in families.items():
+            if word in exact:
+                continue
+            common = []
+            for col in zip(*fam):
+                if len(set(col)) > 1:
+                    break
+                common.append(col[0])
+            head = " ".join(common)
+            if (len(fam) == 1 or head in names) and not self._common_word(word):
+                out[word] = names[head] if len(fam) > 1 else names[" ".join(fam[0])]
+        return out
+
     def _occurrence(self, hay: str, name: str, key: str, taken: list[tuple[int, int]]) -> tuple[int, int] | None:
         """The first place `name` stands in `hay` (" word word ... ") outside the spans already taken, as a
         (first word, last word + 1) range. Hebrew prefixes glue on to a long enough name ("לחילזון", "בהנסיס"),
-        and a monster's name may be plural ("fire boars", "תמנונים")."""
+        and a monster's name may be plural ("fire boars", "תמנונים"), an item's English name too ("red potions")."""
         if name not in hay:
             return None          # cheap: most names aren't in the question at all
         heb = bool(HEBREW.search(name))
@@ -246,6 +547,8 @@ class KnowledgeBase:
         plural = ""
         if key.startswith("monster/"):
             plural = "(?:ימ|ות|ים)?" if heb else "(?:e?s)?"
+        elif key.startswith("item/") and not heb and " " in name:
+            plural = "(?:e?s)?"      # "red potions", "red snail shells" ("swords" is any sword, not the Sword)
         for m in re.finditer(f"(?<= ){pre}{re.escape(name)}{plural}(?= )", hay):
             w0 = hay.count(" ", 0, m.start()) - 1
             span = (w0, w0 + name.count(" ") + 1)
@@ -264,17 +567,29 @@ class KnowledgeBase:
         case ("your max HP" is not Max, "the river" not River), no loose Hebrew forms, no English aliases, and
         an NPC named like an everyday word (COMMON_WORD_NPCS) never counts."""
         norm = _norm(text)
-        copies = [f" {norm} "]
+        copies = [(f" {norm} ", False)]
+        if not answer and _fold(norm) != norm:
+            copies.append((f" {_fold(norm)} ", False))     # "amazons judgement", "lupins banana" (_short_forms)
         if HEBREW.search(norm) and not answer:
             loose = _heb_loose(norm)
-            copies += [f" {loose} ", f" {_no_article(loose)} "]
+            copies += [(f" {loose} ", True), (f" {_no_article(loose)} ", True)]
         out: list[tuple[str, int, int]] = []
         taken: list[tuple[int, int]] = []
-        for name, key, is_loose in self._names:
-            for i, hay in enumerate(copies):
-                if (i > 0) != is_loose:
+        # a family's shared form ("the cave of evil eye", "snail hunting ground"): its words name no entity of
+        # another category ("Evil Eye", "Snail"), and do the family's own kind still ("henesys hunting ground" is
+        # in Henesys)
+        family: list[tuple[int, int, set[str]]] = []
+        names = self._names if answer else self._question_names
+        blocks = {} if answer else self._family_cats
+        for name, key, is_loose in names:
+            here = taken + [(a, b) for a, b, cats in family if key.partition("/")[0] not in cats]
+            for hay, loose_copy in copies:
+                if loose_copy != is_loose:
                     continue      # exact names in the text as typed; loose forms in the loose copies
-                span = self._occurrence(hay, name, key, taken)
+                span = self._occurrence(hay, name, key, here)
+                if span and not key and name in blocks:
+                    family.append((*span, blocks[name]))
+                    break
                 if span and not HEBREW.search(name) and (answer or key in self._common_npcs) \
                         and not self._written(text, key, name, answer):
                     span = None       # a question's "max level" is no Max either; "where is Max" is
@@ -285,7 +600,98 @@ class KnowledgeBase:
                     break
             if len(out) >= max_results:
                 break
+        taken += [(a, b) for a, b, _ in family]      # the words left over: no family's words
+        if not answer and len(out) < max_results:
+            out += self._lead_spans(f" {_fold(norm)} ", taken, [k for k, _, _ in out], max_results - len(out))
+        if not answer and len(out) < max_results and HEBREW.search(norm):
+            taken += [(s, e) for _, s, e in out]
+            out += self._translit_spans(norm, taken, [k for k, _, _ in out], max_results - len(out))
         return out
+
+    @cached_property
+    def _translits(self) -> dict[str, list[tuple[int, list[str], list[re.Pattern], str]]]:
+        """English names a Hebrew question writes in Hebrew letters ("אילבי", "לאקי סבן", "הרמיט"), for the names no
+        alias has: by the first word's consonants (_he_key) -> [(words, their consonants, their patterns, key)].
+
+        Only the names a player transliterates: a skill's or class's name and short form, an item's name of two words
+        or more, and a name's first word alone (_lead_words: "סובי"). A one-word item ("לימון" is a lemon in Hebrew
+        too) or a name two entities share never."""
+        forms: dict[str, set[str]] = {}
+        for key, e in self.entities.items():
+            cat, name = key.partition("/")[0], _fold(_no_possessive(_name_norm(e.get("name", ""))))
+            if cat in ("skill", "class") and (" " in name or len(name) >= 5) or cat == "item" and " " in name:
+                forms.setdefault(name, set()).add(self._first_key.get(_name_norm(e["name"]), key))
+        for form, key, _ in self._short_forms:
+            if key and key.partition("/")[0] in ("skill", "class"):
+                forms.setdefault(form, set()).add(key)
+        for word, key in self._lead_words.items():
+            forms.setdefault(word, set()).add(key)
+        compiled: dict[str, tuple[str, re.Pattern] | None] = {}
+        out: dict[str, list] = {}
+        for form, keys in forms.items():
+            if len({(self.get(k) or {}).get("name") for k in keys}) > 1:
+                continue                       # two entities' name: no guess
+            parts = []
+            for w in form.split():
+                if w not in compiled:
+                    sounds = _en_sounds(w)
+                    cls = re.sub(r"(.)\1+", r"\1", "".join(c for c, _ in sounds))
+                    compiled[w] = (cls, re.compile("".join(p for _, p in sounds))) if sounds and cls else None
+                parts.append(compiled[w])
+            if parts and all(parts):
+                out.setdefault(parts[0][0], []).append((len(parts), [c for c, _ in parts], [p for _, p in parts],
+                                                       next(iter(keys))))
+        for entries in out.values():
+            entries.sort(key=lambda e: -e[0])  # the longest name first
+        return out
+
+    def _translit_spans(self, hay: str, taken: list[tuple[int, int]], found: list[str], room: int) -> list[tuple[str, int, int]]:
+        """The Hebrew words left over that are an English name in Hebrew letters (_translits): "מה ההבדל בין אילבי
+        לסובי". Every word of three letters or more and none an everyday Hebrew word (_hebrew_words: "את" is no
+        "hat", "לפניך" no Panic); a glued prefix only before PREFIX_FROM letters ("לסובי"); one word alone of
+        SHORT_FROM letters and two consonants at least ("מהר" is "fast", not Marr's Forest)."""
+        words = [w.translate(_FINALS) for w in hay.split()]
+        out: list[tuple[str, int, int]] = []
+        free = lambda i: not any(a <= i < b for a, b in taken + [(s, e) for _, s, e in out])  # noqa: E731
+        plain = lambda w: _heb_letters(w) >= 3 and w not in self._hebrew_words  # noqa: E731
+        for i, word in enumerate(words):
+            if len(out) >= room or not free(i) or not plain(word):
+                continue
+            starts = [word] + [word[n:] for n in (1, 2) if re.fullmatch(_PREFIX, word[:n])
+                               and _heb_letters(word[n:]) >= PREFIX_FROM and plain(word[n:])]
+            hits: dict[str, int] = {}          # key -> the words its name takes; the longest names only
+            for first in starts:
+                for n, keys, pats, key in self._translits.get(_he_key(first), []):
+                    rest = words[i + 1:i + n]
+                    if n == 1 and (_heb_letters(first) < SHORT_FROM or len(keys[0]) < 2) or hits and n < max(hits.values()):
+                        continue
+                    if len(rest) == n - 1 and all(free(i + 1 + j) and plain(w) for j, w in enumerate(rest)) \
+                            and pats[0].fullmatch(first) \
+                            and all(_he_key(w) == k and p.fullmatch(w) for w, k, p in zip(rest, keys[1:], pats[1:])):
+                        hits[key] = n
+            longest = [k for k, n in hits.items() if n == max(hits.values(), default=0)]
+            if len(longest) == 1 and longest[0] not in found and longest[0] not in [k for k, _, _ in out]:
+                out.append((longest[0], i, i + hits[longest[0]]))    # two names that fit: no guess
+        return out
+
+    def _lead_spans(self, hay: str, taken: list[tuple[int, int]], found: list[str], room: int) -> list[tuple[str, int, int]]:
+        """The words left over that are a name's first word alone (_lead_words): "Ilbi vs Subi", "where is athena".
+        A plural too: "ilbis". Not before a place's last word: "Florina Road" is no Florina Beach."""
+        out = []
+        words = hay.split()
+        for i, word in enumerate(words):
+            if len(out) >= room or any(a <= i < b for a, b in taken) or words[i + 1:i + 2] and words[i + 1] in self._place_words:
+                continue
+            key = self._lead_words.get(word) or (self._lead_words.get(word[:-1]) if word.endswith("s") else None)
+            if key and key not in found and key not in [k for k, _, _ in out]:
+                out.append((key, i, i + 1))
+        return out
+
+    @cached_property
+    def _place_words(self) -> set[str]:
+        """The last words of the KB's map names ("beach", "forest", "harbor") and of any place."""
+        return {_name_norm(e["name"]).split()[-1] for e in self.entities.values()
+                if e.get("category") == "map" and _name_norm(e.get("name", ""))} | {"island", "road", "street", "town", "city", "village", "map"}
 
     @cached_property
     def _common_npcs(self) -> set[str]:
