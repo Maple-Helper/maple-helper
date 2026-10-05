@@ -118,8 +118,11 @@ if ($TestInstaller) {
         $null = $p.Handle   # keep the handle, or ExitCode reads empty after the exit
         if (-not $p.WaitForExit(300000)) { throw "Installer did not finish within 5 minutes" }
         if ($p.ExitCode -ne 0) { throw "Installer exited with $($p.ExitCode)" }
-        # a silent install relaunches the app (that is how self-updates restart it); stop it for the test
-        Start-Sleep -Seconds 5
+        # a silent install relaunches the app (that is how self-updates restart it); stop it for the test.
+        # Setup starts it before exiting ([Run] nowait), so it is usually there already: wait for it, not a fixed 5 s
+        $deadline = (Get-Date).AddSeconds(15)
+        while (-not (Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -and $_.Path.StartsWith($target) }) -and
+               (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 250 }
         Stop-InstalledApp $target
     }
     Write-Host "== Installing silently into $target"
