@@ -2,21 +2,129 @@
 
 Model: ivrit.ai's Hebrew-tuned Whisper large-v3-turbo (CTranslate2), which also
 handles English. Downloaded once on first use (~1.6GB) into the app's data folder.
-GPU (CUDA) when available, otherwise CPU int8 (always on macOS).
+GPU (CUDA) on an NVIDIA card, otherwise CPU int8 (always on macOS). The GPU needs NVIDIA's cuBLAS, which no
+driver ships: it is downloaded once with the model (~550MB, Windows + NVIDIA only). Without it CUDA failed
+silently and every clip took 5-11 s on the CPU instead of ~0.15 s (measured on an RTX 5070 Ti).
 """
 from __future__ import annotations
 
+import hashlib
+import logging
+import os
 import sys
 import threading
+import zipfile
 
 import numpy as np
 from PySide6.QtCore import QObject, Signal
 
 from .store import DATA_DIR
 
+log = logging.getLogger("maplehelper")
+
 MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-ct2"
 SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.4
+
+# NVIDIA's own wheel on PyPI; only its two DLLs are kept. CUDA 12 matches CTranslate2 4.x.
+CUBLAS_URL = ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/"
+              "nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl")
+CUBLAS_SHA256 = "623f43027d40d44ceadf0043f002bd25cf353e8f13ce90b9a87057019f560661"
+CUBLAS_DLLS = ("cublas64_12.dll", "cublasLt64_12.dll")
+
+# words the model should expect: game names, and the players' own Hebrew for "level" and "job"
+PROMPTS = {"he": "MapleStory Classic, Henesys, Ellinia, Perion, Kerning City, Red Snail, Orange Mushroom, לבל, ג'וב",
+           "en": "MapleStory Classic, Henesys, Ellinia, Perion, Kerning City, Red Snail, Orange Mushroom"}
+
+
+def cuda_dir():
+    return DATA_DIR / "models" / "cuda"
+
+
+def has_nvidia() -> bool:
+    """An NVIDIA card with a working driver (CTranslate2 counts devices without needing cuBLAS)."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctranslate2
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:      # noqa: BLE001
+        return False
+
+
+def gpu_libs_ready() -> bool:
+    return all((cuda_dir() / name).is_file() for name in CUBLAS_DLLS)
+
+
+def download_gpu_libs():
+    """Fetch NVIDIA's cuBLAS wheel, check its hash, keep the two DLLs. Raises on any failure."""
+    import urllib.request
+    folder = cuda_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    part = folder / "cublas.whl.part"
+    digest = hashlib.sha256()
+    req = urllib.request.Request(CUBLAS_URL, headers={"User-Agent": "MapleHelper"})
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r, open(part, "wb") as f:
+            while chunk := r.read(1 << 20):
+                digest.update(chunk)
+                f.write(chunk)
+        if digest.hexdigest() != CUBLAS_SHA256:
+            raise ValueError("cuBLAS download is corrupt (hash mismatch)")
+        with zipfile.ZipFile(part) as z:
+            for name in CUBLAS_DLLS:
+                tmp = folder / (name + ".part")
+                with z.open(f"nvidia/cublas/bin/{name}") as src, open(tmp, "wb") as dst:
+                    while chunk := src.read(1 << 20):
+                        dst.write(chunk)
+                os.replace(tmp, folder / name)      # a DLL is either whole or absent
+    finally:
+        part.unlink(missing_ok=True)
+
+
+def use_gpu_libs():
+    """Let CTranslate2 find the downloaded cuBLAS (it loads it by name on the first CUDA model)."""
+    folder = str(cuda_dir())
+    if hasattr(os, "add_dll_directory"):
+        os.add_dll_directory(folder)
+    if folder not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = folder + os.pathsep + os.environ.get("PATH", "")
+
+
+def input_devices() -> list[str]:
+    """The microphones, by the names Windows/macOS show (MME cuts names at 31 characters: the full name comes
+    from WASAPI). Empty when sounddevice can't list them."""
+    try:
+        import sounddevice as sd
+        devices, apis = sd.query_devices(), sd.query_hostapis()
+        default_api = sd.default.hostapi
+    except Exception:      # noqa: BLE001
+        return []
+    full = [d["name"] for d in devices
+            if d["max_input_channels"] > 0 and apis[d["hostapi"]]["name"] == "Windows WASAPI"]
+    names = []
+    for d in devices:
+        if d["hostapi"] != default_api or d["max_input_channels"] <= 0 or "Sound Mapper" in d["name"]:
+            continue
+        name = next((f for f in full if f.startswith(d["name"])), d["name"])
+        if name not in names:
+            names.append(name)
+    return names
+
+
+def device_index(name):
+    """The recording device for a saved microphone name; None (the system default) when it is gone."""
+    if not name:
+        return None
+    try:
+        import sounddevice as sd
+        default_api = sd.default.hostapi
+        for i, d in enumerate(sd.query_devices()):
+            if d["hostapi"] == default_api and d["max_input_channels"] > 0 and d["name"] and name.startswith(d["name"]):
+                return i
+    except Exception:      # noqa: BLE001
+        pass
+    return None
 
 
 class Transcriber:
@@ -33,24 +141,40 @@ class Transcriber:
         snaps = DATA_DIR / "models" / ("models--" + MODEL_ID.replace("/", "--")) / "snapshots"
         return any(snaps.glob("*/model.bin"))
 
+    @classmethod
+    def ready(cls) -> bool:
+        """Nothing left to download: the model, and on an NVIDIA PC its cuBLAS too."""
+        return cls.downloaded() and (gpu_libs_ready() or not has_nvidia())
+
     def load(self):
         with self._lock:
             if self._model is not None:
                 return
             from faster_whisper import WhisperModel
             root = str(DATA_DIR / "models")
-            try:
-                self._model = WhisperModel(MODEL_ID, device="cuda", compute_type="float16", download_root=root)
-                # a tiny decode proves the GPU runtime actually works
-                self._model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32))
-            except Exception:
-                self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root)
+            if has_nvidia():
+                if not gpu_libs_ready():
+                    try:
+                        download_gpu_libs()
+                    except Exception as e:      # noqa: BLE001 - the CPU still works, only slower
+                        log.warning("voice: cuBLAS download failed, using the CPU: %s", e)
+                if gpu_libs_ready():
+                    use_gpu_libs()
+                    try:
+                        model = WhisperModel(MODEL_ID, device="cuda", compute_type="float16", download_root=root)
+                        # a tiny decode proves the GPU runtime actually works (segments are lazy: list() runs it)
+                        list(model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32), language="en")[0])
+                        self._model = model
+                        return
+                    except Exception as e:      # noqa: BLE001
+                        log.warning("voice: GPU failed, using the CPU: %s", e)
+            self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root)
 
-    def transcribe(self, audio: np.ndarray) -> str:
+    def transcribe(self, audio: np.ndarray, language: str | None = None) -> str:
+        """language: "he" / "en", or None to let the model guess (an extra pass over the clip: about twice as slow)."""
         self.load()
-        segments, _info = self._model.transcribe(audio, beam_size=5, vad_filter=True,
-                                                 initial_prompt="MapleStory Classic, Henesys, Ellinia, Perion, "
-                                                                "Kerning City, Red Snail, Orange Mushroom, לבל, ג'וב")
+        segments, _info = self._model.transcribe(audio, beam_size=5, vad_filter=True, language=language,
+                                                 initial_prompt=PROMPTS.get(language, PROMPTS["he"]))
         return " ".join(s.text.strip() for s in segments).strip()
 
 
@@ -67,6 +191,8 @@ class VoiceController(QObject):
     def __init__(self, key_name: str = "F10"):
         super().__init__()
         self.key_name = key_name
+        self.microphone = None       # a name from input_devices(); None = the system's default microphone
+        self.language = None         # "he" / "en" for the model, None = it guesses
         self.transcriber = Transcriber()
         self._chunks: list[np.ndarray] = []
         self._stream = None
@@ -74,7 +200,7 @@ class VoiceController(QObject):
     def preload(self):
         """Load the model in the background when it's on disk already (the player has used voice before),
         so the first question after a start or an update doesn't wait for it. Never downloads."""
-        if self.transcriber.downloaded() and not self.transcriber.loaded():
+        if not self.transcriber.loaded() and self.transcriber.ready():
             threading.Thread(target=self._preload, daemon=True).start()
 
     def _preload(self):
@@ -103,6 +229,7 @@ class VoiceController(QObject):
             import sounddevice as sd
             self._chunks = []
             stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32",
+                                    device=device_index(self.microphone),
                                     callback=lambda data, *_: self._chunks.append(data.copy()))
             stream.start()
         except Exception as e:
@@ -134,12 +261,12 @@ class VoiceController(QObject):
             self.state.emit("idle")
             return
         self.state.emit("transcribing" if self.transcriber.loaded() else
-                        "loading" if self.transcriber.downloaded() else "downloading")
+                        "loading" if self.transcriber.ready() else "downloading")
         threading.Thread(target=self._run, args=(audio,), daemon=True).start()
 
     def _run(self, audio: np.ndarray):
         try:
-            out = self.transcriber.transcribe(audio)
+            out = self.transcriber.transcribe(audio, self.language)
             self.text.emit(out)
         except Exception as e:
             # the model isn't on disk after the attempt: its one-time download failed (offline, most often), and

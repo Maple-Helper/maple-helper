@@ -183,6 +183,7 @@ class MapleHelperApp:
         self.register_hotkeys()
 
         self.voice = VoiceController(self.settings["hotkey_voice"])
+        self.apply_voice_settings()
         self.register_voice_hotkey()
         self.voice.started.connect(self.on_voice_start)
         self.voice.state.connect(lambda s: self.overlay.voice_state(s))
@@ -352,6 +353,11 @@ class MapleHelperApp:
                 self.overlay.toggle(self.capture)   # also restores from the minimized bubble
         elif hotkey_id == HOTKEY_VOICE:
             self.voice.toggle()
+
+    def apply_voice_settings(self):
+        self.voice.microphone = self.settings["microphone"]
+        self.voice.language = (None if self.settings["voice_language"] == "auto" else
+                               self.settings["language"] or "he")
 
     def on_voice_start(self):
         # the talk key in game opens the chat (with a fresh screenshot)
@@ -613,6 +619,7 @@ class MapleHelperApp:
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.voice.set_key(self.settings["hotkey_voice"])
+        self.apply_voice_settings()
         self.hotkeys.unregister(HOTKEY_TOGGLE)      # free both first: a swap would otherwise collide
         self.hotkeys.unregister(HOTKEY_VOICE)
         self.register_hotkeys()
