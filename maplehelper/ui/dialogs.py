@@ -279,7 +279,7 @@ class CharacterForm(QWidget):
         hint = ""
         jobs = ["Beginner"] if cls == "Beginner" else []
         if cls and cls != "Beginner":
-            # a class is chosen at its 1st job, so its level starts there (Warrior 10, Magician 8…)
+            # a class is chosen at its 1st job, so its level starts there (10 for all four: assets/official)
             first_level = next(lv for j, lv in JOBS[cls] if j != "Beginner")
             self.level.setMinimum(first_level)
             jobs = [j for j in jobs_for(cls, self.level.value(), self.kb) if j != "Beginner"]
