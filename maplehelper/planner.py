@@ -1,0 +1,813 @@
+"""A local query planner: a list, filter or reverse question turned into exact lookups in the KB tables (tables.py),
+and every matching row put into the prompt.
+
+"Which quests give capes", "gloves a Lv. 30 Thief can wear", "what lives in Ant Tunnel", "who sells arrows": with no
+pre-fetch for them the AI grepped and read pages, 6-39 tool calls and 20 s to 4 minutes, and its answers still
+missed items or named ones not in the game. Here the question's intent (quest rewards, shops, recipes, spawns,
+training maps, equipment, monsters by EXP, quests, skills, scrolls, potions) and its slots (an item family or slot,
+a level or a range, a job, the entities it names) pick a table and its filter; the rows go into the prompt in a
+<table_rows> block marked complete when it holds every match, so the AI only phrases the answer.
+
+Precision first: a question that fits no intent, or one the app already answers another way (a monster's drops, a
+screenshot, one named entity's details), gets nothing; the AI still has the tables to grep.
+"""
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+
+from . import combat, jobs, plan, tables
+
+HE = "א-ת"
+CAP = 60            # every row up to this many: the answer must be complete
+SHOWN = 40          # above CAP: the best this many, and how to grep the rest
+CELL = 110          # a long text cell (a quest's rewards, a skill's effect) cut here
+CUT = {"rewards", "effect", "after"}     # the cells cut: what a list question doesn't ask for
+NEAR_SHARE = 0.6    # a training map: this much of its spawns within the level range
+TRAIN_CAP = 25      # training maps: the best this many (exp_hr): the rest are worse by the sort
+
+
+def _he(words: str) -> str:
+    """Hebrew words with up to two glued prefix letters ("לגלימות", "והכפפות"), whole words only."""
+    return rf"(?<![{HE}])[והבלמשכ]{{0,2}}(?:{words})(?![{HE}])"
+
+
+def _en(words: str) -> str:
+    return rf"\b(?:{words})\b"
+
+
+def _rx(he: str, en: str) -> re.Pattern:
+    return re.compile(_he(he) + "|" + _en(en), re.I)
+
+
+WEAPONS = ("One-Handed Sword", "Two-Handed Sword", "One-Handed Axe", "Two-Handed Axe", "One-Handed Blunt Weapon",
+           "Two-Handed Blunt Weapon", "Spear", "Polearm", "Bow", "Crossbow", "Claw", "Dagger", "Wand", "Staff")
+MAGIC_WEAPONS = ("Wand", "Staff")
+CLASS_WEAPONS = {"Warrior": {"One-Handed Sword", "Two-Handed Sword", "One-Handed Axe", "Two-Handed Axe",
+                             "One-Handed Blunt Weapon", "Two-Handed Blunt Weapon", "Spear", "Polearm"},
+                 "Magician": {"Wand", "Staff"}, "Bowman": {"Bow", "Crossbow"}, "Thief": {"Claw", "Dagger"}}
+
+# family -> (Hebrew words, English words, kind, the table values it stands for): equips.slot, consumables.type, or
+# a scroll. Earlier ones win a span ("סקרול חזרה" is no scroll for a slot, "crossbow" no bow). Hebrew words that
+# are something else too are left out: "מטה" (down), "אלה" (these), "אוכל" ("I can").
+FAMILIES: list[tuple[str, str, str, str, tuple[str, ...]]] = [
+    ("Return Scroll", "סקרול(?:י)? חזרה|מגיל(?:ת|ות) חזרה", r"return scrolls?|town scrolls?", "use", ("Return Scroll",)),
+    ("Throwing Star", "כוכב(?:ים)?|כוכבי זריקה|שוריקן(?:ים)?|סטאר(?:ים|ס)?", r"(?:throwing )?stars?|shurikens?",
+     "use", ("Throwing Star",)),
+    ("Arrow", "חץ|חצים|חיצים", r"arrows?", "use", ("Arrow",)),
+    ("Potion", "שיקוי(?:ים)?|פוטיון(?:ים)?|פוטים|פוטס", r"potions?|pots", "use", ("Potion", "Food")),
+    ("Food", "מזון", r"food", "use", ("Food",)),
+    ("Scroll", "סקרול(?:ים)?|מגיל(?:ה|ות)", r"scrolls?", "scroll", ()),
+    ("Cape", "גלימ(?:ה|ות|ת)|קייפ(?:ים)?", r"capes?", "equip", ("Cape",)),
+    ("Gloves", "כפפ(?:ה|ות|ת)", r"gloves?", "equip", ("Gloves",)),
+    ("Hat", "כוב(?:ע|עים)|קסד(?:ה|ות)", r"hats?|helm(?:et)?s?", "equip", ("Hat",)),
+    ("Shoes", "נעל(?:יים|י|ים)?|מגפ(?:יים|ים)", r"shoes?|boots?", "equip", ("Shoes",)),
+    ("Shield", "מגן|מגנים|מגינים", r"shields?", "equip", ("Shield",)),
+    ("Earring", "עגיל(?:ים)?", r"earrings?", "equip", ("Earring",)),
+    ("Top", "חולצ(?:ה|ות)", r"tops|shirts?", "equip", ("Top",)),
+    ("Bottom", "מכנס(?:יים|ים)?", r"bottoms|pants|trousers", "equip", ("Bottom",)),
+    ("Overall", "אוברול(?:ים)?", r"overalls?", "equip", ("Overall",)),
+    ("Armor", "שריון|שריונות|בגד(?:ים)?", r"armou?rs?", "equip", ("Top", "Bottom", "Overall")),
+    ("Crossbow", "קרוסבו(?:אים)?|קשת(?:ות)? צולב(?:ת|ות)", r"crossbows?|x-?bows?", "equip", ("Crossbow",)),
+    ("Bow", "קשתות", r"bows?", "equip", ("Bow",)),
+    ("Claw", "טופר|טפרים|ציפורן|קלו(?:אים)?", r"claws?", "equip", ("Claw",)),
+    ("Dagger", "פגיון|פגיונות|סכין|סכינים|דאגר(?:ים)?", r"daggers?", "equip", ("Dagger",)),
+    ("Sword", "חרב|חרבות", r"swords?", "equip", ("One-Handed Sword", "Two-Handed Sword")),
+    ("Axe", "גרזן|גרזנים", r"axes?", "equip", ("One-Handed Axe", "Two-Handed Axe")),
+    ("Blunt", "פטיש(?:ים)?|מקבת", r"maces?|blunts?|hammers?|clubs?", "equip",
+     ("One-Handed Blunt Weapon", "Two-Handed Blunt Weapon")),
+    ("Spear", "חנית(?:ות)?", r"spears?", "equip", ("Spear",)),
+    ("Polearm", "פולארם", r"pole-?arms?", "equip", ("Polearm",)),
+    ("Wand", "שרביט(?:ים)?|וונד(?:ים)?", r"wands?", "equip", ("Wand",)),
+    ("Staff", "סטאף(?:ים)?|מטה קסם", r"staffs?|staves", "equip", ("Staff",)),
+    ("Weapon", "נשק|נשקים", r"weapons?", "equip", WEAPONS),
+]
+_FAMILY_RX = [(name, re.compile(_he(he) + "|" + _en(en), re.I), kind, values) for name, he, en, kind, values in FAMILIES]
+# "קשת" is a bow and a Bowman: the job when another family is named ("חצים לקשת", "כובעים לקשת") or skills
+_KESHET = re.compile(_he("קשת"))
+# a scroll's slot: the equip slot as the scroll names write it ("Topwear", "Overall Armor", "Two-handed Sword")
+_SCROLL_SLOT = {"Top": "Topwear", "Bottom": "Bottomwear", "Overall": "Overall Armor"}
+_SCROLL_STAT = [(re.compile(_he(he) + "|" + _en(en), re.I), stat) for he, en, stat in (
+    ("התקפה|אטק", r"attack|atk|att", "Attack"), ("הגנה|דיפנס", r"def|defense|defence", "DEF"),
+    ("דיוק|אקיורסי", r"acc|accuracy", "Accuracy"), ("התחמקות|אבויד", r"avoid|evasion", "Evasion"),
+    ("מהירות|ספיד", r"speed", "Speed"), ("קפיצה|ג'אמפ", r"jump", "Jump"), ("חיים", r"hp", "HP"), ("מאנה", r"mp", "MP"),
+    ("כוח", r"str", "STR"), ("זריזות", r"dex", "DEX"), ("אינטליגנציה|תבונה", r"int", "INT"), ("מזל", r"luk|luck", "LUK"))]
+
+# what the question asks of them
+QUEST = _rx("משימ(?:ה|ות)|קווסט(?:ים)?|קוסט(?:ים)?", r"quests?|missions?")
+GIVE = _rx("נותנ(?:ת|ות|ים)?|נותן|מקבל(?:ים)?|לקבל|פרס(?:ים)?|תגמול(?:ים)?|מעניק(?:ה|ות|ים)?",
+           r"gives?|giving|rewards?|rewarding|get|gets|award")
+SELL = _rx("מוכר(?:ת|ים|ות)?|קונים|לקנות|קונה|אקנה|חנות|חנויות", r"sells?|selling|sold|buy|buying|shops?|store|vendor")
+USES = re.compile(_he("משמש(?:ת|ים)?|משתמשים ב|מצרך|מצרכים") + r"|(?:להכין|לקרפט|ליצור)\s+(?:עם|מ-?)|"
+                  + _en(r"what uses|uses|used (?:for|in)|ingredient(?: of| for)?|make with|craft with"), re.I)
+CRAFT = _rx("מכינים|להכין|מכין|ליצור|יוצרים|מתכון|מתכונים|קראפט|לקרפט", r"craft|crafting|crafted|make|made|recipes?")
+NEED = _rx("צריך|צריכים|דורש(?:ת|ות|ים)?|להרוג|לאסוף|הריגות|הריגה|לצוד",
+           r"need|needs|require|requires|required|kill|kills|killing|collect|hunt")
+MONSTER = _rx("מפלצ(?:ת|ות)|מונסטר(?:ים)?|מוב(?:ים)?|יצורים", r"monsters?|mobs?")
+WHATS_IN = re.compile(_he("מה יש|מי חי|מי גר") + "|" + _en(r"what(?:'s| is| lives)? in|what spawns|lives? in"), re.I)
+TRAIN = re.compile(_he("גריינד|גרינד|להתאמן|אימון|לטחון|לעלות רמה|לעלות לבל|לאמן|לצוד|לעשות לבל") + "|"
+                   + _en(r"grind(?:ing)?|train(?:ing)?|level(?:ing)? up|lvl up|exp maps?|hunt(?:ing)?|farm exp"), re.I)
+WHERE = _rx("איפה|לאן|מקום|מקומות|מפה|מפות", r"where|maps?|spots?|places?")
+EXP = re.compile(_he("אקספי|ניסיון|נסיון") + r"|\b(?:exp|xp|experience)\b", re.I)
+BEST = _rx("הכי|מומלץ|מומלצים|כדאי|עדיף|טוב(?:ה|ים|ות)?|חזק(?:ה|ים|ות)?", r"best|most|top|highest|good|strongest|recommended?")
+CHEAP = _rx("זול(?:ה|ים|ות)?|משתלמ(?:ים|ת|ות)?|משתלם|מחיר", r"cheap|cheapest|per meso|value|price|cost")
+SKILL = _rx("סקיל(?:ים|ז)?|כישור(?:ים)?|מיומנו(?:ת|יות)", r"skills?")
+LISTQ = _rx("איזה|אילו|איזו|מה|כל|רשימה|יש", r"which|what|list|all|any|show|best")
+# the question is about jobs ("לאיזה ג'ובים אפשר להתקדם מקשת"): its "קשת" is the Bowman
+JOB_TALK = _rx("ג'וב(?:ים)?|מקצוע(?:ות)?|קלאס(?:ים)?|להתקדם|התקדמות|אדבנס", r"jobs?|class(?:es)?|advance(?:ment)?")
+NOW = _rx("עכשיו|כרגע", r"now|currently")
+# the player speaks of themselves: the profile's job and level fill what the question leaves out
+PERSONAL = _rx("לי|אני|שלי|אותי|בשבילי|עבורי|אוכל|אנחנו|לנו", r"i|i'm|im|me|my|mine|we")
+# "מאיזה מפלצות נופלות כפפות": drops, which brain's drop groups answer (its DROP_WORDS miss the glued "מאיזה")
+DROPPED = re.compile(_he("נופל(?:ת|ים|ות)?") + r"|\bdropp(?:ed|ing)\b", re.I)
+# the screenshot is the subject: what is on screen, never the tables'
+SCREEN = re.compile(_he("במסך|בתמונה|בצילום|על המסך|בצילום מסך") + "|" + _en(r"screenshot|on (?:my |the )?screen|"
+                                                                                r"in the picture"), re.I)
+HEAL = re.compile(r"\b(?:hp|mp|heal(?:s|ing)?|recover(?:y|s)?)\b|" + _he("חיים|מאנה|ריפוי|מרפא|ריפוי"), re.I)
+
+_LVW = r"(?:רמ(?:ה|ות)|לבל(?:ים)?|levels?|lvl|lv\.?)"
+RANGE = re.compile(rf"(?:(?<![{HE}])בין|\bbetween|\bfrom)\s*(?:[בל]?{_LVW}\s*)?(\d{{1,3}})\s*(?:-|–|~|עד|ל-?|and|to)\s*"
+                   rf"(?:ל?{_LVW}\s*)?(\d{{1,3}})(?!\d)|(?<![A-Za-z{HE}])[במל]?{_LVW}\s*-?\s*(\d{{1,3}})\s*"
+                   rf"(?:-|–|~|עד|ל-|to)\s*(\d{{1,3}})(?!\d)", re.I)
+LEVEL = re.compile(rf"(?<![A-Za-z{HE}])[במלה]?{_LVW}\s*-?\s*(\d{{1,3}})(?!\d)", re.I)
+# "where should I train at 20", "לגריינד ב-20": a bare number after at / for / ב-, never a price or a percent
+LOOSE_LEVEL = re.compile(rf"(?:\b(?:at|for)\s+(?:a\s+)?|(?<![{HE}])ב-?)(\d{{1,3}})(?!\d|\s*(?:%|k\b|mesos?|meso|hp|mp|"
+                         rf"ACC|דקות|שניות|minutes?|seconds?|min\b|sec\b|x\b))(?![\d.,])", re.I)
+MY_LEVEL = re.compile(rf"[בל]?{_LVW}\s+(?:שלי|שלנו)|\bmy (?:level|lvl|lv)\b", re.I)
+
+# the English job names and the ones players type ("archers", "thieves"), and the Hebrew ones (jobs.JOB_HE and the
+# usual spellings); "Page" only capitalized ("which page")
+_JOB_EN = {**{j.lower(): j for js in jobs.JOBS.values() for j, _ in js if j != "Page"}, **jobs.ALIASES,
+           "warriors": "Warrior", "magicians": "Magician", "mages": "Magician", "archers": "Bowman",
+           "thieves": "Thief", "fighters": "Fighter", "hunters": "Hunter", "assassins": "Assassin",
+           "bandits": "Bandit", "clerics": "Cleric", "beginners": "Beginner", "spearmen": "Spearman",
+           "crossbowmen": "Crossbowman", "fp wizard": "F/P Wizard", "il wizard": "I/L Wizard"}
+_JOB_HE = {**{he: j for j, he in jobs.JOB_HE.items() if he != "קשת"},
+           "גנבים": "Thief", "לוחמים": "Warrior", "קוסמים": "Magician", "מג'": "Magician", "מייג'": "Magician",
+           "קשתים": "Bowman", "ארצ'ר": "Bowman", "אססין": "Assassin", "אסאסינים": "Assassin", "הנטר": "Hunter",
+           "קרוסבו מן": "Crossbowman", "ביגינרים": "Beginner", "מתחיל": "Beginner", "מתחילים": "Beginner"}
+_JOB_RX = re.compile(r"(?<![\w/])(" + "|".join(sorted((re.escape(k).replace(r"\ ", r"\s+") for k in _JOB_EN),
+                                                         key=len, reverse=True)) + r")(?![\w/])|(?<![\w])((?-i:Page))s?\b"
+                     + "|" + _he("|".join(sorted(map(re.escape, _JOB_HE), key=len, reverse=True))), re.I)
+
+# Hebrew names of the towns (quests.tsv's area column)
+AREAS_HE = {"הניסיס": "Henesys", "הנסיס": "Henesys", "קרנינג": "Kerning City", "קרנינג סיטי": "Kerning City",
+            "אלינייה": "Ellinia", "אליניה": "Ellinia", "אלניה": "Ellinia", "פריון": "Perion", "פריאון": "Perion",
+            "סליפיווד": "Sleepywood", "סליפי": "Sleepywood", "מייפל איילנד": "Maple Island",
+            "פלורינה": "Florina Beach", "לית' הארבור": "Lith Harbor", "לית הארבור": "Lith Harbor"}
+# a word run naming no map (an acronym or a game word the question uses)
+_NOT_MAP = {"exp", "npc", "npcs", "hp", "mp", "mesos", "meso", "lv", "level", "quest", "quests", "boss", "the", "what",
+            "which", "where", "monsters", "monster", "mobs", "in", "map", "maps", "is", "are", "a", "of", "at", "on"}
+
+
+@dataclass
+class Slots:
+    families: list[str] = field(default_factory=list)       # family names, in question order
+    level: int | None = None
+    lo: int | None = None
+    hi: int | None = None
+    job: str | None = None            # a canonical job ("Assassin", "Thief")
+    personal: bool = False
+    said_level: bool = False          # the question names a level (not the profile's)
+    entities: list[str] = field(default_factory=list)       # KB keys the question names (kb.find_mentions)
+    maps: list[str] = field(default_factory=list)           # map keys the question names, a family of them too
+    area: str | None = None
+    question: str = ""
+
+
+@dataclass
+class Block:
+    table: str
+    cols: tuple[str, ...]
+    rows: list[dict]
+    what: str                  # the filter, in words
+    sort: str
+    grep: str = ""             # the exact grep for the rows left out
+    note: str = ""
+    cap: int = CAP
+
+    def render(self) -> str:
+        total = len(self.rows)
+        shown = self.rows if total <= self.cap else self.rows[:min(SHOWN, self.cap)]
+        whole = len(shown) == total
+        head = (f'<table_rows table="{self.table}.tsv" match="{self.what}" sort="{self.sort}" '
+                f'rows="{total if whole else f"{len(shown)} of {total}"}" complete="{"yes" if whole else "no"}">')
+        lines = [head, "\t".join(self.cols)]
+        lines += ["\t".join(tables._cell(_short(r.get(c)) if c in CUT else r.get(c)) for c in self.cols)
+                  for r in shown]
+        if not whole:
+            lines.append(f"({total - len(shown)} more rows, sorted after these: {self.grep})")
+        if self.note:
+            lines.append(self.note)
+        lines.append("</table_rows>")
+        return "\n".join(lines)
+
+
+@dataclass
+class Plan:
+    intent: str
+    blocks: list[Block]
+    level: int | None = None      # the level the question is about (the level digest follows it)
+
+    def render(self) -> str:
+        return "\n".join(b.render() for b in self.blocks if b.rows)
+
+
+def _short(v):
+    if isinstance(v, str) and len(v) > CELL:
+        return v[:CELL - 1].rstrip() + "…"
+    return v
+
+
+# ---------------------------------------------------------------- slots
+
+def families(question: str) -> list[tuple[str, int]]:
+    """(family, position) of every item family the question names, an earlier family's span kept."""
+    taken: list[tuple[int, int]] = []
+    out = []
+    for name, rx, _, _ in _FAMILY_RX:
+        for m in rx.finditer(question):
+            if any(m.start() < b and a < m.end() for a, b in taken):
+                continue
+            taken.append(m.span())
+            out.append((name, m.start()))
+    return sorted(out, key=lambda f: f[1])
+
+
+def _kind(name: str) -> str:
+    return next(k for n, _, k, _ in _FAMILY_RX if n == name)
+
+
+def _values(name: str) -> tuple[str, ...]:
+    return next(v for n, _, _, v in _FAMILY_RX if n == name)
+
+
+def job_named(question: str) -> str | None:
+    m = _JOB_RX.search(question)
+    if not m:
+        return None
+    if m.group(2):
+        return "Page"
+    word = " ".join(m.group(0).split())
+    word = re.sub(rf"^[והבלמשכ]{{1,2}}(?=[{HE}])", "", word) if re.match(f"[{HE}]", word) else word
+    he = _JOB_HE.get(word) or next((j for k, j in _JOB_HE.items() if word.endswith(k)), None)
+    return he or jobs.canonical_job(_JOB_EN.get(word.lower(), word)) or jobs.canonical_class(_JOB_EN.get(
+        word.lower(), word))
+
+
+def levels(question: str) -> tuple[int | None, int | None, int | None]:
+    """(level, lo, hi): a single level ("ברמה 30", "Lv. 30") or a range ("בין רמה 20 ל-35", "level 30-40")."""
+    m = RANGE.search(question)
+    if m:
+        a, b = (int(g) for g in m.groups() if g)
+        if 1 <= a <= 250 and 1 <= b <= 250:
+            lo, hi = min(a, b), max(a, b)
+            return None, lo, hi
+    for rx in (LEVEL, LOOSE_LEVEL):
+        m = rx.search(question)
+        if m and 1 <= int(m.group(1)) <= 250:
+            return int(m.group(1)), None, None
+    return None, None, None
+
+
+def _map_rows(rows) -> list[dict]:
+    return rows("maps")
+
+
+def named_maps(question: str, mentions: list[str], rows) -> list[str]:
+    """Map keys the question names: a map find_mentions found, else the maps a run of the question's English words
+    is part of ("Ant Tunnel": Ant Tunnel I-IV, Ant Tunnel Park, Deep Ant Tunnel I-II), or a street's maps."""
+    maps = _map_rows(rows)
+    keys = [k for k in mentions if k.startswith("map/")]
+    name = {r["key"]: r["map"] for r in maps}
+    named = {name[k] for k in keys if k in name}
+    phrase, hit = _phrase_maps(question, maps)
+    # "Kerning City Subway" names the street, not the town find_mentions found in it
+    if hit and len(phrase) > max((len(n) for n in named), default=0):
+        return hit
+    # every map of that name (Henesys has 3 "Henesys" maps), the found one first
+    return list(dict.fromkeys(keys + [r["key"] for r in maps if r["map"] in named]))
+
+
+def _phrase_maps(question: str, maps: list[dict]) -> tuple[str, list[str]]:
+    """The longest run of the question's English words that is a street or part of maps' names, and those maps."""
+    for run in re.findall(r"[A-Za-z][A-Za-z'.<>]*(?:[ -][A-Za-z0-9'.<>]+)*", question):
+        words = run.split()
+        for n in range(len(words), 0, -1):
+            for i in range(len(words) - n + 1):
+                phrase = " ".join(words[i:i + n])
+                if all(w.lower() in _NOT_MAP for w in words[i:i + n]) or (n == 1 and len(phrase) < 5):
+                    continue
+                pat = re.compile(rf"(?<![\w']){re.escape(phrase)}(?![\w'])", re.I)
+                street = [r["key"] for r in maps if (r.get("street") or "").lower() == phrase.lower()]
+                hit = street or [r["key"] for r in maps if pat.search(r["map"] or "")
+                                 and (n > 1 or (r["map"] or "").lower().startswith(phrase.lower()))]
+                if hit:
+                    return phrase, hit
+    return "", []
+
+
+def slots(question: str, kb, character=None, rows=None) -> Slots:
+    s = Slots(question=question)
+    fams = [f for f, _ in families(question)]
+    keshet = _KESHET.search(question)
+    s.job = job_named(question)
+    if keshet:
+        if fams or SKILL.search(question) or JOB_TALK.search(question):
+            s.job = s.job or "Bowman"
+        elif "Bow" not in fams:
+            fams.append("Bow")
+    s.families = fams
+    s.level, s.lo, s.hi = levels(question)
+    s.said_level = s.level is not None or s.lo is not None
+    s.personal = bool(PERSONAL.search(question) or MY_LEVEL.search(question))
+    if character and (s.personal or NOW.search(question)) and s.level is None and s.lo is None:
+        s.level = int(character.level or 0) or None
+    # an item named like a family ("Crossbow", "Arrow") is the family's word here, not one item
+    s.entities = [k for k in kb.find_mentions(question, max_results=6)
+                  if not (k.startswith("item/") and any(rx.fullmatch(str((kb.get(k) or {}).get("name", "")))
+                                                        for _, rx, _, _ in _FAMILY_RX))]
+    low = question.lower()
+    s.area = next((a for a in ("Henesys", "Kerning City", "Ellinia", "Perion", "Sleepywood", "Maple Island",
+                               "Florina Beach", "Lith Harbor") if a.lower() in low), None) or \
+        next((v for k, v in AREAS_HE.items() if re.search(_he(re.escape(k)), question)), None)
+    if rows is not None:
+        s.maps = named_maps(question, s.entities, rows)
+    return s
+
+
+def _base(job: str | None) -> str | None:
+    if not job:
+        return None
+    return job if job in jobs.JOBS else jobs.class_of(job)
+
+
+def _player_class(s: Slots, character) -> str | None:
+    """The class an equipment list is for: the one the question names, else the player's when they speak of
+    themselves ("אני", "my")."""
+    if s.job:
+        return _base(s.job) or "Beginner"
+    if character and s.personal:
+        return character.base_class or None
+    return None
+
+
+# ---------------------------------------------------------------- retrieval
+
+def _num(v) -> int:
+    return v if isinstance(v, int) else 0
+
+
+def _stats(r: dict) -> str:
+    labels = (("watk", "W.ATK"), ("matk", "M.ATK"), ("wdef", "W.DEF"), ("mdef", "M.DEF"), ("acc", "ACC"),
+              ("avoid", "AVOID"), ("speed", "SPEED"), ("jump", "JUMP"), ("hp", "HP"), ("mp", "MP"), ("str", "STR"),
+              ("dex", "DEX"), ("int", "INT"), ("luk", "LUK"), ("crit", "CRIT%"))
+    return ", ".join(f"{label} {r[c]:+d}" for c, label in labels if isinstance(r.get(c), int) and r[c])
+
+
+def _reqs(r: dict) -> str:
+    return ", ".join(f"{s.upper()} {r[f'req_{s}']}" for s in ("str", "dex", "int", "luk") if r.get(f"req_{s}"))
+
+
+def _wears(job_cell: str, base: str | None) -> bool:
+    if not base:
+        return True
+    jobs_ = (job_cell or "Any").split("/")
+    return "Any" in jobs_ or base in jobs_
+
+
+def equips(rows, s: Slots, base: str | None) -> Block:
+    slots_ = {v for f in s.families if _kind(f) == "equip" for v in _values(f)}
+    if s.families == ["Weapon"] and base in CLASS_WEAPONS:
+        slots_ &= CLASS_WEAPONS[base]       # "the best weapon for a Thief": claws and daggers, not a Fish Spear
+    out = []
+    for r in rows("equips"):
+        if r["slot"] not in slots_ or not _wears(r["job"], base):
+            continue
+        lv = _num(r.get("req_lv"))
+        if (s.lo is not None and not s.lo <= lv <= s.hi) or (s.level is not None and lv > s.level):
+            continue
+        out.append({**r, "req_lv": lv, "req": _reqs(r), "stats": _stats(r)})
+    weapon = bool(slots_) and slots_ <= set(WEAPONS)
+    if weapon:
+        magic = slots_ <= set(MAGIC_WEAPONS)
+        out.sort(key=lambda r: (-_num(r.get("matk" if magic else "watk")), -r["req_lv"], r["item"]))
+        sort = ("matk" if magic else "watk") + " desc"
+    else:
+        out.sort(key=lambda r: (-r["req_lv"], -_num(r.get("wdef")), r["item"]))
+        sort = "req_lv desc"
+    what = "slot " + "/".join(sorted(slots_)) if len(slots_) < 4 else "weapons"
+    what += f", job {base} or Any" if base else ""
+    what += (f", req_lv {s.lo}-{s.hi}" if s.lo is not None else f", req_lv <= {s.level}" if s.level is not None else "")
+    cols = ("item", *(("slot",) if len(slots_) > 1 else ()), "job", "req_lv", "req", "stats", "slots",
+            *(("attack_speed",) if weapon else ()), "buy", "seller", "key")
+    return Block("equips", cols, out, what, sort, grep=f"grep -P '\\t({'|'.join(sorted(slots_))})\\t' equips.tsv")
+
+
+def _item_match(s: Slots, kind_ok) -> tuple[set[str], set[str], str]:
+    """(item keys, item_type values, description) a relation question is about: the items it names, else the
+    families' types ("Equip / Cape", "Use / Scroll")."""
+    named = {k for k in s.entities if k.startswith("item/")}
+    if named:
+        return named, set(), "items " + ", ".join(sorted(named))
+    types = set()
+    for f in s.families:
+        kind = _kind(f)
+        if not kind_ok(kind):
+            continue
+        if kind == "equip":
+            types |= {f"Equip / {v}" for v in _values(f)}
+        elif kind == "scroll":
+            types.add("Use / Scroll")
+        else:
+            types |= {f"Use / {v}" for v in _values(f)}
+    return set(), types, "item_type " + "/".join(sorted(types))
+
+
+def _slot_filter(s: Slots):
+    """A scroll for a slot ("cape scrolls", "סקרול לכפפות"): the item's name must say the slot."""
+    if "Scroll" not in s.families:
+        return lambda name: True
+    words = [_SCROLL_SLOT.get(v, v) for f in s.families if _kind(f) == "equip" for v in _values(f)]
+    if not words:
+        return lambda name: True
+    return lambda name: any(str(name).lower().startswith(w.lower()) for w in words)
+
+
+def rewards(rows, s: Slots) -> Block | None:
+    keys, types, what = _item_match(s, lambda k: True)
+    if not keys and not types:
+        return None
+    named = _slot_filter(s)
+    # one row per quest: "which quests give scrolls" is 95 reward rows of 38 quests
+    per: dict[str, dict] = {}
+    for r in rows("rewards"):
+        if not (r["item_key"] in keys if keys else r["item_type"] in types) or not named(r["item"]):
+            continue
+        q = per.setdefault(r["quest_key"], {"quest": r["quest"], "quest_level": r["quest_level"], "area": r["area"],
+                                            "items": [], "quest_key": r["quest_key"], "item_keys": []})
+        who = r["for"] if r["for"] and r["for"] != "Any Class" else ""
+        count = f" x{r['count']}" if _num(r["count"]) > 1 else ""
+        q["items"].append(f"{r['item']}{count} ({r['kind']}{', ' + who if who else ''})")
+        q["item_keys"].append(r["item_key"])
+    out = sorted(per.values(), key=lambda r: (_num(r["quest_level"]), r["quest"]))
+    for r in out:
+        r["items"], r["item_keys"] = "; ".join(r["items"]), ",".join(dict.fromkeys(k for k in r["item_keys"] if k))
+    term = next(iter(types), "").split(" / ")[-1] if types else ""
+    return Block("rewards", ("quest", "quest_level", "area", "items", "quest_key", "item_keys"), out, what,
+                 "quest_level", grep=f"grep '{term}' rewards.tsv",
+                 note="items' kind: sure = always given, pick one = the player chooses, random = one of them by chance")
+
+
+def _arrows_fit(s: Slots, item: str) -> bool:
+    """Arrows for the weapon the question means: "חצים לקשת" are the bow's, a Crossbowman's the crossbow's."""
+    if "Arrow" not in s.families or "Arrow" not in str(item):
+        return True
+    xbow = "Crossbow" in s.families or s.job == "Crossbowman"
+    if xbow or "Bow" in s.families or s.job in ("Bowman", "Hunter"):
+        return ("for Crossbows" in item) == xbow
+    return True
+
+
+def shops(rows, s: Slots) -> Block | None:
+    keys, types, what = _item_match(s, lambda k: True)
+    npcs = [k for k in s.entities if k.startswith("npc/")]
+    if not keys and not types and npcs:
+        out = [r for r in rows("shops") if r["npc_key"] in npcs]
+        out.sort(key=lambda r: (r["npc"], str(r["item_type"] or ""), _num(r["price"]), r["item"] or ""))
+        return Block("shops", ("npc", "item", "item_type", "price", "place", "label", "rank", "item_key"), out,
+                     "npc " + ", ".join(npcs), "item_type", grep=f"grep '{npcs[0]}' shops.tsv")
+    if not keys and not types:
+        return None
+    out = [r for r in rows("shops") if (r["item_key"] in keys if keys else r["item_type"] in types)]
+    if not keys:
+        out = [r for r in out if _arrows_fit(s, r["item"])]
+    named = _slot_filter(s)
+    # one row per item, its sellers cheapest first: "where can I buy potions" is 115 shop rows of 30 items
+    per: dict[str, dict] = {}
+    for r in sorted(out, key=lambda r: (_num(r["price"]) or 10 ** 9, r["npc"])):
+        if not named(r["item"]):
+            continue
+        i = per.setdefault(r["item_key"] or r["item"], {"item": r["item"], "item_type": r["item_type"],
+                                                         "price": r["price"], "sellers": [], "label": set(),
+                                                         "item_key": r["item_key"], "npc_keys": []})
+        town = str(r["place"] or "").rsplit(" · ", 1)[-1]
+        price = f" {r['price']}" if r["price"] is not None and r["price"] != i["price"] else ""
+        rank = f", citizen rank {r['rank']}" if r["rank"] else ""
+        i["sellers"].append(f"{r['npc']} ({town}{rank}){price}")
+        i["label"].add(r["label"] or "")
+        i["npc_keys"].append(r["npc_key"])
+    rows_ = sorted(per.values(), key=lambda i: (str(i["item_type"]), _num(i["price"]), i["item"]))
+    for i in rows_:
+        i["sellers"], i["label"] = "; ".join(i["sellers"]), "/".join(sorted(x for x in i["label"] if x))
+        i["npc_keys"] = ",".join(dict.fromkeys(k for k in i["npc_keys"] if k))
+    return Block("shops", ("item", "price", "sellers", "label", "item_key", "npc_keys"), rows_, what,
+                 "item_type, price", grep=f"grep '{next(iter(types), '')}' shops.tsv",
+                 note="price: the cheapest, in mesos; a seller with another price has it after its name")
+
+
+def recipes(rows, s: Slots, uses: bool) -> list[Block]:
+    items = [k for k in s.entities if k.startswith("item/")]
+    if not items:
+        return []
+    if not uses:
+        out = [r for r in rows("recipes") if r["product_key"] in items]
+        cols = ("product", "recipe", "makes", "discipline", "prof_lv", "craft_exp", "meso_cost", "ingredient", "qty",
+                "optional", "ingredient_key", "product_key")
+        return [Block("recipes", cols, out, "product " + ", ".join(items), "recipe",
+                      grep=f"grep '{items[0]}' recipes.tsv")]
+    out = [r for r in rows("recipes") if r["ingredient_key"] in items]
+    out.sort(key=lambda r: (r["discipline"], _num(r["prof_lv"]), r["product"]))
+    used = [r for r in rows("quest_reqs") if r["target_key"] in items]
+    used.sort(key=lambda r: (_num(r["quest_level"]), r["quest"]))
+    return [Block("recipes", ("product", "recipe", "discipline", "prof_lv", "ingredient", "qty", "optional",
+                              "product_key"), out, "ingredient " + ", ".join(items), "discipline, prof_lv",
+                  grep=f"grep '{items[0]}' recipes.tsv"),
+            Block("quest_reqs", ("quest", "quest_level", "kind", "target", "count", "quest_key"), used,
+                  "target " + ", ".join(items), "quest_level")]
+
+
+def quest_needs(rows, s: Slots) -> Block | None:
+    targets = [k for k in s.entities if k.startswith(("monster/", "item/"))]
+    if not targets:
+        return None
+    names = {str((r.get("monster") or "")).lower() for r in rows("monsters") if r["key"] in targets}
+    out = [r for r in rows("quest_reqs")
+           if r["target_key"] in targets or (r["kind"] == "defeat" and str(r["target"]).lower() in names)]
+    out.sort(key=lambda r: (_num(r["quest_level"]), r["quest"]))
+    return Block("quest_reqs", ("quest", "quest_level", "kind", "target", "count", "quest_key", "target_key"), out,
+                 "target " + ", ".join(targets), "quest_level", grep=f"grep '{targets[0]}' quest_reqs.tsv")
+
+
+_QUEST_COLS = ("quest", "level", "area", "npc", "job", "exp", "mesos", "cycle", "after", "rewards", "key")
+
+
+def npc_quests(rows, s: Slots) -> list[Block]:
+    npcs = [k for k in s.entities if k.startswith("npc/")]
+    if not npcs:
+        return []
+    who = [r for r in rows("npcs") if r["key"] in npcs]
+    names = {r["npc"] for r in who}
+    out = [r for r in rows("quests") if r["npc_key"] in npcs or r["turn_in"] in names]
+    out.sort(key=lambda r: (_num(r["level"]), r["quest"]))
+    return [Block("npcs", ("npc", "role", "map", "street", "key", "map_key"), who, "npc " + ", ".join(npcs), "-"),
+            Block("quests", (*_QUEST_COLS[:4], "turn_in", *_QUEST_COLS[4:]), out,
+                  "npc or turn_in " + ", ".join(sorted(names)), "level",
+                  grep=f"grep '{next(iter(names), '')}' quests.tsv")]
+
+
+def _job_ok(job_cell, character, s: Slots) -> bool:
+    """A quest's "Thief only" against the class the question is for (named, else the player's)."""
+    if not job_cell:
+        return True
+    if s.job:
+        base = _base(s.job) or "Beginner"
+    elif character:          # a Thief who is still a Beginner does the "Beginner only" quests
+        base = "Beginner" if character.job == "Beginner" else character.base_class
+    else:
+        return True
+    return job_cell.split()[0] == base
+
+
+def quest_list(rows, s: Slots, character, by_exp: bool) -> Block | None:
+    if s.level is None and s.lo is None and not s.area:
+        return None
+    done = set(getattr(character, "quests_done", None) or ()) if character else set()
+    out = []
+    for r in rows("quests"):
+        lv = _num(r["level"])
+        if (s.area and r["area"] != s.area) or r["key"] in done or not _job_ok(r["job"], character, s):
+            continue
+        if (s.lo is not None and not s.lo <= lv <= s.hi) or (s.level is not None and lv > s.level):
+            continue
+        out.append(r)
+    if by_exp:
+        out.sort(key=lambda r: (-_num(r["exp"]), r["quest"]))
+    else:
+        out.sort(key=lambda r: (-_num(r["level"]), r["quest"]))
+    what = ", ".join(x for x in (f"area {s.area}" if s.area else "",
+                                 f"level {s.lo}-{s.hi}" if s.lo is not None else
+                                 f"level <= {s.level}" if s.level is not None else "",
+                                 "job fits" if character or s.job else "", "not done" if done else "") if x)
+    return Block("quests", _QUEST_COLS, out, what, "exp desc" if by_exp else "level desc",
+                 grep="grep the quests table by its level column")
+
+
+def spawns_in(rows, s: Slots) -> Block | None:
+    if not s.maps:
+        return None
+    here = [r for r in rows("spawns") if r["map_key"] in s.maps]
+    if not here:
+        return None
+    mons = {r["key"]: r for r in rows("monsters")}
+    per: dict[str, dict] = {}
+    for r in sorted(here, key=lambda r: -_num(r["count"])):
+        m = per.setdefault(r["monster_key"], {"monster": r["monster"], "level": r["level"],
+                                              "hp": (mons.get(r["monster_key"]) or {}).get("hp"),
+                                              "exp": (mons.get(r["monster_key"]) or {}).get("exp"),
+                                              "boss": (mons.get(r["monster_key"]) or {}).get("boss"),
+                                              "maps": [], "key": r["monster_key"]})
+        m["maps"].append(f"{r['map']} x{r['count']}")
+    out = sorted(per.values(), key=lambda m: (_num(m["level"]), m["monster"]))
+    for m in out:
+        m["maps"] = "; ".join(m["maps"])
+    names = sorted({r["map"] for r in here})
+    return Block("spawns", ("monster", "level", "hp", "exp", "boss", "maps", "key"), out,
+                 "maps " + ", ".join(names[:8]) + (" ..." if len(names) > 8 else ""), "level",
+                 note="maps: the map and the monster's spawn count there")
+
+
+def training_maps(rows, s: Slots, kb) -> Block | None:
+    lv = s.level if s.level is not None else (s.lo + s.hi) // 2 if s.lo is not None else None
+    if lv is None:
+        return None
+    lo, hi = (s.lo, s.hi) if s.lo is not None else (lv - combat.SPOT_BELOW, lv + combat.SPOT_ABOVE)
+    info = {r["key"]: r for r in rows("maps")}
+    per: dict[str, list[dict]] = {}
+    for r in rows("spawns"):
+        if (r.get("respawn") or 0) < combat.BOSS_RESPAWN and not combat.special_monster(r["monster"]):
+            per.setdefault(r["map_key"], []).append(r)
+    out = []
+    for key, mobs in per.items():
+        m = info.get(key)
+        if not m or combat._NOT_GRIND.search(m["map"]) or m.get("street") == "Hidden Street" and not m.get("exp_hr"):
+            continue
+        count = sum(_num(x["count"]) for x in mobs) or 1
+        near = sum(_num(x["count"]) for x in mobs if lo <= _num(x["level"]) <= hi)
+        if near / count < NEAR_SHARE:
+            continue        # Dangerous Croko II: Lv 21 Jr. Neckis among the Lv 52 Crocos is no Lv 31 map
+        mean = sum(_num(x["level"]) * _num(x["count"]) for x in mobs) / count
+        mobs.sort(key=lambda x: -_num(x["count"]))
+        out.append({**m, "mob_level": round(mean),
+                    "monsters": "; ".join(f"{x['monster']} Lv {x['level']} x{x['count']}" for x in mobs)})
+    out.sort(key=lambda r: (-_num(r.get("exp_hr")), -_num(r.get("spawn_points"))))
+    guide = plan.spots_for(kb, lv, 5)
+    note = ("KB guide's best grind maps for Lv " + str(lv) + ": "
+            + "; ".join(f"{g.map} ({g.mob} Lv {g.mob_level}, {g.exp_hr:,} EXP/hr)" for g in guide)) if guide else ""
+    return Block("maps", ("map", "street", "mob_level", "exp_hr", "exp_rank", "spawn_points", "monsters", "key"), out,
+                 f"most spawns level {lo}-{hi}", "exp_hr desc", grep="grep maps.tsv / spawns.tsv by level",
+                 note=note, cap=TRAIN_CAP)
+
+
+def monsters_by(rows, s: Slots, by_exp: bool) -> Block | None:
+    if s.lo is not None:
+        lo, hi = s.lo, s.hi
+    elif s.level is not None:
+        lo, hi = s.level - combat.SPOT_BELOW, s.level + combat.SPOT_ABOVE
+    else:
+        return None
+    out = [r for r in rows("monsters") if isinstance(r["level"], int) and lo <= r["level"] <= hi
+           and not combat.special_monster(r["monster"]) and r.get("maps")]
+    if by_exp:
+        out.sort(key=lambda r: (-_num(r["exp"]), r["monster"]))
+    else:
+        out.sort(key=lambda r: (_num(r["level"]), r["monster"]))
+    cols = ("monster", "level", "hp", "exp", "hp_per_exp", "acc_needed", "element", "mesos", "boss", "maps", "key")
+    return Block("monsters", cols, out, f"level {lo}-{hi}", "exp desc" if by_exp else "level",
+                 grep="grep monsters.tsv by its level column")
+
+
+def skills_of(rows, s: Slots, character) -> Block | None:
+    job = s.job or (character.job if character and s.personal else None)
+    if not job:
+        return None
+    if job in jobs.JOBS:          # a class: its jobs that are out ("Thief": Thief, Assassin, Bandit)
+        wanted = {j for j, _ in jobs.JOBS[job] if j != "Beginner"} or {job}
+    elif s.job:
+        wanted = {job}
+    else:                         # the player's own: their job line so far (Thief and Assassin, never Bandit)
+        wanted = {j for j in (character.base_class, job) if j and j != "Beginner"} or {"Beginner"}
+    out = [r for r in rows("skills") if r["job"] in wanted]
+    if not out:
+        return None
+    cols = ("skill", "job", "rank", "max_lv", "kind", "mp", "damage", "targets", "cooldown", "element", "weapon",
+            "prerequisite", "effect", "key")
+    return Block("skills", cols, out, "job " + "/".join(sorted(wanted)), "as listed")
+
+
+def scrolls(rows, s: Slots) -> Block | None:
+    slot_words = [_SCROLL_SLOT.get(v, v).lower() for f in s.families if _kind(f) == "equip" for v in _values(f)]
+    stats = [stat for rx, stat in _SCROLL_STAT if rx.search(s.question)]
+    if not slot_words and not stats:
+        return None
+    out = []
+    for r in rows("scrolls"):
+        if slot_words and str(r.get("slot") or "").lower() not in slot_words:
+            continue
+        if stats and not any(re.search(rf"(?<!Magic ){re.escape(st)}\b", r["scroll"]) for st in stats):
+            continue
+        out.append(r)
+    out.sort(key=lambda r: (r.get("slot") or "", r["scroll"]))
+    what = ", ".join(x for x in ("slot " + "/".join(slot_words) if slot_words else "",
+                                 "stat " + "/".join(stats) if stats else "") if x)
+    return Block("scrolls", ("scroll", "slot", "grade", "success", "stats", "buy", "seller", "key"), out, what, "slot",
+                 grep="grep scrolls.tsv")
+
+
+def consumables(rows, s: Slots, cheap: bool) -> Block | None:
+    types = {v for f in s.families if _kind(f) == "use" for v in _values(f)}
+    if not types:
+        return None
+    # "HP potion": HP per meso, an MP one MP per meso, else both together
+    want_hp = bool(re.search(r"\bhp\b|" + _he("חיים"), s.question, re.I))
+    want_mp = bool(re.search(r"\bmp\b|" + _he("מאנה|מנה"), s.question, re.I))
+    out = []
+    for r in rows("consumables"):
+        if r["type"] not in types or not _arrows_fit(s, r["item"]):
+            continue
+        hp = int(r["hp"]) if str(r.get("hp") or "").isdigit() else None
+        mp = int(r["mp"]) if str(r.get("mp") or "").isdigit() else None
+        if (want_hp and not want_mp and not hp) or (want_mp and not want_hp and not mp):
+            continue
+        heal = (hp or 0) * (want_hp or not want_mp) + (mp or 0) * (want_mp or not want_hp)
+        buy = r.get("buy")
+        per = round(heal / buy, 1) if buy and heal else None
+        if s.level is not None and _num(r.get("req_lv")) > s.level:
+            continue
+        out.append({**r, "per_meso": per})
+    if cheap:
+        out.sort(key=lambda r: (r["per_meso"] is None, -(r["per_meso"] or 0)))
+        healed = "HP" if want_hp and not want_mp else "MP" if want_mp and not want_hp else "HP+MP"
+        sort = f"per_meso desc ({healed} per meso at the cheapest NPC)"
+    else:
+        out.sort(key=lambda r: (r["type"], -_num(r.get("req_lv")), r["item"]))
+        sort = "type, req_lv desc"
+    return Block("consumables", ("item", "type", "hp", "mp", "effect", "req_lv", "buy", "per_meso", "seller", "key"),
+                 out, "type " + "/".join(sorted(types)), sort, grep="grep consumables.tsv")
+
+
+# ---------------------------------------------------------------- intent
+
+def _equip_fams(s: Slots) -> bool:
+    return any(_kind(f) == "equip" for f in s.families)
+
+
+def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False) -> Plan | None:
+    """The intent and its table blocks, or None when the question is no list question this planner is sure of.
+    rows: name -> the table's rows (tables.rows on the KB's folder, never building them, by default).
+    reverse: brain's "which monsters drop X" (its drop groups answer that)."""
+    from .brain import DROP_WORDS
+    q = " ".join(question.split())
+    if not q or reverse or SCREEN.search(q) or DROP_WORDS.search(q) or DROPPED.search(q):
+        return None
+    if rows is None:
+        def rows(name, _kb=kb):
+            return tables.rows(_kb, name, build=False)
+    s = slots(q, kb, character, rows)
+    quest, give, sell = bool(QUEST.search(q)), bool(GIVE.search(q)), bool(SELL.search(q))
+    named_items = [k for k in s.entities if k.startswith("item/")]
+
+    def made(intent: str, *blocks, level=None) -> Plan | None:
+        blocks = [b for b in blocks if b is not None]
+        return Plan(intent, blocks, level) if any(b.rows for b in blocks) else None
+
+    if quest:
+        if any(k.startswith("npc/") for k in s.entities):
+            return made("npc_quests", *npc_quests(rows, s))
+        if NEED.search(q) and any(k.startswith(("monster/", "item/")) for k in s.entities):
+            return made("quest_needs", quest_needs(rows, s))
+        if (give or s.families) and (s.families or named_items):
+            return made("quest_rewards", rewards(rows, s))
+        if EXP.search(q) or BEST.search(q) or NOW.search(q) or s.level is not None or s.lo is not None or s.area:
+            return made("quests", quest_list(rows, s, character, bool(EXP.search(q) or BEST.search(q))),
+                        level=s.level)
+        return None
+    if SKILL.search(q) and (s.job or (character and s.personal and LISTQ.search(q))) and not named_items:
+        return made("skills", skills_of(rows, s, character))
+    if USES.search(q) and named_items:
+        return made("ingredient_of", *recipes(rows, s, uses=True))
+    if CRAFT.search(q) and named_items:
+        return made("recipe", *recipes(rows, s, uses=False))
+    if sell and (s.families or named_items or any(k.startswith("npc/") for k in s.entities)):
+        return made("shops", shops(rows, s))
+    if s.maps and (MONSTER.search(q) or WHATS_IN.search(q)) and not s.families:
+        return made("monsters_in_map", spawns_in(rows, s))
+    # "should I grind Blue Snail?" is about that monster: its page answers it
+    if TRAIN.search(q) and (WHERE.search(q) or BEST.search(q) or LISTQ.search(q)) and not s.families and not s.maps \
+            and not any(k.startswith(("monster/", "map/", "item/")) for k in s.entities):
+        b = training_maps(rows, s, kb)
+        return made("training_maps", b, level=s.level if s.level is not None else
+                    (s.lo + s.hi) // 2 if s.lo is not None else None)
+    if MONSTER.search(q) and (EXP.search(q) or s.lo is not None or (s.level is not None and BEST.search(q))) \
+            and not s.families and not named_items and not s.maps:
+        return made("monsters_by_level", monsters_by(rows, s, bool(EXP.search(q) or BEST.search(q))),
+                    level=s.level if s.level is not None else (s.lo + s.hi) // 2 if s.lo is not None else None)
+    if "Scroll" in s.families:
+        return made("scrolls", scrolls(rows, s))
+    if any(_kind(f) == "use" for f in s.families) and not named_items and \
+            (CHEAP.search(q) or BEST.search(q) or LISTQ.search(q) or s.said_level):
+        return made("consumables", consumables(rows, s, bool(CHEAP.search(q) or HEAL.search(q) and BEST.search(q))))
+    if _equip_fams(s) and not named_items and (LISTQ.search(q) or BEST.search(q) or s.said_level):
+        return made("equips", equips(rows, s, _player_class(s, character)))
+    return None
+
+
+def context(question: str, kb, character=None, rows=None, reverse: bool = False) -> tuple[str, Plan | None]:
+    """The prompt block for a question ("" when the planner has nothing sure to add), and its plan."""
+    try:
+        p = plan_for(question, kb, character, rows, reverse)
+    except Exception:          # noqa: BLE001 - the planner only adds context: a bug in it never stops a question
+        import logging
+        logging.getLogger("maplehelper").warning("query planner failed", exc_info=True)
+        return "", None
+    return (p.render(), p) if p else ("", None)

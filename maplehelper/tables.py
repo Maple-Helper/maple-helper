@@ -286,14 +286,29 @@ def _typed(name: str, col: str, v: str):
     return v
 
 
-def rows(kb, name: str) -> list[dict]:
+def ready(kb) -> bool:
+    """kb's folder has current tables, without building them (the query planner reads only what is there: a test's
+    build_prompt on data/kb must never write into it, and the app has ensured them before every question)."""
+    root = Path(kb.root)
+    if _fresh.get(str(root)) == _stats(root):
+        return True
+    if building() or not current(root):
+        return False
+    _fresh[str(root)] = _stats(root)
+    return True
+
+
+def rows(kb, name: str, build: bool = True) -> list[dict]:
     """A table's rows as dicts, numbers typed (int / float, None when empty), read from kb's folder and kept until
-    the file changes. Builds the tables first when they are missing or stale; [] when the file can't be read.
-    KeyError for a table TABLES doesn't have."""
+    the file changes. Builds the tables first when they are missing or stale (build=False: [] instead); [] when the
+    file can't be read. KeyError for a table TABLES doesn't have."""
     if name not in TABLES:
         raise KeyError(name)
     root = Path(kb.root)
-    ensure(kb)
+    if build:
+        ensure(kb)
+    elif not ready(kb):
+        return []
     path = root / f"{name}.tsv"
     try:
         st = path.stat()
@@ -301,13 +316,19 @@ def rows(kb, name: str) -> list[dict]:
         hit = _rows.get((str(root), name))
         if hit and hit[0] == sig:
             return hit[1]
-        lines = path.read_text(encoding="utf-8").splitlines()
+        text = path.read_text(encoding="utf-8")
     except OSError:
         return []
-    cols = lines[0].split("\t") if lines else []
-    out = [{c: _typed(name, c, v) for c, v in zip(cols, ln.split("\t"))} for ln in lines[1:] if ln]
+    out = parse(name, text)
     _rows[(str(root), name)] = (sig, out)
     return out
+
+
+def parse(name: str, text: str) -> list[dict]:
+    """A table file's text (tsv()) as rows() gives it: dicts, numbers typed."""
+    lines = text.splitlines()
+    cols = lines[0].split("\t") if lines else []
+    return [{c: _typed(name, c, v) for c, v in zip(cols, ln.split("\t"))} for ln in lines[1:] if ln]
 
 
 def prompt_note() -> str:
