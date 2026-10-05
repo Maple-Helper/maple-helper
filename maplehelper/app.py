@@ -29,6 +29,8 @@ INSTANCE_SERVER = "MapleHelper-" + (os.environ.get("USERNAME") or os.environ.get
 BACKGROUND_ARG = "--background"   # start in the tray only (autostart at login, silent updates)
 UPDATED_ARG = "--updated"         # the installer reopens the app with it after "Update now": show what's new
 KB_RETRY_MS = 5 * 60 * 1000      # a failed or postponed KB update tries again this soon (then doubling)
+KB_CHECK_MS = 60 * 60 * 1000     # an open app looks for a new KB (and app release) this often: the night's KB within
+                                 # the hour (only a small manifest is read when there is nothing new)
 # the .ico carries every Windows size; macOS draws the menu bar and Dock from a PNG
 APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
@@ -199,8 +201,8 @@ class MapleHelperApp:
         QTimer.singleShot(9000, _remove_stray_screenshots)
         from . import inventory     # the icon index for "check the inventory", built before it's needed
         QTimer.singleShot(10000, lambda: threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start())
-        # a session can run for hours: look again every 3 hours
-        self._update_timer = QTimer(interval=3 * 60 * 60 * 1000, timeout=self.check_kb_update_silently)
+        # a session can run for hours: look again every hour
+        self._update_timer = QTimer(interval=KB_CHECK_MS, timeout=self.check_kb_update_silently)
         self._update_timer.start()
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
@@ -648,7 +650,7 @@ class MapleHelperApp:
 
     def _stop_ai_for_kb_swap(self) -> bool:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
-        player is waiting on an answer (then the 3-hourly timer tries again later)."""
+        player is waiting on an answer (then _retry_kb_update tries again in a few minutes)."""
         if self.overlay.busy or getattr(self.overlay, "_syncing", False):
             return False
         self.brain.drop_warm()      # not shutdown(): that also cancels, and a question may start right now
@@ -689,9 +691,9 @@ class MapleHelperApp:
         threading.Thread(target=self.brain.prewarm, daemon=True).start()     # whatever happened, warm again
 
     def _retry_kb_update(self, status: str):
-        """A failed or postponed update tries again in minutes, not at the 3-hourly check: the night's KB reached
-        the player hours late (the AI's warm process held the folder at the start-up check). 5, 10, 20… minutes,
-        never more often than that, so a lasting fault doesn't download 20 MB again and again."""
+        """A failed or postponed update tries again in minutes, not at the next hourly check: the night's KB
+        reached the player hours late (the AI's warm process held the folder at the start-up check). 5, 10, 20…
+        minutes, never more often than that, so a lasting fault doesn't download 20 MB again and again."""
         if status in ("updated", "uptodate"):
             self._kb_retries = 0
             return
@@ -699,13 +701,13 @@ class MapleHelperApp:
         delay = KB_RETRY_MS * 2 ** n
         timer = getattr(self, "_update_timer", None)
         if timer is not None and delay >= timer.interval():
-            return                          # the 3-hourly check is as soon by now
+            return                          # the hourly check is as soon by now
         self._kb_retries = n + 1
         QTimer.singleShot(delay, self.main_thread, lambda: self._update_kb_in_background(interactive=False))
 
     def announce_update(self, version: str, url: str):
         if getattr(self, "_mac_announced", None) == version:
-            return                       # the 3-hourly check found the same version again
+            return                       # the hourly check found the same version again
         self._mac_announced, self._announced_url = version, url
         t = I18n(self.settings["language"])
         self.toast(t("update_available", version=version), t("update_available_mac" if osapi.IS_MAC else "update_available_win"),

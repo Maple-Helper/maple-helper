@@ -120,3 +120,12 @@ def test_a_deleted_picker_never_fits_its_list(qapp, monkeypatch):
         QCoreApplication.sendPostedEvents(None, QEvent.DeferredDelete)
         QCoreApplication.processEvents()
     assert errors == []
+
+
+def test_an_open_app_checks_every_hour_and_retries_within_it(qapp, monkeypatch):
+    assert app.KB_CHECK_MS == 60 * 60 * 1000
+    fake, shots = _fake_app(qapp, monkeypatch)
+    fake._update_timer.setInterval(app.KB_CHECK_MS)
+    for _ in range(10):
+        app.MapleHelperApp._retry_kb_update(fake, "failed")
+    assert shots == [5 * 60 * 1000, 10 * 60 * 1000, 20 * 60 * 1000, 40 * 60 * 1000]
