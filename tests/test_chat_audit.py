@@ -86,7 +86,7 @@ def test_continue_from_another_characters_history_switches_to_it_first():
     def switch(cid):
         calls.append(("switch", cid))
         profiles.active = SimpleNamespace(id=cid)
-    ov = SimpleNamespace(isVisible=lambda: True, _is_busy=lambda: False, switch_character=switch,
+    ov = SimpleNamespace(isVisible=lambda: True, is_open=lambda: True, _is_busy=lambda: False, switch_character=switch,
                          continue_from=lambda *a: calls.append("continue"))
     fake = SimpleNamespace(overlay=ov, profiles=profiles,
                            _windows={"history:A": SimpleNamespace(close=lambda: calls.append("closed A"))})
@@ -453,7 +453,7 @@ class _Sig(QObject):
 def test_tray_open_never_closes_an_open_chat():
     from maplehelper.app import MapleHelperApp
     calls = []
-    ov = SimpleNamespace(isVisible=lambda: True, windowOpacity=lambda: 1.0, toggle=lambda c: calls.append("toggle"),
+    ov = SimpleNamespace(is_open=lambda: True, toggle=lambda c: calls.append("toggle"),
                          raise_=lambda: calls.append("raise"), activateWindow=lambda: calls.append("activate"))
     MapleHelperApp.show_chat(SimpleNamespace(overlay=ov, capture=None))
     assert calls == ["raise", "activate"]
