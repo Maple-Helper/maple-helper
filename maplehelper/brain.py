@@ -11,7 +11,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-from . import availability, news, official, providers, routes, sitedata, sources, tables
+from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase
 from .store import Character, History
@@ -173,6 +173,9 @@ REPLY_RULES = """<reply_rules>
   (one from the conversation) instead; if no name matches, say so and ask.
 - "Send me a picture of X": the app shows X's picture on its card under the answer. Find X, put its key in META
   entities, and say in a line that its picture is in the card below; never say you can't send pictures.
+- A <table_rows complete="yes"> block is every KB row matching the question: answer from it with no tool call and
+  name every row that answers it (a long list: how many, then the best ones); complete="no" holds the best rows first.
+  Put the keys of the rows you name in META entities.
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
   page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
@@ -315,8 +318,13 @@ def build_prompt(question: str, character: Character | None, history: History | 
                           f"<question>\n{question}\n</question>", language,
                           REPLY_RULES.format(length=LENGTH_LINES["short"])]
         return "\n\n".join(parts + question_parts)
-    if character:
-        digest = kb.level_digest(character.level)
+    reverse = is_reverse(question, kb)
+    # a list / filter question ("which quests give capes", "gloves for a Lv. 30 Thief"): its table rows, all of them
+    rows_block, plan = planner.context(question, kb, character, reverse=reverse)
+    # "where to grind at level 45" is about level 45, whatever the profile says
+    level = plan.level if plan and plan.level else character.level if character else None
+    if level:
+        digest = kb.level_digest(level)
         if digest:
             ctx.append(digest)
     tagged = [k for k in ([focus] if isinstance(focus, str) else (focus or [])) if k and kb.get(k)]
@@ -335,7 +343,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
     way = routes.ai_context(kb, question, character, tagged)
     if way:
         ctx.append(way)
-    if is_reverse(question, kb):
+    if reverse:
         items = item_keys_for_question(question, kb)
         groups = kb.drop_groups(items, limit=10)
         if groups:
@@ -351,6 +359,8 @@ def build_prompt(question: str, character: Character | None, history: History | 
                                             if i in g.get("votes", {}) else "") + ")"
                                          for i in g["items"]))
             ctx.append("\n".join(lines))
+    if rows_block:
+        ctx.append(rows_block)
     for key in kb.find_mentions(question, max_results=4):
         body = _page(kb, key, 2500)
         if body:
