@@ -2,9 +2,9 @@
   <img src="assets/brand/wordmark.png" width="320" alt="Maple Helper">
 </p>
 
-<p align="center"><b>Your personal Maple Story Classic World assistant</b></p>
+<p align="center"><b>Your personal MapleStory Classic World assistant</b></p>
 
-<p align="center"><sub>Unofficial companion for Maple Story Classic World · Not affiliated with Nexon</sub></p>
+<p align="center"><sub>Unofficial companion for MapleStory Classic World · Not affiliated with Nexon</sub></p>
 
 <p align="center">
   <a href="https://github.com/Maple-Helper/maple-helper/releases/latest"><img src="https://img.shields.io/badge/Download-Windows%20installer-2ea44f?style=for-the-badge&logo=windows&logoColor=white" alt="Download the Windows installer"></a>
@@ -29,7 +29,7 @@
 
 ## About
 
-Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of Maple Story Classic World. Press **F9** to open it, then type a question or press **F10** to speak (press again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
+Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Press **F9** to open it, then type a question or press **F10** to speak (press again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
 
 Use it to look up drops, find quest NPCs, or ask where to train without switching away from the game. The **play tools** window adds calculators and planners that read the same database: where to train, hit and damage, your build, quests for your level, crafting, citizenship and prices.
 
@@ -239,7 +239,7 @@ The app uses screen capture and its own overlay window. It does not read game me
   - **ChatGPT**: a paid ChatGPT plan or an OpenAI API key (the app installs and signs in to OpenAI's official tool, the Codex CLI, for you). ChatGPT answers appear all at once instead of streaming.
   - **Gemini**: a personal Google account or a Gemini API key. The app installs Google's official tool, Antigravity (since June 2026 Google serves personal accounts only through it), and signs you in: after signing in to Google in the browser, you paste the code it shows into the app, within a minute.
   - **Grok**: a Grok account (a free one works, with a limited quota; SuperGrok or X Premium+ gives more), or an xAI API key. The app installs xAI's official tool, Grok Build, and signs you in: you approve the sign-in in the browser (the code is filled in).
-- Maple Story Classic World running in **Borderless** or **Windowed Fullscreen** mode.
+- MapleStory Classic World running in **Borderless** or **Windowed Fullscreen** mode.
 - An internet connection for AI responses and initial data downloads.
 - A microphone if you want to use voice input.
 
@@ -260,7 +260,7 @@ The Mac app is not notarized by Apple yet, so macOS blocks the first launch. Ope
 
 Maple Helper lives in the menu bar (there is no Dock icon). Allow **Screen Recording** when it asks (or under **System Settings → Privacy & Security → Screen Recording**), then restart the app: that is how it sees the game window. The hotkeys are ordinary system shortcuts and need no permission.
 
-Maple Story Classic World runs on Mac too. Maple Helper finds the game window by its title.
+MapleStory Classic World runs on Mac too. Maple Helper finds the game window by its title.
 
 On most Mac keyboards, the F-keys control brightness and volume. Hold **fn** while pressing them, or turn on **System Settings → Keyboard → Keyboard Shortcuts → Function Keys → Use F1, F2, etc. keys as standard function keys**.
 
@@ -340,4 +340,4 @@ For a small knowledge-base download during development, limit the scraper to fiv
 - Game data and images: [NiaMeowDB](https://meowdb.com), used with permission. Game assets belong to their rights holders.
 - Font: [Rubik](https://fonts.google.com/specimen/Rubik), distributed under the [SIL Open Font License](assets/fonts/OFL.txt).
 - Speech recognition: [ivrit.ai](https://huggingface.co/ivrit-ai) Whisper models.
-- Maple Story Classic World is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.
+- MapleStory Classic World is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.
