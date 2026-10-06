@@ -8,15 +8,17 @@ silently and every clip took 5-11 s on the CPU instead of ~0.15 s (measured on a
 """
 from __future__ import annotations
 
+import errno
 import hashlib
 import logging
 import os
+import re
 import sys
 import threading
 import zipfile
 
 import numpy as np
-from PySide6.QtCore import QObject, Signal
+from PySide6.QtCore import QObject, QTimer, Signal
 
 from .store import DATA_DIR
 
@@ -25,6 +27,7 @@ log = logging.getLogger("maplehelper")
 MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-ct2"
 SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.4
+MAX_SECONDS = 60          # a talk key pressed by mistake recorded forever (~230 MB an hour, audit SCR-11)
 
 # NVIDIA's own wheel on PyPI; only its two DLLs are kept. CUDA 12 matches CTranslate2 4.x.
 CUBLAS_URL = ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/"
@@ -74,12 +77,38 @@ def download_gpu_libs():
         with zipfile.ZipFile(part) as z:
             for name in CUBLAS_DLLS:
                 tmp = folder / (name + ".part")
-                with z.open(f"nvidia/cublas/bin/{name}") as src, open(tmp, "wb") as dst:
-                    while chunk := src.read(1 << 20):
-                        dst.write(chunk)
+                try:
+                    with z.open(f"nvidia/cublas/bin/{name}") as src, open(tmp, "wb") as dst:
+                        while chunk := src.read(1 << 20):
+                            dst.write(chunk)
+                except BaseException:
+                    tmp.unlink(missing_ok=True)     # a full disk left hundreds of MB behind (audit SCR-8)
+                    raise
                 os.replace(tmp, folder / name)      # a DLL is either whole or absent
     finally:
         part.unlink(missing_ok=True)
+
+
+_NETWORK_ERRORS = ("URLError", "ConnectionError", "ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout",
+                   "TimeoutError", "gaierror", "LocalEntryNotFoundError", "OfflineModeIsEnabled")
+# what Hugging Face says offline, whatever wraps it: "cannot find the appropriate snapshot folder ... local cache"
+_OFFLINE_TEXT = re.compile(r"snapshot folder|local cache|offline|internet connection|connection (?:error|refused)",
+                           re.IGNORECASE)
+
+
+def download_problem(e: BaseException) -> str:
+    """Why a model download failed, for the chat's line: "nospace" (a full disk), "download" (no connection), or ""
+    (anything else: the plain "try again")."""
+    seen = set()
+    while e is not None and id(e) not in seen:
+        seen.add(id(e))
+        if isinstance(e, OSError) and e.errno == errno.ENOSPC:
+            return "nospace"
+        if any(type(e).__name__ == n for n in _NETWORK_ERRORS) or isinstance(e, (ConnectionError, TimeoutError)) \
+                or _OFFLINE_TEXT.search(str(e)):
+            return "download"
+        e = e.__cause__ or e.__context__
+    return ""
 
 
 def use_gpu_libs():
@@ -160,14 +189,18 @@ class Transcriber:
                         log.warning("voice: cuBLAS download failed, using the CPU: %s", e)
                 if gpu_libs_ready():
                     use_gpu_libs()
-                    try:
-                        model = WhisperModel(MODEL_ID, device="cuda", compute_type="float16", download_root=root)
-                        # a tiny decode proves the GPU runtime actually works (segments are lazy: list() runs it)
-                        list(model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32), language="en")[0])
-                        self._model = model
-                        return
-                    except Exception as e:      # noqa: BLE001
-                        log.warning("voice: GPU failed, using the CPU: %s", e)
+                    # float16 needs a GPU of compute capability 7.0+; a GTX 10-series refuses it but runs int8
+                    # (it went to the CPU after the cuBLAS download, audit SCR-9)
+                    for compute in ("float16", "int8_float32"):
+                        try:
+                            model = WhisperModel(MODEL_ID, device="cuda", compute_type=compute, download_root=root)
+                            # a tiny decode proves the GPU runtime actually works (segments are lazy: list() runs it)
+                            list(model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32), language="en")[0])
+                            self._model = model
+                            return
+                        except Exception as e:      # noqa: BLE001
+                            log.warning("voice: GPU (%s) failed: %s", compute, e)
+                    log.warning("voice: using the CPU")
             self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root)
 
     def transcribe(self, audio: np.ndarray, language: str | None = None) -> str:
@@ -236,6 +269,9 @@ class VoiceController(QObject):
             self.failed.emit(f"mic: {e}")      # not kept: the next press starts again instead of "stopping"
             return
         self._stream = stream
+        if not hasattr(self, "_limit"):
+            self._limit = QTimer(self, singleShot=True, interval=MAX_SECONDS * 1000, timeout=self._stop)
+        self._limit.start()            # stops and sends what was said, as a second press would
         self.started.emit()
         self.state.emit("listening")
 
@@ -243,6 +279,8 @@ class VoiceController(QObject):
         if not self._stream:
             return
         stream, self._stream = self._stream, None      # cleared first: an unplugged mic can't wedge it
+        if hasattr(self, "_limit"):
+            self._limit.stop()
         try:
             stream.stop()
             stream.close()
@@ -270,8 +308,9 @@ class VoiceController(QObject):
             self.text.emit(out)
         except Exception as e:
             # the model isn't on disk after the attempt: its one-time download failed (offline, most often), and
-            # "try again in a moment" would only fail again
-            self.failed.emit(("download: " if not self.transcriber.downloaded() else "") + str(e))
+            # "try again in a moment" would only fail again. A full disk isn't "connect to the internet" (audit SCR-10)
+            kind = download_problem(e) if not self.transcriber.downloaded() else ""
+            self.failed.emit((f"{kind}: " if kind else "") + str(e))
         finally:
             # a new recording may have started while this clip was transcribed: the mic is live, and "idle" turned
             # its light and the "listening" hint off while it kept recording

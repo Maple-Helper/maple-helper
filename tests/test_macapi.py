@@ -101,6 +101,9 @@ def test_browser_and_discord_alone_are_not_the_game():
              win(22, "MapleStory Classic guide", "Safari"), win(23, "", "Discord"),
              win(24, "MapleStory Classic guide — Arc", "Arc"), win(25, "MapleStory", "Finder")]
     assert macapi.pick_game_window(infos, OWN_PID) is None
+    # a terminal or a player at a MapleStory file (audit SCR-2)
+    infos = [win(26, "maplestory — -zsh", "Terminal"), win(27, "MapleStory_BGM.mp3", "VLC")]
+    assert macapi.pick_game_window(infos, OWN_PID) is None
 
 
 def test_the_games_own_name_wins_over_a_separator_title():

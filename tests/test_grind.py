@@ -68,6 +68,22 @@ def test_one_read_no_gain_and_past_the_table(math):
     assert sm.exp is None and sm.exp_note == "no_exp" and sm.mesos == 300 and sm.mesos_h == 600
 
 
+def test_one_misread_at_either_end_is_not_the_sessions_gain(math):
+    """A level or a mesos sum misread at the first or last read (audit SCR-6)."""
+    ok = (read(0, 21, 10.0, mesos=1_234_567), read(10, 21, 30.0, mesos=1_300_000), read(20, 21, 60.0, mesos=1_350_000))
+    sm = grind.summarize(math, session(*ok))
+    assert sm.exp == 600 and sm.mesos == 115_433
+    # Lv. 12 dropped (600); the second's 70% is a fine read (720), only its mesos are off
+    for bad_end, exp in ((read(30, 12, 70.0, mesos=11_350_000), 600), (read(30, 21, 70.0, mesos=135_000), 720)):
+        sm = grind.summarize(math, session(*ok, bad_end))
+        assert sm.exp == exp and sm.mesos == 115_433 and sm.level_to == 21
+    sm = grind.summarize(math, session(read(0, 23, 10.0, mesos=12_345_670), *ok[1:]))     # the first read misread
+    assert sm.exp == 360 and sm.mesos == 50_000 and sm.level_from == 21
+    # a real level up still counts, two of them in half an hour too
+    sm = grind.summarize(math, session(read(0, 20, 90.0), read(30, 22, 10.0)))
+    assert sm.level_to == 22 and sm.exp
+
+
 def test_a_read_that_missed_the_exp_bar_keeps_the_last_one_that_had_it(math):
     s = session(read(0, 21, 10.0), read(30, 21, 60.0), read(40, None, None, mesos=5))
     sm = grind.summarize(math, s, now=1_000_000 + 40 * 60)
@@ -474,7 +490,7 @@ def test_a_session_left_idle_does_not_start_reading_by_itself(runner):
     assert r.timer.isActive()
 
 
-@pytest.mark.parametrize("case", ["busy", "no_game", "covered", "read"])
+@pytest.mark.parametrize("case", ["busy", "modal", "no_game", "covered", "read"])
 def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypatch, case):
     from unittest.mock import Mock
 
@@ -506,6 +522,12 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
     win.setWindowOpacity(1.0)
     if case == "busy":
         win.busy = True
+    dialog = None
+    if case == "modal":            # Edit character open: hiding it would cancel its exec() (audit OVL-1)
+        from PySide6.QtWidgets import QDialog
+        dialog = QDialog()
+        dialog.setModal(True)
+        dialog.show()
     try:
         win.auto_grind_read()
         deadline = time.monotonic() + 5
@@ -519,14 +541,35 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
             assert skipped == [] and finished == [True] and got[0][1] == {"exp_percent": 40.0}
             assert brain.ask.call_args.kwargs.get("model") is None and brain.ask.call_args.kwargs["light"]
         else:
-            assert skipped == [case] and finished == [] and not brain.ask.called
+            assert skipped == ["busy" if case == "modal" else case] and finished == [] and not brain.ask.called
+        if dialog is not None:
+            assert dialog.isVisible()
     finally:
+        if dialog is not None:
+            dialog.close()
         from shiboken6 import isValid
         thread = getattr(win, "_sync_thread", None)
         if thread is not None and isValid(thread):
             thread.quit()
             thread.wait(2000)
         win.deleteLater()
+
+
+def test_windows_over_maps_each_screen_from_its_own_origin(monkeypatch):
+    """A window on a scaled second monitor: native = origin + (logical - origin) * ratio (audit SCR-4)."""
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui import overlay
+    monkeypatch.setattr(overlay.osapi, "SCREEN_COORDS_ARE_PHYSICAL", True)
+    screen = SimpleNamespace(geometry=lambda: QRect(2560, 0, 1707, 960), devicePixelRatio=lambda: 1.5)
+    win = SimpleNamespace(isVisible=lambda: True, windowOpacity=lambda: 1.0, isMinimized=lambda: False,
+                          frameGeometry=lambda: QRect(QPoint(2627, 100), QPoint(2627 + 299, 299)), screen=lambda: screen)
+    monkeypatch.setattr(QApplication, "topLevelWidgets", staticmethod(lambda: [win]))
+    assert overlay.windows_over((2600, 0, 400, 400)) == [win]        # native x 2660: over the game there
+    assert overlay.windows_over((3900, 0, 400, 400)) == []           # not where logical * 1.5 put it
 
 
 def test_windows_over_the_game_step_aside(monkeypatch):

@@ -182,3 +182,102 @@ def test_transcription_language_and_its_word_list(monkeypatch):
     assert seen["language"] == "he" and "לבל" in seen["initial_prompt"]
     t.transcribe(None, None)
     assert seen["language"] is None
+
+
+def test_a_full_disk_mid_extraction_leaves_no_part_file(tmp_path, monkeypatch):
+    """audit SCR-8: the DLL being written when the disk filled up stayed as a .part of hundreds of MB."""
+    import builtins
+    import errno
+    import hashlib
+    import io
+    import urllib.request
+    import zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name in voice.CUBLAS_DLLS:
+            z.writestr(f"nvidia/cublas/bin/{name}", name)
+    wheel = buf.getvalue()
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(voice, "CUBLAS_SHA256", hashlib.sha256(wheel).hexdigest())
+    monkeypatch.setattr(urllib.request, "urlopen", lambda req, timeout: io.BytesIO(wheel))
+    real_open = builtins.open
+
+    class Full(io.BytesIO):
+        def write(self, b):
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+    def fake_open(path, mode="r", *a, **kw):
+        if str(path).endswith(voice.CUBLAS_DLLS[1] + ".part"):
+            real_open(path, mode).close()          # created, then the disk is full
+            return Full()
+        return real_open(path, mode, *a, **kw)
+    monkeypatch.setattr(builtins, "open", fake_open)
+    with pytest.raises(OSError):
+        voice.download_gpu_libs()
+    assert [p.name for p in voice.cuda_dir().iterdir()] == [voice.CUBLAS_DLLS[0]]
+
+
+def test_an_older_gpu_tries_int8_before_the_cpu(monkeypatch):
+    """audit SCR-9: a GTX 10-series refuses float16 but runs int8_float32."""
+    import types
+    tried = []
+
+    class Model:
+        def __init__(self, model_id, device, compute_type, download_root):
+            tried.append((device, compute_type))
+            if compute_type == "float16":
+                raise ValueError("Requested float16 compute type, but the target device does not support it")
+
+        def transcribe(self, *a, **kw):
+            return [], None
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=Model))
+    monkeypatch.setattr(voice, "has_nvidia", lambda: True)
+    monkeypatch.setattr(voice, "gpu_libs_ready", lambda: True)
+    monkeypatch.setattr(voice, "use_gpu_libs", lambda: None)
+    t = voice.Transcriber()
+    t.load()
+    assert tried == [("cuda", "float16"), ("cuda", "int8_float32")] and t.loaded()
+
+
+def test_a_failed_download_says_why():
+    """audit SCR-10: a full disk was reported as "needs an internet connection"."""
+    import errno
+    import socket
+    import urllib.error
+    assert voice.download_problem(OSError(errno.ENOSPC, "No space left on device")) == "nospace"
+    assert voice.download_problem(urllib.error.URLError("offline")) == "download"
+    assert voice.download_problem(socket.gaierror("no dns")) == "download"
+    try:
+        try:
+            raise ConnectionResetError("reset")
+        except ConnectionResetError as inner:
+            raise RuntimeError("download failed") from inner
+    except RuntimeError as wrapped:
+        assert voice.download_problem(wrapped) == "download"
+    assert voice.download_problem(PermissionError(errno.EACCES, "denied")) == ""
+    assert voice.download_problem(ValueError("HTTP 503")) == ""
+
+
+def test_recording_stops_by_itself_after_a_minute(monkeypatch):
+    """audit SCR-11: a talk key pressed by mistake recorded (and kept in memory) until the next press."""
+    class Stream:
+        def __init__(self, **kw):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self):
+            pass
+
+        def close(self):
+            pass
+    monkeypatch.setitem(sys.modules, "sounddevice", type("SD", (_SD,), {"InputStream": Stream}))
+    monkeypatch.setattr(voice.sys, "platform", "win32")
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    vc = voice.VoiceController()
+    vc._start()
+    assert vc._limit.isActive() and vc._limit.interval() == voice.MAX_SECONDS * 1000
+    vc._limit.timeout.emit()
+    assert vc._stream is None and not vc._limit.isActive()

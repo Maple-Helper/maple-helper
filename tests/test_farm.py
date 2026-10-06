@@ -42,6 +42,14 @@ def test_droppers_put_community_sightings_first_and_say_how_they_fit(kb):
             assert d.vote == kb.community_vote(d.key, key)
 
 
+@needs_kb
+def test_a_monster_only_in_a_party_quest_says_where_it_is(kb):
+    """King Slime lives only on KPQ's last stage: it was listed with no map as a farm (audit GAM-11)."""
+    for item in ("item/429", "item/1368"):                       # Coupon, Squishy Shoes (the players' list)
+        king = next(d for d in farm.droppers(kb, item, 25) if d.key == "monster/800003")
+        assert king.closed and king.boss and "Accompaniment" in king.map
+
+
 def test_fit_by_level():
     assert farm.fit(30, 30) == "easy" and farm.fit(30, 12) == "easy"
     assert farm.fit(30, 30 + combat.SPOT_ABOVE) == "range"
@@ -153,6 +161,13 @@ def test_records_count_every_session_on_the_monster():
     out = farm.records(rows)
     assert [(r.item, r.got, r.kills, r.sessions, r.every) for r in out] == [
         ("Cap", 4, 200, 2, 50), ("Leather", 1, 200, 2, 200)]
+
+
+def test_a_drop_rate_at_or_above_one_a_kill_is_per_kill():
+    """3 drops in 1 kill said nothing, 3 in 2 "once every 2 kills" (audit GAM-10)."""
+    assert (farm.Record("x", "y", 3, 1, 1).every, farm.Record("x", "y", 3, 1, 1).per_kill) == (None, 3.0)
+    assert (farm.Record("x", "y", 3, 2, 1).every, farm.Record("x", "y", 3, 2, 1).per_kill) == (None, 1.5)
+    assert (farm.Record("x", "y", 2, 3, 1).every, farm.Record("x", "y", 2, 3, 1).per_kill) == (2, None)
 
 
 def test_inventory_hint_names_etc_and_equip_slots(monkeypatch):

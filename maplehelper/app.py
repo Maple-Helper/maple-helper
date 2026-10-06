@@ -392,7 +392,8 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         key = ("voice_mic_failed" if error.startswith("mic:") else
-               "voice_download_failed" if error.startswith("download:") else "voice_failed")
+               "voice_download_failed" if error.startswith("download:") else
+               "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
 
     def on_voice_text(self, text: str):
@@ -655,7 +656,8 @@ class MapleHelperApp:
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
             return      # a run from source would replace the installed app's Run value with "python -m maplehelper"
         # the setting means "start at login" on macOS (named before macOS support)
-        if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False:
+        # Windows says False too when the Run key couldn't be written (logged there): the macOS text isn't for it
+        if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False and osapi.IS_MAC:
             t = I18n(self.settings["language"])     # macOS, run from the disk image: the login item would break
             self.toast(t("start_at_login"), t("start_at_login_move"), timeout_ms=15000)
 

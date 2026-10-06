@@ -221,6 +221,19 @@ def test_real_etc_items_with_counts_are_named():
         (9, "Red Snail Shell"), (10, "Silver Ore"), (11, "Squishy Liquid"), (13, "Orange Mushroom Cap")]
 
 
+@needs_kb
+@pytest.mark.parametrize("scale,resample", [(0.5, Image.BILINEAR), (0.5, Image.LANCZOS), (0.6, Image.BILINEAR),
+                                            (0.6, Image.LANCZOS)])
+def test_a_small_window_still_names_items_with_counts(scale, resample):
+    """~42-50 px slots: the counted items went "unknown" (audit SCR-15). Never a wrong name either way."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    full = {s.index: s.matches[0][0] for s in inventory.read(Image.open(ETC), kb)}
+    im = Image.open(ETC).convert("RGB")
+    small = inventory.read(im.resize((round(im.width * scale), round(im.height * scale)), resample), kb)
+    assert {s.index: s.matches[0][0] for s in small if s.status == "certain"} == full
+
+
 def test_a_count_is_hidden_whole():
     """The count's digits stand a few pixels apart at a big scale: the box reaches the last one."""
     c = np.asarray(Image.open(ETC).convert("RGB"))

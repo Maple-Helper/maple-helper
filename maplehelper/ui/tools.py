@@ -1974,7 +1974,7 @@ class ToolsDialog(GlassDialog):
             self._no_character(self.craft_list)
             return
         every = self.craft_recipe_mode.value() == "all"
-        _, nxt = crafting.for_level(self.kb, prof, lv)
+        nxt = crafting.next_level(self.kb, prof, lv) if lv < top else None
         # everything you can craft so far (newest level first), or every recipe (first level first)
         recipes = crafting.up_to(self.kb, prof, top if every else lv)
         if every:
@@ -1982,9 +1982,8 @@ class ToolsDialog(GlassDialog):
         self.craft_search.set_rows([(f"{r.name}  ·  {t('craft_level_group', n=r.level)}", r.name,
                                      self._picture_path("item", r.name)) for r in recipes])
         head = t("craft_head_all" if every else "craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
-        if nxt and nxt.needs_exp:
-            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
-                              char=nxt.char_level or "?")
+        if nxt:
+            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt[0], exp=f"{nxt[1]:,}", char=nxt[2] or "?")
         self._set(self.craft_head, head)
         # a chip a level ("רמה 4"), as on the quests page: a tap shows that level's recipes
         levels: dict[int, int] = {}
@@ -3251,7 +3250,7 @@ class ToolsDialog(GlassDialog):
             mt.setToolTip(tip_html(mesos_tip(t, d.mesos), t.rtl))
             chips.addWidget(mt)
         col.addLayout(chips)
-        col.addLayout(self._farm_links(d.key, d.name, d.map, d.boss))
+        col.addLayout(self._farm_links(d.key, d.name, "" if d.closed else d.map, d.boss))     # no way to walk there
         row.addLayout(col, 1)
         return card
 
@@ -3543,6 +3542,8 @@ class ToolsDialog(GlassDialog):
             bits = [bidi.ltr_block(f"{r.monster}: {r.item} ×{r.got}", t.rtl)]
             if r.every:
                 bits.append(t("farm_every", n=f"{r.every:,}"))
+            elif r.per_kill:
+                bits.append(t("farm_per_kill", n=f"{r.per_kill:.1f}"))
             bits.append(t("farm_sessions", n=r.sessions))
             self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
         self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))

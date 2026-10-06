@@ -488,6 +488,36 @@ def test_ayashii_via_sync_is_offered_not_renamed(overlay):
     assert (c.name, c.level) == ("Ayash", 131)
 
 
+MISREADS = ({"name": "Elipaz", "level": 10, "job": "Beginner", "base_class": "Beginner"},   # the owner's "Beginner 10"
+            {"level": 3, "exp_percent": 12.5}, {"job": "Thief", "level": 32}, {"job": "Bandit", "level": 32},
+            {"job": "Cleric", "level": 32}, {"base_class": "Beginner"})
+
+
+@pytest.mark.parametrize("update", MISREADS)
+def test_a_sync_read_asks_before_a_demotion(overlay, update):
+    """⟳ that reads a lower level, another class or a job back/sideways asks first (audit SCR-1 / AI-1)."""
+    c = overlay.profiles.active
+    overlay._syncing, overlay._sync_cid, overlay._sync_shot = True, c.id, b"jpeg"
+    overlay._on_sync_done(Answer(text="ok", profile_update=dict(update)))
+    assert (c.base_class, c.job, c.level, c.exp_pct) == ("Thief", "Assassin", 32, None)
+    from PySide6.QtWidgets import QPushButton
+    yes = bidi.plain(I18n("he")("profile_update_yes"), True)
+    assert [b for b in overlay.feed.findChildren(QPushButton) if b.text() == yes]     # update / add as new / cancel
+
+
+@pytest.mark.parametrize("update", MISREADS)
+def test_the_minute_grind_read_never_demotes(overlay, update):
+    c = overlay.profiles.active
+    got = []
+    overlay.grind_read.connect(got.append)
+    overlay._sync_cid = c.id
+    overlay._quiet_grind_read(Answer(text="ok", profile_update=dict(update)))
+    assert (c.base_class, c.job, c.level, c.exp_pct) == ("Thief", "Assassin", 32, None)
+    assert got and not lines(overlay)                         # the tracker still gets its numbers; no prompt
+    overlay._quiet_grind_read(Answer(text="ok", profile_update={"level": 33, "exp_percent": 2.0}))
+    assert (c.level, c.exp_pct) == (33, 2.0)                  # a level up still follows
+
+
 def test_same_character_button_takes_the_hud_name(overlay):
     c = overlay.profiles.active
     c.name = "Kalimero"

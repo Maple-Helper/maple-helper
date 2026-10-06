@@ -85,7 +85,7 @@ def microphone_denied() -> bool:
 # apps whose windows only mention the game (a guide in a browser, a Discord channel, a folder): never "the game"
 NOT_GAME_OWNERS = {"safari", "google chrome", "chrome", "firefox", "microsoft edge", "arc", "brave browser", "opera",
                    "vivaldi", "orion", "discord", "finder", "preview", "textedit", "notes", "telegram", "whatsapp",
-                   "slack", "messages", "mail"}
+                   "slack", "messages", "mail", "terminal", "iterm2", "vlc", "steam", "code", "spotify"}
 NOT_GAME_APPS = re.compile(r"\b(chrome|safari|edge|firefox|opera|brave|vivaldi|discord|youtube|telegram|whatsapp|"
                            r"twitch|reddit)\b", re.IGNORECASE)
 SEPARATORS = (" - ", " | ", " — ", " – ")

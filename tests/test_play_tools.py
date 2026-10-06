@@ -21,6 +21,7 @@ def test_base_accuracy_and_damage():
     m = combat.Monster("monster/1", "Test", level=30, hp=1000, exp=50, pdef=0)
     assert combat.hits_to_kill(100, 300, m, 30) == (10, 5.0)
     assert combat.level_scale(30, 35) < 1 and combat.level_scale(30, 25) == 1
+    assert combat.landed(10**6, 0, 1, 1) == 99_999 and combat.landed(0.2, 50, 1, 1) == 1     # the game's clamp (GAM-15)
 
 
 @needs_kb
@@ -120,6 +121,11 @@ def test_crafting_recipes_by_profession_level():
     assert now.recipes == sorted(now.recipes, key=lambda r: (-r.exp_per_meso, -r.exp))
     assert nxt.level == 3 and nxt.needs_exp == 199
     assert all(crafting.levels(kb, p) for p in crafting.PROFESSIONS)
+    # the EXP to the next level is the current level's (pages/formula/leveling.md "1 | 50 | 0 | 10"), and
+    # Smithing 8 still has a next level though the efficiency page has no "Lv. 9" block (audit GAM-1)
+    assert crafting.next_level(kb, "smithing", 1) == (2, 50, 10)
+    assert crafting.next_level(kb, "smithing", 8) == (9, 1187, 45)
+    assert crafting.next_level(kb, "smithing", 10) is None
 
 
 @needs_kb

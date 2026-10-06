@@ -88,6 +88,7 @@ class Dropper:
     fit: str                    # fit(): "easy" | "range" | "hard"
     boss: bool                  # a boss or an hourly spawn: one try now and then, not a farm
     mesos: tuple | None = None  # the players' mesos reports (kb.community_mesos)
+    closed: bool = False        # lives only where nobody walks in (a party quest's stage): map is the KB's label
 
 
 def droppers(kb, item: str, level: int | None) -> list[Dropper]:
@@ -98,9 +99,13 @@ def droppers(kb, item: str, level: int | None) -> list[Dropper]:
         e = kb.get(m) or {}
         lv = _level(kb, m)
         mob = combat.monster(kb, m)
-        out.append(Dropper(m, e.get("name", m), lv, _home(kb, m), kb.drop_source(m, item) or sources.MSEA,
-                           kb.community_vote(m, item), fit(level, lv), bool(mob and mob.boss),
-                           kb.community_mesos(m)))
+        home = _home(kb, m)
+        # no open map (King Slime: only KPQ's last stage): still listed, never dropped, with the KB's own place
+        # for it and as a one-try boss, not a farm with no map (audit GAM-11)
+        closed = not home and bool(kb.all_maps(m))
+        out.append(Dropper(m, e.get("name", m), lv, home or (kb.all_maps(m) or [""])[0],
+                           kb.drop_source(m, item) or sources.MSEA, kb.community_vote(m, item), fit(level, lv),
+                           bool(mob and mob.boss) or closed, kb.community_mesos(m), closed))
     out.sort(key=lambda d: (d.source != sources.COMMUNITY, d.fit == "hard", d.boss, d.level, d.name))
     return out
 
@@ -223,8 +228,14 @@ class Record:
 
     @property
     def every(self) -> int | None:
-        """~ one drop every this many kills, or None without kills."""
-        return round(self.kills / self.got) if self.got and self.kills else None
+        """~ one drop every this many kills, or None without kills or at a drop or more a kill (per_kill then):
+        3 drops in 1 kill said nothing, 3 in 2 said "once every 2 kills" (audit GAM-10)."""
+        return max(1, round(self.kills / self.got)) if self.got and self.kills and self.got < self.kills else None
+
+    @property
+    def per_kill(self) -> float | None:
+        """~ drops a kill when there's one or more a kill (a stack of them per monster), else None."""
+        return self.got / self.kills if self.kills and self.got >= self.kills else None
 
 
 def records(rows: list[dict]) -> list[Record]:
