@@ -846,8 +846,10 @@ class Overlay(QWidget):
         brings a new date, and content the KB confirms as released appears without an app update)."""
         from .. import availability, updater
 
-        def day(iso: str) -> str:            # "2026-10-03" -> "03.10.2026"
-            return ".".join(reversed(iso.split("-"))) if iso else ""
+        from .. import dates
+
+        def day(iso: str) -> str:            # "3.10" / "Oct 3", the year when it isn't this year (HEB-16)
+            return dates.iso(iso, self.t.rtl) if iso else ""
         checked = day(updater.kb_checked())     # the last night the KB was checked against NiaMeowDB
         changed = day(availability.of(self.kb).verified)       # when the release guide last changed what's out
         text = self.t("scope_note", date=checked) if checked else self.t("scope_note_nodate")
@@ -1062,7 +1064,7 @@ class Overlay(QWidget):
         if change == "started":
             from .serverdot import when
             # an overrunning maintenance has no end time to promise (the dot's tooltip has the same rule)
-            until = when(st.notice_end) if st.notice_end and not st.notice_done and st.notice_end > time.time() else ""
+            until = when(st.notice_end, self.t.rtl) if st.notice_end and not st.notice_done and st.notice_end > time.time() else ""
 
             def text(t, until=until):
                 return t("server_maint_started_until", time=until) if until else t("server_maint_started")
