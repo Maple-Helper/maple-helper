@@ -1213,14 +1213,15 @@
     "list",
     "monsters"
    ],
-   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Lorang 86 (Lv 38), Lupin 82 (Lv 37). Glowshroom 90 (Lv 39) lives only on Forgotten Hollow maps, closed at launch (audit KB-1). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
    "checks": {
     "must_list": [
      "Cold Eye",
-     "Glowshroom",
-     "Lorang"
+     "Lorang",
+     "Lupin"
     ],
     "must_not_list": [
+     "Glowshroom",
      "Tick-Tock",
      "Raffle",
      "Barnard Gray",
@@ -1239,14 +1240,15 @@
     "list",
     "monsters"
    ],
-   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Lorang 86 (Lv 38), Lupin 82 (Lv 37). Glowshroom 90 (Lv 39) lives only on Forgotten Hollow maps, closed at launch (audit KB-1). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
    "checks": {
     "must_list": [
      "Cold Eye",
-     "Glowshroom",
-     "Lorang"
+     "Lorang",
+     "Lupin"
     ],
     "must_not_list": [
+     "Glowshroom",
      "Tick-Tock",
      "Raffle",
      "Barnard Gray",
