@@ -135,3 +135,20 @@ def test_every_key_prefix_is_one_left_to_right_block_in_hebrew(env):
     dlg = _onboarding(env, "grok")
     assert bidi.ltr_block("xai-", True) in dlg.key_edit.placeholderText()
     dlg.close()
+
+
+# --- DLG-8: Hebrew hints wrap as right-to-left paragraphs -----------------------------------------------------------
+
+def test_hebrew_hints_are_laid_out_as_right_to_left_paragraphs(env):
+    from PySide6.QtCore import Qt
+
+    from maplehelper.ui.dialogs import set_hint
+    s = env[0]
+    s["language"] = "he"
+    dlg = _onboarding(env, "gemini")
+    # plain text cut the end of a nearly full first line ("...הקוד. יש" lost its last letter at the card's edge)
+    set_hint(dlg.login_hint, dlg.t.p("ob_login_wait", "gemini"), True)
+    assert dlg.login_hint.textFormat() == Qt.RichText and 'dir="rtl"' in dlg.login_hint.text()
+    dlg._key_message(dlg.t("ob_key_failed"))
+    assert dlg.key_hint.textFormat() == Qt.RichText
+    dlg.close()

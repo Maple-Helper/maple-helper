@@ -25,6 +25,16 @@ from . import theme
 
 log = logging.getLogger(__name__)
 
+def set_hint(lb: QLabel, text: str, rtl: bool) -> None:
+    """A word-wrapped hint under a row. In Hebrew as right-to-left rich text: as plain text a nearly full line kept
+    its trailing space and lost the edge of its last word (Gemini's "...יש לזה דקה אחת" was cut at the card's edge)."""
+    if rtl:
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(bidi.to_html(text, "rtl"))
+    else:
+        lb.setText(bidi.plain(text, False))
+
+
 CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוסם", "Bowman": "קשת", "Thief": "גנב"}
 # Only the level field's bound, not the game's level cap: the KB says no launch cap is published (testers reached
 # at least 100). It matches the bound the saved profile keeps (store._repair), so nothing typed here is
@@ -640,11 +650,11 @@ class Onboarding(GlassDialog):
         if self._login_proc is None:
             # the sign-in couldn't even start: say so, and offer the official installer instead
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
             self.login_hint.show()
             self.install_btn.show()
             return
-        self.login_hint.setText(bidi.plain(self.t.p("ob_login_wait", self.provider), self.t.rtl))
+        set_hint(self.login_hint, self.t.p("ob_login_wait", self.provider), self.t.rtl)
         self.login_hint.show()
         self.install_btn.show()     # the way out when no sign-in window shows up
         if self._ai().login_code:
@@ -658,10 +668,10 @@ class Onboarding(GlassDialog):
             return
         if self._ai().submit_login_code(code):
             self.code_row.hide()
-            self.login_hint.setText(bidi.plain(self.t("ob_code_sent"), self.t.rtl))
+            set_hint(self.login_hint, self.t("ob_code_sent"), self.t.rtl)
         else:                       # the sign-in already gave up (it waits one minute)
             self.code_row.hide()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
 
     def _on_closed(self, *_):
         """Closed (or restarted in another language): its timers stop, so it never shows itself again."""
@@ -732,14 +742,14 @@ class Onboarding(GlassDialog):
             stop_login()
             self._login_proc = None
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t("sign_in_timeout"), self.t.rtl))
+            set_hint(self.login_hint, self.t("sign_in_timeout"), self.t.rtl)
             self.login_hint.show()
             self._check_status()
             return
         if login_failed(getattr(self, "_login_proc", None)):
             self._login_proc = None
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
             self.install_btn.setVisible(not self._ai().login_code)    # Gemini: sign in again, see _login_failed
             return
         self._check_status()
@@ -832,7 +842,7 @@ class Onboarding(GlassDialog):
         self._update_nav()
 
     def _key_message(self, text: str):
-        self.key_hint.setText(bidi.plain(text, self.t.rtl))
+        set_hint(self.key_hint, text, self.t.rtl)
         self.key_hint.show()
 
     def showEvent(self, e):
@@ -1481,7 +1491,7 @@ class SettingsDialog(GlassDialog):
             stop_login()
             self._login_proc = None
             self._set_on_top(True)
-            self.account_hint.setText(bidi.plain(self.t("sign_in_timeout"), self.t.rtl))
+            set_hint(self.account_hint, self.t("sign_in_timeout"), self.t.rtl)
             self.account_hint.show()
         self._refresh_account()
 
