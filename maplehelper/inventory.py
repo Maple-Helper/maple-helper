@@ -30,6 +30,7 @@ RATIO, MARGIN = 1.08, 0.5   # the best match must beat every other item's pictur
 UNKNOWN = 25.0         # a best match this far off is no item the KB has a picture of
 UNKNOWN_ALIKE = 28.0   # the same for a picture several items share (a scroll's is distinctive, its count covers it)
 REFINE = 40            # the nearest pictures compared again with the icon moved by a pixel
+SMALL_SLOT = 70        # a slot smaller than this (px) is read doubled
 
 
 def _slot_mask(rgb: np.ndarray) -> np.ndarray:
@@ -397,7 +398,9 @@ def read(img: Image.Image, kb, top: int = 3, cursor: tuple[int, int] | None = No
             continue                 # covered (a window, a tooltip) or cut by the screen's edge
         if _icon_mask(c).mean() < 0.02:
             continue                 # an empty slot: just the speckled beige
-        vecs = _vectors(c)
+        # a small game window (~42 px slots): the stack count's outline is a pixel thin and its box wasn't found,
+        # so the item went "unknown". Doubled pixel for pixel it is found (audit SCR-15; never a wrong name)
+        vecs = _vectors(np.repeat(np.repeat(c, 2, 0), 2, 1) if size < SMALL_SLOT else c)
         if not vecs:
             continue
         buf = io.BytesIO()
