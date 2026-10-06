@@ -21,6 +21,7 @@ def char(**kw):
     ("Thief", "Assassin", 34, None),          # 3rd job isn't open yet (jobs.open_tier)
     ("Magician", "F/P Mage", 80, None),
     ("Beginner", "Beginner", 7, (["Warrior", "Magician", "Bowman", "Thief"], 10)),
+    ("Beginner", "Beginner", 11, (["Warrior", "Magician", "Bowman", "Thief"], 10)),     # not taken yet (GAM-4)
 ])
 def test_next_job(base, job, level, expected):
     assert plan.next_job(base, job, level) == expected

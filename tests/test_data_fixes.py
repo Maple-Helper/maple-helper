@@ -62,6 +62,9 @@ def test_next_job_stops_at_the_second_job_while_third_job_is_closed(monkeypatch)
     ("Fire Poison Wizard", "F/P Wizard"), ("Wizard (Ice, Lightning)", "I/L Wizard"), ("Bowmen", "Bowman"),
     ("Crossbowmen", "Crossbowman"), ("Spear man", "Spearman"), ("f/p wizard", "F/P Wizard"), ("Archer", "Bowman"),
     ("Chief  Bandit", "Chief Bandit"), ("Pirate", None),
+    # the KB's own spelling and run-together HUD words (audit GAM-5)
+    ("Fire/Poison Wizard", "F/P Wizard"), ("Ice/Lightning Wizard", "I/L Wizard"), ("Mage (Fire,Poison)", "F/P Mage"),
+    ("Ice/Lightning Mage", "I/L Mage"), ("WhiteKnight", "White Knight"), ("ChiefBandit", "Chief Bandit"),
 ])
 def test_canonical_job_names(raw, job):
     assert jobs.canonical_job(raw) == job
@@ -183,6 +186,14 @@ def test_beginner_quests_for_a_character_still_a_beginner():
     assert not quests.job_fits(q, "Magician", "Magician")
 
 
+def test_second_job_quests_only_for_the_first_job():
+    """A Fighter 35 had "The Warrior's Next Journey" under missed quests, a Beginner 30 under now (audit GAM-2)."""
+    q = quests.Quest("quest/3", "The Warrior's Next Journey", 30, area="Job Advancement", job="Warrior only")
+    assert quests.job_fits(q, "Warrior", "Warrior")
+    assert not quests.job_fits(q, "Warrior", "Fighter") and not quests.job_fits(q, "Warrior", "Beginner")
+    assert not quests.job_fits(q, "Thief", "Thief")
+
+
 @needs_kb
 def test_real_quest_rewards(real):
     quests._quest.cache_clear()
@@ -196,6 +207,8 @@ def test_real_quest_rewards(real):
     stan = quests.quest(real, by_name["First Greeting with Chief Stan"])
     assert stan.complete_level == 32 and stan.grade == ("Henesys", 5)
     assert stan not in quests.citizenship(real, "Henesys", 20) and stan in quests.citizenship(real, "Henesys", 32)
+    # its "Asking After" page names no prerequisite, so it stayed "daily" (audit GAM-7)
+    assert quests.quest(real, by_name["First Greeting with Athena Pierce"]).cycle == ""
     smith = quests.quest(real, by_name["A Blacksmith in My Own Right!"])
     assert smith.profession == ("Smithing", 5)
     assert all(quests.quest(real, k) for k in by_name.values())          # every quest page parses (322)

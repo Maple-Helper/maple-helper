@@ -157,7 +157,8 @@ def next_job(base_class: str, job: str, level: int, kb=None) -> tuple[list[str],
     tree = JOBS.get(base_class, [])
     if base_class == "Beginner":
         lv = min(jobs[1][1] for c, jobs in JOBS.items() if c != "Beginner")    # level 10 for every class
-        return ([c for c in JOBS if c != "Beginner"], lv) if level < lv else None
+        # still a Beginner past level 10: the choice is still ahead (the tip vanished at 10-13, audit GAM-4)
+        return [c for c in JOBS if c != "Beginner"], lv
     current = next((lv for j, lv in tree if j == job), 0)
     later = [lv for lv in tier_levels(base_class, kb) if lv > current]
     if not later:
