@@ -203,6 +203,7 @@ class MapleHelperApp:
         self.voice.text.connect(self.on_voice_text)
         self.voice.failed.connect(self.on_voice_failed)
         self.voice.text.connect(lambda _: telemetry.track("voice_used"))
+        self.voice.text.connect(self._stamp_voice_use)
         self.overlay.mic_clicked.connect(self.voice.toggle)
 
         self.make_tray()
@@ -210,7 +211,8 @@ class MapleHelperApp:
         self.pending_installer = None
         self._reopen_after_update = False
         QTimer.singleShot(4000, self.check_kb_update_silently)
-        QTimer.singleShot(6000, self.voice.preload)    # voice answers right away after a start or an update
+        # voice answers right away after a start or an update, for a player who used it lately (PRF-2)
+        QTimer.singleShot(6000, lambda: self.voice.preload(self.settings["voice_last_used"]))
         QTimer.singleShot(8000, updater.remove_old_installers)
         # only files: off the UI thread (the first sweep after the update removed ~1.7 s of old Grok sessions per
         # thousand, review PLT-8)
@@ -409,6 +411,10 @@ class MapleHelperApp:
                "voice_download_failed" if error.startswith("download:") else
                "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
+
+    def _stamp_voice_use(self, _text: str):
+        import time
+        self.settings["voice_last_used"] = int(time.time())
 
     def on_voice_text(self, text: str):
         if not text.strip():          # silence (or only noise): say so, instead of nothing happening

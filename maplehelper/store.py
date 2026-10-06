@@ -142,6 +142,7 @@ DEFAULT_SETTINGS = {
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
     "voice_language": "app",       # app: transcribe in the app's language | auto: the model guesses
+    "voice_last_used": None,       # when a voice question was last heard (epoch s): the model preloads only if recent
     "provider": "claude",          # claude | codex | gemini | grok: which AI CLI answers (see providers/)
     "model": "sonnet",             # Claude's model
     "codex_model": None,           # Codex's model; None = the Codex CLI default

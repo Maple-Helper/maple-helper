@@ -32,6 +32,7 @@ MODEL_REVISION = "72ad623a37947395efcc3933132353790e5a12f5"
 SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.4
 MAX_SECONDS = 60          # a talk key pressed by mistake recorded forever (~230 MB an hour, audit SCR-11)
+RECENT_DAYS = 14          # the model is loaded at start only when voice was used this recently (audit PRF-2)
 
 # NVIDIA's own wheel on PyPI; only its two DLLs are kept. CUDA 12 matches CTranslate2 4.x.
 CUBLAS_URL = ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/"
@@ -242,9 +243,14 @@ class VoiceController(QObject):
         self._chunks: list[np.ndarray] = []
         self._stream = None
 
-    def preload(self):
-        """Load the model in the background when it's on disk already (the player has used voice before),
-        so the first question after a start or an update doesn't wait for it. Never downloads."""
+    def preload(self, last_used: float | None = None):
+        """Load the model in the background when it's on disk already and voice was used in the last RECENT_DAYS
+        days (last_used: the settings' voice_last_used, epoch seconds), so the first question after a start or an
+        update doesn't wait for it. Someone who tried voice once no longer holds the model in RAM or VRAM at every
+        start (audit PRF-2). Never downloads."""
+        import time
+        if not last_used or time.time() - last_used > RECENT_DAYS * 86400:
+            return
         if not self.transcriber.loaded() and self.transcriber.ready():
             threading.Thread(target=self._preload, daemon=True).start()
 
