@@ -103,3 +103,15 @@ def test_official_facts_say_job_in_the_apps_word():
     """The UI says "ג'וב", so the facts do too, not a literal "עבודה" (AST-13)."""
     from maplehelper import official
     assert not [f["id"] for f in official.facts() if "עבודה" in f["he"]]
+
+
+def test_the_chats_not_installed_errors_match_settings():
+    """review3 DLG20-a / UX10-a: each CLI by the name Settings uses, "this computer", and another AI as a way out."""
+    for p in ("", "_codex", "_gemini", "_grok"):
+        he, en = STRINGS["err_not_installed" + p]["he"], STRINGS["err_not_installed" + p]["en"]
+        assert he.endswith("לא מותקן במחשב. פתחו את ההגדרות כדי להתקין אותו או לחבר AI אחר.")
+        assert en.endswith("isn't installed on this computer. Open Settings to install it or connect another AI.")
+    for p, tool in (("_codex", "Codex (של ChatGPT)"), ("_gemini", "Google Antigravity (של Gemini)"),
+                    ("_grok", "Grok Build (של Grok)")):
+        assert STRINGS["err_not_installed" + p]["he"].startswith("הכלי " + tool)
+        assert tool in STRINGS["ob_not_installed" + p]["he"]
