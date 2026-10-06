@@ -16,13 +16,13 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, Q
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
 from .. import (availability, bidi, buildplan, combat, crafting, dates, farm, glossary, grind, guides, market, plan, quests,
-               quick, routes, sitedata, sources)
+               quick, routes, sitedata, skillbook, sources)
 from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import (chip_row, fit_picture, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html,
-                      updated_tag, vote_tag, zoom_on_hover)
+from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, source_tag, source_tags,
+                      tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
 PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
@@ -1008,6 +1008,29 @@ class ToolsDialog(GlassDialog):
     # build ---------------------------------------------------------------
 
     def _page_build(self):
+        # "Build & Skills": two tabs, the build plan (as it was) and every class line's skill books (the owner)
+        t = self.t
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(10)
+        self.build_tabs = Segmented([(t("build_tab_build"), "build"), (t("build_tab_skills"), "skills")], "build",
+                                    t.rtl)
+        self.build_tabs.set_label(t("build_tabs_a11y"))
+        outer.addWidget(self.build_tabs, 0, Qt.AlignHCenter)
+        self.build_stack = QStackedWidget()
+        outer.addWidget(self.build_stack, 1)
+        self.build_stack.addWidget(self._build_plan_page())
+        self.build_stack.addWidget(self._skills_page())
+        self.build_tabs.changed.connect(self._build_tab)
+        return page
+
+    def _build_tab(self, value) -> None:
+        self.build_stack.setCurrentIndex(1 if value == "skills" else 0)
+        if value == "skills":
+            self._fill_skills()
+
+    def _build_plan_page(self):
         # one scrolling page: the build text grows to its full height under the ranking card (it had the space
         # left over and scrolled inside itself, a small box of its own: the owner's report)
         w, lay = scroll_page(self.t.rtl)
@@ -1048,6 +1071,11 @@ class ToolsDialog(GlassDialog):
         return w
 
     def _fill_build(self):
+        self._fill_build_plan()
+        if self.build_tabs.value() == "skills":
+            self._fill_skills()
+
+    def _fill_build_plan(self):
         t, c = self.t, self.c
         clear(self.build_tier)
         if not c:
@@ -1278,6 +1306,158 @@ class ToolsDialog(GlassDialog):
                 taken = taken[:at.start()] + " " * len(name) + taken[at.end():]
         return "".join(f"<img src='{uri}' height='20' style='vertical-align: middle'> "
                        for _, uri in sorted(found)[:3])
+
+    # skills (the Build & Skills page's second tab) -----------------------
+
+    def _skills_page(self):
+        """A tab per class line (Beginner, Warrior, Magician, Bowman, Thief), in it a tab per job (the 1st job and
+        each 2nd job), and that job's skills as cards."""
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        lay.setSpacing(10)
+        self.skills_class = QButtonGroup(self)
+        chips = []
+        for i, (cls, _) in enumerate(skillbook.class_jobs(self.kb)):
+            b = QPushButton(bidi.ltr_name(cls, t.rtl), objectName="ProfChip")
+            b.setCheckable(True)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setProperty("value", cls)
+            b.setAccessibleDescription(t("skills_class_a11y"))
+            self.skills_class.addButton(b, i)
+            chips.append(b)
+        # five on one row when they fit, else three and two (as the crafting professions)
+        lay.addWidget(BalancedRow(chips))
+        self.skills_class.idClicked.connect(lambda *_: self._pick_skills(self._skills_cls_value(), None))
+        self.skills_jobs = QVBoxLayout()          # the class's job tabs (a new Segmented a class)
+        lay.addLayout(self.skills_jobs)
+        self.skills_head = self._label("", "ToolHeader")
+        lay.addWidget(self.skills_head)
+        self.skills_src = QHBoxLayout()
+        lay.addLayout(self.skills_src)
+        self.skills_list = QVBoxLayout()
+        self.skills_list.setSpacing(8)
+        lay.addLayout(self.skills_list)
+        lay.addStretch(1)
+        self._skills_pick: tuple[str, str] | None = None     # (class line, job) shown
+        self._skills_jobs: dict[str, str] = {}               # the job last picked in each class tab, this window
+        self._skills_cid = object()                          # the character the default tab was picked for
+        self._skills_filled = None
+        return sc
+
+    def _skills_cls_value(self) -> str:
+        b = self.skills_class.checkedButton()
+        return b.property("value") if b else "Beginner"
+
+    def _pick_skills(self, cls: str, job: str | None) -> None:
+        """Show a class tab (on the job last picked in it, else its 1st job) or one of its jobs."""
+        shown = dict(skillbook.class_jobs(self.kb)).get(cls) or ["Beginner"]
+        if job not in shown:
+            job = self._skills_jobs.get(cls) if self._skills_jobs.get(cls) in shown else shown[0]
+        self._skills_jobs[cls] = job
+        self._skills_pick = (cls, job)
+        self._fill_skills()
+
+    def _fill_skills(self):
+        t, c = self.t, self.c
+        cid = c.id if c else None
+        if cid != self._skills_cid:
+            # the active character's class line and job first (another character: theirs); the tabs picked by
+            # hand stay as they are while the window is open
+            self._skills_cid = cid
+            cls, job = skillbook.default_tab(c.base_class if c else None, c.job if c else None, self.kb)
+            self._skills_jobs = {cls: job}
+            self._skills_pick = (cls, job)
+        cls, job = self._skills_pick or ("Beginner", "Beginner")
+        state = (cls, job, theme.MODE)
+        if state == self._skills_filled:
+            return
+        self._skills_filled = state
+        for b in self.skills_class.buttons():
+            b.setChecked(b.property("value") == cls)
+        clear(self.skills_jobs)
+        jobs = dict(skillbook.class_jobs(self.kb)).get(cls) or []
+        if len(jobs) > 1:
+            self.skills_jobs.addWidget(self._job_tabs(cls, jobs, job))
+        skills = skillbook.book(self.kb).get(job) or []
+        self._set(self.skills_head, t("skills_head", job=bidi.ltr_block(job, t.rtl), n=len(skills)))
+        self._source_line(self.skills_src, sources.MEOWDB if skills else None)
+        clear(self.skills_list)
+        if not skills:
+            self.skills_list.addWidget(self._label(t("skills_none", job=bidi.ltr_block(job, t.rtl)), "RowHint"))
+            return
+        seen: set = set()            # one "?" per game term on the tab, not one per card
+        for s in skills:
+            self.skills_list.addWidget(self._skill_card(s, seen))
+
+    def _job_tabs(self, cls: str, jobs: list[str], job: str) -> QFrame:
+        """A class's jobs as segments of one capsule, on one row when they fit, else two rows of two: a Segmented
+        of four ("Magician", "F/P Wizard", "I/L Wizard", "Cleric") squeezed its labels into each other at 480 px."""
+        t = self.t
+        box = QFrame(objectName="Segmented")
+        box.setAccessibleName(t("skills_job_a11y"))
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(2, 2, 2, 2)
+        group = QButtonGroup(box)
+        buttons = []
+        for j in jobs:
+            b = QPushButton(bidi.ltr_name(j, t.rtl), objectName="Segment")      # one block, no "/" joiner
+            b.setCheckable(True)
+            b.setChecked(j == job)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setProperty("value", j)
+            b.setAccessibleDescription(t("skills_job_a11y"))
+            group.addButton(b)
+            buttons.append(b)
+        group.buttonClicked.connect(lambda b, k=cls: self._pick_skills(k, b.property("value")))
+        lay.addWidget(BalancedRow(buttons, spacing=2))
+        return box
+
+    def _skill_card(self, s: skillbook.Skill, seen: set) -> QFrame:
+        """A skill: its picture, name, what it does, its max level and what it needs first, and what it does at
+        level 1 and at its max level (the owner: all of it, always)."""
+        t, lang = self.t, self.t.lang
+        card = QFrame(objectName="Card")
+        card.setProperty("skill", s.key)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(12, 10, 12, 10)
+        row.setSpacing(12)
+        pic = QLabel(objectName="SkillPicture")
+        pic.setFixedSize(40, 40)
+        pic.setAlignment(Qt.AlignCenter)
+        pm = QPixmap(str(s.picture)) if s.picture else QPixmap()
+        if not pm.isNull():
+            pic.setPixmap(fit_picture(pm, 32, 32, pic))          # the game's 32 px icon, pixel for pixel
+            zoom_on_hover(pic, s.picture)
+        row.addWidget(pic, 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        name = QLabel(bidi.ltr_name(s.name, t.rtl), objectName="CardName")      # the game's English name
+        name.setWordWrap(True)
+        col.addWidget(name)
+        chips = FlowLayout(spacing=5)
+        if s.max_lv:
+            chips.addWidget(tag(self._p(t("skill_max_lv", n=s.max_lv)), "Tag"))
+        for chip in (changed_tag(t, self.kb, s.key), updated_tag(t, self.kb, s.key)):
+            if chip:
+                chips.addWidget(chip)
+        if chips.count():
+            col.addLayout(chips)
+        desc = self._label(skillbook.text(self.kb, s, "desc", lang), "RowLabel", seen=seen)
+        desc.setProperty("part", "desc")
+        col.addWidget(desc)
+        if s.prereq:
+            need = self._label(t("skill_requires", name=bidi.ltr_block(s.prereq[0], t.rtl), n=s.prereq[1]), "CardSub")
+            need.setProperty("part", "needs")
+            col.addWidget(need)
+        for part, head in (("lv1", t("skill_lv1")), ("max", t("skill_lv_max", n=s.max_lv or "MAX"))):
+            line = skillbook.text(self.kb, s, part, lang)
+            if line:
+                fx = self._label(f"**{head}** {line}", "CardSub", seen=seen)
+                fx.setProperty("part", part)
+                col.addWidget(fx)
+        col.addLayout(self._links_row([("ask_short", lambda k=s.key: self.tag_requested.emit(k))]))
+        row.addLayout(col, 1)
+        return card
 
     # quests --------------------------------------------------------------
 
