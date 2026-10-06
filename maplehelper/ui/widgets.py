@@ -1078,8 +1078,11 @@ class SplitMenu(QMenu):
             on = "true" if a is action else "false"
             if w.property("active") != on:
                 w.setProperty("active", on)
-                w.style().unpolish(w)
-                w.style().polish(w)
+                # the row's label too: its colour comes from "#MenuRow[active] #MenuRowText", and a label left
+                # unpolished stayed white on the white panel once the mouse moved on (the owner's report)
+                for x in (w, *w.findChildren(QWidget, "MenuRowText")):
+                    x.style().unpolish(x)
+                    x.style().polish(x)
 
     def add_row(self, icon_name: str, text: str, on_click, enabled: bool = True) -> None:
         """A menu line laid out by us: in Hebrew the icon on the right and the text right beside it (a QMenu
