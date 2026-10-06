@@ -248,7 +248,12 @@ class Section(QFrame):
             sep = QFrame(objectName="Separator")
             sep.setFixedHeight(1)
             self.rows.addWidget(sep)
-        self.rows.addWidget(w)
+        if isinstance(w, QPushButton) and w.objectName() in ("Link", "LinkDanger"):
+            # a link at its own width on the leading side (the layout mirrors it): full width, its "text-align:
+            # left" isn't mirrored, and in Hebrew every link sat at the far end from its section's header
+            self.rows.addWidget(w, 0, Qt.AlignLeading | Qt.AlignVCenter)
+        else:
+            self.rows.addWidget(w)
         self._items.append((sep, w))
         # a row that is hidden for now (a sign-in hint, the installer's progress) left its divider behind, an
         # empty line at the bottom of the card: each divider shows only when its row and one above it do

@@ -303,3 +303,27 @@ def test_a_news_item_without_a_publisher_keeps_its_meowdb_link(qapp):
     page = article(t, item)
     links = [b.text() for b in page.findChildren(QPushButton) if b.objectName() == "Link"]
     assert any("MeowDB" in x for x in links) and len(links) == 1          # the source link needs its publisher
+
+
+# --- DLG-6: a section's links start on the leading side in Hebrew ---------------------------------------------------
+
+@pytest.mark.parametrize("rtl", [True, False])
+def test_a_section_link_sits_on_the_leading_side(qapp, rtl):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QPushButton
+
+    from maplehelper.ui.controls import Section
+    sec = Section("Data", rtl)
+    sec.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+    sec.add_row("A row")
+    link = QPushButton("עדכון המאגר", objectName="Link")
+    sec.add_widget(link)
+    sec.setAttribute(Qt.WA_DontShowOnScreen)
+    sec.resize(400, 200)
+    sec.show()
+    sec.layout().activate()
+    card = link.parentWidget()
+    x = link.mapTo(card, link.rect().topLeft()).x()
+    assert link.width() < card.width() / 2                                 # its own width, not the card's
+    assert (x + link.width() > card.width() * 0.8) if rtl else (x < card.width() * 0.2)
+    sec.close()
