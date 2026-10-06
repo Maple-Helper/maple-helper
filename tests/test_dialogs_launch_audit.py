@@ -1,6 +1,7 @@
 """Onboarding, Settings and the other dialogs: fixes from the launch audit (offscreen Qt, no real CLI, no sign-in,
 no keychain, no AI call)."""
 import os
+import threading
 
 import pytest
 
@@ -29,7 +30,12 @@ def env(qapp, isolated_store, kb, monkeypatch):
     s = isolated_store.Settings()
     s["language"] = "en"
     s["provider"] = "claude"
-    return s, isolated_store.Profiles(), kb, saved
+    before = set(threading.enumerate())
+    yield s, isolated_store.Profiles(), kb, saved
+    # the dialogs' account checks run on threads: let them end before their dialog is freed (an emit into a
+    # deleted dialog crashed a later test)
+    for th in set(threading.enumerate()) - before:
+        th.join(timeout=5)
 
 
 def _onboarding(env, provider="claude"):
@@ -152,3 +158,29 @@ def test_hebrew_hints_are_laid_out_as_right_to_left_paragraphs(env):
     dlg._key_message(dlg.t("ob_key_failed"))
     assert dlg.key_hint.textFormat() == Qt.RichText
     dlg.close()
+
+
+# --- DLG-9: a Select's value fits inside its padding -----------------------------------------------------------------
+
+@pytest.mark.parametrize("size", [13, 14, 16])
+def test_a_select_value_fits_inside_the_button_padding(qapp, size):
+    import re
+
+    from PySide6.QtCore import Qt
+
+    from maplehelper import bidi
+    from maplehelper.ui import controls, theme
+    css = theme.stylesheet(theme.load_fonts(), size)
+    pad = re.search(r"QPushButton#Select \{[^}]*padding: 0 (\d+)px", css)
+    assert pad and controls.SELECT_PAD == 2 * int(pad.group(1)) + 2      # padding and the 1px border, both sides
+    m = controls.Select()
+    m.setStyleSheet(css)
+    m.setLayoutDirection(Qt.RightToLeft)
+    m.text_width = 190
+    m.addItems(["ברירת המחדל של המערכת"])
+    m.resize(m.sizeHint())
+    m.setAttribute(Qt.WA_DontShowOnScreen)
+    m.show()                                          # (its resize event cuts the value to the room)
+    shown = re.sub(f"[{bidi.RLM}\u2066-\u2069\u200e]", "", m.text())
+    assert m.fontMetrics().horizontalAdvance(shown) + controls.SELECT_PAD <= m.width()
+    m.close()

@@ -298,6 +298,11 @@ from PySide6.QtGui import QAction, QPainterPath, QPen  # noqa: E402
 from PySide6.QtWidgets import QMenu  # noqa: E402
 
 
+# the room around a Select's value: theme.py's "padding: 0 28px" and its 1px border, both sides. 48 left 10px too few:
+# at font size 16 the Hebrew "ברירת המחדל של המערכת" fit the cap, wasn't cut, and lost its first letter at the edge
+SELECT_PAD = 58
+
+
 class Select(QPushButton):
     """macOS-style pop-up button: shows the value with ⌃⌄ chevrons; opens a rounded glass menu
     anchored to itself, the current choice checked. API mirrors the bits of QComboBox we use."""
@@ -366,7 +371,7 @@ class Select(QPushButton):
     def _shown(self, text: str) -> str:
         if self.text_width is None:
             return text
-        room = min(self.text_width, self.width() - 48) if self.isVisible() else self.text_width
+        room = min(self.text_width, self.width() - SELECT_PAD) if self.isVisible() else self.text_width
         cut = self.fontMetrics().elidedText(text, Qt.ElideRight, max(room, 20))
         # an English name in a Hebrew window: one LTR block, or the "…" jumped to its left end
         return bidi.ltr_name(cut, self.layoutDirection() == Qt.RightToLeft)
@@ -381,8 +386,8 @@ class Select(QPushButton):
         longest = max((self.fontMetrics().horizontalAdvance(t) for t in self._items), default=40)
         if self.text_width is not None:
             longest = min(longest, self.text_width)
-            s.setWidth(longest + 48)        # the button's own hint measured the uncut text
-        return s.expandedTo(QSize(longest + 48, 30))
+            s.setWidth(longest + SELECT_PAD)        # the button's own hint measured the uncut text
+        return s.expandedTo(QSize(longest + SELECT_PAD, 30))
 
     def _open(self):
         menu = QMenu(self)
