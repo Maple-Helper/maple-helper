@@ -691,7 +691,7 @@ class Overlay(QWidget):
         row.addWidget(self.mic_btn)
         self.send_btn = QToolButton(objectName="Send", text=theme.ICON["send"])     # (named in apply_language)
         self.send_btn.setCursor(Qt.PointingHandCursor)
-        self.send_btn.clicked.connect(self._send_typed)
+        self.send_btn.clicked.connect(self._send_clicked)     # while an answer runs it is the Stop button
         self.send_btn.setEnabled(False)
         row.addWidget(self.send_btn)
         # what the next question sends: the F9 screenshot goes with the first question only
@@ -881,7 +881,7 @@ class Overlay(QWidget):
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
-        self.send_btn.setAccessibleName(self.t("send_question"))
+        self._show_send_or_stop()
         self.profile_card.now_btn.setText(self.t("plan_what_now"))
         self.profile_card.now_btn.setToolTip(self.t("what_now_tip"))
         if getattr(self, "_update_version", None):
@@ -1306,7 +1306,16 @@ class Overlay(QWidget):
         self.input.setLayoutDirection(Qt.RightToLeft if d == "rtl" else Qt.LeftToRight)
         # absolute: in an RTL widget a plain AlignRight means "trailing" = left
         self.input.setAlignment((Qt.AlignRight if d == "rtl" else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
-        self.send_btn.setEnabled(bool(text.strip()) and not self.busy)
+        self._show_send_or_stop()
+
+    def _show_send_or_stop(self):
+        """Send, or Stop while an answer is running (a stalled AI held the chat for minutes with no way out, audit
+        OVL-2); Stop is always clickable, send only with something to send."""
+        stop = self.busy
+        self.send_btn.setText(theme.ICON["stop" if stop else "send"])
+        self.send_btn.setToolTip(self.t("stop_answer") if stop else "")
+        self.send_btn.setAccessibleName(self.t("stop_answer" if stop else "send_question"))
+        self.send_btn.setEnabled(stop or bool(self.input.text().strip()))
 
     # ------------------------------------------------------------------ geometry
 
@@ -1849,6 +1858,47 @@ class Overlay(QWidget):
 
     # ------------------------------------------------------------------ asking
 
+    def _send_clicked(self):
+        """The send button: Stop while an answer runs (Enter in the field never stops one: it says "one moment")."""
+        if self.busy:
+            self.stop_answer()
+        else:
+            self._send_typed()
+
+    def stop_answer(self):
+        """Stop the answer being written: its AI run is ended (every provider's process, through Brain.cancel), the
+        chat takes questions again at once, and a short line says it stopped. What already streamed stays."""
+        if not self.busy:
+            return
+        import threading
+        worker, thread = getattr(self, "_worker", None), getattr(self, "_thread", None)
+        self._dropped_workers = [*getattr(self, "_dropped_workers", []), worker]
+        if thread is not None and _alive(thread):
+            # still ending in the background: App.shutdown waits for it too (a running QThread at exit crashes)
+            self._stopped_threads = [th for th in getattr(self, "_stopped_threads", []) if _alive(th)] + [thread]
+        if self.brain is not None:
+            # off the GUI thread: stopping a CLI on Windows runs taskkill, which can take a moment
+            threading.Thread(target=self._cancel_brain, daemon=True).start()
+        self.busy = False
+        self._stop_deltas()
+        b = self._pending_bubble
+        if b is not None and _alive(b) and b._text in STRINGS["thinking"].values():
+            b.set_text(self.t("answer_stopped"))         # no word of it yet: the bubble itself says so
+            self._remember_render(b, lambda t, b=b: b.set_text(t("answer_stopped")))
+        else:
+            self.add_system(lambda t: t("answer_stopped"))
+        history = getattr(self, "_pending_history", None)
+        if history and getattr(self, "_pending_stored", None):
+            history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too, as on an error
+        self._pending_bubble = None
+        self._show_send_or_stop()
+
+    def _cancel_brain(self):
+        try:
+            self.brain.cancel()
+        except Exception:      # noqa: BLE001 - stopping must never break the chat
+            pass
+
     def _send_typed(self):
         q = self.input.text().strip()
         if q and self._is_busy():
@@ -1920,7 +1970,7 @@ class Overlay(QWidget):
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
         self._start_reading(self._pending_bubble)
         self.busy = True
-        self.send_btn.setEnabled(False)
+        self._show_send_or_stop()        # Stop, for as long as the answer runs
 
         self._thread = QThread(self)
         self._worker = AskWorker(self.brain, question, c, history, [shot, *tiles] if shot and tiles else shot, focus,
@@ -2086,6 +2136,8 @@ class Overlay(QWidget):
         every row): only the latest text is drawn, about ten times a second."""
         if not (self._pending_bubble and text):
             return
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            return             # a stopped answer's last words never land in the next question's bubble
         self._delta_text = text
         if not hasattr(self, "_delta_timer"):
             self._delta_timer = QTimer(self, singleShot=True, interval=self.DELTA_MS, timeout=self._draw_delta)
@@ -2343,6 +2395,9 @@ class Overlay(QWidget):
                                            "timeout", "cli_outdated") else "err_generic"
 
     def _on_done_main(self, ans: Answer):
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            self._dropped_workers.remove(self.sender())
+            return             # stopped by the player: its late end (an error, a half answer) goes nowhere
         self._on_done(ans, self._pending_history)
 
     def _on_done(self, ans: Answer, history: History | None):

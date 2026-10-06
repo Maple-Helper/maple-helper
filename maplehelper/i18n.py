@@ -115,6 +115,9 @@ STRINGS = {
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
     "recapture": {"he": "צילום מחדש של מסך המשחק", "en": "Retake the game screenshot"},
     "send_question": {"he": "שליחת השאלה", "en": "Send the question"},
+    # the send button while an answer runs (audit OVL-2), and the line it leaves
+    "stop_answer": {"he": "עצירת התשובה", "en": "Stop the answer"},
+    "answer_stopped": {"he": "התשובה נעצרה.", "en": "Answer stopped."},
     "voice_mic_failed": {"he": "לא הצלחתי להפעיל את המיקרופון. בדקו שהוא מחובר ושיש ל-Maple Helper הרשאה אליו (הגדרות Windows > פרטיות > מיקרופון).",
                          "en": "I couldn't start the microphone. Check that it's connected and that Maple Helper may use it (Windows Settings > Privacy > Microphone)."},
     "voice_mic_failed_mac": {"he": "לא הצלחתי להפעיל את המיקרופון. בדקו שהוא מחובר ושיש ל-Maple Helper הרשאה אליו (הגדרות המערכת > פרטיות ואבטחה > מיקרופון).",

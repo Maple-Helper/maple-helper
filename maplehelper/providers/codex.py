@@ -347,6 +347,7 @@ class CodexBackend:
         self.brain = brain
         self.exe = find_codex()
         self._proc: subprocess.Popen | None = None
+        self._stopped = False      # the answer was stopped (the chat's Stop): a run starting after that ends at once
         self._running: set[subprocess.Popen] = set()     # every run, summaries too: a quit stops them all
 
     def prewarm(self) -> None:
@@ -360,6 +361,7 @@ class CodexBackend:
                 base.kill(p)
 
     def cancel(self) -> None:
+        self._stopped = True
         if self._proc and self._proc.poll() is None:
             base.kill(self._proc)
 
@@ -387,6 +389,8 @@ class CodexBackend:
             return RawResult(error=f"launch_failed: {e}"), ""
         if answer:
             self._proc = p
+            if self._stopped:          # a retry (or the run itself) began after Stop: it goes no further
+                base.kill(p)
         self._running.add(p)
         # Codex logs to stderr while it works: drain it so a full pipe never stalls the run
         err: list[bytes] = []
@@ -426,6 +430,7 @@ class CodexBackend:
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
         """model: this call's own (None: the player's). tools is Claude's: Codex reads files only when asked to."""
+        self._stopped = False      # a new question (Brain.ask skips one stopped before it got here)
         b = self.brain
         images: list[str] = []
         try:

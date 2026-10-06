@@ -721,6 +721,7 @@ class Brain:
         self.ui_lang = "he"            # the app's language (set by the app): for questions with no words to tell by
         self._provider = providers.get(provider)
         self.backend = self._provider.backend(self)
+        self._cancels = 0              # cancel() calls so far: a question stopped before its AI run began skips it
 
     @property
     def provider(self) -> str:
@@ -797,6 +798,8 @@ class Brain:
         return self.backend.exe is not None
 
     def cancel(self) -> None:
+        """Stop the question being answered now (the chat's Stop button, a sync that timed out, a quit)."""
+        self._cancels += 1
         self.backend.cancel()
 
     def ask(self, question: str, character: Character | None, history: History | None,
@@ -806,6 +809,7 @@ class Brain:
         extra: context for the prompt only; every heuristic below reads the player's own question.
         model: another model for this one call (None: the player's). light: a screenshot read (the ⟳ sync): no
         knowledge-base pre-fetch and no file tools, so a light model answers in seconds instead of ~40 s."""
+        cancels = self._cancels
         self._find_cli()
         if not self.backend.exe:
             return Answer(error="not_installed")
@@ -817,6 +821,8 @@ class Brain:
                               extra, kb_context=not light, ui_lang=self.ui_lang)
         hebrew = reply_language(question, self.ui_lang, self.kb) == "Hebrew"
         raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
+        if cancels != self._cancels:
+            return Answer(error="cancelled")      # Stop came while the prompt was built: no AI run starts at all
         if model or light:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta, model=model, tools=not light)
         else:

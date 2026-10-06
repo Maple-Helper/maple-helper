@@ -1054,7 +1054,8 @@ class MapleHelperApp:
             self.brain.cancel()                  # an answer in progress ends now...
         except Exception:
             pass
-        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None)):
+        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None),
+                   *getattr(self.overlay, "_stopped_threads", [])):      # (an answer stopped just before, ending)
             # each on its own: a finished answer's thread already deleted must not skip a running read's
             try:
                 if th is not None and th.isRunning():
