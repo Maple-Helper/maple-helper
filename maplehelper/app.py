@@ -224,6 +224,11 @@ class MapleHelperApp:
 
     def replay_tour(self, settings_dialog) -> None:
         """Settings → "Take the app tour": the settings window steps away and the chat shows the tour."""
+        if settings_dialog.unsaved():
+            # changes not saved yet: ask, as the X does (closing it threw them away); the question closed: no tour
+            settings_dialog._close_clicked()
+            if settings_dialog.isVisible():
+                return
         settings_dialog.close()
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)

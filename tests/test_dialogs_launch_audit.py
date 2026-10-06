@@ -184,3 +184,37 @@ def test_a_select_value_fits_inside_the_button_padding(qapp, size):
     shown = re.sub(f"[{bidi.RLM}\u2066-\u2069\u200e]", "", m.text())
     assert m.fontMetrics().horizontalAdvance(shown) + controls.SELECT_PAD <= m.width()
     m.close()
+
+
+# --- DLG-10: the tour link asks about unsaved changes ----------------------------------------------------------------
+
+@pytest.mark.parametrize("choice", ["yes", "no", None])
+def test_the_tour_link_asks_about_unsaved_settings(env, monkeypatch, choice):
+    from unittest.mock import MagicMock
+
+    from PySide6.QtCore import Qt
+
+    from maplehelper import app
+    from maplehelper.ui import dialogs
+    s, profiles, kb, _ = env
+
+    class Answer:
+        def __init__(self, *a, **k):
+            self.choice = None
+
+        def exec(self):
+            self.choice = choice
+            return choice == "yes"
+    monkeypatch.setattr(dialogs, "ConfirmDialog", Answer)
+    monkeypatch.setattr(app.QTimer, "singleShot", lambda *a: None)
+    sd = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
+    sd.setAttribute(Qt.WA_DontShowOnScreen)
+    sd.show()
+    was = s["telemetry"]
+    sd.telemetry.setChecked(not was)
+    fake = MagicMock()
+    fake.overlay.is_open.return_value = True
+    app.MapleHelperApp.replay_tour(fake, sd)
+    assert s["telemetry"] == (not was if choice == "yes" else was)
+    assert sd.isVisible() is (choice is None)          # the question closed: Settings stays, no tour
+    sd.close()
