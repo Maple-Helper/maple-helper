@@ -17,7 +17,7 @@ from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .patchnotes import gutter
-from ..i18n import I18n
+from ..i18n import I18n, system_language
 from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class -> [(job, min level)], checked against the KB
 from ..kb import KnowledgeBase
 from ..store import ASSETS, History, Profiles, Settings
@@ -404,7 +404,8 @@ class Onboarding(GlassDialog):
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, stylesheet_fn, only_character=False,
                  edit_id: str | None = None):
-        self.t = I18n(settings["language"] or "he")
+        # never chosen yet: the system's language (UX-3); the player can still pick the other on the first page
+        self.t = I18n(settings["language"] or system_language())
         self.edit_id = edit_id
         only_character = only_character or edit_id is not None
         # the window title is what the taskbar, Alt+Tab and screen readers show
@@ -490,7 +491,7 @@ class Onboarding(GlassDialog):
             b.setCheckable(True)
             b.setMinimumHeight(56)
             b.setProperty("lang", code)
-            if (self.settings["language"] or "he") == code:
+            if self.t.lang == code:
                 b.setChecked(True)
             self.lang_group.addButton(b)
             row.addWidget(b)

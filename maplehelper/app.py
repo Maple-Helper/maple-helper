@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import APP_NAME, __version__, news, osapi, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
-from .i18n import I18n
+from .i18n import I18n, system_language
 from .kb import KnowledgeBase
 from .store import ASSETS, DATA_DIR, History, Profiles, Settings
 from .ui import theme
@@ -107,7 +107,8 @@ class MapleHelperApp:
 
     def style(self, opacity: float | None = None) -> str:
         theme.set_mode(self.settings["appearance"])
-        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"]).rtl else Qt.LeftToRight)
+        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"] or system_language()).rtl
+                                     else Qt.LeftToRight)
         css = theme.stylesheet(self.font_family, self.settings["font_size"])
         # restyling the app re-polishes every open widget (the chat with its answers too): only when it changed,
         # not each time a window opens, which held "Play tools" back for a second

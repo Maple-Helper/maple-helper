@@ -1498,6 +1498,18 @@ FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "c
 _FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
 
 
+def system_language() -> str:
+    """The first-run language, before the player picks one: Hebrew on a Hebrew Windows/macOS, else English
+    (every new player got a Hebrew right-to-left setup, UX-3). The installer picks its language the same way."""
+    try:
+        from PySide6.QtCore import QLocale
+        langs = [str(x) for x in QLocale.system().uiLanguages()]
+    except Exception:  # noqa: BLE001 - no Qt (or no locale): the app's own default
+        langs = []
+    first = (langs[0] if langs else "").lower().replace("_", "-").split("-")[0]
+    return "he" if first in ("he", "iw") else "en"
+
+
 class I18n:
     mac = sys.platform == "darwin"
 

@@ -47,3 +47,38 @@ def test_the_job_field_waits_for_a_class(qapp, kb, lang):
     next(b for b in f.class_group.buttons() if b.property("cls") == "Warrior").setChecked(True)
     assert not f.job_label.isHidden()
     assert not f.job.isHidden() or not f.job_fixed.isHidden()
+
+
+# --- UX-3: a first run follows the system's language, never over a language the player chose ------------------------
+
+@pytest.mark.parametrize("ui, want", [(["he-IL", "en-US"], "he"), (["iw"], "he"), (["en-GB"], "en"), (["fr-FR"], "en"),
+                                      ([], "en")])
+def test_system_language(monkeypatch, ui, want):
+    from PySide6.QtCore import QLocale
+    from maplehelper import i18n
+
+    class Fake:
+        def uiLanguages(self):
+            return ui
+    monkeypatch.setattr(QLocale, "system", staticmethod(lambda: Fake()))
+    assert i18n.system_language() == want
+
+
+@pytest.mark.parametrize("system", ["he", "en"])
+def test_first_run_opens_in_the_system_language(env, monkeypatch, system):
+    from maplehelper.ui import dialogs
+    s, profiles, kb = env
+    s["language"] = None
+    monkeypatch.setattr(dialogs, "system_language", lambda: system)
+    dlg = dialogs.Onboarding(s, profiles, kb, lambda *_: "")
+    assert dlg.t.lang == system and dlg.lang_group.checkedButton().property("lang") == system
+    assert s["language"] is None              # not stored until the player goes on (Next) or picks one
+
+
+def test_a_chosen_language_wins_over_the_system(env, monkeypatch):
+    from maplehelper.ui import dialogs
+    s, profiles, kb = env
+    s["language"] = "he"
+    monkeypatch.setattr(dialogs, "system_language", lambda: "en")
+    dlg = dialogs.Onboarding(s, profiles, kb, lambda *_: "")
+    assert dlg.t.lang == "he" and dlg.lang_group.checkedButton().property("lang") == "he"
