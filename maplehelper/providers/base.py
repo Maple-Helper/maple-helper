@@ -1,6 +1,7 @@
 """What every AI provider shares: process flags, finding the CLI, keyring storage, error codes."""
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import queue
@@ -347,12 +348,34 @@ def model_name(model_id: str) -> str:
     return model_id or ""
 
 
+# where Node version managers put npm's global installs (npm i -g @anthropic-ai/claude-code, @openai/codex) and
+# node itself: an app opened from Finder gets launchd's PATH (/usr/bin:/bin:/usr/sbin:/sbin), none of these
+NODE_DIRS = ["~/.volta/bin", "~/.bun/bin", "~/.nvm/versions/node/*/bin", "~/.local/state/fnm_multishells/*/bin",
+             "~/Library/Application Support/fnm/node-versions/*/installation/bin"]
+
+
+def _version_key(path: str) -> list:
+    return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in re.split(r"(\d+)", path)]
+
+
+def posix_dirs(dirs: list[str]) -> list[str]:
+    """The install folders plus the Node managers' ones, globs expanded (the newest Node version first)."""
+    out = []
+    for d in dirs + NODE_DIRS:
+        d = str(Path(d).expanduser())
+        if "*" in d:
+            out += sorted(glob.glob(d), key=_version_key, reverse=True)
+        else:
+            out.append(d)
+    return out
+
+
 def find_posix(name: str, dirs: list[str]) -> str | None:
     p = shutil.which(name)
     if p:
         return p
-    for d in dirs:
-        c = Path(d).expanduser() / name
+    for d in posix_dirs(dirs):
+        c = Path(d) / name
         if c.is_file() and os.access(c, os.X_OK):
             return str(c)
     return None
@@ -375,7 +398,7 @@ def child_env(dirs: list[str], env: dict | None = None) -> dict:
     """Environment for a CLI: on macOS the install folders join PATH (an npm install needs node)."""
     env = dict(os.environ if env is None else env)
     if sys.platform != "win32":
-        extra = [str(Path(d).expanduser()) for d in dirs]
+        extra = posix_dirs(dirs)
         env["PATH"] = os.pathsep.join([env.get("PATH") or "/usr/bin:/bin"] + extra)
     return env
 
