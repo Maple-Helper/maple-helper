@@ -258,7 +258,11 @@ All of them include the knowledge base. The app tells you when a new version is 
 
 The Mac app is not notarized by Apple yet, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and click **Open Anyway** next to Maple Helper. You do this once per version.
 
-Maple Helper lives in the menu bar (there is no Dock icon). Allow **Screen Recording** when it asks (or under **System Settings → Privacy & Security → Screen Recording**), then restart the app: that is how it sees the game window. The hotkeys are ordinary system shortcuts and need no permission.
+Maple Helper lives in the menu bar (there is no Dock icon). Allow **Screen Recording** when it asks (or under **System Settings → Privacy & Security → Screen Recording**), then restart the app: that is how it sees the game window. The hotkeys are ordinary system shortcuts and need no permission. On macOS 15 the setting is called **Screen & System Audio Recording**.
+
+After an update, screenshots can stop working although Maple Helper still shows as allowed: the new version needs the permission again. Select Maple Helper in that list, remove it with **−**, add it again (or turn its switch off and on), then restart the app.
+
+macOS may also ask you from time to time to confirm that Maple Helper can keep recording your screen. Choose **Allow**, or it can't see the game.
 
 Maple Story Classic World runs on Mac too. Maple Helper finds the game window by its title.
 

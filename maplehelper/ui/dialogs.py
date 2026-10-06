@@ -51,11 +51,14 @@ def _field(text: str) -> QLabel:
     return QLabel(text, objectName="FieldLabel")
 
 
-def hotkey_choices() -> list[str]:
+def hotkey_choices(saved: tuple[str, ...] = ()) -> list[str]:
     """The F-keys a hotkey can be. Windows keeps F12 for the debugger and never lets a program register it
-    (RegisterHotKey fails, and the app then said "F12 is taken by another program" on every start); macOS has it."""
-    last = 11 if sys.platform == "win32" else 12
-    return [f"F{i}" for i in range(1, last + 1)]
+    (RegisterHotKey fails, and the app then said "F12 is taken by another program" on every start); macOS has it.
+    macOS shows the desktop on F11 and still reports the hotkey registered, so it is not offered there, unless it is
+    already a saved choice (shown, not silently changed)."""
+    if sys.platform == "win32":
+        return [f"F{i}" for i in range(1, 12)]
+    return [f"F{i}" for i in range(1, 13) if i != 11 or "F11" in saved]
 
 
 def _while_open(slot):
@@ -963,7 +966,7 @@ class SettingsDialog(GlassDialog):
 
         # keys
         sec = Section(t("sec_keys"), rtl)
-        fkeys = hotkey_choices()
+        fkeys = hotkey_choices((settings["hotkey_toggle"], settings["hotkey_voice"]))
         from ..store import DEFAULT_SETTINGS
         self.hk_toggle = Select()
         self.hk_toggle.addItems(fkeys)
@@ -974,7 +977,7 @@ class SettingsDialog(GlassDialog):
             # not whichever key happened to be first in the list
             pick.setCurrentText(settings[key] if settings[key] in fkeys else DEFAULT_SETTINGS[key])
         sec.add_row(t("hotkey_toggle"), self.hk_toggle)
-        # a Mac's F-keys are media keys unless fn is held (the texts teach "fn+F9"), and F11 shows the desktop:
+        # a Mac's F-keys are media keys unless fn is held (the texts teach "fn+F9"):
         # said once under the two keys, not on every choice
         sec.add_row(t("hotkey_voice"), self.hk_voice, hint=t("hotkey_fn_mac") if t.mac else "",
                     hint_below=t.mac)
