@@ -928,7 +928,7 @@ STRINGS = {
     "sell_no_game": {"he": "לא נמצא חלון של המשחק לצלם. פתחו את MapleStory ונסו שוב.", "en": "No game window to capture. Open MapleStory and try again."},
     "sell_no_inventory": {"he": "לא נמצא אינבנטורי פתוח בצילום. פתחו אותו במשחק ונסו שוב.", "en": "No open inventory in the shot. Open it in the game and try again."},
     "sell_summary": {"he": "{n} פריטים. מכירה ל-NPC של כל מה שמסומן למכירה: {mesos} mesos (ליחידה אחת מכל פריט).", "en": "{n} items. Selling everything marked for sale to an NPC: {mesos} mesos (one of each)."},
-    "sell_summary_one": {"he": "פריט אחד. מכירה ל-NPC של כל מה שמסומן למכירה: {mesos} mesos (ליחידה אחת).", "en": "1 item. Selling everything marked for sale to an NPC: {mesos} mesos (one of it)."},
+    "sell_summary_one": {"he": "פריט אחד. מכירה ל-NPC של כל מה שמסומן למכירה: {mesos} mesos (ליחידה אחת).", "en": "1 item. Selling everything marked for sale to an NPC: {mesos} mesos (for one)."},
     "sell_kind_quest": {"he": "לשמור לקווסט", "en": "Keep for a quest"},
     "sell_kind_recipe": {"he": "לשמור למתכון", "en": "Keep for a recipe"},
     "sell_kind_wish": {"he": "במעקב ⭐", "en": "Tracked ⭐"},
