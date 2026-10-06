@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -27,6 +29,10 @@ MODEL = "claude-haiku-4-5-20251001"
 API = "https://api.anthropic.com/v1/messages"
 MAX_TEXTS = 120          # a night's ceiling, whatever the KB brings
 BATCH = 20               # texts a request
+RETRY_WAIT = 20          # seconds before another try on a busy API (then 40)
+HEBREW = re.compile(r"[א-ת]")
+ICON = re.compile(r"\[\[img:[^\]]*\]\]")
+DIGITS = re.compile(r"\d+")
 
 RULES = """You translate short MapleStory Classic texts from English to Hebrew for an Israeli players' app.
 - Natural, fluent Hebrew as an Israeli gamer writes it. Address the reader in the plural ("אתם").
@@ -96,7 +102,8 @@ def missing(root: Path) -> list[dict]:
         items = []
     for i in items:
         tr = made.get(i.get("id")) or {}
-        head_ok = tr.get("source_hash") == i.get("hash") and tr.get("summary") and tr.get("title")
+        head_ok = (tr.get("source_hash") == i.get("hash") and tr.get("title")
+                   and (tr.get("summary") or not str(i.get("summary") or "").strip()))
         body = list(i.get("highlights") or []) + ([i["commentary"]] if i.get("commentary") else [])
         body_ok = not body or tr.get("body_hash") == scrape_news._body_hash(i)
         if not (head_ok and body_ok):
@@ -105,38 +112,96 @@ def missing(root: Path) -> list[dict]:
     return jobs
 
 
-def run(root: Path, key: str) -> int:
+def _parts(j: dict) -> list[str]:
+    return [str(t or "") for t in j["texts"]] if j["kind"] == "news" else [j["en"]]
+
+
+def refused(en: str, he: str) -> str | None:
+    """Why a translation can't be stored (it waits for the next night instead); None when it can."""
+    if not HEBREW.search(he) and len(en.split()) >= 4:
+        return "no Hebrew in it"             # (a short title that is all names may rightly stay in English letters)
+    if "לבל" in he:
+        return 'it says "לבל"'
+    if sorted(ICON.findall(en)) != sorted(ICON.findall(he)):
+        return "an icon token was lost"
+    return None
+
+
+def _translate(key: str, texts: list[str]) -> list[str]:
+    """translate() with two more tries on a busy or failing API (429, 5xx, 529, a dropped connection)."""
+    for attempt in range(3):
+        try:
+            return translate(key, texts)
+        except urllib.error.HTTPError as e:
+            if attempt == 2 or not (e.code == 429 or e.code >= 500):
+                raise
+        except (urllib.error.URLError, TimeoutError):
+            if attempt == 2:
+                raise
+        time.sleep(RETRY_WAIT * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
+def run(root: Path, key: str, jobs: list[dict] | None = None) -> int:
     """Translate what's missing into root/he.json; returns how many texts were translated."""
-    jobs = missing(root)
-    texts = []
+    jobs = missing(root) if jobs is None else jobs
+    # news first: it is what goes stale soonest, and it came last behind any batch that kept failing
+    jobs = [j for j in jobs if j["kind"] == "news"] + [j for j in jobs if j["kind"] != "news"]
+    # whole jobs up to the night's ceiling; an empty text (a news item with no summary) stays empty, never sent
+    # (it was sent as "-", and its "translation" showed as the Hebrew summary of an item that has none)
+    picked, texts = [], []
     for j in jobs:
-        for t in (j["texts"] if j["kind"] == "news" else [j["en"]]):
-            texts.append(t or "-")
+        wanted = [t for t in _parts(j) if t.strip()]
+        if picked and len(texts) + len(wanted) > MAX_TEXTS:
+            break
+        picked.append(j)
+        texts += wanted
     if not texts:
         print("translations: nothing new to translate")
         return 0
-    texts = texts[:MAX_TEXTS]
-    done: list[str] = []
+    made: dict[str, str] = {}
+    problems: list[str] = []
     for n in range(0, len(texts), BATCH):
+        chunk = texts[n:n + BATCH]
         try:
-            done += translate(key, texts[n:n + BATCH])
+            try:
+                got: list[str | None] = list(_translate(key, chunk))
+            except ValueError:
+                # one bad answer used to stop the night, and the same batch failed again every night after:
+                # the texts one at a time, a text that still fails waits for tomorrow
+                got = []
+                for t in chunk:
+                    try:
+                        got += _translate(key, [t])
+                    except ValueError as e:
+                        got.append(None)
+                        problems.append(f"{t[:40]!r}: {e}")
         except Exception as e:  # noqa: BLE001 - what's done is kept; the rest waits for tomorrow
-            print(f"translations: stopped after {len(done)} ({e})")
+            problems.append(f"stopped after {len(made)} ({e})")
             break
+        for en, he in zip(chunk, got):
+            if he is None:
+                continue
+            why = refused(en, he)
+            if why:
+                problems.append(f"{en[:40]!r}: {why}")
+                continue
+            if sorted(DIGITS.findall(en)) != sorted(DIGITS.findall(he)):
+                print(f"translations: check the numbers of {en[:60]!r} -> {he[:60]!r}")   # (number words: kept)
+            made[en] = he
     path = root / "he.json"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         data = {}
     import scrape_news
-    at = 0
     count = 0
-    for j in jobs:
-        size = len(j["texts"]) if j["kind"] == "news" else 1
-        if at + size > len(done):
-            break
-        part = done[at:at + size]
-        at += size
+    for j in picked:
+        en_parts = _parts(j)
+        if any(t.strip() and t not in made for t in en_parts):
+            continue                # all of a job or none of it: the rest of it is retried tomorrow
+        part = [made[t] if t.strip() else "" for t in en_parts]
+        size = sum(1 for t in en_parts if t.strip())
         if j["kind"] == "news":
             i = j["item"]
             row = {"title": part[0], "summary": part[1], "source_hash": i.get("hash")}
@@ -158,21 +223,30 @@ def run(root: Path, key: str) -> int:
         last.write_text(json.dumps(stats), encoding="utf-8")
     except (OSError, ValueError):
         pass
-    print(f"translations: {count} texts translated ({len(texts) - count} left for the next night)")
+    left = sum(len([t for t in _parts(j) if t.strip()]) for j in jobs) - count
+    print(f"translations: {count} texts translated ({left} left for the next night)")
+    if problems:
+        # the step's own "|| echo ::warning::" fires only on a crash: a failed night has to say so itself
+        print(f"::warning::translations: {len(problems)} problem(s) tonight, e.g. {problems[0]}")
     return count
 
 
 def main(argv: list[str]) -> int:
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if not key:
-        print("translations: no ANTHROPIC_API_KEY, nothing translated")
+        print("::warning::translations: no ANTHROPIC_API_KEY, nothing translated")
         return 0
     if "--check" in argv:
         return 0 if check(key) else 1
     root = Path(next((a for a in argv if not a.startswith("--")), ROOT / "data" / "kb"))
-    if not check(key):
+    jobs = missing(root)
+    if not jobs:                    # no request at all on a night with nothing new
+        print("translations: nothing new to translate")
         return 0
-    run(root, key)
+    if not check(key):
+        print("::warning::translations: the API key or the API failed the check, nothing translated")
+        return 0
+    run(root, key, jobs)
     return 0
 
 
