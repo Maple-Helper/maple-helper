@@ -689,11 +689,11 @@ class GrokBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, instructions: str, prompt: str, model: str | None, tools: bool | list[str] = True,
               on_delta=None, answer: bool = True, timeout: float | None = None,

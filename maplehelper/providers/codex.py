@@ -28,6 +28,7 @@ import tempfile
 import threading
 from pathlib import Path
 
+from . import base
 from .base import CREATE_NO_WINDOW, Installer, Lines, Provider, RawResult, classify_error, child_env, find_posix, \
     find_windows_exe, http_ok, line_kind, open_login, run_installer
 
@@ -350,11 +351,11 @@ class CodexBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, cmd: list[str], stdin_text: str, cwd: str, api_key: str | None,
               timeout: int | None = None, answer: bool = True) -> RawResult:
@@ -385,7 +386,7 @@ class CodexBackend:
         err: list[bytes] = []
         reader = threading.Thread(target=lambda: err.append(p.stderr.read()), daemon=True)
         reader.start()
-        killer = threading.Timer(timeout, p.kill) if timeout else None
+        killer = threading.Timer(timeout, base.kill, args=(p,)) if timeout else None
         if killer:
             killer.start()
         try:

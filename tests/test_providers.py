@@ -1109,3 +1109,34 @@ def test_the_warm_claude_process_is_replaced_when_its_instructions_change(kb_cop
     assert b.backend._config() == before
     b.last_model = "claude-sonnet-5"
     assert b.backend._config() != before
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="the tree kill is Windows'")
+def test_stopping_a_cli_stops_what_it_started():
+    """kill() ended the CLI only: its rg / PowerShell children ran on, and one holding the output open kept a reader
+    waiting (audit PRV-8)."""
+    import ctypes
+    import subprocess
+    import sys
+    child = "import time; time.sleep(60)"
+    parent = (f"import subprocess, sys; p = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+              "print(p.pid, flush=True); p.wait()")
+    p = subprocess.Popen([sys.executable, "-c", parent], stdout=subprocess.PIPE)
+    pid = int(p.stdout.readline())
+
+    def alive(pid):
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)          # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == 259                                             # STILL_ACTIVE
+    assert alive(pid)
+    base.kill(p)
+    p.wait(timeout=10)
+    for _ in range(50):
+        if not alive(pid):
+            break
+        time.sleep(0.1)
+    assert not alive(pid)

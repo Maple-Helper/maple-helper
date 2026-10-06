@@ -62,11 +62,23 @@ HEDGE_AFTER_S = 25.0
 
 
 def _kill(proc) -> None:
+    """Stop a CLI and, on Windows, what it started (rg, PowerShell, a hook): kill() alone left those running, and
+    one that held the CLI's output open kept a reader thread waiting until it ended."""
     try:
         if proc.poll() is None:
+            pid = getattr(proc, "pid", None)
+            if sys.platform == "win32" and isinstance(pid, int):
+                try:
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=5,
+                                   creationflags=CREATE_NO_WINDOW)
+                except (OSError, subprocess.SubprocessError):
+                    pass
             proc.kill()
     except OSError:
         pass
+
+
+kill = _kill
 
 
 class Attempt:
