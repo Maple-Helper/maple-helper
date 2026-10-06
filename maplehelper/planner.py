@@ -733,6 +733,12 @@ def _open_tier(kb) -> int:
         return jobs.open_tier()
 
 
+def _step(questline) -> int:
+    """A quest's step in its questline ("2/4" -> 2); one with none goes after the steps."""
+    m = re.match(r"\s*(\d+)\s*/", str(questline or ""))
+    return int(m.group(1)) if m else 999
+
+
 def job_advance(rows, s: Slots, character=None, second: bool = False, kb=None) -> list[Block]:
     """How to become a job: the class's instructor (the 1st job, and the 2nd job's quest) and the job-advancement
     quests, at the level the official facts give."""
@@ -755,8 +761,10 @@ def job_advance(rows, s: Slots, character=None, second: bool = False, kb=None) -
                       lead=lead)]
     keys = [r["key"] for r in rows("npcs")
             if f"{base} Instructor" in str(r.get("role") or "") or r["npc"] == f"{base} Job Instructor"]
+    # in the order they're done: all are level 30, and by name "Finding the Instructor" came before the questline's
+    # first step (audit P84A-7)
     quests_ = sorted((r for r in rows("quests") if r["area"] == "Job Advancement" and r["job"] == f"{base} only"),
-                     key=lambda r: (_num(r["level"]), r["quest"]))
+                     key=lambda r: (_num(r["level"]), _step(r.get("questline")), r["quest"]))
     who = _npc_rows(rows, keys)
     seconds = [(j, lv) for j, lv in jobs.JOBS.get(base, []) if lv == 30]
     if second and s.job == base and seconds:
@@ -774,7 +782,7 @@ def job_advance(rows, s: Slots, character=None, second: bool = False, kb=None) -
     return [Block("npcs", ("npc", "role", "map", "street", "connects", "key", "map_key"), who,
                   f"the {base} instructors", "-", lead=lead),
             # these are the 2nd job's quests: under a 1st-job lead they say so (audit AI-4)
-            Block("quests", ("quest", "level", "npc", "turn_in", "after", "key"), quests_,
+            Block("quests", ("quest", "level", "questline", "npc", "turn_in", "after", "key"), quests_,
                   f"{base} job advancement quests (2nd job)" if second or rank == 2 else
                   f"{base} job advancement quests, for the later 2nd job only (not needed for the 1st job)", "level")]
 

@@ -542,6 +542,19 @@ def test_real_becoming_a_magician(real):
 
 
 @needs_kb
+def test_real_job_advancement_quests_in_questline_order(real):
+    """All four Magician quests are level 30: sorted by name, "Finding the Instructor" came before the questline's
+    first step (audit P84A-7). Now by the questline's step, and the block shows it."""
+    p = ask(real, "how do I become a magician")
+    block = next(b for b in p.blocks if b.table == "quests")
+    assert "questline" in block.cols and "questline" in p.render()
+    steps = [planner._step(r.get("questline")) for r in block.rows]
+    levels = [r["level"] or 0 for r in block.rows]
+    assert block.rows and sorted(zip(levels, steps)) == list(zip(levels, steps))
+    assert any(r.get("questline") for r in block.rows)
+
+
+@needs_kb
 def test_real_leads_say_the_answer(real):
     assert "Steel Guards IS crafted: Weaponcrafting Lv 6" in ask(real, "how do I craft Steel Guards?").render()
     hunter = Character(id="h", name="H", base_class="Bowman", job="Hunter", level=35)
