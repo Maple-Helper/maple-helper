@@ -510,7 +510,8 @@ class Onboarding(GlassDialog):
         lay.setSpacing(12)
         lay.addWidget(_title(self.t("ob_connect")))
         rtl = self.t.rtl
-        self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl)
+        self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl,
+                                       per_row=3)
         self.provider_pick.set_label(self.t("ai_provider"))
         self.provider_pick.changed.connect(self._on_provider)
         for b in self.provider_pick.group.buttons():       # each AI's cost, on hover too (UX-10)
@@ -519,7 +520,7 @@ class Onboarding(GlassDialog):
         prow.addWidget(self.provider_pick)
         prow.addStretch(1)
         lay.addLayout(prow)
-        # which AI a player without a paid plan can start with, before they click through all four
+        # which AI a player without a paid plan can start with, before they click through all six
         overview = QLabel(bidi.plain(self.t("ob_plans_overview"), rtl), objectName="RowHint")
         overview.setWordWrap(True)
         lay.addWidget(overview)
@@ -618,7 +619,7 @@ class Onboarding(GlassDialog):
         # ("sk-ant-", "AIza") stays one block in it, not "ב--sk-ant" (ltr_block inside the Hebrew sentence)
         hint = t.p("ob_api_key_hint", p)
         if t.rtl:
-            prefix = next((x for x in ("sk-ant-", "sk-", "AIza", "xai-") if x in hint), "")   # (Grok's read "-xai")
+            prefix = next((x for x in ("sk-ant-", "sk-", "AIza", "xai-", "LLM_") if x in hint), "")   # (Grok's read "-xai")
             if prefix:
                 hint = hint.replace(prefix, bidi.ltr_block(prefix, True))
             hint = bidi.plain(hint, True)
@@ -834,7 +835,8 @@ class Onboarding(GlassDialog):
                 "not_installed": t.p("ob_not_installed", provider),
                 "offline": t("ob_offline", name=providers.get(provider).label)}[st]
         self.status_label.setText(bidi.plain(text, t.rtl))
-        self.login_btn.setVisible(st == "logged_out")
+        # key_only providers (Z.AI) have no sign-in: the key field below is the way in, never this button
+        self.login_btn.setVisible(st == "logged_out" and not self._ai().key_only)
         if self._install_check:
             self._install_check = False
             if st == "not_installed":      # the CLI isn't there: why, and "Install" again
@@ -847,9 +849,10 @@ class Onboarding(GlassDialog):
                 self._end_sign_in()      # back on top, showing "Connected"
             self.login_hint.hide()
             self.install_btn.hide()
-            if signed_in:
+            if signed_in and not providers.get(provider).key_only:
                 # the account itself works: answers go through it, not the key. Only then: a stored key is what
-                # made a signed-out check "connected", and dropping its mode here left the player with no AI
+                # made a signed-out check "connected", and dropping its mode here left the player with no AI.
+                # A key-only AI (Z.AI) reports "ok" for its stored key: that key is the connection, it stays
                 self.settings.set_api_key_mode(provider, False)
         elif not self._signing_in:
             self.install_btn.setVisible(st == "not_installed")
@@ -1133,7 +1136,7 @@ class SettingsDialog(GlassDialog):
         self._pending_models: dict[str, str | None] = {}      # model setting -> the model picked, until Save
         sec = Section(t("sec_ai"), rtl)
         self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()],
-                                       self._provider, rtl)
+                                       self._provider, rtl, per_row=3)
         self.provider_pick.changed.connect(self._on_provider)
         sec.add_row(t("ai_provider"), self.provider_pick)
         # the model; under it, which model answered last
@@ -1173,6 +1176,27 @@ class SettingsDialog(GlassDialog):
         self.logout_btn = QPushButton(t("account_logout"), objectName="LinkDanger")
         self.logout_btn.clicked.connect(self._logout)
         sec.add_widget(self.logout_btn)
+        # key_only providers (Z.AI) connect with a key and nothing else: its field lives here, shown only
+        # while no key is in use and the CLI is there (see _on_account)
+        self.key_edit = QLineEdit()
+        self.key_edit.setAccessibleName(t("ob_use_api_key"))     # no visible label: the name says what it is
+        self.key_edit.setEchoMode(QLineEdit.Password)
+        self.key_edit.setLayoutDirection(Qt.LeftToRight)
+        self.key_edit.returnPressed.connect(self._check_api_key)      # Enter checks the pasted key
+        self.key_edit.textChanged.connect(self._key_direction)
+        self.key_btn = QPushButton(t("ob_check_key"), objectName="Secondary")
+        self.key_btn.setCursor(Qt.PointingHandCursor)
+        self.key_btn.clicked.connect(self._check_api_key)
+        # the field takes the whole width; its button beside it only when there is room, else under it
+        self.key_row = AdaptiveRow(self.key_edit, self.key_btn, main_min=200)
+        self.key_row.setContentsMargins(0, 6, 0, 8)
+        sec.add_widget(self.key_row)
+        self.key_hint = QLabel(objectName="RowHint")
+        self.key_hint.setWordWrap(True)
+        self.key_hint.hide()
+        sec.add_widget(self.key_hint)
+        self.key_row.hide()      # _on_account shows it once the check answers (a key_only AI with no key)
+        self._label_key_row()
         for b in (self.install_btn, self.switch_btn, self.logout_btn):
             b.setCursor(Qt.PointingHandCursor)
             b.hide()
@@ -1181,6 +1205,7 @@ class SettingsDialog(GlassDialog):
         self._account_bridge = _Bridge()
         self._account_bridge.account.connect(self._on_account)
         self._account_bridge.logged_out.connect(self._after_logout)
+        self._account_bridge.key_checked.connect(self._on_api_key_checked)
         self._logout_for = None
         self._account_status = None
         self._login_proc = None
@@ -1298,7 +1323,8 @@ class SettingsDialog(GlassDialog):
         self.usage_note.setText(bidi.plain(t.p("usage_note", ai.name), t.rtl))
         self.usage_note.setVisible(ai.reports_usage)
         self.saver_hint.setText(bidi.plain(t.p("saver_hint", ai.name), t.rtl))
-        if ai.reports_usage and not self.settings.api_key_mode(ai.name):
+        # (an API key has no plan to show, except on a key-only AI: Z.AI's key is the plan)
+        if ai.reports_usage and (ai.key_only or not self.settings.api_key_mode(ai.name)):
             threading.Thread(target=lambda: self._limits_bridge.account.emit(
                 {"provider": ai.name, "limits": ai.read_limits()}), daemon=True).start()
 
@@ -1386,6 +1412,11 @@ class SettingsDialog(GlassDialog):
         self._set_on_top(True)             # it had stepped back for that sign-in's browser
         self.code_row.hide()
         self.install_panel.stop()
+        self.key_row.hide()
+        self.key_hint.hide()
+        self.key_edit.clear()
+        self.key_btn.setEnabled(True)
+        self._label_key_row()
         self._install_check = self._login_broken = False
         self._account_status = None
         self.install_btn.setText(self.t.p("ob_install", name))
@@ -1433,8 +1464,15 @@ class SettingsDialog(GlassDialog):
             self._set_account_text(t.p("ob_not_logged", p) if st == "logged_out" else t.p("ob_not_installed", p))
         connected = api_key or st == "ok"
         self.switch_btn.setText(t("account_switch") if connected else t.p("ob_login", p))
-        self.switch_btn.setVisible(st not in ("not_installed", "offline"))
+        # key_only providers (Z.AI) have no account to sign in to or switch: the key is the way in
+        self.switch_btn.setVisible(st not in ("not_installed", "offline") and not self._ai().key_only)
         self.logout_btn.setVisible(connected or key_saved)      # (a saved key can be dropped, CLI or not)
+        # key_only providers (Z.AI) take the key here, not a sign-in: no key in use and the CLI
+        # there, offer its field (hidden again on _on_provider and after a key checks out)
+        show_key = self._ai().key_only and not key_saved and st not in ("not_installed", "ok")
+        self.key_row.setVisible(show_key)
+        if not show_key:
+            self.key_hint.hide()
         # not installed, or a sign-in that broke ("reinstalling should fix this"): offer the installer
         self.install_btn.setVisible(not connected and (st == "not_installed" or self._login_broken))
         if connected:
@@ -1459,6 +1497,69 @@ class SettingsDialog(GlassDialog):
         self.settings.set_api_key_mode(ai.name, False)
         self.account_changed.emit()
         return True
+
+    def _key_direction(self, *_):
+        """The key itself is English (left to right); the empty field shows the hint in the UI's direction."""
+        rtl = self.t.rtl and not self.key_edit.text()
+        self.key_edit.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        self.key_edit.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
+
+    def _label_key_row(self):
+        """The key field's hint for the AI shown (its prefix stays one block in Hebrew, as in onboarding)."""
+        t = self.t
+        hint = t.p("ob_api_key_hint", self._ai().name)
+        if t.rtl:
+            prefix = next((x for x in ("sk-ant-", "sk-", "AIza", "xai-", "LLM_") if x in hint), "")
+            if prefix:
+                hint = hint.replace(prefix, bidi.ltr_block(prefix, True))
+            hint = bidi.plain(hint, True)
+        self.key_edit.setPlaceholderText(hint)
+        self._key_direction()
+
+    def _check_api_key(self):
+        key = self.key_edit.text().strip()
+        if not key or not self.key_btn.isEnabled():
+            return                      # nothing pasted, or a check is already running
+        if not key.isascii():
+            # a key is plain Latin letters and digits; anything else can't even be sent (it raised before)
+            self._key_message(self.t("ob_key_bad_chars"))
+            return
+        ai = self._ai()
+        self.key_btn.setEnabled(False)
+        self._key_message(self.t("ob_checking"))
+
+        def work():
+            try:
+                ok = ai.test_api_key(key)
+            except Exception:
+                ok = False
+            self._account_bridge.key_checked.emit(ai.name, key, ok)
+        # the check can take up to 15 seconds: off the GUI thread, so the window doesn't freeze
+        threading.Thread(target=work, daemon=True).start()
+
+    @_while_open
+    def _on_api_key_checked(self, provider: str, key: str, ok: bool):
+        self.key_btn.setEnabled(True)
+        if provider != self._ai().name:
+            return            # the player switched provider while the key was checked
+        if ok:
+            ai = providers.get(provider)
+            try:
+                ai.save_api_key(key)
+            except Exception:  # noqa: BLE001 - a locked or refusing keychain: say so, the key isn't kept
+                log.exception("saving the API key failed")
+                self._key_message(self.t("ob_key_not_saved"))
+                return
+            self.settings.set_api_key_mode(provider, True)
+            self.key_hint.hide()
+            self._refresh_account()
+            self.account_changed.emit()
+        else:
+            self._key_message(self.t("ob_key_failed"))
+
+    def _key_message(self, text: str):
+        set_hint(self.key_hint, text, self.t.rtl)
+        self.key_hint.show()
 
     def _switch_account(self):
         """Sign out, then run the official sign-in so another account can be chosen in the browser.

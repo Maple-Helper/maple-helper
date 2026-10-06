@@ -2049,7 +2049,7 @@ class Overlay(QWidget):
 
         from .. import providers
         ai = providers.get(self.settings["provider"])
-        if not ai.reports_usage or self.settings.api_key_mode(ai.name):
+        if not ai.reports_usage or (self.settings.api_key_mode(ai.name) and not ai.key_only):
             return
         if type(ai).read_limits is providers.base.Provider.read_limits:
             return                      # this AI already reported it with the answer

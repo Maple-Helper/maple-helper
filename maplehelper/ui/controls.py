@@ -73,21 +73,27 @@ class Segmented(QFrame):
 
     changed = Signal(object)
 
-    def __init__(self, options: list[tuple[str, object]], current, rtl: bool):
+    def __init__(self, options: list[tuple[str, object]], current, rtl: bool, per_row: int | None = None):
+        """per_row: segments per row, in equal rows (the six AI providers: two of three, one row of six was wider
+        than Settings)."""
         super().__init__(objectName="Segmented")
-        lay = QHBoxLayout(self)
+        from PySide6.QtWidgets import QGridLayout
+        lay = QGridLayout(self)
         lay.setContentsMargins(2, 2, 2, 2)
         lay.setSpacing(2)
+        per_row = per_row or len(options) or 1
+        for c in range(per_row):
+            lay.setColumnStretch(c, 1)
         self.group = QButtonGroup(self)
         self.group.setExclusive(True)
-        for label, value in options:
+        for i, (label, value) in enumerate(options):
             b = QPushButton(bidi.plain(label, rtl), objectName="Segment")
             b.setCheckable(True)
             b.setCursor(Qt.PointingHandCursor)
             b.setProperty("value", value)
             b.setChecked(value == current)
             self.group.addButton(b)
-            lay.addWidget(b, 1)
+            lay.addWidget(b, i // per_row, i % per_row)
         self.group.buttonClicked.connect(lambda b: self.changed.emit(b.property("value")))
 
     def showEvent(self, e):

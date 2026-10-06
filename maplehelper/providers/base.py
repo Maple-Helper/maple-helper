@@ -354,16 +354,21 @@ class StreamText:
 
 def model_name(model_id: str) -> str:
     """A readable name: "claude-sonnet-5-20260101" -> "Sonnet 5", "claude-opus-4-5" -> "Opus 4.5",
-    "gpt-6.1-sol" -> "GPT-6.1-Sol", "grok-4.6-fast" -> "Grok 4.6 Fast"."""
+    "gpt-6.1-sol" -> "GPT-6.1-Sol", "grok-4.6-fast" -> "Grok 4.6 Fast", "glm-5.3-flash" -> "GLM-5.3 Flash",
+    "muse-spark-1.3-contributor" -> "Muse Spark 1.3 Contributor". omp's "provider/" in front is dropped."""
     import re
-    m = re.fullmatch(r"claude-([a-z]+)-(\d+(?:-\d+)?)(?:-\d{8})?(?:\[.*\])?", model_id or "")
+    model_id = (model_id or "").rsplit("/", 1)[-1]
+    m = re.fullmatch(r"claude-([a-z]+)-(\d+(?:-\d+)?)(?:-\d{8})?(?:\[.*\])?", model_id)
     if m:
         return f"{m.group(1).capitalize()} {m.group(2).replace('-', '.')}"
-    if (model_id or "").startswith("gpt-"):
+    if model_id.startswith("gpt-"):
         return "GPT-" + "-".join(w.capitalize() for w in model_id[4:].split("-"))
-    if (model_id or "").startswith(("gemini-", "grok-")):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
+    if model_id.startswith("glm-"):
+        version, *rest = model_id[4:].split("-")
+        return " ".join([f"GLM-{version}"] + [w.capitalize() for w in rest])
+    if model_id.startswith(("gemini-", "grok-", "muse-")):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
         return " ".join(w if w[:1].isdigit() else w.capitalize() for w in model_id.split("-"))
-    return model_id or ""
+    return model_id
 
 
 # where Node version managers put npm's global installs (npm i -g @anthropic-ai/claude-code, @openai/codex) and
@@ -680,6 +685,7 @@ class Provider:
     saver_model = None       # lighter model for saver mode; None = keep the model, answers just get shorter
     reports_usage = False    # the CLI reports the player's plan usage (drives the usage meter)
     login_code = False       # the sign-in ends with a code the player pastes back (submit_login_code)
+    key_only = False         # no account sign-in: the player connects with an API key only (Z.AI)
 
     def submit_login_code(self, code: str) -> bool:
         return False

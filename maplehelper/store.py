@@ -143,10 +143,12 @@ DEFAULT_SETTINGS = {
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
     "voice_language": "app",       # app: transcribe in the app's language | auto: the model guesses
     "voice_last_used": None,       # when a voice question was last heard (epoch s): the model preloads only if recent
-    "provider": "claude",          # claude | codex | gemini | grok: which AI CLI answers (see providers/)
+    "provider": "claude",          # claude | codex | gemini | grok | zai | muse: which AI CLI answers (see providers/)
     "model": "sonnet",             # Claude's model
     "codex_model": None,           # Codex's model; None = the Codex CLI default
     "grok_model": None,            # Grok's model; None = the Grok CLI default
+    "zai_model": "glm-5.3",        # Z.AI's model
+    "muse_model": "muse-spark-1.3-contributor",  # Muse Spark's model
     "gemini_model": None,          # Gemini's model alias (pro, flash); None = the Gemini CLI default
     "last_model": {},              # provider -> the model that actually answered last (shown in Settings)
     # per provider: use an API key (stored in Credential Manager / Keychain) instead of the account login.

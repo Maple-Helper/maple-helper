@@ -24,7 +24,7 @@ LOG_FILE = LOG_DIR / "maplehelper.log"
 # install_id in, which tied the anonymous usage stats to the player who sent the report)
 REPORT_SETTINGS = ("language", "hotkey_toggle", "hotkey_voice", "appearance", "font_size", "answer_length",
                    "start_with_windows", "voice_send_immediately", "voice_language", "voice_last_used", "provider", "model", "codex_model", "grok_model",
-                   "gemini_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "usage",
+                   "gemini_model", "zai_model", "muse_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "usage",
                    "saver_mode", "seen_version", "instant_answers", "telemetry", "grind_auto")
 log = logging.getLogger("maplehelper")
 # libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link

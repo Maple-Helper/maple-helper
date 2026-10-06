@@ -17,7 +17,7 @@ def test_both_languages_with_same_placeholders(key):
     assert fields(entry["he"]) == fields(entry["en"]), f"{key} placeholders differ"
 
 
-PROVIDER_SUFFIXES = ("_claude", "_codex", "_gemini", "_grok")
+PROVIDER_SUFFIXES = ("_claude", "_codex", "_gemini", "_grok", "_zai", "_muse")
 
 
 @pytest.mark.parametrize("key", sorted(k for k in STRINGS if k.endswith(PROVIDER_SUFFIXES)))

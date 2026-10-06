@@ -38,9 +38,9 @@ APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
 def _remove_stray_screenshots() -> None:
     """Screenshots handed to ChatGPT live in %TEMP% only for one answer; a quit mid-answer left them there
-    (Gemini's are in Maple Helper's Antigravity folder, removed the same way). So are the other per-run leftovers:
-    Grok's question files (in its run folders now, in %TEMP% before), Gemini's temp folders and Grok's saved
-    sessions."""
+    (Gemini's are in Maple Helper's Antigravity folder, Z.AI's and Muse Spark's in Oh My Pi's, removed the same
+    way). So are the other per-run leftovers: Grok's question files (in its run folders now, in %TEMP% before),
+    Gemini's temp folders and Grok's saved sessions."""
     import glob
     import tempfile
     import time
@@ -53,15 +53,16 @@ def _remove_stray_screenshots() -> None:
             pass
     import shutil
 
-    from .providers import gemini, grok
+    from .providers import gemini, grok, omp
     for d in (glob.glob(str(gemini.shots_dir() / "run-*")) + glob.glob(str(gemini.tmp_dir() / "run-*"))
-              + glob.glob(str(grok.shots_dir() / "run-*"))):
+              + glob.glob(str(grok.shots_dir() / "run-*")) + glob.glob(str(omp.shots_dir() / "run-*"))):
         try:
             if time.time() - os.path.getmtime(d) > 3600:
                 shutil.rmtree(d, ignore_errors=True)
         except OSError:
             pass
     grok.sweep_sessions()
+    omp.sweep()
 
 
 def load_kb() -> KnowledgeBase:
