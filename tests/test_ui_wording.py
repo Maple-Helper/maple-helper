@@ -23,6 +23,11 @@ def test_hebrew_ui_says_rama_not_lv():
     assert not bad
 
 
+def test_hebrew_ui_writes_cash_shop_in_english():
+    """An in-game name stays in English, like "Free Market": "ב-Cash Shop", not "בקאש שופ" (HEB-13)."""
+    assert not [k for k, he in _hebrew() if "קאש" in he]
+
+
 @needs_kb
 def test_hebrew_droppers_say_the_level_in_hebrew(isolated_store):
     """A quest's "where to get them" said "Snail (Lv. 1)" and "Arcforge Lv. 4" in the Hebrew UI (HEB-14)."""
