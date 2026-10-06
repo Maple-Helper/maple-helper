@@ -533,10 +533,13 @@ _KEY_IN_TEXT = re.compile(r"\s*(?:[ובלמהשכ]-)?[\(\[]\s*(?:monster|item|ma
 
 # "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
 # "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number). Never a count:
-# "Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7); a Hebrew word after the number keeps it as written,
-# but for "ו...", "עכשיו", "כרגע" and "אז"
-_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
-                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF])")
+# "Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7). Said of the player ("אתם", "אני", "הדמות שלכם") it is
+# a level whatever follows ("אתם ב-31 כבר", review CORE-5), but for a counted noun; of "הוא/היא/הם", a Hebrew word
+# after the number keeps it as written, but for "ו...", "עכשיו", "כרגע" and "אז"
+_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(?:(?P<me>אתם|אתן|אתה|את|אני|הדמות שלכם|הדמות שלך)\s+ב-?(?P<n>\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?:מפות|מקומות|ערוצים|חלקים|שלבים|קבוצות|דקות|שעות|ימים|פעמים)"
+                         r"(?![\u0590-\u05FF]))|(?P<he>הוא|היא|הם)\s+ב-?(?P<n2>\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF]))")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
 _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
 # the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner). Any prefix ("ולבל", "מהלבל",
@@ -558,7 +561,7 @@ def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
     named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
     text = _KEY_IN_TEXT.sub("", text)
-    text = _BARE_LEVEL.sub(r"\1 ברמה \2", text)
+    text = _BARE_LEVEL.sub(lambda m: f"{m['me'] or m['he']} ברמה {m['n'] or m['n2']}", text)
     text = _LEVEL_WORD.sub(_level_word, text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
