@@ -393,7 +393,10 @@ def for_you(kb, c) -> list[str]:
         if c.level >= 21:
             picks.append("guide/kerning-city-party-quest-kpq-guide")
         picks.append("guide/exp-table-level-1-to-100")
-        if c.level >= 39:                  # the Hollow opens at Lv. 39 (its guide), not 60
+        # the Hollow opens at Lv. 39 (its guide), not 60; while the release guide calls it closed (Founder's Access,
+        # 10-06) it's no pick for a player who can't get in
+        from . import availability
+        if c.level >= 39 and "Forgotten Hollow" not in availability.of(kb).closed_areas:
             picks.append("guide/forgotten-hollow-the-new-endgame-area")
     else:
         picks += ["guide/beginners-guide-first-steps-in-maple-world", "guide/best-grind-maps-every-level"]
