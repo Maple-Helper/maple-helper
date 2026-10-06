@@ -668,3 +668,66 @@ def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
     assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
     assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
     assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))
+
+
+@needs_kb
+def test_the_hollows_hidden_maps_on_a_shared_street_are_closed_too(real):
+    """Someone Else's Grave (Rotten Mushmom), Collision of Ice and Fire and The Valley of Death sit on Victoria's
+    "Hidden Street" beside Pig Park, and every portal of theirs leads into the Hollow: closed with it, and so are their
+    monsters. The Hollow guide's open entrances stay open, and so do the Hollow's map keys' own checks."""
+    from maplehelper import availability
+    o = availability.of(real)
+    if "Forgotten Hollow" not in o.closed_areas:
+        pytest.skip("the release guide no longer calls Forgotten Hollow closed")
+    for key in ("map/010006121", "map/010006022", "map/010006031", "map/010006000", "map/010006120",
+                "map/080003000"):
+        assert not o.entity_open(key), key
+    for key in ("monster/700003", "monster/62", "monster/54", "monster/57", "monster/59"):
+        assert not o.entity_open(key), (key, real.get(key)["name"])
+    for key in ("map/010002071", "map/010005054", "map/010002000", "map/010004091"):      # entrances, Ellinia, Boar
+        assert o.entity_open(key), key
+    assert o.entity_open("npc/800015")           # the Arcane Station: in Ellinia and Sleepywood too
+
+
+@needs_kb
+def test_maps_whose_page_names_no_continent_are_in_the_game(real):
+    """The Free Market, the KPQ stages and the 2nd-job test maps write only "Location Hidden Street"; two more pages
+    write the line reversed ("Location Truth Booth / Hidden Street"). On no continent the KB closes, they're in the
+    game, with their NPCs. The set is pinned: a KB update that adds one gets a human look first."""
+    from maplehelper import availability
+    o = availability.of(real)
+    unplaced = sorted(k for k, c in o.map_cell.items() if o.map_place[c][0] == availability.NO_CONTINENT)
+    assert unplaced == sorted([f"map/080000{n}00" for n in range(7)] + [f"map/080001{n}00" for n in range(4)]
+                              + [f"map/0800020{n:02}" for n in range(12)] + ["map/088000000", "map/089000000"])
+    for key in ("map/080002000", "map/080000000", "map/080001000", "npc/800008", "npc/800001", "npc/800003"):
+        assert o.entity_open(key), key
+    # "Hidden Street" is a street (43 Victoria maps on it), never a continent the AI is told is closed
+    assert "Hidden Street" not in o.continents
+    note = o.scope_note()
+    assert "Hidden Street" not in note.split("NOT in the game", 1)[1].split("—", 1)[0]
+    assert "(no continent)" not in note
+    # the Founder's Access GM events are in the guide: their maps aren't listed as "not in the game"
+    assert "Event" not in note.split("NOT in the game", 1)[1].split("—", 1)[0]
+    assert "Event maps open only during GM events" in note
+    assert not o.entity_open("npc/900016")       # the event maps stay out of the tables and routes
+
+
+@needs_kb
+def test_npcs_with_several_locations_are_placed(real):
+    """"Locations (4)" pages (every crafting station, Doofus, Eurek): read like "Location", open when any place is."""
+    from maplehelper import availability
+    o = availability.of(real)
+    for key in ("npc/800010", "npc/800011", "npc/800012", "npc/800013", "npc/800014", "npc/800015", "npc/209",
+                "npc/605"):
+        assert o.entity_open(key), (key, real.get(key)["name"])
+    assert o.npc_places("npc/800010")[0] == "Perion Victoria Road"
+    assert not o.entity_open("npc/1002")         # "Locations (0)": dynamically placed, no map to show
+    # ended event quests say so after their kind: "Daily Ended", "Self-Starting Ended"
+    assert not o.entity_open("quest/500005") and not o.entity_open("quest/500006")
+
+
+def test_scope_note_says_nothing_without_the_release_guide(tmp_path):
+    """No release guide filters nothing, so the prompt mustn't say Maple Island is not in the game."""
+    from maplehelper import availability
+    kb = small_kb(tmp_path, [ent("map/1", "Henesys")], {}, {"map/1": "Location Victoria Road / Victoria Island\n"})
+    assert availability.of(kb).scope_note() == ""

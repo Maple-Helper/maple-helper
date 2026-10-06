@@ -9,7 +9,7 @@ The graph:
 - NPC trips: an NPC whose own words offer one ("Want to head over to Florina Beach?"), and the NPC there who takes
   you "back to where you were before".
 Only maps the KB confirms are in the game (availability.py) are on it: a route never passes through Ossyria, an
-event map or a map without a known continent. The KB lists no fares: a route says which steps cost mesos, never how
+event map or a closed area (Forgotten Hollow). The KB lists no fares: a route says which steps cost mesos, never how
 many.
 """
 from __future__ import annotations
@@ -92,9 +92,9 @@ class Graph:
             if not kb.get(key) or not open_.entity_open(key):
                 continue      # not in the game, as the KB says: never on a route
             raw[mid] = m
-            place = availability._MAP_LOCATION.search(kb.page(key))
+            cont = open_.map_place.get(open_.map_cell.get(key, ""), ("",))[0]
             self.maps[mid] = MapInfo(mid, m.get("name") or kb.get(key)["name"], m.get("street") or "",
-                                     bool(m.get("town")), place.group(2).strip() if place else "",
+                                     bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
                                      m.get("minimap"), list(m.get("npcs") or []))
         self.edges: dict[str, list[Leg]] = {mid: [] for mid in self.maps}
         for mid, m in raw.items():

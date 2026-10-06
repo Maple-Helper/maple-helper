@@ -33,7 +33,7 @@ from . import availability, crafting, market, quests, sources
 
 log = logging.getLogger("maplehelper")
 
-TABLES_VERSION = 1          # bump when a builder changes what it writes (the schema itself is hashed in too)
+TABLES_VERSION = 2          # bump when a builder changes what it writes (the schema itself is hashed in too)
 MARK_FILE = "drops.ingame"  # the name the first table's mark had: an older app's mark reads as stale here
 DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
               "and the players' votes on community drops\n"
@@ -377,8 +377,11 @@ class _Ctx:
         for k, e in kb.entities.items():
             if e.get("category") != "map":
                 continue
-            m = re.search(r"^Location (.+?) / (.+?)\s*$", kb.page(k), re.M)
-            street, cont = (m.group(1).strip(), m.group(2).strip()) if m else ("", "")
+            # availability's reading of the page ("Location Hidden Street" alone: the Free Market, the KPQ stages)
+            cell = self.open.map_cell.get(k)
+            cont, street = self.open.map_place.get(cell, ("", "")) if cell else ("", "")
+            cont = cont.split(" · ", 1)[0]
+            cont = "" if cont == availability.NO_CONTINENT else cont
             self.map_place[k] = (street, cont)
             self.map_by_cell.setdefault(f"{e.get('name', '')} {street}".strip(), k)
             self.map_by_name.setdefault(e.get("name", ""), []).append(k)
@@ -739,10 +742,12 @@ def _npc(ctx, key: str, e: dict) -> dict:
     lines = ctx.lines(key)
     name = e["name"]
     role, place = [], ""
-    i = next((n for n, ln in enumerate(lines) if ln in ("Location", "Locations")), None)
+    # "Location", or "Locations (4)" (the crafting stations, Doofus)
+    i = next((n for n, ln in enumerate(lines) if re.fullmatch(r"Locations?(?: \(\d+\))?", ln)), None)
     if i is not None:
-        # the first place it stands ("Locations" lists more, each line "<map> <street>")
-        place = next((ln for ln in lines[i + 1:i + 4] if ln and ln != "Find path here"), "")
+        # the first open place it stands ("Locations" lists more, each line "<map> <street>")
+        places = ctx.open.npc_places(key)
+        place = next((p for p in places if ctx.open.map_open(p)), places[0] if places else "")
         # the role lines stand between the name (its second time, under the description) and "Location"
         first = max((n for n in range(i) if lines[n] == name), default=i)
         role = [ln for ln in lines[first + 1:i] if ln]
