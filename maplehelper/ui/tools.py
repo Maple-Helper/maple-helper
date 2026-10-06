@@ -1606,12 +1606,14 @@ class ToolsDialog(GlassDialog):
                 path = self.kb.picture(m)
                 img = self._zoom_img(Path(path).resolve().as_uri()) if path else ""
                 mob = (self.kb.get(m) or {}).get('name', m)
-                who = html.escape(f"{mob} (Lv. {lv(m)})")
+                # the level in the UI's words: "רמה 5" in Hebrew, after the English block (HEB-14)
+                who = (f"{bidi.LRE}{img}{html.escape(mob)}{bidi.PDF}{bidi.RLM} ({html.escape(t('lv_short', n=lv(m)))})"
+                       if t.rtl else f"{bidi.LRE}{img}{html.escape(f'{mob} (Lv. {lv(m)})')}{bidi.PDF}")
                 # the way to it and its hit & damage
                 more = (" · " + self._nav_html([("farm_route", "route", mob), ("tool_calc", "calc", mob)])
                         if self._mob_map(mob) else "")
                 rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
-                            f"{bidi.LRE}{img}{who}{bidi.PDF}{bidi.RLM}</span>{more}</p>")
+                            f"{who}{bidi.RLM}</span>{more}</p>")
             if made:
                 # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
                 # in one line read backwards)
@@ -1619,8 +1621,9 @@ class ToolsDialog(GlassDialog):
                 for prof, plv, what in made[:2]:
                     # the profession, then each ingredient on its own line with its picture (one long line of
                     # five ingredients wrapped in the middle of a name: the owner)
-                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{bidi.LRE}<b>{html.escape(f'{prof} Lv. {plv}')}"
-                                f"</b>{bidi.PDF}{bidi.RLM}:</p>")       # (italics leaned and clipped the "5")
+                    head = (f"{bidi.LRE}<b>{html.escape(prof)}</b>{bidi.PDF}{bidi.RLM} "
+                            f"<b>{html.escape(t('lv_short', n=plv))}</b>" if t.rtl else f"{bidi.LRE}<b>{html.escape(f'{prof} Lv. {plv}')}</b>{bidi.PDF}")
+                    rows.append(f"<p {side} style='margin:2px 0 2px 0;'>{head}{bidi.RLM}:</p>")  # (italics clipped the "5")
                     for n, part in re.findall(r"(\d[\d,]*) x (.+?)(?=\s+\d[\d,]* x |$)", what):
                         rows.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(f'{part.strip()} x {n}')}</p>")
             blocks.append("".join(rows))

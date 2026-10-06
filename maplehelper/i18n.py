@@ -1386,7 +1386,7 @@ STRINGS = {
     "tier_title": {"he": "איך {job} מדורג מול שאר הג'ובים", "en": "How {job} ranks among the jobs"},
     "tier_legend": {"he": "דירוג הקהילה ב-NiaMeowDB, בבילד טיפוסי ברמה {n}.\nS = מהטובים, A = באמצע, B = מהחלשים, – = אין לו בכלל.",
                     "en": "NiaMeowDB's community ranking, for a typical level {n} build. S = among the best, A = middle, B = among the weakest, – = none at all."},
-    "tier_tip": {"he": "דירוג של NiaMeowDB לפי בילדים ריאליסטיים של הקהילה ב-Lv {n}, נגד מטרה בלי הגנה. S/A/B: השליש העליון, האמצעי והתחתון מבין עשרת הג'ובים השניים. דעת הקהילה, לא נתון רשמי.",
+    "tier_tip": {"he": "דירוג של NiaMeowDB לפי בילדים ריאליסטיים של הקהילה ברמה {n}, נגד מטרה בלי הגנה. S/A/B: השליש העליון, האמצעי והתחתון מבין עשרת הג'ובים השניים. דעת הקהילה, לא נתון רשמי.",
                  "en": "NiaMeowDB's ranking from the community's realistic builds at Lv {n}, against a target with no defence. S/A/B: the top, middle and bottom third of the ten 2nd jobs. Community opinion, not official."},
     "tier_place": {"he": "מקום {place} מתוך {total}", "en": "#{place} of {total}"},
     "tier_none": {"he": "אין לו", "en": "none"},

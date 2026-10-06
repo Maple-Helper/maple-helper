@@ -64,7 +64,7 @@ APP = {
            "then 3 per level after the first job."),
     "NPC": ("דמות של המשחק (לא שחקן): חנויות, נותני קווסטים ומדריכי ג'וב.",
             "A character run by the game (not a player): shops, quest givers, job instructors."),
-    "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מ-Lv. 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
+    "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מרמה 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
                     "Citizenship of a town (Henesys or Kerning City) from Lv. 12. Donations raise your grade, "
                     "which opens discounts and items in that town's shops."),
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
