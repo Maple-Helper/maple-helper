@@ -162,9 +162,12 @@ def test_inventory_hint_names_etc_and_equip_slots(monkeypatch):
     kb = SimpleNamespace(get=items.get)
     monkeypatch.setattr(grind, "is_potion", lambda kb, key: key == "item/1")
     slots = [SimpleNamespace(status="certain", matches=[(k, 1.0)], index=i) for i, k in enumerate(items, 1)]
-    hint = grind.inventory_hint(slots + [SimpleNamespace(status="ambiguous", matches=[("item/2", 2.0)], index=9)], kb)
+    # a slot not named for certain never reaches the farm's loot records (farm.records counts what the AI lists)
+    unsure = [SimpleNamespace(status="ambiguous", matches=[("item/2", 2.0)], index=9),
+              SimpleNamespace(status="unknown", matches=[("item/3", 30.0)], index=10)]
+    hint = grind.inventory_hint(slots + unsure, kb)
     assert "slot 1: Red Potion" in hint and "slot 2: Leather" in hint and "slot 3: Bronze Sword" in hint
-    assert "slot 9" not in hint and '"etc"' in hint
+    assert "slot 9" not in hint and "slot 10" not in hint and '"etc"' in hint
 
 
 def test_the_grind_read_asks_for_the_etc_and_equip_tabs():
@@ -468,6 +471,19 @@ def test_sell_or_keep_sorts_the_bag_by_the_kb():
     assert v[1].kind == "quest" and v[1].why
     assert v[2].kind == "other_job"
     assert v[3].kind == "unknown" and not v[3].name
+
+
+@needs_kb
+def test_sell_or_keep_takes_the_price_from_a_same_name_copy_the_read_matched():
+    # the KB has Jr. Sentinel Shellpiece's NPC price on its other copy's page only (item/2584): "no price" (P83-5)
+    from maplehelper import sellkeep
+    from maplehelper.inventory import Slot
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    (v,) = sellkeep.classify(kb, [Slot(1, b"", [("item/347", 5.0), ("item/2584", 5.2)])], 20, "Bowman", "Bowman")
+    assert (v.kind, v.key, v.price) == ("sell", "item/347", 26)
+    (v,) = sellkeep.classify(kb, [Slot(1, b"", [("item/347", 5.0)])], 20, "Bowman", "Bowman")
+    assert v.kind == "no_price"                        # no copy in the read: nothing borrowed from elsewhere
 
 
 def test_an_item_the_free_market_pays_more_for_is_sold_there():

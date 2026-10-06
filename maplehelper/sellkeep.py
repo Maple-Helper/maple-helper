@@ -39,6 +39,18 @@ def _wear(kb, key: str) -> tuple[int, list[str]] | None:
     return level, jobs
 
 
+def _sell_back(kb, slot, name: str) -> int:
+    """What an NPC pays for the slot's item: its page's price, else that of a copy of it the read matched too (the
+    same name, a picture as close). The KB has some prices on one copy's page only: Jr. Sentinel Shellpiece read as
+    item/347 said "no price" while item/2584 pays 26 mesos."""
+    for k, _ in slot.matches:
+        if k == slot.matches[0][0] or (kb.get(k) or {}).get("name") == name:
+            sell = market.npc_prices(kb, k).sell_back
+            if sell:
+                return sell
+    return 0
+
+
 def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
              crafts: dict | None = None, wished: list[str] | None = None) -> list[Verdict]:
     """One verdict per inventory slot the read found, in the order of the groups the page shows."""
@@ -66,10 +78,10 @@ def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", d
                 kind = "not_yet"
             else:
                 kind = "wear"
-            sell = market.npc_prices(kb, key).sell_back or 0
+            sell = _sell_back(kb, s, name)
             out.append(Verdict(kind, key, name, str(lv or ""), sell, s.index))
             continue
-        sell = market.npc_prices(kb, key).sell_back or 0
+        sell = _sell_back(kb, s, name)
         out.append(Verdict("sell" if sell else "no_price", key, name, price=sell, slot=s.index))
     return _sorted(out)
 
