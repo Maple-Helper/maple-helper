@@ -290,3 +290,29 @@ def test_the_chat_asks_with_the_size_then_shows_progress_and_cancel(overlay):
     overlay.voice_download_finished("cancelled")
     rows = [overlay.feed_lay.itemAt(i).widget() for i in range(overlay.feed_lay.count())]
     assert shown(next(w for w in reversed(rows) if isinstance(w, SystemLine)).text()) == overlay.t("voice_dl_stopped")
+
+
+# ------------------------------------------------------------------ OVL-23 / UX-20: the tour's header steps
+
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_the_tour_shows_the_news_button_and_walks_the_header_in_reading_order(overlay, lang):
+    from maplehelper.i18n import I18n
+    from maplehelper.ui import tour
+    overlay.settings["language"] = lang
+    overlay.t = I18n(lang)
+    overlay.apply_language()
+    pump(overlay.app, 50)
+    header = ("history_btn", "news_btn", "guides_btn", "wish_btn", "tools_btn", "settings_btn", "min_btn",
+              "close_btn")
+    steps = [p for p, _ in tour.STEPS if p in header]
+    assert steps == list(header) and ("news_btn", "tour_news") in tour.STEPS
+    xs = [getattr(overlay, p).mapTo(overlay, getattr(overlay, p).rect().center()).x() for p in steps]
+    assert xs == sorted(xs, reverse=(lang == "he"))      # the light moves one way along the header
+    overlay.start_tour()
+    tr = overlay._tour
+    seen = [k for _, k in tr.steps]
+    assert "tour_news" in seen
+    tr.go(seen.index("tour_news"))
+    assert shown(tr.title.text()) == overlay.t("tour_news_title")
+    assert tr.count.text() == f"{seen.index('tour_news')} / {len(seen) - 2}"
+    tr.finish()
