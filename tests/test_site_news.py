@@ -505,3 +505,23 @@ def test_one_more_article_on_meowdb_is_singular():
     from maplehelper.i18n import I18n
     assert I18n("he")("news_more_site", n=1) == "עוד כתבה אחת ב-MeowDB"
     assert I18n("he")("news_more_site", n=3) == "עוד 3 כתבות ב-MeowDB"
+
+
+def test_the_maintenance_notice_redraws_its_date_in_the_new_language(chat):
+    """review3 HEB-16-a: the end date kept the format of the language it was first drawn in."""
+    from datetime import date
+
+    from maplehelper import dates
+    from maplehelper.ui.widgets import NoticeCard
+    now = time.time()
+    end = now + 3 * 86400                                   # another day: the date shows, not only the hour
+    chat._on_server_status(serverstatus.parse({"verdict": "up"}, now))
+    chat._on_server_status(serverstatus.parse(
+        {"verdict": "maintenance", "notice": {"url": "https://www.nexon.com/maplestory/news/maintenance/1",
+                                              "endAt": end * 1000}}, now))
+    day = date.fromtimestamp(end)
+    notice = chat.feed.findChildren(NoticeCard)[0]
+    assert dates.day(day, True, False) in notice.msg.text()
+    chat.settings["language"] = "en"
+    chat.apply_language()
+    assert dates.day(day, False, False) in notice.msg.text() and "until about" in notice.msg.text()

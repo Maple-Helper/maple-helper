@@ -1065,10 +1065,11 @@ class Overlay(QWidget):
         if change == "started":
             from .serverdot import when
             # an overrunning maintenance has no end time to promise (the dot's tooltip has the same rule)
-            until = when(st.notice_end, self.t.rtl) if st.notice_end and not st.notice_done and st.notice_end > time.time() else ""
+            ends = bool(st.notice_end and not st.notice_done and st.notice_end > time.time())
 
-            def text(t, until=until):
-                return t("server_maint_started_until", time=until) if until else t("server_maint_started")
+            def text(t, ends=ends, end=st.notice_end):
+                # the date in the language shown now: a switch redraws it (it kept the first one's, review3 HEB-16-a)
+                return t("server_maint_started_until", time=when(end, t.rtl)) if ends else t("server_maint_started")
             if st.notice_url:
                 self.add_notice(text, lambda t: t("server_notice_open"),
                                 lambda url=st.notice_url: __import__("webbrowser").open(url))
