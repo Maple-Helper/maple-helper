@@ -12,16 +12,15 @@ from functools import lru_cache
 
 EXP_GUIDE = "guide/exp-table-level-1-to-100"
 GRIND_GUIDE = "guide/best-grind-maps-every-level"
-# main stat first; the second only as much as gear and accuracy need
-STATS = {"Beginner": ("STR", "DEX"), "Warrior": ("STR", "DEX"), "Magician": ("INT", "LUK"),
-         "Bowman": ("DEX", "STR"), "Thief": ("LUK", "DEX")}
 JOB_SOON = 2          # levels before an advancement when the tip appears
 MAP_TOO_EASY = 8      # the map's monsters this many levels below the player: suggest moving on
 # a new character stays on Maple Island until about level 8, then takes the boat to Lith Harbor
 # (pages/guide/beginners-guide-first-steps-in-maple-world.md: "By the time you finish all the beginner quests on
 # Maple Island, you'll likely be lv 8. That's when you take the boat ... to Lith Harbor")
 LEAVE_ISLAND = 8
-ISLAND_REGION = "Maple Road"      # Maple Island's maps: "Location Maple Road / Maple Island" (pages/map/*.md)
+# Maple Island's streets: "Location Maple Road / Maple Island" and "Location Rainbow Street / Maple Island"
+# (pages/map/*.md). Rainbow Street alone was missing: Snail was the answer for every level 1-8 (audit GAM-3)
+ISLAND_REGIONS = ("Maple Road", "Rainbow Street")
 
 
 @dataclass
@@ -113,8 +112,9 @@ def monster_exp(kb, name: str) -> int | None:
 
 
 def island_monster(kb, level: int) -> tuple[str, int] | None:
-    """(name, EXP) of the best Maple Island monster for this level: the strongest one that lives only on the
-    island (its maps are all in ISLAND_REGION) and is at most 2 levels above the player."""
+    """(name, EXP) of the best Maple Island monster for this level: the strongest one that lives on the
+    island (one of its top maps is in ISLAND_REGIONS: Blue Snail lives on Victoria too) and is at most 2 levels
+    above the player."""
     from .combat import special_monster
     top = getattr(kb, "_top_maps", None)
     best = None
@@ -125,7 +125,8 @@ def island_monster(kb, level: int) -> tuple[str, int] | None:
                 or exp <= 0 or lv > level + 2 or special_monster(e["name"]):
             continue
         maps = top(k) if top else []
-        if maps and all(m.endswith(" " + ISLAND_REGION) for m in maps) and (best is None or (lv, exp) > best[0]):
+        on_island = any(m.endswith(" " + r) for m in maps for r in ISLAND_REGIONS)
+        if on_island and (best is None or (lv, exp) > best[0]):
             best = ((lv, exp), e["name"], int(exp))
     return (best[1], best[2]) if best else None
 
