@@ -14,7 +14,7 @@ from ..kb import KnowledgeBase
 from . import newsview
 from .controls import Section, Segmented, rtl_buttons
 from .glass import GlassDialog
-from .widgets import EntityCard, Selectable, zoom_on_hover
+from .widgets import EntityCard, Selectable, fit_picture, zoom_on_hover
 
 SHOWN = 80   # rows per list; the rest is counted
 
@@ -105,7 +105,9 @@ class ChangeCard(Selectable, QFrame):
         img = kb.picture(r["key"])
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # without the sprite's empty margins: Trixter (a small bug in a 67x81 canvas) drew half the size of
+            # Jr. Sentinel on the next card (VIS-22)
+            pic.setPixmap(fit_picture(pm, 48, 48, pic, trim=True))
             zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()

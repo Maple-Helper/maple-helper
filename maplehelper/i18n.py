@@ -847,6 +847,8 @@ STRINGS = {
     "grind_tag_ended": {"he": "הסתיים", "en": "Ended"},
     "grind_idle_state": {"he": "אין סשן פעיל", "en": "No session running"},
     "grind_started_ago": {"he": "התחיל לפני {n} דקות", "en": "Started {n} min ago"},
+    # from an hour, in the session time cell's own format ("1:01 h", not "62 min" beside it)
+    "grind_started_ago_time": {"he": "התחיל לפני {time}", "en": "Started {time} ago"},
     "grind_auto": {"he": "עדכון אוטומטי כל דקה", "en": "Auto-update every minute"},
     "grind_auto_hint": {"he": "כל קריאה נספרת במכסת ה-AI", "en": "Each read counts toward your AI plan"},
     "grind_auto_reading": {"he": "קורא את המשחק…", "en": "Reading the game…"},

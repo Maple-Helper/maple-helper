@@ -21,8 +21,8 @@ from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html, updated_tag,
-                      vote_tag, zoom_on_hover)
+from .widgets import (chip_row, fit_picture, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html,
+                      updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
 PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
@@ -116,7 +116,7 @@ class _LazyIcons(QStandardItemModel):
                 return None
             if path not in self._icons:
                 pm = QPixmap(path)
-                self._icons[path] = QIcon(pm.scaled(self._size, self._size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self._icons[path] = QIcon(fit_picture(pm, self._size, self._size))
             return self._icons[path]
         return super().data(index, role)
 
@@ -787,7 +787,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(52, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 52, 52, pic))
                 zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -825,7 +825,7 @@ class ToolsDialog(GlassDialog):
         # that changed it says so
         stamp = sources.stat_source(self.kb, m.key)
         nums.addWidget(source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp))
-        updated = updated_tag(t, self.kb, m.key)
+        updated = updated_tag(t, self.kb, m.key, stats_only=True)
         if updated:
             why.addWidget(updated)
         for line in (why, nums):
@@ -916,7 +916,7 @@ class ToolsDialog(GlassDialog):
             pic = QLabel()
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
-            pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 56, 56, pic))
             zoom_on_hover(pic, path)
             nums.addWidget(pic, 0, Qt.AlignVCenter)
         # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
@@ -930,7 +930,7 @@ class ToolsDialog(GlassDialog):
         # where these numbers (and every result below, worked out from them) come from
         stamp = sources.stat_source(self.kb, m.key)
         self.calc_chips = [source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp)]
-        updated = updated_tag(t, self.kb, m.key)
+        updated = updated_tag(t, self.kb, m.key, stats_only=True)
         if updated:
             self.calc_chips.append(updated)
         both.addLayout(chip_row(self.calc_chips))
@@ -1649,7 +1649,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                npc.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                npc.setPixmap(fit_picture(pm, 52, 60, npc))
                 zoom_on_hover(npc, path)
         outer.addWidget(npc, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2071,7 +2071,7 @@ class ToolsDialog(GlassDialog):
         if uri:
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 52, 60, pic))
                 zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2105,7 +2105,7 @@ class ToolsDialog(GlassDialog):
         if uri:
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 44, 44, pic))
                 zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2115,7 +2115,12 @@ class ToolsDialog(GlassDialog):
         why = FlowLayout(spacing=5)               # the tags wrap at a narrow width
         if best:
             why.addWidget(tag(self._p(t("craft_best")), "TagAccent"))
-        why.addWidget(tag(self._p(t("craft_lv_tag", n=r.level)), "Tag"))     # the list spans several levels
+        lv = t("craft_lv_tag", n=r.level)
+        if t.rtl:
+            # "רמה 1": the digit 1's ink sits at the right of its width, against the Hebrew word, and with a plain
+            # space the chip read "רמה1" (TL2-16); a no-break space plus a sixth of an em keeps the gap seen
+            lv = lv.replace(" ", "  ", 1)
+        why.addWidget(tag(self._p(lv), "Tag"))     # the list spans several levels
         why.addWidget(tag(f"+{r.exp} EXP", "TagGood"))
         why.addWidget(tag(self._p(t("craft_cost", n=f"{r.catalyst:,}")), "Tag"))
         col.addLayout(why)
@@ -2235,6 +2240,10 @@ class ToolsDialog(GlassDialog):
         self._set(self.town_head, t("town_head", n=len(rows), town=town))
         clear(self.town_grades)
         self.town_grades_box.hide()
+        # under Lv. 12 only "Citizenship opens at Lv. 12": "0 Henesys quests you can do now, best first" above it
+        # and an empty search said the opposite (TL2-12)
+        self.town_head.setVisible(c.level >= 12)
+        self.town_search.setVisible(c.level >= 12)
         if c.level < 12:
             self.town_list.addWidget(self._label(t("town_too_low"), "RowHint"))
             return
@@ -2343,7 +2352,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 48, 48, pic))
                 zoom_on_hover(pic, path)
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2712,6 +2721,15 @@ class ToolsDialog(GlassDialog):
         m = int(seconds) // 60
         return self.t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else self.t("grind_minutes", m=m)
 
+    def _started_ago(self, s) -> str:
+        """ "Started 12 min ago", from an hour in the time cell's own format: "Started 62 min ago" stood beside
+        "1:01 h" (TL2-18)."""
+        secs = max(0.0, time.time() - s.start)
+        m = int(secs) // 60
+        if m >= 60:
+            return self.t("grind_started_ago_time", time=self._clock(secs))
+        return self.t("grind_started_ago", n=m)
+
     def _cell(self, key: str, value: str, tip: str = ""):
         box, label = self.grind_cells[key]
         label.setText(value)
@@ -2739,7 +2757,7 @@ class ToolsDialog(GlassDialog):
             self.grind_auto_state.hide()
             self._gs(self.grind_state, t("grind_ended_state", time=self._clock(end - s.start)))
             return
-        self._gs(self.grind_state, t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        self._gs(self.grind_state, self._started_ago(s))
         self._fill_auto_state(s)
 
     def _fill_auto_state(self, s=None):
@@ -3222,7 +3240,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, size, size, pic))
                 zoom_on_hover(pic, path)
         return pic
 
@@ -3485,7 +3503,7 @@ class ToolsDialog(GlassDialog):
         self.farm_tag.style().polish(self.farm_tag)
         end = s.ended or time.time()
         self._fs(self.farm_state, t("grind_ended_state", time=self._clock(end - s.start)) if s.ended else
-                 t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+                 self._started_ago(s))
         mob = s.monster if not (s.ended and self._grind_choice) else self._grind_choice
         self.farm_mob.show()
         self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)) if mob else t("farm_mob_none"))
@@ -3700,7 +3718,7 @@ class ToolsDialog(GlassDialog):
         path = self.kb.picture(p.key)
         pm = QPixmap(str(path)) if path else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 40, 40, pic))
             zoom_on_hover(pic, path)
         lay.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -3876,7 +3894,7 @@ class ToolsDialog(GlassDialog):
             pic = QLabel()
             pm = QPixmap()
             pm.loadFromData(v.picture)
-            pic.setPixmap(pm.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 36, 36, pic))
             row.addWidget(pic, 0, Qt.AlignVCenter)
         col = QVBoxLayout()
         col.setSpacing(2)

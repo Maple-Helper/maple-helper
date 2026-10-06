@@ -13,6 +13,7 @@ from ..osapi import open_url
 from .controls import FlowLayout, follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
+from .widgets import fit_picture
 
 
 ZOOM = 3            # pictures are pixel art: a whole-number zoom keeps them sharp
@@ -171,6 +172,8 @@ class ImageZoom(QObject):
 
 
 COVER_W = 480       # a guide's cover picture, shown when hovering its card
+# the cover on a guide's card: covers are 1200x630, and in a 44 px square they were a 44x23 smudge (VIS-22)
+COVER_THUMB = (88, 46)
 
 
 def _pop_style() -> str:
@@ -241,11 +244,11 @@ class GuideRow(QFrame):
         row.setSpacing(10)
         img = kb.picture(self.key)
         pic = CoverPic(str(img) if img else None)
-        pic.setFixedSize(44, 44)
+        pic.setFixedSize(*COVER_THUMB)
         pic.setAlignment(Qt.AlignCenter)
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, *COVER_THUMB, pic))
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)

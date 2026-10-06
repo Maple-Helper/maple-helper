@@ -6,6 +6,7 @@ is a translation of its current text, else the English one under a Hebrew note t
 """
 from __future__ import annotations
 
+import html
 import re
 
 from PySide6.QtCore import Qt, Signal
@@ -42,10 +43,25 @@ def _title(i: dict, rtl: bool) -> str:
     return sentences(he, rtl) if he != i["title"] else bidi.ltr_name(i["title"], rtl)
 
 
+def set_title(lb: QLabel, i: dict, rtl: bool) -> None:
+    """A translated Hebrew title as right-to-left rich text, sentence by sentence as sentences(): as plain text a
+    wrapped title kept the space before its English name at the end of line 1, which then started ~6 px in from
+    line 2 and the summary (VIS-14; guides.set_title does the same)."""
+    he = news.title(i, "he" if rtl else "en")
+    if rtl and he != i["title"]:
+        body = " ".join(bidi.isolate_ltr_runs(x) for x in re.split(r"(?<=[.!?])\s+", he.strip()) if x)
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(f'<p dir="rtl" align="right" style="margin:0;">{html.escape(body, quote=False)}</p>')
+    else:
+        lb.setTextFormat(Qt.PlainText)
+        lb.setText(_title(i, rtl))
+
+
 def title_label(i: dict, rtl: bool, name: str = "CardName") -> QLabel:
     """The title: in Hebrew when translated (news.title), else as published."""
-    lb = QLabel(_title(i, rtl), objectName=name)
+    lb = QLabel(objectName=name)
     lb.setWordWrap(True)
+    set_title(lb, i, rtl)
     lb.setAlignment(_align(rtl))
     return lb
 
@@ -113,7 +129,7 @@ class NewsStrip(QFrame):
         if len(unread) > 1:
             head += " · " + t("news_strip_more", n=len(unread) - 1)
         self.head.setText(bidi.plain(head, rtl))
-        self.title.setText(_title(i, rtl))
+        set_title(self.title, i, rtl)
         for lb in (self.head, self.title):
             lb.setAlignment(_align(rtl))
         text, _ = news.summary(i, t.lang)

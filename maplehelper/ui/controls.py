@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (QAbstractButton, QButtonGroup, QFrame, QHBoxLayou
 from .. import bidi
 from . import theme
 
+DISABLED_OPACITY = 0.45      # a Switch / Select that can't be used now
+
 
 class Switch(QAbstractButton):
     """iOS switch: the knob slides with a critically damped ease; mirrors in RTL."""
@@ -45,6 +47,8 @@ class Switch(QAbstractButton):
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # greyed, as iOS does (it looked live while it did nothing)
         w, h = 46, 28
         track = QRectF(0, (self.height() - h) / 2, w, h)
         off = QColor(120, 120, 128, 90) if theme.MODE == "dark" else QColor(120, 120, 128, 60)
@@ -253,6 +257,10 @@ class Section(QFrame):
             # left" isn't mirrored, and in Hebrew every link sat at the far end from its section's header
             self.rows.addWidget(w, 0, Qt.AlignLeading | Qt.AlignVCenter)
         else:
+            if isinstance(w, QLabel) and w.contentsMargins().isNull():
+                # a plain text row gets the rows' own top and bottom room (add_row's 8 px): the pets' intro sat
+                # 4 px from the card's edge
+                w.setContentsMargins(0, 8, 0, 8)
             self.rows.addWidget(w)
         self._items.append((sep, w))
         # a row that is hidden for now (a sign-in hint, the installer's progress) left its divider behind, an
@@ -420,6 +428,8 @@ class Select(QPushButton):
         cx = 14 if rtl else self.width() - 14          # chevrons on the trailing side
         cy = self.height() / 2
         col = QColor(235, 235, 245, 160) if theme.MODE == "dark" else QColor(60, 60, 67, 160)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # the chevrons grey out with the value (theme.py)
         p.setPen(QPen(col, 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         up, down = QPainterPath(), QPainterPath()
         up.moveTo(QPointF(cx - 3.5, cy - 2))
