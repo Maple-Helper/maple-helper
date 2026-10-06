@@ -501,7 +501,7 @@ def test_mac_menu_bar_click_opens_the_menu_without_toggling_the_chat(monkeypatch
         monkeypatch.setattr(app_mod.osapi, "IS_MAC", mac)
         calls = []
         fake = SimpleNamespace(settings={"language": "en", "hotkey_toggle": "F9"}, qapp=QApplication.instance(),
-                               overlay=SimpleNamespace(toggle=lambda c: calls.append("toggle")), capture=None,
+                               overlay=SimpleNamespace(toggle=lambda c, calls=calls: calls.append("toggle")), capture=None,
                                show_chat=lambda: None, open_settings=lambda: None, _add_announced_item=lambda: None)
         MapleHelperApp.make_tray(fake)
         fake.tray.activated.emit(QSystemTrayIcon.Trigger)
