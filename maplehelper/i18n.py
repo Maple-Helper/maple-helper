@@ -66,7 +66,7 @@ STRINGS = {
     "news_key_points": {"he": "העיקר", "en": "Key points"},
     "news_english_body": {"he": "הכתבה עוד לא תורגמה, אז היא באנגלית:", "en": "Not translated yet:"},
     "news_meowdb_note": {"he": "הערת NiaMeowDB", "en": "NiaMeowDB's note"},
-    "news_pictured": {"he": "בתמונות של ההודעה", "en": "In the announcement's pictures"},
+    "news_pictured": {"he": "תמונות מהכתבה", "en": "Pictures from the article"},
     "news_pictures_credit": {"he": "תמונות: {who}", "en": "Pictures: {who}"},
     "news_pictures_tip": {"he": "התמונות מההודעה המקורית של {who}. לחצו כדי לפתוח אותה.",
                           "en": "The pictures are from {who}'s original announcement. Click to open it."},
