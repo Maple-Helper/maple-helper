@@ -316,3 +316,19 @@ def test_the_tour_shows_the_news_button_and_walks_the_header_in_reading_order(ov
     assert shown(tr.title.text()) == overlay.t("tour_news_title")
     assert tr.count.text() == f"{seen.index('tour_news')} / {len(seen) - 2}"
     tr.finish()
+
+
+# ------------------------------------------------------------------ VIS-11: the tag line follows its question
+
+@pytest.mark.parametrize("question,ui_rtl,rtl", [("מה הוא מפיל?", True, True), ("what does it drop?", True, False),
+                                                 ("what does it drop?", False, False)])
+def test_a_bubbles_tag_line_sits_on_its_questions_side(question, ui_rtl, rtl):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from maplehelper.ui.widgets import Bubble
+    b = Bubble(question, "user", ui_rtl, tag="Orange Mushroom, Blue Snail")
+    label = b.tag_label
+    assert bool(label.alignment() & Qt.AlignRight) == rtl and label.alignment() & Qt.AlignAbsolute
+    assert ("↪" if rtl else "↩") in label.text()
+    assert label.text().startswith("‏") == rtl          # an RTL line, though it starts with an English name
