@@ -181,6 +181,18 @@ def _pop_style() -> str:
     return f"background: {bg}; border: 1px solid {c['stroke']}; border-radius: 12px; padding: 8px;"
 
 
+def set_title(lb: QLabel, text: str, rtl: bool) -> None:
+    """A word-wrapped guide title. In Hebrew as right-to-left rich text: as plain text a nearly full line kept its
+    trailing space and lost the edge of its last word ("…עליית רמות ל-Assassin … רמה 30-70" showed "רמ" at the
+    card's edge, the review UI-2; the sign-in hints had the same, DLG-8)."""
+    if rtl:
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(bidi.to_html(text, "rtl"))
+    else:
+        lb.setTextFormat(Qt.PlainText)
+        lb.setText(bidi.plain(text, False))
+
+
 class CoverPic(QLabel):
     """The small cover on a guide's card; hovering it shows the cover large."""
 
@@ -240,8 +252,9 @@ class GuideRow(QFrame):
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
         shown_title = guides.title(g["key"], g["title"], t.lang)
         self.setAccessibleName(shown_title)
-        title = QLabel(bidi.plain(shown_title, rtl), objectName="CardName")
+        title = QLabel(objectName="CardName")
         title.setWordWrap(True)
+        set_title(title, shown_title, rtl)
         title.setAlignment(align)
         col.addWidget(title)
         meta = t(f"gcat_{g['category']}") + (f" · {t('g_minutes', n=g['minutes'])}" if g.get("minutes") else "")
@@ -491,7 +504,7 @@ class GuidesDialog(GlassDialog):
         g, translated, stale = guides.localized(key, page, t.lang)
         rtl = translated and t.rtl
         self.r_title.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        self.r_title.setText(bidi.plain(g.title, rtl))
+        set_title(self.r_title, g.title, rtl)
         meta = t(f"gcat_{guides.category(key)}") + (f" · {t('g_minutes', n=g.minutes)}" if g.minutes else "")
         self.r_meta.setText(bidi.plain(meta, t.rtl))
         self.stale.setVisible(translated and stale)
@@ -512,7 +525,7 @@ class GuidesDialog(GlassDialog):
         t = self.t
         rtl = b["lang"] != "en" and t.rtl
         self.r_title.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        self.r_title.setText(bidi.plain(b.get("title") or key, rtl))
+        set_title(self.r_title, b.get("title") or key, rtl)
         meta = t(f"gcat_{guides.category(key)}") + (f" · {t('g_minutes', n=b['minutes'])}" if b.get("minutes") else "")
         self.r_meta.setText(bidi.plain(meta, t.rtl))
         self.stale.setVisible(b["lang"] != "en" and b.get("stale", False))

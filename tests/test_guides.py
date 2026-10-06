@@ -361,3 +361,32 @@ def test_a_full_width_table_row_spans_the_table():
                    ["Haste", "Lv20 at level 54", "Lv20 at level 56"]]}]}
     html = guides.book_html(book)
     assert html.count("colspan='3'") == 1 and "colspan='1'" not in html
+
+
+def test_hebrew_guide_titles_wrap_as_right_to_left_paragraphs():
+    """As plain text a nearly full Hebrew title line lost its last letter at the card's edge ("רמה" showed "רמ",
+    the review UI-2): titles are right-to-left rich text, as the sign-in hints (DLG-8)."""
+    import sys
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QLabel
+    app = QApplication.instance() or QApplication(sys.argv)
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.guides import GuideRow, GuidesDialog
+    key = "guide/assassin-class-guide"
+    kb = SimpleNamespace(entities={}, page=lambda k: "", get=lambda k: None, picture=lambda k: None)
+    g = {"key": key, "title": "Assassin Guide", "category": "class", "minutes": None}
+    for lang, fmt in (("he", Qt.RichText), ("en", Qt.PlainText)):
+        t = I18n(lang)
+        row = GuideRow(kb, g, t, t.rtl)
+        title = next(lb for lb in row.findChildren(QLabel) if lb.objectName() == "CardName")
+        assert title.textFormat() == fmt
+        assert ('dir="rtl"' in title.text()) == (lang == "he")
+        assert "Assassin" in title.text()
+        row.deleteLater()
+    d = GuidesDialog(kb, None, "he", "")
+    try:
+        d.open_guide(key)
+        app.processEvents()
+        assert d.r_title.textFormat() == Qt.RichText and 'dir="rtl"' in d.r_title.text()
+    finally:
+        d.close()
