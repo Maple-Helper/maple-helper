@@ -2683,6 +2683,11 @@ class Overlay(QWidget):
         row = getattr(self, "_voice_dl_row", None)
         if row is not None and _alive(row):
             row.setDisabled(True)
+            for b in row.chips:
+                b.hide()          # no faint Cancel on a finished row (review3 UX12-c)
+            if how == "done":
+                self._voice_pct = 100        # not the last 37% report
+                row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=100))
         key = {"done": "voice_dl_done", "cancelled": "voice_dl_stopped"}.get(how)
         if key:
             self.add_system(lambda t: t(key, key=self.settings["hotkey_voice"]))

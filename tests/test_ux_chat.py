@@ -383,6 +383,17 @@ def test_a_failed_cublas_part_of_the_agreed_download_falls_back_to_the_cpu(monke
     assert not asked and vc._stream is not None and tries == [True]      # no second, silent try
 
 
+def test_a_finished_download_row_drops_its_cancel_and_reads_100(overlay):
+    """review3 UX12-c: it kept "37%" and a faint Cancel chip."""
+    from maplehelper.ui.widgets import SystemLine
+    overlay.voice_download_progress(0)
+    overlay.voice_download_progress(37)
+    dl = overlay._voice_dl_row
+    overlay.voice_download_finished("done")
+    assert not dl.isEnabled() and not any(b.isVisible() for b in dl.chips)
+    assert "100%" in shown(dl.findChild(SystemLine).text())
+
+
 def test_the_chat_asks_for_the_nvidia_part_with_its_size(overlay):
     from maplehelper.ui.widgets import SystemLine
     yes, no = [], []
