@@ -298,3 +298,28 @@ def test_skills_tab_fits_the_narrow_window(tools, lang):
             assert area.widget().minimumSizeHint().width() <= area.viewport().width(), (cls, width)
             for b in d.skills_class.buttons() + job_buttons(d):
                 assert b.width() >= b.fontMetrics().horizontalAdvance(bare(b.text())), (bare(b.text()), width)
+
+
+@pytest.mark.parametrize("lang", ["he", "en"])
+def test_a_job_tab_click_keeps_the_page_at_its_top(tools, lang):
+    """A click on a job tab rebuilt that tab row, and the focus it held went on to an "Ask in chat" link far down
+    the list: the page scrolled down by itself (the owner's report). The list starts at its top, the new job tab
+    has the focus."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    d = tools(lang=lang)
+    skills_tab(d)
+    bar = d.build_stack.widget(1).verticalScrollBar()
+    for i in range(len(job_buttons(d))):
+        b = job_buttons(d)[i]
+        b.setFocus()
+        QTest.mouseClick(b, Qt.LeftButton, pos=QPoint(b.width() // 2, b.height() // 2))
+        pump()
+        assert bar.value() == 0, f"scrolled to {bar.value()} after {b.property('value')}"
+        focus = QApplication.focusWidget()
+        assert focus is not None and focus.objectName() == "Segment" and focus.isChecked()
+    bar.setValue(bar.maximum())                      # scrolled down, then another class: its list from the top
+    d.skills_class.buttons()[0].click()
+    pump()
+    assert bar.value() == 0

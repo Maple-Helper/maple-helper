@@ -1342,6 +1342,7 @@ class ToolsDialog(GlassDialog):
         self._skills_jobs: dict[str, str] = {}               # the job last picked in each class tab, this window
         self._skills_cid = object()                          # the character the default tab was picked for
         self._skills_filled = None
+        self.skills_scroll = sc
         return sc
 
     def _skills_cls_value(self) -> str:
@@ -1372,8 +1373,15 @@ class ToolsDialog(GlassDialog):
         if state == self._skills_filled:
             return
         self._skills_filled = state
+        # a click on a job tab: that tab is rebuilt below, and the focus it held went on to the next control, an
+        # "Ask in chat" link far down the list, which the page scrolled to (the owner's report). The focus waits
+        # on the class tab meanwhile, and comes back to the new job tab
+        focus = QApplication.focusWidget()
+        on_job = focus is not None and focus.objectName() == "Segment" and self.skills_scroll.isAncestorOf(focus)
         for b in self.skills_class.buttons():
             b.setChecked(b.property("value") == cls)
+        if on_job:
+            self.skills_class.checkedButton().setFocus(Qt.OtherFocusReason)
         clear(self.skills_jobs)
         jobs = dict(skillbook.class_jobs(self.kb)).get(cls) or []
         if len(jobs) > 1:
@@ -1388,6 +1396,12 @@ class ToolsDialog(GlassDialog):
         seen: set = set()            # one "?" per game term on the tab, not one per card
         for s in skills:
             self.skills_list.addWidget(self._skill_card(s, seen))
+        if on_job:
+            for b in self.skills_scroll.findChildren(QPushButton, "Segment"):
+                if b.isChecked():
+                    b.setFocus(Qt.OtherFocusReason)
+        # another tab's list starts at its top, not where the last one was scrolled to
+        self.skills_scroll.verticalScrollBar().setValue(0)
 
     def _job_tabs(self, cls: str, jobs: list[str], job: str) -> QFrame:
         """A class's jobs as segments of one capsule, on one row when they fit, else two rows of two: a Segmented
