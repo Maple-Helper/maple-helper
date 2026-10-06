@@ -89,3 +89,11 @@ def test_adding_a_character_ends_with_add_character(isolated_store):
     dlg._update_nav()
     assert dlg.next.text() == "Add character"
     dlg.close()
+
+
+def test_english_ui_says_database_and_names_the_app_one_way():
+    """One word for the data ("database", as in "Update database") and one name for the app: "Maple Helper", never
+    "I", "the helper" or "the app" (UX-22). sell_q is the AI's prompt, not UI text."""
+    en = {k: v["en"] for k, v in STRINGS.items() if k != "sell_q"}
+    assert not [k for k, e in en.items() if re.search(r"knowledge.base", e, re.I)]
+    assert not [k for k, e in en.items() if re.search(r"\b(the helper|the app)\b|^I\b|[.:] I\b|\bI'll\b", e, re.I)]
