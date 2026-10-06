@@ -663,8 +663,10 @@ def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
     out, while the rest of Victoria Island (whose towns the Hollow's guide also names) stays in."""
     from maplehelper import availability, combat
     o = availability.of(real)
-    if "Forgotten Hollow" not in o.closed_areas:
-        pytest.skip("the release guide no longer calls Forgotten Hollow closed")
-    assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
-    assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
+    # whatever the guide closes tonight is closed (no skip once it opens the Hollow: the nightly must still check
+    # that its towns and monsters stay in)
+    assert all(not o.place_open(area) for area in o.closed_areas)
+    assert o.place_open("Ellinia") and o.place_open("Henesys")
     assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))
+    if "Forgotten Hollow" in o.closed_areas:
+        assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))

@@ -12,9 +12,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from maplehelper import routes  # noqa: E402
 
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
-# (no "knowledge base" in the reason: CI fails a real-KB test that skips, and a published KB from before the nightly
-# map-connections scrape has no routes.json yet)
-needs_routes = pytest.mark.skipif(not (REAL_KB / routes.ROUTES_FILE).exists(), reason="no routes.json in data/kb")
+# "knowledge base" in the reason: CI (MAPLEHELPER_REQUIRE_REAL_KB) fails a real-KB test that skips. Every published
+# kb.zip has routes.json now (each nightly run refreshes it), so a KB without it is a broken one, not an old one
+needs_routes = pytest.mark.skipif(not (REAL_KB / routes.ROUTES_FILE).exists(),
+                                  reason="no routes.json in the real knowledge base")
 
 HENESYS, HG1, HG2, GARDEN = "100000000", "100000001", "100000002", "100000003"
 ORBIS, PERION, SOUTHPERRY, FLORINA = "200000000", "100000100", "000000060", "110000000"

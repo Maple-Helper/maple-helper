@@ -16,8 +16,10 @@ from maplehelper.kb import COMMUNITY_MIN_SCORE, KnowledgeBase
 
 FIX = Path(__file__).parent / "fixtures" / "community"
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
+# "knowledge base" in the reason, so CI fails instead of skipping: every published kb.zip has community.json (a night
+# the site doesn't answer keeps the published copy)
 needs_community = pytest.mark.skipif(not (REAL_KB / "community.json").exists(),
-                                     reason="no community.json (a KB published before players' reports)")
+                                     reason="no community.json in the real knowledge base")
 
 # items the fixture KB gets for these tests (the recorded Snail answer names them by MeowDB's item ids)
 ITEMS = {"item/413": "Bronze Ore", "item/348": "Snail Shell", "item/320": "Garnet Ore", "item/270": "Red Potion X",
