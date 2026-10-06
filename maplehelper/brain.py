@@ -28,8 +28,9 @@ TIER_WORDS = re.compile(r"טייר|דירוג|(?:איזה|איזו)\s+(?:ג'וב
                         r"\bwhich\s+(?:class|job)|\bstrongest\s+(?:class|job)", re.I)
 BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskills?\b|\bbuild\b", re.I)
 # "tell me about Blue Snail": the monster's card and every drop as tiles, as for a drops question. The answer no longer
-# repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report)
-DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
+# repeats the cards, so it names one drop at most, and the tiles showed only that one (the owner's report). Never a
+# bare "about": "what about Lupin vs Ligator" buried Ligator under Lupin's 23 drops (audit AI-8)
+DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 # a comparison or a list ("Mano, Mushmom, King Slime and Jr. Balrog", "הרמיט או צ'יף בנדיט"): the pages of up to
 # LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages
@@ -39,7 +40,8 @@ MENTIONS, LIST_MENTIONS = 4, 8
 PAGE_CHARS = 2500          # a pre-fetched page, MENTIONS of them at most at full length
 MIN_PAGE_CHARS = 800       # a page cut for a long list still keeps its head: level, HP, EXP, where
 SUMMARY_PROMPT = ("Summarize this MapleStory Classic helper conversation in 2-3 sentences for future context: "
-                  "what the player worked on, decisions, open goals. Same language as the conversation.")
+                  "what the player worked on, decisions, open goals. Same language as the conversation. Leave out "
+                  "the character's level, job and map (the profile has them, and they change).")
 
 SYSTEM_PROMPT = """You are Maple Helper, a personal in-game assistant for MapleStory Classic World (MapleStory Classic), shown as a small chat window on top of the game.
 
@@ -51,7 +53,7 @@ Knowledge base: the current directory is the full NiaMeowDB (meowdb.com) databas
 - Use the pre-fetched context first. Use Grep/Glob/Read only for what is missing. Never write text before a tool call.
 - Never invent facts, numbers, drops or locations. If the data does not say, say so briefly.
 
-""" + tables.prompt_note() + """
+""" + tables.prompt_note().replace("{", "{{").replace("}", "}}") + """
 
 Which monsters drop something: grep drops.tsv for the item name or type ("Throwing Star", "Scroll"). Answer grouped
 per monster (monster → the items it drops), lowest level first, and return the grouping as META "drop_groups".
@@ -74,7 +76,7 @@ dropped item's key in entities.
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
 test, not confirmed for launch; a later KB may say "Launch"), drops their list, Free Market prices are community
-reports, the game's scope is official (Nexon), and anything unlabeled is MeowDB's own. Whenever you state drops,
+reports, the game's scope is MeowDB's release guide, and anything unlabeled is MeowDB's own. Whenever you state drops,
 prices or stats, name their source in a word or two right after them: "(MSEA)", "(community)", "(COT2)", "(official)",
 "(MeowDB)" in English; in a Hebrew answer "(MSEA)", "(קהילה)", "(COT2)", "(רשמי)", "(MeowDB)". When players reported
 nothing, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
@@ -111,8 +113,8 @@ Style:
 After the answer, output a line containing only @@META@@ followed by one JSON object:
 {{"entities": ["monster/5", ...], "profile_update": {{}}, "avatar_box": [0.42, 0.55, 0.05, 0.1]}}
 - entities: knowledge-base keys (category/id from index.json) of what you mention, most relevant first, max 12.
-  When the answer is a LIST of items (drops, quest rewards, shop stock, what to buy/equip), include EVERY item's key
-  so the app can show each one with its picture. Find keys by grepping names.tsv for the item names.
+  When the answer is a LIST of items (drops, quest rewards, shop stock, what to buy/equip), include the key of every
+  item you name, up to those 12, so the app can show each one with its picture. Find keys by grepping names.tsv for the item names.
 - avatar_box (only with a screenshot, only if clearly visible): [x, y, w, h] as fractions (0-1) of the screenshot, a snug box
   around the PLAYER'S OWN character sprite, head to feet, excluding the name tag. Find it by its name tag: the same name
   as the HUD's character name (bottom left, next to the level). NPCs stand around too: their name tags are on a yellow
@@ -153,7 +155,8 @@ REPLY_RULES = """<reply_rules>
 - Only what the game scope in your instructions says is in the game: never send the player to a place it says is not
   out, or suggest its monsters, NPCs, quests or a job advancement it says is not out; if asked, say it isn't out yet
   ("what is X" still gets a short description of X from the context, then that it isn't out yet).
-- At most {length} short lines. No filler, no follow-up offers.
+- At most {length} short lines (a route: one line per step; a table_rows list as its rule below says). No filler,
+  no follow-up offers.
 - Only the answer itself: never narrate your process or plans in it ("I'll mention...", "Now for the answer...").
 - Never write knowledge-base keys ("item/294", "monster/5") in the answer text: they go only in the META block.
 - Under the answer the app shows a card for every entity in META: a monster's level, HP, EXP, maps and what changed
@@ -194,8 +197,8 @@ REPLY_RULES = """<reply_rules>
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
   page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
   and in the answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; a community drop with its votes ("16 ✓",
-  one report alone: "דיווח יחיד" / "single report"); mesos or drops nobody reported: "אין נתונים מהקהילה" /
-  "no community data".
+  one report alone: "דיווח יחיד" / "single report") when you name it in the text; mesos or drops nobody reported,
+  when no card shows them (a "which monsters drop X" answer): "אין נתונים מהקהילה" / "no community data".
 - Then the line @@META@@ and the JSON object. Always include it, even when empty. If the player states a new level/job, put it in profile_update.
 - profile_update describes ONLY the character in <player_profile>. If the player says they are on another character,
   or the screenshot's HUD shows another name, put that character's facts in profile_update WITH its "name" (the app
@@ -304,7 +307,10 @@ def _mark_droppers(kb: KnowledgeBase, body: str) -> str:
 
 ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats", "what's", "is", "are", "does", "do",
                  "can", "should", "give", "gives", "sells", "sell", "drop", "drops", "best", "the", "for", "to", "in",
-                 "of", "my", "me", "i"}
+                 "of", "my", "me", "i",
+                 # "who's Grendel", "can't find Mano", "2nd job warrior level?" went Hebrew (audit AI-17)
+                 "who's", "whos", "where's", "wheres", "how's", "find", "stats", "level", "job", "vs", "with", "get",
+                 "need", "can't", "cant", "thanks", "nd", "st", "rd", "th"}
 
 
 def reply_language(question: str, ui_lang: str = "he") -> str:
@@ -335,7 +341,9 @@ def build_prompt(question: str, character: Character | None, history: History | 
     if history:
         summ = history.summaries()
         if summ:
-            parts.append("<earlier_sessions>\n" + "\n".join(summ[-3:]) + "\n</earlier_sessions>")
+            # older than the profile: a summary's "level 25 Thief" never outranks it (audit AI-20)
+            parts.append("<earlier_sessions> (older than <player_profile>: the profile wins)\n" + "\n".join(summ[-3:])
+                         + "\n</earlier_sessions>")
         recent = history.recent()
         # the chat writes the question to the history before the AI runs: it goes once, in <question>
         if recent and recent[-1].get("role") == "user" and _FOCUS_TAG.sub("", recent[-1]["text"]).strip() == question.strip():
@@ -505,15 +513,18 @@ def item_keys_for_question(question: str, kb: KnowledgeBase) -> list[str]:
 
 # a knowledge-base key the AI wrote into its prose ("Subi Throwing Stars (item/294)"): keys are for the META block
 # and the app's cards, a player reads them as noise. Removed with the brackets around it, or alone.
-_KEY_IN_TEXT = re.compile(r"\s*[\(\[]\s*(?:monster|item|map|npc|quest|skill|class|guide|shop|crafting|formula)/[\w\-]+"
-                          r"\s*[\)\]]|\s*(?<![\w/])(?:monster|item|map|npc|quest|skill|class|guide|shop|crafting|formula)/"
-                          r"[\w\-]+(?![\w/])")
+# (with a Hebrew prefix glued to it: "ו-(monster/5)" left a stray "ו-", audit AI-23)
+_KEY_IN_TEXT = re.compile(r"\s*(?:[ובלמהשכ]-)?[\(\[]\s*(?:monster|item|map|npc|quest|skill|class|guide|shop|crafting|"
+                          r"formula)/[\w\-]+\s*[\)\]]|\s*(?:(?<![\w/])[ובלמהשכ]-)?(?<![\w/])(?:monster|item|map|npc|"
+                          r"quest|skill|class|guide|shop|crafting|formula)/[\w\-]+(?![\w/])")
 
 
 # "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
-# "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number)
+# "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number). Never a count:
+# "Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7); a Hebrew word after the number keeps it as written,
+# but for "ו...", "עכשיו", "כרגע" and "אז"
 _BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
-                         r"(?![\d%.,:]\d|\d|%)")
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF])")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
 _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
 # the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner)
@@ -554,26 +565,50 @@ def _narration(lines: list[str]) -> bool:
     return len(head.split()) >= 6 and bool(_NARRATION.search(head))
 
 
+# an English answer's own planning first line: "Let me check the data for the player first." (audit AI-19); narrower
+# than _NARRATION, which "Let's head to Perion" would match
+_EN_PLANNING = re.compile(r"^\s*(?:Let me|I'll|I will|I need to|Now (?:for|let me|I'll)|I'?ve (?:got|found|checked))\b"
+                          r".*\b(?:check|look|grep|search|read|find|answer|data|kb|knowledge base|pages?)\b", re.I)
+
+
 def strip_lead_in(text: str) -> str:
     """A Hebrew answer without the English planning paragraph the model sometimes starts it with. Only English prose
     before the first Hebrew line goes, and only when it reads as planning: an English answer, or an English game
-    name or list line before the Hebrew, stays."""
+    name or list line before the Hebrew, stays. An English answer loses a first line of planning only."""
     lines = text.split("\n")
     first = next((i for i, s in enumerate(lines) if _HEBREW.search(s)), None)
+    if first is None:
+        rest = "\n".join(lines[1:]).strip()
+        if rest and _EN_PLANNING.search(lines[0]) and _narration(lines[:1]):
+            return rest
+        return text
     if not first or not _narration(lines[:first]):
         return text
     return "\n".join(lines[first:])
 
 
+def _without_partial_marker(text: str) -> str:
+    """The text without a marker that has only partly arrived at its end ("…answer.\\n@@ME")."""
+    for n in range(len(META) - 1, 0, -1):
+        if text.endswith(META[:n]):
+            return text[:-n]
+    return text
+
+
 def split_meta(raw: str) -> tuple[str, dict]:
-    """Separate the visible answer from the trailing @@META@@ JSON."""
+    """Separate the visible answer from the trailing @@META@@ JSON. The last marker with JSON after it is the META
+    (prose that mentions the marker cut the answer there), parsed up to its own closing brace (a second "{...}"
+    after it lost the whole META: entities and profile_update; audit AI-14)."""
     if META not in raw:
-        return drop_keys(strip_lead_in(raw)).strip(), {}
-    text, _, meta = raw.partition(META)
-    text = strip_lead_in(text)
-    m = re.search(r"\{.*\}", meta, re.S)
+        return drop_keys(strip_lead_in(_without_partial_marker(raw.rstrip()))).strip(), {}
+    text, _, meta = raw.rpartition(META)
+    if "{" not in meta:
+        text, _, meta = raw.partition(META)
+    # an earlier META block (the model wrote two): out of the text
+    text = strip_lead_in(re.sub(re.escape(META) + r"\s*\{[\s\S]*$", "", text))
+    start = meta.find("{")
     try:
-        data = json.loads(m.group(0)) if m else {}
+        data = json.JSONDecoder().raw_decode(meta[start:])[0] if start >= 0 else {}
     except json.JSONDecodeError:
         data = {}
     if not isinstance(data, dict):
@@ -606,7 +641,7 @@ def _numbers(update) -> None:
         return
     if "level" in update:
         lv = _whole(update["level"])
-        if lv is None:
+        if lv is None or not 1 <= lv <= 250:         # "Lv. 0" asked to lower the level for nothing (audit AI-15)
             del update["level"]
         else:
             update["level"] = lv
@@ -624,11 +659,7 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     partly arrived (the stream can end a chunk on "…answer.\\n@@ME").
     hebrew: the answer should be Hebrew. Until its first Hebrew letter arrives, English text waits for its first
     line to end, and English planning (strip_lead_in) waits for the Hebrew after it: it never flashes up."""
-    text = raw.split(META)[0]
-    for n in range(len(META) - 1, 0, -1):
-        if text.endswith(META[:n]):
-            text = text[:-n]
-            break
+    text = _without_partial_marker(raw.split(META)[0])
     if hebrew and not _HEBREW.search(text):
         lines = text.split("\n")
         if len(lines) == 1 or _narration(lines):
@@ -671,8 +702,10 @@ class Brain:
         El Nath, or offers a 3rd job, while the KB says they aren't out."""
         from . import availability
         try:
-            return ("\n\nGame scope (from the knowledge base, the only source of truth; its release guide is built "
-                    "from Nexon's official statements, so this is official): "
+            # MeowDB's guide and the app's reading of the map pages, never "(official)": only the official facts
+            # below are (the owner's rule; audit AI-16)
+            return ("\n\nGame scope (from the knowledge base's release guide on MeowDB and its map pages, the only "
+                    "source of truth on what is out; cite it as \"(MeowDB)\", never \"(official)\"): "
                     + availability.of(self.kb).scope_note())
         except Exception:      # noqa: BLE001 - a KB without the release guide: no scope line rather than no answer
             return ""
@@ -776,7 +809,7 @@ class Brain:
             groups = self.kb.drop_groups(items)
         if groups:
             entities = []          # the grouped view replaces the flat cards
-        elif DROP_WORDS.search(question) or DETAIL_WORDS.search(question):
+        elif DROP_WORDS.search(question) or (DETAIL_WORDS.search(question) and not LIST_WORDS.search(question)):
             # a drops question (or "tell me about" a monster): the monster card + every drop as a tile, from the KB
             monsters = [k for k in entities if k.startswith("monster/")] or \
                 [k for k in self.kb.find_mentions(question, 4) if k.startswith("monster/")]
@@ -837,10 +870,15 @@ _LEVEL_PATTERNS = [
 _HYPOTHETICAL = re.compile(r"\b(?:when|once|if|until|after|before)\b|(?:^|\s)(?:כש|אם\s|עד\sש|אחרי\sש|לפני\sש)", re.I)
 
 
+# another character's level ("im lvl 15 on my other char", "my friend is level 40"): not this profile's (audit AI-15)
+_SOMEONE_ELSE = re.compile(r"\b(?:alts?|other (?:char\w*|toon)|another (?:char\w*|toon)|friends?|second char\w*)\b|"
+                           r"דמות (?:אחרת|נוספת|שנייה)|(?<![א-ת])ה?חבר(?:ה|ים|ות)?(?:\s+שלי)?(?![א-ת])", re.I)
+
+
 def stated_level(text: str) -> int | None:
     """A level the player states about themselves ("עליתי ללבל 16", "I'm level 16"); never a plan ("what should
     I do once I'm level 30?" once set the profile to 30)."""
-    if _HYPOTHETICAL.search(text):
+    if _HYPOTHETICAL.search(text) or _SOMEONE_ELSE.search(text):
         return None
     for pat in _LEVEL_PATTERNS:
         m = re.search(pat, text, re.I)

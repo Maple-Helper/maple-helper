@@ -331,6 +331,10 @@ class Availability:
         parts.append(f"Job advancements in the game: {', '.join(tiers)} (players do them now).")
         if self.job_tier < 3:
             parts.append("3rd job advancement is not in the game; never present 3rd-job jobs or skills as available.")
+        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park and
+        # Monkey Forest are open Victoria Island maps on it (audit AI-5)
+        parts.append("\"Hidden Street\" is a street name used on several continents, not a place of its own: a map on "
+                     "it is in the game when its continent is (Pig Park, Monkey Forest on Victoria Island are).")
         parts.append("Anything the KB does not confirm is not in the game: say so instead of guessing.")
         return " ".join(parts)
 
