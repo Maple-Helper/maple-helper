@@ -148,6 +148,11 @@ class WhatsNewDialog(GlassDialog):
         lay.setSpacing(18)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
+        if not notes:
+            # no notes (the bundled file missing or unreadable): a line, not an empty window with only Close (VIS-7)
+            empty = QLabel(bidi.plain(t("whats_new_empty"), t.rtl), objectName="DialogBody")
+            empty.setWordWrap(True)
+            lay.addWidget(empty)
         for n in notes:
             sec = Section(t("version_title", version=n["version"]), t.rtl)
             for line in n.get(t.lang) or n.get("en") or []:

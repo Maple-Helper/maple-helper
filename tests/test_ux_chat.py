@@ -353,3 +353,43 @@ def test_a_narrow_field_shows_the_short_hint_with_the_talk_key(overlay):
     assert shown(field.placeholderText()) != overlay.t("input_placeholder_short")
     overlay.voice_state("idle")                            # back to the field's own hint, short as before
     assert shown(field.placeholderText()) == overlay.t("input_placeholder_short")
+
+
+# ------------------------------------------------------------------ VIS-6 / VIS-7: empty windows say why
+
+def _labels(w):
+    from PySide6.QtWidgets import QLabel
+    return [shown(lb.text()) for lb in w.findChildren(QLabel) if lb.text() and not lb.isHidden()]
+
+
+@pytest.mark.parametrize("lang", ["he", "en"])
+def test_an_empty_history_says_nothing_was_asked_yet(lang):
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.pinsview import HistoryDialog
+    t = I18n(lang)
+    d = HistoryDialog([], "Elipaz", lang, "")
+    texts = _labels(d)
+    assert t("history_empty") in texts
+    assert t("history_none") not in texts and t("history_count", n=0) not in texts
+    d.search.setText("Mano")                              # a search in an empty history: still the same line
+    d._new_search() if hasattr(d, "_new_search") else d._fill()
+    assert t("history_empty") in _labels(d)
+    d.close()
+    full = HistoryDialog([{"q": "where?", "a": "there", "t": time.time()}], "Elipaz", lang, "")
+    full.search.setText("zzz")
+    full._fill()
+    assert t("history_none") in _labels(full) and t("history_empty") not in _labels(full)
+    full.close()
+
+
+@pytest.mark.parametrize("lang", ["he", "en"])
+def test_whats_new_with_no_notes_says_so(lang):
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.patchnotes import WhatsNewDialog
+    d = WhatsNewDialog([], lang, "")
+    assert I18n(lang)("whats_new_empty") in _labels(d)
+    d.close()
