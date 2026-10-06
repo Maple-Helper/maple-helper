@@ -277,3 +277,29 @@ def test_a_name_another_character_has_is_refused(env):
     edit = Onboarding(s, profiles, kb, lambda *_: "", only_character=True, edit_id=me.id)
     assert edit.form.name.text() == "Amit" and edit.form.valid()          # its own name is no clash
     edit.close()
+
+
+# --- DLG-22 / DLG-23: the unpin button's name, a news item without a publisher ---------------------------------------
+
+def test_the_unpin_button_has_a_name(qapp):
+    from PySide6.QtWidgets import QToolButton
+
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.pinsview import PinsBar
+    bar = PinsBar()
+    bar.show_pins([{"q": "Where is Henesys?", "a": "In Victoria Island."}], I18n("en"), False)
+    xs = [b for b in bar.findChildren(QToolButton) if b.text() == "✕"]
+    assert xs and all(b.accessibleName() == "Unpin" for b in xs)
+
+
+def test_a_news_item_without_a_publisher_keeps_its_meowdb_link(qapp):
+    from PySide6.QtWidgets import QPushButton
+
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.newsview import article
+    t = I18n("en")
+    item = {"id": "x", "title": "Patch", "date": "2026-10-01", "summary": "Something.",
+            "url": "https://meowdb.com/msclassic/news/x", "source_url": "https://example.com/x", "publisher": ""}
+    page = article(t, item)
+    links = [b.text() for b in page.findChildren(QPushButton) if b.objectName() == "Link"]
+    assert any("MeowDB" in x for x in links) and len(links) == 1          # the source link needs its publisher

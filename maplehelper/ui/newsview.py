@@ -269,9 +269,11 @@ def article(t, i: dict) -> QWidget:
         lay.addWidget(para(note, body_translated, "RowLabel"))
     links = QHBoxLayout()
     links.setSpacing(16)
-    for label, url in ((t("news_read_meowdb"), i.get("url") or ""),
-                       (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "")):
-        if url.startswith("https://") and i.get("publisher"):
+    # the source's link needs its publisher's name; MeowDB's own link doesn't (an item without one lost both)
+    for label, url, ok in ((t("news_read_meowdb"), i.get("url") or "", True),
+                           (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "",
+                            bool(i.get("publisher")))):
+        if url.startswith("https://") and ok:
             b = QPushButton(bidi.plain(label, rtl), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda _=False, u=url: webbrowser.open(u))

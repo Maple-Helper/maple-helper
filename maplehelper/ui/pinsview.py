@@ -104,6 +104,7 @@ class PinsBar(QFrame):
             top.addWidget(q, 1)
             x = QToolButton(objectName="Icon", text="✕")
             x.setToolTip(t("unpin"))
+            x.setAccessibleName(t("unpin"))         # a screen reader said "✕"
             x.setCursor(Qt.PointingHandCursor)
             x.clicked.connect(lambda _=False, a=p["a"]: self.unpin.emit(a))
             top.addWidget(x, 0, Qt.AlignTop)
