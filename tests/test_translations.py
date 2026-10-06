@@ -216,3 +216,31 @@ def test_the_owners_curated_hebrew_beats_the_nights(tmp_path, monkeypatch):
     (tmp_path / "he.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     merged = scrape_news.translations(kb=tmp_path)
     assert merged["n1"]["title"] == "ידני" and merged["n2"]["title"] == "חדש"
+
+
+def _answers(monkeypatch, *replies):
+    """translate_kb._post answering each request with the next reply's text; returns the bodies it was sent."""
+    import translate_kb
+    sent = []
+
+    def post(key, body):
+        sent.append(body)
+        return {"content": [{"type": "text", "text": json.dumps(replies[len(sent) - 1], ensure_ascii=False)}],
+                "stop_reason": "end_turn"}
+    monkeypatch.setattr(translate_kb, "_post", post)
+    return sent
+
+
+def test_a_translation_is_proofread_against_its_english(monkeypatch):
+    import translate_kb
+    sent = _answers(monkeypatch, ["Pets עולים 3,500 NX והם אחרונים 30 ימים."], ["Pets עולים 3,500 NX ונשארים 30 יום."])
+    assert translate_kb.translate("key", ["Pets cost 3,500 NX and last 30 days."]) == ["Pets עולים 3,500 NX ונשארים 30 יום."]
+    assert [b["system"] for b in sent] == [translate_kb.RULES, translate_kb.REVIEW]
+    assert json.loads(sent[1]["messages"][0]["content"]) == [
+        {"en": "Pets cost 3,500 NX and last 30 days.", "he": "Pets עולים 3,500 NX והם אחרונים 30 ימים."}]
+
+
+def test_a_failed_proofreading_keeps_the_translation(monkeypatch):
+    import translate_kb
+    _answers(monkeypatch, ["דברו עם Arthur ב-Henesys."], [])                 # a proofreading answer of no strings
+    assert translate_kb.translate("key", ["Talk to Arthur in Henesys."]) == ["דברו עם Arthur ב-Henesys."]

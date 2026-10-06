@@ -25,7 +25,8 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
 
-MODEL = "claude-haiku-4-5-20251001"
+MODEL = "claude-opus-5"   # Haiku wrote word-for-word Hebrew ("אחרונים 30 ימים" for "last 30 days")
+EFFORT = "medium"         # short texts: enough thought for natural Hebrew, at a fraction of the default's tokens
 API = "https://api.anthropic.com/v1/messages"
 MAX_TEXTS = 120          # a night's ceiling, whatever the KB brings
 BATCH = 20               # texts a request
@@ -41,26 +42,56 @@ RULES = """You translate short MapleStory Classic texts from English to Hebrew f
 - A level is "רמה" (never "לבל", in any form: "ברמה 10", "מרמה 10", "תקרת הרמות", "הרמה"); levelling is "עליית
   רמות"; money is "mesos" in English letters; numbers stay as they are.
 - Translate the meaning completely; add nothing, drop nothing.
+- Write it as an Israeli would say it, never word for word: "last 30 days" is "נשארים 30 יום" (not "אחרונים 30
+  ימים"), "cannot be traded" is "אי אפשר לסחור בהם" (not "לא ניתן להסחר"), "gifting" is "שליחת מתנה", "random" is
+  "אקראי". A plural noun after a number agrees with it ("30 יום", "3 כתבות").
 Answer with a JSON array of strings only: the translations, in the order given, one per input."""
 
 
 def _post(key: str, body: dict) -> dict:
     req = urllib.request.Request(API, data=json.dumps(body).encode("utf-8"), method="POST", headers={
         "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=300) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
-def translate(key: str, texts: list[str]) -> list[str]:
-    """Hebrew for each text, in order; raises on an API error or an answer that isn't one string per text."""
-    body = {"model": MODEL, "max_tokens": 8000, "system": RULES,
-            "messages": [{"role": "user", "content": json.dumps(texts, ensure_ascii=False)}]}
+REVIEW = """You proofread Hebrew translations of short MapleStory Classic texts for an Israeli players' app. You get a
+JSON array of {"en", "he"} pairs. For each, fix the Hebrew where it:
+- misses, adds or changes meaning against the English (a wrong verb, a wrong subject, a lost condition);
+- reads word for word instead of as an Israeli gamer writes ("והם אחרונים 30 ימים" -> "ונשארים 30 יום",
+  "לא ניתן להסחר" -> "אי אפשר לסחור בהם", "ותנו סטייל רנדומלי" -> "ונותנים תסרוקת אקראית");
+- has a grammar slip: gender or number agreement, a wrong verb form, a broken construct state.
+Keep what the translation rules require: proper nouns in English letters exactly as given (a Hebrew prefix takes a
+hyphen: "ב-Henesys"), "רמה" for a level (never "לבל"), "mesos" in English letters, the numbers, the [[img:...]]
+tokens, the plural "אתם" address. A translation that is already right stays exactly as it is.
+Answer with a JSON array of strings only: the final Hebrew, in the order given, one per pair."""
+
+
+def _ask(key: str, system: str, content: list, count: int) -> list[str]:
+    """One request whose answer is a JSON array of count non-empty strings; raises ValueError when it isn't."""
+    body = {"model": MODEL, "max_tokens": 16000, "system": system, "output_config": {"effort": EFFORT},
+            "messages": [{"role": "user", "content": json.dumps(content, ensure_ascii=False)}]}
     answer = _post(key, body)
     text = "".join(b.get("text", "") for b in answer.get("content", []) if b.get("type") == "text").strip()
     start, end = text.find("["), text.rfind("]")
-    out = json.loads(text[start:end + 1]) if start >= 0 and end > start else None
-    if not isinstance(out, list) or len(out) != len(texts) or not all(isinstance(x, str) and x.strip() for x in out):
-        raise ValueError(f"the answer isn't {len(texts)} translations")
+    try:
+        out = json.loads(text[start:end + 1]) if start >= 0 and end > start else None
+    except json.JSONDecodeError:
+        out = None
+    if not isinstance(out, list) or len(out) != count or not all(isinstance(x, str) and x.strip() for x in out):
+        raise ValueError(f"the answer isn't {count} translations ({answer.get('stop_reason')})")
+    return out
+
+
+def translate(key: str, texts: list[str]) -> list[str]:
+    """Hebrew for each text, in order: a translation, then a proofreading pass over it against the English (the
+    night's Hebrew is shown to players as it is, with no one reading it first). Raises on an API error or a
+    translation that isn't one string per text; a failed proofreading keeps the translation."""
+    out = _ask(key, RULES, texts, len(texts))
+    try:
+        out = _ask(key, REVIEW, [{"en": en, "he": he} for en, he in zip(texts, out)], len(texts))
+    except ValueError as e:
+        print(f"translations: proofreading skipped for {len(texts)} text(s) ({e})")
     import scrape_news
     # the prompt's rule alone let "תקרת לבל 100" through into the news: the app's own Hebrew rules, applied
     return [scrape_news.he_text(x) for x in out]
