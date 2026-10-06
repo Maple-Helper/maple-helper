@@ -305,3 +305,20 @@ def test_a_notice_in_the_chat_can_be_closed():
     app.processEvents()
     assert not card.isVisible()
     assert NoticeCard("", "", True, stacked=True, closable=False).close_btn is None
+
+
+def test_the_instant_answer_picks_its_language_with_the_kb_like_the_ai(overlay, monkeypatch):
+    """A name holding "of"/"to" ("Transforming Dark Jr. Yeti hp") is no English sentence only when the KB's names are
+    read: the AI's prompt passes the KB, the instant answer didn't, so it came in English and "Ask Claude anyway" in
+    Hebrew (review CORE-3, AI-13 x P84B-1)."""
+    from maplehelper import brain, quick
+    seen = []
+    monkeypatch.setattr(brain, "reply_language", lambda q, ui="he", kb=None: seen.append(kb) or "Hebrew")
+    monkeypatch.setattr(quick, "answer", lambda *a, **k: None)
+    overlay.settings["instant_answers"] = True
+    overlay.brain = None
+    try:
+        overlay.ask("Mano hp")
+    except Exception:
+        pass                # no AI provider here: only the instant path's language matters
+    assert seen and seen[0] is overlay.kb
