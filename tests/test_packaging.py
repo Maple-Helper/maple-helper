@@ -49,6 +49,9 @@ def test_uninstall_asks_before_deleting_the_players_data():
     msgs = _section(ISS, "CustomMessages")
     for lang in ("hebrew", "english"):
         assert re.search(rf"^{lang}\.DeleteUserData=.*%1", msgs, re.M), lang
+    # saved API keys aren't in that folder: the question says so (review3 SEC12-a)
+    assert re.search(r"^english\.DeleteUserData=.*Credential Manager; remove them in Settings first\.", msgs, re.M)
+    assert re.search(r"^hebrew\.DeleteUserData=.*במנהל האישורים של Windows: מחקו אותם קודם בהגדרות\.", msgs, re.M)
 
 
 def test_update_clears_old_package_metadata():

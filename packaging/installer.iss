@@ -154,8 +154,8 @@ hebrew.CreateDesktopIcon=קיצור דרך על &שולחן העבודה
 hebrew.LaunchProgram=לפתוח את %1 עכשיו
 english.LaunchProgram=Open %1 now
 ; asked once the app is removed (never when silent); "No" is the default, so Enter keeps everything
-hebrew.DeleteUserData=למחוק גם את הנתונים שלכם ב-Maple Helper?%n%nזה מוחק את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nאי אפשר לבטל את זה. אם לא תמחקו, הכל יחכה לכם בהתקנה הבאה.
-english.DeleteUserData=Also delete your Maple Helper data?%n%nThis deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nThis can't be undone. If you keep it, everything will be there when you reinstall.
+hebrew.DeleteUserData=למחוק גם את הנתונים שלכם ב-Maple Helper?%n%nזה מוחק את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nאי אפשר לבטל את זה. אם לא תמחקו, הכל יחכה לכם בהתקנה הבאה.%n%nמפתחות API שמורים נשארים במנהל האישורים של Windows: מחקו אותם קודם בהגדרות.
+english.DeleteUserData=Also delete your Maple Helper data?%n%nThis deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nThis can't be undone. If you keep it, everything will be there when you reinstall.%n%nSaved API keys stay in Windows Credential Manager; remove them in Settings first.
 
 [Code]
 var
