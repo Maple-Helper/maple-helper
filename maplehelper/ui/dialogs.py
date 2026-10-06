@@ -745,6 +745,15 @@ class Onboarding(GlassDialog):
         if hasattr(self, "_poll_timer"):
             self._poll_timer.stop()
 
+    def exec(self) -> int:
+        """Changing the on-top flag (_begin_sign_in, _end_sign_in) hides the window for a moment, and hiding a modal
+        dialog ends its exec(): the app took that as "closed" and quit at the first click on a sign-in that only
+        steps back (Muse Spark, Grok). A dialog still on screen and never closed goes on waiting."""
+        while True:
+            r = super().exec()
+            if r or self._closed or not self.isVisible():
+                return r
+
     def _start_install(self):
         """The official installer, in the background: its progress and errors show here, no console."""
         ai = self._ai()

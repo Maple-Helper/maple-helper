@@ -110,6 +110,29 @@ def test_onboarding_retry_after_the_timeout_starts_a_new_sign_in(env, monkeypatc
     dlg.close()
 
 
+def test_a_sign_in_that_steps_back_keeps_onboarding_open(env, monkeypatch):
+    """Stepping back from on top (so the browser shows) hid the window for a moment, which ended the modal exec():
+    the app took it as closed and quit at the first click on "Sign in with Muse Spark"."""
+    from PySide6.QtCore import Qt, QTimer
+
+    from maplehelper import providers
+    from maplehelper.providers import base
+    from maplehelper.ui.dialogs import Onboarding
+    s, profiles, kb = env
+    monkeypatch.setattr(type(providers.get("claude")), "login", lambda self: WaitingLogin())
+    monkeypatch.setattr(base, "_login", None)
+    dlg = Onboarding(s, profiles, kb, lambda *_: "")
+    seen = {}
+
+    def click():
+        dlg.setWindowFlag(Qt.WindowStaysOnTopHint, True)         # (as shown by the app)
+        dlg.show()
+        dlg._start_login()
+        QTimer.singleShot(200, lambda: (seen.update(open=dlg.isVisible()), dlg.done(7)))
+    QTimer.singleShot(0, click)
+    assert dlg.exec() == 7 and seen == {"open": True}         # still waiting for the sign-in, until really closed
+
+
 def test_settings_retry_after_the_timeout_starts_a_new_sign_in(env, monkeypatch):
     from maplehelper import providers
     from maplehelper.providers import base
