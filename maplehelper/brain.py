@@ -710,7 +710,7 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
-WARM_IDLE_S = 60 * 60     # the chat closed this long: no process is kept waiting for a question (audit PRF-1)
+WARM_IDLE_S = 60 * 60     # the chat closed, or no question asked, this long: no process is kept waiting (audit PRF-1)
 
 
 class Brain:
@@ -728,6 +728,7 @@ class Brain:
         self._cancels = 0              # cancel() calls so far: a question stopped before its AI run began skips it
         self._chat_open = False        # the chat window is on screen (Overlay tells, see chat_shown)
         self._chat_left: float | None = None     # when it was last closed (time.monotonic); None: never opened yet
+        self._last_use: float | None = None      # the last open, typing or question (time.monotonic); None: never
 
     @property
     def provider(self) -> str:
@@ -772,16 +773,28 @@ class Brain:
     def chat_shown(self, shown: bool) -> None:
         """The chat opened or closed: what decides whether a process is kept waiting for the next question."""
         self._chat_open = shown
-        if not shown:
+        if shown:
+            self._last_use = time.monotonic()
+        else:
             self._chat_left = time.monotonic()
 
+    def note_use(self) -> bool:
+        """The player types in the chat. True when no process was being kept until now (the chat sat open with no
+        question for WARM_IDLE_S): the caller warms one again, ready by the time the question is sent."""
+        idle = not self.wants_warm()
+        self._last_use = time.monotonic()
+        return idle
+
     def wants_warm(self) -> bool:
-        """Worth keeping a process ready: the chat is open, or was closed less than WARM_IDLE_S ago. A start in the
-        tray at login whose chat never opens kept a ~360 MB Claude Code process all day, renewed every 15 minutes
-        (audit PRF-1); it is warmed when the chat opens instead (typing a question outlasts the CLI's start)."""
-        if self._chat_open:
-            return True
-        return self._chat_left is not None and time.monotonic() - self._chat_left < WARM_IDLE_S
+        """Worth keeping a process ready: the chat was used (opened, typed in, asked) less than WARM_IDLE_S ago,
+        and is open or was closed less than WARM_IDLE_S ago. A start in the tray at login whose chat never opens
+        kept a ~360 MB Claude Code process all day, renewed every 15 minutes, and so did a chat left open next to
+        the game with no question (audit PRF-1); it is warmed when the chat opens or is typed in instead (typing a
+        question outlasts the CLI's start, and a question with no warm process starts its own)."""
+        now = time.monotonic()
+        if self._last_use is None or now - self._last_use >= WARM_IDLE_S:
+            return False
+        return self._chat_open or (self._chat_left is not None and now - self._chat_left < WARM_IDLE_S)
 
     def prewarm(self) -> None:
         """Get the next question's process ready now, where the provider supports it (only while it pays off:
@@ -832,6 +845,7 @@ class Brain:
         model: another model for this one call (None: the player's). light: a screenshot read (the ⟳ sync): no
         knowledge-base pre-fetch and no file tools, so a light model answers in seconds instead of ~40 s."""
         cancels = self._cancels
+        self._last_use = time.monotonic()      # a question: the next one's process is kept ready again
         self._find_cli()
         if not self.backend.exe:
             return Answer(error="not_installed")

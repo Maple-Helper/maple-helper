@@ -185,6 +185,39 @@ def test_no_warm_process_until_the_chat_opens_and_none_after_a_long_close(kb, mo
     assert b.backend.prewarm.call_count == 2 and not b.wants_warm()
 
 
+def test_a_chat_left_open_with_no_question_stops_being_warmed_and_typing_warms_again(kb, monkeypatch):
+    from maplehelper import brain as brain_mod
+    from maplehelper.brain import Brain
+    b = Brain(kb, provider="claude")
+    b.backend = Mock(exe="claude.exe")
+    clock = [1000.0]
+    monkeypatch.setattr(brain_mod.time, "monotonic", lambda: clock[0])
+    b.chat_shown(True)
+    assert b.wants_warm()
+    clock[0] += brain_mod.WARM_IDLE_S - 60
+    assert b.wants_warm()                        # open, opened 59 min ago: still renewed
+    clock[0] += 120
+    assert not b.wants_warm()                    # open for an hour with no question: the 15-min renewal stops
+    assert b.note_use() is True                  # typing again: the overlay warms one
+    assert b.wants_warm() and b.note_use() is False
+    clock[0] += brain_mod.WARM_IDLE_S + 1
+    b.backend.exe = ""
+    monkeypatch.setattr(b, "_find_cli", lambda: None)
+    assert b.ask("hi", None, None, None).error == "not_installed"     # a question also counts as use
+    assert b.wants_warm()
+
+
+def test_typing_after_a_quiet_hour_warms_the_ai_again(overlay):
+    overlay.brain.note_use.return_value = False
+    overlay.brain.prewarm.reset_mock()
+    overlay.input.setText("where is")
+    overlay.app.processEvents()
+    assert overlay.brain.note_use.called and not overlay.brain.prewarm.called
+    overlay.brain.note_use.return_value = True
+    overlay.input.setText("where is mano")
+    assert wait_until(overlay.app, lambda: overlay.brain.prewarm.called)
+
+
 def test_the_15_minute_renewal_stops_once_the_chat_was_closed_long(monkeypatch):
     from types import SimpleNamespace
 

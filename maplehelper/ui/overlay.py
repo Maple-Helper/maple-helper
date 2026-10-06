@@ -1314,6 +1314,18 @@ class Overlay(QWidget):
         # absolute: in an RTL widget a plain AlignRight means "trailing" = left
         self.input.setAlignment((Qt.AlignRight if d == "rtl" else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
         self._show_send_or_stop()
+        if text.strip() and self.brain is not None:
+            self._tell_brain_typing()
+
+    def _tell_brain_typing(self):
+        """Typing after a long quiet spell warms the AI again (audit PRF-1: none is kept while the chat sits open
+        unused); typing a question outlasts the CLI's start."""
+        try:
+            if self.brain.note_use() is True:
+                import threading
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        except Exception:      # noqa: BLE001 - typing works whatever the AI's state
+            pass
 
     def _show_send_or_stop(self):
         """Send, or Stop while an answer is running (a stalled AI held the chat for minutes with no way out, audit
