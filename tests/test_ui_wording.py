@@ -128,3 +128,9 @@ def test_the_no_ai_note_turns_the_next_button_on():
     note = STRINGS["ob_no_ai_note"]
     assert note["he"].startswith("הכפתור \"הבא\" יופעל ") and STRINGS["tools"]["he"] in note["he"]
     assert note["en"].startswith("Next turns on once")
+
+
+def test_the_guide_in_the_database_reads_naturally():
+    """review3 UX22-a: "by the database's guide" read awkwardly."""
+    assert STRINGS["route_fare"]["en"] == "({n} mesos, per the guide in the database)"
+    assert STRINGS["src_official_tip"]["en"] == "An official Nexon statement, from the release guide in the database."
