@@ -30,5 +30,21 @@
   ],
   "commentary": "הוספנו את התאריך של מפת הדרכים למדריך תאריך ההשקה שלנו.",
   "body_hash": "6f41cf94948f42eb"
+ },
+ "founders-access-cash-shop-prices": {
+  "title": "מחירי ה-Cash Shop ב-Founder's Access: AP Reset Scroll ו-SP Reset Scroll עולים 7,000 NX כל אחד",
+  "summary": "Nexon פרסמה את רשימת ה-Cash Shop של Founder's Access, שנפתח ב-6 באוקטובר. AP Reset Scroll ו-SP Reset Scroll עולים 7,000 NX כל אחד. Pets עולים 3,500 NX ונשארים 30 יום.",
+  "source_hash": "d06c99c85ad764c3",
+  "highlights": [
+   "ה-AP Reset Scroll מאפס את כל הסטטים שלכם, כולל AP שהכנסתם ל-HP ול-MP. צריך להיות ברמה 10 כדי להשתמש בו.",
+   "ה-SP Reset Scroll מאפס את כל הסקילים חוץ מסקילים של Beginner. לשני ה-Scrolls אין תאריך תפוגה.",
+   "ה-Convenience Essentials Pack עולה 9,900 NX, ואפשר לקנות אותו פעם אחת בכל חשבון. יש בו AP Reset Scroll אחד, SP Reset Scroll אחד, קופון סלוטים, 10 Safety Charms ו-10 Super Megaphones.",
+   "ברשימה יש שישה Pets: Brown Kitty, Brown Puppy, Pink Bunny, Black Kitty, White Bunny ו-Black Pig. Water of Life עולה 2,000 NX ומוסיף עוד 30 יום.",
+   "Safety Charm עולה 800 NX ו-Megaphone עולה 350 NX. קופון של 5 סלוטים נוספים ב-storage או באינבנטורי עולה 5,000 NX.",
+   "Regular Store Permit עולה 1,500 NX ומאפשר להציע 12 פריטים. Pink Store Permit עולה 3,000 NX ומאפשר 18. שניהם נשארים 90 יום.",
+   "Mystery Hair Coupon עולה 5,500 NX ונותן תסרוקת אקראית. Signature Hair Coupon עולה 7,500 NX ומאפשר לבחור. קופונים לפנים עולים 3,500 ו-5,500 NX."
+  ],
+  "commentary": "ה-Pack הוא הדרך הזולה ביותר לקבל את שני ה-Reset Scrolls: שניהם לבד עולים 14,000 NX. אי אפשר לסחור בפריטים שלו. כדי לשלוח מתנה צריך דמות ברמה 12.",
+  "body_hash": "4cd56f46bf7a37a7"
  }
 }
