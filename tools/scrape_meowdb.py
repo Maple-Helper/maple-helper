@@ -176,10 +176,11 @@ def image_candidates(entity: dict, category: str, slug: str, name: str) -> list[
 
 
 def save_image(data: bytes, path: Path) -> bool:
-    """Store as PNG (the site serves some pictures as WebP)."""
+    """Store as PNG (the site serves some pictures as WebP). No Pillow is an error, not a bad picture: the nightly ran
+    without it and threw every new picture away in silence ("pictures added: 0/11")."""
+    import io
+    from PIL import Image
     try:
-        import io
-        from PIL import Image
         Image.open(io.BytesIO(data)).save(path, "PNG")
         return True
     except Exception:
