@@ -242,3 +242,25 @@ def test_a_wrapped_hebrew_news_title_starts_at_the_right_edge(app):
     # an English title (no translation) stays one plain left-to-right block
     en = newsview.title_label({"id": "y", "title": "Patch notes", "official": True}, True)
     assert en.textFormat() == Qt.PlainText
+
+
+def test_patch_note_sprites_fill_the_same_box_and_guide_covers_are_bigger(app):
+    """VIS-22: a sprite in a big empty canvas (Trixter: 67x81) drew half the size of the next card's; guide covers
+    (1200x630) were a 44x23 smudge."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QPainter, QPixmap
+
+    from maplehelper.ui import guides
+    from maplehelper.ui.widgets import fit_picture, trimmed
+    padded = QPixmap(67, 81)
+    padded.fill(Qt.transparent)
+    p = QPainter(padded)
+    p.fillRect(20, 30, 24, 20, QColor("#334455"))
+    p.end()
+    tight = QPixmap(21, 22)
+    tight.fill(QColor("#556677"))
+    a, b = (fit_picture(x, 48, 48, trim=True) for x in (padded, tight))
+    # each fills the box on its longer side (the padded one did only a third of it)
+    ink = trimmed(a)
+    assert max(ink.width(), ink.height()) >= 46 and max(b.width(), b.height()) == 48
+    assert guides.COVER_THUMB[0] >= 80
