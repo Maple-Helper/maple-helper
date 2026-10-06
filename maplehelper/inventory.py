@@ -269,7 +269,8 @@ class Slot:
 
 
 def warm(kb) -> None:
-    """Build the icon index ahead of time (1,400 pictures, ~1 s): the first inventory check doesn't wait."""
+    """Build the icon index ahead of time (~2,700 pictures: ~2 s of CPU and ~76 MB, on a background thread): the
+    first inventory check doesn't wait."""
     _index(kb)
 
 
