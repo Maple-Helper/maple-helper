@@ -11,11 +11,32 @@ from maplehelper import voice  # noqa: E402
 def test_downloaded_once_the_model_is_on_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
     assert not voice.Transcriber.downloaded()
-    snap = tmp_path / "models" / "models--ivrit-ai--whisper-large-v3-turbo-ct2" / "snapshots" / "abc"
+    snaps = tmp_path / "models" / "models--ivrit-ai--whisper-large-v3-turbo-ct2" / "snapshots"
+    snap = snaps / voice.MODEL_REVISION
     snap.mkdir(parents=True)
     assert not voice.Transcriber.downloaded()          # an interrupted download has no model.bin yet
     (snap / "model.bin").write_bytes(b"x")
     assert voice.Transcriber.downloaded()
+
+
+def test_the_model_is_pinned_to_one_snapshot(tmp_path, monkeypatch):
+    """The model was loaded from the repo's "main", whatever it holds that day (audit SEC-10): another snapshot on
+    disk isn't the model, and the load asks for the pinned one."""
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    other = tmp_path / "models" / "models--ivrit-ai--whisper-large-v3-turbo-ct2" / "snapshots" / "abc"
+    other.mkdir(parents=True)
+    (other / "model.bin").write_bytes(b"x")
+    assert not voice.Transcriber.downloaded() and len(voice.MODEL_REVISION) == 40
+    seen = {}
+
+    class Model:
+        def __init__(self, model_id, **kw):
+            seen.update(kw, model_id=model_id)
+    import faster_whisper
+    monkeypatch.setattr(faster_whisper, "WhisperModel", Model)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)
+    voice.Transcriber().load()
+    assert seen["model_id"] == voice.MODEL_ID and seen["revision"] == voice.MODEL_REVISION
 
 
 @pytest.mark.parametrize("on_disk,state", [(True, "loading"), (False, "downloading")])
