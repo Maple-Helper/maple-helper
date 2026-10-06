@@ -211,7 +211,9 @@ class MapleHelperApp:
         QTimer.singleShot(4000, self.check_kb_update_silently)
         QTimer.singleShot(6000, self.voice.preload)    # voice answers right away after a start or an update
         QTimer.singleShot(8000, updater.remove_old_installers)
-        QTimer.singleShot(9000, _remove_stray_screenshots)
+        # only files: off the UI thread (the first sweep after the update removed ~1.7 s of old Grok sessions per
+        # thousand, review PLT-8)
+        QTimer.singleShot(9000, lambda: threading.Thread(target=_remove_stray_screenshots, daemon=True).start())
         from . import inventory     # the icon index for "check the inventory", built before it's needed
         QTimer.singleShot(10000, lambda: threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start())
         # a session can run for hours: look again for a new KB every hour, for a new release every 15 minutes

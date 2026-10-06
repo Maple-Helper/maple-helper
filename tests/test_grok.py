@@ -513,3 +513,14 @@ def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
         os.utime(p, (old, old))
     app._remove_stray_screenshots()
     assert not any(p.exists() for p in left) and fresh.exists()
+
+
+def test_the_startup_sweep_runs_off_the_ui_thread():
+    """Old versions kept every Grok session: the first sweep after the update froze the UI ~1.7 s per thousand
+    (review PLT-8). It only touches files, so it runs on a thread."""
+    import inspect
+
+    from maplehelper import app
+    src = inspect.getsource(app)
+    assert "threading.Thread(target=_remove_stray_screenshots, daemon=True).start()" in src
+    assert "singleShot(9000, _remove_stray_screenshots)" not in src
