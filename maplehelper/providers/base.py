@@ -597,6 +597,12 @@ OFFLINE = ("enotfound", "econnrefused", "network", "fetch failed", "no such host
            "workspace routing discovery failed")
 
 
+def http_status(text: str, code: int) -> bool:
+    """An HTTP status code standing on its own ("(429)", "status 401"): not part of a request id, a session id or a
+    duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit."""
+    return re.search(rf"(?<![\w.-]){code}(?![\w.-])", text) is not None
+
+
 def classify_error(text: str) -> str | None:
     t = text.lower()
     if "credit balance" in t or "insufficient_quota" in t or "billing" in t:

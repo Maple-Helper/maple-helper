@@ -421,9 +421,9 @@ def shots_line(shots: list[Path]) -> str:
 
 def classify(text: str) -> str | None:
     t = text.lower()
-    if "not signed in" in t or "not authenticated" in t or "sign in again" in t or "401" in t:
+    if "not signed in" in t or "not authenticated" in t or "sign in again" in t or base.http_status(t, 401):
         return "not_logged_in"
-    if "rate limit" in t or "rate_limit" in t or "usage limit" in t or "quota" in t or "429" in t:
+    if "rate limit" in t or "rate_limit" in t or "usage limit" in t or "quota" in t or base.http_status(t, 429):
         return "usage_limit"
     return classify_error(text)
 
@@ -513,6 +513,10 @@ class CheckFailed(Exception):
     """grok was found but didn't answer in time: neither "not installed" nor "signed out"."""
 
 
+class Offline(CheckFailed):
+    """grok couldn't reach xAI: the sign-in may be fine, so not "signed out" (as Gemini's)."""
+
+
 def _run(args: list[str], timeout: float = CHECK_TIMEOUT_S) -> subprocess.CompletedProcess | None:
     exe = find_grok()
     if not exe:
@@ -543,6 +547,10 @@ def read_models(max_age: float = 10.0) -> tuple[list[tuple[str, str]], str | Non
     if "not authenticated" in out.lower() or "not signed in" in out.lower():
         return [], None
     found = parse_models(out)
+    if not found and r.returncode != 0 and classify(out) == "offline":
+        # no list because there's no connection: offering a sign-in would fail too
+        log.warning("grok models: no connection: %s", out.strip()[-300:])
+        raise Offline()
     email = EMAIL.search(out)
     if found:
         _models_cache, _models_at, _models_email = found, time.monotonic(), email.group(0) if email else None
@@ -557,6 +565,38 @@ def resolve_model(model: str | None) -> str | None:
     except CheckFailed:
         return None
     return lightest(got)
+
+
+SESSION_ID = re.compile(r"[\w-]{8,100}")
+SESSION_MAX_AGE_S = 24 * 3600
+
+
+def drop_session(proc, session_id) -> None:
+    """Grok saves every run as a session (the whole question, the ~12 KB instructions, every file it read) under
+    GROK_HOME/sessions/<folder>/<id>, and no flag turns that off: each one is removed once its process has ended.
+    One a crash left behind goes at the next start (sweep_sessions)."""
+    if not isinstance(session_id, str) or not SESSION_ID.fullmatch(session_id):
+        return
+
+    def drop():
+        try:
+            proc.wait(timeout=30)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        for d in (grok_home() / "sessions").glob(f"*/{session_id}"):
+            shutil.rmtree(d, ignore_errors=True)
+    threading.Thread(target=drop, daemon=True).start()
+
+
+def sweep_sessions(max_age: float = SESSION_MAX_AGE_S) -> None:
+    """Sessions older than a day (a quit or crash before drop_session ran)."""
+    now = time.time()
+    for d in (grok_home() / "sessions").glob("*/*"):
+        try:
+            if d.is_dir() and now - d.stat().st_mtime > max_age:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
 
 
 class Grok(Provider):
@@ -585,6 +625,8 @@ class Grok(Provider):
             return {"status": "not_installed", "email": None}
         try:
             got = read_models(max_age=0)
+        except Offline:
+            return {"status": "offline", "email": None}
         except CheckFailed:
             return {"status": "logged_out", "email": None}
         if got is None:
@@ -710,6 +752,7 @@ class GrokBackend:
             stderr = b"".join(err).decode("utf-8", errors="replace")
         finally:
             self._running.discard(p)
+        drop_session(p, (result or {}).get("session_id"))
         if out.stalled:
             log.warning("Grok stalled, stopped: %s", stderr[-1000:])
             return RawResult(error="timeout")

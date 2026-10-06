@@ -408,3 +408,79 @@ def test_the_account_email_comes_from_grok_s_sign_in_file(home, monkeypatch):
     monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
         "You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.7 (default)\n"))
     assert providers.get("grok").account() == {"status": "ok", "email": "player@x.com"}
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("session 0194a401-7f22 error: model returned empty response", None),          # an id, not a 401
+    ("request id 7a3429fe failed: internal server error", None),
+    ("HTTP 401 Unauthorized", "not_logged_in"),
+    ("status: 429 Too Many Requests", "usage_limit"),
+])
+def test_status_codes_count_only_on_their_own(text, kind):
+    """"401" / "429" anywhere in stderr made an unrelated failure a sign-out or a limit (audit PRV-5)."""
+    assert grok.classify(text) == kind
+
+
+def test_offline_is_not_signed_out(home, monkeypatch):
+    """No connection: no model list, and a sign-in would fail too (audit PRV-13)."""
+    monkeypatch.setattr(grok, "_models_cache", [])
+    monkeypatch.setattr(grok, "find_grok", lambda: "grok.exe")
+    monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
+        "Error: error sending request for url (https://api.x.ai/v1/models): dns error: no such host", 1))
+    assert providers.get("grok").account() == {"status": "offline", "email": None}
+    assert providers.get("grok").models() == [(None, "")]
+
+
+def test_each_run_s_saved_session_is_removed(home, tmp_path):
+    """Grok saves every run under GROK_HOME/sessions (no flag turns it off): the run's own one goes when it ends,
+    and old ones a crash left at the next start (audit PRV-3)."""
+    import os
+    import time
+    group = grok.grok_home() / "sessions" / "C%3A%5Ckb"
+    mine, other, old = group / "01a10d99-127d-7c42", group / "01a10d99-74d0-7082", group / "0190aaaa-0000-0000"
+    for d in (mine, other, old):
+        d.mkdir(parents=True)
+        (d / "summary.json").write_text("{}", encoding="utf-8")
+    os.utime(old, (time.time() - 2 * 86400,) * 2)
+
+    class Ended:
+        def wait(self, timeout=None):
+            return 0
+    grok.drop_session(Ended(), "01a10d99-127d-7c42")
+    grok.drop_session(Ended(), "../..")                      # never a path
+    for _ in range(100):
+        if not mine.exists():
+            break
+        time.sleep(0.05)
+    assert not mine.exists() and other.exists() and old.exists()
+    grok.sweep_sessions()
+    assert other.exists() and not old.exists()
+
+
+def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
+    """A quit mid-answer left Grok's question file (the whole prompt, with the profile and history) in %TEMP% and
+    Gemini's temp folders behind; the startup sweep only knew the screenshots (audit LIF-8 / PRV-11)."""
+    import os
+    import tempfile
+    import time
+
+    from maplehelper import app
+    from maplehelper.providers import gemini
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temp))
+    monkeypatch.setattr(gemini, "home", lambda: tmp_path / "antigravity")
+    old = time.time() - 2 * 3600
+    left = [temp / "maplehelper-grok-abc.txt", gemini.tmp_dir() / "run-1", grok.shots_dir() / "run-2",
+            gemini.shots_dir() / "run-3"]
+    fresh = gemini.tmp_dir() / "run-4"                    # a run going on now
+    for p in left + [fresh]:
+        if p.suffix:
+            p.write_text("q", encoding="utf-8")
+        else:
+            (p / "question.txt").parent.mkdir(parents=True)
+            (p / "question.txt").write_text("q", encoding="utf-8")
+    for p in left:
+        os.utime(p, (old, old))
+    app._remove_stray_screenshots()
+    assert not any(p.exists() for p in left) and fresh.exists()
