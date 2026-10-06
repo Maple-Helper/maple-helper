@@ -69,12 +69,12 @@ def _level(kb, key: str) -> int:
 
 
 def _home(kb, key: str) -> str:
-    """Where a monster lives: its busiest map people hunt on, else any map the KB confirms is in the game."""
+    """Where a monster lives: its busiest map people hunt on, else any map the KB confirms is in the game that a
+    player can walk to (a party quest's stage is in the game too, but no home: King Slime, audit GAM-11/KB-3)."""
     m = combat.monster(kb, key)
     if m and m.maps:
         return m.maps[0][0]
-    open_ = availability.of(kb)
-    return next((mp for mp in kb.all_maps(key) if open_.map_open(mp)), "")
+    return next((mp for mp in kb.all_maps(key) if combat.reachable_map(kb, mp)), "")
 
 
 @dataclass
