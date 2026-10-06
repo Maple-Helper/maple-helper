@@ -439,8 +439,13 @@ STRINGS = {
                      "en": "The problem report was saved to your desktop"},
     "report_saved_data": {"he": "דוח התקלה נשמר בתיקיית הנתונים של האפליקציה (היא נפתחת עכשיו)",
                           "en": "The problem report was saved in Maple Helper's data folder (it's opening now)"},
-    "report_saved_body": {"he": "שלחו את הקובץ {name} למי שעוזר לכם עם האפליקציה. אין בו שיחות, צילומי מסך או פרטים אישיים.",
-                          "en": "Send {name} to whoever helps you with Maple Helper. It has no chats, screenshots or personal details."},
+    # where to send it: the project's GitHub Issues (UX-8, the owner's choice); "whoever helps you" named no one
+    # (the file and the link each on a line of their own: inside a Hebrew sentence they wrapped in pieces)
+    "report_saved_body": {"he": "פתחו דיווח ב-GitHub וצרפו אליו את הקובץ. אין בו שיחות, צילומי מסך או פרטים אישיים.\n"
+                                "{name}\ngithub.com/Maple-Helper/maple-helper/issues",
+                          "en": "Open an issue on GitHub and attach the file. It has no chats, screenshots or personal "
+                                "details.\n{name}\ngithub.com/Maple-Helper/maple-helper/issues"},
+    "report_github": {"he": "פתיחת דיווח ב-GitHub", "en": "Open an issue on GitHub"},
     "update_kb": {"he": "עדכון המאגר", "en": "Update database"},
     "kb_uptodate": {"he": "המאגר מעודכן", "en": "Database is up to date"},
     "kb_update_postponed": {"he": "המאגר יתעדכן בעוד רגע, אחרי שהתשובה תסתיים", "en": "The database will update in a moment, once the answer is done"},
@@ -1016,12 +1021,16 @@ STRINGS = {
                                "en": "Maple Helper runs on your own Google account, through Antigravity, Google's official tool for Gemini."},
     "ob_connect_body_grok": {"he": "Maple Helper עובד עם חשבון ה-Grok שלכם, דרך Grok Build, הכלי הרשמי של xAI.",
                              "en": "Maple Helper runs on your own Grok account, through Grok Build, xAI's official tool."},
-    "ob_install": {"he": "התקנת Claude Code", "en": "Install Claude Code"},
-    "ob_install_codex": {"he": "התקנת ChatGPT", "en": "Install ChatGPT"},
-    "ob_install_gemini": {"he": "התקנת Gemini",
-                          "en": "Install Gemini"},
-    "ob_install_grok": {"he": "התקנת Grok",
-                        "en": "Install Grok"},
+    # what the button installs, by the tool's own name: "Install ChatGPT" ran OpenAI's Codex installer (UX-11).
+    # In Hebrew each bracket sits beside a Hebrew word, so right to left it never turns around
+    "ob_install": {"he": "התקנת Claude Code (הכלי הרשמי של Anthropic)",
+                   "en": "Install Claude Code (Anthropic's official tool)"},
+    "ob_install_codex": {"he": "התקנת ChatGPT (דרך Codex, הכלי הרשמי של OpenAI)",
+                         "en": "Install ChatGPT (Codex, OpenAI's official tool)"},
+    "ob_install_gemini": {"he": "התקנת Gemini (דרך Google Antigravity, הכלי הרשמי של Google)",
+                          "en": "Install Gemini (Google Antigravity, Google's official tool)"},
+    "ob_install_grok": {"he": "התקנת Grok (דרך Grok Build, הכלי הרשמי של xAI)",
+                        "en": "Install Grok (Grok Build, xAI's official tool)"},
     "ob_login": {"he": "התחברות לחשבון Claude", "en": "Sign in to Claude"},
     "ob_login_codex": {"he": "התחברות עם ChatGPT", "en": "Sign in with ChatGPT"},
     "ob_login_gemini": {"he": "התחברות עם Google",
@@ -1038,10 +1047,17 @@ STRINGS = {
                              "en": "Your browser opened: sign in to Google there, click Copy to Clipboard and paste the code here. You have one minute."},
     "ob_login_wait_grok": {"he": "נפתח דפדפן: אשרו שם את ההתחברות לחשבון ה-Grok שלכם (הקוד כבר ממולא), וזה מתעדכן כאן לבד.",
                            "en": "Your browser opened: approve the sign-in to your Grok account there (the code is filled in), and this updates by itself."},
-    "ob_login_failed": {"he": "ההתחברות ל-Claude Code לא הצליחה. כדאי להתקין אותו מחדש.",
-                        "en": "The Claude Code sign-in didn't work. Reinstalling it should fix this."},
-    "ob_login_failed_codex": {"he": "ההתחברות ל-ChatGPT לא הצליחה. כדאי להתקין אותו מחדש.",
-                              "en": "The ChatGPT sign-in didn't work. Reinstalling it should fix this."},
+    # not only the install: the connection or the account in the browser fail it too (DLG-15)
+    "ob_login_failed": {"he": "ההתחברות ל-Claude Code לא הושלמה. בדקו שיש חיבור לאינטרנט ושהתחברתם בדפדפן לחשבון הנכון, "
+                              "ולחצו שוב על \"התחברות לחשבון Claude\". אם זה חוזר, התקינו את Claude Code מחדש.",
+                        "en": "The Claude Code sign-in didn't finish. Check that you're online and signed in to the right "
+                              "account in the browser, then click \"Sign in to Claude\" again. If it keeps failing, "
+                              "reinstall Claude Code."},
+    "ob_login_failed_codex": {"he": "ההתחברות ל-ChatGPT לא הושלמה. בדקו שיש חיבור לאינטרנט ושהתחברתם בדפדפן לחשבון הנכון, "
+                                    "ולחצו שוב על \"התחברות עם ChatGPT\". אם זה חוזר, התקינו את Codex מחדש.",
+                              "en": "The ChatGPT sign-in didn't finish. Check that you're online and signed in to the right "
+                                    "account in the browser, then click \"Sign in with ChatGPT\" again. If it keeps "
+                                    "failing, reinstall Codex."},
     "ob_login_failed_gemini": {"he": "ההתחברות ל-Gemini לא הושלמה: הקוד לא התקבל, או שעברה יותר מדקה. לחצו שוב על \"התחברות עם Google\" והדביקו את הקוד החדש.",
                                "en": "The Gemini sign-in didn't finish: the code wasn't accepted, or more than a minute passed. Click \"Sign in with Google\" again and paste the new code."},
     "ob_login_failed_grok": {"he": "ההתחברות ל-Grok לא הושלמה. לחצו שוב על \"התחברות עם Grok\".",
@@ -1080,12 +1096,14 @@ STRINGS = {
     "ob_pick_job": {"he": "בחרו ג'וב", "en": "Pick a job"},
     "ob_name_taken": {"he": "כבר יש לכם דמות בשם הזה", "en": "You already have a character with this name"},
     "ob_connected": {"he": "✓ מחובר", "en": "✓ Connected"},
-    "ob_not_installed": {"he": "Claude Code לא מותקן", "en": "Claude Code is not installed"},
-    "ob_not_installed_codex": {"he": "ChatGPT לא מותקן במחשב", "en": "ChatGPT isn't installed on this PC"},
-    "ob_not_installed_gemini": {"he": "Gemini לא מותקן במחשב",
-                                "en": "Gemini isn't installed on this PC"},
-    "ob_not_installed_grok": {"he": "Grok לא מותקן במחשב",
-                              "en": "Grok isn't installed on this PC"},
+    # one wording for all four, naming the tool that is missing (DLG-20): the ChatGPT app may well be installed
+    "ob_not_installed": {"he": "Claude Code לא מותקן במחשב", "en": "Claude Code isn't installed on this computer"},
+    "ob_not_installed_codex": {"he": "הכלי Codex (של ChatGPT) לא מותקן במחשב",
+                               "en": "Codex (ChatGPT's tool) isn't installed on this computer"},
+    "ob_not_installed_gemini": {"he": "הכלי Google Antigravity (של Gemini) לא מותקן במחשב",
+                                "en": "Google Antigravity (Gemini's tool) isn't installed on this computer"},
+    "ob_not_installed_grok": {"he": "הכלי Grok Build (של Grok) לא מותקן במחשב",
+                              "en": "Grok Build (Grok's tool) isn't installed on this computer"},
     "ob_not_logged": {"he": "Claude Code מותקן, אבל צריך להתחבר", "en": "Claude Code is installed but not signed in"},
     "ob_not_logged_codex": {"he": "ChatGPT מותקן, אבל צריך להתחבר", "en": "ChatGPT is installed but not signed in"},
     "ob_not_logged_gemini": {"he": "Gemini מותקן, אבל צריך להתחבר",
@@ -1094,13 +1112,31 @@ STRINGS = {
                            "en": "Grok is installed but not signed in"},
     "ob_offline": {"he": "אין חיבור ל-{name}. בדקו את החיבור לאינטרנט.",
                    "en": "Couldn't reach {name}. Check your internet connection."},
-    "ob_need_plan": {"he": "נדרש מנוי Claude Pro או Max.", "en": "A Claude Pro or Max plan is required."},
-    "ob_need_plan_codex": {"he": "נדרש מנוי ChatGPT בתשלום (Plus, Pro, Business ועוד).",
-                           "en": "A paid ChatGPT plan is required (Plus, Pro, Business…)."},
-    "ob_need_plan_gemini": {"he": "צריך חשבון Google אישי. גודל המכסה תלוי במנוי שלכם ב-Google (למשל Google AI Pro או Ultra).",
-                            "en": "A personal Google account is required. How much you can ask depends on your Google plan (such as Google AI Pro or Ultra)."},
+    # what each AI costs, as each maker's own pages said in October 2026 (UX-10): Claude Code is on Pro and Max,
+    # not on the free Claude plan (claude.com/pricing); Codex comes with paid ChatGPT plans, and OpenAI's Free/Go
+    # access is limited and not promised in the CLI (learn.chatgpt.com/docs/pricing); Antigravity's own plan is $0
+    # with a weekly limit (antigravity.google/pricing); Grok Build is on every Grok plan, free too (x.ai, Aug 2026)
+    "ob_need_plan": {"he": "צריך מנוי Claude בתשלום (Pro או Max): התוכנית החינמית של Claude לא כוללת את Claude Code.",
+                     "en": "Needs a paid Claude plan (Pro or Max): the free Claude plan doesn't include Claude Code."},
+    "ob_need_plan_codex": {"he": "מנוי ChatGPT בתשלום (Plus, Pro, Business ועוד) כולל את זה. בחשבון חינמי או Go "
+                                 "אולי יש מכסה קטנה ומוגבלת: בדקו מה כלול בתוכנית שלכם.",
+                           "en": "A paid ChatGPT plan (Plus, Pro, Business…) includes it. A free or Go account may get "
+                                 "a small, limited quota: check what your plan includes."},
+    "ob_need_plan_gemini": {"he": "מספיק חשבון Google אישי: Antigravity חינמי, עם מכסה שבועית. Google AI Pro או Ultra נותנים יותר.",
+                            "en": "A personal Google account is enough: Antigravity is free, with a weekly limit. Google AI Pro or Ultra gives you more."},
     "ob_need_plan_grok": {"he": "מספיק חשבון Grok, גם בחינם (עם מכסה מוגבלת). מנוי SuperGrok או X Premium Plus נותן יותר.",
                           "en": "A Grok account is enough, even a free one (with a limited quota). SuperGrok or X Premium+ gives you more."},
+    # the four side by side, under the picker: which one a player without a paid plan can start with
+    "ob_plans_overview": {"he": "בחינם: Gemini ו-Grok (עם מכסה מוגבלת). ChatGPT: מנוי בתשלום, או בדקו אם יש לכם מכסה "
+                                "חינמית. Claude: מנוי בתשלום בלבד.",
+                          "en": "Free: Gemini and Grok (with a limited quota). ChatGPT: a paid plan, or check whether "
+                                "yours has a free quota. Claude: paid plans only."},
+    # why Next waits, and the way on without any AI (the Play tools need none)
+    "ob_no_ai_note": {"he": "\"הבא\" ייפתח אחרי שה-AI יתחבר. עוד אין לכם AI? כלי המשחק עובדים גם בלי: אפשר להמשיך "
+                            "בלי AI ולחבר אחד אחר כך בהגדרות.",
+                      "en": "Next opens once your AI is connected. No AI yet? The Play tools work without one: you can "
+                            "go on without an AI and connect one later in Settings."},
+    "ob_skip_ai": {"he": "להמשיך בינתיים בלי AI", "en": "Continue without an AI for now"},
     "ob_use_api_key": {"he": "או: שימוש במפתח API", "en": "Or: use an API key"},
     "ob_api_key_hint": {"he": "הדביקו מפתח Anthropic API (מתחיל ב-sk-ant-)", "en": "Paste an Anthropic API key (starts with sk-ant-)"},
     "ob_api_key_hint_codex": {"he": "הדביקו מפתח OpenAI API (מתחיל ב-sk-)", "en": "Paste an OpenAI API key (starts with sk-)"},
@@ -1496,6 +1532,18 @@ MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
 FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
                 "shot_hint_ready", "ob_done_hint"}
 _FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
+
+
+def system_language() -> str:
+    """The first-run language, before the player picks one: Hebrew on a Hebrew Windows/macOS, else English
+    (every new player got a Hebrew right-to-left setup, UX-3). The installer picks its language the same way."""
+    try:
+        from PySide6.QtCore import QLocale
+        langs = [str(x) for x in QLocale.system().uiLanguages()]
+    except Exception:  # noqa: BLE001 - no Qt (or no locale): the app's own default
+        langs = []
+    first = (langs[0] if langs else "").lower().replace("_", "-").split("-")[0]
+    return "he" if first in ("he", "iw") else "en"
 
 
 class I18n:

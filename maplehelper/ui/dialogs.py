@@ -12,12 +12,12 @@ from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, Q
                                QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
-from .. import bidi, providers
+from .. import bidi, osapi, providers
 from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .patchnotes import gutter
-from ..i18n import I18n
+from ..i18n import I18n, system_language
 from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class -> [(job, min level)], checked against the KB
 from ..kb import KnowledgeBase
 from ..store import ASSETS, History, Profiles, Settings
@@ -83,6 +83,10 @@ def _body(text: str) -> QLabel:
     lb = QLabel(bidi.plain(text), objectName="PageBody")
     lb.setWordWrap(True)
     return lb
+
+
+# where players report problems (the owner's choice, UX-8); the report toast names it too (report_saved_body)
+ISSUES_URL = "https://github.com/Maple-Helper/maple-helper/issues"
 
 
 def _field(text: str) -> QLabel:
@@ -284,7 +288,8 @@ class CharacterForm(QWidget):
         col1.addWidget(self.level)
         row.addLayout(col1)
         col2 = QVBoxLayout()
-        col2.addWidget(_field(t("ob_job")))
+        self.job_label = _field(t("ob_job"))
+        col2.addWidget(self.job_label)
         self.job = Select()
         self.job.set_label(t("ob_job"))
         self.job.currentIndexChanged.connect(lambda *_: self.changed.emit())
@@ -316,6 +321,8 @@ class CharacterForm(QWidget):
         lay.addSpacing(6)
         lay.addWidget(note)
         lay.addStretch(1)
+        # no class yet: no job field at all (it showed as an empty dropdown with only its arrows, VIS-20)
+        self._refresh_jobs()
 
     def base_class(self) -> str | None:
         b = self.class_group.checkedButton()
@@ -343,6 +350,7 @@ class CharacterForm(QWidget):
         single = len(jobs) <= 1
         self.job.setVisible(bool(cls) and not single)
         self.job_fixed.setVisible(bool(cls) and single)
+        self.job_label.setVisible(bool(cls))
         # shown in the player's language (Hebrew beside the game's English name); the values stay English
         self._fixed_job = jobs[0] if jobs else ""
         self.job_fixed.setText(job_label(self._fixed_job, self.t.lang) if self._fixed_job else "")
@@ -400,7 +408,8 @@ class Onboarding(GlassDialog):
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, stylesheet_fn, only_character=False,
                  edit_id: str | None = None):
-        self.t = I18n(settings["language"] or "he")
+        # never chosen yet: the system's language (UX-3); the player can still pick the other on the first page
+        self.t = I18n(settings["language"] or system_language())
         self.edit_id = edit_id
         only_character = only_character or edit_id is not None
         # the window title is what the taskbar, Alt+Tab and screen readers show
@@ -486,7 +495,7 @@ class Onboarding(GlassDialog):
             b.setCheckable(True)
             b.setMinimumHeight(56)
             b.setProperty("lang", code)
-            if (self.settings["language"] or "he") == code:
+            if self.t.lang == code:
                 b.setChecked(True)
             self.lang_group.addButton(b)
             row.addWidget(b)
@@ -504,10 +513,16 @@ class Onboarding(GlassDialog):
         self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl)
         self.provider_pick.set_label(self.t("ai_provider"))
         self.provider_pick.changed.connect(self._on_provider)
+        for b in self.provider_pick.group.buttons():       # each AI's cost, on hover too (UX-10)
+            b.setToolTip(bidi.plain(self.t.p("ob_need_plan", b.property("value")), rtl))
         prow = QHBoxLayout()
         prow.addWidget(self.provider_pick)
         prow.addStretch(1)
         lay.addLayout(prow)
+        # which AI a player without a paid plan can start with, before they click through all four
+        overview = QLabel(bidi.plain(self.t("ob_plans_overview"), rtl), objectName="RowHint")
+        overview.setWordWrap(True)
+        lay.addWidget(overview)
         self.ai_body = _body("")
         lay.addWidget(self.ai_body)
         lay.addSpacing(6)
@@ -566,6 +581,14 @@ class Onboarding(GlassDialog):
         self.key_hint.hide()
         sec.add_widget(self.key_hint)
         lay.addWidget(sec)
+        # not connected: why Next waits, and a way on without any AI (the Play tools need none, UX-10)
+        self.no_ai_note = QLabel(bidi.plain(self.t("ob_no_ai_note"), rtl), objectName="RowHint")
+        self.no_ai_note.setWordWrap(True)
+        lay.addWidget(self.no_ai_note)
+        self.skip_ai_btn = QPushButton(self.t("ob_skip_ai"), objectName="Link")
+        self.skip_ai_btn.setCursor(Qt.PointingHandCursor)
+        self.skip_ai_btn.clicked.connect(self._skip_ai)
+        lay.addWidget(self.skip_ai_btn, 0, Qt.AlignLeading)
         lay.addStretch(1)
         report_btn = QPushButton(self.t("report_problem"), objectName="Link")
         report_btn.setCursor(Qt.PointingHandCursor)
@@ -913,6 +936,15 @@ class Onboarding(GlassDialog):
         finish = self.t("save_changes") if self.edit_id else self.t("add_character" if self.only_character else "ob_finish")
         self.next.setText(bidi.plain(finish if last else self.t("ob_next"), self.t.rtl))
         self.next.setEnabled(self._current_ok())
+        if hasattr(self, "skip_ai_btn"):
+            for w in (self.no_ai_note, self.skip_ai_btn):
+                w.setVisible(not self._ai_ok)
+
+    def _skip_ai(self):
+        """On to the character without an AI: the Play tools work without one, and Settings connects one later."""
+        if not self.only_character and self.stack.currentIndex() == 1:
+            self.stack.setCurrentIndex(2)
+            self._update_nav()
 
     def _go_back(self):
         self.stack.setCurrentIndex(max(0, self.stack.currentIndex() - 1))
@@ -1095,13 +1127,16 @@ class SettingsDialog(GlassDialog):
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         lay.addWidget(sec)
 
-        # AI account: the provider and its sign-in act right away (like sign-out), not on Save
+        # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
+        # provider picked only to read about it, UX-6); a sign-in, an install or a sign-out act right away
+        self._provider = providers.get(settings["provider"]).name
+        self._pending_models: dict[str, str | None] = {}      # model setting -> the model picked, until Save
         sec = Section(t("sec_ai"), rtl)
         self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()],
-                                       providers.get(settings["provider"]).name, rtl)
+                                       self._provider, rtl)
         self.provider_pick.changed.connect(self._on_provider)
         sec.add_row(t("ai_provider"), self.provider_pick)
-        # the model acts right away too; under it, which model answered last
+        # the model; under it, which model answered last
         self.model_pick = Select()
         # the hint under the whole row: beside the dropdown it was squeezed into a narrow column
         self.model_hint = sec.add_row(t("ai_model"), self.model_pick, hint=" ", hint_below=True).findChild(QLabel, "RowHint")
@@ -1202,6 +1237,12 @@ class SettingsDialog(GlassDialog):
         report_btn.setCursor(Qt.PointingHandCursor)
         report_btn.clicked.connect(self.report_requested.emit)
         sec.add_widget(report_btn)
+        # where a report goes: the project's GitHub Issues (UX-8)
+        issues = QPushButton(t("report_github"), objectName="Link")
+        issues.setCursor(Qt.PointingHandCursor)
+        issues.setToolTip(ISSUES_URL)
+        issues.clicked.connect(lambda: osapi.open_url(ISSUES_URL))
+        sec.add_widget(issues)
         clear = QPushButton(t("clear_history"), objectName="LinkDanger")
         clear.setCursor(Qt.PointingHandCursor)
         clear.clicked.connect(self._clear_history)
@@ -1246,7 +1287,7 @@ class SettingsDialog(GlassDialog):
     # AI account ----------------------------------------------------------
 
     def _ai(self):
-        return providers.get(self.settings["provider"])
+        return providers.get(self._provider)       # the one shown (saved only with Save)
 
     def _label_usage(self):
         """The meter shows the plan of the AI that answers now (Claude's or ChatGPT's); saver mode is there for both."""
@@ -1296,7 +1337,7 @@ class SettingsDialog(GlassDialog):
         if name != ai.name:
             return              # a list that arrived after the player switched AI
         t = self.t
-        cur = self.settings[ai.model_setting]
+        cur = self._model_of(ai)
         labels, values = [], []
         for value, shown in models:
             if value is None:
@@ -1331,11 +1372,13 @@ class SettingsDialog(GlassDialog):
     def _on_model(self, i: int):
         ai = self._ai()
         if 0 <= i < len(self._model_values):
-            self.settings[ai.model_setting] = self._model_values[i]
-            self.account_changed.emit()      # the app moves its AI to the new model
+            self._pending_models[ai.model_setting] = self._model_values[i]     # stored by Save
+
+    def _model_of(self, ai) -> str | None:
+        return self._pending_models.get(ai.model_setting, self.settings[ai.model_setting])
 
     def _on_provider(self, name: str):
-        self.settings["provider"] = name
+        self._provider = name
         self._fill_models()
         self._label_usage()
         self._login_timer.stop()
@@ -1352,7 +1395,6 @@ class SettingsDialog(GlassDialog):
             self._install_for = name
             self.install_panel.start(running_install(name), self._ai().label)
         self._set_account_text(self.t("ob_checking"))
-        self.account_changed.emit()        # the app moves its AI over to this provider
         self._refresh_account()
 
     def _refresh_account(self):
@@ -1604,8 +1646,10 @@ class SettingsDialog(GlassDialog):
         self.mic_test.setEnabled(True)
 
     def _values(self) -> dict:
-        """What Save would store (the AI account and model act at once, they're not in here)."""
+        """What Save would store (a sign-in or sign-out acts at once, it's not in here)."""
         return {
+            "provider": self._provider,
+            **{p.model_setting: self._model_of(p) for p in providers.PROVIDERS.values()},
             "language": self.lang.value(),
             "appearance": self.appearance.value(),
             "font_size": self.font.value(),
@@ -1644,7 +1688,11 @@ class SettingsDialog(GlassDialog):
             self._check_keys()
             return
         s = self.settings
+        ai_keys = ["provider", *(p.model_setting for p in providers.PROVIDERS.values())]
+        ai_before = [s[k] for k in ai_keys]
         s.data.update(self._values())
         s.save()
+        if [s[k] for k in ai_keys] != ai_before:
+            self.account_changed.emit()     # the app moves its AI over to the saved provider and model
         self.changed.emit()
         self.accept()

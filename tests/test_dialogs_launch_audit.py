@@ -81,7 +81,7 @@ def test_settings_offers_the_installer_for_a_key_without_the_cli(env):
     sd = SettingsDialog(s, profiles, kb, lambda *_: "")
     sd._on_account({"status": "not_installed", "email": None, "provider": "claude"})
     assert not sd.install_btn.isHidden()
-    assert "not installed" in sd.account_label.text()
+    assert "isn't installed" in sd.account_label.text()
     assert not sd.logout_btn.isHidden()                  # the saved key can still be dropped
     sd._on_account({"status": "logged_out", "email": None, "provider": "claude"})
     assert "API key" in sd.account_label.text() and sd.install_btn.isHidden()

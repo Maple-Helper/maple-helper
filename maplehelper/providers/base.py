@@ -354,14 +354,14 @@ class StreamText:
 
 def model_name(model_id: str) -> str:
     """A readable name: "claude-sonnet-5-20260101" -> "Sonnet 5", "claude-opus-4-5" -> "Opus 4.5",
-    "gpt-6.1-sol" -> "GPT-6.1-Sol"."""
+    "gpt-6.1-sol" -> "GPT-6.1-Sol", "grok-4.6-fast" -> "Grok 4.6 Fast"."""
     import re
     m = re.fullmatch(r"claude-([a-z]+)-(\d+(?:-\d+)?)(?:-\d{8})?(?:\[.*\])?", model_id or "")
     if m:
         return f"{m.group(1).capitalize()} {m.group(2).replace('-', '.')}"
     if (model_id or "").startswith("gpt-"):
         return "GPT-" + "-".join(w.capitalize() for w in model_id[4:].split("-"))
-    if (model_id or "").startswith("gemini-"):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
+    if (model_id or "").startswith(("gemini-", "grok-")):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
         return " ".join(w if w[:1].isdigit() else w.capitalize() for w in model_id.split("-"))
     return model_id or ""
 

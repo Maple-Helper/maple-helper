@@ -277,6 +277,10 @@ def test_models_and_saver():
     out = "Default model: grok-4.6\n\nAvailable models:\n  * grok-4.6 (default)\n  - grok-4.6-fast\n"
     models = grok.parse_models(out)
     assert [m for m, _ in models] == ["grok-4.6", "grok-4.6-fast"] and grok.lightest(models) == "grok-4.6-fast"
+    # PRV-19: the picker shows readable names, like the other AIs' ("Grok 4.6 Fast", not "grok-4.6-fast")
+    assert [n for _, n in models] == ["Grok 4.6", "Grok 4.6 Fast"]
+    from maplehelper.providers.base import model_name
+    assert model_name("grok-4.6") == "Grok 4.6"
 
 
 class Done:
