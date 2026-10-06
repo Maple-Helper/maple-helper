@@ -284,7 +284,8 @@ class CharacterForm(QWidget):
         col1.addWidget(self.level)
         row.addLayout(col1)
         col2 = QVBoxLayout()
-        col2.addWidget(_field(t("ob_job")))
+        self.job_label = _field(t("ob_job"))
+        col2.addWidget(self.job_label)
         self.job = Select()
         self.job.set_label(t("ob_job"))
         self.job.currentIndexChanged.connect(lambda *_: self.changed.emit())
@@ -316,6 +317,8 @@ class CharacterForm(QWidget):
         lay.addSpacing(6)
         lay.addWidget(note)
         lay.addStretch(1)
+        # no class yet: no job field at all (it showed as an empty dropdown with only its arrows, VIS-20)
+        self._refresh_jobs()
 
     def base_class(self) -> str | None:
         b = self.class_group.checkedButton()
@@ -343,6 +346,7 @@ class CharacterForm(QWidget):
         single = len(jobs) <= 1
         self.job.setVisible(bool(cls) and not single)
         self.job_fixed.setVisible(bool(cls) and single)
+        self.job_label.setVisible(bool(cls))
         # shown in the player's language (Hebrew beside the game's English name); the values stay English
         self._fixed_job = jobs[0] if jobs else ""
         self.job_fixed.setText(job_label(self._fixed_job, self.t.lang) if self._fixed_job else "")
