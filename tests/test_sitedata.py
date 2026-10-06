@@ -2,6 +2,7 @@
 (tests/fixtures/meowdb, no network), checked by the KB gate, diffed into the patch notes, and shown in the app."""
 import copy
 import json
+import re
 import os
 from pathlib import Path
 
@@ -281,7 +282,9 @@ def test_chat_cards_show_skill_changes_and_pets(real_site):
     pills = [bare(w.text()) for w in pet.findChildren(QLabel, "StatPill")]
     assert pills == ["Lifespan: 7 days", "Hunger: 2", "Lv 30: ~25,000 commands"]
     assert bare(pet.findChild(QLabel, "TagGood").text()) == "In Cash Shop"
-    assert any(bare(w.text()) == "Closed test" for w in pet.findChildren(QLabel, "SourceTag"))
+    # its price's source as its page says it tonight (the closed test's prices, until the Cash Shop's own)
+    if re.search(r"^Cash Shop\n[\d,]+ NX\nClosed-test price", real_site.page("item/1524"), re.M):
+        assert any(bare(w.text()) == "Closed test" for w in pet.findChildren(QLabel, "SourceTag"))
 
 
 @pytest.mark.parametrize("lang", ["he", "en"])
@@ -294,19 +297,25 @@ def test_play_tools_build_and_bag_pages(real_site, isolated_store, lang):
     d = ToolsDialog(real_site, p, isolated_store.Settings(), lang, "", {}, "build")
     d.show()
     app.processEvents()
-    # the SP table: a chip at the first mention of a changed skill, its changes on hover
+    # the SP table: a chip at the first mention of a changed skill, its changes on hover. Which skills the Warrior
+    # guide's table names is the guide's (Final Attack: Axe and Rage tonight): every chip is once, a changed skill
+    # of this character's line (never the Page's), and the guide still names some of them
     html = d.build_view.toHtml()
-    assert html.count("change:skill/fighter__final-attack-axe") == 1 and "change:skill/fighter__rage" in html
-    assert "change:skill/page__" not in html
+    chips = re.findall(r"change:(skill/[\w-]+)", html)
+    changed = set(sitedata.skill_changes(real_site))
+    assert chips and set(chips) <= changed
+    assert all(chips.count(k) == 1 for k in chips) and not any(k.startswith("skill/page__") for k in chips)
+    assert all(k.split("/")[1].split("__")[0] in ("warrior", "fighter", "beginner") for k in chips)
     shown = []
     from maplehelper.ui import terms
     real = terms.show_html
     terms.show_html = lambda body, rtl=False: shown.append(body)
     try:
-        d._skill_change_tip("change:skill/fighter__rage")
+        d._skill_change_tip("change:" + chips[0])
     finally:
         terms.show_html = real
-    assert shown and "35" in shown[0] and "40" in shown[0]
+    ch = sitedata.skill_change(real_site, chips[0])
+    assert shown and all(str(v) in shown[0] for row in ch.changes[:1] for v in row[1:3] if v not in (None, ""))
     # the community tier card: one row for a Fighter, a grade per column
     cards = d.build_tier.itemAt(0).widget().findChildren(QFrame, "Card")
     assert len(cards) == 1                                     # a card a 2nd job (a Bowman gets two)
@@ -341,17 +350,37 @@ def test_a_skill_change_note_reads_in_hebrew_when_translated(real_site):
     assert note_he(changed) is None and "always absorbed" in change_tip(I18n("he"), changed)
 
 
-@needs_kb
 def test_a_first_jobs_table_of_both_paths_splits_into_one_a_path():
     # "Bowman" over a table of Bow and Crossbow columns read as one job: a table a path, the shared columns in each
+    # (the Bowman guide's AP table as the real KB wrote it, frozen)
+    from types import SimpleNamespace
+
+    from maplehelper import buildplan
+    kb = SimpleNamespace(entities={"item/1": {"type": "Equip / Bow"}, "item/2": {"type": "Equip / Crossbow"},
+                                   "item/3": {"type": "Equip / Claw"}})
+    head = ["Levels", "Bow AP spend", "Bow base STR / DEX", "Crossbow AP spend", "Crossbow base STR / DEX"]
+    table = buildplan.PlanTable("ap", "AP", [head, ["10", "Starting checkpoint", "5 / 57", "Starting checkpoint",
+                                                    "5 / 57"]], 1, head)
+    parts = buildplan.split_paths(kb, table)
+    assert [p for p, _ in parts] == ["Bow", "Crossbow"]
+    assert parts[0][1].rows == [["Levels", "Bow AP spend", "Bow base STR / DEX"], ["10", "Starting checkpoint", "5 / 57"]]
+    assert all(part.rows[0][0] == "Levels" and part.current == 1 for _, part in parts)
+    one = buildplan.PlanTable("ap", "AP", [["Level", "Spend"]], None, ["Level", "Spend"])
+    assert buildplan.split_paths(kb, one) == [("", one)]
+
+
+@needs_kb
+def test_real_class_tables_split_by_the_kbs_weapon_types():
     from maplehelper import buildplan
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
-    _, tables = buildplan.tables(kb, "Bowman", "Bowman", 20, "en")
-    parts = [(path, part) for tb in tables for path, part in buildplan.split_paths(kb, tb)]
-    ap = [(path, part.rows[0]) for path, part in parts if part.kind == "ap"]
-    assert [p for p, _ in ap] == ["Bow", "Crossbow"]
-    assert all(not any("Crossbow" in h for h in head) for p, head in ap if p == "Bow")
-    assert all(head[0].startswith("Level") for _, head in ap)
-    _, tables = buildplan.tables(kb, "Thief", "Thief", 20, "en")
-    assert all(path == "" for tb in tables for path, _ in buildplan.split_paths(kb, tb))
+    types = buildplan.weapon_types(kb)
+    for base in ("Warrior", "Magician", "Bowman", "Thief"):
+        _, tables = buildplan.tables(kb, base, base, 20, "en")
+        assert tables, base
+        for tb in tables:
+            parts = buildplan.split_paths(kb, tb)
+            for path, part in parts:     # a part keeps the shared columns and only its own path's
+                assert not path or path.lower() in types, (base, path)
+                others = {p.lower() for p, _ in parts if p and p != path}
+                assert not any(str(h).split()[0].lower() in others for h in part.head_en or [] if str(h).split()), (base, path)
