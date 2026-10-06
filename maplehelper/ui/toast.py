@@ -19,7 +19,8 @@ class Toast(QWidget):
 
     _live: list["Toast"] = []
 
-    def __init__(self, title: str, message: str, rtl: bool, font_family: str, timeout_ms: int = 5000, screen=None):
+    def __init__(self, title: str, message: str, rtl: bool, font_family: str, timeout_ms: int = 5000, screen=None,
+                 on_click=None):
         super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -29,6 +30,9 @@ class Toast(QWidget):
         self.setFixedWidth(WIDTH + 2 * SHADOW)
         self._font_family, self._screen = font_family, screen
         self._slot: QRect | None = None          # where it sits once it has slid in
+        self._on_click = on_click                # a click on the card does this too (it always dismisses)
+        if on_click is not None:
+            self.setCursor(Qt.PointingHandCursor)
         self.restyle()
         outer = QVBoxLayout(self)
         outer.setContentsMargins(SHADOW, SHADOW, SHADOW, SHADOW)
@@ -146,6 +150,8 @@ class Toast(QWidget):
         self._anim(0.0, QPoint(self.x(), self.y() + 12), self.close)
 
     def mouseReleaseEvent(self, e):
+        if self._on_click is not None:
+            self._on_click()
         self.dismiss()
 
     def closeEvent(self, e):
@@ -159,7 +165,7 @@ class Toast(QWidget):
 
 
 def notify(title: str, message: str = "", rtl: bool = True, font_family: str | None = None, timeout_ms: int = 5000,
-           screen=None):
-    t = Toast(title, message, rtl, font_family or theme.FONT_FAMILY, timeout_ms, screen)
+           screen=None, on_click=None):
+    t = Toast(title, message, rtl, font_family or theme.FONT_FAMILY, timeout_ms, screen, on_click)
     t.show_toast()
     return t

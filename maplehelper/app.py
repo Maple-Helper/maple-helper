@@ -365,9 +365,9 @@ class MapleHelperApp:
             t = I18n(self.settings["language"])
             self.toast(t("perm_title"), t("perm_screen_body"), timeout_ms=20000)
 
-    def toast(self, title: str, message: str = "", timeout_ms: int = 5000):
+    def toast(self, title: str, message: str = "", timeout_ms: int = 5000, on_click=None):
         notify(title, message, rtl=I18n(self.settings["language"]).rtl, font_family=self.font_family,
-               timeout_ms=timeout_ms, screen=self._toast_screen())
+               timeout_ms=timeout_ms, screen=self._toast_screen(), on_click=on_click)
 
     def _toast_screen(self):
         """Where the player is looking: the chat's monitor when it is open, else the game's (a toast on the
@@ -641,7 +641,10 @@ class MapleHelperApp:
         report.log.info("problem report written: %s", path.name)
         # show the file, selected, in Explorer / Finder
         subprocess.Popen(["explorer", "/select,", str(path)] if sys.platform == "win32" else ["open", "-R", str(path)])
-        self.toast(t(saved), t("report_saved_body", name=path.name), timeout_ms=12000)
+        # its issues address wraps inside the narrow card ("maple-" / "helper/issues"): a click opens it (review3 UX8-a)
+        from .ui.dialogs import ISSUES_URL
+        self.toast(t(saved), t("report_saved_body", name=path.name), timeout_ms=12000,
+                   on_click=lambda: osapi.open_url(ISSUES_URL))
 
     def on_history_cleared(self):
         self.overlay.clear_feed()

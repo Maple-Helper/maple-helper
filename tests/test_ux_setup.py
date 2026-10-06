@@ -217,3 +217,33 @@ def test_connect_step_explains_and_offers_a_way_on_without_an_ai(env):
     dlg.skip_ai_btn.click()
     assert dlg.pages[dlg.stack.currentIndex()] is dlg.pages[2]          # the character step
     dlg.close()
+
+
+def test_the_report_toast_opens_the_issues_page_on_click(monkeypatch, tmp_path):
+    """review3 UX8-a: its address wraps in the narrow card ("maple-" / "helper/issues"), so a click opens it."""
+    import subprocess
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper import app, osapi, report
+    from maplehelper.ui.dialogs import ISSUES_URL
+    from maplehelper.ui.toast import Toast
+    QApplication.instance() or QApplication([])
+    toasts, opened = [], []
+    monkeypatch.setattr(report, "save_report", lambda *a: (tmp_path / "r.zip", "report_saved"))
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **kw: None)
+    monkeypatch.setattr(osapi, "open_url", opened.append)
+    settings = type("S", (), {"__getitem__": lambda s, k: "en", "data": {}})()
+    me = SimpleNamespace(settings=settings,
+                         toast=lambda title, body="", timeout_ms=0, on_click=None: toasts.append(on_click))
+    app.MapleHelperApp._write_report(me, tmp_path, "Claude: ok")
+    toasts[0]()
+    assert opened == [ISSUES_URL]
+    clicked = []
+    w = Toast("t", "b", False, "Rubik", on_click=lambda: clicked.append(True))
+    w.mouseReleaseEvent(QMouseEvent(QMouseEvent.MouseButtonRelease, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
+                                    Qt.LeftButton, Qt.NoModifier))
+    assert clicked == [True]
