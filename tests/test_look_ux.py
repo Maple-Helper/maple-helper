@@ -264,3 +264,26 @@ def test_patch_note_sprites_fill_the_same_box_and_guide_covers_are_bigger(app):
     ink = trimmed(a)
     assert max(ink.width(), ink.height()) >= 46 and max(b.width(), b.height()) == 48
     assert guides.COVER_THUMB[0] >= 80
+
+
+def test_the_updated_chip_on_combat_cards_needs_a_change_to_their_numbers(app, monkeypatch):
+    """TL1-7: the 4.10.2026 update added drops to 151 of 180 monsters, so every Grind spots card said "Updated".
+    On the grind / hit pages the chip now needs a real change to the card's numbers; a change in wording only
+    ("1,200" / "1200") is no change anywhere."""
+    from maplehelper import recent
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.widgets import updated_tag
+    drops = recent.Recent("monster/1", "Snail", "2026-10-04", drops_added=["Snail Shell"])
+    hp = recent.Recent("monster/2", "Blue Snail", "2026-10-04", props={"HP": [50, 51]})
+    words = recent.Recent("monster/3", "Red Snail", "2026-10-04", props={"EXP": ["1,200", "1200"]})
+    assert recent.same("1,200", "1200") and recent.same("Victoria  Road", "victoria road") and not recent.same(50, 51)
+    assert not recent.stats_changed(drops) and recent.stats_changed(hp) and not recent.stats_changed(words)
+    found = {r.key: r for r in (drops, hp, words)}
+    monkeypatch.setattr(recent, "of", lambda kb, key, today=None: found.get(key))
+    t = I18n("en")
+    kb = type("KB", (), {"get": lambda self, k: None})()
+    assert recent.lines(t, kb, words) == []
+    assert updated_tag(t, kb, "monster/1") is not None                       # the chat card: drops count there
+    assert updated_tag(t, kb, "monster/1", stats_only=True) is None
+    assert updated_tag(t, kb, "monster/2", stats_only=True) is not None
+    assert updated_tag(t, kb, "monster/3") is None

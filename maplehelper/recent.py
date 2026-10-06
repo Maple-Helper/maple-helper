@@ -118,7 +118,7 @@ def _labels(kb, key: str, f: str, new) -> tuple[str, str]:
 def lines(t, kb, r: Recent) -> list[str]:
     """What changed, a line each: "Weapon Attack 30 → 33 (COT2 → Launch)" (one left-to-right block)."""
     out = [sources.change_line(f, _value(old), _value(new), *_labels(kb, r.key, f, new))
-           for f, (old, new) in r.props.items() if old != new]
+           for f, (old, new) in r.props.items() if not same(old, new)]
     if r.drops_added:
         out.append(t("pn_drops_added", items=", ".join(r.drops_added)))
     if r.drops_removed:
@@ -134,6 +134,20 @@ def lines(t, kb, r: Recent) -> list[str]:
         change = f"{_mesos(r.mesos[0])} → {_mesos(r.mesos[1])}"
         out.append(t("pn_mesos", change=f"{bidi.LRI}{change}{bidi.PDI}"))
     return out
+
+
+def same(old, new) -> bool:
+    """The same value in other words: case, spacing or thousands commas ("1,200" / "1200") is no change to the game."""
+    def norm(v):
+        return re.sub(r"\s+", " ", str(v if v is not None else "").replace(",", "")).strip().casefold()
+    return old == new or norm(old) == norm(new)
+
+
+def stats_changed(r: Recent) -> bool:
+    """A change to the numbers a combat card shows (a prop, its name, its community mesos), not only to its drop
+    list: the 4.10.2026 update added drops to 151 of 180 monsters and every Grind spots card said "Updated"."""
+    return bool(any(not same(o, n) for o, n in r.props.values()) or r.old_name
+                or (r.mesos and r.mesos[0] != r.mesos[1]))
 
 
 def _mesos(v) -> str:

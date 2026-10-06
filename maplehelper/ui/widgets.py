@@ -399,11 +399,12 @@ def source_tags(t, srcs, stamp=None) -> list[QLabel]:
     return [source_tag(t, s, stamp) for s in dict.fromkeys(s for s in srcs if s)]
 
 
-def updated_tag(t, kb, key: str) -> QLabel | None:
-    """The "Updated" chip of an entity a KB update changed in the last week (recent.py), with what changed."""
+def updated_tag(t, kb, key: str, stats_only: bool = False) -> QLabel | None:
+    """The "Updated" chip of an entity a KB update changed in the last week (recent.py), with what changed.
+    stats_only: only for a change to the numbers the card is about (the grind / hit pages), not a drop-list one (TL1-7)."""
     from .. import recent
     r = recent.of(kb, key) if key else None
-    if not r or not recent.lines(t, kb, r):
+    if not r or not recent.lines(t, kb, r) or (stats_only and not recent.stats_changed(r)):
         return None
     lb = QLabel(bidi.plain(t("updated_tag"), t.rtl), objectName="UpdatedTag")
     lb.setAlignment(Qt.AlignCenter)

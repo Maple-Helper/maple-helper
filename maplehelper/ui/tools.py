@@ -825,7 +825,7 @@ class ToolsDialog(GlassDialog):
         # that changed it says so
         stamp = sources.stat_source(self.kb, m.key)
         nums.addWidget(source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp))
-        updated = updated_tag(t, self.kb, m.key)
+        updated = updated_tag(t, self.kb, m.key, stats_only=True)
         if updated:
             why.addWidget(updated)
         for line in (why, nums):
@@ -930,7 +930,7 @@ class ToolsDialog(GlassDialog):
         # where these numbers (and every result below, worked out from them) come from
         stamp = sources.stat_source(self.kb, m.key)
         self.calc_chips = [source_tag(t, stamp.source if stamp else sources.MEOWDB, stamp)]
-        updated = updated_tag(t, self.kb, m.key)
+        updated = updated_tag(t, self.kb, m.key, stats_only=True)
         if updated:
             self.calc_chips.append(updated)
         both.addLayout(chip_row(self.calc_chips))
