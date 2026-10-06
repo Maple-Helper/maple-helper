@@ -263,6 +263,29 @@ def other_class(update: dict, c) -> str | None:
     return cls if cls and cls != "Beginner" and mine and cls != mine else None
 
 
+def demotes(update: dict, c) -> bool:
+    """A profile update that moves the character back or sideways in its job line: Beginner (job or class) for a
+    character past it, Assassin -> Thief, Assassin -> Bandit. The game never does that, a misread does (audit AI-2)."""
+    from ..jobs import advances, canonical_class
+    job = update_job(update)
+    if job and not advances(c.job, job):
+        return True
+    base = update.get("base_class")
+    return (isinstance(base, str) and canonical_class(base) == "Beginner"
+            and c.base_class in ("Warrior", "Magician", "Bowman", "Thief"))
+
+
+def risky_read(update: dict, c) -> bool:
+    """A screenshot read that would lower the level, change the class or move the job back or sideways: one misread
+    of the HUD (the owner's KalimeroZz, Lv. 31 Assassin, became "Beginner 10") must never change the character
+    without the player saying so (audit SCR-1 / AI-1)."""
+    if not c or not isinstance(update, dict):
+        return False
+    level = update.get("level")
+    lower = isinstance(level, int) and not isinstance(level, bool) and level < c.level
+    return lower or bool(other_class(update, c)) or demotes(update, c)
+
+
 def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     """(detail tiles, inventory slots, their reading for the AI, <inventory_read>) from a full-resolution grab. Runs
     in a worker thread; a failed read still leaves the AI the screenshot."""
@@ -2196,7 +2219,15 @@ class Overlay(QWidget):
         if grind:
             # the read as the AI gave it: the tracker compares this moment's numbers, never a stale saved EXP %
             self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
-        changes = self.profiles.apply_update(ans.profile_update or {})
+        # a lower level, another class or a job back/sideways: asked like a chat answer's, never applied silently
+        asked = risky_read(ans.profile_update, self.profiles.active)
+        if asked:
+            import logging
+            logging.getLogger(__name__).info("sync read held for the player: %s", ans.profile_update)
+            changes = []
+            self._apply_profile_update(dict(ans.profile_update))
+        else:
+            changes = self.profiles.apply_update(ans.profile_update or {})
         full, self._sync_full = getattr(self, "_sync_full", None), None
         self._syncing = True            # until the portrait is cropped (a worker thread): no other read meanwhile
 
@@ -2204,7 +2235,7 @@ class Overlay(QWidget):
             self._syncing = False
             if changes:
                 self._show_changes(changes)
-            if not [ch for ch in changes if ch[0] != "exp"]:
+            if not asked and not [ch for ch in changes if ch[0] != "exp"]:
                 # nothing that shows as its own line (an EXP change only moves the bar): still say it worked
                 key = "sync_nothing" if ans.profile_update or ans.avatar_box or avatar or changes else "sync_not_found"
                 self.add_system(lambda t: t(key))
@@ -2226,6 +2257,12 @@ class Overlay(QWidget):
             self.sync_finished.emit(False)
             return
         self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
+        if risky_read(ans.profile_update, c):
+            # nobody is asked a minute into a grind: the profile stays as it is, the log keeps the read (audit SCR-1)
+            import logging
+            logging.getLogger(__name__).info("grind read not applied to the profile: %s", ans.profile_update)
+            self.sync_finished.emit(False)
+            return
         changes = self.profiles.apply_update(ans.profile_update or {})
         if changes:
             self._show_changes(changes)
@@ -2338,7 +2375,8 @@ class Overlay(QWidget):
             return
         new_cls, new_job, new_level = other_class(update, c), update_job(update), update.get("level")
         lower = isinstance(new_level, int) and new_level < c.level
-        if not new_cls and not lower:
+        # back to Beginner, or Assassin -> Thief / Bandit: asked too, never applied on one read (audit AI-2)
+        if not new_cls and not lower and not demotes(update, c):
             self._show_changes(self.profiles.apply_update(update))
             return
         cid, name, held = c.id, c.name, dict(update)

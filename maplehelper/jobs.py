@@ -67,6 +67,34 @@ def class_of(job: str) -> str | None:
     return next((c for c, jobs in JOBS.items() if any(j == job for j, _ in jobs)), None)
 
 
+def _line(job: str) -> tuple[str, int, int] | None:
+    """(class, tier 1-3, branch) of a job: Assassin -> ("Thief", 2, 0), Hermit -> ("Thief", 3, 0)."""
+    for c, jobs in JOBS.items():
+        if c == "Beginner":
+            continue
+        levels = sorted({lv for _, lv in jobs if lv > 1})
+        for j, lv in jobs:
+            if j == job and lv > 1:
+                tier = levels.index(lv) + 1
+                return c, tier, [x for x, y in jobs if y == lv].index(j)
+    return None
+
+
+def advances(old: str | None, new: str | None) -> bool:
+    """True when `new` is the character's job `old` or a later job of the same line (Thief -> Assassin -> Hermit,
+    Fighter -> Crusader, never Fighter -> White Knight). Beginner, the 1st job again, or the other 2nd job of the
+    class are no advancement: a misread HUD made an Assassin a Beginner, asked nothing (audit AI-2)."""
+    if not new or not old or new == old or old == "Beginner":
+        return True
+    a, b = _line(old), _line(new)
+    if not a or not b:
+        return new != "Beginner"
+    if a[0] != b[0] or b[1] <= a[1]:
+        return False
+    # the 1st job may go to any branch; a 2nd job only to its own 3rd (the lists keep the branches in one order)
+    return a[1] == 1 or a[2] == b[2]
+
+
 def canonical_class(name: str) -> str | None:
     n = _key(name)
     n = _key(_ALIAS_KEYS.get(n, n))
