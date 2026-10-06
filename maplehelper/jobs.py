@@ -80,6 +80,14 @@ def _line(job: str) -> tuple[str, int, int] | None:
     return None
 
 
+def tier(job: str | None) -> int | None:
+    """Which advancement a job is: Beginner 0, Thief 1, Assassin 2, Hermit 3; None for no job of the tree."""
+    if job == "Beginner":
+        return 0
+    line = _line(job or "")
+    return line[1] if line else None
+
+
 def advances(old: str | None, new: str | None) -> bool:
     """True when `new` is the character's job `old` or a later job of the same line (Thief -> Assassin -> Hermit,
     Fighter -> Crusader, never Fighter -> White Knight). Beginner, the 1st job again, or the other 2nd job of the

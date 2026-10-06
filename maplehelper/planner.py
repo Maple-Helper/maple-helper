@@ -125,10 +125,12 @@ NO_BOSS = re.compile(_he("לא בוס(?:ים)?|בלי בוס(?:ים)?|רגיל(?
 # "top 3", "3 best", "אילו 3 מפלצות": how many rows the answer is
 TOP_N = re.compile(rf"\btop\s*(\d{{1,2}})\b|\b(\d{{1,2}})\s+(?:best|top|most)\b|(?<![{HE}])(?:איזה|אילו|איזו)\s+(\d{{1,2}})"
                    rf"(?!\d)|(?<![\d\-])(\d{{1,2}})\s+(?:ה)?(?:מפלצות|מובים|קווסטים|משימות|מפות|הכי)(?![{HE}])", re.I)
-# "how do I become a magician", "איך נהיים קוסם": the class's instructor and the job advancement
+# "how do I become a magician", "איך נהיים קוסם": the class's instructor and the job advancement; never "how to be a
+# better assassin" or "how do I get to the thieves hideout" (audit AI-10)
 BECOME = re.compile(_he("איך נהיים|איך נהיה|איך הופכים ל|איך להיות|איך נעשים|איך מתקדמים ל|להתקדם ל|ג'וב אדבנס|"
                         "אדבנסמנט|התקדמות ל|ג'וב שני|ג'וב 2|ג'וב ראשון|ג'וב 1") + r"|advancement\s+ה?שני|"
-                    + _en(r"how (?:do|can|to) (?:i |you |we )?(?:become|be|get|turn into)|become an?|"
+                    + _en(r"how (?:do|can|to) (?:i |you |we )?(?:become|turn into|be(?!\s+(?:an?\s+)?(?:better|stronger|"
+                          r"good|great)\b))|become an?|"
                           r"job advance(?:ment)?|advance to|(?:1st|2nd|first|second) job"), re.I)
 SECOND_JOB = re.compile(_he("ג'וב שני|ג'וב 2|אדבנס שני|אדבנסמנט השני") + "|" + _en(r"2nd job|second job")
                         + r"|advancement\s+ה?שני", re.I)      # "ה-job advancement השני"
@@ -207,7 +209,8 @@ class Block:
         total = len(self.rows)
         shown = self.rows if total <= self.cap else self.rows[:min(SHOWN, self.cap)]
         whole = len(shown) == total
-        head = (f'<table_rows table="{self.table}.tsv" match="{self.what}" sort="{self.sort}" '
+        table = f"{self.table}.tsv" if self.table in tables.TABLES else self.table     # "jobs": the app's job tree
+        head = (f'<table_rows table="{table}" match="{self.what}" sort="{self.sort}" '
                 f'rows="{total if whole else f"{len(shown)} of {total}"}" complete="{"yes" if whole else "no"}">')
         lines = [head, *([self.lead] if self.lead else []), "\t".join(self.cols)]
         lines += ["\t".join(tables._cell(_short(r.get(c)) if c in CUT else r.get(c)) for c in self.cols)
@@ -500,7 +503,7 @@ def _arrows_fit(s: Slots, item: str) -> bool:
     return True
 
 
-def shops(rows, s: Slots) -> Block | None:
+def shops(rows, s: Slots, base: str | None = None) -> Block | None:
     keys, types, what = _item_match(s, lambda k: True)
     npcs = [k for k in s.entities if k.startswith("npc/")]
     if not keys and not types and npcs:
@@ -513,6 +516,16 @@ def shops(rows, s: Slots) -> Block | None:
     out = [r for r in rows("shops") if (r["item_key"] in keys if keys else r["item_type"] in types)]
     if not keys:
         out = [r for r in out if _arrows_fit(s, r["item"])]
+    # "איזה כובע כדאי לי לקנות" (an Assassin, level 31) got every hat sold, any class, a Lv 5 one first; "the
+    # Henesys weapon store" every town's (audit AI-9): the class and level the question is for, the town it names
+    if not keys and any(t.startswith("Equip / ") for t in types) and (base or s.level is not None):
+        gear = {r["key"]: r for r in rows("equips")}
+        out = [r for r in out if (e := gear.get(r["item_key"])) is None
+               or (_wears(e["job"], base) and (s.level is None or _num(e.get("req_lv")) <= s.level))]
+        what += (f", job {base} or Any" if base else "") + (f", req_lv <= {s.level}" if s.level is not None else "")
+    if s.area and (here := [r for r in out if s.area.lower() in str(r["place"] or "").lower()]):
+        out = here
+        what += f", in {s.area}"
     named = _slot_filter(s)
     # one row per item, its sellers cheapest first: "where can I buy potions" is 115 shop rows of 30 items
     per: dict[str, dict] = {}
@@ -534,7 +547,8 @@ def shops(rows, s: Slots) -> Block | None:
         i["npc_keys"] = ",".join(dict.fromkeys(k for k in i["npc_keys"] if k))
     return Block("shops", ("item", "price", "sellers", "label", "item_key", "npc_keys"), rows_, what,
                  "item_type, price", grep=f"grep '{next(iter(types), '')}' shops.tsv",
-                 note="price: the cheapest, in mesos; a seller with another price has it after its name")
+                 note="price: the cheapest, in mesos; a seller with another price has it after its name. Sorted by "
+                      "price, not by quality: the first row is the cheapest, never \"the best\"")
 
 
 def recipes(rows, s: Slots, uses: bool) -> list[Block]:
@@ -619,7 +633,17 @@ def where_npc(rows, npcs: list[str]) -> Block:
                  "npc " + ", ".join(npcs), "-", note="connects: the maps next to it")
 
 
-def job_advance(rows, s: Slots, character=None, second: bool = False) -> list[Block]:
+_ORDINAL = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th"}
+
+
+def _open_tier(kb) -> int:
+    try:
+        return jobs.open_tier(kb)
+    except Exception:          # noqa: BLE001 - a KB without the release guide: only what is always there
+        return jobs.open_tier()
+
+
+def job_advance(rows, s: Slots, character=None, second: bool = False, kb=None) -> list[Block]:
     """How to become a job: the class's instructor (the 1st job, and the 2nd job's quest) and the job-advancement
     quests, at the level the official facts give."""
     from . import official
@@ -627,6 +651,18 @@ def job_advance(rows, s: Slots, character=None, second: bool = False) -> list[Bl
     first = (official.value("first_job_level") or {}).get(base) or next(
         (lv for j, lv in jobs.JOBS.get(base, []) if j == base), None)
     tier = next((lv for j, lv in jobs.JOBS.get(base, []) if j == s.job), None)
+    rank = jobs.tier(s.job) or 1
+    if rank > _open_tier(kb):
+        # "how do I become a Hermit" got "Hermit: the 2nd job, at level 70", Dark Lord and the 2nd-job quests, and
+        # Sonnet repeated it (audit AI-3): an advancement the KB doesn't confirm is said to be out of the game
+        tree = [{"job": j, "level": lv, "advancement": _ORDINAL.get(jobs.tier(j) or 0, "Beginner"),
+                 "in_game": "yes" if (jobs.tier(j) or 0) <= _open_tier(kb) else "no"}
+                for j, lv in jobs.JOBS.get(base, []) if j != "Beginner"]
+        lead = (f"{s.job}: the {base} line's {_ORDINAL[rank]} job, at level {tier}. The {_ORDINAL[rank]} job advancement is "
+                "NOT in the game yet (the knowledge base doesn't confirm it): say so, and give no NPC, quest or "
+                "place for it.")
+        return [Block("jobs", ("job", "level", "advancement", "in_game"), tree, f"the {base} job line", "level",
+                      lead=lead)]
     keys = [r["key"] for r in rows("npcs")
             if f"{base} Instructor" in str(r.get("role") or "") or r["npc"] == f"{base} Job Instructor"]
     quests_ = sorted((r for r in rows("quests") if r["area"] == "Job Advancement" and r["job"] == f"{base} only"),
@@ -639,7 +675,7 @@ def job_advance(rows, s: Slots, character=None, second: bool = False) -> list[Bl
         head = (f"{base}: the 2nd job, at level {seconds[0][1]}, one of {', '.join(j for j, _ in seconds)} "
                 f"(the 1st job, {base}, at level {first})")
     else:
-        head = (f"{s.job}: the {'1st' if s.job == base else '2nd'} job, at level {tier if s.job != base else first}"
+        head = (f"{s.job}: the {_ORDINAL.get(rank, '1st')} job, at level {tier if s.job != base else first}"
                 + (" (official)" if s.job == base and official.value("first_job_level") else ""))
     lead = (head
             + (f"; the job advancement is with {who[0]['npc']} ({who[0]['map']}, by {who[0]['connects']})" if who else "")
@@ -647,8 +683,10 @@ def job_advance(rows, s: Slots, character=None, second: bool = False) -> list[Bl
                if character and character.base_class not in (base, "Beginner") else "") + ".")
     return [Block("npcs", ("npc", "role", "map", "street", "connects", "key", "map_key"), who,
                   f"the {base} instructors", "-", lead=lead),
+            # these are the 2nd job's quests: under a 1st-job lead they say so (audit AI-4)
             Block("quests", ("quest", "level", "npc", "turn_in", "after", "key"), quests_,
-                  f"{base} job advancement quests (2nd job)", "level")]
+                  f"{base} job advancement quests (2nd job)" if second or rank == 2 else
+                  f"{base} job advancement quests, for the later 2nd job only (not needed for the 1st job)", "level")]
 
 
 def _job_ok(job_cell, character, s: Slots) -> bool:
@@ -836,6 +874,22 @@ def consumables(rows, s: Slots, cheap: bool) -> Block | None:
 
 # ---------------------------------------------------------------- intent
 
+def _top(q: str) -> int | None:
+    """The row count a question asks for ("top 3"), never a level: "monsters at level 15 most exp" asked for no 15
+    rows (audit AI-11)."""
+    levels_ = {m.span(g) for rx in (LEVEL, LOOSE_LEVEL, RANGE) for m in rx.finditer(q)
+               for g in range(1, rx.groups + 1) if m.group(g)}
+    for m in TOP_N.finditer(q):
+        g = next(i for i in range(1, TOP_N.groups + 1) if m.group(i))
+        if m.span(g) not in levels_:
+            return int(m.group(g))
+    return None
+
+
+# "should I grind or quest": a judgement call, no list to fetch (it got 156 quest rows, audit AI-12)
+JUDGE = re.compile(r"\bshould\s+(?:i|we)\b[^?]*\bor\b", re.I)
+
+
 def _equip_fams(s: Slots) -> bool:
     return any(_kind(f) == "equip" for f in s.families)
 
@@ -848,6 +902,8 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
     q = " ".join(question.split())
     if not q or reverse or SCREEN.search(q) or DROP_WORDS.search(q) or DROPPED.search(q):
         return None
+    if JUDGE.search(q) and not LISTQ.search(q) and not BEST.search(q):
+        return None
     if rows is None:
         def rows(name, _kb=kb):
             return tables.rows(_kb, name, build=False)
@@ -855,7 +911,7 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
     quest, give, sell = bool(QUEST.search(q)), bool(GIVE.search(q)), bool(SELL.search(q))
     named_items = [k for k in s.entities if k.startswith("item/")]
 
-    top = next((int(g) for m in [TOP_N.search(q)] if m for g in m.groups() if g), None)
+    top = _top(q)
 
     def made(intent: str, *blocks, level=None) -> Plan | None:
         blocks = [b for b in blocks if b is not None]
@@ -863,12 +919,13 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
             if any(b.rows for b in blocks) else None
 
     if BECOME.search(q) and s.job and s.job != "Beginner" and not s.families:
-        return made("job_advance", *job_advance(rows, s, character))
+        # "ג'וב שני לגנב", "second job for magician": the class named, its 2nd job asked (it got "Thief: the 1st job")
+        return made("job_advance", *job_advance(rows, s, character, second=bool(SECOND_JOB.search(q)), kb=kb))
     # "2nd job" with no job named: the player's own class
     if BECOME.search(q) and not s.job and not s.families and SECOND_JOB.search(q) and character \
             and character.base_class in jobs.JOBS and character.base_class != "Beginner":
         s.job = character.base_class
-        return made("job_advance", *job_advance(rows, s, character, second=True))
+        return made("job_advance", *job_advance(rows, s, character, second=True, kb=kb))
     if quest:
         if any(k.startswith("npc/") for k in s.entities):
             return made("npc_quests", *npc_quests(rows, s))
@@ -887,7 +944,7 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
     if CRAFT.search(q) and named_items:
         return made("recipe", *recipes(rows, s, uses=False))
     if sell and (s.families or named_items or any(k.startswith("npc/") for k in s.entities)):
-        return made("shops", shops(rows, s))
+        return made("shops", shops(rows, s, _player_class(s, character)))
     if s.maps and (MONSTER.search(q) or WHATS_IN.search(q)) and not s.families:
         return made("monsters_in_map", spawns_in(rows, s))
     # "איפה יש סטירג'", "where is Jane Doe": every map it is on (the page's map table was cut off in the prompt)
@@ -898,8 +955,11 @@ def plan_for(question: str, kb, character=None, rows=None, reverse: bool = False
             return made("where_monster", where_monster(rows, mons))
         if npcs:
             return made("where_npc", where_npc(rows, npcs))
-    # "should I grind Blue Snail?" is about that monster: its page answers it
-    if TRAIN.search(q) and (WHERE.search(q) or BEST.search(q) or LISTQ.search(q)) and not s.families and not s.maps \
+    # "should I grind Blue Snail?" is about that monster: its page answers it. "where do I hunt for exp at 31 with a
+    # claw" is a training question too, not the claw list (audit AI-12)
+    gear_only = bool(EXP.search(q)) and all(_kind(f) == "equip" for f in s.families)
+    if TRAIN.search(q) and (WHERE.search(q) or BEST.search(q) or LISTQ.search(q)) \
+            and (not s.families or gear_only) and not s.maps \
             and not any(k.startswith(("monster/", "map/", "item/")) for k in s.entities):
         b = training_maps(rows, s, kb)
         return made("training_maps", b, level=s.level if s.level is not None else
