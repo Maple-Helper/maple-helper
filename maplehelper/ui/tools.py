@@ -1446,7 +1446,10 @@ class ToolsDialog(GlassDialog):
         desc.setProperty("part", "desc")
         col.addWidget(desc)
         if s.prereq:
-            need = self._label(t("skill_requires", name=bidi.ltr_block(s.prereq[0], t.rtl), n=s.prereq[1]), "CardSub")
+            # the skill's name one block in both languages: a "?" for "MP" split "MP Eater" in two (glossary.py
+            # leaves an LRI block whole)
+            name_block = f"{bidi.LRI}{s.prereq[0]}{bidi.PDI}"
+            need = self._label(t("skill_requires", name=name_block, n=s.prereq[1]), "CardSub")
             need.setProperty("part", "needs")
             col.addWidget(need)
         for part, head in (("lv1", t("skill_lv1")), ("max", t("skill_lv_max", n=s.max_lv or "MAX"))):

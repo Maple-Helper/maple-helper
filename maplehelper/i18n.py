@@ -788,7 +788,7 @@ STRINGS = {
     "skills_job_a11y": {"he": "ג'וב", "en": "Job"},
     "skills_head": {"he": "הסקילים של **{job}** ({n})", "en": "**{job}** skills ({n})"},
     "skills_none": {"he": "אין ל-{job} סקילים להציג.", "en": "No skills to show for {job}."},
-    "skill_max_lv": {"he": "רמה מקסימלית {n}", "en": "Max level {n}"},
+    "skill_max_lv": {"he": "רמה מקסימלית {n}", "en": "Max Lv. {n}"},
     "skill_requires": {"he": "דורש {name} ברמה {n}", "en": "Requires {name} at level {n}"},
     "skill_lv1": {"he": "ברמה 1:", "en": "Level 1:"},
     "skill_lv_max": {"he": "ברמה {n} (מקסימום):", "en": "Level {n} (max):"},

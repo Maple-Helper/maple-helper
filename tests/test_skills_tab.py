@@ -236,7 +236,7 @@ def test_skills_tab_shows_the_characters_job_with_every_part_of_each_skill(tools
                 parts = {lb.property("part"): plain_text(lb) for lb in card.findChildren(QLabel) if lb.property("part")}
                 assert set(parts) == {"desc", "lv1", "max"} | ({"needs"} if s.prereq else set()), s.key
                 tags = [bare(t.text()) for t in card.findChildren(QLabel, "Tag")]
-                assert ("רמה מקסימלית " if lang == "he" else "Max level ") + str(s.max_lv) in tags
+                assert ("רמה מקסימלית " if lang == "he" else "Max Lv. ") + str(s.max_lv) in tags
                 if lang == "he":
                     assert asset[s.key]["he"].split(" ")[0] in parts["desc"]
                     assert asset[s.key + "#max"]["he"].split(";")[0] in parts["max"]
