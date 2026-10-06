@@ -385,6 +385,8 @@ def _not_items(question: str, kb, mentions: list[str], rows) -> list[tuple[int, 
     typed "Arrow Bomb"), another entity the question names, "<word> Mastery/Booster". "what does Claw Mastery do"
     got every claw, "Recommend row 1, Blue Scarab", as the answer data."""
     names = [(kb.get(k) or {}).get("name", "") for k in mentions if not k.startswith("item/")]
+    # a shop map's family word is what it sells: "what does the Henesys weapon store sell" (audit AI-9)
+    names = [n for n in names if not re.search(r"\b(?:Store|Shop)$", n)]
     if rows is not None:
         for r in rows("skills"):
             names += [r["skill"], str(r["skill"]).split(":")[0]]
