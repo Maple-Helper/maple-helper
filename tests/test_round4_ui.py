@@ -86,11 +86,23 @@ def test_focus_ring_only_for_keyboard_focus():
 def test_dialogs_open_on_their_search_field_not_the_close_button(kb):
     from maplehelper.ui.guides import GuidesDialog
     from maplehelper.ui.pinsview import HistoryDialog
-    for d in (HistoryDialog([], "Elipaz", "he", ""), GuidesDialog(kb, None, "en", "")):
+    pairs = [{"q": "where?", "a": "here", "t": time.time()}]
+    for d in (HistoryDialog(pairs, "Elipaz", "he", ""), GuidesDialog(kb, None, "en", "")):
         d.move(-4000, -4000)
         d.show()
         assert wait_for(lambda d=d: d.focusWidget() is d.search)
         d.close()
+
+
+def test_an_empty_history_shows_no_search_field():
+    """review3 VIS6-a: nothing to search: no field, and the focus isn't on one."""
+    from maplehelper.ui.pinsview import HistoryDialog
+    d = HistoryDialog([], "Elipaz", "he", "")
+    d.move(-4000, -4000)
+    d.show()
+    pump()
+    assert not d.search.isVisible() and d.focusWidget() is not d.search
+    d.close()
 
 
 def test_a_confirmation_opens_on_its_safe_answer():

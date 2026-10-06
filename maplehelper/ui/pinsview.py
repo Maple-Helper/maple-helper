@@ -235,7 +235,9 @@ class HistoryDialog(GlassDialog):
         self._debounce = QTimer(self, singleShot=True, interval=self.DEBOUNCE_MS, timeout=self._new_search)
         self.search.textChanged.connect(lambda *_: self._debounce.start())
         outer.addWidget(self.search)
-        self.initial_focus = self.search
+        # nothing to search in an empty History: no field, and no focus on one (review3 VIS6-a)
+        self.search.setVisible(bool(pairs))
+        self.initial_focus = self.search if pairs else None
         self._shown = self.PAGE
         self.count = QLabel(objectName="RowHint")
         outer.addWidget(self.count)
