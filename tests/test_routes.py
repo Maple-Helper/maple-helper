@@ -325,3 +325,16 @@ def test_the_no_cab_way_from_maple_island_is_not_called_free():
     from maplehelper.kb import KnowledgeBase
     text = routes.ai_context(KnowledgeBase(REAL_KB), "how do I get from Southperry to Henesys?")
     assert "Without a cab (no cab, but the boat still costs mesos)" in text and "(free)" not in text
+
+
+@needs_routes
+def test_a_taxi_town_asked_from_nowhere_is_no_0_step_route_and_pason_is_not_free():
+    """"how do I get to Perion" (map unknown) said "from Perion to Perion (0 steps)"; Pason's trip has no fare in the KB,
+    so the walk through it isn't "free"; routes.json's "A Hill West of Henesys " keeps no trailing space."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    text = routes.ai_context(kb, "how do I get to Perion")
+    assert "Perion is a taxi town" in text and "to Perion (0 steps" not in text and "1. In " in text
+    text = routes.ai_context(kb, "how do I get to Florina Beach from Ellinia")
+    assert "(free)" not in text and "Pason takes you part of the way, the KB lists no fare" in text
+    assert not [m.name for m in routes.of(kb).maps.values() if m.name != m.name.strip()]
