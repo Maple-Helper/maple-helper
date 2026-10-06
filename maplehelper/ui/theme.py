@@ -69,6 +69,10 @@ ORANGE_TEXT_LIGHT = "#C9620A"     # orange as text on white: #FF9533 / #F07A12 a
 # row): white, the brand look the owner chose (a darker text read better but changed the look)
 ON_ORANGE = "#FFFFFF"
 GOOD_TEXT_LIGHT = "#2E9E5B"
+# the warning / good chips' text (#TagWarn, #TagGood, the vote marks): the light-glass colors read 2.4-3.4:1 on
+# dark glass (the class grade letters were dim), so dark gets its own lighter ones (>= 4.5:1 on a card's tint)
+WARN_TEXT = {"light": "#C9620A", "dark": "#FFB066"}
+GOOD_TEXT = {"light": GOOD_TEXT_LIGHT, "dark": "#4CD07D"}
 CHANGED = {"light": "#0A6CD6", "dark": "#64B5FF"}    # the "Changed in COT2" chip's text, readable on either glass
 
 
@@ -157,7 +161,7 @@ def app_font(size: int = 14) -> QFont:
 def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     s, c = size, P()
     ot, otd = accent_text(), accent_text(deep=True)      # orange text: darker on white for contrast
-    good = "#2E9E5B" if MODE == "dark" else GOOD_TEXT_LIGHT
+    good, warn = GOOD_TEXT[MODE], WARN_TEXT[MODE]
     install_focus_ring()
     return f"""
     QPushButton, QToolButton {{ outline: none; }}
@@ -295,14 +299,14 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     #Tag, #TagGood, #TagWarn, #TagAccent {{ font-size: {s - 3}px; font-weight: 600; border-radius: 8px; padding: 2px 8px; }}
     #Tag {{ color: {c['muted']}; background: {c['fill3']}; }}
     #TagGood {{ color: {good}; background: rgba(52,199,89,0.16); }}
-    #TagWarn {{ color: #C9620A; background: rgba(255,149,51,0.18); }}
+    #TagWarn {{ color: {warn}; background: rgba(255,149,51,0.18); }}
     #TagAccent {{ color: {otd}; background: rgba(255,149,51,0.12); }}
     /* where a datum comes from (sources.py): the BETA badge's look, orange outline and letters (the owner's call) */
     #SourceTag {{ font-size: {s - 5}px; font-weight: 700; color: {accent_text()}; background: transparent;
                   border: 1px solid rgba(255,149,51,0.6); border-radius: 5px; padding: 0 4px; min-height: 0; }}
     /* a community drop's votes: "16 ✓" in green, "single report" (one player alone) in the warning colour */
     #VoteTag {{ font-size: {s - 4}px; font-weight: 600; color: {good}; background: transparent; padding: 0 1px; }}
-    #VoteTag[single="true"] {{ color: #C9620A; }}
+    #VoteTag[single="true"] {{ color: {warn}; }}
     #UpdatedTag {{ font-size: {s - 4}px; font-weight: 700; color: {otd}; background: rgba(255,149,51,0.14);
                    border: 1px solid rgba(255,149,51,0.45); border-radius: 7px; padding: 1px 5px; }}
     /* a skill whose values changed between two builds (sitedata.py): blue, apart from the orange "Updated" */
