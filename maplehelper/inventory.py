@@ -301,7 +301,7 @@ def _whole(c: np.ndarray) -> bool:
     return True
 
 
-def _count_box(c: np.ndarray) -> tuple[int, int] | None:
+def _count_box(c: np.ndarray, scale: int = 1) -> tuple[int, int] | None:
     """(top, right) of the stack count the game prints at a slot's bottom left ("92": digits outlined in black,
     filled white fading to blue), or None. The fill's columns (white or blue over a black outline; the slot's beige
     and grey speckle are neither) are the digits, the outline next to them is theirs too. Digits stand a few
@@ -316,7 +316,8 @@ def _count_box(c: np.ndarray) -> tuple[int, int] | None:
     outline = black.sum(axis=0) >= 2
     # a digit's fill touches its outline above or below; an icon's own white or blue doesn't, or the box ran on
     # under it ("150" over a big icon hid most of it and the slot went unnamed, audit P83-4)
-    r = max(2, size // 30)
+    # (scale: the slot was doubled pixel for pixel, SMALL_SLOT; its outline and fill stand twice as far apart)
+    r = max(2, size // scale // 30) * scale
     edge = np.zeros_like(black)
     for i in range(1, r + 1):
         edge[:-i] |= black[i:]
@@ -346,14 +347,14 @@ def _count_box(c: np.ndarray) -> tuple[int, int] | None:
     return top + first, end
 
 
-def _vectors(c: np.ndarray) -> list[tuple[np.ndarray, np.ndarray | None, bool]]:
+def _vectors(c: np.ndarray, scale: int = 1) -> list[tuple[np.ndarray, np.ndarray | None, bool]]:
     """The slot's icon as comparable readings (vector, weight of each pixel or None for all, with the shadow): as
     it is, and without a stack count when it seems to have one. Under a count the icon isn't compared, and its
     shadow, still in view to the right, keeps the crop where the KB picture's is."""
     mask = _icon_mask(c)
     v = _normalise(c, mask)
     out = [(v, None, False)] if v is not None else []
-    box = _count_box(c)
+    box = _count_box(c, scale)
     if box:
         hidden = np.zeros(mask.shape, bool)
         hidden[box[0]:, :box[1] + 1] = True
@@ -459,7 +460,7 @@ def read(img: Image.Image, kb, top: int = 3, cursor: tuple[int, int] | None = No
             continue                 # an empty slot: just the speckled beige
         # a small game window (~42 px slots): the stack count's outline is a pixel thin and its box wasn't found,
         # so the item went "unknown". Doubled pixel for pixel it is found (audit SCR-15; never a wrong name)
-        vecs = _vectors(np.repeat(np.repeat(c, 2, 0), 2, 1) if size < SMALL_SLOT else c)
+        vecs = _vectors(np.repeat(np.repeat(c, 2, 0), 2, 1), 2) if size < SMALL_SLOT else _vectors(c)
         if not vecs:
             continue
         buf = io.BytesIO()
