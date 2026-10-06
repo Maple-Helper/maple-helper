@@ -82,3 +82,18 @@ def test_a_chosen_language_wins_over_the_system(env, monkeypatch):
     monkeypatch.setattr(dialogs, "system_language", lambda: "en")
     dlg = dialogs.Onboarding(s, profiles, kb, lambda *_: "")
     assert dlg.t.lang == "he" and dlg.lang_group.checkedButton().property("lang") == "he"
+
+
+# --- UX-11: each install button names the tool it installs ----------------------------------------------------------
+
+@pytest.mark.parametrize("provider, tool", [("claude", "Claude Code"), ("codex", "Codex"),
+                                            ("gemini", "Google Antigravity"), ("grok", "Grok Build")])
+def test_install_buttons_name_the_tool(provider, tool):
+    from maplehelper.i18n import I18n
+    for lang in ("he", "en"):
+        text = I18n(lang).p("ob_install", provider).replace(" ", " ")      # (names are kept whole)
+        assert tool in text, (lang, text)
+    # Hebrew: a bracket beside an English word at either end turns around right to left
+    he = I18n("he").p("ob_install", provider)
+    i, j = he.index("("), he.index(")")
+    assert "֐" <= he[i + 1] <= "׿" and j == len(he) - 1
