@@ -49,6 +49,15 @@ class TestRegistry:
     ("failed to refresh available models: Connection failed: error sending request for url "
      "(https://chatgpt.com/backend-api/codex/models)", "offline"),
     ("error sending request: client error (Connect): dns error: No such host is known. (os error 11001)", "offline"),
+    # Claude Code 2.1.280's own words (from claude.exe), "Something went wrong" before (audit PRV-4)
+    ("API Error: Unable to connect to API. Check your internet connection", "offline"),
+    ("API Error: Connection error.", "offline"),
+    ("API Error: Unable to connect to API (ECONNRESET)", "offline"),
+    ("Connection dropped", "offline"),
+    ("API Error: Request timed out.", "offline"),
+    ("You're out of extra usage", "usage_limit"),
+    ("You've hit your team's shared budget. Ask an admin to raise it.", "usage_limit"),
+    ("Context limit reached · /compact or /clear to continue", None),
 ])
 def test_classify_error(text, kind):
     assert base.classify_error(text) == kind
