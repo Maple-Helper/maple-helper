@@ -150,6 +150,9 @@ STRINGS = {
     # the first voice question asks before the model's download, then shows its progress (audit UX-12)
     "voice_dl_ask": {"he": "שאלות בקול עובדות עם מודל דיבור שרץ אצלכם במחשב. צריך להוריד אותו פעם אחת ({size}). להוריד עכשיו?",
                      "en": "Voice questions use a speech model that runs on your PC. It needs a one-time download ({size}). Download it now?"},
+    # the model is on disk but an NVIDIA PC lacks its cuBLAS part (review3 UX12-a)
+    "voice_gpu_ask": {"he": "יש לכם כרטיס מסך של NVIDIA: רכיב נוסף שלו מזרז את זיהוי הדיבור. צריך להוריד אותו פעם אחת ({size}). להוריד עכשיו? בלי זה הדיבור מזוהה על המעבד, לאט יותר.",
+                      "en": "You have an NVIDIA graphics card: one more part for it makes speech recognition faster. It needs a one-time download ({size}). Download it now? Without it, speech is recognized on the processor, more slowly."},
     "voice_dl_yes": {"he": "להוריד", "en": "Download"},
     "voice_dl_no": {"he": "לא עכשיו", "en": "Not now"},
     "voice_dl_progress": {"he": "מוריד את מודל הדיבור: {pct}%", "en": "Downloading the speech model: {pct}%"},

@@ -62,7 +62,8 @@ def test_the_pinned_snapshot_on_disk_loads_by_path(tmp_path, monkeypatch):
 def test_first_question_says_loading_not_downloading_when_on_disk(on_disk, state, monkeypatch):
     import numpy as np
     vc = voice.VoiceController()
-    monkeypatch.setattr(voice.Transcriber, "ready", classmethod(lambda cls: on_disk))
+    # the model on disk (a CPU run when cuBLAS was skipped is "loading" too: nothing downloads, review3 UX12-a)
+    monkeypatch.setattr(voice.Transcriber, "downloaded", classmethod(lambda cls: on_disk))
     monkeypatch.setattr(vc, "_run", lambda audio: None)
     monkeypatch.setattr(voice.threading, "Thread", lambda target, args, daemon: type("T", (), {"start": lambda s: target(*args)})())
 
@@ -140,6 +141,7 @@ def test_mac_denied_microphone_is_reported_before_recording(monkeypatch):
     vc = voice.VoiceController()
     monkeypatch.setattr(voice.sys, "platform", "darwin")
     monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)        # (an NVIDIA PC is asked for cuBLAS first)
     monkeypatch.setattr(macapi, "microphone_denied", lambda: True)
     failed = []
     vc.failed.connect(failed.append)
@@ -227,6 +229,7 @@ def test_recording_uses_the_chosen_microphone(monkeypatch):
     sd = type("SD", (_SD,), {"InputStream": Stream})
     monkeypatch.setitem(sys.modules, "sounddevice", sd)
     monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)        # (an NVIDIA PC is asked for cuBLAS first)
     monkeypatch.setattr(voice.sys, "platform", "win32")
     vc = voice.VoiceController()
     vc.microphone = "Microphone (Logitech PRO X Wireless Gaming Headset)"
@@ -340,6 +343,7 @@ def test_recording_stops_by_itself_after_a_minute(monkeypatch):
         def close(self):
             pass
     monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)        # (an NVIDIA PC is asked for cuBLAS first)
     monkeypatch.setitem(sys.modules, "sounddevice", type("SD", (_SD,), {"InputStream": Stream}))
     monkeypatch.setattr(voice.sys, "platform", "win32")
     from PySide6.QtWidgets import QApplication

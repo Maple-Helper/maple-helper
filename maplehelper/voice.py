@@ -245,7 +245,7 @@ class Transcriber:
                 download_gpu_libs(chunk)
             except DownloadCancelled:
                 raise
-            except Exception as e:      # noqa: BLE001 - the CPU still works, only slower (load() tries again)
+            except Exception as e:      # noqa: BLE001 - the CPU still works, only slower (never retried silently)
                 log.warning("voice: cuBLAS download failed, using the CPU: %s", e)
 
     @classmethod
@@ -262,12 +262,9 @@ class Transcriber:
             # the pinned snapshot on disk is loaded by its path: by commit, huggingface_hub asks huggingface.co for
             # the file list unless a newer hub cached it, so offline or with HF down voice failed (review PLT-6)
             src = str(self.snapshot()) if self.downloaded() else MODEL_ID
+            # cuBLAS is fetched only by an agreed download (download()): 553 MB behind "Downloading the voice
+            # model" after the player spoke was the silent download UX-12 removed (review3 UX12-a). Without it: the CPU
             if has_nvidia():
-                if not gpu_libs_ready():
-                    try:
-                        download_gpu_libs()
-                    except Exception as e:      # noqa: BLE001 - the CPU still works, only slower
-                        log.warning("voice: cuBLAS download failed, using the CPU: %s", e)
                 if gpu_libs_ready():
                     use_gpu_libs()
                     # float16 needs a GPU of compute capability 7.0+; a GTX 10-series refuses it but runs int8
@@ -306,6 +303,9 @@ class VoiceController(QObject):
     # the first voice question: the model isn't on disk. Nothing is recorded or fetched until the player agrees to
     # the download (its size in bytes); then its percent, and how it ended: "done" | "cancelled" | "" (failed says why)
     need_download = Signal(object)     # (bytes: over a C int)
+    # the model is on disk, but an NVIDIA PC lacks its cuBLAS (a GPU added since, or its part of the download
+    # failed in an earlier session): asked too, with its size; "not now" runs on the CPU (skip_gpu)
+    need_gpu_download = Signal(object)
     download_progress = Signal(int)
     download_done = Signal(str)
 
@@ -320,6 +320,7 @@ class VoiceController(QObject):
         self._downloading = False
         self._cancel = threading.Event()
         self._dl_total = self._gpu_done = 0
+        self._gpu_skipped = False    # this session runs on the CPU: cuBLAS declined, or its download failed
 
     def preload(self, last_used: float | None = None):
         """Load the model in the background when it's on disk already and voice was used in the last RECENT_DAYS
@@ -353,6 +354,10 @@ class VoiceController(QObject):
     def cancel_download(self):
         self._cancel.set()
 
+    def skip_gpu(self):
+        """"Not now" to the cuBLAS download: voice runs on the CPU (slower) until the next start asks again."""
+        self._gpu_skipped = True
+
     def _add_gpu_bytes(self, n: int):
         self._gpu_done += n
 
@@ -366,6 +371,8 @@ class VoiceController(QObject):
         ended = ""
         try:
             self.transcriber.download(self._cancel, self._add_gpu_bytes)
+            if not self.transcriber.ready():
+                self._gpu_skipped = True      # its cuBLAS part failed: the CPU, never a silent second try
             ended = "done"
         except DownloadCancelled:
             log.info("voice: model download cancelled")
@@ -402,6 +409,10 @@ class VoiceController(QObject):
         if not self.transcriber.downloaded():
             # never a silent 1.6 GB download after the player spoke (audit UX-12): asked first, with its size
             self.need_download.emit(self.transcriber.download_size())
+            return
+        if not self.transcriber.ready() and not self._gpu_skipped:
+            # nor a silent 553 MB cuBLAS one (review3 UX12-a): load() no longer fetches it
+            self.need_gpu_download.emit(self.transcriber.download_size())
             return
         if sys.platform == "darwin":
             from . import macapi
@@ -449,7 +460,7 @@ class VoiceController(QObject):
             self.state.emit("idle")
             return
         self.state.emit("transcribing" if self.transcriber.loaded() else
-                        "loading" if self.transcriber.ready() else "downloading")
+                        "loading" if self.transcriber.downloaded() else "downloading")
         threading.Thread(target=self._run, args=(audio,), daemon=True).start()
 
     def _run(self, audio: np.ndarray):

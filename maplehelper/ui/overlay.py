@@ -412,6 +412,7 @@ class Overlay(QWidget):
     mic_clicked = Signal()
     voice_download_requested = Signal()     # yes to the speech model's first download (UX-12)
     voice_download_cancel = Signal()
+    voice_gpu_declined = Signal()           # "not now" to the NVIDIA part only: voice runs on the CPU
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
@@ -2653,6 +2654,17 @@ class Overlay(QWidget):
         self._voice_offer = self.add_choices(lambda t: t("voice_dl_ask", size=gb),
                                              [("voice_dl_yes", self.voice_download_requested.emit),
                                               ("voice_dl_no", None)])
+
+    def offer_voice_gpu_download(self, size: int):
+        """The model is on disk, but an NVIDIA PC lacks its cuBLAS part: asked too, with its size (review3 UX12-a);
+        "not now" runs voice on the CPU."""
+        row = getattr(self, "_voice_offer", None)
+        if row is not None and _alive(row) and row.isEnabled():
+            return
+        mb = f"{size / 1e6:.0f} MB"
+        self._voice_offer = self.add_choices(lambda t: t("voice_gpu_ask", size=mb),
+                                             [("voice_dl_yes", self.voice_download_requested.emit),
+                                              ("voice_dl_no", self.voice_gpu_declined.emit)])
 
     def voice_download_progress(self, pct: int):
         """The download's line, its percent, and Cancel."""

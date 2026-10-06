@@ -208,6 +208,8 @@ class MapleHelperApp:
         self.overlay.mic_clicked.connect(self.voice.toggle)
         # the first voice question asks before the speech model downloads, then shows its progress (UX-12)
         self.voice.need_download.connect(self.on_voice_need_download)
+        self.voice.need_gpu_download.connect(self.on_voice_need_gpu_download)
+        self.overlay.voice_gpu_declined.connect(self.voice.skip_gpu)
         self.overlay.voice_download_requested.connect(self.voice.download)
         self.overlay.voice_download_cancel.connect(self.voice.cancel_download)
         self.voice.download_progress.connect(self.overlay.voice_download_progress)
@@ -424,6 +426,11 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         self.overlay.offer_voice_download(size)
+
+    def on_voice_need_gpu_download(self, size: int):
+        if not self.overlay.is_open():
+            self.overlay.toggle(self.capture)
+        self.overlay.offer_voice_gpu_download(size)
 
     def _stamp_voice_use(self, _text: str):
         import time

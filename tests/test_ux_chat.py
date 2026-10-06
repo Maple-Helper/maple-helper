@@ -301,6 +301,81 @@ def test_the_download_reports_progress_and_can_be_cancelled(monkeypatch, tmp_pat
     assert not vc.downloading() and states[-1] == "idle"
 
 
+def test_a_missing_cublas_is_asked_too_and_never_fetched_silently(monkeypatch, tmp_path):
+    """review3 UX12-a: the model on disk without cuBLAS on an NVIDIA PC: asked with its size, "not now" runs on
+    the CPU, and loading the model never downloads it."""
+    import sys
+    import types
+
+    from maplehelper import voice
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: True)
+    snap = voice.Transcriber.snapshot()
+    snap.mkdir(parents=True)
+    (snap / "model.bin").write_bytes(b"x")
+    monkeypatch.setattr(voice, "download_gpu_libs", lambda *a: pytest.fail("no cuBLAS download without a yes"))
+    vc = voice.VoiceController()
+    gpu, full = [], []
+    vc.need_gpu_download.connect(gpu.append)
+    vc.need_download.connect(full.append)
+    monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(InputStream=Mock()))
+    vc.toggle()
+    assert gpu == [voice.CUBLAS_BYTES] and not full and vc._stream is None
+    vc.skip_gpu()                                # "not now"
+    vc.toggle()
+    assert gpu == [voice.CUBLAS_BYTES] and vc._stream is not None       # recording, on the CPU
+    vc._stream = None
+    devices = []
+
+    class Model:
+        def __init__(self, src, device, **kw):
+            devices.append(device)
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.SimpleNamespace(WhisperModel=Model))
+    vc.transcriber.load()
+    assert devices == ["cpu"]
+
+
+def test_a_failed_cublas_part_of_the_agreed_download_falls_back_to_the_cpu(monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication([])
+    from maplehelper import voice
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: True)
+    snap = voice.Transcriber.snapshot()
+    snap.mkdir(parents=True)
+    (snap / "model.bin").write_bytes(b"x")
+    tries = []
+
+    def broken(progress=None):
+        tries.append(True)
+        raise ConnectionError("network blip")
+    monkeypatch.setattr(voice, "download_gpu_libs", broken)
+    vc = voice.VoiceController()
+    ends, asked = [], []
+    vc.download_done.connect(ends.append)
+    vc.need_gpu_download.connect(asked.append)
+    vc.download()
+    assert wait_until(app, lambda: ends == ["done"])
+    assert tries == [True] and vc._gpu_skipped
+    import sys
+    import types
+    monkeypatch.setitem(sys.modules, "sounddevice", types.SimpleNamespace(InputStream=Mock()))
+    vc.toggle()
+    assert not asked and vc._stream is not None and tries == [True]      # no second, silent try
+
+
+def test_the_chat_asks_for_the_nvidia_part_with_its_size(overlay):
+    from maplehelper.ui.widgets import SystemLine
+    yes, no = [], []
+    overlay.voice_download_requested.connect(lambda: yes.append(True))
+    overlay.voice_gpu_declined.connect(lambda: no.append(True))
+    overlay.offer_voice_gpu_download(553_162_896)
+    row = overlay._voice_offer
+    assert "553 MB" in shown(row.findChild(SystemLine).text()).replace("\xa0", " ")
+    row.chips[1].click()
+    assert no == [True] and not yes and not row.isEnabled()
+
+
 def test_the_chat_asks_with_the_size_then_shows_progress_and_cancel(overlay):
     from maplehelper.ui.widgets import SystemLine
     yes, cancel = [], []
