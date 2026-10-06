@@ -122,6 +122,10 @@ def hidden(n: Node) -> bool:
     return "banner" in ident or any(s in x for x in c for s in SKIP_CLASSES)
 
 
+class PictureMissing(Exception):
+    """A picture of the guide didn't download: the guide keeps its shipped file this time."""
+
+
 class Images:
     """Downloads each picture once, scales it, stores it as PNG named by its URL's hash."""
 
@@ -139,8 +143,9 @@ class Images:
         if not path.exists():
             try:
                 data = fetch(url, binary=True)
-            except Exception:
-                return None
+            except Exception as e:
+                # a hiccup used to drop the figure in silence (and mark the Hebrew guide outdated): the guide waits
+                raise PictureMissing(f"{url}: {e}") from e
             from PySide6.QtCore import QBuffer, QByteArray
             buf = QBuffer()
             buf.setData(QByteArray(data))
@@ -352,6 +357,8 @@ class Converter:
             self.blocks.append(b)
 
     def table(self, n: Node):
+        # a full-width sub-heading row (one cell with colspan) stays a shorter row: the reader spans its last
+        # cell over the rest (maplehelper/guides.py), and translators keep the same row shape
         rows = []
         for tr in iter_tag(n, "tr"):
             cells = [squash(self.inline(c)).replace("\n", " ") for c in tr.kids
@@ -418,6 +425,16 @@ def merge(blocks: list[dict]) -> list[dict]:
             continue
         skip_list = False
         p = b.get("p", "")
+        if p in ("Loading…", "Loading..."):
+            # a list the browser fills ("Possible Contents / Community sourced / Items players have received ...
+            # / Loading…"): the reader would show its heading over a "Loading" that never ends
+            if len(out) >= 2 and out[-2].get("p") == "Community sourced":
+                del out[-2:]
+            elif out and out[-1].get("p") == "Community sourced":
+                del out[-1:]
+            if out and ("h2" in out[-1] or "h3" in out[-1]):
+                out.pop()
+            continue
         if p in CHART_LABELS or re.fullmatch(r"(-- \w+ ?)+", p) or p.startswith(("Tap a milestone", "Tap a bar")):
             continue                  # a live countdown / interactive chart's controls, meaningless without it
         if out and re.fullmatch(r"[\d.,]+( ?(px|%))?", p) and "p" in out[-1] and len(out[-1]["p"]) < 60:
@@ -484,7 +501,12 @@ def main(argv: list[str]) -> None:
     held = []
     for slug in slugs:
         page = fetch(f"{SITE}/msclassic/guides/{slug}")
-        g = convert(page, images, known)
+        try:
+            g = convert(page, images, known)
+        except PictureMissing as e:   # the shipped file stays as it is
+            held.append(slug)
+            print(f"{slug}: NOT written, a picture didn't download ({e}); run it again")
+            continue
         gaps = kb_gaps(g, kb.page(f"guide/{slug}"))
         if gaps:          # the shipped file stays as it is
             held.append(slug)

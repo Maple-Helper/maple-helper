@@ -251,3 +251,35 @@ def test_hovering_a_guide_cover_shows_it_large(tmp_path):
     QApplication.sendEvent(pic, QEvent(QEvent.Leave))
     assert not pic.pop.isVisible()
     app.processEvents()
+
+
+def test_build_drops_the_sites_live_list_that_only_says_loading():
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_guides as bg
+    blocks = [{"h3": "Companion's Magic Box"}, {"p": "The table below tracks what players report."},
+              {"h2": "Possible Contents"}, {"p": "Community sourced"},
+              {"p": "Items players have received from opening this. Record the count range you've seen."},
+              {"p": "Loading…"}, {"h2": "Finding a party"}]
+    assert bg.merge(blocks) == [{"h3": "Companion's Magic Box"}, {"p": "The table below tracks what players report."},
+                                {"h2": "Finding a party"}]
+
+
+def test_build_holds_a_guide_whose_picture_did_not_download(monkeypatch, tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_guides as bg
+
+    def down(url, binary=False):
+        raise OSError("connection reset")
+    monkeypatch.setattr(bg, "fetch", down)
+    with pytest.raises(bg.PictureMissing):
+        bg.Images(tmp_path).get("/msclassic/guides/figure.png")
+
+
+def test_a_full_width_table_row_spans_the_table():
+    book = {"lang": "en", "title": "T", "intro": "", "blocks": [
+        {"table": [["Skill", "Default plan", "Swap"], ["**Longer Booster earlier.** Take it if..."],
+                   ["Haste", "Lv20 at level 54", "Lv20 at level 56"]]}]}
+    html = guides.book_html(book)
+    assert html.count("colspan='3'") == 1 and "colspan='1'" not in html
