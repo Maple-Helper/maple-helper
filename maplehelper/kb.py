@@ -1126,5 +1126,5 @@ class KnowledgeBase:
                  "- = no community data | top maps | key):"]
         for r in rows[:40]:
             lines.append(f"{r['name']} | {r['level']} | {r['hp']} | {r['exp']} | {r['mesos']} | "
-                         f"{', '.join(r['maps'])} | {r['key']}")
+                         f"{', '.join(map(self.map_label, r['maps']))} | {r['key']}")    # not "Drake's Meal Table Dungeon"
         return "\n".join(lines)

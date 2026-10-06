@@ -609,6 +609,9 @@ def test_real_level_digest_lists_only_monsters_a_player_can_train_on(real):
         assert not any(combat.special_monster(n) for n in names), lv
         assert len(names) == len(set(names)) or all(r[4] for r in rows if names.count(r[0]) > 1), lv
         assert not any(w in r[4] for r in rows for w in ("Orbis", "El Nath", "Ludibrium")), lv
+    # the maps as names, not glued to their street ("Drake's Meal Table Dungeon"); the Hollow's boss is out
+    assert "Drake's Meal Table · Dungeon" in real.level_digest(50) and "Meal Table Dungeon" not in real.level_digest(50)
+    assert "Rotten Mushmom" not in real.level_digest(60)
 
 
 @needs_kb
