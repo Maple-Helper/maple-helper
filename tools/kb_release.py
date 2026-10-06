@@ -314,7 +314,8 @@ def diff_kb(old: Path, new: Path) -> dict:
             if mesos:
                 c["mesos"] = mesos
             changed.append(c)
-        elif a[k].get("hash") != b[k].get("hash"):
+        elif a[k].get("hash") != b[k].get("hash") and a[k].get("parser", 1) == b[k].get("parser", 1):
+            # (a page re-parsed by a newer scraper changed only in our own output: not news for the player)
             updated.append(_brief(b[k]))
     # the list pages' changes (a skill's COT change, a pet's lifespan, a class's tier) land on their entries, so the
     # patch notes and the "Updated" chips show them like any stat change

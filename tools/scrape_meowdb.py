@@ -39,6 +39,9 @@ SITEMAP = f"{BASE}/msclassic/sitemap.xml"
 USER_AGENT = "MapleHelper-KB/0.1 (MapleStory Classic companion app; used with NiaMeowDB permission)"
 DELAY_SECONDS = 1.0
 WORKERS = 3
+# how a page is turned into text: bump it with every change to main_text/scrape_one's output, so the patch notes
+# don't call every re-parsed page "updated" (the SITE_TOOLS change did: 186 monsters "updated", nothing new)
+PARSER_VERSION = 2
 
 # sitemap path prefix -> (category name, path depth that marks an entity page)
 CATEGORIES = {
@@ -117,12 +120,21 @@ def json_ld(page: str) -> list[dict]:
 
 
 # rows of the site's own tools, not game data: the monster page's "Check your build against <monster>" panel
-SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for ")
+SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for "
+                        r"|Ad blocked\? |Buy us a coffee|Upvote what you've seen|Items players have personally seen drop")
+# the site's own controls and placeholders, whole lines ("Next →" on 3,917 pages, "Log in to sell or buy" on 2,577)
+SITE_LINES = {"Loading...", "Loading…", "Calculate", "Add to watchlist", "Next →", "🐾", "Log in to sell or buy",
+              "Loading leaderboard...", "Loading drops", "Loading community builds...", "Loading community guides..."}
+# ...and at the end of a value line: "Mesos per kill Loading...", "Base 1 Calculate", "no rolls yet Log in to submit"
+SITE_TAILS = re.compile(r" (?:Loading\.\.\.|Loading…|Calculate|Log in to submit)$")
+# the site-wide notice banner ("[ Notice ] Beginner's guide refreshed..."): one text change re-hashed 29 pages
+NOTICE = re.compile(r'<section[^>]*aria-label="Notice".*?</section>', re.S)
 
 
 def main_text(page: str, name: str) -> str:
     """Readable text of the entity's own content, without site navigation and footer."""
     body = re.sub(r"<script.*?</script>|<style.*?</style>|<svg.*?</svg>|<noscript.*?</noscript>", "", page, flags=re.S)
+    body = NOTICE.sub("", body)
     body = re.sub(r"</(div|p|li|tr|h\d|section|table|ul|ol)>|<br\s*/?>", "\n", body)
     body = re.sub(r"</t[dh]>", " | ", body)
     text = html.unescape(re.sub(r"<[^>]+>", " ", body))
@@ -140,6 +152,12 @@ def main_text(page: str, name: str) -> str:
         start = m.end()
     elif name in text:
         start = text.find(name)
+    else:
+        # a guide's name (its headline) is neither its breadcrumb nor its h1: start after the breadcrumb line
+        # ("Home / MS Classic / Guides / Assassin 30-70"), or the whole site menu stays in the page
+        m = re.search(r"^[ \t]*Home / [^\n]*\n", text, re.M)
+        if m:
+            start = m.end()
     if start > 0:
         text = text[start:]
     # Cut the site footer.
@@ -147,9 +165,8 @@ def main_text(page: str, name: str) -> str:
         i = text.find(marker)
         if i > 200:
             text = text[:i]
-    lines = [ln.strip() for ln in text.split("\n")]
-    lines = [ln for ln in lines if ln and ln not in {"Loading...", "Calculate", "Add to watchlist"}
-             and not SITE_TOOLS.match(ln)]
+    lines = [SITE_TAILS.sub("", ln.strip()) for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln and ln not in SITE_LINES and not SITE_TOOLS.match(ln)]
     return "\n".join(lines).strip()
 
 
@@ -241,7 +258,8 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
     (KB / "pages" / category / f"{slug}.md").write_text(md, encoding="utf-8")
     return {"key": f"{category}/{slug}", "id": slug, "name": name, "category": category, "url": url,
             "image": img_file, "props": props, "type": entity.get("category"),
-            "lastmod": LASTMOD.get(url, ""), "hash": hashlib.sha1(md.encode("utf-8")).hexdigest()[:16]}
+            "lastmod": LASTMOD.get(url, ""), "hash": hashlib.sha1(md.encode("utf-8")).hexdigest()[:16],
+            "parser": PARSER_VERSION}
 
 
 def write_index(path: Path, entries: list[dict]) -> None:

@@ -179,3 +179,22 @@ def test_pack_with_previous_kb_ships_the_patch_notes(kb_copy, tmp_path):
     with zipfile.ZipFile(tmp_path / "d" / "kb.zip") as z:
         log = json.loads(z.read("changelog.json"))
     assert log[0]["version"] == m["version"] and log[0]["counts"]["added"] == 1
+
+
+def test_a_page_re_parsed_by_a_newer_scraper_is_not_called_updated(kb_copy, tmp_path):
+    import shutil
+    old = tmp_path / "old"
+    shutil.copytree(kb_copy, old)
+    index = json.loads((kb_copy / "index.json").read_text(encoding="utf-8"))
+    reparsed, edited = index[0]["key"], index[1]["key"]
+
+    def change(idx):
+        for e in idx:
+            if e["key"] == reparsed:
+                e.update(hash="new-output", parser=2)      # only our own output format changed (SCP-20)
+            if e["key"] == edited:
+                e["hash"] = "site-edit"
+        return idx
+    _edit(kb_copy, change)
+    d = kb_release.diff_kb(old, kb_copy)
+    assert [u["key"] for u in d["updated"]] == [edited]
