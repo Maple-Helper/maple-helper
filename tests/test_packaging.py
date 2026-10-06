@@ -88,3 +88,26 @@ def test_workflows_run_the_apps_python():
             for step in job.get("steps", []):
                 if "setup-python" in step.get("uses", ""):
                     assert step["with"]["python-version"] == "3.13", name
+
+
+def test_release_py_leaves_full_releases_to_the_workflow(monkeypatch):
+    # a release cut from a PC had no macOS DMG and no portable zip: Mac players' download link 404'd
+    import release
+    monkeypatch.setattr(release, "run", lambda *a, **k: pytest.fail("ran " + repr(a)))
+    with pytest.raises(SystemExit) as e:
+        release.main(["9.9.9"])
+    assert "Release workflow" in str(e.value)
+
+
+def test_nightly_kb_manifest_says_when_it_was_checked(tmp_path, monkeypatch):
+    import json
+    import shutil
+
+    import release
+    kb = tmp_path / "kb"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "kb", kb)
+    monkeypatch.setattr(release, "KB", kb)
+    monkeypatch.setattr(release, "DIST", tmp_path / "dist")
+    _, manifest = release.build_kb()
+    m = json.loads(manifest.read_text(encoding="utf-8"))
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["checked"]) and m["url"].endswith("/latest/download/kb.zip")

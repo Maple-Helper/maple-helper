@@ -32,8 +32,13 @@ The release fails, and publishes nothing, when:
 
 To retry after fixing: delete the tag (`git push --delete origin v0.2.0; git tag -d v0.2.0`), then tag again.
 
+A job that fails after about 15 minutes with "The job was not acquired by Runner" never started: GitHub had no
+runner free (macOS arm64 runners run short sometimes). Nothing in the code is wrong; click **Re-run failed jobs**.
+
 **Prereleases:** `v0.3.0-beta.1` (with `__version__ = "0.3.0"`) publishes a prerelease. GitHub never
 marks it "latest", so the auto-updater and KB updates ignore it. Share its link with testers.
+The beta's app reports `0.3.0`, so it never updates itself to the final `0.3.0`: testers install the final
+release by hand, or the final goes out as the next patch (`v0.3.1`), which the beta does update to.
 
 **First release:** with no earlier release to carry the KB forward from, the Release workflow first
 looks for a prerelease tagged `kb-seed` and uses its `kb.zip` (this is how the Hebrew name dictionary,
@@ -44,8 +49,11 @@ Publish a seed from a PC with `data\kb`:
 python tools/kb_release.py validate data/kb --min-entities 500
 python tools/kb_release.py pack data/kb dist-kb
 gh release create kb-seed dist-kb/kb.zip dist-kb/kb-manifest.json --prerelease --latest=false --title "Knowledge base seed" --notes "Seed for the first release"
-``` `tools/release.py` on a PC with
-`data/kb` also still works, and now publishes `SHA256SUMS.txt` too.
+```
+
+`tools/release.py` is not a way to release: it publishes Windows assets only (no macOS DMG, no portable zip,
+no tag or `main` check), so it refuses a full release unless you add `--force` (an emergency only). The nightly
+uses its `--kb-only` mode.
 
 ## What every release carries, and why
 
@@ -125,8 +133,8 @@ checks the app.
   needs an Apple Developer account ($99/year): sign with a *Developer ID Application* certificate (hardened
   runtime + the `com.apple.security.device.audio-input` entitlement), then notarize and staple the DMG with
   `xcrun notarytool` / `xcrun stapler` in `packaging/build-macos.sh`.
-- `tools/release.py` (the manual release from a PC) publishes Windows assets only; use the Release workflow for
-  macOS.
+- `tools/release.py --force` (the emergency release from a PC) publishes Windows assets only; releases come from
+  the Release workflow.
 
 ## README snippet
 
