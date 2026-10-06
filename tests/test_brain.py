@@ -224,7 +224,19 @@ def test_the_players_level_is_named_as_one():
     assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם ברמה 31)"
     assert drop_keys("אתם ב31 עכשיו") == "אתם ברמה 31 עכשיו"
     assert drop_keys("אתם בלבל 31") == "אתם ברמה 31" and drop_keys("עוד 3 לבלים") == "עוד 3 רמות"
-    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהרמה" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+
+
+@pytest.mark.parametrize("src,out", [("ולבל 30 כדאי", "ורמה 30 כדאי"), ("הלבלים הבאים", "הרמות הבאים"),
+                                     ("כשהלבל עולה", "כשהרמה עולה"), ("שלבל 30", "שרמה 30"),
+                                     ("לבל אפ", "עליית רמה"), ("עשיתי לבל-אפ", "עשיתי עליית רמה"),
+                                     ("לבלינג מהיר", "עליית רמות מהיר"), ("בלבל-30", "ברמה-30"),
+                                     ("זה בלבל אותי", "זה בלבל אותי"), ("לבלבל אותם", "לבלבל אותם"),
+                                     ("מבלבל", "מבלבל"), ("עץ מלבלב", "עץ מלבלב")])
+def test_level_slang_after_any_prefix_but_never_the_verb_confuse(src, out):
+    """"לבל" after any prefix reads "רמה" and "לבל אפ" a climb; "בלבל" (confused) stays unless a number follows."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys(src) == out
 
 
 
