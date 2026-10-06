@@ -55,10 +55,10 @@ TABLES: dict[str, tuple[tuple[str, ...], str]] = {
     "rewards": (("quest", "quest_level", "quest_key", "area", "item", "count", "item_type", "item_key", "kind",
                  "for"),
                 "kind sure / pick one (for = class) / random 16.7% / gender"),
-    "equips": (("item", "key", "slot", "job", "req_lv", "req_str", "req_dex", "req_int", "req_luk", "watk", "matk",
+    "equips": (("item", "key", "slot", "job", "gender", "req_lv", "req_str", "req_dex", "req_int", "req_luk", "watk", "matk",
                 "wdef", "mdef", "acc", "avoid", "speed", "jump", "hp", "mp", "str", "dex", "int", "luk", "crit",
                 "attack_speed", "slots", "sell", "buy", "seller"),
-               "job Any = all classes; buy = cheapest NPC price"),
+               "job Any = all classes; gender Male / Female (twin items share a name); buy = cheapest NPC price"),
     "consumables": (("item", "key", "type", "hp", "mp", "effect", "req_lv", "sell", "buy", "seller"),
                     "potions, food, buffs, arrows, stars"),
     "scrolls": (("scroll", "key", "slot", "grade", "success", "stats", "sell", "buy", "seller"),
@@ -364,6 +364,9 @@ def _guard(rows: list, what: str, key: str, fn, *args) -> None:
         rows.extend(got)
 
 
+_TOWN_NOTE = re.compile(r"\s*\([^()]*\)$")       # a shop line's note on its town: "Warning Street (Forgotten Hollow)"
+
+
 class _Ctx:
     """One build's shared lookups: page lines read once, the maps by their "name street" cell, the shops."""
 
@@ -387,6 +390,7 @@ class _Ctx:
             self.map_by_name.setdefault(e.get("name", ""), []).append(k)
         self._prices: dict[str, market.NpcPrices] = {}
         self._spawns: list[dict] | None = None
+        self._npc_names: dict[str, list[str]] | None = None
 
     def spawns(self) -> list[dict]:
         """spawns.tsv's rows, which maps.tsv groups per map too: read once."""
@@ -409,6 +413,16 @@ class _Ctx:
     def name(self, key: str) -> str:
         return (self.kb.get(key) or {}).get("name", "")
 
+    def npcs_named(self, name: str) -> list[str]:
+        """Every NPC of this name, a role in brackets aside ("Sam", "Sam (Henesys Armor Seller)")."""
+        if self._npc_names is None:
+            self._npc_names = {}
+            for k, e in self.kb.entities.items():
+                if e.get("category") == "npc":
+                    base = re.sub(r"\s*\(.*?\)", "", e.get("name", "")).strip().lower()
+                    self._npc_names.setdefault(base, []).append(k)
+        return self._npc_names.get(re.sub(r"\s*\(.*?\)", "", name).strip().lower(), [])
+
     def prices(self, key: str) -> market.NpcPrices:
         if key not in self._prices:
             self._prices[key] = market.npc_prices(self.kb, key)
@@ -429,8 +443,10 @@ class _Ctx:
         out = {"sell": p.sell_back}
         if shops:
             npc, where, price = shops[0]
-            town = where.rsplit(" · ", 1)[-1]
-            out.update(buy=price, seller=f"{_npc_name(self.kb, npc)[0]} ({town})")
+            # the town alone: an item page's "Victoria Road (Forgotten Hollow scroll vendor)" put El Moth, who stands
+            # on The Tree That Grew III, in the closed Hollow
+            town = _TOWN_NOTE.sub("", where.rsplit(" · ", 1)[-1])
+            out.update(buy=price, seller=f"{_npc_name(self, npc, where)[0]} ({town})")
         return out
 
     def items(self, prefix: str = "", exclude: str | None = None):
@@ -542,6 +558,9 @@ def _equip(ctx, key: str, e: dict) -> dict:
             m = re.match(r"^(\S+) ([+-]\d[\d,]*)$", ln)
             if m and m.group(1) in _EQUIP_STAT:
                 row[_EQUIP_STAT[m.group(1)]] = _int(m.group(2))
+    # "Male only" / "Female only": the twin items of one name ("Green Bennis Chainmail") told apart
+    sex = next((m.group(1) for ln in ctx.lines(key)[:80] for m in [re.match(r"(Male|Female) only\b", ln)] if m), "")
+    row["gender"] = sex
     # what the page's header lacked, from index.json's props
     p = e.get("props") or {}
     for prop, col in (("Level Requirement", "req_lv"), ("Weapon Attack", "watk"), ("Magic Attack", "matk"),
@@ -602,7 +621,7 @@ def _scroll(ctx, key: str, e: dict) -> dict:
                 break
         row.update(slot=head, grade=m.group(2) or "")
     for ln in ctx.lines(key):
-        s = re.match(r"^Success rate: (\d+)%,?\s*(.*)$", ln)
+        s = re.match(r"^Success rate\s*:\s*(\d+)%,?\s*(.*)$", ln)     # "Success rate: 60%", ":100%", " :10%"
         if s:
             row.update(success=int(s.group(1)), stats=s.group(2))
             break
@@ -653,7 +672,17 @@ def _monsters(ctx) -> list[dict]:
     for k, e in ctx.kb.entities.items():
         if e.get("category") == "monster" and ctx.open.monster_key_open(k):
             _guard(rows, "monsters", k, _monster, ctx, k, e)
-    return sorted(rows, key=lambda r: (r["level"] if isinstance(r["level"], (int, float)) else 999, r["monster"]))
+    # a boss's map-less copy (Mano 700004 / 800018, King Slime...) beside the row with its maps: one row, as
+    # kb._monsters keeps (the AI saw two rows, one without spawn or respawn); all map-less: the first
+    mapped = {r["monster"] for r in rows if r.get("maps")}
+    kept: set[str] = set()
+    out = []
+    for r in rows:
+        if not r.get("maps") and (r["monster"] in mapped or r["monster"] in kept):
+            continue
+        kept.add(r["monster"])
+        out.append(r)
+    return sorted(out, key=lambda r: (r["level"] if isinstance(r["level"], (int, float)) else 999, r["monster"]))
 
 
 def _spawns(ctx: _Ctx) -> list[dict]:
@@ -722,18 +751,30 @@ def _maps(ctx: _Ctx) -> list[dict]:
     for k, e in ctx.kb.entities.items():
         if e.get("category") == "map" and ctx.open.entity_open(k):
             _guard(rows, "maps", k, one, k, e)
+    # the site ranks all 279 maps, Ossyria's too: ranked again over the maps in the game, so the best one is 1
+    ranked = sorted((r for r in rows if r.get("exp_rank")), key=lambda r: r["exp_rank"])
+    for n, r in enumerate(ranked, 1):
+        r["exp_rank"] = n
     return rows
 
 
 # ---- NPCs and shops
 
-def _npc_name(kb, text: str) -> tuple[str, str]:
+def _npc_name(ctx, text: str, where: str = "") -> tuple[str, str]:
     """(name, key) of the NPC a shop line names with its role glued on ("Arturo Grocer", "24 Hr Mobile Store
-    Mobile Store"): the longest start of it that is an NPC's name."""
+    Mobile Store"): the longest start of it that is an NPC's name. Several NPCs of that name ("Sam" on Maple
+    Island, "Sam (Henesys Armor Seller)"): the one standing on the shop's map ("Victoria Road: Henesys Weapon
+    Store · Henesys"), not the first (Henesys armor was sold by Maple Island's Sam)."""
+    kb = ctx.kb
     words = text.split()
     for n in range(len(words), 0, -1):
         key = kb.npc_key(" ".join(words[:n]))
         if key:
+            m = availability._SHOP_PLACE.match(where)
+            same = ctx.npcs_named(kb.get(key)["name"]) if m else []
+            if len(same) > 1:
+                cell = f"{m.group(2)} {m.group(1)}"
+                key = next((k for k in same if cell in ctx.open.npc_places(k)), key)
             return (kb.get(key) or {}).get("name", " ".join(words[:n])), key
     return text, ""
 
@@ -775,7 +816,31 @@ def _shop_item(kb, cell: str) -> tuple[str, str, str]:
             if name.lower() in items:
                 return name, items[name.lower()], " ".join(words[n:-1])
     plain = re.sub(r" \([MF]\)$", "", cell)
-    return cell, items.get(cell.lower()) or items.get(plain.lower(), ""), ""
+    key = items.get(cell.lower()) or items.get(plain.lower(), "")
+    if not key:
+        # the shop table spells it its own way: "Arrow for Bow" (Arrows for Bows), "Subi Throwing-Stars"
+        key = _loose_items(kb).get(_loose(plain), "")
+    return cell, key, ""
+
+
+def _loose(name: str) -> str:
+    """An item name without case, hyphens or plural s: "Subi Throwing-Stars" -> "subi throwing star"."""
+    return " ".join(w.removesuffix("s") for w in re.split(r"[\s-]+", name.lower()) if w)
+
+
+def _loose_items(kb) -> dict[str, str]:
+    """_loose(name) -> item key, for the forms only one item has (none is guessed between two)."""
+    found = getattr(kb, "_loose_item_keys", None)
+    if found is None:
+        seen: dict[str, set[str]] = {}
+        for name, key in kb._item_by_name.items():
+            seen.setdefault(_loose(name), set()).add(key)
+        found = {n: next(iter(ks)) for n, ks in seen.items() if len(ks) == 1}
+        try:
+            kb._loose_item_keys = found
+        except AttributeError:
+            pass
+    return found
 
 
 def _shops(ctx) -> list[dict]:
@@ -790,12 +855,12 @@ def _shops(ctx) -> list[dict]:
         for npc, where, price in [*p.shops, *((n, w, None) for n, w in p.unpriced)]:
             if not ctx.place_open(where):
                 continue
-            name, nkey = _npc_name(kb, npc)
+            name, nkey = _npc_name(ctx, npc, where)
             if (nkey or name, key) in seen:
                 continue
             seen.add((nkey or name, key))
             out.append({"npc": name, "npc_key": nkey, "item": e["name"], "item_key": key,
-                        "item_type": e.get("type") or "", "price": price, "place": where,
+                        "item_type": e.get("type") or "", "price": price, "place": _TOWN_NOTE.sub("", where),
                         "label": p.labels.get((npc, where), ""), "rank": p.ranks.get((npc, where), "")})
         return out
 

@@ -38,7 +38,9 @@ _NO_CONTINENT_SHUT = f"{NO_CONTINENT} · not at launch"
 _ITEM_SOURCES = ("Dropped By", "MSEA Reference Drops", "Where to buy", "Quest Reward", "Quests", "Craftable",
                  "Cash Shop")
 _ITEM_STOP = re.compile(r"^(Free Market Prices|Dropped By|Needed By|Recipes|Ingredients|Change history|← Previous|"
-                        r"Safe to Sell\?.*|(Similar|Compare) .* items|" + "|".join(map(re.escape, _ITEM_SOURCES)) + ")$")
+                        r"Safe to Sell\?.*|(Similar|Compare) .* items|Craftable \(\d+ recipes?\)|"
+                        + "|".join(map(re.escape, _ITEM_SOURCES)) + ")$")
+_CRAFTABLE_N = re.compile(r"^Craftable \(\d+ recipes?\)$")      # "Craftable (2 recipes)": Iron Arrows, Processed Leather
 _SHOP_PLACE = re.compile(r"^(.+?): (.+?) · (.+)$")          # "Victoria Road: Perion Department Store · Perion"
 _PERCENT = re.compile(r"\(\s*[\d.]+\s*%\s*\)")
 
@@ -50,7 +52,7 @@ def _item_sections(lines: list[str]):
         if _ITEM_STOP.match(s):
             if head:
                 yield head, body
-            head, body = (s if s in _ITEM_SOURCES else None), []
+            head, body = ("Craftable" if _CRAFTABLE_N.match(s) else s if s in _ITEM_SOURCES else None), []
         elif head:
             body.append(s)
     if head:

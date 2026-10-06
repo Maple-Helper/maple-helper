@@ -290,7 +290,7 @@ def test_monsters_spawns_and_maps(tiny):
     assert (sp["count"], sp["share"], sp["mob_rate"], sp["street"]) == (4, 10, 1.5, "Victoria Road")
     hhg = one(tables.rows(tiny, "maps"), key="map/010001010")
     assert (hhg["region"], hhg["lv_min"], hhg["lv_max"], hhg["spawn_points"], hhg["exp_hr"], hhg["exp_rank"]) == \
-        ("Victoria Island", 2, 14, 39, 41429, 244)
+        ("Victoria Island", 2, 14, 39, 41429, 1)        # the site's #244 of all maps, the best of this KB's
     assert (hhg["monsters"], hhg["npcs"], hhg["connects"]) == ("Ligator; Snail", "Arturo", "Snail Hunting Ground I")
 
 
@@ -555,3 +555,33 @@ def test_real_tables_cover_the_pages(real):
     # most shop items, spawn maps and NPC places resolve to their keys
     assert sum(1 for r in t["shops"] if r["item_key"]) > 0.95 * len(t["shops"])
     assert all(r["map_key"] for r in t["spawns"])
+
+
+@needs_kb
+def test_real_tables_audit_fixes(real):
+    """Launch audit (KB-1, 3, 4, 9, 10, 11, 15, 16, 17, 28, 29): each one a row the tables had wrong."""
+    kb, t = real
+    # the Hollow's boss and hidden maps are out; the Free Market, a KPQ stage, the crafting stations are in
+    assert not [r for r in t["monsters"] if r["monster"] in ("Rotten Mushmom", "Rotten Mushroom", "Rafflesia")]
+    assert not [r for r in t["maps"] if r["map"] in ("Someone Else's Grave", "Forgotten Hollow", "Primeval Forest I")]
+    assert one(t["maps"], map="Free Market Entrance")["street"] == "Hidden Street"
+    assert one(t["maps"], map="1st Accompaniment <1st Stage>")
+    assert one(t["npcs"], npc="Anvil")["map"] == "Perion" and one(t["npcs"], npc="Doofus")
+    # "Success rate :100%" and "Success rate:10%" are read like "Success rate: 60%"
+    assert one(t["scrolls"], scroll="Cape DEX Scroll: Lesser")["success"] == 100
+    assert one(t["scrolls"], scroll="Spear Attack Scroll: Greater")["success"] == 10
+    # Henesys armor is sold by Henesys' Sam, once; a shop table's own spelling finds its item
+    assert not [r for r in t["shops"] if r["npc_key"] == kb.npc_key("Sam") and "Henesys" in r["place"]]
+    pairs = [(r["npc_key"], r["item_key"]) for r in t["shops"]]
+    assert len(pairs) == len(set(pairs)) and all(r["item_key"] for r in t["shops"])
+    # "Craftable (2 recipes)": the craftable arrows are in the game
+    assert [r for r in t["consumables"] if r["item"] == "Iron Arrows for Crossbows"]
+    # one row per boss (the map-less copy goes), the twins told apart, the best map in the game is rank 1
+    for boss in ("Mano", "Mushmom", "Jr. Balrog", "King Slime"):
+        assert len([r for r in t["monsters"] if r["monster"] == boss]) == 1, boss
+    twins = sorted((r["key"], r["gender"]) for r in t["equips"] if r["item"] == "Green Bennis Chainmail")
+    assert twins == [("item/1003", "Male"), ("item/1013", "Female")]
+    assert kb.droppers.get("item/1013")
+    assert min(r["exp_rank"] for r in t["maps"] if r["exp_rank"]) == 1
+    assert not [r for r in t["scrolls"] if "Forgotten Hollow" in (r.get("seller") or "")]
+    assert not [r for r in t["shops"] if "Forgotten Hollow" in r["place"]]

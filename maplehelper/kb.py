@@ -827,8 +827,12 @@ class KnowledgeBase:
             name = self.get(key)["name"]
             for src, text in parts.items():
                 lines = text.split("\n")
+                again: dict[str, int] = {}       # a name the list repeats: its next item of that name
                 for n, line in enumerate(lines):
-                    k = self._drop_item(line.strip().lower(), lines[n + 1].strip() if n + 1 < len(lines) else "", name)
+                    item = line.strip().lower()
+                    k = self._drop_item(item, lines[n + 1].strip() if n + 1 < len(lines) else "", name,
+                                        again.get(item, 0))
+                    again[item] = again.get(item, 0) + 1
                     if k and k not in out[src] and not (src == sources.MSEA and k in out[sources.COMMUNITY]):
                         out[src].append(k)
         memo[key] = out
@@ -929,14 +933,16 @@ class KnowledgeBase:
                 out.setdefault(e["name"].strip().lower(), []).append(k)
         return out
 
-    def _drop_item(self, name: str, hint: str, monster: str) -> str | None:
+    def _drop_item(self, name: str, hint: str, monster: str, again: int = 0) -> str | None:
         """The item a drop line names. Some items share a name (the Lv 40 earring "Blue Moon" and the Lv 50 Thief
         top "Blue Moon"): the line under the name tells them apart ("Lv 50 · Thief" for equipment, the type
         word, "Potion" or "Monster Drop", otherwise), and when it can't (two "Dark Shadow" tops, Lv 40 · Thief),
-        the item page whose own "Dropped By" list names this monster. Still a tie: the first one, as before."""
+        the item page whose own "Dropped By" list names this monster. Still a tie: the first one, as before, and
+        for the name's next line in the same list (`again`) the next one: a list naming "Green Bennis Chainmail"
+        twice drops the male and the female one."""
         keys = self._items_by_name.get(name)
         if not keys or len(keys) == 1:
-            return keys[0] if keys else None
+            return keys[0] if keys and not again else None
         lv = re.match(r"Lv (\d+)\b", hint)
         if lv:
             fit = [k for k in keys if str(self.get(k).get("type") or "").startswith("Equip")
@@ -946,6 +952,9 @@ class KnowledgeBase:
         fit = fit or keys
         if len(fit) > 1:
             fit = [k for k in fit if self._dropped_by(k, monster)] or fit
+        if again:
+            rest = [k for k in keys if k != fit[0]]
+            return rest[again - 1] if again - 1 < len(rest) else None
         return fit[0]
 
     def _dropped_by(self, item: str, monster: str) -> bool:
