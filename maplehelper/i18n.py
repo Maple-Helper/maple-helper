@@ -145,6 +145,17 @@ STRINGS = {
     "transcribing": {"he": "מתמלל…", "en": "Transcribing…"},
     "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the voice model…"},
     "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the voice model (once)…"},
+    # the first voice question asks before the model's download, then shows its progress (audit UX-12)
+    "voice_dl_ask": {"he": "שאלות בקול עובדות עם מודל דיבור שרץ אצלכם במחשב. צריך להוריד אותו פעם אחת ({size}). להוריד עכשיו?",
+                     "en": "Voice questions use a speech model that runs on your PC. It needs a one-time download ({size}). Download it now?"},
+    "voice_dl_yes": {"he": "להוריד", "en": "Download"},
+    "voice_dl_no": {"he": "לא עכשיו", "en": "Not now"},
+    "voice_dl_progress": {"he": "מוריד את מודל הדיבור: {pct}%", "en": "Downloading the speech model: {pct}%"},
+    "voice_dl_cancel": {"he": "ביטול", "en": "Cancel"},
+    "voice_dl_done": {"he": "מודל הדיבור מוכן. לחצו על המיקרופון (או {key}), דברו, ולחצו שוב כשסיימתם.",
+                      "en": "The speech model is ready. Press the mic (or {key}), speak, then press it again when done."},
+    "voice_dl_stopped": {"he": "ההורדה בוטלה. אפשר להוריד את המודל בפעם הבאה שתלחצו על המיקרופון.",
+                         "en": "Download cancelled. You can get the model the next time you press the mic."},
     "no_game": {"he": "חלון המשחק לא נמצא, שולח בלי צילום מסך.", "en": "Game window not found, sending without a screenshot."},
     "asking_about_short": {"he": "שואלים על:", "en": "Asking about:"},
     "tiles_drops": {"he": "מה {name} מפיל", "en": "{name} drops"},
@@ -1497,7 +1508,7 @@ MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
 # strings that teach a hotkey: on a Mac keyboard F9/F10 are media keys unless fn is held, so a Mac shows
 # "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+")
 FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
-                "shot_hint_ready", "ob_done_hint"}
+                "shot_hint_ready", "ob_done_hint", "voice_dl_done"}
 _FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
 
 

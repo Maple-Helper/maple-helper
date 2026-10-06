@@ -218,3 +218,75 @@ def test_a_background_start_starts_no_ai_process():
     from maplehelper import app
     src = inspect.getsource(app.MapleHelperApp.start)
     assert "brain.prewarm" not in src
+
+
+# ------------------------------------------------------------------ UX-12: the speech model's download is asked first
+
+def test_the_first_voice_press_asks_before_any_download(monkeypatch, tmp_path):
+    from maplehelper import voice
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: True)
+    vc = voice.VoiceController()
+    asked, started = [], []
+    vc.need_download.connect(asked.append)
+    vc.started.connect(lambda: started.append(True))
+    monkeypatch.setattr(vc.transcriber, "download", lambda *a: pytest.fail("nothing is fetched before a yes"))
+    vc.toggle()
+    assert asked == [voice.MODEL_BYTES + voice.CUBLAS_BYTES] and not started and vc._stream is None
+
+
+def test_the_download_reports_progress_and_can_be_cancelled(monkeypatch, tmp_path):
+    from PySide6.QtWidgets import QApplication
+    app = QApplication.instance() or QApplication([])
+    from maplehelper import voice
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)
+    vc = voice.VoiceController()
+    gate = threading.Event()
+
+    def fake_download(cancel, on_bytes=None):
+        blobs = voice.Transcriber.snapshot().parent.parent / "blobs"
+        blobs.mkdir(parents=True)
+        (blobs / "abc.incomplete").write_bytes(b"x" * (voice.MODEL_BYTES // 2000))
+        gate.wait(5)
+        if cancel.is_set():
+            raise voice.DownloadCancelled()
+    monkeypatch.setattr(vc.transcriber, "download", fake_download)
+    pcts, ends, states = [], [], []
+    vc.download_progress.connect(pcts.append)
+    vc.download_done.connect(ends.append)
+    vc.state.connect(states.append)
+    vc.download()
+    assert vc.downloading() and pcts[0] == 0 and states == ["downloading"]
+    vc.toggle()                                  # the talk key meanwhile: no second download, no recording
+    assert vc._stream is None
+    vc._report_progress()
+    assert pcts[-1] == 0 or 0 < pcts[-1] < 99
+    vc.cancel_download()
+    gate.set()
+    assert wait_until(app, lambda: ends == ["cancelled"])
+    assert not vc.downloading() and states[-1] == "idle"
+
+
+def test_the_chat_asks_with_the_size_then_shows_progress_and_cancel(overlay):
+    from maplehelper.ui.widgets import SystemLine
+    yes, cancel = [], []
+    overlay.voice_download_requested.connect(lambda: yes.append(True))
+    overlay.voice_download_cancel.connect(lambda: cancel.append(True))
+    overlay.offer_voice_download(1_621_700_000)
+    overlay.offer_voice_download(1_621_700_000)          # pressed again before answering: asked once
+    row = overlay._voice_offer
+    assert "1.6 GB" in shown(row.findChild(SystemLine).text()).replace("\xa0", " ")
+    row.chips[0].click()
+    assert yes == [True] and not row.isEnabled()
+    overlay.voice_download_progress(0)
+    overlay.voice_download_progress(42)
+    dl = overlay._voice_dl_row
+    assert "42%" in shown(dl.findChild(SystemLine).text())
+    dl.chips[0].click()
+    assert cancel == [True]
+    overlay.voice_download_progress(43)                   # a late report: no new row
+    assert overlay._voice_dl_row is dl
+    overlay.voice_download_finished("cancelled")
+    rows = [overlay.feed_lay.itemAt(i).widget() for i in range(overlay.feed_lay.count())]
+    assert shown(next(w for w in reversed(rows) if isinstance(w, SystemLine)).text()) == overlay.t("voice_dl_stopped")

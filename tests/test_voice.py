@@ -139,6 +139,7 @@ def test_mac_denied_microphone_is_reported_before_recording(monkeypatch):
     from maplehelper import macapi
     vc = voice.VoiceController()
     monkeypatch.setattr(voice.sys, "platform", "darwin")
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setattr(macapi, "microphone_denied", lambda: True)
     failed = []
     vc.failed.connect(failed.append)
@@ -225,6 +226,7 @@ def test_recording_uses_the_chosen_microphone(monkeypatch):
             pass
     sd = type("SD", (_SD,), {"InputStream": Stream})
     monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setattr(voice.sys, "platform", "win32")
     vc = voice.VoiceController()
     vc.microphone = "Microphone (Logitech PRO X Wireless Gaming Headset)"
@@ -337,6 +339,7 @@ def test_recording_stops_by_itself_after_a_minute(monkeypatch):
 
         def close(self):
             pass
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setitem(sys.modules, "sounddevice", type("SD", (_SD,), {"InputStream": Stream}))
     monkeypatch.setattr(voice.sys, "platform", "win32")
     from PySide6.QtWidgets import QApplication

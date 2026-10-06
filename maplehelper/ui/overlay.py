@@ -407,6 +407,8 @@ class Overlay(QWidget):
     profile_requested = Signal()
     add_character_requested = Signal()
     mic_clicked = Signal()
+    voice_download_requested = Signal()     # yes to the speech model's first download (UX-12)
+    voice_download_cancel = Signal()
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
@@ -2615,6 +2617,36 @@ class Overlay(QWidget):
                 "loading": self.t("voice_loading"),
                 "downloading": self.t("voice_downloading")}.get(state, self._placeholder)
         self.input.set_hint(bidi.plain(text, self.t.rtl))
+
+    def offer_voice_download(self, size: int):
+        """The first voice question: the speech model isn't on disk. Ask before downloading it, with its size (it
+        started silently after the player spoke, audit UX-12); a question still unanswered isn't asked twice."""
+        row = getattr(self, "_voice_offer", None)
+        if row is not None and _alive(row) and row.isEnabled():
+            return
+        gb = f"{size / 1e9:.1f} GB"
+        self._voice_offer = self.add_choices(lambda t: t("voice_dl_ask", size=gb),
+                                             [("voice_dl_yes", self.voice_download_requested.emit),
+                                              ("voice_dl_no", None)])
+
+    def voice_download_progress(self, pct: int):
+        """The download's line, its percent, and Cancel."""
+        self._voice_pct = pct
+        row = getattr(self, "_voice_dl_row", None)
+        if row is None or not _alive(row) or (pct == 0 and not row.isEnabled()):     # (0: a new download)
+            self._voice_dl_row = self.add_choices(lambda t: t("voice_dl_progress", pct=self._voice_pct),
+                                                  [("voice_dl_cancel", self.voice_download_cancel.emit)])
+        else:
+            row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=pct))
+
+    def voice_download_finished(self, how: str):
+        """done: ready to talk; cancelled: said so (a failure is said by App.on_voice_failed)."""
+        row = getattr(self, "_voice_dl_row", None)
+        if row is not None and _alive(row):
+            row.setDisabled(True)
+        key = {"done": "voice_dl_done", "cancelled": "voice_dl_stopped"}.get(how)
+        if key:
+            self.add_system(lambda t: t(key, key=self.settings["hotkey_voice"]))
 
     def voice_text(self, text: str, send: bool):
         text = text.strip()

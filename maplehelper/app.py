@@ -205,6 +205,12 @@ class MapleHelperApp:
         self.voice.text.connect(lambda _: telemetry.track("voice_used"))
         self.voice.text.connect(self._stamp_voice_use)
         self.overlay.mic_clicked.connect(self.voice.toggle)
+        # the first voice question asks before the speech model downloads, then shows its progress (UX-12)
+        self.voice.need_download.connect(self.on_voice_need_download)
+        self.overlay.voice_download_requested.connect(self.voice.download)
+        self.overlay.voice_download_cancel.connect(self.voice.cancel_download)
+        self.voice.download_progress.connect(self.overlay.voice_download_progress)
+        self.voice.download_done.connect(self.overlay.voice_download_finished)
 
         self.make_tray()
         self.apply_autostart()
@@ -411,6 +417,12 @@ class MapleHelperApp:
                "voice_download_failed" if error.startswith("download:") else
                "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
+
+    def on_voice_need_download(self, size: int):
+        # the talk key in game: the question about the download shows in the chat
+        if not self.overlay.is_open():
+            self.overlay.toggle(self.capture)
+        self.overlay.offer_voice_download(size)
 
     def _stamp_voice_use(self, _text: str):
         import time
