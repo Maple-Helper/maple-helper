@@ -197,6 +197,12 @@ class ClaudeBackend:
 
     def _refresh(self, proc: subprocess.Popen) -> None:
         if self._warm is proc and proc.poll() is None:
+            wants = getattr(self.brain, "wants_warm", None)
+            if wants is not None and not wants():
+                # the chat has been closed for long: let it go, the next F9 warms one again (audit PRF-1)
+                log.info("chat closed for a while: the warm Claude Code process is stopped, not renewed")
+                self.drop_warm()
+                return
             log.info("warm Claude Code process is %d min old: starting a fresh one", WARM_MAX_AGE_S // 60)
             self.prewarm()
 

@@ -162,3 +162,59 @@ def test_every_cli_run_started_after_stop_is_killed(name, monkeypatch, tmp_path,
     be._proc = made[0]
     be.cancel()
     assert killed == [made[0]]
+
+
+# ------------------------------------------------------------------ PRF-1: warm only while the chat is in use
+
+def test_no_warm_process_until_the_chat_opens_and_none_after_a_long_close(kb, monkeypatch):
+    from maplehelper import brain as brain_mod
+    from maplehelper.brain import Brain
+    b = Brain(kb, provider="claude")
+    b.backend = Mock(exe="claude.exe")
+    b.prewarm()                                  # a --background start, settings saved, a KB update...
+    assert not b.backend.prewarm.called
+    b.chat_shown(True)
+    b.prewarm()
+    assert b.backend.prewarm.call_count == 1
+    b.chat_shown(False)
+    b.prewarm()                                  # closed a moment ago: still warm for the next F9
+    assert b.backend.prewarm.call_count == 2
+    now = time.monotonic()
+    monkeypatch.setattr(brain_mod.time, "monotonic", lambda: now + brain_mod.WARM_IDLE_S + 1)
+    b.prewarm()
+    assert b.backend.prewarm.call_count == 2 and not b.wants_warm()
+
+
+def test_the_15_minute_renewal_stops_once_the_chat_was_closed_long(monkeypatch):
+    from types import SimpleNamespace
+
+    from maplehelper.providers import claude
+    be = claude.ClaudeBackend.__new__(claude.ClaudeBackend)
+    import threading as th
+    be._warm_lock = th.Lock()
+    proc = Mock()
+    proc.poll.return_value = None
+    be._warm, be.brain = proc, SimpleNamespace(wants_warm=lambda: False)
+    be.prewarm = Mock()
+    be._refresh(proc)
+    assert not be.prewarm.called and proc.kill.called and be._warm is None
+    be._warm, be.brain = proc, SimpleNamespace(wants_warm=lambda: True)
+    be._refresh(proc)
+    assert be.prewarm.called
+
+
+def test_opening_the_chat_warms_and_closing_it_tells_the_brain(overlay):
+    overlay.hide()
+    overlay.open_overlay(None, None)
+    overlay.brain.chat_shown.assert_called_with(True)
+    assert wait_until(overlay.app, lambda: overlay.brain.prewarm.called)
+    overlay.close_overlay()
+    overlay.brain.chat_shown.assert_called_with(False)
+
+
+def test_a_background_start_starts_no_ai_process():
+    import inspect
+
+    from maplehelper import app
+    src = inspect.getsource(app.MapleHelperApp.start)
+    assert "brain.prewarm" not in src

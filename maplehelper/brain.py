@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 
 from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
@@ -709,6 +710,9 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
+WARM_IDLE_S = 60 * 60     # the chat closed this long: no process is kept waiting for a question (audit PRF-1)
+
+
 class Brain:
     def __init__(self, kb: KnowledgeBase, provider: str = providers.DEFAULT, model: str | None = None,
                  length: str = "short", api_key: str | None = None):
@@ -722,6 +726,8 @@ class Brain:
         self._provider = providers.get(provider)
         self.backend = self._provider.backend(self)
         self._cancels = 0              # cancel() calls so far: a question stopped before its AI run began skips it
+        self._chat_open = False        # the chat window is on screen (Overlay tells, see chat_shown)
+        self._chat_left: float | None = None     # when it was last closed (time.monotonic); None: never opened yet
 
     @property
     def provider(self) -> str:
@@ -763,10 +769,26 @@ class Brain:
         name = model_name(model) if model else (self._defaults.get(self._provider.name) or "")
         return f"\nYou run on {self._provider.label}" + (f", model {name}" if name else "") + "."
 
+    def chat_shown(self, shown: bool) -> None:
+        """The chat opened or closed: what decides whether a process is kept waiting for the next question."""
+        self._chat_open = shown
+        if not shown:
+            self._chat_left = time.monotonic()
+
+    def wants_warm(self) -> bool:
+        """Worth keeping a process ready: the chat is open, or was closed less than WARM_IDLE_S ago. A start in the
+        tray at login whose chat never opens kept a ~360 MB Claude Code process all day, renewed every 15 minutes
+        (audit PRF-1); it is warmed when the chat opens instead (typing a question outlasts the CLI's start)."""
+        if self._chat_open:
+            return True
+        return self._chat_left is not None and time.monotonic() - self._chat_left < WARM_IDLE_S
+
     def prewarm(self) -> None:
-        """Get the next question's process ready now, where the provider supports it."""
+        """Get the next question's process ready now, where the provider supports it (only while it pays off:
+        see wants_warm)."""
         self._find_cli()
-        self.backend.prewarm()
+        if self.wants_warm():
+            self.backend.prewarm()
         if not self.model and self._provider.name not in self._defaults:
             try:
                 self._defaults[self._provider.name] = self._provider.default_model()

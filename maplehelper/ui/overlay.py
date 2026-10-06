@@ -1397,6 +1397,7 @@ class Overlay(QWidget):
 
     def open_overlay(self, shot: bytes | None, game_hwnd: int | None):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
+        self._tell_brain_shown(True)          # the first answer's AI process starts now, while the player types
         self._update_shot_hint()
         self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
@@ -1420,6 +1421,18 @@ class Overlay(QWidget):
             # the first time the chat shows, however it opens (a start in the tray, autostart or a silent update,
             # never ran the tour: only a foreground start did); once it is up and laid out
             QTimer.singleShot(700, self.start_tour)
+
+    def _tell_brain_shown(self, shown: bool):
+        """Brain keeps a process warm only while the chat is in use (audit PRF-1): opening warms one."""
+        if self.brain is None:
+            return
+        try:
+            self.brain.chat_shown(shown)
+            if shown:
+                import threading
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        except Exception:      # noqa: BLE001 - the chat opens whatever the AI's state
+            pass
 
     def _show_last_session(self):
         """A new session starts: first, what happened in the previous one, one block per character."""
@@ -1470,6 +1483,7 @@ class Overlay(QWidget):
         self.bubble.hide()
         if not self.isVisible():
             return
+        self._tell_brain_shown(False)
         self.closed.emit()
         def done():
             self.hide()

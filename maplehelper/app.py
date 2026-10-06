@@ -155,7 +155,8 @@ class MapleHelperApp:
                         provider=self.settings["provider"], language=self.settings["language"])
         self.brain = Brain(self.kb, provider=self.settings["provider"], length=self.settings["answer_length"])
         self.apply_ai_settings()
-        threading.Thread(target=self.brain.prewarm, daemon=True).start()   # first answer without startup delay
+        # no AI process is started here: it is warmed when the chat opens (Overlay.open_overlay), so a start in the
+        # tray at login keeps none waiting all day (audit PRF-1); typing the first question outlasts its start
         self.overlay = Overlay(self.settings, self.profiles, self.kb, self.brain)
         self.overlay.setStyleSheet(self.style())
         self.overlay.setWindowOpacity(1.0)

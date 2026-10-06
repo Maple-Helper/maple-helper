@@ -826,6 +826,7 @@ class TestWarmProcess:
             def wait(self, timeout=None):
                 return 0
         b = Brain(kb, provider="claude").backend
+        b.brain.chat_shown(True)             # the chat in use: the warm process is kept and renewed (PRF-1)
         b.exe = "claude"
         monkeypatch.setattr(b, "_spawn", lambda *a, **k: Proc())
         return b, spawned
