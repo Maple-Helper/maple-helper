@@ -232,7 +232,7 @@ The app uses screen capture and its own overlay window. It does not read game me
 
 ## Requirements
 
-- Windows 10 or 11, or macOS 12 or later on Apple Silicon (M1 or newer).
+- Windows 10 or 11, or macOS 14 or later on Apple Silicon (M1 or newer).
 - Python 3.10 or later to run from source (the installer needs no Python).
 - One AI provider, chosen during setup and switchable in settings:
   - **Claude**: Claude Code installed, with a Claude Pro or Max account or an Anthropic API key.
