@@ -886,6 +886,19 @@ def test_a_common_word_npc_written_as_a_name_still_counts(real):
     assert real.npc_key("Rain") in real.find_mentions("Where is Rain?")
 
 
+@needs_kb
+@pytest.mark.parametrize("text, name", [
+    ("where is the Anvil", "Anvil"), ("Anvil location", "Anvil"), ("where is the Anvil in Perion?", "Anvil"),
+    ("Max", "Max"), ("Exit", "Exit"), ("Max?", "Max"),
+    ("Sword stats", "Sword"), ("how much does the Spear cost", "Spear"), ("Spear vs Fork on a Stick", "Spear"),
+])
+def test_a_plain_question_about_a_common_word_npc_or_item_still_finds_it(real, text, name):
+    """KB-8/KB-31's rule (a sentence start or "the <Name>" is no name) dropped "where is the Anvil", "Max" asked
+    alone and "Sword stats" (review CORE-2). The everyday sentences above still find nothing."""
+    keys = real.find_mentions(text)
+    assert any((real.get(k) or {}).get("name") == name for k in keys), keys
+
+
 def test_a_hebrew_plural_of_a_name_ending_in_a_final_letter(tmp_path):
     """"גדם" + "ים" is written "גדמים": the final mem turns plain, and the plural still names Stump."""
     kb = small_kb(tmp_path, [ent("monster/1", "Stump", Level=4)], {"monster/1": ["גדם"]})
@@ -896,3 +909,17 @@ def test_a_damaged_or_missing_page_reads_without_failing(tmp_path):
     kb = small_kb(tmp_path, [ent("monster/1", "Stump"), ent("monster/2", "Slime")], {}, {"monster/1": "# Stump\n"})
     (tmp_path / "pages" / "monster" / "1.md").write_bytes(b"# Stump\n\xff\xfe broken")
     assert kb.page("monster/1").startswith("# Stump") and kb.page("monster/2") == ""
+
+
+@needs_kb
+def test_scope_note_names_hidden_street_maps_the_kb_has(real):
+    """The note named "Monkey Forest", a map the KB doesn't have ("Monkey Forest I/II"): its examples are now
+    the KB's own open maps on that street (review CORE-10)."""
+    import re as re_
+    from maplehelper import availability
+    o = availability.of(real)
+    m = re_.search(r"in the game \(e\.g\. (.+?) and (.+?) on (.+?)\)", o.scope_note())
+    assert m, o.scope_note()
+    for name in m.group(1, 2):
+        assert o.map_place.get(f"{name} Hidden Street", ("",))[0] == m.group(3) and o.map_open(f"{name} Hidden Street")
+    assert m.group(3) in o.confirmed

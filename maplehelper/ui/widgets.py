@@ -197,7 +197,8 @@ class ElideLink(QPushButton):
         fm = self.fontMetrics()
         pad = super().sizeHint().width() - fm.horizontalAdvance(super().text())
         room = self.width() - pad
-        shown = self._full if room >= fm.horizontalAdvance(self._full) else             fm.elidedText(self._full, Qt.ElideRight, max(0, room))
+        shown = self._full if room >= fm.horizontalAdvance(self._full) else (
+            fm.elidedText(self._full, Qt.ElideRight, max(0, room)))
         super().setText(shown)
         self.setToolTip(self._full.strip() if shown != self._full else "")
         self.setAccessibleName(self._full.strip())

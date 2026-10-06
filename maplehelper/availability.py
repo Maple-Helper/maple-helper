@@ -33,6 +33,8 @@ _NPC_LOCATION = re.compile(r"^Locations?(?: \(\d+\))?\n", re.M)
 # guide's "Not at launch" names it (never printed: scope_note leaves it out)
 NO_CONTINENT = "(no continent)"
 _NO_CONTINENT_SHUT = f"{NO_CONTINENT} · not at launch"
+# a map page's "Map type Town" line (the Free Market, Truth Booth); a hunting ground's page has none
+_TOWN = re.compile(r"^Map type Town\s*$", re.M)
 # an item page's sources and the headings that end them
 # ("Dropped By" opens with the community's own list, the monsters players saw drop it in Classic; then the MSEA one)
 _ITEM_SOURCES = ("Dropped By", "MSEA Reference Drops", "Where to buy", "Quest Reward", "Quests", "Craftable",
@@ -90,13 +92,22 @@ class Availability:
         self.continents: set[str] = set()
         self.streets: dict[str, set[str]] = {}                 # street -> continents it appears on
         self.map_cell: dict[str, str] = {}                     # map key -> its "name street" cell
+        # an instance: a map on no continent that is no town (the KPQ stages, the 2nd-job test rooms). An NPC sends a
+        # party or a job candidate in; nobody walks there to hunt. It stays in the game (its row, its NPCs) but feeds
+        # no training, spawn or "most EXP" list: the AI put King Slime's <Last Stage> and the Lv 30 test copies first
+        # in "best EXP at 30" (review CORE-1). Map cells and bare names both.
+        self.instances: set[str] = set()
         found: list[tuple[str, str, str, str | None]] = []
+        towns: set[str] = set()
         for key, e in kb.entities.items():
             if e.get("category") != "map":
                 continue
-            m = _MAP_LOCATION_ANY.search(kb.page(key))
+            page = kb.page(key)
+            m = _MAP_LOCATION_ANY.search(page)
             if m:
                 found.append((key, e.get("name", ""), m.group(1).strip(), (m.group(2) or "").strip() or None))
+                if _TOWN.search(page):
+                    towns.add(key)
         paired = {(s, c) for _, _, s, c in found if c}
         street_names = {s for s, _ in paired}
         continent_names = {c for _, c in paired} - street_names
@@ -112,6 +123,8 @@ class Availability:
                 continent = NO_CONTINENT if not self._named(name, self.not_at_launch_text) else _NO_CONTINENT_SHUT
             cell = f"{name} {street}".strip()
             self.map_cell[key] = cell
+            if continent == NO_CONTINENT and key not in towns:
+                self.instances |= {cell, name}
             self.map_place[cell] = (continent, street)
             self.map_place_by_name.setdefault(name, set()).add(continent)
             self.continents.add(continent)
@@ -240,6 +253,11 @@ class Availability:
     def map_open(self, map_cell: str) -> bool:
         """A map the KB confirms is in the game. Unknown maps (no location in the KB) are not shown."""
         return not self.known or self.continent_of(map_cell) in self.confirmed
+
+    def instance_map(self, map_cell: str) -> bool:
+        """A map an NPC sends a party or a job candidate into (no continent, no town): in the game, no hunting
+        ground."""
+        return self.known and map_cell.strip() in self.instances
 
     def place_open(self, place: str) -> bool:
         """A town or street name ("El Nath", "Henesys", "Victoria Road"): open unless every continent it is on
@@ -428,12 +446,16 @@ class Availability:
                          "the game yet.")
         if events:
             parts.append(f"{', '.join(events)} maps open only during GM events (the release guide lists the dates).")
-        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park and
-        # Monkey Forest are open Victoria Island maps on it (audit AI-5, KB-22)
+        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park is an
+        # open Victoria Island map on it (audit AI-5, KB-22). The examples are the KB's own open maps there (the note
+        # named "Monkey Forest", which the KB writes "Monkey Forest I", review CORE-10)
         if len(self.streets.get("Hidden Street", ())) > 1:
+            on = sorted((cont, cell[:-len(" Hidden Street")]) for cell, (cont, street) in self.map_place.items()
+                        if street == "Hidden Street" and cont in self.confirmed and not cont.startswith(NO_CONTINENT))
+            same = [n for c, n in on if on and c == on[0][0]][:2]
+            eg = f" (e.g. {same[0]} and {same[1]} on {on[0][0]})" if len(same) == 2 else ""
             parts.append("\"Hidden Street\" is a street name used on several continents, not a place of its own: the "
-                         "maps the tables list on it are in the game (Pig Park and Monkey Forest on Victoria Island "
-                         "are).")
+                         f"maps the tables list on it are in the game{eg}.")
         # said both ways: with only "3rd job is not in the game" the AI answered that the 2nd job isn't out either
         # (to an Assassin, live)
         tiers = ["1st", "2nd", "3rd", "4th"][:max(1, self.job_tier)]

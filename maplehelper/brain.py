@@ -68,12 +68,12 @@ saw in Classic themselves: community) and "MSEA reference drops" (what the monst
 calls historical reference, not confirmed for Classic). drops.tsv's source column and the pre-fetched drop lists say
 which list each drop is on. The community list comes from players' reports on MeowDB, each with its votes (players
 who confirmed / denied it); the app hides drops more players denied than confirmed. Name a community drop's votes
-briefly the first time: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
+briefly the first time you name it in the text: "(קהילה, 16 ✓)" / "(community, 16 ✓)", and a drop one player alone reported
 "(קהילה, דיווח יחיד)" / "(community, single report)": it is not confirmed yet. Mesos: the pre-fetched "Mesos of"
 line is the median of the players' reports (per drop, and how often a kill drops mesos): give it as
 "18–23 mesos (קהילה)" / "18–23 mesos (community)". When asked what a monster drops, the app shows every drop as a tile with its votes and its list: in the text name
-only the few worth knowing (the most confirmed, anything valuable) and say the tiles show the rest; return every
-dropped item's key in entities.
+only the few worth knowing (the most confirmed, anything valuable) and say the tiles show the rest; in entities return
+every dropped item's key you name, up to 12 (the tiles show the rest).
 
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
@@ -81,7 +81,7 @@ test, not confirmed for launch; a later KB may say "Launch"), drops their list, 
 reports, the game's scope is MeowDB's release guide, and anything unlabeled is MeowDB's own. Whenever you state drops,
 prices or stats, name their source in a word or two right after them: "(MSEA)", "(community)", "(COT2)", "(official)",
 "(MeowDB)" in English; in a Hebrew answer "(MSEA)", "(קהילה)", "(COT2)", "(רשמי)", "(MeowDB)". When players reported
-nothing, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
+nothing and no card shows it, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
 point the change out briefly (old → new). "Skill change COT1 -> COT2" lines give a skill's values before and after the
 latest test: build advice uses the newer values. The "Community tier list" is community opinion: say so when you cite it.
 
@@ -533,10 +533,13 @@ _KEY_IN_TEXT = re.compile(r"\s*(?:[ובלמהשכ]-)?[\(\[]\s*(?:monster|item|ma
 
 # "גריינד" is a noun with no ל- before it (the owner, 2026-10-04); the AI kept writing "לגרינד" past the prompt's rule
 # "אתם ב-31": the player's level with no word for it (the owner: say "רמה" before the number). Never a count:
-# "Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7); a Hebrew word after the number keeps it as written,
-# but for "ו...", "עכשיו", "כרגע" and "אז"
-_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני|הוא|היא|הם|הדמות שלכם|הדמות שלך)\s+ב-?(\d{1,3})"
-                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF])")
+# "Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7). Said of the player ("אתם", "אני", "הדמות שלכם") it is
+# a level whatever follows ("אתם ב-31 כבר", review CORE-5), but for a counted noun; of "הוא/היא/הם", a Hebrew word
+# after the number keeps it as written, but for "ו...", "עכשיו", "כרגע" and "אז"
+_BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(?:(?P<me>אתם|אתן|אתה|את|אני|הדמות שלכם|הדמות שלך)\s+ב-?(?P<n>\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?:מפות|מקומות|ערוצים|חלקים|שלבים|קבוצות|דקות|שעות|ימים|פעמים)"
+                         r"(?![\u0590-\u05FF]))|(?P<he>הוא|היא|הם)\s+ב-?(?P<n2>\d{1,3})"
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF]))")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
 _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
 # the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner). Any prefix ("ולבל", "מהלבל",
@@ -558,7 +561,7 @@ def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
     named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
     text = _KEY_IN_TEXT.sub("", text)
-    text = _BARE_LEVEL.sub(r"\1 ברמה \2", text)
+    text = _BARE_LEVEL.sub(lambda m: f"{m['me'] or m['he']} ברמה {m['n'] or m['n2']}", text)
     text = _LEVEL_WORD.sub(_level_word, text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
@@ -909,16 +912,25 @@ _HYPOTHETICAL = re.compile(r"\b(?:when|once|if|until|after|before)\b|(?:^|\s)(?:
 # another character's level ("im lvl 15 on my other char", "my friend is level 40"): not this profile's (audit AI-15)
 _SOMEONE_ELSE = re.compile(r"\b(?:alts?|other (?:char\w*|toon)|another (?:char\w*|toon)|friends?|second char\w*)\b|"
                            r"דמות (?:אחרת|נוספת|שנייה)|(?<![א-ת])ה?חבר(?:ה|ים|ות)?(?:\s+שלי)?(?![א-ת])", re.I)
+# friends as company ("played with friends", "עם חבר"): the level is still the player's (review CORE-7)
+_WITH_FRIEND = re.compile(r"(?:\bwith|(?<![א-ת])עם)\s+(?:my\s+|a\s+)?(?:friends?\b|ה?חבר(?:ה|ים|ות)?(?:\s+שלי)?"
+                          r"(?![א-ת]))", re.I)
+_CLAUSE_END = ",.;!?\n"
 
 
 def stated_level(text: str) -> int | None:
     """A level the player states about themselves ("עליתי ללבל 16", "I'm level 16"); never a plan ("what should
-    I do once I'm level 30?" once set the profile to 30)."""
-    if _HYPOTHETICAL.search(text) or _SOMEONE_ELSE.search(text):
+    I do once I'm level 30?" once set the profile to 30), nor another character's in the same clause."""
+    if _HYPOTHETICAL.search(text):
         return None
     for pat in _LEVEL_PATTERNS:
         m = re.search(pat, text, re.I)
         if m and 1 <= int(m.group(1)) <= 250:
+            # only the clause that says it: "I'm level 30, played with friends all day" is the player's
+            start = max(text.rfind(c, 0, m.start()) for c in _CLAUSE_END) + 1
+            end = min((i for i in (text.find(c, m.end()) for c in _CLAUSE_END) if i >= 0), default=len(text))
+            if _SOMEONE_ELSE.search(_WITH_FRIEND.sub(" ", text[start:end])):
+                return None
             return int(m.group(1))
     return None
 

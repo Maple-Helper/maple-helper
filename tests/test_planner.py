@@ -671,3 +671,41 @@ def test_real_a_maps_roman_numeral_is_no_i(real):
 def test_real_an_npc_with_no_quests_says_so(real):
     text = ask(real, "what quests does Robin give?").render()
     assert text.count('rows="0" complete="yes"') == 2 and "(no rows: there are none)" in text
+
+
+@needs_kb
+def test_real_job_test_rooms_and_kpq_stages_are_no_hunting_ground(real):
+    """KB-3 opened the maps whose page names no continent (the Free Market, KPQ's stages, the 2nd-job test rooms).
+    The non-town ones are instances an NPC sends a party or a job candidate into: they stay known (their maps.tsv
+    row, their NPCs), but the AI put King Slime's <Last Stage> and the Lv 30 test copies first in a "best EXP at 30"
+    answer, "Ant Tunnel For Bowman" in a Thief's training maps and "1st Accompaniment <Bonus>" under "where is Horny
+    Mushroom" (review CORE-1)."""
+    from maplehelper import availability, combat
+    kb, rows = real
+    o = availability.of(kb)
+    rooms = {"Ant Tunnel For Bowman", "Magician's Tree Dungeon", "Thief's Construction Site",
+             "Warrior's Rocky Mountain", "1st Accompaniment <Last Stage>", "1st Accompaniment <Bonus>"}
+    assert all(o.instance_map(f"{m} Hidden Street") and o.instance_map(m) for m in rooms)
+    assert not o.instance_map("Free Market Entrance Hidden Street") and not o.instance_map("Pig Park Hidden Street")
+    assert o.map_open("Ant Tunnel For Bowman Hidden Street")          # still in the game, only no hunting ground
+    assert not combat.reachable_map(kb, "Ant Tunnel For Bowman")
+    assert {r["map"] for r in rows("maps")} >= rooms
+    near = lambda text: any(m in text for m in rooms) or "Accompaniment" in text     # noqa: E731
+    for q in ("top 3 monsters for exp level 30", "top 3 regular monsters level 30-40 for exp",
+              "where should I train at 30", "where to train level 30 thief", "where is Horny Mushroom"):
+        text = ask(real, q).render()
+        assert not near(text), q
+    assert not [r for r in rows("spawns") if r["map"] in rooms]
+    assert not [r for r in rows("monsters") if near(str(r.get("maps")))]
+    for lv in (25, 30, 35):
+        assert not near(kb.level_digest(lv)), lv
+
+
+@needs_kb
+def test_real_equips_for_another_named_class_skip_the_profiles_level(real):
+    """A Lv 31 Assassin asking "best weapon for a fighter": the Warrior's weapons in the game, not "req_lv <= 31"
+    said as "the best the player can wear" (review CORE-4)."""
+    b = ask(real, "best weapon for a fighter").blocks[0]
+    assert "req_lv <=" not in b.what and "can wear" not in b.lead and "the highest W.ATK in the game" in b.lead
+    assert b.rows and {r["slot"] for r in b.rows} <= planner.JOB_WEAPONS["Fighter"]
+    assert "req_lv <= 31" in ask(real, "best claw for an assassin").blocks[0].what       # their own line: still theirs

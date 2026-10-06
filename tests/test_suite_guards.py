@@ -42,3 +42,13 @@ def test_windows_high_contrast_stays_out_of_the_tests():
         assert theme.high_contrast() is None and theme.MODE == "light"
     finally:
         theme.set_mode("dark")
+
+
+def test_no_lost_line_continuation_in_the_code():
+    """A backslash + newline lost in an edit leaves "and             name..." mid-line (quests.py, review CORE-8)."""
+    import re
+    code = TESTS.parent / "maplehelper"
+    lost = [f"{p.relative_to(code)}:{n}" for p in sorted(code.rglob("*.py"))
+            for n, ln in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+            if re.search(r"\b(?:and|or|else|not|if|in)\s{8,}[^\s#]", ln.split("#", 1)[0])]
+    assert lost == []

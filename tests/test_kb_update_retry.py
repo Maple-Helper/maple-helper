@@ -46,7 +46,7 @@ def test_a_failed_swap_says_why_in_the_log(tmp_path, monkeypatch, caplog):
     assert "can't be swapped" in caplog.text and "in use by another process" in caplog.text
 
 
-def test_a_table_build_holds_off_the_swap_and_none_starts_during_it(tmp_path, monkeypatch):
+def test_a_table_build_holds_off_the_swap_and_none_starts_during_it(tmp_path, monkeypatch, caplog):
     """A question's table build that starts right after before_swap would write the old KB's tables into the new
     folder: the renames run under the build lock, and a build already running postpones the update."""
     import hashlib
@@ -68,8 +68,11 @@ def test_a_table_build_holds_off_the_swap_and_none_starts_during_it(tmp_path, mo
     monkeypatch.setattr(updater, "kb_dir", lambda: user_kb)
     monkeypatch.setattr(updater, "MANIFEST_URL", "m")
     monkeypatch.setattr(updater, "_get", lambda u, timeout=30: net.get(u))
-    with tables._lock:
-        assert updater.fetch_kb(lambda: True) == "postponed"
+    # a build holding the lock is said as one, and the warm AI isn't stopped for nothing (review CORE-9)
+    asked = []
+    with tables._lock, caplog.at_level(logging.INFO, logger="maplehelper"):
+        assert updater.fetch_kb(lambda: asked.append(1) or True) == "postponed"
+    assert asked == [] and "tables are being built" in caplog.text and "an answer is running" not in caplog.text
     assert "2026.01" in (user_kb / "meta.json").read_text(encoding="utf-8")
     held = []
     real_rename = updater._rename

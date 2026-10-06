@@ -190,10 +190,19 @@ def fetch_kb(before_swap=None) -> str:
     from . import tables
     # the table build's lock is held across the renames: a question's build that started right after before_swap
     # would write the old KB's tables into the new folder, whose own shipped mark then calls them current
-    if before_swap is not None and before_swap() is False or not tables._lock.acquire(blocking=False):
+    # a build already running is said as one, before before_swap stops the warm AI for nothing (review CORE-9)
+    if tables.building():
+        why = "the KB's tables are being built"
+    elif before_swap is not None and before_swap() is False:
+        why = "an answer is running"
+    elif not tables._lock.acquire(blocking=False):
+        why = "the KB's tables are being built"     # one started right after before_swap
+    else:
+        why = ""
+    if why:
         shutil.rmtree(tmp, ignore_errors=True)
-        log.info("knowledge base %s waits: an answer is running", manifest["version"])
-        return "postponed"            # an answer is running: the app tries again in a few minutes
+        log.info("knowledge base %s waits: %s", manifest["version"], why)
+        return "postponed"            # the app tries again in a few minutes
     old = USER_KB.with_name("kb.old")
     try:
         shutil.rmtree(old, ignore_errors=True)

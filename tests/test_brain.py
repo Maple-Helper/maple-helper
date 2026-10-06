@@ -254,6 +254,13 @@ def test_a_count_after_a_pronoun_is_no_level():
     assert brain.drop_keys("הם ב-2 קבוצות") == "הם ב-2 קבוצות"
     assert brain.drop_keys("אתם ב-31 ולכן") == "אתם ברמה 31 ולכן"
     assert brain.drop_keys("אתם ב-31.") == "אתם ברמה 31."
+    # the player's level whatever word follows (review CORE-5); a counted noun still keeps the count
+    assert brain.drop_keys("אתם ב-31 כבר, אז") == "אתם ברמה 31 כבר, אז"
+    assert brain.drop_keys("אתם ב-31 עם Assassin") == "אתם ברמה 31 עם Assassin"
+    assert brain.drop_keys("הדמות שלכם ב-31 בדיוק") == "הדמות שלכם ברמה 31 בדיוק"
+    assert brain.drop_keys("אתם ב-3 מפות שונות") == "אתם ב-3 מפות שונות"
+    assert brain.drop_keys("אני ב-2 ערוצים") == "אני ב-2 ערוצים"
+    assert brain.drop_keys("היא ב-5 מקומות") == "היא ב-5 מקומות"
 
 
 def test_a_key_goes_with_its_hebrew_prefix():
@@ -279,6 +286,11 @@ def test_profile_levels_out_of_range_and_other_characters():
     assert brain.stated_level("im lvl 15 on my other char") is None
     assert brain.stated_level("I'm level 10 and my friend is level 40") is None
     assert brain.stated_level("I'm level 16") == 16
+    # friends who are only company, or in another sentence, take nothing from the player's own level (review CORE-7)
+    assert brain.stated_level("I'm level 30, played with friends all day") == 30
+    assert brain.stated_level("אני רמה 30 עם חבר") == 30
+    assert brain.stated_level("my friend is level 40. I'm level 10") == 10
+    assert brain.stated_level("אני רמה 30 בדמות אחרת") is None
 
 
 @pytest.mark.parametrize("q", ["who's Grendel", "can't find Mano", "sauna robe stats", "2nd job warrior level?"])
