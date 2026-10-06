@@ -371,6 +371,8 @@ def test_mac_damaged_install_offers_the_download_page(tmp_path, monkeypatch):
     assert opened == [setupwait.RELEASES_URL]
     assert setupwait.MAC_TEXT["broken"]["he"] != setupwait.BROKEN_TEXT["he"]
     assert setupwait.MAC_TEXT["startup"]["he"] != setupwait.STARTUP_TEXT["he"]
+    # the Windows causes don't fit a drag-installed Mac app (MAC-16)
+    assert "antivirus" not in setupwait.MAC_TEXT["broken"]["en"] and "אנטי-וירוס" not in setupwait.MAC_TEXT["broken"]["he"]
 
 
 def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch):
