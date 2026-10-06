@@ -31,8 +31,8 @@ def test_whats_new_window_lists_every_version_in_both_languages():
     from maplehelper.ui.patchnotes import WhatsNewDialog
     app = QApplication.instance() or QApplication([])
 
-    def bare(text):              # the rows carry direction marks around English names
-        return "".join(ch for ch in text if unicodedata.category(ch) != "Cf")
+    def bare(text):              # the rows carry direction marks around English names, and no-break spaces
+        return "".join(ch for ch in text if unicodedata.category(ch) != "Cf").replace(" ", " ")
     notes = whatsnew.load()[:2]
     for lang in ("he", "en"):
         d = WhatsNewDialog(notes, lang, "")

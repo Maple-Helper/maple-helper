@@ -1,5 +1,28 @@
 [
  {
+  "version": "0.10.0",
+  "he": [
+   "תשובות מהירות ומלאות יותר: שאלות של רשימות (איזה מפלצות יש במפה, אילו קווסטים נותנים פריט, מה מוכרים בחנות) נענות מהטבלאות המלאות של המאגר, בלי לפספס שורות.",
+   "כפתור עצירה: בזמן שתשובה בדרך, כפתור השליחה הופך ל\"עצירה\" ואפשר לשאול מיד שאלה חדשה.",
+   "קריאת האינבנטורי מזהה הרבה יותר פריטים, כולל כמויות.",
+   "האפליקציה קלה יותר על המחשב: Claude מתחיל לרוץ רק כשפותחים את הצ'אט, ומודל הדיבור נטען רק אם השתמשתם בקול לאחרונה.",
+   "דיבור: לפני ההורדה הראשונה של מודל הדיבור האפליקציה שואלת ומציגה את הגודל, ואז מראה התקדמות עם אפשרות ביטול.",
+   "התקנה ראשונה: מוסבר מה כל AI צריך (מנוי או מסלול חינמי), ואפשר להמשיך בינתיים בלי AI ולהשתמש בכלי המשחק.",
+   "תמונות חדות יותר במסכים ברזולוציה גבוהה, צבעים קריאים יותר במצב כהה, ומיני-מפה גדולה בכרטיס מפה.",
+   "מאות תיקונים מבדיקה מקיפה: כיוון כתיבה בעברית (מסלולים, חצים ושמות), דיוק מעקב הגריינד, ומה באמת פתוח במשחק (Forgotten Hollow סגור, KPQ וה-Free Market פתוחים)."
+  ],
+  "en": [
+   "Faster, more complete answers: list questions (which monsters live on a map, which quests give an item, what a shop sells) are answered from the database's complete tables, with no rows missed.",
+   "A Stop button: while an answer is on its way, the send button turns into Stop, and you can ask a new question right away.",
+   "Inventory reading recognizes far more items, counts included.",
+   "Lighter on your PC: Claude starts when you open the chat, and the speech model loads only if you used voice recently.",
+   "Voice: before the speech model's first download, Maple Helper asks and shows its size, then shows progress with a Cancel button.",
+   "First setup explains what each AI needs (a plan or a free tier), and you can continue without an AI for now and use the Play tools.",
+   "Sharper pictures on high-DPI screens, more readable colors in dark mode, and a bigger minimap on map cards.",
+   "Hundreds of fixes from a full review: Hebrew text direction (routes, arrows and names), grind tracking accuracy, and what's really open in the game (Forgotten Hollow closed, KPQ and the Free Market open)."
+  ]
+ },
+ {
   "version": "0.9.5",
   "he": [
    "אפשר לשתף את הצ'אט בשיתוף מסך בדיסקורד ובתוכנות שידור כמו OBS: הוא מופיע עכשיו ברשימת החלונות, בשורת המשימות וב-Alt+Tab.",
