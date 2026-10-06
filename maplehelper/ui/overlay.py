@@ -453,7 +453,7 @@ class Overlay(QWidget):
         return path
 
     def paintEvent(self, e):
-        """Liquid glass: the blurred game behind, a neutral tint, a light-catching sheen and rim."""
+        """Liquid glass: an opaque neutral tint, a light-catching sheen and rim (paint_glass)."""
         paint_glass(self, None)
 
     # ------------------------------------------------------------------ layout
@@ -812,7 +812,10 @@ class Overlay(QWidget):
         self._fit_header()
         self.pins_bar.fit()             # the open pinned list stays a share of the conversation's height
         if self.isVisible():
-            QTimer.singleShot(300, self.save_geometry)
+            # one write when the drag ends, not one per resize step (a drag wrote settings.json ~50 times)
+            if not hasattr(self, "_geo_timer"):
+                self._geo_timer = QTimer(self, singleShot=True, interval=300, timeout=self.save_geometry)
+            self._geo_timer.start()
 
     def show_scope(self) -> None:
         """The line under the chat: answers follow the game as it is now, as the KB last verified it (a KB update
@@ -865,7 +868,7 @@ class Overlay(QWidget):
         if getattr(self, "_update_version", None):
             # the download's last percent too (a language switch showed 0% until the next progress report)
             self.show_update(self._update_version, getattr(self, "_update_state", "available"),
-                             getattr(self, "_update_pct", None))
+                             getattr(self, "_update_pct", None), redraw_only=True)
         set_tip(self.profile_card, self.t("switch_character"))
         set_tip(self.min_btn, self.t("minimize"))
         set_tip(self.update_close, self.t("notice_close"))
@@ -881,9 +884,14 @@ class Overlay(QWidget):
         for widget, render in getattr(self, "_renders", []):      # system lines and yes/no rows
             if _alive(widget):
                 render(self.t)
+        b = getattr(self, "_pending_bubble", None)
+        if self.busy and b is not None and _alive(b) and b._text in STRINGS["thinking"].values():
+            b.set_text(self.t("thinking"))       # no word of the answer yet: "Thinking…" in the new language
 
-    def show_update(self, version: str, state: str = "available", pct: float | None = None):
-        """The update bar: available (button) -> downloading (progress) -> installing; failed (retry)."""
+    def show_update(self, version: str, state: str = "available", pct: float | None = None,
+                    redraw_only: bool = False):
+        """The update bar: available (button) -> downloading (progress) -> installing; failed (retry).
+        redraw_only: a language switch re-renders the texts but leaves a bar the player closed with ✕ closed."""
         self._update_version, self._update_state, self._update_pct = version, state, pct
         t, rtl = self.t, self.t.rtl
         text = {"available": t("update_bar_available", version=version),
@@ -900,7 +908,8 @@ class Overlay(QWidget):
             self.update_progress.setValue(round((pct or 0) * 10))
         elif state == "installing":
             self.update_progress.setRange(0, 0)          # busy: the installer takes over in a moment
-        self.update_bar.show()
+        if not redraw_only:
+            self.update_bar.show()
 
     def refresh_profile_chip(self):
         WISHLIST.changed.emit()          # the stars follow the active character
@@ -1028,7 +1037,8 @@ class Overlay(QWidget):
         self._server = st
         if change == "started":
             from .serverdot import when
-            until = when(st.notice_end) if st.notice_end and not st.notice_done else ""
+            # an overrunning maintenance has no end time to promise (the dot's tooltip has the same rule)
+            until = when(st.notice_end) if st.notice_end and not st.notice_done and st.notice_end > time.time() else ""
 
             def text(t, until=until):
                 return t("server_maint_started_until", time=until) if until else t("server_maint_started")
@@ -1054,10 +1064,13 @@ class Overlay(QWidget):
 
     def _say_busy(self):
         """A question that can't go yet says so (once, not a line per Enter press)."""
+        # no question running: a screen read holds the chat ("still answering" was false during a grind session)
+        key = "busy_wait" if self.busy else "busy_reading"
         line = getattr(self, "_busy_line", None)
-        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2:
+        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2                 and getattr(self, "_busy_key", None) == key:
             return
-        self._busy_line = self.add_system(lambda t: t("busy_wait"))
+        self._busy_key = key
+        self._busy_line = self.add_system(lambda t: t(key))
 
     def ask_with_screenshot(self, question: str, detail: bool = False, shown: str | None = None):
         """Like "What now?": a fresh screenshot of the game, then the question. detail: also send the
@@ -1066,7 +1079,7 @@ class Overlay(QWidget):
         if self._is_busy():               # the question would be dropped: don't flash the chat for a shot
             self._say_busy()
             return
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, lambda: self._capture_and_ask(question, detail, shown))
 
     def _capture_and_ask(self, question: str, detail: bool = False, shown: str | None = None):
@@ -1165,7 +1178,7 @@ class Overlay(QWidget):
             import logging
             logging.getLogger(__name__).warning("screenshot failed", exc_info=True)
         finally:
-            self.setWindowOpacity(1.0)
+            self._step_aside(False)
 
     def character_menu(self):
         """Click the character card: pick another character or add one, right from the chat."""
@@ -1466,8 +1479,16 @@ class Overlay(QWidget):
         hwnd = osapi.find_game_window()
         self.open_overlay(self._safe_shot(hwnd), hwnd)
 
+    def _step_aside(self, on: bool) -> None:
+        """See-through for a moment while a screenshot is taken (the chat is part of the screen), then back."""
+        self._stepping_aside = on
+        self.setWindowOpacity(0.0 if on else 1.0)
+
     def is_open(self) -> bool:
-        """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt)."""
+        """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt). A chat stepping
+        aside for a screenshot is still open (F9 in those 120 ms opened it again instead of closing it)."""
+        if getattr(self, "_stepping_aside", False):
+            return self.isVisible() and not self.isMinimized()
         return self.isVisible() and self.windowOpacity() > 0.5 and not self.isMinimized()
 
     def toggle(self, shot_provider):
@@ -1549,7 +1570,7 @@ class Overlay(QWidget):
 
     def recapture(self):
         # the chat is part of the screen: step aside for a moment so the shot shows the game
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, self._do_recapture)
 
     def _do_recapture(self):
@@ -1560,7 +1581,7 @@ class Overlay(QWidget):
         except Exception:      # noqa: BLE001 - the chat must come back even when the capture fails
             self.shot = None
         finally:
-            self.setWindowOpacity(1.0)
+            self._step_aside(False)
         self.shot_used = False
         from ..capture import problem_key
         missing = problem_key() or "sync_no_game"
@@ -1646,7 +1667,7 @@ class Overlay(QWidget):
                 w.deleteLater()
         chips = []
         for k in self.focus_keys:
-            name = self.kb.get(k)["name"]
+            name = (self.kb.get(k) or {}).get("name", k)      # a KB update may have dropped it meanwhile
             chip = QPushButton(objectName="TagChip")
             chip.setIcon(QIcon(str(self.kb.picture(k))))
             chip.ensurePolished()           # the stylesheet's font, so the "…" lands where it is drawn
@@ -1819,7 +1840,10 @@ class Overlay(QWidget):
         """Ask (instant answer or Claude). False when nothing was asked (busy, empty).
         shown: what the player's bubble and the history say instead of the question itself (the inventory check's
         nine lines of instructions showed as a nine-line bubble); the AI still gets the whole question."""
-        if self._is_busy() or not question.strip():
+        if not question.strip():
+            return False
+        if self._is_busy():
+            self._say_busy()        # "Ask Claude anyway", the tip strip and voice went silent while busy
             return False
         label = shown or question
         # the app-made context belongs to this question only, however it gets answered (an instant answer too)
@@ -1830,7 +1854,7 @@ class Overlay(QWidget):
         self._asked_cid = c.id if c else None
         history = History(c.id) if c else None
         focus = list(self.focus_keys)
-        focus_name = ", ".join(self.kb.get(k)["name"] for k in focus)
+        focus_name = ", ".join((self.kb.get(k) or {}).get("name", k) for k in focus)
         if not force_claude:          # "Ask Claude anyway" re-asks a question already in the chat
             self.add_bubble(label, "user", focus_name)
             if focus:
@@ -1865,10 +1889,12 @@ class Overlay(QWidget):
         telemetry.track("question_asked", answered_by=self.settings["provider"], tagged=bool(focus),
                         screenshot=shot is not None, saver=bool(self.settings["saver_mode"]), retry=force_claude)
         stored = f"[about {focus_name}] {label}" if focus_name else label
+        self._pending_stored = None
         if history and not (force_claude and self._just_answered(history, stored)):
             # "Ask Claude anyway" right under the instant answer: the question is already the one before it (the
             # history search pairs both answers with it); asked later, after other questions, it goes in again
             history.append("user", stored)
+            self._pending_stored = stored
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
         self._start_reading(self._pending_bubble)
         self.busy = True
@@ -1888,8 +1914,17 @@ class Overlay(QWidget):
         # one thread per question: free it (and its worker) once it ends, not when the app quits
         self._thread.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
+        # and forget it: a deleted QThread's isRunning() raises (App.shutdown then skipped a running read's wait)
+        self._thread.finished.connect(self._forget_threads)      # bound method: runs on the GUI thread
         self._thread.start()
         return True
+
+    def _forget_threads(self) -> None:
+        """A finished thread is about to be deleted: drop the reference (a newer one still running stays)."""
+        for attr in ("_thread", "_sync_thread"):
+            th = getattr(self, attr, None)
+            if th is not None and (not _alive(th) or th.isFinished()):
+                setattr(self, attr, None)
 
     @staticmethod
     def _just_answered(history, question: str) -> bool:
@@ -1952,12 +1987,14 @@ class Overlay(QWidget):
         # written in the UI's language (its list of English map names must not turn a Hebrew answer left-to-right)
         b = self.add_bubble(qa.text, "assistant", direction="rtl" if self.t.rtl else "ltr")
         self._start_reading(b)
-        b.add_pin(lambda: self.pin_answer(question, qa.text), self.t("pin"))
+        # the character it was asked for (pinned after a switch, it went to the other one)
+        b.add_pin(lambda cid=getattr(self, "_asked_cid", None): self.pin_answer(question, qa.text, cid), self.t("pin"))
         row = QWidget()
         from .controls import FlowLayout
         rl = FlowLayout(row, spacing=8, line_spacing=0)       # the link goes under the badge when the chat is narrow
         rl.setContentsMargins(4, 0, 4, 0)
-        rl.addWidget(QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine"))
+        badge = QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine")
+        rl.addWidget(badge)
         # where the answer's data comes from ("COT2" stats, "MSEA" drops, a shop's "COT2" price), beside the badge
         stamp = sources.stat_source(self.kb, qa.entities[0]) if qa.entities else None
         for chip in source_tags(self.t, getattr(qa, "sources", ()), stamp):
@@ -1967,6 +2004,11 @@ class Overlay(QWidget):
         again.setCursor(Qt.PointingHandCursor)
         again.clicked.connect(lambda: again.setEnabled(not self.ask(question, force_claude=True, extra=hidden)))
         rl.addWidget(again)
+
+        def render(t):          # a language or AI switch: the link names the AI it would ask now
+            badge.setText(bidi.plain(t("quick_badge"), t.rtl))
+            again.setText(bidi.plain(t.p("quick_ask_ai", self.settings["provider"]), t.rtl))
+        self._remember_render(row, render)
         self._add_widget(row)
         if history:
             history.append("assistant", qa.text, qa.entities)
@@ -2066,6 +2108,10 @@ class Overlay(QWidget):
     def sync_profile(self, grind: bool = False):
         """grind: a grind tracker read (the play tools), which also reads the map, the monster, mesos and potions."""
         if getattr(self, "_syncing", False):
+            if getattr(self, "_sync_auto", False) and not grind:
+                # the grind tracker's quiet read is running: ⟳ makes it the player's read (spinner, result line)
+                self._sync_auto = False
+                self.profile_card.set_busy(True, self.t("syncing"), self.t("sync_reading"))
             return                 # a read is on its way already; it ends with sync_finished for every caller
         if self._is_busy():
             # an answer or an inventory check is running: say so, and end the request (the play tools' grind tracker
@@ -2081,7 +2127,7 @@ class Overlay(QWidget):
             self._sync_timer = QTimer(self, singleShot=True, interval=self.SYNC_TIMEOUT_MS, timeout=self._sync_timed_out)
         self._sync_timer.start()
         # the chat is opaque and on screen: step aside for the capture
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, self._sync_capture)
 
     def auto_grind_read(self):
@@ -2108,7 +2154,7 @@ class Overlay(QWidget):
         over = windows_over(rect)
         hidden = [w for w in over if w is not self]
         if self in over:
-            self.setWindowOpacity(0.0)
+            self._step_aside(True)
         for w in hidden:
             w.hide()           # hidden, not see-through: a see-through tools window left traces in the grab
         # Windows fades a hidden window out (~250 ms); the chat's opacity takes effect at once
@@ -2121,7 +2167,7 @@ class Overlay(QWidget):
             shot = osapi.capture_game(hwnd) if hwnd else None
         except Exception:      # noqa: BLE001 - a failed capture must not leave the button spinning forever
             shot = None
-        self.setWindowOpacity(1.0)
+        self._step_aside(False)
         for w in stepped_aside or ():
             show_quietly(w)
         if not shot:
@@ -2159,6 +2205,7 @@ class Overlay(QWidget):
             self._sync_worker.done.connect(self._sync_thread.quit)
             self._sync_thread.finished.connect(self._sync_worker.deleteLater)
             self._sync_thread.finished.connect(self._sync_thread.deleteLater)
+            self._sync_thread.finished.connect(self._forget_threads)
             self._sync_thread.start()
         except Exception:
             import logging
@@ -2196,7 +2243,8 @@ class Overlay(QWidget):
         self._sync_ended()
         if ans.error:
             if not auto:
-                self.add_system(lambda t: t("err_generic"))
+                key = self._error_key(ans.error)     # signed out / out of quota said so, not "something went wrong"
+                self.add_system(lambda t: t.p(key, self.settings["provider"]))
             self.sync_finished.emit(False)
             return
         if self.profiles.active_id != getattr(self, "_sync_cid", None):
@@ -2247,6 +2295,12 @@ class Overlay(QWidget):
             self._show_changes(changes)
         self.sync_finished.emit(bool(ans.profile_update))
 
+    @staticmethod
+    def _error_key(error: str) -> str:
+        """The text for an answer's error: the kinds the player can act on have their own, the rest are generic."""
+        return f"err_{error}" if error in ("offline", "not_logged_in", "usage_limit", "not_installed", "no_credit",
+                                           "timeout") else "err_generic"
+
     def _on_done_main(self, ans: Answer):
         self._on_done(ans, self._pending_history)
 
@@ -2264,15 +2318,16 @@ class Overlay(QWidget):
         if ans.error:
             import logging
             logging.getLogger(__name__).warning("answer failed: %s", ans.error)
-            key = f"err_{ans.error}" if ans.error in ("offline", "not_logged_in", "usage_limit",
-                                                      "not_installed", "no_credit") else "err_generic"
-            self._pending_bubble.set_text(self.t.p(key, self.settings["provider"]))
+            self._pending_bubble.set_text(self.t.p(self._error_key(ans.error), self.settings["provider"]))
             self._remember_model(ans)
+            if history and getattr(self, "_pending_stored", None):
+                history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too
             return
         self._pending_bubble.set_text(ans.text)
         self._remember_model(ans)
         q = getattr(self, "_last_question", "")
-        self._pending_bubble.add_pin(lambda q=q, a=ans.text: self.pin_answer(q, a), self.t("pin"))
+        self._pending_bubble.add_pin(lambda q=q, a=ans.text, cid=getattr(self, "_asked_cid", None):
+                                     self.pin_answer(q, a, cid), self.t("pin"))
         QTimer.singleShot(0, self._keep_answer_readable)
         QTimer.singleShot(250, self._keep_answer_readable)   # after the cards' layout settles
         if history:
@@ -2407,11 +2462,17 @@ class Overlay(QWidget):
     def _on_avatar_cropped(self, r: tuple):
         cid, png, on_done = r
         changed = bool(png) and cid is not None and self.profiles.active_id == cid
-        if changed:
-            self.profiles.set_avatar(png)
-            self.refresh_profile_chip()
-        if on_done:
-            on_done(changed)
+        try:
+            if changed:
+                self.profiles.set_avatar(png)
+                self.refresh_profile_chip()
+        except Exception:      # noqa: BLE001 - a portrait that can't be saved must not leave the read running
+            import logging
+            logging.getLogger(__name__).exception("portrait could not be saved")
+            changed = False
+        finally:
+            if on_done:
+                on_done(changed)
 
     def _show_changes(self, changes):
         if changes:

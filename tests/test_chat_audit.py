@@ -138,7 +138,8 @@ def test_a_refresh_during_the_inventory_check_drops_its_context_and_says_so(over
     assert not fake_worker.made
     assert ov._hidden_context is None and ov._detail_tiles is None
     from maplehelper.ui.widgets import SystemLine
-    assert any(I18n("he")("busy_wait") in w.text() for w in ov.feed.findChildren(SystemLine))
+    # a screen read holds the chat, not a question (OVL-9: it said "still answering the previous question")
+    assert any(I18n("he")("busy_reading") in w.text() for w in ov.feed.findChildren(SystemLine))
 
 
 def test_menu_and_refresh_count_the_inventory_check_as_busy(overlay):

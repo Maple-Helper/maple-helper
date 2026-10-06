@@ -231,7 +231,6 @@ def test_a_dropped_glass_dialog_is_freed_without_the_garbage_collector():
     try:
         d = GlassDialog("x", rtl=False)
         d.content.destroyed.connect(lambda *_: gone.append(True))
-        assert d.backdrop.widget is d
         del d
         app.processEvents()
         assert gone == [True]

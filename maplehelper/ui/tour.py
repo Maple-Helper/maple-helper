@@ -152,8 +152,11 @@ class Tour(QWidget):
                                      -self.overlay.SHADOW - 10, -self.overlay.SHADOW - 10)
         width = min(panel.width(), 420)
         self.card.setFixedWidth(width)
-        self.card.adjustSize()
-        h = self.card.sizeHint().height()
+        # the height the wrapped text needs at this width: sizeHint() measured the labels before they knew their
+        # width, and at the 16 px font the body's last line was cut ("...opens it again anytime, in")
+        lay = self.card.layout()
+        lay.activate()
+        h = max(self.card.sizeHint().height(), lay.totalHeightForWidth(width))
         self.card.resize(width, h)
         x = panel.center().x() - width // 2
         r = self.target()
