@@ -65,3 +65,27 @@ def test_dates_read_oct_6_in_english_and_6_10_in_hebrew():
     assert patchnotes._date(item, False) == "Oct 3" and patchnotes._date({"version": "0.9"}, True) == "0.9"
     r = recent.Recent("item/1", "Snail Shell", f"{this}-10-03")
     assert "Oct 3" in recent.tip(I18n("en"), None, r) and "3.10" in recent.tip(I18n("he"), None, r)
+
+
+def test_english_ui_spells_one_way():
+    """American spelling, "Lv." with its period, the feature's own name "Tracked items" (HEB-15, UX-23)."""
+    en = {k: v["en"] for k, v in STRINGS.items()} | {k: e for k, (_he, e) in glossary.APP.items()}
+    assert not [k for k, e in en.items() if re.search(r"\bLv\b(?!\.)|[Ll]evelled|defence|wishlist", e)]
+    assert not [k for k, e in en.items() if re.search(r"\bin settings\b|Open settings", e)]
+
+
+def test_adding_a_character_ends_with_add_character(isolated_store):
+    """The Add character window's last button read "Done, let's play!", the first run's words (UX-23)."""
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.dialogs import Onboarding
+    s = isolated_store.Settings()
+    s["language"] = "en"
+    dlg = Onboarding(s, isolated_store.Profiles(), KnowledgeBase(Path(__file__).parent / "fixtures" / "kb"),
+                     lambda *_: "", only_character=True)
+    dlg.stack.setCurrentIndex(dlg.stack.count() - 1)
+    dlg._update_nav()
+    assert dlg.next.text() == "Add character"
+    dlg.close()

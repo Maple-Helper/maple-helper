@@ -909,7 +909,8 @@ class Onboarding(GlassDialog):
         i = self.stack.currentIndex()
         self.back.setVisible(i > 0)
         last = i == self.stack.count() - 1
-        finish = self.t("save_changes") if self.edit_id else self.t("ob_finish")
+        # adding a character from the app (not the first run) says so, not "Done, let's play!" (UX-23)
+        finish = self.t("save_changes") if self.edit_id else self.t("add_character" if self.only_character else "ob_finish")
         self.next.setText(bidi.plain(finish if last else self.t("ob_next"), self.t.rtl))
         self.next.setEnabled(self._current_ok())
 

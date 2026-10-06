@@ -290,7 +290,7 @@ def test_route_page(world, qt, isolated_store, lang):
     d = ToolsDialog(kb, p, isolated_store.Settings(), lang, "", {}, "route")
     try:
         assert d.route_from.text() == "Snail Garden"            # from the character's map
-        assert any("Pick where to" in lb.text() or "בחרו לאן" in lb.text() for lb in d.pages["route"].findChildren(QLabel))
+        assert any("Pick a destination" in lb.text() or "בחרו לאן" in lb.text() for lb in d.pages["route"].findChildren(QLabel))
         d.route_to_map(f"map/{PERION}")
         assert d.stack.currentIndex() == PAGES.index("route") and d.route_to.text() == "Perion"
         steps = [w for w in d.pages["route"].findChildren(QFrame, "Card") if w.isVisibleTo(d)]
