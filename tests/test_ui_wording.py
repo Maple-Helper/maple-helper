@@ -97,3 +97,9 @@ def test_english_ui_says_database_and_names_the_app_one_way():
     en = {k: v["en"] for k, v in STRINGS.items() if k != "sell_q"}
     assert not [k for k, e in en.items() if re.search(r"knowledge.base", e, re.I)]
     assert not [k for k, e in en.items() if re.search(r"\b(the helper|the app)\b|^I\b|[.:] I\b|\bI'll\b", e, re.I)]
+
+
+def test_official_facts_say_job_in_the_apps_word():
+    """The UI says "ג'וב", so the facts do too, not a literal "עבודה" (AST-13)."""
+    from maplehelper import official
+    assert not [f["id"] for f in official.facts() if "עבודה" in f["he"]]

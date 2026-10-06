@@ -5,7 +5,7 @@
       "id": "first-job-level",
       "added": "2026-10-05",
       "en": "Every 1st job advancement, all four (Warrior, Magician, Bowman, Thief), opens at level 10.",
-      "he": "כל עבודה ראשונה, כל אחת מהארבע (Warrior, Magician, Bowman, Thief), נפתחת ברמה 10.",
+      "he": "הג'וב הראשון בכל ארבעת הקלאסים (Warrior, Magician, Bowman, Thief) נפתח ברמה 10.",
       "first_job_level": {"Warrior": 10, "Magician": 10, "Bowman": 10, "Thief": 10}
     }
   ]
