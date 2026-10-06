@@ -220,30 +220,54 @@ def real():
     return kb, routes.of(kb)
 
 
+def _sound(kb, g, r, a, b):
+    """A route as it must be whatever the game adds: from a to b, every step a real edge of the graph (a portal one
+    of routes.json's own), every map open and on a continent the release guide confirms."""
+    from maplehelper import availability
+    o = availability.of(kb)
+    assert r and g.name(r.end) == b
+    assert [leg.frm for leg in r.legs] == r.maps[:-1]                              # one step after another
+    assert all(leg in g.edges[leg.frm] for leg in r.legs)
+    raw = {str(m["id"]): {str(p.get("to")) for p in m.get("portals") or []}
+           for m in json.loads((REAL_KB / routes.ROUTES_FILE).read_text(encoding="utf-8"))["maps"]}
+    assert all(leg.to in raw[leg.frm] for leg in r.legs if leg.kind == "portal")
+    assert all(o.entity_open(f"map/{m}") and g.maps[m].continent in o.confirmed for m in r.maps)  # never through Ossyria
+
+
 @needs_routes
 @pytest.mark.parametrize("a,b,first", [
     ("Henesys", "Kerning City", "taxi"), ("Lith Harbor", "Sleepywood", "taxi"), ("Ellinia", "Perion", "taxi"),
     ("Southperry", "Lith Harbor", "boat"), ("Henesys", "Florina Beach", "taxi"),
 ])
 def test_real_routes(real, a, b, first):
-    from maplehelper import availability
     kb, g = real
     r = g.route(g.find(a), g.find(b))
-    assert r and r.legs[0].kind == first and g.name(r.end) == b
-    assert all(availability.of(kb).entity_open(f"map/{m}") for m in r.maps)      # never through Ossyria
-    assert all(g.maps[m].continent in ("Victoria Island", "Maple Island") for m in r.maps)
+    _sound(kb, g, r, a, b)
+    # the cab (the boat) is taken while the KB has one there: a fare change or a cab gone doesn't stop the nightly,
+    # a router that ignores it does (the exact routing is test_portals_go_one_way_and_a_short_walk_beats_a_cab and the other fixture tests)
+    if any(leg.kind == first for leg in g.edges[r.start]):
+        assert r.legs[0].kind == first
 
 
 @needs_routes
 def test_real_walks_and_closed_places(real):
+    from maplehelper import availability
     kb, g = real
+    o = availability.of(kb)
     walk = g.route(g.find("Lith Harbor"), g.find("Sleepywood"), taxi=False)
-    assert walk and all(leg.kind == "portal" for leg in walk.legs) and len(walk.legs) > 5
-    assert g.find("Orbis") is None and g.not_in_game("Orbis") and g.find("El Nath") is None
-    # Victoria Island can't reach Maple Island (the boat from Southperry goes one way)
-    assert g.route(g.find("Henesys"), g.find("Southperry")) is None
+    _sound(kb, g, walk, "Lith Harbor", "Sleepywood")
+    assert all(leg.kind == "portal" for leg in walk.legs) and len(walk.legs) > 1
+    # Orbis and El Nath: not found while the guide keeps Ossyria shut, found once it opens
+    for town in ("Orbis", "El Nath"):
+        assert (g.find(town) is None) == (not o.place_open(town))
+    assert g.not_in_game("Orbis") == (not o.place_open("Orbis"))
+    # Victoria Island reaches Maple Island only if some step leads there (today: none, Shanks' boat goes one way)
+    maple = {m for m, info in g.maps.items() if info.continent == "Maple Island"}
+    into = any(leg.to in maple for frm, legs in g.edges.items() if frm not in maple for leg in legs)
+    assert (g.route(g.find("Henesys"), g.find("Southperry")) is None) == (not into)
     text = routes.ai_context(kb, "איך מגיעים מהניסיס לסליפיווד?", None)
-    assert "From Henesys to Sleepywood" in text and "Ossyria" not in text
+    assert "From Henesys to Sleepywood" in text
+    assert all(c not in text for c in o.continents - o.confirmed if not o.place_open(c))
 
 
 # ---------------------------------------------------------------- Play tools and the chat card
@@ -324,5 +348,14 @@ def test_a_map_card_offers_the_way_there(world, qt):
 def test_the_no_cab_way_from_maple_island_is_not_called_free():
     """The walk from Southperry still starts with Shanks' boat (300 mesos): "free" only when no step costs."""
     from maplehelper.kb import KnowledgeBase
-    text = routes.ai_context(KnowledgeBase(REAL_KB), "how do I get from Southperry to Henesys?")
-    assert "Without a cab (no cab, but the boat still costs mesos)" in text and "(free)" not in text
+    kb = KnowledgeBase(REAL_KB)
+    g = routes.of(kb)
+    text = routes.ai_context(kb, "how do I get from Southperry to Henesys?")
+    a, b = g.find("Southperry"), g.find("Henesys")
+    r, walk = g.route(a, b), g.route(a, b, taxi=False)
+    # by what the walk itself takes (today Shanks' boat first), not by tonight's fares or ferries
+    if r and walk and any(leg.kind == "taxi" for leg in r.legs):
+        cost = "free" if not walk.paid else "no cab, but the boat still costs mesos"
+        assert f"Without a cab ({cost})" in text and ("(free)" in text) == (not walk.paid)
+    else:
+        assert "Without a cab" not in text

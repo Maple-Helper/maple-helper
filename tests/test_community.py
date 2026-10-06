@@ -393,10 +393,23 @@ def test_real_community_json_loads_and_maps_to_kb_keys():
     monsters = data["monsters"]
     assert len([m for m in monsters.values() if m["drops"]]) >= 50
     assert len([m for m in monsters.values() if m["mesos"]]) >= 20
-    snail = kb.monster_keys("Snail")[0]
-    assert kb.community_drops(snail) and "Snail Shell" in [kb.get(d["item"])["name"] for d in kb.community_drops(snail)]
+    # players vote every night: no live drop or vote is named (the exact reading is the fixture tests above); what
+    # the app shows of each monster is what community.json says, read here on its own
+    open_ = availability.of(kb)
+    for key, m in monsters.items():
+        if not open_.monster_key_open(key):
+            assert kb.community_drops(key) == [] and kb.community_mesos(key) is None      # not in the game
+            continue
+        want = {d["item"] for d in m["drops"] if kb.get(d["item"])
+                and (d["score"] if isinstance(d.get("score"), (int, float)) else d["up"] - d["down"]) >= COMMUNITY_MIN_SCORE}
+        got = kb.community_drops(key)
+        assert {d["item"] for d in got} == want, key
+        assert [d["score"] for d in got] == sorted((d["score"] for d in got), reverse=True)    # best confirmed first
+        mesos = m["mesos"] if isinstance(m["mesos"], dict) and m["mesos"].get("count") \
+            and isinstance(m["mesos"].get("min"), (int, float)) else None
+        assert (kb.community_mesos(key) or (None,))[0] == (int(mesos["min"]) if mesos else None), key
     shown = [m for m in monsters if kb.community_drops(m)]
-    assert all(availability.of(kb).monster_key_open(m) for m in shown)
+    assert len(shown) >= 50 and all(open_.monster_key_open(m) for m in shown)
 
 
 def test_an_item_tile_has_the_wishlist_star_and_the_tiles_name_their_stats_build(ckb, app, isolated_store):

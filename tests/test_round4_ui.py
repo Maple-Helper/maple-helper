@@ -1,6 +1,7 @@
 """Round 4 UI and logic fixes (offscreen Qt): keyboard focus, tab order, history paging, pins, confirmations,
 language switches, prices, profile safety (another character), the ⟳ sync, and the worker-thread reads."""
 import os
+import re
 import time
 from types import SimpleNamespace
 
@@ -558,9 +559,28 @@ def test_real_kb_shop_grades_and_unpriced_sellers():
     from maplehelper.kb import KnowledgeBase
     real = KnowledgeBase(Path(REAL_KB))
     try:
-        # pages/item/274.md: Max City General Store, "COT2 prices Citizen of Honor +"
-        assert "Citizen of Honor" in market.npc_prices(real, "item/274").ranks.values()
-        # pages/item/241.md: Jane in Lith Harbor sells it with "-" for a price
-        assert any(n == "Jane" for n, _ in market.npc_prices(real, "item/241").unpriced)
+        # every shop list in the KB, read here line by line, against what npc_prices makes of it: a price, a "-"
+        # with no price (pages/item/241.md: Jane), a "<build> prices <grade> +" grade (pages/item/274.md: Citizen
+        # of Honor). The exact parse is test_unpriced_sellers_and_citizen_grades; here no live shop or grade is
+        # named, so a store changing its stock or grades doesn't stop the nightly
+        priced = unpriced = graded = 0
+        for key, e in real.entities.items():
+            if e.get("category") != "item":
+                continue
+            lines = [ln.strip() for ln in real.page(key).split("\n---", 2)[-1].splitlines()]
+            if "Where to buy" not in lines:
+                continue
+            i, blocks = lines.index("Where to buy") + 1, []
+            while i + 3 < len(lines) and lines[i + 3] == "mesos":
+                grade = lines[i + 4] if i + 4 < len(lines) and re.match(r"^\S+ prices\b", lines[i + 4]) else None
+                blocks.append((lines[i + 2], grade))
+                i += 5 if grade else 4
+            p = market.npc_prices(real, key)
+            assert len(p.shops) + len(p.unpriced) == len(blocks), key
+            assert len(p.unpriced) == sum(1 for price, _ in blocks if price == "-"), key
+            grades = {g.split(" prices", 1)[1].rstrip("+ ").strip() for _, g in blocks if g and g.endswith("+")}
+            assert set(p.ranks.values()) == grades - {""}, key
+            priced, unpriced, graded = priced + len(p.shops), unpriced + len(p.unpriced), graded + len(p.ranks)
+        assert priced > 200 and graded > 0          # a broken page scrape reads no shops (or no grades) at all
     finally:
         bidi.set_names([])

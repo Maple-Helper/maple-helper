@@ -386,8 +386,15 @@ def test_no_drop_price_or_stat_without_a_source(real):
     assert labelled > 500
     for g in real.drop_groups([k for k in real.droppers][:200], limit=200):
         assert set(g["sources"]) == set(g["items"]) and all(g["sources"].values())
-    for key in ("monster/700000", "monster/700002", "monster/700003", "monster/700004"):
-        assert sources.respawn_source(real, key) == ("COT2", True)
+    # every boss timer's line, read here, against respawn_source (the exact parse: test_respawn_timer_source); no
+    # boss or build named, so a timer confirmed or a new build doesn't stop the nightly
+    timers = 0
+    for key, e in real.entities.items():
+        if e.get("category") == "monster":
+            line = next((ln for ln in sources._body(real.page(key)) if FAMILIES["respawn"].search(ln)), None)
+            assert sources.respawn_source(real, key) == ((line.split()[0], "unconfirmed" in line) if line else None)
+            timers += bool(line)
+    assert timers
 
 
 @needs_kb
