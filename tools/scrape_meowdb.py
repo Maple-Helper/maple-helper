@@ -175,12 +175,20 @@ def image_candidates(entity: dict, category: str, slug: str, name: str) -> list[
     return out
 
 
-def save_image(data: bytes, path: Path) -> bool:
-    """Store as PNG (the site serves some pictures as WebP)."""
+# a guide's picture is the site's 1200x630 social card: the app shows it as a 44 px list icon and, on hover, at
+# 480 px (ui/guides.py COVER_W). Stored at that width the 32 cards take 2.4 MB, not 6.1.
+GUIDE_IMG_W = 480
+
+
+def save_image(data: bytes, path: Path, max_w: int | None = None) -> bool:
+    """Store as PNG (the site serves some pictures as WebP), no wider than max_w."""
     try:
         import io
         from PIL import Image
-        Image.open(io.BytesIO(data)).save(path, "PNG")
+        img = Image.open(io.BytesIO(data))
+        if max_w and img.width > max_w:
+            img = img.resize((max_w, round(img.height * max_w / img.width)), Image.LANCZOS)
+        img.save(path, "PNG")
         return True
     except Exception:
         return False
@@ -227,7 +235,7 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
         for img_url in image_candidates(entity, category, slug, name):
             data = fetch(img_url, binary=True)
             time.sleep(DELAY_SECONDS / 2)
-            if data and save_image(data, img_path):
+            if data and save_image(data, img_path, GUIDE_IMG_W if category == "guide" else None):
                 break
     if img_path.exists():
         img_file = f"img/{category}/{slug}.png"
