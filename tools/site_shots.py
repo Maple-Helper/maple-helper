@@ -120,6 +120,7 @@ if what in ("all", "guide"):
 if what in ("all", "settings"):
     from maplehelper.ui.dialogs import SettingsDialog
     d = SettingsDialog(s, p, kb, lambda o=1.0: css)
+    d.resize(500, 720)      # its own height fits the screen: offscreen's 800x600 at 2.5x left 320 px, Display only
     d.show()
     grab(d, f"settings-{MODE}{SUF}.png")
     d.close()

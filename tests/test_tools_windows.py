@@ -214,6 +214,22 @@ def test_wishlist_shows_only_droppers_and_maps_in_the_game(real_kb):
     d.close()
 
 
+@needs_kb
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_wishlist_rows_fit_the_window(real_kb, lang):
+    from PySide6.QtWidgets import QScrollArea
+    from maplehelper.ui.wishlist import WishlistDialog
+    # the site's shot: Dark Stone Golem's row (name + Lv, Community, Single report, Updated in one row) was 570 px
+    # wide in a 434 px view, so every row was cut off at the edge
+    from maplehelper.ui import theme
+    d = WishlistDialog(["item/298", "item/379"], real_kb, lang, theme.stylesheet(theme.load_fonts(), 14))
+    d.show()
+    pump(60)
+    scroll = d.findChild(QScrollArea)
+    assert scroll.widget().minimumSizeHint().width() <= scroll.viewport().width()
+    d.close()
+
+
 # ------------------------------------------------------------------ guides
 
 GUIDES = {f"guide/{slug}": {"category": "guide", "name": name} for slug, name in (

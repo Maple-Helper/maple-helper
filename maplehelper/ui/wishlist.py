@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollA
 from .. import availability, bidi, quick, sources
 from ..i18n import I18n
 from ..kb import KnowledgeBase
-from .controls import rtl_buttons
+from .controls import FlowLayout, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
 from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
@@ -149,7 +149,12 @@ class WishlistDialog(GlassDialog):
         # and a KB update this week that changed the monster
         chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else [])             + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
-            col.addLayout(chip_row(chips, title))
+            # a flow, not one row: name + Lv, "Community", "Single report" and "Updated" in one row were 570 px
+            # and pushed the whole window wider than its 434 px view, clipping every row (the site's shot)
+            flow = FlowLayout(spacing=6, line_spacing=2)
+            for w in [title, *chips]:
+                flow.addWidget(w)
+            col.addLayout(flow)
         else:
             col.addWidget(title)
         if maps:
