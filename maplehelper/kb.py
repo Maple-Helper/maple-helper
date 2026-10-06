@@ -87,6 +87,13 @@ ALIAS_SET = {
 # NPCs of the KB named like an everyday English word: an answer saying "Max HP" or "River" at a sentence start
 # names no NPC (the AI lists the NPCs it means in its META entities, those still get a card)
 COMMON_WORD_NPCS = {"Max", "River", "Anvil", "Oak", "Jack", "Pan", "Chef", "Statue", "Flint", "Rain", "Exit", "Silver"}
+# Everyday Hebrew the app's texts no longer write but players do (_hebrew_words): the guides talk to the reader in
+# the plural now (owner's rule), a player asks in the singular ("המוב שלפניך" is no Panic), and says לבל/גרינד
+PLAYER_HEBREW = (
+    "אתה שלך לך ממך אותך בך בשבילך עליך לפניך שלפניך בינך אליך איתך מולך אחריך לעצמך "
+    "מכיר מעדיף מצפה מתכנן ממוקם מטיל ומטיל מגביל מתקזז קודמים גבוהים המאוחרים שמופיעים שהחזקת הסתיים "
+    "חזור תביא תדליק תוציא תחליט תחליף תחפש תטיל תירשם תכבה תסקרל תעבור תעלה תפליג ותבנה ותמלא ותפעיל "
+    "ותשווה ותתחיל לבל לבלים לבלינג הלבלינג שלבלי שלבלים גרינד בגרינד מגרינדים הושלם מתוכנן")
 NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant form ("פיה" -> "פי" is no name)
 # the part of a name that marks one variant of an entity: "Nella (KPQ 1st Stage)", "Forgotten Hollow Instance 080003500"
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
@@ -475,6 +482,7 @@ class KnowledgeBase:
         Eurek; "שעות" "hours", not Shout; "לפניך" "in front of you", not Panic). Read once (~90 ms)."""
         from .i18n import STRINGS
         texts = [str(v.get("he", "")) for v in STRINGS.values() if isinstance(v, dict)]
+        texts.append(PLAYER_HEBREW)
 
         def walk(x) -> None:
             if isinstance(x, str):
