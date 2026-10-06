@@ -39,7 +39,7 @@ def test_a_night_translates_only_what_is_missing_and_publishes_it(tmp_path, monk
     backlog = translate_kb.missing(kb)
     if backlog:
         warnings.warn(f"{len(backlog)} KB texts have no Hebrew yet: "
-                      + ", ".join(f"{j['kind']}:{j['key']}" for j in backlog[:10]))
+                      + ", ".join(f"{j['kind']}:{j['key']}" for j in backlog[:10]), stacklevel=1)
         monkeypatch.setattr(translate_kb, "translate", fake)
         monkeypatch.setattr(translate_kb, "MAX_TEXTS", 10 ** 6)
         translate_kb.run(kb, "key")
