@@ -437,3 +437,25 @@ def test_settings_of_the_wrong_type_load_as_the_default(isolated_store):
     # shapes kept on purpose, None-default settings and unknown keys are untouched
     assert s["usage_warned"] == [123, "high"] and s.api_key_mode("claude") and s["window"] == {"x": 1}
     assert s.data["future_key"] == 5
+
+
+def test_a_startup_bug_offers_the_latest_version(tmp_path, monkeypatch):
+    # LIF-2: a release that fails at start never runs its own update check: the box offers the newest installer
+    import ctypes
+    import sys
+    import webbrowser
+
+    import pytest
+
+    from maplehelper import setupwait, store
+    if sys.platform != "win32":
+        pytest.skip("the Windows message box")
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    shown, opened = [], []
+    monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", lambda *a: shown.append(a) or 6)
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+    setupwait.report_broken_install(RuntimeError("boom in start()"))
+    assert "startup-error.log" in shown[0][1] and shown[0][3] & 0x4      # Yes/No
+    assert opened == [setupwait.DOWNLOAD_URL]
+    for lang in ("he", "en"):
+        assert setupwait.STARTUP_NEWER_TEXT[lang]

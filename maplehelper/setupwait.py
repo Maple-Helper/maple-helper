@@ -83,6 +83,11 @@ STARTUP_TEXT = {
     "en": "Maple Helper couldn't start. The details were saved to:\n%s\n\nYou can send it to us (Report a problem), "
           "or try restarting the PC.",
 }
+# a release that fails at start never reaches its own update check: the way out is the latest installer
+STARTUP_NEWER_TEXT = {
+    "he": "ייתכן שגרסה חדשה יותר כבר מתקנת את זה. להוריד את הגרסה האחרונה?",
+    "en": "A newer version may already fix this. Download the latest version?",
+}
 
 
 RELEASES_URL = "https://github.com/Maple-Helper/maple-helper/releases/latest"
@@ -162,8 +167,12 @@ def report_broken_install(exc: BaseException) -> None:
         except Exception:
             where = "startup-error.log"
         rtl = MB_RIGHT | MB_RTLREADING if lang == "he" else 0
-        ctypes.windll.user32.MessageBoxW(None, STARTUP_TEXT.get(lang, STARTUP_TEXT["en"]) % where, "Maple Helper",
-                                         MB_ICONERROR | MB_SETFOREGROUND | rtl)
+        text = STARTUP_TEXT.get(lang, STARTUP_TEXT["en"]) % where + "\n\n" + \
+            STARTUP_NEWER_TEXT.get(lang, STARTUP_NEWER_TEXT["en"])
+        if ctypes.windll.user32.MessageBoxW(None, text, "Maple Helper",
+                                            MB_YESNO | MB_ICONERROR | MB_SETFOREGROUND | rtl) == IDYES:
+            import webbrowser
+            webbrowser.open(DOWNLOAD_URL)       # always the latest release's installer
         return
     # one language per box: Hebrew in a left-to-right box came out scrambled (seen in testing)
     flags = MB_YESNO | MB_ICONERROR | MB_SETFOREGROUND | (MB_RIGHT | MB_RTLREADING if lang == "he" else 0)
