@@ -1,0 +1,1118 @@
+{
+ "skill/beginner__three-snails": {
+  "en": "Hurls snail shells to attack monsters from long distance.",
+  "he": "זורקים קונכיות של חלזונות ותוקפים מפלצות מרחוק."
+ },
+ "skill/beginner__three-snails#1": {
+  "en": "Snail Shell -1, MP -3; Damage 15",
+  "he": "עולה 1 Snail Shell ו-3 MP; נזק 15"
+ },
+ "skill/beginner__three-snails#max": {
+  "en": "Red Snail Shell -1, MP -5; Damage 40",
+  "he": "עולה 1 Red Snail Shell ו-5 MP; נזק 40"
+ },
+ "skill/beginner__recovery": {
+  "en": "Enables the user to recover HP constantly for 30 sec.",
+  "he": "מחזיר HP ברציפות למשך 30 שניות."
+ },
+ "skill/beginner__recovery#1": {
+  "en": "MP -5; Recover HP 24 in 30 sec. Cooldown: 2 min.",
+  "he": "עולה 5 MP; מחזיר 24 HP במשך 30 שניות. קולדאון: 2 דקות."
+ },
+ "skill/beginner__recovery#max": {
+  "en": "MP -15; Recover HP 72 in 30 sec. Cooldown: 2 min.",
+  "he": "עולה 15 MP; מחזיר 72 HP במשך 30 שניות. קולדאון: 2 דקות."
+ },
+ "skill/beginner__nimble-feet": {
+  "en": "Enables the character to move around quickly for a short amount of time.",
+  "he": "הדמות זזה מהר יותר לזמן קצר."
+ },
+ "skill/beginner__nimble-feet#1": {
+  "en": "MP -4; speed +10 for 10 sec. Cooldown: 3 min.",
+  "he": "עולה 4 MP; מהירות +10 למשך 10 שניות. קולדאון: 3 דקות."
+ },
+ "skill/beginner__nimble-feet#max": {
+  "en": "MP -10; speed +10 for 30 sec. Cooldown: 3 min.",
+  "he": "עולה 10 MP; מהירות +10 למשך 30 שניות. קולדאון: 3 דקות."
+ },
+ "skill/warrior__improved-hp-recovery": {
+  "en": "HP naturally regenerates over time, not just when standing still. Also, HP recovery from items is boosted.",
+  "he": "ה-HP מתמלא לבד עם הזמן, לא רק כשעומדים במקום. בנוסף, פריטים מחזירים יותר HP."
+ },
+ "skill/warrior__improved-hp-recovery#1": {
+  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 5%",
+  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 5% יותר HP"
+ },
+ "skill/warrior__improved-hp-recovery#max": {
+  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 20%",
+  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 20% יותר HP"
+ },
+ "skill/warrior__max-hp-increase": {
+  "en": "Max HP increases.",
+  "he": "מגדיל את ה-Max HP."
+ },
+ "skill/warrior__max-hp-increase#1": {
+  "en": "Max HP +10%",
+  "he": "מגדיל את ה-Max HP ב-10%"
+ },
+ "skill/warrior__max-hp-increase#max": {
+  "en": "Max HP +25%",
+  "he": "מגדיל את ה-Max HP ב-25%"
+ },
+ "skill/warrior__precise-strikes": {
+  "en": "Repeated practice with your weapon has increased your Accuracy and Critical Rate.",
+  "he": "אימון חוזר עם הנשק העלה לכם את ה-ACC ואת הסיכוי לקריטי."
+ },
+ "skill/warrior__precise-strikes#1": {
+  "en": "Accuracy +5, Critical Rate +1%",
+  "he": "ACC +5, סיכוי לקריטי +1%"
+ },
+ "skill/warrior__precise-strikes#max": {
+  "en": "Accuracy +20, Critical Rate +5%",
+  "he": "ACC +20, סיכוי לקריטי +5%"
+ },
+ "skill/warrior__iron-body": {
+  "en": "Temporarily increases your Weapon Defense.",
+  "he": "מעלה לזמן מוגבל את ההגנה הפיזית שלכם."
+ },
+ "skill/warrior__iron-body#1": {
+  "en": "MP -15; Weapon Def. +5% for 300 sec",
+  "he": "עולה 15 MP; הגנה פיזית +5% למשך 300 שניות"
+ },
+ "skill/warrior__iron-body#max": {
+  "en": "MP -15; Weapon Def. +25% for 600 sec",
+  "he": "עולה 15 MP; הגנה פיזית +25% למשך 600 שניות"
+ },
+ "skill/warrior__power-strike": {
+  "en": "Use MP to deliver a killer blow to a single monster with your weapon.",
+  "he": "מכה רצחנית עם הנשק במפלצת אחת, בתמורה ל-MP."
+ },
+ "skill/warrior__power-strike#1": {
+  "en": "MP -4; Damage 160%",
+  "he": "עולה 4 MP; נזק 160%"
+ },
+ "skill/warrior__power-strike#max": {
+  "en": "MP -12; Damage 260%",
+  "he": "עולה 12 MP; נזק 260%"
+ },
+ "skill/warrior__slash-blast": {
+  "en": "Use HP and MP to attack up to 4 enemies around you with your weapon.",
+  "he": "תוקפים עם הנשק עד 4 אויבים מסביבכם, בתמורה ל-HP ו-MP."
+ },
+ "skill/warrior__slash-blast#1": {
+  "en": "HP -3; MP -4; Damage 70%",
+  "he": "עולה 3 HP ו-4 MP; נזק 70%"
+ },
+ "skill/warrior__slash-blast#max": {
+  "en": "HP -8; MP -12; Damage 130%",
+  "he": "עולה 8 HP ו-12 MP; נזק 130%"
+ },
+ "skill/fighter__axe-mastery": {
+  "en": "Increases Axe Mastery, and attacks have a chance to inflict a bleeding effect on the target when attacking. It only applies when a one-handed or two-handed axe is equipped.",
+  "he": "מעלה את ה-Axe Mastery, ולהתקפות יש סיכוי לגרום למטרה לדמם. עובד רק עם גרזן ביד אחת או בשתי ידיים."
+ },
+ "skill/fighter__axe-mastery#1": {
+  "en": "Axe Mastery level 1, 5% chance to inflict bleed, dealing 40% total damage over 3 sec",
+  "he": "רמת Axe Mastery: 1, סיכוי של 5% לדימום שגורם 40% נזק בסך הכול במשך 3 שניות"
+ },
+ "skill/fighter__axe-mastery#max": {
+  "en": "Axe Mastery level 10, 25% chance to inflict bleed, dealing 100% total damage over 3 sec",
+  "he": "רמת Axe Mastery: 10, סיכוי של 25% לדימום שגורם 100% נזק בסך הכול במשך 3 שניות"
+ },
+ "skill/fighter__sword-mastery": {
+  "en": "Increases Sword Mastery and Weapon Defense. It only applies when a one-handed or two-handed sword is equipped.",
+  "he": "מעלה את ה-Sword Mastery ואת ההגנה הפיזית. עובד רק עם חרב ביד אחת או בשתי ידיים."
+ },
+ "skill/fighter__sword-mastery#1": {
+  "en": "Sword Mastery level 1, Weapon Def. +30",
+  "he": "רמת Sword Mastery: 1, הגנה פיזית +30"
+ },
+ "skill/fighter__sword-mastery#max": {
+  "en": "Sword Mastery level 10, Weapon Def. +90",
+  "he": "רמת Sword Mastery: 10, הגנה פיזית +90"
+ },
+ "skill/fighter__final-attack-sword": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to up to three enemies. This skill only activates when a one-handed or two-handed sword is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לעד שלושה אויבים. עובד רק עם חרב ביד אחת או בשתי ידיים. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/fighter__final-attack-sword#1": {
+  "en": "20% success rate, Final Attack with sword damage 110% to up to 3 enemies",
+  "he": "סיכוי הצלחה 20%, Final Attack עם חרב בנזק 110% לעד 3 אויבים"
+ },
+ "skill/fighter__final-attack-sword#max": {
+  "en": "50% success rate, Final Attack with sword damage 140% to up to 3 enemies",
+  "he": "סיכוי הצלחה 50%, Final Attack עם חרב בנזק 140% לעד 3 אויבים"
+ },
+ "skill/fighter__sword-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped sword. It only applies when a one-handed or two-handed sword is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של החרב שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם חרב ביד אחת או בשתי ידיים."
+ },
+ "skill/fighter__sword-booster#1": {
+  "en": "HP -30, MP -30; Increases Sword Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם חרב עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/fighter__sword-booster#max": {
+  "en": "HP -10, MP -10; Increases Sword Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם חרב עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/fighter__final-attack-axe": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to up to three enemies. This skill only activates when a one-handed or two-handed axe is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לעד שלושה אויבים. עובד רק עם גרזן ביד אחת או בשתי ידיים. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/fighter__final-attack-axe#1": {
+  "en": "20% success rate, Final Attack with axe damage 110% to up to 3 enemies",
+  "he": "סיכוי הצלחה 20%, Final Attack עם גרזן בנזק 110% לעד 3 אויבים"
+ },
+ "skill/fighter__final-attack-axe#max": {
+  "en": "50% success rate, Final Attack with axe damage 140% to up to 3 enemies",
+  "he": "סיכוי הצלחה 50%, Final Attack עם גרזן בנזק 140% לעד 3 אויבים"
+ },
+ "skill/fighter__axe-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped axe. It only applies when a one-handed or a two-handed axe is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של הגרזן שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם גרזן ביד אחת או בשתי ידיים."
+ },
+ "skill/fighter__axe-booster#1": {
+  "en": "HP -30, MP -30; Increases Axe Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם גרזן עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/fighter__axe-booster#max": {
+  "en": "HP -10, MP -10; Increases Axe Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם גרזן עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/fighter__rage": {
+  "en": "Temporarily increases the Attack Power of everyone in the party around the area, but also decreases Weapon Def.",
+  "he": "מעלה לזמן מוגבל את כוח ההתקפה של כל מי שבפארטי באזור, אבל גם מוריד את ההגנה הפיזית."
+ },
+ "skill/fighter__rage#1": {
+  "en": "MP -10; Attack Power +10, Weapon Def. -10 for 150 sec",
+  "he": "עולה 10 MP; כוח התקפה +10, הגנה פיזית -10 למשך 150 שניות"
+ },
+ "skill/fighter__rage#max": {
+  "en": "MP -25; Attack Power +40, Weapon Def. -40 for 300 sec",
+  "he": "עולה 25 MP; כוח התקפה +40, הגנה פיזית -40 למשך 300 שניות"
+ },
+ "skill/fighter__rush": {
+  "en": "Rushes forward a certain distance in the direction you are facing. If there are monsters within the rush range, you can deal damage to up to 4 of them and knock them back a certain distance. While rushing, you will not be knocked back even if attacked by monsters.",
+  "he": "מסתערים קדימה למרחק מסוים, לכיוון שאתם פונים אליו. אם יש מפלצות בטווח ההסתערות, אפשר לפגוע בעד 4 מהן ולהדוף אותן אחורה. בזמן ההסתערות שום מפלצת לא הודפת אתכם, גם אם היא פוגעת בכם."
+ },
+ "skill/fighter__rush#1": {
+  "en": "MP -40; Rush, with 130 in distance; Damage 60%",
+  "he": "עולה 40 MP; הסתערות למרחק 130; נזק 60%"
+ },
+ "skill/fighter__rush#max": {
+  "en": "MP -20; Rush, with 150 in distance; Damage 80%",
+  "he": "עולה 20 MP; הסתערות למרחק 150; נזק 80%"
+ },
+ "skill/page__sword-mastery": {
+  "en": "Increases Sword Mastery and Weapon Defense. It only applies when a one-handed or two-handed sword is equipped.",
+  "he": "מעלה את ה-Sword Mastery ואת ההגנה הפיזית. עובד רק עם חרב ביד אחת או בשתי ידיים."
+ },
+ "skill/page__sword-mastery#1": {
+  "en": "Sword Mastery level 1, Weapon Def. +30",
+  "he": "רמת Sword Mastery: 1, הגנה פיזית +30"
+ },
+ "skill/page__sword-mastery#max": {
+  "en": "Sword Mastery level 10, Weapon Def. +90",
+  "he": "רמת Sword Mastery: 10, הגנה פיזית +90"
+ },
+ "skill/page__blunt-weapon-mastery": {
+  "en": "Increases Blunt Weapon Mastery and gives a chance to deal damage that ignores the target's Weapon Def. This skill only applies when a one-handed or two-handed blunt weapon is equipped.",
+  "he": "מעלה את ה-Blunt Weapon Mastery ונותן סיכוי לנזק שמתעלם מההגנה הפיזית של המטרה. עובד רק עם נשק קהה ביד אחת או בשתי ידיים."
+ },
+ "skill/page__blunt-weapon-mastery#1": {
+  "en": "Blunt Weapon Mastery level 1, 1% chance to ignore enemy Weapon Def.",
+  "he": "רמת Blunt Weapon Mastery: 1, סיכוי של 1% להתעלם מההגנה הפיזית של האויב"
+ },
+ "skill/page__blunt-weapon-mastery#max": {
+  "en": "Blunt Weapon Mastery level 10, 20% chance to ignore enemy Weapon Def.",
+  "he": "רמת Blunt Weapon Mastery: 10, סיכוי של 20% להתעלם מההגנה הפיזית של האויב"
+ },
+ "skill/page__final-attack-sword": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to a single enemy. This skill only activates when a one-handed or two-handed sword is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב אחד. עובד רק עם חרב ביד אחת או בשתי ידיים. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/page__final-attack-sword#1": {
+  "en": "20% success rate, Final Attack with sword damage 240%",
+  "he": "סיכוי הצלחה 20%, Final Attack עם חרב בנזק 240%"
+ },
+ "skill/page__final-attack-sword#max": {
+  "en": "50% success rate, Final Attack with sword damage 270%",
+  "he": "סיכוי הצלחה 50%, Final Attack עם חרב בנזק 270%"
+ },
+ "skill/page__final-attack-blunt-weapon": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to a single enemy. This skill only activates when a one-handed or two-handed blunt weapon is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב אחד. עובד רק עם נשק קהה ביד אחת או בשתי ידיים. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/page__final-attack-blunt-weapon#1": {
+  "en": "20% success rate, Final Attack with blunt weapon damage 240%",
+  "he": "סיכוי הצלחה 20%, Final Attack עם נשק קהה בנזק 240%"
+ },
+ "skill/page__final-attack-blunt-weapon#max": {
+  "en": "50% success rate, Final Attack with blunt weapon damage 270%",
+  "he": "סיכוי הצלחה 50%, Final Attack עם נשק קהה בנזק 270%"
+ },
+ "skill/page__sword-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped sword. It only applies when a one-handed or two-handed sword is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של החרב שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם חרב ביד אחת או בשתי ידיים."
+ },
+ "skill/page__sword-booster#1": {
+  "en": "HP -30, MP -30; Increases Sword Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם חרב עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/page__sword-booster#max": {
+  "en": "HP -10, MP -10; Increases Sword Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם חרב עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/page__blunt-weapon-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped blunt weapon. It only applies when a one-handed or two-handed blunt weapon is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של הנשק הקהה שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם נשק קהה ביד אחת או בשתי ידיים."
+ },
+ "skill/page__blunt-weapon-booster#1": {
+  "en": "HP -30, MP -30; Increases Blunt Weapon Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם נשק קהה עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/page__blunt-weapon-booster#max": {
+  "en": "HP -10, MP -10; Increases Blunt Weapon Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם נשק קהה עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/page__threaten": {
+  "en": "Use MP to temporarily threaten monsters. Decreases the Movement Speed and Weapon Def. of up to 4 monsters around the area.",
+  "he": "מאיימים על מפלצות לזמן מוגבל, בתמורה ל-MP. מוריד את מהירות התנועה ואת ההגנה הפיזית של עד 4 מפלצות באזור."
+ },
+ "skill/page__threaten#1": {
+  "en": "MP -10; Enemy Speed -5, Weapon Def. -2 for 15 sec",
+  "he": "עולה 10 MP; מהירות האויב -5, הגנה פיזית -2 למשך 15 שניות"
+ },
+ "skill/page__threaten#max": {
+  "en": "MP -25; Enemy Speed -35, Weapon Def. -10 for 30 sec",
+  "he": "עולה 25 MP; מהירות האויב -35, הגנה פיזית -10 למשך 30 שניות"
+ },
+ "skill/page__rush": {
+  "en": "Rushes forward a certain distance in the direction you are facing. If there are monsters within the rush range, you can deal damage to up to 4 of them and knock them back a certain distance. While rushing, you will not be knocked back even if attacked by monsters.",
+  "he": "מסתערים קדימה למרחק מסוים, לכיוון שאתם פונים אליו. אם יש מפלצות בטווח ההסתערות, אפשר לפגוע בעד 4 מהן ולהדוף אותן אחורה. בזמן ההסתערות שום מפלצת לא הודפת אתכם, גם אם היא פוגעת בכם."
+ },
+ "skill/page__rush#1": {
+  "en": "MP -40; Rush, with 130 in distance; Damage 60%",
+  "he": "עולה 40 MP; הסתערות למרחק 130; נזק 60%"
+ },
+ "skill/page__rush#max": {
+  "en": "MP -20; Rush, with 150 in distance; Damage 80%",
+  "he": "עולה 20 MP; הסתערות למרחק 150; נזק 80%"
+ },
+ "skill/spearman__spear-mastery": {
+  "en": "Increases Spear Mastery and Critical Rate. It only applies when a spear is equipped.",
+  "he": "מעלה את ה-Spear Mastery ואת הסיכוי לקריטי. עובד רק עם חנית."
+ },
+ "skill/spearman__spear-mastery#1": {
+  "en": "Spear Mastery level 1, Critical Rate +1%",
+  "he": "רמת Spear Mastery: 1, סיכוי לקריטי +1%"
+ },
+ "skill/spearman__spear-mastery#max": {
+  "en": "Spear Mastery level 10, Critical Rate +20%",
+  "he": "רמת Spear Mastery: 10, סיכוי לקריטי +20%"
+ },
+ "skill/spearman__polearm-mastery": {
+  "en": "Increases Polearm Mastery and movement speed. It only applies when a polearm is equipped.",
+  "he": "מעלה את ה-Polearm Mastery ואת מהירות התנועה. עובד רק עם Polearm."
+ },
+ "skill/spearman__polearm-mastery#1": {
+  "en": "Polearm Mastery level 1, Speed +1",
+  "he": "רמת Polearm Mastery: 1, מהירות +1"
+ },
+ "skill/spearman__polearm-mastery#max": {
+  "en": "Polearm Mastery level 10, Speed +20",
+  "he": "רמת Polearm Mastery: 10, מהירות +20"
+ },
+ "skill/spearman__final-attack-spear": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to the enemy and absorbing a portion of the damage dealt as HP. The amount absorbed per activation cannot exceed 25% of the character's Max HP or the enemy's Max HP. This skill only activates when a spear is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב ומחזיר לכם חלק מהנזק כ-HP. מה שנספג בכל הפעלה לא יכול לעבור 25% מה-Max HP של הדמות או את ה-Max HP של האויב. עובד רק עם חנית. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/spearman__final-attack-spear#1": {
+  "en": "20% success rate, Final Attack with spear damage 230%, absorb 5% of damage as HP",
+  "he": "סיכוי הצלחה 20%, Final Attack עם חנית בנזק 230%, ספיגה של 5% מהנזק כ-HP"
+ },
+ "skill/spearman__final-attack-spear#max": {
+  "en": "50% success rate, Final Attack with spear damage 260%, absorb 10% of damage as HP",
+  "he": "סיכוי הצלחה 50%, Final Attack עם חנית בנזק 260%, ספיגה של 10% מהנזק כ-HP"
+ },
+ "skill/spearman__final-attack-polearm": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to the enemy and absorbing a portion of the damage dealt as HP. The amount absorbed per activation cannot exceed 25% of the character's Max HP or the enemy's Max HP. This skill only activates when a polearm is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב ומחזיר לכם חלק מהנזק כ-HP. מה שנספג בכל הפעלה לא יכול לעבור 25% מה-Max HP של הדמות או את ה-Max HP של האויב. עובד רק עם Polearm. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/spearman__final-attack-polearm#1": {
+  "en": "20% success rate, Final Attack with polearm damage 230%, absorb 5% of damage as HP",
+  "he": "סיכוי הצלחה 20%, Final Attack עם Polearm בנזק 230%, ספיגה של 5% מהנזק כ-HP"
+ },
+ "skill/spearman__final-attack-polearm#max": {
+  "en": "50% success rate, Final Attack with polearm damage 260%, absorb 10% of damage as HP",
+  "he": "סיכוי הצלחה 50%, Final Attack עם Polearm בנזק 260%, ספיגה של 10% מהנזק כ-HP"
+ },
+ "skill/spearman__spear-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped spear. It only applies when a spear is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של החנית שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם חנית."
+ },
+ "skill/spearman__spear-booster#1": {
+  "en": "HP -30, MP -30; Increases Spear Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם חנית עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/spearman__spear-booster#max": {
+  "en": "HP -10, MP -10; Increases Spear Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם חנית עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/spearman__iron-will": {
+  "en": "Temporarily increases the user's Weapon Defense and grants a chance to ignore knockback effects.",
+  "he": "מעלה לזמן מוגבל את ההגנה הפיזית ונותן סיכוי לא להיהדף כשחוטפים מכה."
+ },
+ "skill/spearman__iron-will#1": {
+  "en": "MP -10; Weapon Def. +20, 5% chance to ignore knockbacks for 150 sec",
+  "he": "עולה 10 MP; הגנה פיזית +20 וסיכוי של 5% לא להיהדף, למשך 150 שניות"
+ },
+ "skill/spearman__iron-will#max": {
+  "en": "MP -25; Weapon Def. +50, 35% chance to ignore knockbacks for 300 sec",
+  "he": "עולה 25 MP; הגנה פיזית +50 וסיכוי של 35% לא להיהדף, למשך 300 שניות"
+ },
+ "skill/spearman__polearm-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped polearm. It only applies when a polearm is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של ה-Polearm שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם Polearm."
+ },
+ "skill/spearman__polearm-booster#1": {
+  "en": "HP -30, MP -30; Increases Polearm Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם Polearm עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/spearman__polearm-booster#max": {
+  "en": "HP -10, MP -10; Increases Polearm Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם Polearm עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/spearman__rush": {
+  "en": "Rushes forward a certain distance in the direction you are facing. If there are monsters within the rush range, you can deal damage to up to 4 of them and knock them back a certain distance. While rushing, you will not be knocked back even if attacked by monsters.",
+  "he": "מסתערים קדימה למרחק מסוים, לכיוון שאתם פונים אליו. אם יש מפלצות בטווח ההסתערות, אפשר לפגוע בעד 4 מהן ולהדוף אותן אחורה. בזמן ההסתערות שום מפלצת לא הודפת אתכם, גם אם היא פוגעת בכם."
+ },
+ "skill/spearman__rush#1": {
+  "en": "MP -40; Rush, with 130 in distance; Damage 60%",
+  "he": "עולה 40 MP; הסתערות למרחק 130; נזק 60%"
+ },
+ "skill/spearman__rush#max": {
+  "en": "MP -20; Rush, with 150 in distance; Damage 80%",
+  "he": "עולה 20 MP; הסתערות למרחק 150; נזק 80%"
+ },
+ "skill/magician__improved-mp-recovery": {
+  "en": "The amount of MP that naturally regenerates over time increases. Also, MP recovery from items is boosted.",
+  "he": "ה-MP מתמלא לבד עם הזמן מהר יותר. בנוסף, פריטים מחזירים יותר MP."
+ },
+ "skill/magician__improved-mp-recovery#1": {
+  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 5%",
+  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 5% יותר MP"
+ },
+ "skill/magician__improved-mp-recovery#max": {
+  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 20%",
+  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 20% יותר MP"
+ },
+ "skill/magician__max-mp-increase": {
+  "en": "Max MP increases.",
+  "he": "מגדיל את ה-Max MP."
+ },
+ "skill/magician__max-mp-increase#1": {
+  "en": "Max MP +10%",
+  "he": "מגדיל את ה-Max MP ב-10%"
+ },
+ "skill/magician__max-mp-increase#max": {
+  "en": "Max MP +25%",
+  "he": "מגדיל את ה-Max MP ב-25%"
+ },
+ "skill/magician__magic-guard": {
+  "en": "Replaces a portion of incoming damage with MP instead of HP. If MP reaches 0, all damage is received as HP damage. The effect is activated when used and deactivated when used again.",
+  "he": "חלק מהנזק שאתם חוטפים יורד מה-MP במקום מה-HP. כשה-MP מגיע ל-0, כל הנזק יורד מה-HP. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/magician__magic-guard#1": {
+  "en": "MP -8; Replace 30% of HP damage with MP while active",
+  "he": "עולה 8 MP; כל עוד הוא פעיל, 30% מהנזק יורדים מה-MP במקום מה-HP"
+ },
+ "skill/magician__magic-guard#max": {
+  "en": "MP -12; Replace 80% of HP damage with MP while active",
+  "he": "עולה 12 MP; כל עוד הוא פעיל, 80% מהנזק יורדים מה-MP במקום מה-HP"
+ },
+ "skill/magician__magic-armor": {
+  "en": "Temporarily boosts Weapon Def. and Magic Def. by concentrating magic into your armor.",
+  "he": "מרכזים קסם בשריון ומעלים לזמן מוגבל את ההגנה הפיזית ואת ההגנה המגית."
+ },
+ "skill/magician__magic-armor#1": {
+  "en": "MP -8; Weapon Def. +40, Magic Def. +40 for 300 sec",
+  "he": "עולה 8 MP; הגנה פיזית +40, הגנה מגית +40 למשך 300 שניות"
+ },
+ "skill/magician__magic-armor#max": {
+  "en": "MP -16; Weapon Def. +120, Magic Def. +120 for 600 sec",
+  "he": "עולה 16 MP; הגנה פיזית +120, הגנה מגית +120 למשך 600 שניות"
+ },
+ "skill/magician__energy-bolt": {
+  "en": "Use MP to attack one enemy. The higher the Mastery, the lower the damage variation.",
+  "he": "תוקפים אויב אחד בתמורה ל-MP. ככל שה-Mastery גבוה יותר, הנזק משתנה פחות ממכה למכה."
+ },
+ "skill/magician__energy-bolt#1": {
+  "en": "MP -8, Basic Attack 90, Mastery level 1",
+  "he": "עולה 8 MP; Basic Attack 90, רמת Mastery: 1"
+ },
+ "skill/magician__energy-bolt#max": {
+  "en": "MP -16, Basic Attack 130, Mastery level 10",
+  "he": "עולה 16 MP; Basic Attack 130, רמת Mastery: 10"
+ },
+ "skill/magician__magic-claw": {
+  "en": "Use MP to attack an enemy twice. The higher the Mastery, the lower the damage variation.",
+  "he": "תוקפים אויב פעמיים בתמורה ל-MP. ככל שה-Mastery גבוה יותר, הנזק משתנה פחות ממכה למכה."
+ },
+ "skill/magician__magic-claw#1": {
+  "en": "MP -10, Basic Attack 45, Mastery level 1",
+  "he": "עולה 10 MP; Basic Attack 45, רמת Mastery: 1"
+ },
+ "skill/magician__magic-claw#max": {
+  "en": "MP -20, Basic Attack 65, Mastery level 10",
+  "he": "עולה 20 MP; Basic Attack 65, רמת Mastery: 10"
+ },
+ "skill/f-p-wizard__mp-eater": {
+  "en": "Absorbs the enemy's MP when attacking with Magic skills, but only once every 5 seconds. Cannot absorb if the enemy's MP is 0.",
+  "he": "סופג MP מהאויב כשתוקפים בסקילים של קסם, אבל רק פעם ב-5 שניות. מאויב שה-MP שלו 0 אי אפשר לספוג."
+ },
+ "skill/f-p-wizard__mp-eater#1": {
+  "en": "For every attack, 30% success rate, absorb 30% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 30% לספוג 30% מה-Max MP של האויב"
+ },
+ "skill/f-p-wizard__mp-eater#max": {
+  "en": "For every attack, 50% success rate, absorb 50% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 50% לספוג 50% מה-Max MP של האויב"
+ },
+ "skill/f-p-wizard__meditation": {
+  "en": "Meditate for a bit to temporarily increase the Magic Attack of party members around the area.",
+  "he": "מדיטציה קצרה שמעלה לזמן מוגבל את ההתקפה המגית של החברים בפארטי באזור."
+ },
+ "skill/f-p-wizard__meditation#1": {
+  "en": "MP -15; Party's Magic Attack +5 for 100 sec",
+  "he": "עולה 15 MP; התקפה מגית לפארטי +5 למשך 100 שניות"
+ },
+ "skill/f-p-wizard__meditation#max": {
+  "en": "MP -25; Party's Magic Attack +25 for 300 sec",
+  "he": "עולה 25 MP; התקפה מגית לפארטי +25 למשך 300 שניות"
+ },
+ "skill/f-p-wizard__teleport": {
+  "en": "Use the arrow keys to teleport a set distance within the same map.",
+  "he": "משתגרים עם מקשי החצים למרחק קבוע, באותה מפה."
+ },
+ "skill/f-p-wizard__teleport#1": {
+  "en": "MP -55; Teleport, with 110 in distance",
+  "he": "עולה 55 MP; שיגור למרחק 110"
+ },
+ "skill/f-p-wizard__teleport#max": {
+  "en": "MP -15; Teleport, with 150 in distance",
+  "he": "עולה 15 MP; שיגור למרחק 150"
+ },
+ "skill/f-p-wizard__slow": {
+  "en": "Temporarily slows down the movement of up to 6 monsters. Cannot be used on monsters that are already affected.",
+  "he": "מאט לזמן מוגבל את התנועה של עד 6 מפלצות. אי אפשר להשתמש בו על מפלצות שכבר מואטות."
+ },
+ "skill/f-p-wizard__slow#1": {
+  "en": "MP -15; Enemy Speed -10, Evasion -1 for 10 sec",
+  "he": "עולה 15 MP; מהירות האויב -10, Avoid -1 למשך 10 שניות"
+ },
+ "skill/f-p-wizard__slow#max": {
+  "en": "MP -8; Enemy Speed -30, Evasion -5 for 20 sec",
+  "he": "עולה 8 MP; מהירות האויב -30, Avoid -5 למשך 20 שניות"
+ },
+ "skill/f-p-wizard__fire-arrow": {
+  "en": "Fires a fire arrow created with magic power at a single enemy, dealing fire-elemental damage and burning them to inflict continuous damage every second for 3 seconds. Deals increased damage to fire-weak enemies, but deals reduced damage to fire-resistant enemies and cannot burn them.",
+  "he": "יורה על אויב אחד חץ אש שנוצר מקסם: נזק של אלמנט אש, והאויב נשרף וחוטף נזק כל שנייה במשך 3 שניות. לאויבים שחלשים לאש הוא עושה יותר נזק, ולאויבים עמידים לאש פחות נזק, והם גם לא נשרפים."
+ },
+ "skill/f-p-wizard__fire-arrow#1": {
+  "en": "MP -14; Basic Attack 120, Mastery level 1; Deals 20 Basic Attack over 3 sec",
+  "he": "עולה 14 MP; Basic Attack 120, רמת Mastery: 1; ועוד 20 Basic Attack במשך 3 שניות"
+ },
+ "skill/f-p-wizard__fire-arrow#max": {
+  "en": "MP -28; Basic Attack 180, Mastery level 10; Deals 50 Basic Attack over 3 sec",
+  "he": "עולה 28 MP; Basic Attack 180, רמת Mastery: 10; ועוד 50 Basic Attack במשך 3 שניות"
+ },
+ "skill/f-p-wizard__poison-breath": {
+  "en": "Fires a poison droplet at a single enemy. The droplet explodes on contact, dealing poison-elemental damage to up to 4 nearby enemies and granting a chance to poison them. Deals increased damage to poison-weak enemies, but deals reduced damage to poison-resistant enemies and cannot poison them.",
+  "he": "יורה טיפת רעל על אויב אחד. הטיפה מתפוצצת במגע, עושה נזק של אלמנט רעל לעד 4 אויבים קרובים, ויש סיכוי שהם יורעלו. לאויבים שחלשים לרעל היא עושה יותר נזק, ולאויבים עמידים לרעל פחות נזק, והם גם לא מורעלים."
+ },
+ "skill/f-p-wizard__poison-breath#1": {
+  "en": "MP -20; Basic Attack 50, Mastery level 1; 45% success rate, deals 10 Basic Attack over 5 sec",
+  "he": "עולה 20 MP; Basic Attack 50, רמת Mastery: 1; סיכוי הצלחה 45% להרעלה של 10 Basic Attack במשך 5 שניות"
+ },
+ "skill/f-p-wizard__poison-breath#max": {
+  "en": "MP -40; Basic Attack 80, Mastery level 10; 75% success rate, deals 40 Basic Attack over 5 sec",
+  "he": "עולה 40 MP; Basic Attack 80, רמת Mastery: 10; סיכוי הצלחה 75% להרעלה של 40 Basic Attack במשך 5 שניות"
+ },
+ "skill/i-l-wizard__mp-eater": {
+  "en": "Absorbs the enemy's MP when attacking with Magic skills, but only once every 5 seconds. Cannot absorb if the enemy's MP is 0.",
+  "he": "סופג MP מהאויב כשתוקפים בסקילים של קסם, אבל רק פעם ב-5 שניות. מאויב שה-MP שלו 0 אי אפשר לספוג."
+ },
+ "skill/i-l-wizard__mp-eater#1": {
+  "en": "For every attack, 30% success rate, absorb 30% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 30% לספוג 30% מה-Max MP של האויב"
+ },
+ "skill/i-l-wizard__mp-eater#max": {
+  "en": "For every attack, 50% success rate, absorb 50% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 50% לספוג 50% מה-Max MP של האויב"
+ },
+ "skill/i-l-wizard__meditation": {
+  "en": "Meditate for a bit to temporarily increase the Magic Attack of party members around the area.",
+  "he": "מדיטציה קצרה שמעלה לזמן מוגבל את ההתקפה המגית של החברים בפארטי באזור."
+ },
+ "skill/i-l-wizard__meditation#1": {
+  "en": "MP -15; Party's Magic Attack +5 for 100 sec",
+  "he": "עולה 15 MP; התקפה מגית לפארטי +5 למשך 100 שניות"
+ },
+ "skill/i-l-wizard__meditation#max": {
+  "en": "MP -25; Party's Magic Attack +25 for 300 sec",
+  "he": "עולה 25 MP; התקפה מגית לפארטי +25 למשך 300 שניות"
+ },
+ "skill/i-l-wizard__teleport": {
+  "en": "Use the arrow keys to teleport a set distance within the same map.",
+  "he": "משתגרים עם מקשי החצים למרחק קבוע, באותה מפה."
+ },
+ "skill/i-l-wizard__teleport#1": {
+  "en": "MP -55; Teleport, with 110 in distance",
+  "he": "עולה 55 MP; שיגור למרחק 110"
+ },
+ "skill/i-l-wizard__teleport#max": {
+  "en": "MP -15; Teleport, with 150 in distance",
+  "he": "עולה 15 MP; שיגור למרחק 150"
+ },
+ "skill/i-l-wizard__slow": {
+  "en": "Temporarily slows down the movement of up to 6 monsters. Cannot be used on the same monsters more than twice in a row.",
+  "he": "מאט לזמן מוגבל את התנועה של עד 6 מפלצות. אי אפשר להשתמש בו על אותן מפלצות יותר מפעמיים ברצף."
+ },
+ "skill/i-l-wizard__slow#1": {
+  "en": "MP -15; Enemy Speed -10, Evasion -1 for 10 sec",
+  "he": "עולה 15 MP; מהירות האויב -10, Avoid -1 למשך 10 שניות"
+ },
+ "skill/i-l-wizard__slow#max": {
+  "en": "MP -8; Enemy Speed -30, Evasion -5 for 20 sec",
+  "he": "עולה 8 MP; מהירות האויב -30, Avoid -5 למשך 20 שניות"
+ },
+ "skill/i-l-wizard__cold-beam": {
+  "en": "Attacks a single enemy with a sharp piece of ice, dealing ice-elemental damage. Enemies hit are briefly frozen, slowing their actions. Deals increased damage to ice-weak enemies, but deals reduced damage to ice-resistant enemies and cannot slow them.",
+  "he": "תוקף אויב אחד ברסיס קרח חד: נזק של אלמנט קרח. אויבים שנפגעים קופאים לרגע ופועלים לאט יותר. לאויבים שחלשים לקרח הוא עושה יותר נזק, ולאויבים עמידים לקרח פחות נזק, והם גם לא מואטים."
+ },
+ "skill/i-l-wizard__cold-beam#1": {
+  "en": "MP -11; Basic Attack 110, Mastery level 1; Slowed for 2 sec",
+  "he": "עולה 11 MP; Basic Attack 110, רמת Mastery: 1; האטה למשך 2 שניות"
+ },
+ "skill/i-l-wizard__cold-beam#max": {
+  "en": "MP -22; Basic Attack 170, Mastery level 10; Slowed for 3 sec",
+  "he": "עולה 22 MP; Basic Attack 170, רמת Mastery: 10; האטה למשך 3 שניות"
+ },
+ "skill/i-l-wizard__thunder-bolt": {
+  "en": "Attacks surrounding monsters with a thunderbolt, dealing lightning-elemental damage. All monsters, except those resistant to lightning, have a chance to be stunned by electrocution.",
+  "he": "תוקף את המפלצות מסביב בברק: נזק של אלמנט ברק. לכל המפלצות, חוץ מאלה שעמידות לברק, יש סיכוי לחטוף סטאן מהחשמל."
+ },
+ "skill/i-l-wizard__thunder-bolt#1": {
+  "en": "MP -20; Basic Attack 40, Mastery level 1; 10% chance to be electrocuted",
+  "he": "עולה 20 MP; Basic Attack 40, רמת Mastery: 1; סיכוי של 10% להתחשמלות"
+ },
+ "skill/i-l-wizard__thunder-bolt#max": {
+  "en": "MP -40; Basic Attack 70, Mastery level 10; 25% chance to be electrocuted",
+  "he": "עולה 40 MP; Basic Attack 70, רמת Mastery: 10; סיכוי של 25% להתחשמלות"
+ },
+ "skill/cleric__mp-eater": {
+  "en": "Absorbs the enemy's MP when attacking with Magic skills, but only once every 5 seconds. Cannot absorb if the enemy's MP is 0.",
+  "he": "סופג MP מהאויב כשתוקפים בסקילים של קסם, אבל רק פעם ב-5 שניות. מאויב שה-MP שלו 0 אי אפשר לספוג."
+ },
+ "skill/cleric__mp-eater#1": {
+  "en": "For every attack, 30% success rate, absorb 30% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 30% לספוג 30% מה-Max MP של האויב"
+ },
+ "skill/cleric__mp-eater#max": {
+  "en": "For every attack, 50% success rate, absorb 50% of the enemy's Max MP",
+  "he": "בכל התקפה, סיכוי הצלחה של 50% לספוג 50% מה-Max MP של האויב"
+ },
+ "skill/cleric__teleport": {
+  "en": "Use the arrow keys to teleport a set distance within the same map.",
+  "he": "משתגרים עם מקשי החצים למרחק קבוע, באותה מפה."
+ },
+ "skill/cleric__teleport#1": {
+  "en": "MP -55; Teleport, with 110 in distance",
+  "he": "עולה 55 MP; שיגור למרחק 110"
+ },
+ "skill/cleric__teleport#max": {
+  "en": "MP -15; Teleport, with 150 in distance",
+  "he": "עולה 15 MP; שיגור למרחק 150"
+ },
+ "skill/cleric__invincible": {
+  "en": "Self-only buff. Reduces physical damage taken for a certain duration, and deals non-elemental magic damage to any monster that takes contact damage from the caster.",
+  "he": "באף רק לעצמכם. מוריד לזמן מסוים את הנזק הפיזי שאתם חוטפים, ופוגע בנזק מגי בלי אלמנט בכל מפלצת שחוטפת מכם נזק מגע."
+ },
+ "skill/cleric__invincible#1": {
+  "en": "MP 16; Physical damage -10%, Basic Attack 10 non-elemental magic damage for 100 sec",
+  "he": "עולה 16 MP; נזק פיזי שחוטפים -10%, נזק מגי בלי אלמנט של Basic Attack 10, למשך 100 שניות"
+ },
+ "skill/cleric__invincible#max": {
+  "en": "MP 36; Physical damage -30%, Basic Attack 30 non-elemental magic damage for 300 sec",
+  "he": "עולה 36 MP; נזק פיזי שחוטפים -30%, נזק מגי בלי אלמנט של Basic Attack 30, למשך 300 שניות"
+ },
+ "skill/cleric__heal": {
+  "en": "Recovers the HP of all party members around the area. The amount of healing depends on the number of people being healed, and undead monsters around the area will receive damage.",
+  "he": "מחזיר HP לכל החברים בפארטי באזור. כמה HP הוא מחזיר תלוי בכמה שחקנים מקבלים ריפוי, ומפלצות אנדד באזור חוטפות נזק."
+ },
+ "skill/cleric__heal#1": {
+  "en": "MP -12; Recovery rate 40%",
+  "he": "עולה 12 MP; שיעור ריפוי 40%"
+ },
+ "skill/cleric__heal#max": {
+  "en": "MP -27; Recovery rate 100%",
+  "he": "עולה 27 MP; שיעור ריפוי 100%"
+ },
+ "skill/cleric__bless": {
+  "en": "Temporarily increases the Accuracy, Evasion, and HP recovery from the Heal skill for all nearby party members.",
+  "he": "מעלה לזמן מוגבל את ה-ACC, את ה-Avoid ואת הריפוי מ-Heal לכל החברים בפארטי שקרובים אליכם."
+ },
+ "skill/cleric__bless#1": {
+  "en": "MP -20; Accuracy +1, Evasion +1, and HP recovery from the Heal skill is increased by 1% for 100 sec",
+  "he": "עולה 20 MP; ACC +1, Avoid +1, וה-HP ש-Heal מחזיר עולה ב-1%, למשך 100 שניות"
+ },
+ "skill/cleric__bless#max": {
+  "en": "MP -30; Accuracy +20, Evasion +20, and HP recovery from the Heal skill is increased by 10% for 300 sec",
+  "he": "עולה 30 MP; ACC +20, Avoid +20, וה-HP ש-Heal מחזיר עולה ב-10%, למשך 300 שניות"
+ },
+ "skill/cleric__holy-arrow": {
+  "en": "Attacks monsters by firing holy arrows. Very effective against the undead or devil-based monsters.",
+  "he": "יורה חיצים קדושים על מפלצות. יעיל מאוד נגד אנדד ונגד מפלצות שדים."
+ },
+ "skill/cleric__holy-arrow#1": {
+  "en": "MP -14; Basic Attack 30 on 3 enemies, Mastery level 1",
+  "he": "עולה 14 MP; Basic Attack 30 על 3 אויבים, רמת Mastery: 1"
+ },
+ "skill/cleric__holy-arrow#max": {
+  "en": "MP -28; Basic Attack 60 on 3 enemies, Mastery level 10",
+  "he": "עולה 28 MP; Basic Attack 60 על 3 אויבים, רמת Mastery: 10"
+ },
+ "skill/bowman__critical-shot": {
+  "en": "Increases Critical Rate and Critical Damage.",
+  "he": "מעלה את הסיכוי לקריטי ואת הנזק הקריטי."
+ },
+ "skill/bowman__critical-shot#1": {
+  "en": "Critical Rate +5%, Critical Damage +1%",
+  "he": "סיכוי לקריטי +5%, נזק קריטי +1%"
+ },
+ "skill/bowman__critical-shot#max": {
+  "en": "Critical Rate +20%, Critical Damage +15%",
+  "he": "סיכוי לקריטי +20%, נזק קריטי +15%"
+ },
+ "skill/bowman__the-eye-of-amazon": {
+  "en": "Increases attack range for bows and crossbows.",
+  "he": "מגדיל את טווח ההתקפה עם קשת ועם Crossbow."
+ },
+ "skill/bowman__the-eye-of-amazon#1": {
+  "en": "Attack range for bows and crossbows: +50",
+  "he": "טווח ההתקפה עם קשת ועם Crossbow: +50"
+ },
+ "skill/bowman__the-eye-of-amazon#max": {
+  "en": "Attack range for bows and crossbows: +120",
+  "he": "טווח ההתקפה עם קשת ועם Crossbow: +120"
+ },
+ "skill/bowman__focus": {
+  "en": "Focus to temporarily increase Accuracy and Evasion.",
+  "he": "מתרכזים ומעלים לזמן מוגבל את ה-ACC ואת ה-Avoid."
+ },
+ "skill/bowman__focus#1": {
+  "en": "MP -8; Accuracy +1, Evasion +5 for 70 sec",
+  "he": "עולה 8 MP; ACC +1, Avoid +5 למשך 70 שניות"
+ },
+ "skill/bowman__focus#max": {
+  "en": "MP -16; Accuracy +20, Evasion +25 for 300 sec",
+  "he": "עולה 16 MP; ACC +20, Avoid +25 למשך 300 שניות"
+ },
+ "skill/bowman__arrow-blow": {
+  "en": "Fires an arrow with authority. Applies more damage than usual.",
+  "he": "יורה חץ בעוצמה, עם יותר נזק מהרגיל."
+ },
+ "skill/bowman__arrow-blow#1": {
+  "en": "MP -6; Damage 160%",
+  "he": "עולה 6 MP; נזק 160%"
+ },
+ "skill/bowman__arrow-blow#max": {
+  "en": "MP -14; Damage 240%",
+  "he": "עולה 14 MP; נזק 240%"
+ },
+ "skill/bowman__double-shot": {
+  "en": "Fires two arrows at once to attack up to two enemies.",
+  "he": "יורה שני חיצים בבת אחת ותוקף עד שני אויבים."
+ },
+ "skill/bowman__double-shot#1": {
+  "en": "MP -8; Damage 80%",
+  "he": "עולה 8 MP; נזק 80%"
+ },
+ "skill/bowman__double-shot#max": {
+  "en": "MP -16; Damage 120%",
+  "he": "עולה 16 MP; נזק 120%"
+ },
+ "skill/bowman__power-knockback": {
+  "en": "Swings the bow widely to push multiple enemies far back. This attack always hits as a critical, and as the level rises, the number of monsters that one can push back with one swing increases.",
+  "he": "מניפים את הקשת בתנועה רחבה והודפים כמה אויבים הרחק אחורה. ההתקפה תמיד קריטית, וככל שרמת הסקיל עולה, אפשר להדוף יותר מפלצות בהנפה אחת."
+ },
+ "skill/bowman__power-knockback#1": {
+  "en": "MP -12; Damage 105%, knockback 2 enemies by 130",
+  "he": "עולה 12 MP; נזק 105%, הדיפה של 2 אויבים למרחק 130"
+ },
+ "skill/bowman__power-knockback#max": {
+  "en": "MP -8; Damage 180%, knockback 4 enemies by 150",
+  "he": "עולה 8 MP; נזק 180%, הדיפה של 4 אויבים למרחק 150"
+ },
+ "skill/hunter__bow-mastery": {
+  "en": "Increases Bow Mastery and Evasion. This effect only applies when a bow is equipped.",
+  "he": "מעלה את ה-Bow Mastery ואת ה-Avoid. עובד רק עם קשת."
+ },
+ "skill/hunter__bow-mastery#1": {
+  "en": "Bow Mastery level 1, Evasion +1",
+  "he": "רמת Bow Mastery: 1, Avoid +1"
+ },
+ "skill/hunter__bow-mastery#max": {
+  "en": "Bow Mastery level 10, Evasion +20",
+  "he": "רמת Bow Mastery: 10, Avoid +20"
+ },
+ "skill/hunter__amazon-s-judgement": {
+  "en": "Critical hits sever the enemy's tendons, slowing them down.",
+  "he": "מכות קריטיות חותכות לאויב את הגידים ומאטות אותו."
+ },
+ "skill/hunter__amazon-s-judgement#1": {
+  "en": "Critical hits have a 60% chance to reduce Enemy Speed by 15 for 3 sec",
+  "he": "למכות קריטיות יש סיכוי של 60% להוריד את מהירות האויב ב-15 למשך 3 שניות"
+ },
+ "skill/hunter__amazon-s-judgement#max": {
+  "en": "Critical hits have a 100% chance to reduce Enemy Speed by 35 for 5 sec",
+  "he": "למכות קריטיות יש סיכוי של 100% להוריד את מהירות האויב ב-35 למשך 5 שניות"
+ },
+ "skill/hunter__final-attack-bow": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to up to three enemies. This skill only activates when a bow is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לעד שלושה אויבים. עובד רק עם קשת. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/hunter__final-attack-bow#1": {
+  "en": "20% success rate, Final Attack with bow damage 60% to up to 3 enemies",
+  "he": "סיכוי הצלחה 20%, Final Attack עם קשת בנזק 60% לעד 3 אויבים"
+ },
+ "skill/hunter__final-attack-bow#max": {
+  "en": "50% success rate, Final Attack with bow damage 90% to up to 3 enemies",
+  "he": "סיכוי הצלחה 50%, Final Attack עם קשת בנזק 90% לעד 3 אויבים"
+ },
+ "skill/hunter__bow-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped bow. It only applies when a bow is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של הקשת שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם קשת."
+ },
+ "skill/hunter__bow-booster#1": {
+  "en": "HP -30, MP -30; Increases Bow Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם קשת עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/hunter__bow-booster#max": {
+  "en": "HP -10, MP -10; Increases Bow Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם קשת עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/hunter__soul-arrow-bow": {
+  "en": "Temporarily allows the character to fire bow arrows without using up arrows. Only works with a bow equipped.",
+  "he": "לזמן מוגבל יורים בקשת בלי לבזבז חיצים. עובד רק עם קשת."
+ },
+ "skill/hunter__soul-arrow-bow#1": {
+  "en": "MP -25; Attack without using up any arrows for 60 sec",
+  "he": "עולה 25 MP; תוקפים בלי לבזבז חיצים למשך 60 שניות"
+ },
+ "skill/hunter__soul-arrow-bow#max": {
+  "en": "MP -5; Attack without using up any arrows for 300 sec",
+  "he": "עולה 5 MP; תוקפים בלי לבזבז חיצים למשך 300 שניות"
+ },
+ "skill/hunter__arrow-bomb-bow": {
+  "en": "Fires an arrow with a bomb attached to it. If struck cleanly, the bomb explodes on the enemy, stunning some enemies around with a certain success rate. Can't attack more than 4 at once, and it only works with a bow equipped.",
+  "he": "יורה חץ עם פצצה מחוברת אליו. בפגיעה נקייה הפצצה מתפוצצת על האויב, ויש סיכוי שחלק מהאויבים מסביב יחטפו סטאן. תוקף עד 4 בבת אחת, ועובד רק עם קשת."
+ },
+ "skill/hunter__arrow-bomb-bow#1": {
+  "en": "MP -14; Stun chance 30% for 2 sec, damage 80%",
+  "he": "עולה 14 MP; סיכוי לסטאן 30% למשך 2 שניות, נזק 80%"
+ },
+ "skill/hunter__arrow-bomb-bow#max": {
+  "en": "MP -28; Stun chance 60% for 3 sec, damage 140%",
+  "he": "עולה 28 MP; סיכוי לסטאן 60% למשך 3 שניות, נזק 140%"
+ },
+ "skill/crossbowman__crossbow-mastery": {
+  "en": "Increases Crossbow Mastery and gives a chance to deal damage that ignores the target's Weapon Def. This effect only applies when a crossbow is equipped.",
+  "he": "מעלה את ה-Crossbow Mastery ונותן סיכוי לנזק שמתעלם מההגנה הפיזית של המטרה. עובד רק עם Crossbow."
+ },
+ "skill/crossbowman__crossbow-mastery#1": {
+  "en": "Crossbow Mastery level 1, 1% chance to ignore enemy Weapon Def.",
+  "he": "רמת Crossbow Mastery: 1, סיכוי של 1% להתעלם מההגנה הפיזית של האויב"
+ },
+ "skill/crossbowman__crossbow-mastery#max": {
+  "en": "Crossbow Mastery level 10, 20% chance to ignore enemy Weapon Def.",
+  "he": "רמת Crossbow Mastery: 10, סיכוי של 20% להתעלם מההגנה הפיזית של האויב"
+ },
+ "skill/crossbowman__amazon-s-judgement": {
+  "en": "Critical hits sever the enemy's tendons, slowing them down.",
+  "he": "מכות קריטיות חותכות לאויב את הגידים ומאטות אותו."
+ },
+ "skill/crossbowman__amazon-s-judgement#1": {
+  "en": "Critical hits have a 60% chance to reduce Enemy Speed by 15 for 3 sec",
+  "he": "למכות קריטיות יש סיכוי של 60% להוריד את מהירות האויב ב-15 למשך 3 שניות"
+ },
+ "skill/crossbowman__amazon-s-judgement#max": {
+  "en": "Critical hits have a 100% chance to reduce Enemy Speed by 35 for 5 sec",
+  "he": "למכות קריטיות יש סיכוי של 100% להוריד את מהירות האויב ב-35 למשך 5 שניות"
+ },
+ "skill/crossbowman__final-attack-crossbow": {
+  "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to a single enemy. This skill only activates when a crossbow is equipped. Using the skill activates the effect, and using it again deactivates it.",
+  "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב אחד. עובד רק עם Crossbow. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/crossbowman__final-attack-crossbow#1": {
+  "en": "20% success rate, Final Attack with crossbow damage 220%",
+  "he": "סיכוי הצלחה 20%, Final Attack עם Crossbow בנזק 220%"
+ },
+ "skill/crossbowman__final-attack-crossbow#max": {
+  "en": "50% success rate, Final Attack with crossbow damage 250%",
+  "he": "סיכוי הצלחה 50%, Final Attack עם Crossbow בנזק 250%"
+ },
+ "skill/crossbowman__crossbow-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped crossbow. It only applies when a crossbow is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של ה-Crossbow שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם Crossbow."
+ },
+ "skill/crossbowman__crossbow-booster#1": {
+  "en": "HP -30, MP -30; Increases Crossbow Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם Crossbow עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/crossbowman__crossbow-booster#max": {
+  "en": "HP -10, MP -10; Increases Crossbow Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם Crossbow עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/crossbowman__soul-arrow-crossbow": {
+  "en": "Temporarily allows the character to fire crossbow arrows without using up arrows. Only works with a crossbow equipped.",
+  "he": "לזמן מוגבל יורים ב-Crossbow בלי לבזבז חיצים. עובד רק עם Crossbow."
+ },
+ "skill/crossbowman__soul-arrow-crossbow#1": {
+  "en": "MP -25; Attack without using up any arrows for 60 sec",
+  "he": "עולה 25 MP; תוקפים בלי לבזבז חיצים למשך 60 שניות"
+ },
+ "skill/crossbowman__soul-arrow-crossbow#max": {
+  "en": "MP -5; Attack without using up any arrows for 300 sec",
+  "he": "עולה 5 MP; תוקפים בלי לבזבז חיצים למשך 300 שניות"
+ },
+ "skill/crossbowman__iron-arrow-crossbow": {
+  "en": "Attacks up to 4 monsters at once with a powerful arrow, which penetrates through them. Damage decreases as the arrow flies through each monster.",
+  "he": "תוקף עד 4 מפלצות בבת אחת בחץ חזק שעובר דרכן. הנזק יורד עם כל מפלצת שהחץ עובר דרכה."
+ },
+ "skill/crossbowman__iron-arrow-crossbow#1": {
+  "en": "MP -14; Damage 120%",
+  "he": "עולה 14 MP; נזק 120%"
+ },
+ "skill/crossbowman__iron-arrow-crossbow#max": {
+  "en": "MP -28; Damage 180%",
+  "he": "עולה 28 MP; נזק 180%"
+ },
+ "skill/thief__nimble-body": {
+  "en": "Increases Accuracy and Evasion.",
+  "he": "מעלה את ה-ACC ואת ה-Avoid."
+ },
+ "skill/thief__nimble-body#1": {
+  "en": "Accuracy +1, Evasion +1",
+  "he": "ACC +1 ו-Avoid +1"
+ },
+ "skill/thief__nimble-body#max": {
+  "en": "Accuracy +15, Evasion +15",
+  "he": "ACC +15 ו-Avoid +15"
+ },
+ "skill/thief__keen-eyes": {
+  "en": "Increases attack range for throwing weapons such as Throwing Stars and Knives.",
+  "he": "מגדיל את טווח ההתקפה של נשקים לזריקה, כמו כוכבי זריקה וסכינים."
+ },
+ "skill/thief__keen-eyes#1": {
+  "en": "Attack range for throwing weapons: +50",
+  "he": "טווח ההתקפה של נשקים לזריקה: +50"
+ },
+ "skill/thief__keen-eyes#max": {
+  "en": "Attack range for throwing weapons: +200",
+  "he": "טווח ההתקפה של נשקים לזריקה: +200"
+ },
+ "skill/thief__disorder": {
+  "en": "Temporarily decreases the Attack Power and Weapon Def. of an enemy and dissuades it from attacking you. Has no effect on a monster that's already in \"Disorder.\"",
+  "he": "מוריד לזמן מוגבל את כוח ההתקפה ואת ההגנה הפיזית של אויב, ומרתיע אותו מלתקוף אתכם. לא משפיע על מפלצת שכבר תחת Disorder."
+ },
+ "skill/thief__disorder#1": {
+  "en": "MP -5; Enemy's Attack Power -5, Weapon Def. -1 for 10 sec",
+  "he": "עולה 5 MP; כוח ההתקפה של האויב -5, הגנה פיזית -1 למשך 10 שניות"
+ },
+ "skill/thief__disorder#max": {
+  "en": "MP -10; Enemy's Attack Power -25, Weapon Def. -5 for 30 sec",
+  "he": "עולה 10 MP; כוח ההתקפה של האויב -25, הגנה פיזית -5 למשך 30 שניות"
+ },
+ "skill/thief__dark-sight": {
+  "en": "Use MP to hide behind the shadows. Can't be attacked, and can't attack either. The effect is activated when used and deactivated when used again.",
+  "he": "מתחבאים בצללים בתמורה ל-MP. אי אפשר לתקוף אתכם, וגם אתם לא יכולים לתקוף. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
+ },
+ "skill/thief__dark-sight#1": {
+  "en": "MP -50; Disappear into the shadows, Speed -20 while active",
+  "he": "עולה 50 MP; נעלמים בצללים, מהירות -20 כל עוד הוא פעיל"
+ },
+ "skill/thief__dark-sight#max": {
+  "en": "MP -30; Disappear into the shadows, regular movement speed while active",
+  "he": "עולה 30 MP; נעלמים בצללים, מהירות תנועה רגילה כל עוד הוא פעיל"
+ },
+ "skill/thief__double-stab": {
+  "en": "Use MP to quickly stab a monster twice in one turn using a dagger.",
+  "he": "דוקרים מפלצת פעמיים במהירות בפגיון, באותה מכה, בתמורה ל-MP."
+ },
+ "skill/thief__double-stab#1": {
+  "en": "MP -8; Damage 80%",
+  "he": "עולה 8 MP; נזק 80%"
+ },
+ "skill/thief__double-stab#max": {
+  "en": "MP -16; Damage 160%",
+  "he": "עולה 16 MP; נזק 160%"
+ },
+ "skill/thief__lucky-seven": {
+  "en": "Use MP to throw 2 throwing stars and apply damage based on LUK, regardless of the rate of Claw Mastery.",
+  "he": "זורקים 2 כוכבי זריקה בתמורה ל-MP, והנזק נקבע לפי LUK, בלי קשר לרמת ה-Claw Mastery."
+ },
+ "skill/thief__lucky-seven#1": {
+  "en": "MP -8; Damage 60%",
+  "he": "עולה 8 MP; נזק 60%"
+ },
+ "skill/thief__lucky-seven#max": {
+  "en": "MP -16; Damage 140%",
+  "he": "עולה 16 MP; נזק 140%"
+ },
+ "skill/assassin__claw-mastery": {
+  "en": "Increases Claw Mastery and Attack Power, and gives a chance to recover used throwing stars when using throwing star attacks. Only applies when a claw is equipped.",
+  "he": "מעלה את ה-Claw Mastery ואת כוח ההתקפה, ונותן סיכוי לקבל בחזרה כוכבי זריקה שזרקתם בהתקפות. עובד רק עם Claw."
+ },
+ "skill/assassin__claw-mastery#1": {
+  "en": "Claw Mastery level 1, Attack Power +1, 5% chance to retrieve used throwing stars",
+  "he": "רמת Claw Mastery: 1, כוח התקפה +1, סיכוי של 5% לקבל בחזרה כוכבי זריקה שנזרקו"
+ },
+ "skill/assassin__claw-mastery#max": {
+  "en": "Claw Mastery level 10, Attack Power +20, 25% chance to retrieve used throwing stars",
+  "he": "רמת Claw Mastery: 10, כוח התקפה +20, סיכוי של 25% לקבל בחזרה כוכבי זריקה שנזרקו"
+ },
+ "skill/assassin__critical-throw": {
+  "en": "Increases Critical Rate and Critical Damage.",
+  "he": "מעלה את הסיכוי לקריטי ואת הנזק הקריטי."
+ },
+ "skill/assassin__critical-throw#1": {
+  "en": "Critical Rate +1%, Critical Damage +5%",
+  "he": "סיכוי לקריטי +1%, נזק קריטי +5%"
+ },
+ "skill/assassin__critical-throw#max": {
+  "en": "Critical Rate +15%, Critical Damage +35%",
+  "he": "סיכוי לקריטי +15%, נזק קריטי +35%"
+ },
+ "skill/assassin__critical-recovery": {
+  "en": "Recovers additional HP and MP with a certain chance when landing a critical hit. Cannot recover again within 30 seconds after a recovery.",
+  "he": "כשנוחתת מכה קריטית, יש סיכוי לקבל עוד HP ו-MP. אחרי שזה קורה, זה לא יכול לקרות שוב במשך 30 שניות."
+ },
+ "skill/assassin__critical-recovery#1": {
+  "en": "Recover 1% HP and 1% MP with a 20% chance when landing a critical hit",
+  "he": "בסיכוי של 20%, מכה קריטית מחזירה 1% HP ו-1% MP"
+ },
+ "skill/assassin__critical-recovery#max": {
+  "en": "Recover 10% HP and 10% MP with a 100% chance when landing a critical hit",
+  "he": "בסיכוי של 100%, מכה קריטית מחזירה 10% HP ו-10% MP"
+ },
+ "skill/assassin__claw-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped claw. It only applies when the character is equipped with a claw and throwing stars.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של ה-Claw שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק כשמחזיקים Claw וכוכבי זריקה."
+ },
+ "skill/assassin__claw-booster#1": {
+  "en": "HP -30, MP -30; Increases Claw Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם Claw עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/assassin__claw-booster#max": {
+  "en": "HP -10, MP -10; Increases Claw Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם Claw עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/assassin__haste": {
+  "en": "Temporarily increases the speed and jump of all party members around the area.",
+  "he": "מעלה לזמן מוגבל את המהירות ואת הקפיצה של כל החברים בפארטי באזור."
+ },
+ "skill/assassin__haste#1": {
+  "en": "MP -15; Speed +10, Jump +1 for 100 sec",
+  "he": "עולה 15 MP; מהירות +10, קפיצה +1 למשך 100 שניות"
+ },
+ "skill/assassin__haste#max": {
+  "en": "MP -35; Speed +30, Jump +10 for 300 sec",
+  "he": "עולה 35 MP; מהירות +30, קפיצה +10 למשך 300 שניות"
+ },
+ "skill/assassin__drain": {
+  "en": "Absorbs some of the damage dished out to the enemy as HP. The most one can absorb at once is 25% of the character's Max HP, and can't absorb more than the Max HP of the enemy.",
+  "he": "מחזיר לכם כ-HP חלק מהנזק שאתם עושים לאויב. בכל פעם אפשר לספוג עד 25% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב."
+ },
+ "skill/assassin__drain#1": {
+  "en": "MP -14; damage 180%, 2% chance to absorb 5% of damage as HP",
+  "he": "עולה 14 MP; נזק 180%, סיכוי של 2% לספוג 5% מהנזק כ-HP"
+ },
+ "skill/assassin__drain#max": {
+  "en": "MP -28; damage 240%, 12% chance to absorb 15% of damage as HP",
+  "he": "עולה 28 MP; נזק 240%, סיכוי של 12% לספוג 15% מהנזק כ-HP"
+ },
+ "skill/bandit__dagger-mastery": {
+  "en": "Increases Dagger Mastery and Critical Rate, with a chance to ignore knockback effects. It only applies when a dagger is equipped.",
+  "he": "מעלה את ה-Dagger Mastery ואת הסיכוי לקריטי, עם סיכוי לא להיהדף כשחוטפים מכה. עובד רק עם פגיון."
+ },
+ "skill/bandit__dagger-mastery#1": {
+  "en": "Dagger Mastery level 1, Critical Rate +1%, 1% chance to ignore knockbacks",
+  "he": "רמת Dagger Mastery: 1, סיכוי לקריטי +1%, סיכוי של 1% לא להיהדף"
+ },
+ "skill/bandit__dagger-mastery#max": {
+  "en": "Dagger Mastery level 10, Critical Rate +20%, 20% chance to ignore knockbacks",
+  "he": "רמת Dagger Mastery: 10, סיכוי לקריטי +20%, סיכוי של 20% לא להיהדף"
+ },
+ "skill/bandit__nimble-recovery": {
+  "en": "Recover HP and MP with a certain chance when evading. Cannot recover again within 30 seconds after a recovery.",
+  "he": "כשמתחמקים ממכה, יש סיכוי לקבל HP ו-MP. אחרי שזה קורה, זה לא יכול לקרות שוב במשך 30 שניות."
+ },
+ "skill/bandit__nimble-recovery#1": {
+  "en": "Recover 1% HP and 1% MP with a 20% chance when evading",
+  "he": "בסיכוי של 20%, התחמקות מחזירה 1% HP ו-1% MP"
+ },
+ "skill/bandit__nimble-recovery#max": {
+  "en": "Recover 10% HP and 10% MP with a 100% chance when evading",
+  "he": "בסיכוי של 100%, התחמקות מחזירה 10% HP ו-10% MP"
+ },
+ "skill/bandit__dagger-booster": {
+  "en": "Uses HP and MP to temporarily increase the Attack Speed of the equipped dagger. It only applies when a dagger is equipped.",
+  "he": "מעלה לזמן מוגבל את מהירות ההתקפה של הפגיון שאתם מחזיקים, בתמורה ל-HP ו-MP. עובד רק עם פגיון."
+ },
+ "skill/bandit__dagger-booster#1": {
+  "en": "HP -30, MP -30; Increases Dagger Attack Speed by 2 stages for 100 sec",
+  "he": "עולה 30 HP ו-30 MP; מהירות ההתקפה עם פגיון עולה ב-2 שלבים למשך 100 שניות"
+ },
+ "skill/bandit__dagger-booster#max": {
+  "en": "HP -10, MP -10; Increases Dagger Attack Speed by 2 stages for 300 sec",
+  "he": "עולה 10 HP ו-10 MP; מהירות ההתקפה עם פגיון עולה ב-2 שלבים למשך 300 שניות"
+ },
+ "skill/bandit__haste": {
+  "en": "Temporarily increases the speed and jump of all party members around the area.",
+  "he": "מעלה לזמן מוגבל את המהירות ואת הקפיצה של כל החברים בפארטי באזור."
+ },
+ "skill/bandit__haste#1": {
+  "en": "MP -15; Speed +10, Jump +1 for 100 sec",
+  "he": "עולה 15 MP; מהירות +10, קפיצה +1 למשך 100 שניות"
+ },
+ "skill/bandit__haste#max": {
+  "en": "MP -35; Speed +30, Jump +10 for 300 sec",
+  "he": "עולה 35 MP; מהירות +30, קפיצה +10 למשך 300 שניות"
+ },
+ "skill/bandit__steal": {
+  "en": "Attempts to steal an item from up to 2 monsters at once with a given success rate. On a successful steal, stuns the enemies for 1.5 seconds and increases Attack Power for 30 seconds. Stealing works only once per monster and can be attempted until successful.",
+  "he": "מנסים לגנוב פריט מעד 2 מפלצות בבת אחת, עם סיכוי הצלחה מסוים. גניבה מוצלחת נותנת לאויבים סטאן ל-1.5 שניות ומעלה לכם את כוח ההתקפה ל-30 שניות. מכל מפלצת אפשר לגנוב רק פעם אחת, ומותר לנסות עד שמצליחים."
+ },
+ "skill/bandit__steal#1": {
+  "en": "MP -10, 30% chance to steal, apply 120% in damage, on success +5 Attack Power for 30 sec",
+  "he": "עולה 10 MP; סיכוי של 30% לגנוב, נזק 120%, ובהצלחה כוח התקפה +5 למשך 30 שניות"
+ },
+ "skill/bandit__steal#max": {
+  "en": "MP -24, 90% chance to steal, apply 180% in damage, on success +35 Attack Power for 30 sec",
+  "he": "עולה 24 MP; סיכוי של 90% לגנוב, נזק 180%, ובהצלחה כוח התקפה +35 למשך 30 שניות"
+ },
+ "skill/bandit__savage-blow": {
+  "en": "Use MP to attack an enemy up to 6 times in a row with a dagger.",
+  "he": "תוקפים אויב עד 6 פעמים ברצף בפגיון, בתמורה ל-MP."
+ },
+ "skill/bandit__savage-blow#1": {
+  "en": "MP -14; Attack 4x with 65% damage",
+  "he": "עולה 14 MP; 4 מכות בנזק 65% כל אחת"
+ },
+ "skill/bandit__savage-blow#max": {
+  "en": "MP -28; Attack 6x with 75% damage",
+  "he": "עולה 28 MP; 6 מכות בנזק 75% כל אחת"
+ }
+}

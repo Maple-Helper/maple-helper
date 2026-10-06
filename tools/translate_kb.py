@@ -2,7 +2,8 @@
 into the KB's own he.json (maplehelper/translations.py reads it; tools/scrape_news.py merges its news part).
 
 What it translates: a quest's journal line (shown as "what to do" when there is nothing to bring), a pet skill's
-description, a skill change's note, and a news item's title, summary, highlights and note. Only text with no
+description, a skill change's note, a skill's description and its level 1 / max level effects (the Skills tab,
+kind "skill_desc"), and a news item's title, summary, highlights and note. Only text with no
 translation made from its current English; at most MAX_TEXTS a night, so a fault can never run up the bill.
 
     ANTHROPIC_API_KEY=... python tools/translate_kb.py [data/kb]      # translate what's missing
@@ -130,6 +131,13 @@ def missing(root: Path) -> list[dict]:
     for k, ch in sitedata.skill_changes(kb).items():
         if ch.note and not translations.he(root, "skill_changes", k, ch.note):
             jobs.append({"kind": "skill_changes", "key": k, "en": ch.note})
+    # every text the Skills tab shows (skillbook.py: a description, then the level 1 and max level effects)
+    from maplehelper import skillbook
+    for skills in skillbook.book(kb).values():
+        for s in skills:
+            for key, en in skillbook.texts(s).items():
+                if not translations.he(root, skillbook.KIND, key, en):
+                    jobs.append({"kind": skillbook.KIND, "key": key, "en": en})
     import scrape_news
     made = scrape_news.translations(kb=root)
     try:
