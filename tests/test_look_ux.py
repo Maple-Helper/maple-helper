@@ -196,3 +196,49 @@ def test_a_plain_text_row_in_a_section_gets_the_rows_padding(app):
     sec.add_widget(own)
     assert intro.contentsMargins() == QMargins(0, 8, 0, 8)
     assert own.contentsMargins() == QMargins(0, 2, 0, 2)
+
+
+def _line_right_edges(img, ink_below: int = 160) -> list[int]:
+    """The rightmost dark pixel of each text line (rows of ink separated by blank rows)."""
+    lines, cur = [], None
+    for y in range(img.height()):
+        xs = [x for x in range(img.width()) if img.pixelColor(x, y).lightness() < ink_below]
+        if xs:
+            cur = max(cur or 0, max(xs))
+        elif cur is not None:
+            lines.append(cur)
+            cur = None
+    if cur is not None:
+        lines.append(cur)
+    return lines
+
+
+def test_a_wrapped_hebrew_news_title_starts_at_the_right_edge(app):
+    """VIS-14: as plain text, a wrapped Hebrew title with an English name kept the space before the name at the end
+    of line 1, and line 1 started ~6 px in from line 2. Now right-to-left rich text: both lines start at one edge."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QColor, QFont, QPixmap
+
+    from maplehelper.ui import newsview
+    theme.load_fonts()
+    item = {"id": "x", "title": "Founder's Access details: level cap 100", "official": True,
+            "title_he": "פרטי Founder's Access: תקרת רמה 100, ו-Forgotten Hollow ייפתח בהמשך"}
+    lb = newsview.title_label(item, True)
+    assert lb.textFormat() == Qt.RichText and 'dir="rtl"' in lb.text() and "Forgotten Hollow" in lb.text().replace(chr(0xA0), " ")
+    f = QFont("Rubik")
+    f.setPixelSize(15)
+    f.setBold(True)
+    lb.setFont(f)
+    lb.setStyleSheet("color: black; background: white;")
+    lb.setLayoutDirection(Qt.RightToLeft)
+    lb.setFixedWidth(420)
+    lb.setFixedHeight(lb.heightForWidth(420))
+    pm = QPixmap(lb.size())
+    pm.fill(QColor("white"))
+    lb.render(pm)
+    edges = _line_right_edges(pm.toImage())
+    assert len(edges) >= 2, edges
+    assert abs(edges[0] - edges[1]) <= 2, edges
+    # an English title (no translation) stays one plain left-to-right block
+    en = newsview.title_label({"id": "y", "title": "Patch notes", "official": True}, True)
+    assert en.textFormat() == Qt.PlainText
