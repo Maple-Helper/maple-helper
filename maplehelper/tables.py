@@ -33,7 +33,7 @@ from . import availability, crafting, market, quests, sources
 
 log = logging.getLogger("maplehelper")
 
-TABLES_VERSION = 2          # bump when a builder changes what it writes (the schema itself is hashed in too)
+TABLES_VERSION = 3          # bump when a builder changes what it writes (the schema itself is hashed in too)
 MARK_FILE = "drops.ingame"  # the name the first table's mark had: an older app's mark reads as stale here
 DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
               "and the players' votes on community drops\n"
@@ -697,7 +697,9 @@ def _monster(ctx, key: str, e: dict) -> dict:
     mesos = kb.community_mesos(key)
     m = combat.monster(kb, key)
     page = kb.page(key)
-    maps = [ctx.name(ctx.map_key(c[0])) or c[0] for c in combat._map_rows(page) if ctx.open.map_open(c[0])]
+    # where to hunt it: never a KPQ stage or a job-test room (their Lv 30 copies became map-less, merged below)
+    maps = [ctx.name(ctx.map_key(c[0])) or c[0] for c in combat._map_rows(page)
+            if ctx.open.map_open(c[0]) and not ctx.open.instance_map(c[0])]
     if len(maps) > MAPS_LISTED:          # most spawns first; spawns.tsv has every one
         maps = maps[:MAPS_LISTED] + [f"+{len(maps) - MAPS_LISTED} more maps"]     # no file name: answers never name files
     return {"monster": e["name"], "key": key, "level": level, "hp": hp, "mp": p.get("MP"), "exp": exp,
@@ -739,8 +741,8 @@ def _spawns(ctx: _Ctx) -> list[dict]:
     def one(key: str, e: dict) -> list[dict]:
         out = []
         for c in combat._map_rows(ctx.kb.page(key)):
-            if not ctx.open.map_open(c[0]):
-                continue
+            if not ctx.open.map_open(c[0]) or ctx.open.instance_map(c[0]):
+                continue            # an instance (KPQ, a job test) is no spawn anyone hunts at (review CORE-1)
             mk = ctx.map_key(c[0])
             share = re.search(r"(\d+)\s*%", c[2]) if len(c) > 2 else None
             rate = re.match(r"([\d.]+)\s*x", c[4]) if len(c) > 4 else None
@@ -788,6 +790,8 @@ def _maps(ctx: _Ctx) -> list[dict]:
             if ctx.kb.get(to) and ctx.open.entity_open(to) and ctx.name(to) not in exits and to != key:
                 exits.append(ctx.name(to))
         mobs = sorted(here.get(key, []), key=lambda s: -s["count"])
+        if ctx.open.instance_map(ctx.open.map_cell.get(key, "")):
+            exp_hr = rank = None    # known, never ranked among the hunting grounds (review CORE-1)
         return {"map": e["name"], "key": key, "street": street, "region": cont, "town": "yes" if r.get("town") else "",
                 "lv_min": int(lv.group(1)) if lv else None, "lv_max": int(lv.group(2) or lv.group(1)) if lv else None,
                 "spawn_points": _int(get("Spawn points ")), "exp_hr": exp_hr,
