@@ -117,6 +117,16 @@ def no_high_contrast(monkeypatch):
     monkeypatch.setattr(theme, "high_contrast", lambda: None)
 
 
+@pytest.fixture(autouse=True)
+def hebrew_system(monkeypatch):
+    """A first run picks the system's language (UX-3): the tests run as on the owner's Hebrew Windows, whatever
+    the CI runner's locale (an English runner opened every first-run dialog in English). test_ux_setup sets it."""
+    from maplehelper import app
+    from maplehelper.ui import dialogs
+    monkeypatch.setattr(dialogs, "system_language", lambda: "he")
+    monkeypatch.setattr(app, "system_language", lambda: "he")
+
+
 @pytest.fixture
 def kb_copy(tmp_path) -> Path:
     """A writable copy of the fixture knowledge base."""

@@ -222,6 +222,9 @@ def seconds_since_self_activation() -> float:
 
 def float_over_fullscreen(win_id: int) -> None:
     """Let a Qt window (winId = its NSView) appear on every Space, also over a fullscreen game."""
+    from PySide6.QtGui import QGuiApplication
+    if QGuiApplication.platformName() != "cocoa":
+        return      # offscreen (tests, renders): the id is no NSView, and messaging it crashed the process
     try:
         import objc
         window = objc.objc_object(c_void_p=ctypes.c_void_p(int(win_id))).window()

@@ -321,7 +321,11 @@ def test_settings_esc_keeps_unsaved_changes_and_keys_must_differ(env):
     assert not dlg.save_btn.isEnabled() and not dlg.keys_error.isHidden()
     dlg._save()
     assert s["hotkey_voice"] != s["hotkey_toggle"]           # not saved like that
-    dlg.hk_voice.setCurrentText("F11")            # (F12 is not offered on Windows: it never registers)
+    # any other key the list offers (F12 is not offered on Windows: it never registers; macOS's toggle is F11)
+    from maplehelper.ui.dialogs import hotkey_choices
+    other = next(k for k in hotkey_choices((s["hotkey_toggle"], s["hotkey_voice"]))
+                 if k not in (dlg.hk_toggle.currentText(), ""))
+    dlg.hk_voice.setCurrentText(other)
     assert dlg.save_btn.isEnabled() and dlg.keys_error.isHidden()
     dlg.close()
 

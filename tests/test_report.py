@@ -96,6 +96,9 @@ def test_the_report_logs_name_no_user_folder(tmp_path, monkeypatch):
     h = str(home)
     (logs / "maplehelper.log").write_text(f"read {h}\\AppData\\x.json\nJSON {json.dumps(h)}\nslash "
                                           f"{h.replace(chr(92), '/')}/a\nother {h}2\\x\n", encoding="utf-8")
+    # an installer log in the PC's code page: a Hebrew Windows (the CI runners' code page can't hold the name)
+    import locale
+    monkeypatch.setattr(locale, "getpreferredencoding", lambda *a: "cp1255")
     (logs / "update-1.log").write_bytes(f"Dest filename: {h}\\AppData\\Local\\a.exe\n".encode("cp1255"))
     path = report.build_report(tmp_path / "out", {}, {})
     with zipfile.ZipFile(path) as z:
