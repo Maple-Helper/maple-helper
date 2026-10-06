@@ -362,3 +362,4 @@ def test_the_session_age_uses_the_time_cells_format_from_an_hour(tools):
     d, c = tools("Warrior", "Fighter", 35, "exp", "en")
     assert d._started_ago(SimpleNamespace(start=time.time() - 3700)) == "Started 1:01 h ago"
     assert d._started_ago(SimpleNamespace(start=time.time() - 12 * 60 - 40)) == "Started 12 min ago"
+    assert d._started_ago(SimpleNamespace(start=time.time() - 20)) == "Started 1 min ago"      # never "0 min"

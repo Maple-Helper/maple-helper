@@ -2725,7 +2725,7 @@ class ToolsDialog(GlassDialog):
         """ "Started 12 min ago", from an hour in the time cell's own format: "Started 62 min ago" stood beside
         "1:01 h" (TL2-18)."""
         secs = max(0.0, time.time() - s.start)
-        m = int(secs) // 60
+        m = max(1, int(secs) // 60)      # the first minute: "a minute ago", never "0 min" (review3 TL2-18-a)
         if m >= 60:
             return self.t("grind_started_ago_time", time=self._clock(secs))
         return self.t("grind_started_ago", n=m)
