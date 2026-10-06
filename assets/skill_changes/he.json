@@ -1,7 +1,7 @@
 {
  "skill/assassin__drain": {
   "en": "COT1: Drain always absorbed 15% of the damage dealt as HP. COT2: that absorb now triggers with a 12% chance. Damage and MP cost are unchanged at max level.",
-  "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP ברמה המקסימלי לא השתנו."
+  "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP ברמה המקסימלית לא השתנו."
  },
  "skill/bowman__the-eye-of-amazon": {
   "en": "Renamed from Amazon's Judgement to The Eye of Amazon .",
@@ -17,7 +17,7 @@
  },
  "skill/f-p-wizard__poison-breath": {
   "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
-  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלי הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלי יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלית הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלית יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
  },
  "skill/f-p-wizard__slow": {
   "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
