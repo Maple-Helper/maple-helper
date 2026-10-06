@@ -27,3 +27,21 @@ def test_the_release_warns_when_the_kb_tables_are_stale(kb_copy, capsys):
     assert kb_release.refresh_tables(kb_copy)
     assert kb_release.main(["tables-check", str(kb_copy)]) == 0
     assert "KB tables: current" in capsys.readouterr().out
+
+
+# --- PRF-6: the Town tab's map lookups ------------------------------------------------------------------------------
+
+def test_a_map_lookup_by_text_is_remembered(kb, monkeypatch):
+    from maplehelper import routes
+    g = routes.Graph(kb)
+    calls = []
+    real = type(kb).find_mentions
+
+    def counting(self, text, *a, **k):
+        calls.append(text)
+        return real(self, text, *a, **k)
+    monkeypatch.setattr(type(kb), "find_mentions", counting)
+    first = g.find("somewhere not a map name")
+    n = len(calls)
+    assert g.find("somewhere not a map name") == first and len(calls) == n       # the mention matcher ran once
+    assert n == 1 and g.find("  ") is None
