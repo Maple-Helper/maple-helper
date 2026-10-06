@@ -601,3 +601,13 @@ def test_patch_notes_count_each_page_once_over_several_updates():
     gone = [{"version": "1", "counts": {"added": 1}, "added": [{"key": "k"}]},
             {"version": "2", "counts": {"removed": 1}, "removed": [{"key": "k"}]}]
     assert sum(totals(gone).values()) == 0
+
+
+def test_profile_spinner_uses_the_icon_set_in_use(monkeypatch):
+    # a Mac has no Segoe Fluent Icons: the busy spinner showed private-use boxes there (MAC-8)
+    from maplehelper.ui import theme, widgets
+    assert widgets.ProfileCard.spin_frames() == [theme.ICON["refresh"], ""]
+    monkeypatch.setattr(theme, "ICON", dict(theme.SYMBOL_ICONS))
+    frames = widgets.ProfileCard.spin_frames()
+    assert frames[0] == theme.SYMBOL_ICONS["refresh"]
+    assert not any("" <= ch <= "" for f in frames for ch in f)
