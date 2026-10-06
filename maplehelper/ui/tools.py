@@ -70,6 +70,7 @@ def scroll_page(rtl: bool) -> tuple[QScrollArea, QVBoxLayout]:
 NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
 FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
+SELL_FM_DEADLINE = 20               # seconds the sell check starts new Free Market lookups for
 
 
 def _close(typed: str, name: str) -> bool:
@@ -81,6 +82,21 @@ def _close(typed: str, name: str) -> bool:
         return False
     return all(any(w.startswith(a) or (len(a) >= 4 and SequenceMatcher(None, a, w[:len(a) + 1]).ratio() >= 0.8)
                    or (len(a) >= 4 and SequenceMatcher(None, a, w).ratio() >= 0.8) for w in words) for a in asked)
+
+
+def _fold(name: str) -> str:
+    """A typed or KB item name compared with hyphens and repeated spaces as one space: the KB's own shop tables
+    write "Subi Throwing-Stars" for its "Subi Throwing Stars" (TL2-22)."""
+    return re.sub(r"[\s-]+", " ", name.lower()).strip()
+
+
+def _item_named(kb, name: str) -> str | None:
+    """An item's key by its exact name, letter case, hyphens and spaces aside."""
+    key = kb._item_by_name.get(name.lower())
+    if key is None:
+        q = _fold(name)
+        key = next((k for n, k in kb._item_by_name.items() if _fold(n) == q), None)
+    return key
 
 
 class _LazyIcons(QStandardItemModel):
@@ -413,6 +429,7 @@ class ToolsDialog(GlassDialog):
         # before then is built on the spot (__getattr__).
         self.pages = {}
         self._grind_choice = ""            # a monster picked before the session starts (grind tracker, farm page)
+        self._seen_cid = self.c.id if self.c else None      # the character the picks above are for
         self._pending = list(PAGES)
         for _ in PAGES:
             self.stack.addWidget(QWidget())
@@ -517,6 +534,14 @@ class ToolsDialog(GlassDialog):
 
     def profile_changed(self):
         """The chat read the profile again (level, EXP, stats): follow it."""
+        cid = self.c.id if self.c else None
+        if cid != self.__dict__.get("_seen_cid", cid):
+            # another character: the monster picked for the next session and the inventory's verdicts were the
+            # last one's (the second character's session started on the first one's monster, TL2-5)
+            self._grind_choice = ""
+            self._farm_mob_pick = None
+            self._reset_sell()
+        self._seen_cid = cid
         self._load_stats()
         self.refresh()
 
@@ -525,7 +550,16 @@ class ToolsDialog(GlassDialog):
         self.setWindowOpacity(1.0)
         if self._own_runner:
             self.runner.sync_done(ok)
-        self.refresh()
+        # the grind tracker's minute reads end here too: only the pages that show a read redraw, and a quest page
+        # only when what its cards are made from changed (rebuilding the Skipped list each minute took ~0.45 s,
+        # TL1-3). A level the read changed comes through profile_changed.
+        name = PAGES[self.stack.currentIndex()]
+        state = self._page_state(name)
+        if name in ("quests", "town"):
+            if state != self.__dict__.get("_filled", {}).get(name):
+                self.refresh(name)
+        elif name in ("train", "calc", "exp", "farm"):
+            self.refresh(name)
 
     def _step_aside(self, then) -> None:
         """Out of the screenshot, then `then()` (the chat captures ~120 ms later), back after 1.5 s. Hidden, not
@@ -1019,20 +1053,25 @@ class ToolsDialog(GlassDialog):
             self._set(self.build_head, t("tool_no_char"))
             self._source_line(self.build_src, None)
             self.build_view.setHtml("")
+            self.build_view.hide()
             self._build_key = None
             self.build_guide_btn.hide()          # no character, no guide to open
             return
         key, tables = buildplan.tables(self.kb, c.base_class, c.job, c.level, t.lang)
         self._build_key = key
         self.build_guide_btn.setVisible(bool(key))
-        self._set(self.build_head, t("build_head", job=c.job_label or c.base_class, n=c.level))
+        # no tables (a Beginner): the head says so, with no "plan from the guide" or "orange row" it doesn't have,
+        # and the empty box is hidden (its one line was cut at the baseline, TL1-2)
+        self._set(self.build_head, t("build_head", job=c.job_label or c.base_class, n=c.level) if tables
+                  else t("build_none"))
+        self.build_view.setVisible(bool(tables))
         # the class guide's numbers: "use current COT2 data" on its page, else MeowDB's own
         self._source_line(self.build_src, (sources.guide_source(self.kb, key) or sources.MEOWDB) if tables else None)
         tier = self._tier_card(sitedata.tiers_for(self.kb, c.base_class, c.job))
         if tier:
             self.build_tier.addWidget(tier)
         if not tables:
-            self.build_view.setHtml(f"<p>{t('build_none')}</p>")
+            self.build_view.setHtml("")
             return
         he = t.lang != "en"
         icons = self._skill_icons()
@@ -1316,9 +1355,11 @@ class ToolsDialog(GlassDialog):
         if self._q_level is not None:
             rows = [q for q in rows if q.opens_at() == self._q_level]
         query = self.q_search.text().strip()
-        if query:
+        if query and rows:
             found = [q for q in rows if q.matches(query)]
-            self._set(self.q_head, t("q_found", n=len(found), total=len(rows), lv=c.level))
+            # "at Lv. N" only on the level's own list: the other tabs span many levels (TL1-5)
+            self._set(self.q_head, t("q_found" if mode == "level" else "q_found_any", n=len(found), total=len(rows),
+                                     lv=c.level))
             rows = found
             if not rows:
                 self.q_list.addWidget(self._label(t("q_no_match"), "RowHint"))
@@ -1751,7 +1792,6 @@ class ToolsDialog(GlassDialog):
             if q and q.cycle:
                 c.cycle_done[key] = time.time()        # back on the list after the next reset
             # done here is done for the chat too: the started quest leaves "Active quests" in the AI's prompt
-            q = quests.quest(self.kb, key)
             if q:
                 c.finish_quest(q.name)
             self.profiles.save()
@@ -1907,10 +1947,12 @@ class ToolsDialog(GlassDialog):
         self.craft_levels_box.setVisible(False)
         prof = self._prof()
         top = crafting.max_level(self.kb, prof)
-        lv = int(((c.crafts or {}).get(prof, 1)) if c else 1)
+        # a saved level above the KB's top (a KB with fewer levels, a hand-edited profile) shows as the top, in the
+        # stepper and the header alike (TL1-6)
+        lv = min(int(((c.crafts or {}).get(prof, 1)) if c else 1), top)
         self.craft_level.blockSignals(True)
         self.craft_level.setMaximum(top)          # the + button and the typed-value check follow the new top
-        self.craft_level.setValue(min(lv, top))
+        self.craft_level.setValue(lv)
         self.craft_level.blockSignals(False)
         if teacher:
             self._set(self.craft_head, "")
@@ -1932,9 +1974,9 @@ class ToolsDialog(GlassDialog):
             self._no_character(self.craft_list)
             return
         every = self.craft_recipe_mode.value() == "all"
-        _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
+        _, nxt = crafting.for_level(self.kb, prof, lv)
         # everything you can craft so far (newest level first), or every recipe (first level first)
-        recipes = crafting.up_to(self.kb, prof, top if every else min(lv, top))
+        recipes = crafting.up_to(self.kb, prof, top if every else lv)
         if every:
             recipes.sort(key=lambda r: (r.level, -r.exp_per_meso, -r.exp))
         self.craft_search.set_rows([(f"{r.name}  ·  {t('craft_level_group', n=r.level)}", r.name,
@@ -1996,7 +2038,7 @@ class ToolsDialog(GlassDialog):
         elif name == "farm":
             self._farm_mob_pick = None
         elif name == "more":
-            clear(self.sell_box)
+            self._reset_sell()
         elif name == "route":
             empty(self.route_to)
             clear(self.route_out)
@@ -2267,14 +2309,15 @@ class ToolsDialog(GlassDialog):
         t = self.t
         clear(self.price_box)
         name = self.price_input.text().strip()
-        key = self.kb._item_by_name.get(name.lower()) if name else None
+        key = _item_named(self.kb, name) if name else None
         if name and not key:
             # part of a name, like the damage calculator takes it ("Blue Pot" -> Blue Potion): the shortest match
-            q = name.lower()
-            part = sorted((n for n in self.kb._item_by_name if q in n), key=lambda n: (len(n), n))
+            q = _fold(name)
+            part = sorted((n for n in self.kb._item_by_name if q in _fold(n)), key=lambda n: (len(n), n))
             if part:
                 key = self.kb._item_by_name[part[0]]
-                name = (self.kb.get(key) or {}).get("name", name)
+        if key:
+            name = (self.kb.get(key) or {}).get("name", name)      # the card says the item's name, not "brown kitty"
         if not key:
             if name:
                 self.price_box.addWidget(self._label(t("price_none"), "RowHint"))
@@ -2363,7 +2406,7 @@ class ToolsDialog(GlassDialog):
 
         def lookup(n=name, i=item_id):
             # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
-            # without one. Up to 10 s on a slow connection
+            # without one. Up to 3 requests of up to 8 s each on a slow connection
             found = market.item_market(i) if i else market.free_market(n)
             try:
                 self.market_ready.emit((n, found))
@@ -2650,7 +2693,8 @@ class ToolsDialog(GlassDialog):
         if n is None:
             return "–"
         a = abs(n)
-        text = f"{a:,.0f}" if a < 100_000 else f"{a / 1000:.1f}K" if a < 1_000_000 else f"{a / 1_000_000:.2f}M"
+        # by the rounded value: 999,960 is "1.00M", not "1000.0K" (TL2-19)
+        text = f"{a:,.0f}" if a < 100_000 else f"{a / 1000:.1f}K" if round(a / 1000, 1) < 1000 else f"{a / 1_000_000:.2f}M"
         text = ("-" if n < 0 else "+" if sign and n > 0 else "") + text
         return bidi.ltr_block(("~" if approx else "") + text, self.t.rtl)
 
@@ -2668,7 +2712,7 @@ class ToolsDialog(GlassDialog):
         label.setAccessibleName(f"{self.t(f'grind_{key}')}: {value}" + (f". {tip}" if tip else ""))
 
     def _fill_exp_clock(self):
-        """The session's age and the time since its last read (every 30 s, between reads)."""
+        """The session's age and the time since its last read (every 10 s, between reads)."""
         t, c = self.t, self.c
         s = self.grind.session(c.id) if c else None
         if not s:
@@ -2815,7 +2859,9 @@ class ToolsDialog(GlassDialog):
                 add(self._gl(t("grind_restocked", names=", ".join(bidi.ltr_block(n, t.rtl) for n in sm.restocked)),
                                 "RowHint"))
         if sm.expected:
-            text = t("grind_expected", n=f"{sm.expected:,}", k=f"{sm.kills:,}", r=sm.reports)
+            # one report: "By 1 community report" (TL2-15)
+            text = t("grind_expected_one" if sm.reports == 1 else "grind_expected", n=f"{sm.expected:,}",
+                     k=f"{sm.kills:,}", r=sm.reports)
             self.grind_lines.addLayout(chip_row([source_tag(t, sources.COMMUNITY)], self._gl(text, "RowHint"),
                                                 lead=True))
         if sm.kills is not None or sm.expected:
@@ -3030,10 +3076,10 @@ class ToolsDialog(GlassDialog):
     def _farm_pick(self):
         """The item box: an exact name, else the shortest item some monster drops whose name holds what was typed."""
         name = self.farm_input.text().strip()
-        key = farm.item_key(self.kb, name) if name else None
+        key = (farm.item_key(self.kb, name) or _item_named(self.kb, name)) if name else None
         if name and key not in self.kb.droppers:
-            q = name.lower()
-            part = sorted((self.kb.get(k)["name"] for k in farm.farmable(self.kb) if q in self.kb.get(k)["name"].lower()),
+            q = _fold(name)
+            part = sorted((self.kb.get(k)["name"] for k in farm.farmable(self.kb) if q in _fold(self.kb.get(k)["name"])),
                           key=lambda n: (len(n), n))
             key = self.kb._item_by_name.get(part[0].lower()) if part else key
         if name and not key:
@@ -3209,7 +3255,7 @@ class ToolsDialog(GlassDialog):
         row.addLayout(col, 1)
         return card
 
-    def _farm_links(self, key: str, name: str, map_name: str, boss: bool = False) -> QHBoxLayout:
+    def _farm_links(self, key: str, name: str, map_name: str, boss: bool = False) -> FlowLayout:
         """A monster's actions: farm it (the session's monster), the way to its map, ask the chat about it."""
         acts = [] if boss else [("farm_hunt", lambda n=name: self._farm_hunt(n))]
         if map_name:
@@ -3221,21 +3267,23 @@ class ToolsDialog(GlassDialog):
     # what a card shows, a tap from the page about it: a monster's map, its hit & damage, a grind session on it;
     # an item's droppers and its price; an NPC's map (the owner)
 
-    def _links_row(self, acts: list) -> QHBoxLayout:
-        """(text key, action) as orange links in the reading order, a dot between them (as on the farm cards)."""
+    def _links_row(self, acts: list, flow: bool = True) -> FlowLayout | QHBoxLayout:
+        """(text key, action) as orange links in the reading order. A flow that wraps: four links in one row made
+        each English monster card 561 px in a 514 px page, cutting "Ask in chat" and the stats steppers (UX-1); no
+        dots between them, so a wrapped line never starts with one. flow=False: one row, for a short pair of links
+        beside a name in a row (a flow there is given one link's width and stacks them)."""
         t = self.t
-        links = QHBoxLayout()
+        links = FlowLayout(spacing=14, line_spacing=2) if flow else QHBoxLayout()
         links.setContentsMargins(0, 2, 0, 0)
-        links.setSpacing(14)
-        for i, (text, then) in enumerate(acts):
-            if i:
-                links.addWidget(QLabel("·", objectName="RowHint"))
-            b = QPushButton(self._p(t(text)), objectName="Link")
+        if not flow:
+            links.setSpacing(14)
+        for text, then in acts:
+            # "&&": a lone "&" ("Hit & damage") is a keyboard shortcut to Qt and showed as "Hit _damage" (UX-2)
+            b = QPushButton(self._p(t(text)).replace("&", "&&"), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
             b.setAutoDefault(False)
             b.clicked.connect(lambda _=False, f=then: f())
             links.addWidget(b)
-        links.addStretch(1)
         return links
 
     def _links_box(self, acts: list) -> QWidget:
@@ -3359,23 +3407,28 @@ class ToolsDialog(GlassDialog):
         # its best-paying drops, each a link that makes it the wanted item, with the list it is on
         for d in r.drops:
             text = f"{d.name} · {d.value.price:,} mesos" if d.value else d.name
-            b = QPushButton(bidi.ltr_name(text, t.rtl), objectName="Link")
-            b.setCursor(Qt.PointingHandCursor)
-            b.setAutoDefault(False)
+            # a link that wraps, its chips in a flow under it: a QPushButton#Link and its chips in one row were up
+            # to 518 px, wider than the page, and cut the cards and their chips mid-word (TL2-2)
+            b = WrapLink(text, t.rtl)
             b.setToolTip(tip_html(t("farm_drop_tip", item=d.name), t.rtl))
-            b.clicked.connect(lambda _=False, k=d.key: self._farm_choose(k))
-            chips_ = [source_tag(t, d.source)]          # the chip right after its drop
+            b.clicked.connect(lambda k=d.key: self._farm_choose(k))
+            chips = FlowLayout(spacing=5)
             if d.need:
                 # what you need it for: a quest you can do, a recipe of your profession, your wishlist
                 kind, what = d.need
                 need = tag(self._p(t(f"farm_need_{kind}")), "TagGood")
                 if what:
                     need.setToolTip(tip_html(t(f"farm_need_{kind}_tip", name=what), t.rtl))
-                chips_.insert(0, need)
+                chips.addWidget(need)
+            chips.addWidget(source_tag(t, d.source))
             line = QHBoxLayout()
             line.setSpacing(6)
-            line.addWidget(self._picture(d.key, 24), 0, Qt.AlignVCenter)
-            line.addLayout(chip_row(chips_, b), 1)
+            line.addWidget(self._picture(d.key, 24), 0, Qt.AlignTop)
+            text_col = QVBoxLayout()
+            text_col.setSpacing(2)
+            text_col.addWidget(b)
+            text_col.addLayout(chips)
+            line.addLayout(text_col, 1)
             col.addLayout(line)
         col.addLayout(self._farm_links(r.key, r.name, r.map))
         row.addLayout(col, 1)
@@ -3649,7 +3702,7 @@ class ToolsDialog(GlassDialog):
         trade = sitedata.trade(self.kb, p.key)
         acts = [("go_price", lambda n=p.name: self._farm_price(n))] if trade in ("once", "tradeable") else []
         acts.append(("ask_short", lambda k=p.key: self.tag_requested.emit(k)))
-        head.addLayout(self._links_row(acts))
+        head.addLayout(self._links_row(acts, flow=False))
         col.addLayout(head)
         # one line a detail, its name with a "?" that explains it (all in one row of chips was hard to read; the
         # explanations sat in a paragraph above the list: the owner)
@@ -3682,10 +3735,22 @@ class ToolsDialog(GlassDialog):
         lay.addLayout(col, 1)
         return row
 
+    def _reset_sell(self) -> None:
+        """The inventory's verdicts gone, and a Free Market answer still on its way for them dropped (it redrew the
+        old cards on a page the player had left, TL2-14)."""
+        if "more" in self.pages:
+            clear(self.sell_box)
+        self._sell_verdicts = None
+        self._sell_read = self.__dict__.get("_sell_read", 0) + 1
+
     def _sell_check(self):
         """The inventory read here, no AI: this window steps out of the shot, the icons are matched to the KB's
         pictures (inventory.py) off the GUI thread, and each item is sorted by what the KB says (sellkeep.py)."""
         clear(self.sell_box)
+        if not self.c:
+            # no character to sort for: said now, without hiding the window for a screenshot first (TL2-13)
+            self._no_character(self.sell_box)
+            return
         self.sell_box.addWidget(self._label(self.t("sell_reading"), "RowHint"))
         self.sell_go.setEnabled(False)
 
@@ -3746,7 +3811,12 @@ class ToolsDialog(GlassDialog):
 
         def look():
             usual = {}
+            # a slow connection: no new lookup after SELL_FM_DEADLINE, the cards show what came in by then (each
+            # item is up to 3 requests of 8 s, 30 of them took minutes of "checking", TL2-9)
+            stop = time.monotonic() + SELL_FM_DEADLINE
             for k in keys:
+                if time.monotonic() > stop:
+                    break
                 slug = k.split("/", 1)[1]
                 if slug.isdigit():
                     m = market.item_market(int(slug))
@@ -3870,9 +3940,16 @@ class ToolsDialog(GlassDialog):
         """Open on the way to this map (a map card's "How to get here"), from the character's map."""
         self.show_page(PAGES.index("route"))
         mid = self.route_graph.of_key(key)
-        if mid:
-            self.route_to.setText(self.route_graph.name(mid))
-            self.route_to.setCursorPosition(0)
+        if not mid:
+            # a map the way-finder doesn't know: said, never the last destination's way under it (TL2-8)
+            self.route_to.clear()
+            clear(self.route_out)
+            name = (self.kb.get(key) or {}).get("name", key)
+            why = "route_not_out" if self.route_graph.not_in_game(name) else "route_unknown"
+            self._route_hint(self.t(why, name=bidi.ltr_block(name, self.t.rtl)))
+            return
+        self.route_to.setText(self.route_graph.name(mid))
+        self.route_to.setCursorPosition(0)
         self._find_route()
 
     def _swap_route(self):
