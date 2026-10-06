@@ -3204,7 +3204,7 @@ class ToolsDialog(GlassDialog):
             mt.setToolTip(tip_html(mesos_tip(t, d.mesos), t.rtl))
             chips.addWidget(mt)
         col.addLayout(chips)
-        col.addLayout(self._farm_links(d.key, d.name, d.map, d.boss))
+        col.addLayout(self._farm_links(d.key, d.name, "" if d.closed else d.map, d.boss))     # no way to walk there
         row.addLayout(col, 1)
         return card
 

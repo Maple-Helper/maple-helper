@@ -42,6 +42,14 @@ def test_droppers_put_community_sightings_first_and_say_how_they_fit(kb):
             assert d.vote == kb.community_vote(d.key, key)
 
 
+@needs_kb
+def test_a_monster_only_in_a_party_quest_says_where_it_is(kb):
+    """King Slime lives only on KPQ's last stage: it was listed with no map as a farm (audit GAM-11)."""
+    for item in ("item/429", "item/1368"):                       # Coupon, Squishy Shoes (the players' list)
+        king = next(d for d in farm.droppers(kb, item, 25) if d.key == "monster/800003")
+        assert king.closed and king.boss and "Accompaniment" in king.map
+
+
 def test_fit_by_level():
     assert farm.fit(30, 30) == "easy" and farm.fit(30, 12) == "easy"
     assert farm.fit(30, 30 + combat.SPOT_ABOVE) == "range"
