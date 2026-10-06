@@ -1,9 +1,10 @@
 """Chat building blocks: message bubbles, entity cards, system lines."""
 from __future__ import annotations
 
+import re
 import webbrowser
 
-from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
                                QWidgetAction)
@@ -41,6 +42,25 @@ def on_solid_background(pm: QPixmap, radius: float) -> QPixmap:
     p.drawPixmap(0, 0, pm)
     p.end()
     return out
+
+
+ZWSP = chr(0x200B)       # zero-width space: a place to wrap, nothing drawn
+
+
+def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
+    """A zero-width break every `every` characters inside a word longer than `run` (a URL, names joined by "_"):
+    Qt wraps only at spaces and a few marks, and such a word ran past the bubble and was cut. "**" stays whole
+    (the bold markup)."""
+    def cut(m):
+        w, out, n = m.group(0), [], 0
+        for i, ch in enumerate(w):
+            out.append(ch)
+            n += 1
+            if n >= every and i + 1 < len(w) and ch != "*" and w[i + 1] != "*":
+                out.append(ZWSP)
+                n = 0
+        return "".join(out)
+    return re.sub(r"\S{%d,}" % run, cut, text)
 
 
 class Bubble(QFrame):
@@ -82,7 +102,7 @@ class Bubble(QFrame):
         if not text:
             self.label.setText("")
             return
-        body = bidi.to_html(text, self._dir)
+        body = bidi.to_html(soft_breaks(text), self._dir)
         if self.role != "user":
             from . import terms
             from .. import glossary
@@ -143,6 +163,49 @@ class SystemLine(QLabel):
         self.setText(bidi.plain(text))
 
 
+class ElideLink(QPushButton):
+    """A link button that can be narrower than its text: the text ends in "…" and the tooltip has all of it. (At
+    470 px with the large font, "This is the same character (update the name)" held the whole conversation
+    wider than its view, and every row's far edge was cut.)"""
+
+    def __init__(self, text: str = "", **kw):
+        super().__init__(**kw)
+        self._full = ""
+        # a push button is never narrower than its text (QSizePolicy.Minimum); this one may be
+        self.setSizePolicy(QSizePolicy.Preferred, self.sizePolicy().verticalPolicy())
+        self.setText(text)
+
+    def setText(self, text: str) -> None:
+        self._full = text
+        self._elide()
+
+    def text(self) -> str:          # what it says, not what fits
+        return self._full
+
+    def sizeHint(self):
+        # as wide as the whole text (the flow and box layouts give it that much when there is room)
+        h = super().sizeHint()
+        fm = self.fontMetrics()
+        return QSize(h.width() + fm.horizontalAdvance(self._full) - fm.horizontalAdvance(super().text()), h.height())
+
+    def minimumSizeHint(self):
+        h = super().minimumSizeHint()
+        return QSize(min(h.width(), 48), h.height())
+
+    def _elide(self) -> None:
+        fm = self.fontMetrics()
+        pad = super().sizeHint().width() - fm.horizontalAdvance(super().text())
+        room = self.width() - pad
+        shown = self._full if room >= fm.horizontalAdvance(self._full) else             fm.elidedText(self._full, Qt.ElideRight, max(0, room))
+        super().setText(shown)
+        self.setToolTip(self._full.strip() if shown != self._full else "")
+        self.setAccessibleName(self._full.strip())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._elide()
+
+
 class NoticeCard(QFrame):
     """An orange note in the conversation with one action (e.g. "what changed?")."""
 
@@ -177,12 +240,12 @@ class NoticeCard(QFrame):
         self._top.addWidget(self.msg, 1)
         self._col.addLayout(self._top)
         lay.addLayout(self._col, 1)
-        self.btn = QPushButton(objectName="Link")
+        self.btn = ElideLink(objectName="Link")
         self.btn.setCursor(Qt.PointingHandCursor)
         self.btn.clicked.connect(self.clicked.emit)
         self.btn2 = None
         if action2:
-            self.btn2 = QPushButton(objectName="Link")
+            self.btn2 = ElideLink(objectName="Link")
             self.btn2.setCursor(Qt.PointingHandCursor)
             self.btn2.clicked.connect(self.clicked2.emit)
             # the two side by side, wrapping onto a second line in a narrow chat (in one row they held it wide)
@@ -546,7 +609,8 @@ class Selectable:
         self.style().polish(self)
 
     def mouseReleaseEvent(self, ev):
-        if ev.button() == Qt.LeftButton:
+        # released over the card: a press dragged off it (changing one's mind) tags nothing
+        if ev.button() == Qt.LeftButton and self.rect().contains(ev.position().toPoint()):
             SELECTION.picked.emit(self.key)
 
     def keyPressEvent(self, ev):
