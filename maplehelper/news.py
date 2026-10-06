@@ -116,13 +116,18 @@ def short_date(i: dict) -> str:
 # ---------------------------------------------------------------- for the AI
 
 _ASKS_NEWS = re.compile(
-    r"\b(news|announce\w*|maintenance|patch(?: notes)?|launch\w*|release\w*|open(?:s|ing)?|founder'?s|update|"
-    r"server|downtime|event|coming|roadmap)\b|חדשות|הודע|תחזוק|השק|נפתח|ייפתח|יפתח|פתיחה|עדכון|שרת|אירוע|מתי",
+    r"\b(news|announce\w*|maintenance|patch(?: notes)?|launch\w*|release\w*|founder'?s|update|downtime|roadmap|"
+    r"gm events?)\b|חדשות|הודע|תחזוק|השק|נפתח|ייפתח|יפתח|פתיחה|עדכון|אירוע",
     re.I)
+# everyday words alone ("מתי אני מקבל ג'וב שני", "where do I open my inventory") are no news question; two of them
+# together ("When does Orbis open?", "is the server open", "מתי השרת") are
+_NEWS_WORDS = re.compile(r"\b(open(?:s|ing)?|server|events?|coming|when)\b|מתי|שרת|"
+                         r"(?<![א-ת])(?:יוצא|ייצא|יצא|שחרור)(?![א-ת])", re.I)
 
 
 def asks_news(question: str) -> bool:
-    return bool(_ASKS_NEWS.search(question or ""))
+    q = question or ""
+    return bool(_ASKS_NEWS.search(q)) or len({m.group(0).lower() for m in _NEWS_WORDS.finditer(q)}) >= 2
 
 
 def ai_lines(kb, limit: int = 6, today: date | None = None) -> list[str]:

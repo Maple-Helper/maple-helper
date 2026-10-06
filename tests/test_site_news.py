@@ -486,3 +486,13 @@ def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_day
     st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
     tip = serverdot.tip(I18n("he"), st)
     assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and "6.10, 21:00" in tip
+
+
+@pytest.mark.parametrize("q,asks", [
+    ("מתי אני מקבל ג'וב שני?", False), ("where do I open my inventory", False), ("is the event shop good?", False),
+    ("מה החדשות?", True), ("מתי השרת נפתח?", True), ("is the server open?", True), ("when is the next GM event", True),
+    ("any patch notes today?", True), ("מתי ההשקה?", True), ("מתי Orbis יוצא?", True),
+])
+def test_only_a_news_question_asks_for_the_news(q, asks):
+    """"מתי" or "open" alone added the news block to every such prompt."""
+    assert news.asks_news(q) is asks
