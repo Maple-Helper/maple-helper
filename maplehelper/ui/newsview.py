@@ -3,20 +3,162 @@ News tab of the patch notes window.
 
 Titles stay as published (English, one left-to-right block in a Hebrew line); the summary is in Hebrew when there
 is a translation of its current text, else the English one under a Hebrew note that says so.
+
+Pictures (news.cover / header / pictures / entities, from the KB's img/news): a card has NiaMeowDB's cover as a
+thumbnail; an article has its picture under the title, the pictures of what it names from Nexon's announcement, and
+the KB's own pictures of the items and monsters it names. A picture that is missing or can't be read is left out,
+and the page is as it was without pictures.
 """
 from __future__ import annotations
 
 import html
 import re
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QRectF, QSize, Qt, Signal
+from PySide6.QtGui import QBrush, QPainter, QPainterPath, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi, news
 from ..osapi import open_url
 from . import theme
+from .controls import FlowLayout
+from .widgets import fit_picture, zoom_on_hover
 
 SHOWN = 30          # cards per section; the rest are a link away on MeowDB
+THUMB = (88, 50)        # a card's cover thumbnail (the covers are 540x304), as wide as a guide card's
+RADIUS = 10             # a picture's corners
+TILE_W, TILE_PIC = 92, 48     # a named picture's tile under an article
+
+
+def load(path) -> QPixmap:
+    """The picture, or a null one when there is none or Qt can't decode it (the page then goes without it)."""
+    return QPixmap(str(path)) if path else QPixmap()
+
+
+def rounded(pm: QPixmap, radius: float = RADIUS) -> QPixmap:
+    """The picture with rounded corners, drawn at its own device pixels (fit_picture's): an antialiased edge, sharp
+    on HiDPI."""
+    if pm.isNull():
+        return pm
+    dpr = pm.devicePixelRatio() or 1.0
+    src = QPixmap(pm)
+    src.setDevicePixelRatio(1)
+    out = QPixmap(pm.size())
+    out.fill(Qt.transparent)
+    p = QPainter(out)
+    p.setRenderHint(QPainter.Antialiasing)
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(0, 0, pm.width(), pm.height()), radius * dpr, radius * dpr)
+    p.fillPath(path, QBrush(src))
+    p.end()
+    out.setDevicePixelRatio(dpr)
+    return out
+
+
+class Picture(QWidget):
+    """A news picture with rounded corners. With a size: a card's thumbnail, the picture fitted and centered in it.
+    Without: across the column under an article's title, as wide as the column and at most GROW times its own
+    size, from the reading side."""
+
+    GROW = 1.5
+
+    def __init__(self, pm: QPixmap, size: tuple[int, int] | None = None):
+        super().__init__()
+        self._pm = pm
+        self._fixed = bool(size)
+        self._cache: tuple | None = None
+        if size:
+            self.setFixedSize(*size)
+        else:
+            sp = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            sp.setHeightForWidth(True)
+            self.setSizePolicy(sp)
+
+    def _fit(self, w: int, h: int | None = None) -> QSize:
+        pw, ph = max(1, self._pm.width()), max(1, self._pm.height())
+        k = min(max(1, w) / pw, self.GROW) if h is None else min(w / pw, h / ph)
+        return QSize(max(1, round(pw * k)), max(1, round(ph * k)))
+
+    def hasHeightForWidth(self) -> bool:
+        return not self._fixed
+
+    def heightForWidth(self, w: int) -> int:
+        return self._fit(w).height()
+
+    def sizeHint(self) -> QSize:
+        return self.size() if self._fixed else self._fit(min(self._pm.width(), 440))
+
+    def minimumSizeHint(self) -> QSize:
+        return self.minimumSize() if self._fixed else QSize(60, self.heightForWidth(60))
+
+    def paintEvent(self, e):
+        s = self._fit(self.width(), self.height() if self._fixed else None)
+        key = (s.width(), s.height(), self.devicePixelRatioF())
+        if not self._cache or self._cache[0] != key:
+            self._cache = (key, rounded(fit_picture(self._pm, s.width(), s.height(), self)))
+        if self._fixed:
+            x, y = (self.width() - s.width()) // 2, (self.height() - s.height()) // 2
+        else:
+            x, y = (self.width() - s.width() if self.layoutDirection() == Qt.RightToLeft else 0), 0
+        QPainter(self).drawPixmap(x, y, self._cache[1])
+
+
+def picture(path, size: tuple[int, int] | None = None, name: str = "NewsPicture") -> Picture | None:
+    """A Picture of the file, or None when there is none or it can't be decoded (no hole in the page)."""
+    pm = load(path)
+    if pm.isNull():
+        return None
+    w = Picture(pm, size)
+    w.setObjectName(name)
+    return w
+
+
+def tile(name: str, path, rtl: bool) -> QFrame | None:
+    """A named picture under an article: the picture with its name under it (in English, as the game writes it),
+    large on hover like the quests' pictures."""
+    pm = load(path)
+    if pm.isNull():
+        return None
+    box = QFrame(objectName="NewsTile")
+    box.setFixedWidth(TILE_W)
+    col = QVBoxLayout(box)
+    col.setContentsMargins(2, 4, 2, 4)
+    col.setSpacing(4)
+    pic = QLabel()
+    pic.setFixedSize(TILE_PIC, TILE_PIC)
+    pic.setAlignment(Qt.AlignCenter)
+    pic.setPixmap(fit_picture(pm, TILE_PIC, TILE_PIC, pic, trim=True))
+    zoom_on_hover(pic, path, name, height=min(128, max(64, pm.height() * 2)))
+    col.addWidget(pic, 0, Qt.AlignHCenter)
+    lb = QLabel(bidi.ltr_name(name, rtl), objectName="CardSub")
+    lb.setWordWrap(True)
+    lb.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+    col.addWidget(lb)
+    # the tile's height for its name's lines: the flow layout places it by its size hint, which a wrapped label
+    # doesn't give (a two-line name was drawn over the picture and a three-line one cut)
+    lb.ensurePolished()
+    m = col.contentsMargins()
+    box.setFixedHeight(m.top() + TILE_PIC + col.spacing() + lb.heightForWidth(TILE_W - m.left() - m.right())
+                       + m.bottom())
+    box.setAccessibleName(name)
+    return box
+
+
+def tiles(rows: list[tuple[str, object]], rtl: bool) -> QWidget | None:
+    """The named pictures as a grid from the reading side, wrapping at the panel's width; None without any."""
+    made = [w for w in (tile(n, p, rtl) for n, p in rows) if w]
+    if not made:
+        return None
+    grid = QWidget()
+    grid.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+    flow = FlowLayout(grid, spacing=6)
+    tallest = max(w.maximumHeight() for w in made)
+    for w in made:
+        w.setFixedHeight(tallest)       # one height: the pictures of a line on one level, the names under them
+        flow.addWidget(w)
+    return grid
+
+
 # a megaphone: Segoe Fluent Icons' when the app has the icon font, else a plain-text one (theme.SYMBOL_ICONS' way)
 GLYPH, SYMBOL = "\ue789", "\U0001F4E3\ufe0e"
 
@@ -153,10 +295,11 @@ class NewsStrip(QFrame):
 
 
 class NewsCard(QFrame):
-    """One news item: chips (source, region, new), the title, date, summary, links. on_open(item): the full
-    article in the app ("Read the article"); without it the card links to MeowDB."""
+    """One news item: chips (source, region, new), the title (the cover's thumbnail at its side when the KB has it),
+    date, summary, links. on_open(item): the full article in the app ("Read the article"); without it the card
+    links to MeowDB."""
 
-    def __init__(self, t, i: dict, unread: bool = False, on_open=None):
+    def __init__(self, t, i: dict, unread: bool = False, on_open=None, kb=None):
         super().__init__(objectName="Card")
         rtl = t.rtl
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
@@ -174,7 +317,15 @@ class NewsCard(QFrame):
         chips.addWidget(date)
         chips.addStretch(1)
         col.addLayout(chips)
-        col.addWidget(title_label(i, rtl))
+        thumb = picture(news.cover(kb, i), THUMB, "NewsThumb") if kb is not None else None
+        if thumb:
+            head = QHBoxLayout()
+            head.setSpacing(10)
+            head.addWidget(thumb, 0, Qt.AlignTop)
+            head.addWidget(title_label(i, rtl), 1)
+            col.addLayout(head)
+        else:
+            col.addWidget(title_label(i, rtl))
         text, translated = news.summary(i, t.lang)
         if text:
             if not translated:
@@ -235,7 +386,7 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
         hl = QLabel(bidi.plain(t(head, n=len(rows)), rtl), objectName="SectionHeader")
         lay.addWidget(hl)
         for i in rows[:SHOWN]:
-            lay.addWidget(NewsCard(t, i, i["id"] in unread, on_open))
+            lay.addWidget(NewsCard(t, i, i["id"] in unread, on_open, kb))
         if len(rows) > SHOWN:
             more = QPushButton(bidi.plain(t("news_more_site", n=len(rows) - SHOWN), rtl), objectName="Link")
             more.setCursor(Qt.PointingHandCursor)
@@ -244,9 +395,10 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
     return page
 
 
-def article(t, i: dict) -> QWidget:
-    """A news item in full, like a guide: chips, title, date, the summary, every highlight, NiaMeowDB's note and the
-    links to MeowDB and the publisher. Hebrew where it is translated; English text reads left to right."""
+def article(t, i: dict, kb=None) -> QWidget:
+    """A news item in full, like a guide: chips, title, date, its picture, the summary, every highlight, NiaMeowDB's
+    note, the pictures of what it names, and the links to MeowDB and the publisher. Hebrew where it is translated;
+    English text reads left to right."""
     rtl = t.rtl
     page = QWidget()
     page.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
@@ -260,6 +412,10 @@ def article(t, i: dict) -> QWidget:
     chips.addStretch(1)
     lay.addLayout(chips)
     lay.addWidget(title_label(i, rtl, "ProfileName"))
+    top = picture(news.header(kb, i)) if kb is not None else None
+    if top:
+        top.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        lay.addWidget(top)
 
     def para(text: str, translated: bool, name: str = "DialogBody") -> QLabel:
         lb = QLabel(sentences(text, rtl) if translated else text, objectName=name)
@@ -283,6 +439,8 @@ def article(t, i: dict) -> QWidget:
     if note:
         lay.addWidget(QLabel(bidi.plain(t("news_meowdb_note"), rtl), objectName="SectionHeader"))
         lay.addWidget(para(note, body_translated, "RowLabel"))
+    if kb is not None:
+        _pictured(t, i, kb, lay)
     links = QHBoxLayout()
     links.setSpacing(16)
     # the source's link needs its publisher's name; MeowDB's own link doesn't (an item without one lost both)
@@ -297,6 +455,29 @@ def article(t, i: dict) -> QWidget:
     links.addStretch(1)
     lay.addLayout(links)
     return page
+
+
+def _pictured(t, i: dict, kb, lay: QVBoxLayout) -> None:
+    """What the article names, in pictures: Nexon's from its announcement (credited, a link to it), then the KB's own
+    of the other items and monsters it names (news.entities)."""
+    rtl = t.rtl
+    named = news.pictures(kb, i)
+    grid = tiles(named, rtl)
+    if grid:
+        lay.addWidget(QLabel(bidi.plain(t("news_pictured"), rtl), objectName="SectionHeader"))
+        lay.addWidget(grid)
+        who, src = i.get("publisher") or "Nexon", i.get("source_url") or ""
+        credit = QPushButton(bidi.plain(t("news_pictures_credit", who=who), rtl), objectName="Link")
+        credit.setToolTip(bidi.plain(t("news_pictures_tip", who=who), rtl))
+        if src.startswith("https://"):
+            credit.setCursor(Qt.PointingHandCursor)
+            credit.clicked.connect(lambda _=False, u=src: open_url(u))
+        lay.addWidget(credit, 0, _align(rtl))
+    keys = news.entities(kb, i, skip=[n for n, _ in named])
+    grid = tiles([(kb.get(k)["name"], kb.image_path(k)) for k in keys], rtl)
+    if grid:
+        lay.addWidget(QLabel(bidi.plain(t("news_in_kb"), rtl), objectName="SectionHeader"))
+        lay.addWidget(grid)
 
 
 def news_dialog(lang: str, stylesheet: str, kb, unread=()):
@@ -350,7 +531,7 @@ def news_dialog(lang: str, stylesheet: str, kb, unread=()):
             back.setCursor(Qt.PointingHandCursor)
             back.clicked.connect(self.close_article)
             col.addWidget(back, 0, _align(rtl))
-            col.addWidget(article(t, i))
+            col.addWidget(article(t, i, kb))
             self.stack.addWidget(self._scroll(box))
             self.stack.setCurrentIndex(1)
             back.setFocus()

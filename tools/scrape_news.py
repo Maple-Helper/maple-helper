@@ -340,9 +340,10 @@ def _alt_name(alt: str, article: str) -> str:
 
 
 def item_text(i: dict) -> str:
-    """The English an item shows: what its pictures must be named in."""
-    return "\n".join([i.get("title") or "", i.get("summary") or "", *(i.get("highlights") or []),
-                      i.get("commentary") or ""])
+    """The English an item shows: what its pictures must be named in, in the order they come. The title last: it
+    names things in short ("AP and SP Reset Scrolls" put the SP Reset Scroll first)."""
+    return "\n".join([i.get("summary") or "", *(i.get("highlights") or []), i.get("commentary") or "",
+                      i.get("title") or ""])
 
 
 def nexon_pictures(body: str, article: str, text: str) -> tuple[str | None, list[tuple[str, str]]]:

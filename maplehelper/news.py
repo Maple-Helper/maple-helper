@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 from datetime import date, timedelta
+from pathlib import Path
 
 from . import dates
 
@@ -105,6 +106,80 @@ def title(i: dict, lang: str) -> str:
         if he:
             return he
     return str(i.get("title") or "")
+
+
+# ---------------------------------------------------------------- pictures (tools/scrape_news.py saves them in the KB)
+
+PICTURES = "img/news/"
+SHOWN_ENTITIES = 12      # KB pictures under an article, at most
+
+
+def _file(kb, f) -> Path | None:
+    """A picture news.json names, when it is in the KB's img/news (never a path out of it)."""
+    root = getattr(kb, "root", None)
+    if not (root and isinstance(f, str) and f.startswith(PICTURES) and ".." not in f and "\\" not in f):
+        return None
+    p = Path(root) / f
+    return p if p.is_file() else None
+
+
+def _nexon(i: dict) -> dict:
+    return i["nexon"] if isinstance(i.get("nexon"), dict) else {}
+
+
+def cover(kb, i: dict) -> Path | None:
+    """NiaMeowDB's cover picture of the item (a card's thumbnail)."""
+    return _file(kb, i.get("image"))
+
+
+def header(kb, i: dict) -> Path | None:
+    """The picture under an article's title: Nexon's banner of its announcement, else NiaMeowDB's cover."""
+    b = _nexon(i).get("banner")
+    return (_file(kb, b.get("file")) if isinstance(b, dict) else None) or cover(kb, i)
+
+
+def pictures(kb, i: dict) -> list[tuple[str, Path]]:
+    """(name, picture) of what the item's text names, from Nexon's announcement, in the order the text names them."""
+    out = []
+    for p in _nexon(i).get("pictures") or []:
+        f = _file(kb, p.get("file")) if isinstance(p, dict) else None
+        if f and str(p.get("name") or "").strip():
+            out.append((str(p["name"]).strip(), f))
+    return out
+
+
+def _clean(text: str, name: str) -> bool:
+    """The name written alone: not the start of a longer name ("Leaf Points" is no Leaf, "Orange Mushroom Package"
+    no monster) nor a price's tier ("$99 Orange Mushroom")."""
+    for m in re.finditer(rf"(?<![\w']){re.escape(name)}(?:e?s)?(?![\w'])", text):
+        after, before = text[m.end():], text[:m.start()]
+        if re.match(r"\s+[A-Z0-9]", after) or re.search(r"\$\s?\d[\d,.]*\s*$", before):
+            continue
+        return True
+    return False
+
+
+def entities(kb, i: dict, skip=()) -> list[str]:
+    """The KB items and monsters the item's English text names, with a picture of their own (the Cash Shop news'
+    pets, a release note's bosses), in the order named; none whose name is in skip (Nexon's pictures already show
+    it). Names only as written in the game (kb.mention_spans' answer mode: the case counts, no aliases)."""
+    find = getattr(kb, "mention_spans", None)
+    if not find:
+        return []
+    skip = {s.lower() for s in skip}
+    out, names = [], set()
+    for text in [i.get("title") or "", i.get("summary") or "", *(i.get("highlights") or []), i.get("commentary") or ""]:
+        for key, _, _ in sorted(find(str(text), 20, answer=True), key=lambda s: s[1]):     # in the text's order
+            e = kb.get(key) or {}
+            name = str(e.get("name") or "")
+            if key.partition("/")[0] not in ("item", "monster") or name.lower() in names | skip \
+                    or not kb.image_path(key) or not _clean(str(text), name):
+                continue
+            names.add(name.lower())
+            out.append(key)
+            if len(out) >= SHOWN_ENTITIES:
+                return out
+    return out
 
 
 def short_date(i: dict, rtl: bool = True) -> str:
