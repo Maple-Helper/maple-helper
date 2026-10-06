@@ -797,6 +797,19 @@ def test_planning_never_flashes_up_while_a_hebrew_answer_streams():
     assert streamed_text(plan + "\n\n**Stranger's Identity** ב-", hebrew=True) == "**Stranger's Identity** ב-"
     assert streamed_text("**Blue Snail** (MSEA)\n", hebrew=True) == "**Blue Snail** (MSEA)"   # a name line shows
     assert streamed_text("This quest is in Kerning", hebrew=False) == "This quest is in Kerning"   # English: as is
+    # a short lead-in waits too (it showed, then went when the rest of the planning came), and is dropped
+    assert streamed_text("Let me check.\n", hebrew=True) == ""
+    assert streamed_text("Let me check.\nI'll mention Mano as the target now", hebrew=True) == ""
+    assert streamed_text("Let me check the data.\nמאנו נמצא בחוף.", hebrew=True) == "מאנו נמצא בחוף."
+
+
+def test_an_english_answer_keeps_its_first_paragraph():
+    """strip_lead_in is for a Hebrew answer: an English one quoting a Hebrew name lost everything before it."""
+    from maplehelper.brain import split_meta
+    raw = ("Let me explain: Mano spawns at Thicket Around the Beach III every hour or so.\n"
+           "In Hebrew the map is called 'סבך ליד החוף'.\n@@META@@\n{}")
+    assert split_meta(raw, hebrew=False)[0].startswith("Let me explain: Mano spawns")
+    assert split_meta(raw, hebrew=True)[0].startswith("In Hebrew")
 
 
 def test_the_ai_is_told_not_to_narrate():
@@ -1002,6 +1015,29 @@ def test_an_api_key_without_credit_says_so():
 def test_the_answer_language_follows_the_question(question, ui, lang):
     from maplehelper.brain import reply_language
     assert reply_language(question, ui) == lang
+
+
+@pytest.fixture(scope="module")
+def real_kb():
+    from pathlib import Path
+
+    from maplehelper.kb import KnowledgeBase
+    root = Path(__file__).resolve().parent.parent / "data" / "kb"
+    if not (root / "index.json").exists():
+        pytest.skip("no real knowledge base")
+    return KnowledgeBase(root)
+
+
+@pytest.mark.parametrize("question,lang", [
+    # a game name alone, its "of" / "to" no English sentence: the app's language
+    ("Valley of Death", "Hebrew"), ("Return Scroll to Henesys", "Hebrew"), ("Piece of Ice", "Hebrew"),
+    ("The Magic Rock", "Hebrew"), ("Red Potion", "Hebrew"),
+    ("where is Valley of Death", "English"), ("how much is Red Potion", "English"),
+    ("which quests reward scrolls?", "English"), ("where do I hunt snails?", "English"),
+])
+def test_a_game_name_alone_answers_in_the_apps_language(real_kb, question, lang):
+    from maplehelper.brain import reply_language
+    assert reply_language(question, "he", real_kb) == lang
 
 
 def test_an_english_question_is_answered_in_english_even_with_hebrew_context(kb, tmp_path):

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
-from .kb import KnowledgeBase
+from .kb import KnowledgeBase, _norm
 from .store import Character, History
 
 log = logging.getLogger(__name__)
@@ -307,7 +307,7 @@ ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats",
                  "of", "my", "me", "i"}
 
 
-def reply_language(question: str, ui_lang: str = "he") -> str:
+def reply_language(question: str, ui_lang: str = "he", kb: KnowledgeBase | None = None) -> str:
     """The answer's language: the question's (Hebrew letters: Hebrew, Latin ones: English), else the app's.
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[֐-׿]", question):
@@ -316,6 +316,15 @@ def reply_language(question: str, ui_lang: str = "he") -> str:
     # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English);
     # a short question with an English question or function word is one ("which quests reward scrolls?" got Hebrew)
     words = re.findall(r"[A-Za-z']+", bare)
+    if kb is not None:
+        # the words of the game names it holds don't count: "Valley of Death", "Return Scroll to Henesys" typed alone
+        # are names (their "of", "to" made 256 KB names an English sentence); "where is Valley of Death" isn't
+        spans = kb.mention_spans(bare, LIST_MENTIONS)
+        if spans:
+            inside = {i for _, a, b in spans for i in range(a, b)}
+            words = [w for i, w in enumerate(_norm(bare).split()) if i not in inside and re.search("[a-z]", w)]
+            return "English" if len(words) > 4 or any(w in ENGLISH_WORDS for w in words) else \
+                "Hebrew" if ui_lang == "he" else "English"
     if len(words) > 4 or (len(words) >= 2 and any(w.lower() in ENGLISH_WORDS for w in words)):
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
@@ -326,7 +335,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
                  kb_context: bool = True, ui_lang: str = "he") -> str:
     """kb_context=False: no knowledge-base pre-fetch (a screenshot read needs only the profile and the picture).
     ui_lang: the app's language, for a question with no words to tell by."""
-    language = f"Reply in {reply_language(question, ui_lang)}, whatever language the context above is in."
+    language = f"Reply in {reply_language(question, ui_lang, kb)}, whatever language the context above is in."
     parts = []
     if character:
         parts.append(f"<player_profile>\n{character.summary()}\n</player_profile>")
@@ -542,6 +551,7 @@ _NARRATION = re.compile(r"\b(?:I'll|I will|I'm going to|I am going to|I need to|
                         r"page|grep|search) (?:says|shows|lists|confirms|returned)|I'?ve (?:got|found|checked))", re.I)
 # a line that is part of an answer's layout, never a monologue: a list item, a bold name, a heading, a table row
 _LAYOUT = re.compile(r"\s*(?:[-*•#|>]|\d+[.)]|\*\*)")
+_PLAN_START = re.compile(r"\s*(?:Let me|I'll|I will|Now)\b", re.I)
 
 
 def _narration(lines: list[str]) -> bool:
@@ -551,7 +561,8 @@ def _narration(lines: list[str]) -> bool:
     if not lines or any(_LAYOUT.match(s) for s in lines):
         return False
     head = " ".join(lines)
-    return len(head.split()) >= 6 and bool(_NARRATION.search(head))
+    # a short one too when it opens as planning ("Let me check the data." stayed above the Hebrew answer)
+    return (len(head.split()) >= 6 or bool(_PLAN_START.match(head))) and bool(_NARRATION.search(head))
 
 
 def strip_lead_in(text: str) -> str:
@@ -565,12 +576,15 @@ def strip_lead_in(text: str) -> str:
     return "\n".join(lines[first:])
 
 
-def split_meta(raw: str) -> tuple[str, dict]:
-    """Separate the visible answer from the trailing @@META@@ JSON."""
+def split_meta(raw: str, hebrew: bool | None = None) -> tuple[str, dict]:
+    """Separate the visible answer from the trailing @@META@@ JSON.
+    hebrew: the answer should be Hebrew; False keeps an English answer whole (its "Let me explain: ..." first
+    paragraph went when a later line quoted a Hebrew name). None: not known, the lead-in rule decides alone."""
+    lead_in = strip_lead_in if hebrew is not False else (lambda t: t)
     if META not in raw:
-        return drop_keys(strip_lead_in(raw)).strip(), {}
+        return drop_keys(lead_in(raw)).strip(), {}
     text, _, meta = raw.partition(META)
-    text = strip_lead_in(text)
+    text = lead_in(text)
     m = re.search(r"\{.*\}", meta, re.S)
     try:
         data = json.loads(m.group(0)) if m else {}
@@ -630,10 +644,12 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
             text = text[:-n]
             break
     if hebrew and not _HEBREW.search(text):
+        # English prose waits for the Hebrew (or the end): a short "Let me check." showed, then went once the rest
+        # of the planning arrived. A list or bold line (a name, a route) shows at once
         lines = text.split("\n")
-        if len(lines) == 1 or _narration(lines):
+        if len(lines) == 1 or not any(_LAYOUT.match(s) for s in lines[:-1] if s.strip()):
             return ""
-    return drop_keys(strip_lead_in(text)).strip()
+    return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
 class Brain:
@@ -740,7 +756,7 @@ class Brain:
         has = (len(shots) - 1 if len(shots) > 1 else True) if shots else False
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
-        hebrew = reply_language(question, self.ui_lang) == "Hebrew"
+        hebrew = reply_language(question, self.ui_lang, self.kb) == "Hebrew"
         raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
         if model or light:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta, model=model, tools=not light)
@@ -748,7 +764,7 @@ class Brain:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta)
         if result.error:
             return Answer(error=result.error, limits=result.limits)
-        text, meta = split_meta(result.text)
+        text, meta = split_meta(result.text, hebrew)
         if not text and not meta:
             return Answer(error="no_result", limits=result.limits)   # nothing at all came back: no empty bubble
         if "profile_update" not in meta:
