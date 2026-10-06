@@ -124,3 +124,14 @@ def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
     fake.settings["language"] = None
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "he"
+
+
+# --- DLG-7: Grok's key prefix in Hebrew ----------------------------------------------------------------------------
+
+def test_every_key_prefix_is_one_left_to_right_block_in_hebrew(env):
+    from maplehelper import bidi
+    s = env[0]
+    s["language"] = "he"
+    dlg = _onboarding(env, "grok")
+    assert bidi.ltr_block("xai-", True) in dlg.key_edit.placeholderText()
+    dlg.close()

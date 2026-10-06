@@ -544,7 +544,7 @@ class Onboarding(GlassDialog):
         # ("sk-ant-", "AIza") stays one block in it, not "ב--sk-ant" (ltr_block inside the Hebrew sentence)
         hint = t.p("ob_api_key_hint", p)
         if t.rtl:
-            prefix = next((x for x in ("sk-ant-", "sk-", "AIza") if x in hint), "")
+            prefix = next((x for x in ("sk-ant-", "sk-", "AIza", "xai-") if x in hint), "")   # (Grok's read "-xai")
             if prefix:
                 hint = hint.replace(prefix, bidi.ltr_block(prefix, True))
             hint = bidi.plain(hint, True)
