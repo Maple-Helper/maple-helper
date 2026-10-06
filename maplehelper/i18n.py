@@ -470,8 +470,9 @@ STRINGS = {
     "update_retry": {"he": "לנסות שוב", "en": "Try again"},
     "update_now": {"he": "לעדכן עכשיו", "en": "Update now"},
     "update_now_tray": {"he": "עדכון לגרסה {version}", "en": "Update to {version}"},
-    "update_ready": {"he": "גרסה חדשה של Maple Helper ירדה ותותקן כשתסגרו את האפליקציה.",
-                     "en": "A new Maple Helper version is ready and will install when you quit."},
+    # a Windows shutdown postpones the install (app.py shutdown): only "Update now" or the tray's Quit installs it
+    "update_ready": {"he": "גרסה חדשה של Maple Helper מוכנה. היא תותקן כשתלחצו על \"לעדכן עכשיו\" או כשתצאו מ-Maple Helper דרך \"יציאה\" במגש.",
+                     "en": "A new Maple Helper version is ready. It installs when you click Update now or choose Quit in the tray."},
     # macOS: no silent self-update (the installer is a Windows program); the menu bar links to the new DMG
     "update_available": {"he": "גרסה חדשה זמינה: {version}", "en": "New version available: {version}"},
     "update_available_win": {"he": "הורידו אותה מתפריט Maple Helper במגש, ליד השעון.",
@@ -494,8 +495,9 @@ STRINGS = {
     "delete_character": {"he": "מחיקת דמות", "en": "Delete character"},
     "delete_character_confirm": {"he": "למחוק את {name}? הפרופיל, השיחות והתמונה יימחקו. אי אפשר לבטל את זה.",
                                  "en": "Delete {name}? Its profile, conversations and portrait will be removed. This can't be undone."},
-    "auto_profile_note": {"he": "אין צורך לעדכן ידנית: בכל פעם שתשאלו שאלה, Maple Helper רואה את מסך המשחק ומעדכן בעצמו את הרמה, הג'וב והתמונה של הדמות.",
-                          "en": "No need to update this by hand: every time you ask a question, Maple Helper looks at the game screen and keeps your level, job and portrait up to date."},
+    # only the first question of an opening sends a screenshot (overlay.py shot_used): not "every time you ask"
+    "auto_profile_note": {"he": "אין צורך לעדכן ידנית: כשפותחים את הצ'אט במשחק או לוחצים על ⟳ בכרטיס הדמות, Maple Helper קורא מהמסך את הרמה, הג'וב והתמונה של הדמות.",
+                          "en": "No need to update this by hand: when you open the chat in the game or press ⟳ on the character card, Maple Helper reads your level, job and portrait from the screen."},
     "job_hint_next_many": {"he": "הג'ובים הבאים ({jobs}) נפתחים ברמה {level}.", "en": "Next jobs ({jobs}) unlock at level {level}."},
     "job_hint_next": {"he": "הג'וב הבא, {job}, נפתח ברמה {level}.", "en": "Next job, {job}, unlocks at level {level}."},
     "clear_history": {"he": "ניקוי ההיסטוריה", "en": "Clear history"},
