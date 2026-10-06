@@ -25,3 +25,10 @@ def test_conversations_and_search():
     assert [p["q"] for p in pairs] == ["where is Mano?", "מה Mano מפיל?"]
     assert [p["a"] for p in pins.search(pairs, "mano")] == ["Subi.", "Swamp."]     # newest first
     assert pins.search(pairs, "mano swamp") == [pairs[0]]
+
+
+def test_remove_with_no_character_writes_nothing():
+    from maplehelper import pins
+    settings = {"pins": {"a": [{"q": "q", "a": "x", "t": 1}]}}
+    pins.remove(settings, None, "x")
+    assert settings["pins"] == {"a": [{"q": "q", "a": "x", "t": 1}]}       # audit AI-25: no None key
