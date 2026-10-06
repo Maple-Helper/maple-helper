@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -87,3 +89,31 @@ def test_an_answer_from_the_same_model_doesnt_rewrite_settings(chat, monkeypatch
     assert len(saves) == 1                                                    # nothing changed: not written again
     ov._on_done(Answer(text="three", model="claude-opus-5"), None)
     assert ov.settings["last_model"]["claude"] == "claude-opus-5" and len(saves) == 2
+
+
+# --- PRF-10: the picture zoom polls only while its page is shown -----------------------------------------------------
+
+@pytest.fixture
+def qapp_for_zoom():
+    from PySide6.QtWidgets import QApplication
+    return QApplication.instance() or QApplication([])
+
+
+def test_the_picture_zoom_stops_polling_while_hidden_and_starts_again_when_shown(qapp_for_zoom):
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QTextBrowser, QVBoxLayout, QWidget
+
+    from maplehelper.ui.guides import ImageZoom
+    page = QWidget()
+    page.setAttribute(Qt.WA_DontShowOnScreen)
+    browser = QTextBrowser()
+    QVBoxLayout(page).addWidget(browser)
+    zoom = ImageZoom(browser)
+    page.show()
+    assert zoom._poll.isActive()
+    page.hide()
+    zoom._check_mouse()                     # the next tick finds the page hidden
+    assert not zoom._poll.isActive()
+    page.show()
+    assert zoom._poll.isActive()
+    page.close()
