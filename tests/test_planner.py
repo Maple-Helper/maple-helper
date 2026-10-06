@@ -405,18 +405,31 @@ def test_real_intents(real, question, intent):
     assert (p.intent if p else None) == intent
 
 
+# The real-KB checks below hold the planner's answer to what tonight's tables say (the exact rows of a frozen KB
+# are the tests above): a balance patch or a new map changes the rows, not whether the answer matches them.
+
 @needs_kb
 def test_real_second_job_names_its_level_and_choices(real):
-    text = ask(real, "באיזה לבל עושים ג'וב שני").render()
-    assert "the 2nd job, at level 30, one of Assassin, Bandit" in text and "Dark Lord" in text
+    p = ask(real, "באיזה לבל עושים ג'וב שני")
+    text = p.render()
+    assert "the 2nd job, at level 30, one of Assassin, Bandit" in text      # jobs.JOBS, the official tree
+    teacher = p.blocks[0].rows[0]                                          # the KB's own instructor, by role
+    assert "Instructor" in teacher["role"] and teacher["npc"] in text
 
 
 @needs_kb
 def test_real_capes_from_quests(real):
-    text = ask(real, "איזה משימות נותנות לי גלימות כשאני מסיים אותן?").render()
-    for quest in ("Stranger's Identity", "Delivering the Flying Medicine", "Maya's Last Collection"):
-        assert quest in text
-    assert "El Nath" not in text and "Red Cape" not in text and 'complete="yes"' in text
+    from maplehelper import availability
+    kb, rows = real
+    a = availability.of(kb)
+    p = ask(real, "איזה משימות נותנות לי גלימות כשאני מסיים אותן?")
+    text = p.render()
+    want = {r["quest"] for r in rows("rewards") if r["item_type"] == "Equip / Cape" and a.quest_open(r["quest_key"])}
+    assert want and {r["quest"] for r in p.blocks[0].rows} == want and 'complete="yes"' in text
+    # nothing from what isn't out (El Nath while the guide keeps it closed)
+    assert all(a.item_open(k) for r in p.blocks[0].rows for k in r["item_keys"].split(","))
+    if not a.place_open("El Nath"):
+        assert "El Nath" not in text
 
 
 @needs_kb
@@ -433,23 +446,35 @@ def test_real_gloves_a_level_30_thief_can_wear(real):
 
 @needs_kb
 def test_real_ant_tunnel_monsters(real):
-    names = [r["monster"] for r in ask(real, "איזה מפלצות יש ב-Ant Tunnel?").blocks[0].rows]
-    assert {"Horny Mushroom", "Zombie Mushroom", "Evil Eye"} <= set(names)
+    kb, rows = real
+    names = {r["monster"] for r in ask(real, "איזה מפלצות יש ב-Ant Tunnel?").blocks[0].rows}
+    # every monster the spawn table puts on an Ant Tunnel map (Horny / Zombie Mushroom, Evil Eye today)
+    assert names and names == {r["monster"] for r in rows("spawns") if "Ant Tunnel" in r["map"]}
 
 
 @needs_kb
 def test_real_top_regular_monsters_and_manjis_quests(real):
+    kb, rows = real
     p = ask(real, "which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3")
-    assert [r["monster"] for r in p.blocks[0].rows][:3] == ["Cold Eye", "Glowshroom", "Lorang"]
+    got = p.blocks[0].rows
+    assert got and all(30 <= r["level"] <= 40 and not r["boss"] for r in got)
+    # the top 3 by EXP of tonight's regular level 30-40 monsters (Cold Eye, Glowshroom, Lorang today)
+    regular = sorted((r["exp"] for r in rows("monsters") if 30 <= (r["level"] or 0) <= 40 and not r["boss"]),
+                     reverse=True)
+    assert [r["exp"] for r in got] == sorted((r["exp"] for r in got), reverse=True)
+    assert [r["exp"] for r in got][:3] == regular[:3]
     p = ask(real, "איפה מנג'י ואיזה קווסטים הוא נותן?")
-    assert {r["quest"] for r in p.blocks[1].rows} == {"Arcon's Blood?", "Getting Arcon's Blood", "Old Gladius"}
+    gives = {r["quest"] for r in rows("quests") if r["npc"] == "Manji"}
+    assert gives and {r["quest"] for r in p.blocks[1].rows} == gives
 
 
 @needs_kb
 def test_real_where_a_monster_lives_every_map(real):
+    kb, rows = real
     p = ask(real, "איפה יש סטירג'")
     maps = [r["map"] for r in p.blocks[0].rows]
-    assert "Transfer Area" in maps and len(maps) == 5 and 'complete="yes"' in p.render()
+    every = [r["map"] for r in rows("spawns") if r["monster"] == "Stirge"]
+    assert maps and sorted(maps) == sorted(every) and 'complete="yes"' in p.render()
 
 
 @needs_kb
@@ -461,9 +486,16 @@ def test_real_becoming_a_magician(real):
 
 @needs_kb
 def test_real_leads_say_the_answer(real):
-    assert "Steel Guards IS crafted: Weaponcrafting Lv 6" in ask(real, "how do I craft Steel Guards?").render()
+    kb, rows = real
+    made = next(r for r in rows("recipes") if r["product"] == "Steel Guards")
+    lead = f"Steel Guards IS crafted: {made['discipline']} Lv {made['prof_lv']}"
+    assert lead in ask(real, "how do I craft Steel Guards?").render()
     hunter = Character(id="h", name="H", base_class="Bowman", job="Hunter", level=35)
-    assert "Recommend row 1, Red Viper (req_lv 35" in ask(real, "what's the best bow I can equip?", hunter).render()
+    bows = [r for r in rows("equips") if r["slot"] == "Bow" and (r["req_lv"] or 0) <= 35
+            and ("Bowman" in r["job"].split("/") or r["job"] == "Any")]
+    best = max(bows, key=lambda r: r["watk"] or 0)                 # Red Viper today
+    text = ask(real, "what's the best bow I can equip?", hunter).render()
+    assert f"Recommend row 1, {best['item']} (req_lv {best['req_lv']}" in text
 
 
 @needs_kb
@@ -479,9 +511,12 @@ def test_real_guides_for_a_place_and_the_release_date():
 
 @needs_kb
 def test_real_arrow_sellers(real):
+    kb, all_rows = real
     rows = ask(real, "איזה NPC מוכר חצים לקשת?").blocks[0].rows
     bows = next(r for r in rows if r["item"] == "Arrows for Bows")
-    assert "Arturo (Perion)" in bows["sellers"] and "Luna (Henesys)" in bows["sellers"]
+    # every NPC the shop table has selling them (Arturo in Perion, Luna in Henesys, ... today)
+    sellers = {r["npc"] for r in all_rows("shops") if r["item"] == "Arrows for Bows"}
+    assert sellers and all(n in bows["sellers"] for n in sellers)
     assert not [r for r in rows if "Crossbow" in r["item"]]
 
 
