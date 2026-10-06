@@ -212,22 +212,24 @@ def test_every_guide_link_opens_a_guide():
     assert not dead
 
 
-# Guides already swept for the owner's Hebrew rules (launch audit HEB-1/2/3); the rest join once their pass lands
-HEB_CLEAN = ("fp-wizard-class-guide hp-mp-gain-explained hunter-class-guide il-wizard-class-guide "
-             "kerning-city-party-quest-kpq-guide magician-class-guide maplestory-classic-glossary "
-             "maplestory-classic-worlds-release-date page-class-guide spawn-engine-respawn-and-map-capacity "
-             "spearman-class-guide speed-jump-and-movement thief-class-guide warrior-class-guide weapon-reach "
-             "what-is-maplestory-classic-worlds").split()
+# every Hebrew guide, swept for the owner's Hebrew rules (launch audit HEB-1/2/3, hebrew1 and hebrew2, and the 4 books
+# AST-1/2 rebuilt): a new guide joins by itself
+HEB_CLEAN = sorted(f.stem for f in (guides.TRANSLATIONS / "he").glob("*.json"))
+
+
+def test_the_hebrew_terms_check_covers_every_guide():
+    assert len(HEB_CLEAN) == len(list((guides.TRANSLATIONS / "en").glob("*.json"))) >= 32
 
 
 @pytest.mark.parametrize("stem", HEB_CLEAN)
 def test_hebrew_guide_keeps_the_owners_terms(stem):
-    """רמה (never לבל; לבלבל "to confuse" is a real word), גריינד without ל-, plural address, mesos in English."""
+    """רמה (never לבל; לבלבל "to confuse" and מבולבל are real words), גריינד without ל-, plural address, mesos in
+    English."""
     import json
     import re
     he = json.loads((guides.TRANSLATIONS / "he" / f"{stem}.json").read_text(encoding="utf-8"))
     text = json.dumps({k: v for k, v in he.items() if k != "source_hash"}, ensure_ascii=False)
-    bad = re.findall(r"\S*(?:(?<!ל)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|בבערך)\S*", text)
+    bad = re.findall(r"\S*(?:(?<!ל)(?<!לב)(?<!בו)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|בבערך)\S*", text)
     bad += re.findall(r"(?<![א-ת])(?:אתה|שלך|ממך|אותך|בשבילך|עליך|לפניך|בינך)(?![א-ת])", text)
     bad += re.findall(r"(?<![א-ת])[לב]?(?:כל )?מסו(?![א-ת])", text)
     bad += re.findall(r"ברמה (?:גבוה|נמוך|מקסימלי|הבא)(?![א-ת])", text)
