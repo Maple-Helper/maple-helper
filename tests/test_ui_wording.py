@@ -115,3 +115,9 @@ def test_the_chats_not_installed_errors_match_settings():
                     ("_grok", "Grok Build (של Grok)")):
         assert STRINGS["err_not_installed" + p]["he"].startswith("הכלי " + tool)
         assert tool in STRINGS["ob_not_installed" + p]["he"]
+
+
+def test_the_speech_model_has_one_name_and_its_failure_no_stale_size():
+    """review3 UX12-b: "speech model" everywhere in English; the failure line names no size (an NVIDIA PC's is 2.2 GB)."""
+    assert not [k for k, v in STRINGS.items() if "voice model" in v["en"]]
+    assert "GB" not in STRINGS["voice_download_failed"]["he"] + STRINGS["voice_download_failed"]["en"]

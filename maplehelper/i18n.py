@@ -135,8 +135,9 @@ STRINGS = {
                       "en": "Nothing was heard. Press the mic (or F10), speak, then press it again when done."},
     "voice_failed": {"he": "זיהוי הדיבור נכשל (ייתכן שהורדת מודל הדיבור לא הושלמה). נסו שוב בעוד רגע.",
                      "en": "Speech recognition failed (the speech model may not have finished downloading). Try again in a moment."},
-    "voice_download_failed": {"he": "כדי להוריד את מודל הדיבור (פעם אחת, כ-1.6GB) צריך חיבור לאינטרנט. התחברו ונסו שוב.",
-                              "en": "The speech model (one time, about 1.6GB) needs an internet connection to download. Connect and try again."},
+    # no size: an NVIDIA PC downloads more (the ask says how much, review3 UX12-b)
+    "voice_download_failed": {"he": "כדי להוריד את מודל הדיבור (פעם אחת) צריך חיבור לאינטרנט. התחברו ונסו שוב.",
+                              "en": "The speech model needs an internet connection to download (once). Connect and try again."},
     "voice_no_space": {"he": "אין מספיק מקום בדיסק להורדת מודל הדיבור (צריך כ-2GB). פנו מקום ונסו שוב.",
                        "en": "There isn't enough disk space to download the speech model (about 2GB needed). Free up some space and try again."},
     "report_preparing": {"he": "מכינים את הדוח…", "en": "Preparing the report…"},
@@ -145,8 +146,8 @@ STRINGS = {
     "listening": {"he": "מקשיב… לחצו שוב על המיקרופון או {key} לסיום",
                   "en": "Listening… click the mic or press {key} again when done"},
     "transcribing": {"he": "מתמלל…", "en": "Transcribing…"},
-    "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the voice model…"},
-    "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the voice model (once)…"},
+    "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the speech model…"},
+    "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the speech model (once)…"},
     # the first voice question asks before the model's download, then shows its progress (audit UX-12)
     "voice_dl_ask": {"he": "שאלות בקול עובדות עם מודל דיבור שרץ אצלכם במחשב. צריך להוריד אותו פעם אחת ({size}). להוריד עכשיו?",
                      "en": "Voice questions use a speech model that runs on your PC. It needs a one-time download ({size}). Download it now?"},
