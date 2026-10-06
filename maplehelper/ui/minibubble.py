@@ -5,6 +5,7 @@ from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
+from .. import osapi
 from ..store import ASSETS
 from . import theme
 
@@ -25,11 +26,16 @@ class MiniBubble(QWidget):
         self.setFixedSize(SIZE + 2 * MARGIN, SIZE + 2 * MARGIN)
         self.setCursor(Qt.PointingHandCursor)
         self.setToolTip("Maple Helper")
-        self._icon = QPixmap(str(ASSETS / "brand" / "icon-64.png"))
+        # the 256 px mark: the 64 px one drawn at 34 px on a 200% screen was upscaled and blurred (as the header was)
+        self._icon = QPixmap(str(ASSETS / "brand" / "icon-256.png"))
         self._press: QPoint | None = None
         self._grab: QPoint | None = None
         self._dragging = False
         self._pressed = False
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        osapi.float_over_fullscreen(int(self.winId()))   # macOS: stays over a fullscreen game's Space, as the chat does
 
     def paintEvent(self, e):
         c = theme.P()
@@ -54,8 +60,10 @@ class MiniBubble(QWidget):
         p.drawEllipse(r.adjusted(0.5, 0.5, -0.5, -0.5))
         if not self._icon.isNull():
             s = 34 if not self._pressed else 31               # instant press feedback
-            icon = self._icon.scaled(s * 2, s * 2, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            icon.setDevicePixelRatio(2)
+            dpr = max(1.0, self.devicePixelRatioF())
+            px = round(s * dpr)
+            icon = self._icon.scaled(px, px, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            icon.setDevicePixelRatio(dpr)
             p.drawPixmap(int(r.center().x() - s / 2), int(r.center().y() - s / 2), icon)
 
     def mousePressEvent(self, e):
@@ -76,6 +84,8 @@ class MiniBubble(QWidget):
             self.move(pos - self._grab)
 
     def mouseReleaseEvent(self, e):
+        if e.button() != Qt.LeftButton or self._press is None:
+            return             # a right-click reopened the chat: only a left click (or drag) does anything
         was_drag = self._dragging
         self._press, self._dragging, self._pressed = None, False, False
         self.update()

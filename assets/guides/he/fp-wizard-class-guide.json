@@ -109,13 +109,13 @@
    "note": "**Accuracy בסיסי של Magician**\nרמה, INT, LUK ו-Accuracy ישיר מוסיפים כולם ל-ACC הכולל.\n**+0.39** ACC לכל רמה\n**+0.24** ACC לכל INT\n**+0.12** ACC לכל LUK\n**+1.00** ACC לכל ACC ישיר"
   },
   {
-   "p": "לכל מוב יש Avoidability. להילחם מעל הרמה שלכם מעלה את ה-ACC שצריך כדי לפגוע, ועליית רמות סוגרת את הקנס הזה. בגלל זה מפה ברמה נמוך יותר עם הריגות נקיות במכה אחת או שתיים יכולה לנצח מפה ברמה גבוה יותר עם פספוסים."
+   "p": "לכל מוב יש Avoidability. להילחם מעל הרמה שלכם מעלה את ה-ACC שצריך כדי לפגוע, ועליית רמות סוגרת את הקנס הזה. בגלל זה מפה ברמה נמוכה יותר עם הריגות נקיות במכה אחת או שתיים יכולה לנצח מפה ברמה גבוהה יותר עם פספוסים."
   },
   {
    "table": [
     [
      "מוב",
-     "רמה המוב",
+     "רמת המוב",
      "Avoid של המוב",
      "ACC כדי לא לפספס אף פעם ברמה שווה"
     ],
@@ -175,7 +175,7 @@
    "p": "[[img:9a7face47a910e.png]] **Magician Job Instructor** מריץ את הטסט של Dark Marble צפונית ל-Ellinia."
   },
   {
-   "note": "**ה-SP הראשון של F/P Wizard: Teleport 1.** הנקודה הראשונה נותנת תנועה מיידית במפה במחיר כבד של 55 MP. תשתמשו בו לפלטפורמות ולמצבי חירום, עד שלבלי סקיל גבוהים יותר יהפכו את Teleport לזול מספיק לשימוש קבוע."
+   "note": "**ה-SP הראשון של F/P Wizard: Teleport 1.** הנקודה הראשונה נותנת תנועה מיידית במפה במחיר כבד של 55 MP. תשתמשו בו לפלטפורמות ולמצבי חירום, עד שרמות סקיל גבוהות יותר יהפכו את Teleport לזול מספיק לשימוש קבוע."
   },
   {
    "h3": "יעד הסקילים ברמה 70"
@@ -185,7 +185,7 @@
     [
      "סקיל",
      "SP",
-     "תוצאה ברמה הסקיל השמור"
+     "תוצאה ברמת הסקיל השמורה"
     ],
     [
      "[[img:604935d1a72b1f.png]]MP Eater",
@@ -358,7 +358,7 @@
    "h3": "Poison Breath קודם"
   },
   {
-   "p": "אם אתם פוגעים בעקביות ב-3 מובים או יותר לקאסט, תחליפו בין רמות 31-40 ל-41-50: ממקסמים Poison Breath קודם, ואז Fire Arrow. ב-3 מובים לקאסט הוא מגיע לבערך 6,222 EXP/min ברמה 40, מול 4,243 של Fire Arrow."
+   "p": "אם אתם פוגעים בעקביות ב-3 מובים או יותר לקאסט, תחליפו בין רמות 31-40 ל-41-50: ממקסמים Poison Breath קודם, ואז Fire Arrow. ב-3 מובים לקאסט הוא מגיע לכ-6,222 EXP/min ברמה 40, מול 4,243 של Fire Arrow."
   },
   {
    "h3": "Meditation לפני Poison Breath"
@@ -638,10 +638,10 @@
    "h": 139
   },
   {
-   "p": "**הכי כדאי לקנות** הכי הרבה שחזור HP או MP לכל meso"
+   "p": "**הכי כדאי לקנות** הכי הרבה שחזור HP או MP לכל mesos"
   },
   {
-   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל meso [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל meso [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל meso [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל meso [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל meso"
+   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל mesos [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל mesos [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל mesos [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל mesos [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל mesos"
   },
   {
    "p": "**לפי מצב** תקנו רק כשהבאף מגיע לברייקפוינט שימושי"
@@ -650,10 +650,10 @@
    "p": "[[img:01a2e09235af46.png]] **Magic Potion** 500 mesos · +10 M.ATK ל-10 דקות לברייקפוינט של דמג' [[img:4e15182d2a8a6e.png]] **Sniper Potion** 500 mesos · +5 ACC ל-10 דקות להיפטר מפספוסים [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** 600 mesos · +7 ACC ל-15 דקות באף ה-ACC הכי טוב בחנות"
   },
   {
-   "p": "**לא לקנות** שחזור גרוע יותר לכל meso מהאפשרויות למעלה"
+   "p": "**לא לקנות** שחזור גרוע יותר לכל mesos מהאפשרויות למעלה"
   },
   {
-   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל meso [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל meso"
+   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל mesos [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל mesos"
   },
   {
    "h2": "טעויות נפוצות של F/P Wizard"

@@ -306,11 +306,30 @@ def _required(kb) -> set[str]:
     return got
 
 
+def _asked_after(kb) -> set[str]:
+    """Every X of an "Asking After X" quest: its "First Greeting with X" is the step done once before it."""
+    got = kb.__dict__.get("_quests_asked_after")
+    if got is None:
+        got = set()
+        for e in kb.entities.values():
+            name = " ".join(str(e.get("name", "")).split()).rstrip(".") if e.get("category") == "quest" else ""
+            if name.startswith("Asking After "):
+                got.add(name.removeprefix("Asking After "))
+        kb.__dict__["_quests_asked_after"] = got
+    return got
+
+
 def quest(kb, key: str) -> Quest | None:
     q = _quest(kb, key)
     # the board's "Daily" tag on a quest another one asks for first is a step done once ("First Greeting with
     # Rina" opens the repeatable "Asking After Rina"), not one to do again every day (the owner)
-    if q is not None and q.cycle and " ".join(q.name.split()).rstrip(".") in _required(kb):
+    name = " ".join(q.name.split()).rstrip(".") if q is not None else ""
+    if q is not None and q.cycle and name in _required(kb):
+        q.cycle = ""
+    # "Asking After Athena Pierce" is the one whose page names no prerequisite: its First Greeting stayed daily
+    # (audit GAM-7)
+    if q is not None and q.cycle and (name.startswith("First Greeting with ")
+                                      and name.removeprefix("First Greeting with ") in _asked_after(kb)):
         q.cycle = ""
     return q
 
@@ -323,6 +342,13 @@ def job_fits(q: Quest, base_class: str, job: str) -> bool:
         return False
     if not q.job:
         return True
+    if q.area == "Job Advancement" and job:
+        # the 2nd job's quests ("The Warrior's Next Journey") are for the class's 1st job only: a Fighter 35 had
+        # them under missed quests, a Beginner 30 under now (audit GAM-2)
+        from .jobs import JOBS
+        tiers = JOBS.get(base_class) or []
+        if job in {j for js in JOBS.values() for j, _ in js}:
+            return len(tiers) > 1 and job == tiers[1][0] and base_class.lower() in q.job.lower()
     j = q.job.lower()
     if "beginner" in j:
         # a character still a Beginner, whatever class they plan (the profile's class can be set ahead)
@@ -346,6 +372,24 @@ def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[st
 
     A quest finished only from a higher level ("Level 52+ to complete") counts at that level; one that asks a
     profession level the character doesn't have (crafts given) is left out."""
+    # worked out once per character state and KB object: the quests page, its search and a click to a quest each
+    # asked for the same lists again (~1 s on a cold open, TL1-4); fresh lists each time, so a caller can't spoil them
+    state = (level, base_class, job, frozenset(done or []), tuple(sorted((crafts or {}).items())) if crafts else None)
+    cache = getattr(kb, "_quests_for_level", None)
+    if cache is None:
+        cache = {}
+        try:
+            kb._quests_for_level = cache
+        except AttributeError:     # a KB stand-in that takes no attributes: worked out each time
+            pass
+    if state not in cache:
+        if len(cache) >= 16:
+            cache.pop(next(iter(cache)))
+        cache[state] = _for_level(kb, level, base_class, job, done, crafts)
+    return {k: list(v) if isinstance(v, list) else v for k, v in cache[state].items()}
+
+
+def _for_level(kb, level: int, base_class: str, job: str, done: list[str] | None, crafts: dict | None) -> dict:
     done_set = set(done or [])
     now, future, town = [], [], []
     open_ = availability.of(kb)

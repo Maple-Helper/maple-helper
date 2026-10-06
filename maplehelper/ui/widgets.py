@@ -1,15 +1,16 @@
 """Chat building blocks: message bubbles, entity cards, system lines."""
 from __future__ import annotations
 
-import webbrowser
+import re
 
-from PySide6.QtCore import QObject, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
                                QWidgetAction)
 
 from .. import bidi
 from ..kb import KnowledgeBase
+from ..osapi import open_url
 
 
 def _label(text: str = "", name: str | None = None, rich: bool = False, wrap: bool = True) -> QLabel:
@@ -43,6 +44,25 @@ def on_solid_background(pm: QPixmap, radius: float) -> QPixmap:
     return out
 
 
+ZWSP = chr(0x200B)       # zero-width space: a place to wrap, nothing drawn
+
+
+def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
+    """A zero-width break every `every` characters inside a word longer than `run` (a URL, names joined by "_"):
+    Qt wraps only at spaces and a few marks, and such a word ran past the bubble and was cut. "**" stays whole
+    (the bold markup)."""
+    def cut(m):
+        w, out, n = m.group(0), [], 0
+        for i, ch in enumerate(w):
+            out.append(ch)
+            n += 1
+            if n >= every and i + 1 < len(w) and ch != "*" and w[i + 1] != "*":
+                out.append(ZWSP)
+                n = 0
+        return "".join(out)
+    return re.sub(r"\S{%d,}" % run, cut, text)
+
+
 class Bubble(QFrame):
     """A chat message. Direction is decided per paragraph, not by the UI language."""
 
@@ -56,7 +76,11 @@ class Bubble(QFrame):
         lay.setContentsMargins(13, 8, 13, 9)
         self.tag_label = None
         if tag:
-            self.tag_label = QLabel("↩ " + tag, objectName="BubbleTag")
+            # on the question's side, its arrow mirrored: a Hebrew question's "↩ Orange Mushroom, Blue Snail" was laid
+            # out left to right (it starts with an English name), on the left with the arrow the wrong way (VIS-11)
+            rtl = (direction or bidi.direction(text)) == "rtl" if text else ui_rtl
+            self.tag_label = QLabel(bidi.plain(("↪ " if rtl else "↩ ") + tag, rtl), objectName="BubbleTag")
+            self.tag_label.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
             self.tag_label.setWordWrap(True)    # five tagged names must not stretch the bubble past the chat
             lay.addWidget(self.tag_label)
         self.label = _label(rich=True)
@@ -82,7 +106,7 @@ class Bubble(QFrame):
         if not text:
             self.label.setText("")
             return
-        body = bidi.to_html(text, self._dir)
+        body = bidi.to_html(soft_breaks(text), self._dir)
         if self.role != "user":
             from . import terms
             from .. import glossary
@@ -101,6 +125,7 @@ class Bubble(QFrame):
         b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
+        b.setAccessibleName(tip)        # its text is an icon-font glyph: a screen reader read nothing (UX-15)
         b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
         row.addWidget(b)
         self.layout().addLayout(row)
@@ -143,6 +168,50 @@ class SystemLine(QLabel):
         self.setText(bidi.plain(text))
 
 
+class ElideLink(QPushButton):
+    """A link button that can be narrower than its text: the text ends in "…" and the tooltip has all of it. (At
+    470 px with the large font, "This is the same character (update the name)" held the whole conversation
+    wider than its view, and every row's far edge was cut.)"""
+
+    def __init__(self, text: str = "", **kw):
+        super().__init__(**kw)
+        self._full = ""
+        # a push button is never narrower than its text (QSizePolicy.Minimum); this one may be
+        self.setSizePolicy(QSizePolicy.Preferred, self.sizePolicy().verticalPolicy())
+        self.setText(text)
+
+    def setText(self, text: str) -> None:
+        self._full = text
+        self._elide()
+
+    def text(self) -> str:          # what it says, not what fits
+        return self._full
+
+    def sizeHint(self):
+        # as wide as the whole text (the flow and box layouts give it that much when there is room)
+        h = super().sizeHint()
+        fm = self.fontMetrics()
+        return QSize(h.width() + fm.horizontalAdvance(self._full) - fm.horizontalAdvance(super().text()), h.height())
+
+    def minimumSizeHint(self):
+        h = super().minimumSizeHint()
+        return QSize(min(h.width(), 48), h.height())
+
+    def _elide(self) -> None:
+        fm = self.fontMetrics()
+        pad = super().sizeHint().width() - fm.horizontalAdvance(super().text())
+        room = self.width() - pad
+        shown = self._full if room >= fm.horizontalAdvance(self._full) else (
+            fm.elidedText(self._full, Qt.ElideRight, max(0, room)))
+        super().setText(shown)
+        self.setToolTip(self._full.strip() if shown != self._full else "")
+        self.setAccessibleName(self._full.strip())
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self._elide()
+
+
 class NoticeCard(QFrame):
     """An orange note in the conversation with one action (e.g. "what changed?")."""
 
@@ -177,12 +246,12 @@ class NoticeCard(QFrame):
         self._top.addWidget(self.msg, 1)
         self._col.addLayout(self._top)
         lay.addLayout(self._col, 1)
-        self.btn = QPushButton(objectName="Link")
+        self.btn = ElideLink(objectName="Link")
         self.btn.setCursor(Qt.PointingHandCursor)
         self.btn.clicked.connect(self.clicked.emit)
         self.btn2 = None
         if action2:
-            self.btn2 = QPushButton(objectName="Link")
+            self.btn2 = ElideLink(objectName="Link")
             self.btn2.setCursor(Qt.PointingHandCursor)
             self.btn2.clicked.connect(self.clicked2.emit)
             # the two side by side, wrapping onto a second line in a narrow chat (in one row they held it wide)
@@ -334,11 +403,12 @@ def source_tags(t, srcs, stamp=None) -> list[QLabel]:
     return [source_tag(t, s, stamp) for s in dict.fromkeys(s for s in srcs if s)]
 
 
-def updated_tag(t, kb, key: str) -> QLabel | None:
-    """The "Updated" chip of an entity a KB update changed in the last week (recent.py), with what changed."""
+def updated_tag(t, kb, key: str, stats_only: bool = False) -> QLabel | None:
+    """The "Updated" chip of an entity a KB update changed in the last week (recent.py), with what changed.
+    stats_only: only for a change to the numbers the card is about (the grind / hit pages), not a drop-list one (TL1-7)."""
     from .. import recent
     r = recent.of(kb, key) if key else None
-    if not r or not recent.lines(t, kb, r):
+    if not r or not recent.lines(t, kb, r) or (stats_only and not recent.stats_changed(r)):
         return None
     lb = QLabel(bidi.plain(t("updated_tag"), t.rtl), objectName="UpdatedTag")
     lb.setAlignment(Qt.AlignCenter)
@@ -395,6 +465,83 @@ def zoom_on_hover(label, path, caption: str = "", height: int = 96) -> None:
     uri = _P(str(path)).resolve().as_uri()
     cap = f"<br>{escape(caption)}" if caption else ""
     label.setToolTip(f"<div align='center'><img src='{uri}' height='{height}'>{cap}</div>")
+
+def trimmed(pm: QPixmap) -> QPixmap:
+    """The picture without its transparent margins: a sprite drawn small in a big empty canvas (Trixter, 67x81 for a
+    ~25 px bug) came out half the size of the next card's (VIS-22)."""
+    from PySide6.QtGui import QRegion
+    if pm.isNull() or not pm.hasAlphaChannel():
+        return pm
+    box = QRegion(pm.mask()).boundingRect()
+    return pm.copy(box) if box.isValid() and box.size() != pm.size() else pm
+
+
+def fit_picture(pm: QPixmap, w: int, h: int, widget: QWidget | None = None, trim: bool = False) -> QPixmap:
+    """The picture fitted into w x h (logical px), sharp on HiDPI: made at the screen's own pixels, as Avatar does (a
+    56 px pixmap was stretched to 112 at 200% and looked out of focus), and a small sprite enlarged pixel for pixel
+    in whole steps, then smoothed down to the box (smoothing it up blurred the MapleStory sprites, VIS-8)."""
+    import math
+
+    from PySide6.QtWidgets import QApplication
+    if pm.isNull():
+        return pm
+    if trim:
+        pm = trimmed(pm)
+    dpr = (widget.devicePixelRatioF() if widget is not None else QApplication.instance().devicePixelRatio()) or 1.0
+    tw, th = max(1, round(w * dpr)), max(1, round(h * dpr))
+    k = min(tw / pm.width(), th / pm.height())
+    if k >= 1.5:
+        n = math.ceil(k)
+        pm = pm.scaled(pm.width() * n, pm.height() * n, Qt.KeepAspectRatio, Qt.FastTransformation)
+    out = pm.scaled(tw, th, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    out.setDevicePixelRatio(dpr)
+    return out
+
+
+class WidePicture(QWidget):
+    """A wide picture (a map's minimap: Henesys is 431x74) across the card's text column, as large as the column
+    allows: in the 56 px square it was a 56x9 sliver that showed nothing (VIS-9). Starts at the reading side."""
+
+    MAX_H, MAX_GROW = 96, 2.0
+
+    def __init__(self, pm: QPixmap):
+        super().__init__()
+        self._pm = pm
+        self._cache: tuple | None = None
+        sp = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        sp.setHeightForWidth(True)
+        self.setSizePolicy(sp)
+
+    @staticmethod
+    def wide(pm: QPixmap) -> bool:
+        return not pm.isNull() and pm.width() >= 2 * pm.height()
+
+    def _fit(self, w: int) -> QSize:
+        pw, ph = max(1, self._pm.width()), max(1, self._pm.height())
+        k = min(max(1, w) / pw, self.MAX_H / ph, self.MAX_GROW)
+        return QSize(max(1, round(pw * k)), max(1, round(ph * k)))
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, w: int) -> int:
+        return self._fit(w).height()
+
+    def sizeHint(self) -> QSize:
+        return self._fit(min(self._pm.width(), 320))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(60, self.heightForWidth(60))
+
+    def paintEvent(self, e):
+        from PySide6.QtGui import QPainter
+        s = self._fit(self.width())
+        key = (s.width(), s.height(), self.devicePixelRatioF())
+        if not self._cache or self._cache[0] != key:
+            self._cache = (key, fit_picture(self._pm, s.width(), s.height(), self))
+        x = self.width() - s.width() if self.layoutDirection() == Qt.RightToLeft else 0
+        QPainter(self).drawPixmap(x, 0, self._cache[1])
+
 
 def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
     """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
@@ -546,7 +693,8 @@ class Selectable:
         self.style().polish(self)
 
     def mouseReleaseEvent(self, ev):
-        if ev.button() == Qt.LeftButton:
+        # released over the card: a press dragged off it (changing one's mind) tags nothing
+        if ev.button() == Qt.LeftButton and self.rect().contains(ev.position().toPoint()):
             SELECTION.picked.emit(self.key)
 
     def keyPressEvent(self, ev):
@@ -577,16 +725,21 @@ class EntityCard(Selectable, QFrame):
         row.setContentsMargins(10, 8, 10, 8)
         row.setSpacing(10)
 
-        pic = QLabel()
-        pic.setFixedSize(56, 56)
-        pic.setAlignment(Qt.AlignCenter)
         img = kb.picture(key)          # never empty: own picture, related one, or category icon
-        if img:
-            pm = QPixmap(str(img))
+        pm = QPixmap(str(img)) if img else QPixmap()
+        # a map's wide minimap goes under its name, across the column (the square showed a thin sliver)
+        strip = None
+        if key.startswith("map/") and WidePicture.wide(pm):
+            strip = WidePicture(pm)
+            zoom_on_hover(strip, img, height=min(160, 2 * pm.height()))
+        else:
+            pic = QLabel()
+            pic.setFixedSize(56, 56)
+            pic.setAlignment(Qt.AlignCenter)
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 56, 56, pic))
                 zoom_on_hover(pic, img)
-        row.addWidget(pic, 0, Qt.AlignTop)
+            row.addWidget(pic, 0, Qt.AlignTop)
 
         col = QVBoxLayout()
         col.setSpacing(2)
@@ -601,6 +754,9 @@ class EntityCard(Selectable, QFrame):
         sub_label = _label(bidi.plain(sub, he), "CardSub")
         sub_label.setAlignment(side)
         col.addWidget(sub_label)
+        if strip is not None:
+            col.addSpacing(2)
+            col.addWidget(strip)
 
         stats = self._stats(e, t)
         main, bonuses = stat_parts(e)
@@ -671,7 +827,7 @@ class EntityCard(Selectable, QFrame):
             link.setCursor(Qt.PointingHandCursor)
             link.setToolTip("NiaMeowDB")
             link.setAccessibleName("NiaMeowDB")
-            link.clicked.connect(lambda: webbrowser.open(self.url))
+            link.clicked.connect(lambda: open_url(self.url))
             bl.addWidget(link)
         if key.startswith("item/"):
             self._star = QToolButton(objectName="Icon")
@@ -850,7 +1006,6 @@ class ProfileCard(QFrame):
         self.now_btn = QPushButton(objectName="NowChip")      # "What now?": the text comes from the chat (language)
         self.now_btn.setCursor(Qt.PointingHandCursor)
         row.addWidget(self.now_btn, 0, Qt.AlignVCenter)
-        self._spin_frames = ["\ue72c", "\ue895"]      # refresh / sync glyphs alternate while busy
         from PySide6.QtCore import QTimer
         self._spin = QTimer(self, interval=260, timeout=self._tick)
         self._frame = 0
@@ -870,9 +1025,18 @@ class ProfileCard(QFrame):
         self.status.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
         self.status.setVisible(bool(busy and status))
 
+    @staticmethod
+    def spin_frames() -> list[str]:
+        """Refresh / sync glyphs alternating while busy, from the icon set in use: a Mac has no Segoe Fluent
+        Icons (theme.load_fonts switches to plain symbols), where the hard-coded code points showed as boxes."""
+        from . import theme
+        refresh = theme.ICON["refresh"]
+        return [refresh, "" if refresh == "" else "⟳"]
+
     def _tick(self):
-        self._frame = (self._frame + 1) % len(self._spin_frames)
-        self.refresh.setText(self._spin_frames[self._frame])
+        frames = self.spin_frames()
+        self._frame = (self._frame + 1) % len(frames)
+        self.refresh.setText(frames[self._frame])
 
     def show_character(self, c, avatar_path, kb, rtl: bool) -> None:
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
@@ -1126,7 +1290,7 @@ class EntityTile(Selectable, QFrame):
         if img:
             pm = QPixmap(str(img))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 32, 32, pic))
                 zoom_on_hover(pic, img, e.get("name", ""))
         row.addWidget(pic)
         col = QVBoxLayout()
@@ -1267,7 +1431,7 @@ class DropGroupCard(QFrame):
         if img:
             pm = QPixmap(str(img))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 40, 40, pic))
                 zoom_on_hover(pic, img)
         head.addWidget(pic)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter

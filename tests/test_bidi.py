@@ -225,3 +225,81 @@ def test_a_hebrew_prefix_hyphen_never_ends_a_line():
     out = bidi.isolate_ltr_runs("רק מחיר החנות עלה מ-7,000 ל-10,500 mesos")
     assert "מ-\u2060" in out and "ל-\u2060" in out
     assert "\u2060" not in bidi.isolate_ltr_runs("Lv. 20 - Warrior")          # a dash, not a prefix
+
+
+@pytest.mark.parametrize("sentence,old,new", [("הסיכוי עלה מ-10% → 25%.", "10%", "25%"),
+                                              ("הנזק השתנה COT1 -> COT2 בבילד", "COT1", "COT2"),
+                                              ("ה-DEX עלה (30 → 33) ברמה הזו", "30", "33")])
+def test_an_old_to_new_arrow_reads_left_to_right(sentence, old, new):
+    """"מ-10% → 25%" as two runs showed "25% → 10%": the arrow pointed at the old value (the audit, HEB-7)."""
+    shown = bidi.isolate_ltr_runs(sentence)
+    assert shown.count(bidi.LRI) == 1
+    x = glyph_x(shown)
+    arrow = shown.index("→" if "→" in shown else "->")
+    assert x[shown.index(old)] < x[arrow] < x[shown.index(new)]
+
+
+@pytest.mark.parametrize("sentence,order", [("הרמות 10 → 20 → 30 בסדר", "10→20→30"),
+                                            ("עלייה Lv. 30 → Lv. 35 היום", "Lv.30→Lv.35"),
+                                            ("טווח 1-5 → 2-8 נזק", "1-5→2-8"),
+                                            ("הנזק עלה מ-10–20 → 15–25 בגרסה", "10–20→15–25"),
+                                            ("הנזק (COT2 → Launch) השתנה", "COT2→Launch")])
+def test_an_arrow_chain_of_values_is_one_block(sentence, order):
+    """"10 → 20 → 30" paired only "10 → 20" and threw "30" to the other end; "Lv. 30 → Lv. 35" paired "30 → Lv"
+    (the review, UI-1)."""
+    shown = bidi.isolate_ltr_runs(sentence)
+    assert shown.count(bidi.LRI) == 1
+    assert order in _reading_order(shown)
+
+
+@pytest.mark.parametrize("names", [[], ["Blue Snail", "Red Snail", "Orange Mushroom", "Victoria Road",
+                                        "Ant Tunnel I", "Ant Tunnel II", "Henesys", "Ellinia", "Perion"]])
+@pytest.mark.parametrize("sentence,whole", [
+    ("Blue Snail → Red Snail → Orange Mushroom לפי הסדר", ["BlueSnail→RedSnail→OrangeMushroom"]),
+    ("לכו מ-Henesys → Victoria Road ברגל", ["Henesys→VictoriaRoad"]),
+    ("Ant Tunnel I → Ant Tunnel II: מפה אחת", ["AntTunnelI→AntTunnelII"]),
+    ("Henesys -> Ellinia -> Perion זה המסלול", ["Henesys->Ellinia->Perion"]),
+])
+def test_an_arrow_between_names_keeps_the_route_in_order(names, sentence, whole):
+    """The arrow's sides were "any letters": "Blue Snail → Red Snail" came out as "Blue", "Snail → Red", "Snail"
+    (the review, UI-1). A name is never cut at the arrow, and a route reads in its order (as three runs,
+    "A → B → C" showed "C → B → A" in a Hebrew line), with or without KB names registered."""
+    bidi.set_names(names)
+    try:
+        shown = bidi.isolate_ltr_runs(sentence)
+    finally:
+        bidi.set_names([])
+    order = _reading_order(shown)
+    for name in whole:
+        assert name in order, f"{name!r} cut in {sentence!r}: {order}"
+
+
+@pytest.mark.parametrize("sentence,order", [
+    ("שרשרת הקווסטים: [Construction Site B1] Shumi's Lost Coin → [Construction Site B2] Shumi's Lost Roll of Cash"
+     " → [Construction Site B3] Shumi's Lost Sack of Cash.",
+     "[ConstructionSiteB1]Shumi'sLostCoin→[ConstructionSiteB2]Shumi'sLostRollofCash→[ConstructionSiteB3]Shumi'sLost"
+     "SackofCash"),
+    ("Final Attack: Sword → Power Strike → Slash Blast זה הסדר.", "FinalAttack:Sword→PowerStrike→SlashBlast"),
+    ("Tree Dungeon, Monkey Forest I → Ellinia: שתי מפות.", "TreeDungeon,MonkeyForestI→Ellinia"),
+])
+def test_a_route_through_registered_names_reads_in_order(sentence, order):
+    """Names with ", " / ": " / "[ ]" are registered (set_names keeps only those): each was its own block and the
+    route between them read backwards, Sack -> Roll -> Coin (review2 UI2-1). The names test above registers none
+    (UI2-2)."""
+    bidi.set_names(["[Construction Site B1] Shumi's Lost Coin", "[Construction Site B2] Shumi's Lost Roll of Cash",
+                    "[Construction Site B3] Shumi's Lost Sack of Cash", "Final Attack: Sword",
+                    "Tree Dungeon, Monkey Forest I"])
+    try:
+        assert bidi._NAMES is not None
+        shown = bidi.isolate_ltr_runs(sentence)
+    finally:
+        bidi.set_names([])
+    assert order in _reading_order(shown)
+
+
+def test_a_long_route_breaks_only_after_an_arrow():
+    """As one run longer than KEEP_TOGETHER, "Pig Beach (Lv. 30) → Ant Tunnel I (Lv. 35)" wrapped inside "(Lv. 35)"
+    in a narrow chat (review2 UI2-4): each stop keeps no-break spaces, a break may come only after an arrow."""
+    shown = bidi.isolate_ltr_runs("הכי טוב: Pig Beach (Lv. 30) → Ant Tunnel I (Lv. 35) ואז הלאה")
+    assert "Ant Tunnel I (Lv. 35)" in shown and "Beach (Lv. 30) → " in shown
+    assert "PigBeach(Lv.30)→AntTunnelI(Lv.35)" in _reading_order(shown)

@@ -2,8 +2,6 @@
 Hebrew/English summary on demand and "Ask about this guide" (tags it in the chat)."""
 from __future__ import annotations
 
-import webbrowser
-
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QFontInfo, QGuiApplication, QPixmap, QTextCharFormat, QTextCursor, QTextFormat, QTextOption, QTextTable
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
@@ -11,9 +9,11 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 
 from .. import bidi, guides
 from ..i18n import I18n
+from ..osapi import open_url
 from .controls import FlowLayout, follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
+from .widgets import fit_picture
 
 
 ZOOM = 3            # pictures are pixel art: a whole-number zoom keeps them sharp
@@ -106,6 +106,9 @@ class ImageZoom(QObject):
         b = self.browser
         if not b.isVisible():
             self.hide()
+            # nothing to look at until it shows again (eventFilter): the Tools window kept waking the app 8 times
+            # a second for its Build page while another page or the game was in front
+            self._poll.stop()
             return
         vp = b.viewport()
         under = QApplication.widgetAt(QCursor.pos())
@@ -138,6 +141,8 @@ class ImageZoom(QObject):
                 self.hide()
         elif e.type() in (QEvent.Leave, QEvent.Wheel, QEvent.MouseButtonPress):
             self.hide()
+        elif e.type() == QEvent.Show and not self._poll.isActive():
+            self._poll.start()
         elif e.type() == QEvent.Hide and self._shown:
             # the window closed (or another page took its place) with a picture zoomed: Qt sends no Leave to a
             # window that is closing
@@ -167,6 +172,8 @@ class ImageZoom(QObject):
 
 
 COVER_W = 480       # a guide's cover picture, shown when hovering its card
+# the cover on a guide's card: covers are 1200x630, and in a 44 px square they were a 44x23 smudge (VIS-22)
+COVER_THUMB = (88, 46)
 
 
 def _pop_style() -> str:
@@ -175,6 +182,18 @@ def _pop_style() -> str:
     c = theme.P()
     bg = "#2C2C2E" if theme.MODE == "dark" else "#FFFFFF"
     return f"background: {bg}; border: 1px solid {c['stroke']}; border-radius: 12px; padding: 8px;"
+
+
+def set_title(lb: QLabel, text: str, rtl: bool) -> None:
+    """A word-wrapped guide title. In Hebrew as right-to-left rich text: as plain text a nearly full line kept its
+    trailing space and lost the edge of its last word ("…עליית רמות ל-Assassin … רמה 30-70" showed "רמ" at the
+    card's edge, the review UI-2; the sign-in hints had the same, DLG-8)."""
+    if rtl:
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(bidi.to_html(text, "rtl"))
+    else:
+        lb.setTextFormat(Qt.PlainText)
+        lb.setText(bidi.plain(text, False))
 
 
 class CoverPic(QLabel):
@@ -225,19 +244,20 @@ class GuideRow(QFrame):
         row.setSpacing(10)
         img = kb.picture(self.key)
         pic = CoverPic(str(img) if img else None)
-        pic.setFixedSize(44, 44)
+        pic.setFixedSize(*COVER_THUMB)
         pic.setAlignment(Qt.AlignCenter)
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, *COVER_THUMB, pic))
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute
         shown_title = guides.title(g["key"], g["title"], t.lang)
         self.setAccessibleName(shown_title)
-        title = QLabel(bidi.plain(shown_title, rtl), objectName="CardName")
+        title = QLabel(objectName="CardName")
         title.setWordWrap(True)
+        set_title(title, shown_title, rtl)
         title.setAlignment(align)
         col.addWidget(title)
         meta = t(f"gcat_{g['category']}") + (f" · {t('g_minutes', n=g['minutes'])}" if g.get("minutes") else "")
@@ -425,7 +445,7 @@ class GuidesDialog(GlassDialog):
         actions.addWidget(ask)
         web = QPushButton(bidi.plain(t("g_web"), rtl), objectName="Link")
         web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda: webbrowser.open((self.kb.get(self._reading) or {}).get("url", "")))
+        web.clicked.connect(lambda: open_url((self.kb.get(self._reading) or {}).get("url", "")))
         actions.addWidget(web)
         actions.addStretch(1)
         lay.addLayout(actions)
@@ -466,7 +486,7 @@ class GuidesDialog(GlassDialog):
                     self._trail.append((self._reading, self.browser.verticalScrollBar().value()))
                 self._show(key)
         elif link.startswith("http"):
-            webbrowser.open(link)
+            open_url(link)
 
     def open_guide(self, key: str):
         """A guide opened from the list (or by the app): Back from it goes to the list."""
@@ -487,7 +507,7 @@ class GuidesDialog(GlassDialog):
         g, translated, stale = guides.localized(key, page, t.lang)
         rtl = translated and t.rtl
         self.r_title.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        self.r_title.setText(bidi.plain(g.title, rtl))
+        set_title(self.r_title, g.title, rtl)
         meta = t(f"gcat_{guides.category(key)}") + (f" · {t('g_minutes', n=g.minutes)}" if g.minutes else "")
         self.r_meta.setText(bidi.plain(meta, t.rtl))
         self.stale.setVisible(translated and stale)
@@ -508,7 +528,7 @@ class GuidesDialog(GlassDialog):
         t = self.t
         rtl = b["lang"] != "en" and t.rtl
         self.r_title.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        self.r_title.setText(bidi.plain(b.get("title") or key, rtl))
+        set_title(self.r_title, b.get("title") or key, rtl)
         meta = t(f"gcat_{guides.category(key)}") + (f" · {t('g_minutes', n=b['minutes'])}" if b.get("minutes") else "")
         self.r_meta.setText(bidi.plain(meta, t.rtl))
         self.stale.setVisible(b["lang"] != "en" and b.get("stale", False))

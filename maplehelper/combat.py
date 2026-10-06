@@ -54,9 +54,10 @@ def _after(lines: list[str], label: str) -> int | None:
     return None
 
 
-# maps nobody can simply walk to: job-advancement tests, party quest stages, event rooms
-_CLOSED_MAP = re.compile(r"^(Warrior|Thief|Magician|Bowman|Pirate)'s |Accompaniment|KPQ|Party Quest|Test|Event|Exam",
-                         re.I)
+# maps nobody can simply walk to: job-advancement tests ("Thief's Construction Site", "Ant Tunnel For Bowman"),
+# party quest stages, event rooms (the KB's own rule is availability.instance_map; this catches a bare name too)
+_CLOSED_MAP = re.compile(r"^(Warrior|Thief|Magician|Bowman|Pirate)'s |\bFor (?:Warrior|Thief|Magician|Bowman|Pirate)\b|"
+                         r"Accompaniment|KPQ|Party Quest|Test|Event|Exam", re.I)
 # ... and the ones nobody grinds on (those, and hidden streets)
 _NOT_GRIND = re.compile(_CLOSED_MAP.pattern + r"|Hidden Street$", re.I)
 _NOT_GRIND_MOB = re.compile(r"\(|\bFairy \d|Dummy", re.I)
@@ -85,11 +86,13 @@ def released(kb, place: str) -> bool:
 
 def reachable_map(kb, name: str) -> bool:
     """A map a player can go to now: not a test/PQ/event room, and confirmed in the game by the KB."""
-    return not _CLOSED_MAP.search(name) and availability.of(kb).map_open(name)
+    a = availability.of(kb)
+    return not _CLOSED_MAP.search(name) and a.map_open(name) and not a.instance_map(name)
 
 
 def grind_map(kb, name: str) -> bool:
-    return not _NOT_GRIND.search(name) and availability.of(kb).map_open(name)
+    a = availability.of(kb)
+    return not _NOT_GRIND.search(name) and a.map_open(name) and not a.instance_map(name)
 
 
 def respawn_seconds(text: str) -> float | None:
@@ -204,8 +207,9 @@ def level_scale(player_level: int, mob_level: int) -> float:
 
 def landed(raw: float, defense: int, player_level: int, mob_level: int) -> float:
     """A hit's damage on this monster: defense, then the higher-level penalty."""
-    # whole numbers, as the game deals them (the KB's damage guide truncates each hit)
-    return float(max(1, int(raw * 100 / (defense + 100) * level_scale(player_level, mob_level))))
+    # whole numbers, as the game deals them (the KB's damage guide truncates each hit), at most 99,999
+    # (pages/formula/damage.md: "Final = trunc(clamp(value, 1, 99,999))", audit GAM-15)
+    return float(min(99_999, max(1, int(raw * 100 / (defense + 100) * level_scale(player_level, mob_level)))))
 
 
 def damage_range(dmg_min: int | None, dmg_max: int | None) -> tuple[int, int] | None:

@@ -119,6 +119,25 @@ def test_launch_waits_for_a_running_update(monkeypatch):
     assert setupwait.wait_for_setup(limit_s=5, step_s=0) is False
 
 
+def test_the_waiting_note_closes_when_the_wait_ends(monkeypatch):
+    """"It opens by itself when that's done" stayed on screen after the app had opened (audit PRV-21)."""
+    from maplehelper import setupwait
+    events = []
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(setupwait.time, "monotonic", lambda: next(clock))
+    states = iter([True, True, True, False])
+    monkeypatch.setattr(setupwait, "setup_running", lambda: next(states))
+    monkeypatch.setattr(setupwait, "_tell_waiting", lambda: events.append("shown"))
+    monkeypatch.setattr(setupwait, "_close_note", lambda: events.append("closed"))
+    assert setupwait.wait_for_setup(limit_s=900, step_s=0) is True
+    assert events == ["shown", "closed"]
+
+
+def test_closing_the_note_finds_none_and_does_nothing():
+    from maplehelper import setupwait
+    setupwait._close_note()          # no such window in this process: nothing happens, nothing raises
+
+
 def test_damaged_install_is_explained_not_a_traceback(tmp_path, monkeypatch):
     """A missing file of the install (e.g. shiboken6.Shiboken) shows a reinstall prompt and logs the error."""
     import ctypes
@@ -371,6 +390,8 @@ def test_mac_damaged_install_offers_the_download_page(tmp_path, monkeypatch):
     assert opened == [setupwait.RELEASES_URL]
     assert setupwait.MAC_TEXT["broken"]["he"] != setupwait.BROKEN_TEXT["he"]
     assert setupwait.MAC_TEXT["startup"]["he"] != setupwait.STARTUP_TEXT["he"]
+    # the Windows causes don't fit a drag-installed Mac app (MAC-16)
+    assert "antivirus" not in setupwait.MAC_TEXT["broken"]["en"] and "אנטי-וירוס" not in setupwait.MAC_TEXT["broken"]["he"]
 
 
 def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch):
@@ -389,3 +410,148 @@ def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch)
     assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("F9", "F10")
     monkeypatch.setattr(isolated_store.sys, "platform", "darwin")
     assert isolated_store.Settings()["hotkey_toggle"] == "F12"
+
+
+def test_a_failed_settings_write_keeps_the_value_and_leaves_no_tmp(isolated_store, monkeypatch):
+    # LIF-1: a file held by a scanner / a full disk raised into the caller (an answer stuck on "thinking…")
+    s = isolated_store.Settings()
+    monkeypatch.setattr(isolated_store.time, "sleep", lambda _s: None)
+
+    def held(self, target):
+        raise PermissionError(13, "Access is denied")
+    monkeypatch.setattr(isolated_store.Path, "replace", held)
+    s["language"] = "en"
+    assert s["language"] == "en"
+    assert not isolated_store.Settings.path.with_suffix(".tmp").exists()
+
+
+def test_a_failed_history_write_never_raises(isolated_store, monkeypatch):
+    h = isolated_store.History("x")
+
+    def full(*a, **k):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(isolated_store.Path, "open", full)
+    h.append("user", "hi")              # logged, not raised
+    monkeypatch.setattr(isolated_store, "_write_json", full)
+    h.add_summary("s")
+
+
+def test_history_record_after_a_torn_line_is_kept(isolated_store):
+    # LIF-10: a crash mid-write left no newline, and the next record was glued to the torn one
+    h = isolated_store.History("x")
+    h.append("user", "a")
+    with h.log.open("a", encoding="utf-8") as f:
+        f.write('{"t": 1, "role": "assist')
+    h.append("assistant", "x")
+    assert [r["text"] for r in h.recent()] == ["a", "x"]
+
+
+def test_settings_of_the_wrong_type_load_as_the_default(isolated_store):
+    # LIF-9: "font_size": "big" crashed every start in the stylesheet
+    isolated_store.Settings.path.write_text(json.dumps({
+        "font_size": "big", "start_with_windows": 1, "language": "he", "pins": [], "hotkey_toggle": None,
+        "usage_warned": [123, "high"], "api_key_fallback": True, "window": {"x": 1}, "future_key": 5}),
+        encoding="utf-8")
+    s = isolated_store.Settings()
+    assert s["font_size"] == 14 and s["start_with_windows"] is False and s["pins"] == {}
+    assert s["hotkey_toggle"] == "F9" and s["language"] == "he"
+    # shapes kept on purpose, None-default settings and unknown keys are untouched
+    assert s["usage_warned"] == [123, "high"] and s.api_key_mode("claude") and s["window"] == {"x": 1}
+    assert s.data["future_key"] == 5
+
+
+def test_a_startup_bug_offers_the_latest_version(tmp_path, monkeypatch):
+    # LIF-2: a release that fails at start never runs its own update check: the box offers the newest installer
+    import ctypes
+    import sys
+    import webbrowser
+
+    import pytest
+
+    from maplehelper import setupwait, store
+    if sys.platform != "win32":
+        pytest.skip("the Windows message box")
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    shown, opened = [], []
+    monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", lambda *a: shown.append(a) or 6)
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+    setupwait.report_broken_install(RuntimeError("boom in start()"))
+    assert "startup-error.log" in shown[0][1] and shown[0][3] & 0x4      # Yes/No
+    assert opened == [setupwait.DOWNLOAD_URL]
+    for lang in ("he", "en"):
+        assert setupwait.STARTUP_NEWER_TEXT[lang]
+
+
+def test_mac_app_moves_the_bundled_kb_out_of_the_signed_bundle(tmp_path, monkeypatch):
+    # the grep tables are built into the KB folder: inside the .app that broke its code seal (MAC-3)
+    import json
+    import sys
+
+    from maplehelper import store
+    bundled, user = tmp_path / "app" / "data" / "kb", tmp_path / "data" / "kb"
+    bundled.mkdir(parents=True)
+    (bundled / "index.json").write_text("[]", encoding="utf-8")
+    (bundled / "meta.json").write_text(json.dumps({"version": "2026.10.05.1525"}), encoding="utf-8")
+    monkeypatch.setattr(store, "BUNDLED_KB", bundled)
+    monkeypatch.setattr(store, "USER_KB", user)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    store.adopt_bundled_kb()
+    assert not user.exists() and store.kb_dir() == bundled          # Windows keeps its per-user install folder
+    monkeypatch.setattr(sys, "platform", "darwin")
+    store.adopt_bundled_kb()
+    assert store.kb_dir() == user and (user / "index.json").exists()
+    store.adopt_bundled_kb()                                         # once: a downloaded KB is never overwritten
+    (user / "meta.json").write_text(json.dumps({"version": "2026.10.06.0300"}), encoding="utf-8")
+    store.adopt_bundled_kb()
+    assert json.loads((user / "meta.json").read_text(encoding="utf-8"))["version"] == "2026.10.06.0300"
+    # an app update that bundles a newer KB than the download replaces the older copy
+    (bundled / "meta.json").write_text(json.dumps({"version": "2026.10.07.0300"}), encoding="utf-8")
+    store.adopt_bundled_kb()
+    assert json.loads((user / "meta.json").read_text(encoding="utf-8"))["version"] == "2026.10.07.0300"
+    assert not (tmp_path / "data" / "kb.old").exists() and not (tmp_path / "data" / "kb.new").exists()
+
+
+def test_only_web_links_are_opened(monkeypatch):
+    """On Windows webbrowser.open runs any other string through os.startfile: a bad KB or news link must never
+    start a file or program (audit SEC-6)."""
+    import webbrowser
+
+    from maplehelper import osapi
+    opened = []
+    monkeypatch.setattr(webbrowser, "open", lambda u: opened.append(u) or True)
+    for bad in (r"C:\Windows\System32\calc.exe", "file:///C:/x.bat", "", None, "javascript:alert(1)", r"\\host\s"):
+        assert osapi.open_url(bad) is False
+    assert osapi.open_url("https://meowdb.com/x") and osapi.open_url("HTTP://example.com")
+    assert opened == ["https://meowdb.com/x", "HTTP://example.com"]
+
+
+def test_editing_a_character_keeps_it_and_resets_what_the_hud_confirmed(isolated_store):
+    # the character card's edit: a hand-picked job drops the game's own job name, a rename waits for the HUD again
+    p = isolated_store.Profiles()
+    c = p.add("Kiwi", "Thief", "Assassin", 30)
+    c.job_shown, c.name_seen = "Assassin", True
+    p.edit(c.id, "Kiwi", "Thief", "Assassin", 31)                   # only the level: nothing else forgotten
+    assert (c.level, c.job_shown, c.name_seen) == (31, "Assassin", True)
+    p.edit(c.id, "Kiwo", "Thief", "Bandit", 32)
+    again = isolated_store.Profiles().characters[0]                  # saved
+    assert (again.id, again.name, again.job, again.level) == (c.id, "Kiwo", "Bandit", 32)
+    assert again.job_shown == "" and again.name_seen is False
+    p.edit("no-such-id", "X", "Thief", "Thief", 1)                  # a deleted character: nothing happens
+    assert [ch.name for ch in isolated_store.Profiles().characters] == ["Kiwo"]
+
+
+def test_a_new_portrait_replaces_the_old_file(isolated_store, tmp_path, monkeypatch):
+    monkeypatch.setattr(isolated_store, "AVATAR_DIR", tmp_path / "avatars")
+    (tmp_path / "avatars").mkdir()
+    p = isolated_store.Profiles()
+    assert p.set_avatar(b"png") is None and p.avatar_path() is None      # no character yet: nothing written
+    c = p.add("Kiwi", "Thief", "Assassin", 30)
+    p.set_active(c.id)
+    clock = iter([1000, 2000])
+    monkeypatch.setattr(isolated_store.time, "time", lambda: next(clock))
+    p.set_avatar(b"first")
+    first = p.avatar_path()
+    p.set_avatar(b"second")
+    assert p.avatar_path().read_bytes() == b"second" and not first.exists()     # the old file doesn't pile up
+    assert isolated_store.Profiles().avatar_path().read_bytes() == b"second"     # saved with the character

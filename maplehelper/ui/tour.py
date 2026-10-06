@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLay
 
 from .. import bidi
 from . import theme
+from .glass import _TabKeys
 
 # (overlay attribute of the control, or None for a card in the middle; the i18n key of its texts)
 STEPS = (
@@ -22,10 +23,13 @@ STEPS = (
     ("input", "tour_input"),
     ("recapture_btn", "tour_camera"),
     ("mic_btn", "tour_mic"),
-    ("tools_btn", "tour_tools"),
+    # the header in its on-screen order (overlay.py: search, news, guides, wishlist, play tools, settings), the News
+    # megaphone included: it was skipped and the light jumped back and forth (audit OVL-23, UX-20)
+    ("history_btn", "tour_history"),
+    ("news_btn", "tour_news"),
     ("guides_btn", "tour_guides"),
     ("wish_btn", "tour_wish"),
-    ("history_btn", "tour_history"),
+    ("tools_btn", "tour_tools"),
     ("settings_btn", "tour_settings"),
     ("min_btn", "tour_min"),
     ("close_btn", "tour_close"),
@@ -52,6 +56,7 @@ class Tour(QWidget):
     def __init__(self, overlay, t, hotkeys: dict):
         super().__init__(overlay)
         self.overlay, self.t, self.keys = overlay, t, hotkeys
+        _TabKeys.watch()                 # which button the player Tabbed to (Enter on it)
         self.setAttribute(Qt.WA_NoSystemBackground)
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self.steps = [(path, key) for path, key in STEPS if path is None or self._visible(path)]
@@ -118,7 +123,9 @@ class Tour(QWidget):
         _, key = self.steps[self.i]
         t, rtl = self.t, self.t.rtl
         last = self.i == len(self.steps) - 1
-        self.count.setText(f"{self.i + 1} / {len(self.steps)}" if 0 < self.i < len(self.steps) - 1 else "")
+        # the numbered cards only: the welcome and the last card aren't counted, so it runs 1 / 13 .. 13 / 13 (it
+        # started at "2 / 15", UX-20)
+        self.count.setText(f"{self.i} / {len(self.steps) - 2}" if 0 < self.i < len(self.steps) - 1 else "")
         self.count.setVisible(bool(self.count.text()))
         self.title.setText(bidi.plain(t(f"{key}_title"), rtl))
         self.body.setText(bidi.plain(t(f"{key}_body", toggle=self.keys["toggle"], voice=self.keys["voice"]), rtl))
@@ -152,8 +159,11 @@ class Tour(QWidget):
                                      -self.overlay.SHADOW - 10, -self.overlay.SHADOW - 10)
         width = min(panel.width(), 420)
         self.card.setFixedWidth(width)
-        self.card.adjustSize()
-        h = self.card.sizeHint().height()
+        # the height the wrapped text needs at this width: sizeHint() measured the labels before they knew their
+        # width, and at the 16 px font the body's last line was cut ("...opens it again anytime, in")
+        lay = self.card.layout()
+        lay.activate()
+        h = max(self.card.sizeHint().height(), lay.totalHeightForWidth(width))
         self.card.resize(width, h)
         x = panel.center().x() - width // 2
         r = self.target()
@@ -190,7 +200,12 @@ class Tour(QWidget):
         if k == Qt.Key_Escape:
             self.finish()
         elif k in (Qt.Key_Return, Qt.Key_Enter):
-            self.go(self.i + 1)
+            # a Skip or Back the player Tabbed to: Enter does that, not the next step (UX-14)
+            w = self.focusWidget()
+            if w in (self.skip_btn, self.back_btn) and _TabKeys.by_keyboard(w):
+                w.click()
+            else:
+                self.go(self.i + 1)
         elif k in (Qt.Key_Left, Qt.Key_Right):
             forward = (k == Qt.Key_Left) == self.t.rtl
             self.go(self.i + 1 if forward else self.i - 1)

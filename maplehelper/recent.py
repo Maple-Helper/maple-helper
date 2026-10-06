@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from . import bidi, sources
+from . import availability, bidi, dates, sources
 
 DAYS = 7              # how long a change keeps its "Updated" chip
 GEAR_LEVELS = 10      # equipment within this many levels of the player's is "gear for you"
@@ -118,7 +118,7 @@ def _labels(kb, key: str, f: str, new) -> tuple[str, str]:
 def lines(t, kb, r: Recent) -> list[str]:
     """What changed, a line each: "Weapon Attack 30 → 33 (COT2 → Launch)" (one left-to-right block)."""
     out = [sources.change_line(f, _value(old), _value(new), *_labels(kb, r.key, f, new))
-           for f, (old, new) in r.props.items() if old != new]
+           for f, (old, new) in r.props.items() if not same(old, new)]
     if r.drops_added:
         out.append(t("pn_drops_added", items=", ".join(r.drops_added)))
     if r.drops_removed:
@@ -136,6 +136,22 @@ def lines(t, kb, r: Recent) -> list[str]:
     return out
 
 
+def same(old, new) -> bool:
+    """The same value in other words: case, spacing or thousands commas ("1,200" / "1200") is no change to the game.
+    Only a thousands comma goes: "1,5" isn't "15", nor "Henesys, Ellinia" "Henesys Ellinia" (review3 TL1-7-a)."""
+    def norm(v):
+        v = re.sub(r"(?<=\d),(?=\d{3}\b)", "", str(v if v is not None else ""))
+        return re.sub(r"\s+", " ", v).strip().casefold()
+    return old == new or norm(old) == norm(new)
+
+
+def stats_changed(r: Recent) -> bool:
+    """A change to the numbers a combat card shows (a prop, its name, its community mesos), not only to its drop
+    list: the 4.10.2026 update added drops to 151 of 180 monsters and every Grind spots card said "Updated"."""
+    return bool(any(not same(o, n) for o, n in r.props.values()) or r.old_name
+                or (r.mesos and r.mesos[0] != r.mesos[1]))
+
+
 def _mesos(v) -> str:
     return str(v).replace("-", "–") if v else "—"
 
@@ -144,16 +160,8 @@ def _value(v) -> str:
     return "—" if v is None or v == "" else str(v)
 
 
-def _date(d: str) -> str:
-    try:
-        y, m, dd = (int(x) for x in d.split("-"))
-        return f"{dd}.{m}.{y}"
-    except ValueError:
-        return d
-
-
 def tip(t, kb, r: Recent) -> str:
-    return "\n".join([t("updated_tip_head", date=_date(r.date)), *lines(t, kb, r)])
+    return "\n".join([t("updated_tip_head", date=dates.iso(r.date, t.rtl)), *lines(t, kb, r)])
 
 
 def ai_lines(kb, keys, today: date | None = None, limit: int = 8) -> list[str]:
@@ -210,6 +218,10 @@ def why(kb, row: dict, char, wished: set[str]) -> str | None:
     level = int(char.level)
     e = kb.get(key) or {}
     props = e.get("props") or {}
+    open_ = availability.of(kb)
+    # not in the game (an Ossyria monster, gear with no source in it): the notice said Jr. Sentinel "affects you"
+    if not (open_.item_open(key) if key.startswith("item/") else open_.entity_open(key)):
+        return None
     if key.startswith("item/") and str(e.get("type") or "").startswith("Equip"):
         req = props.get("Level Requirement") or 0
         if not isinstance(req, (int, float)) or abs(int(req) - level) > GEAR_LEVELS:

@@ -34,7 +34,7 @@ from pathlib import Path
 
 from . import base
 from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, http_ok, \
-    run_installer
+    http_status, run_installer
 
 log = logging.getLogger(__name__)
 STALL_TIMEOUT_S = 150    # no output for this long = stuck (tool steps and streaming print all along)
@@ -195,10 +195,11 @@ def agy_command(exe: str, agent: str, model: str | None = None) -> list[str]:
 
 def classify(text: str) -> str | None:
     t = text.lower()
-    if ("authentication" in t or "not logged in" in t or "not authenticated" in t or "sign in" in t
+    # whole words and a bare status code only: "design in", a request id or "1429 ms" in stderr aren't a sign-out
+    if ("authentication" in t or "not logged in" in t or "not authenticated" in t or re.search(r"\bsign in\b", t)
             or "api key not valid" in t):
         return "not_logged_in"
-    if "quota" in t or "limit remaining" in t or "resource_exhausted" in t or "rate limit" in t or "429" in t:
+    if "quota" in t or "limit remaining" in t or "resource_exhausted" in t or "rate limit" in t or http_status(t, 429):
         return "usage_limit"
     return classify_error(text)
 
@@ -209,6 +210,7 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
     "tool_calls", the tool steps it ran (the evals)."""
     current, result, errors, conv = "", None, [], None
     tools, active = 0, False      # a tool step reports ACTIVE, then DONE: counted when it turns active
+    seen: set = set()             # the tool steps' ids counted
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -225,7 +227,16 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
             s = ev.get("step_update") or {}
             conv = s.get("conversation_id") or conv
             if s.get("step_type") == "tool":
-                tools += s.get("state") == "ACTIVE" and not active
+                # by the step's id when it has one: a second tool going ACTIVE before the first was DONE wasn't
+                # counted; with none, a run of ACTIVE updates is one step
+                sid = next((s[k] for k in ("step_id", "step_index", "tool_call_id", "id") if s.get(k) is not None),
+                           None)
+                if sid is not None:
+                    if s.get("state") == "ACTIVE" and sid not in seen:
+                        tools += 1
+                        seen.add(sid)
+                else:
+                    tools += s.get("state") == "ACTIVE" and not active
                 active = s.get("state") == "ACTIVE"
             if s.get("step_type") == "tool" and s.get("state") == "ACTIVE":
                 current = ""
@@ -248,11 +259,11 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
 def to_result(text: str, result: dict | None, stderr: str, model: str | None) -> RawResult:
     if not result or result.get("status") != "SUCCESS":
         detail = str((result or {}).get("error", "")) + "\n" + stderr
-        log.warning("Gemini gave no answer: %s", detail.strip()[-1500:])   # the cause, for "Report a problem"
+        log.warning("Gemini gave no answer: %s", base.scrub(detail.strip()[-1500:]))   # the cause, for "Report a problem"
         return RawResult(error=classify(detail) or ("api_error" if result else "no_result"))
     answer = text or str(result.get("response") or "")
     if not answer.strip():
-        log.warning("Gemini answered nothing: %s | %s", result.get("denied_actions"), stderr[-500:])
+        log.warning("Gemini answered nothing: %s | %s", result.get("denied_actions"), base.scrub(stderr[-500:]))
         # it reached for something blocked and stopped there (agy doesn't work around a refusal)
         return RawResult(error="denied" if result.get("denied_actions") else "no_result")
     return RawResult(text=answer, model=model)
@@ -388,7 +399,7 @@ def read_models(max_age: float = 10.0) -> list[tuple[str, str]] | None:
         # out (it said "not signed in" to a signed-in player)
         detail = (r.stdout + r.stderr).decode("utf-8", errors="replace")
         if classify(detail) == "offline":
-            log.warning("agy models: no connection: %s", detail.strip()[-300:])
+            log.warning("agy models: no connection: %s", base.scrub(detail.strip()[-300:]))
             raise Offline()
     found = parse_models(r.stdout.decode("utf-8", errors="replace"))
     if found:
@@ -508,6 +519,7 @@ class GeminiBackend:
         self.brain = brain
         self.exe = find_agy()
         self._proc: subprocess.Popen | None = None
+        self._stopped = False      # the answer was stopped (the chat's Stop): a run starting after that ends at once
         self._running: set[subprocess.Popen] = set()     # every run, summaries too: a quit stops them all
 
     def prewarm(self) -> None:
@@ -517,11 +529,12 @@ class GeminiBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
+        self._stopped = True
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, agent: str, instructions: str, tools: list[str], stdin_text: str, model: str | None,
               on_delta=None, answer: bool = True, timeout: float | None = None) -> RawResult:
@@ -558,6 +571,8 @@ class GeminiBackend:
             return RawResult(error=f"launch_failed: {e}")
         if answer:
             self._proc = p
+            if self._stopped:          # a retry (or the run itself) began after Stop: it goes no further
+                base.kill(p)
         self._running.add(p)
         err: list[bytes] = []
         signed_out = threading.Event()
@@ -611,10 +626,13 @@ class GeminiBackend:
             log.warning("Gemini is signed out: the question stopped before agy opened a sign-in")
             return RawResult(error="not_logged_in")
         if out.stalled:
-            log.warning("Gemini stalled, stopped: %s", stderr[-1000:])
+            log.warning("Gemini stalled, stopped: %s", base.scrub(stderr[-1000:]))
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):
             return RawResult(error="bad_model")
+        if self._stopped:      # the player's Stop: no "gave no answer" in the log (review3 OVL2-a)
+            log.info("Gemini run stopped by the player")
+            return RawResult(error="no_result")
         r = to_result(text, result, stderr, model)
         r.tool_calls = stats.get("tool_calls")
         return r
@@ -622,6 +640,7 @@ class GeminiBackend:
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
         """model: this call's own (None: the player's). tools=False: no knowledge-base tools (a quick call)."""
+        self._stopped = False      # a new question (Brain.ask skips one stopped before it got here)
         b = self.brain
         shots_dir().mkdir(parents=True, exist_ok=True)
         folder = Path(tempfile.mkdtemp(prefix="run-", dir=shots_dir()))

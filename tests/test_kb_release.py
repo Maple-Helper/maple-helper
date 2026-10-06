@@ -179,3 +179,58 @@ def test_pack_with_previous_kb_ships_the_patch_notes(kb_copy, tmp_path):
     with zipfile.ZipFile(tmp_path / "d" / "kb.zip") as z:
         log = json.loads(z.read("changelog.json"))
     assert log[0]["version"] == m["version"] and log[0]["counts"]["added"] == 1
+
+
+def test_a_page_re_parsed_by_a_newer_scraper_is_not_called_updated(kb_copy, tmp_path):
+    import shutil
+    old = tmp_path / "old"
+    shutil.copytree(kb_copy, old)
+    index = json.loads((kb_copy / "index.json").read_text(encoding="utf-8"))
+    reparsed, edited = index[0]["key"], index[1]["key"]
+
+    def change(idx):
+        for e in idx:
+            if e["key"] == reparsed:
+                e.update(hash="new-output", parser=2)      # only our own output format changed (SCP-20)
+            if e["key"] == edited:
+                e["hash"] = "site-edit"
+        return idx
+    _edit(kb_copy, change)
+    d = kb_release.diff_kb(old, kb_copy)
+    assert [u["key"] for u in d["updated"]] == [edited]
+
+
+def test_rejects_many_entities_gone_at_once_even_within_ten_percent(kb_copy, tmp_path):
+    index = json.loads((kb_copy / "index.json").read_text(encoding="utf-8"))
+    prev = tmp_path / "prev-index.json"
+    extra = [{"key": f"quest/x{i}", "name": "Q", "category": "quest"} for i in range(kb_release.MAX_REMOVED + 1)]
+    prev.write_text(json.dumps(index + extra), encoding="utf-8")
+    with pytest.raises(kb_release.InvalidKB, match="removed at once"):
+        kb_release.validate(kb_copy, previous_index=prev)
+
+
+def test_rejects_a_scrape_that_lost_a_categorys_stats(kb_copy, tmp_path):
+    index = json.loads((kb_copy / "index.json").read_text(encoding="utf-8"))
+    prev = tmp_path / "prev-index.json"
+    prev.write_text(json.dumps(index), encoding="utf-8")
+    assert any(e["category"] == "monster" and e.get("props") for e in index)
+    _edit(kb_copy, lambda idx: [{**e, "props": {}} if e["category"] == "monster" else e for e in idx])
+    with pytest.raises(kb_release.InvalidKB, match="monster: 0% of entries have stats"):
+        kb_release.validate(kb_copy, previous_index=prev)
+
+
+def test_one_small_category_page_losing_its_stats_is_not_a_layout_break():
+    """class has 5 pages with stats out of 25: one losing them dropped the share under 90% and rejected the whole
+    night's KB, every night (review PLT-4). Five lost still is a break."""
+    before = [{"key": f"class/{i}", "category": "class", "props": {"HP": 1} if i < 5 else {}} for i in range(25)]
+    one = [{**e, "props": {}} if e["key"] == "class/0" else e for e in before]
+    assert kb_release._lost_from(before, one) == []
+    before = [{"key": f"monster/{i}", "category": "monster", "props": {"HP": 1}} for i in range(40)]
+    five = [{**e, "props": {}} if int(e["key"].split("/")[1]) < 5 else e for e in before]
+    assert kb_release._lost_from(before, five) == ["monster: 88% of entries have stats, down from 100%"]
+
+
+def test_rejects_a_page_left_behind_by_a_removed_entity(kb_copy):
+    (kb_copy / "pages" / "item" / "gone.md").write_text("old item", encoding="utf-8")
+    with pytest.raises(kb_release.InvalidKB, match="pages without an entry, e.g. item/gone"):
+        kb_release.validate(kb_copy)

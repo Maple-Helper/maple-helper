@@ -157,8 +157,12 @@ def overlay(app, isolated_store, kb, monkeypatch):
 @pytest.mark.skipif(sys.platform != "win32", reason="measured with the Windows icon font")
 def test_the_chat_fits_470_with_a_large_font_and_the_saver_badge(overlay, app):
     overlay.show_saver_badge(True)
-    overlay.resize(470, 640)
-    app.processEvents()
+    # the header tightens on each resize (_fit_header in resizeEvent), as a dragged edge brings one after another.
+    # One jump from 700 px alone left 1-4 px to chance: at 700 the relaxed header holds the window's minimum at
+    # ~466 px, a few px of font width more and Qt clamped the jump to 471/474 (this test's "flaky on this PC")
+    for _ in range(2):
+        overlay.resize(470, 640)
+        app.processEvents()
     assert overlay.minimumSizeHint().width() <= 470
     assert overlay.width() == 470 and overlay.saver_badge.isVisible()
     assert overlay.title_bar.layout().sizeHint().width() <= overlay.title_bar.width()

@@ -75,3 +75,13 @@ def test_alias_builder_drops_a_hebrew_name_that_fits_two_things():
     kept, dropped = make_aliases.drop_ambiguous(aliases, names)
     assert dropped == {"פייסון"}
     assert kept == {"npc/801": ["פיסון"], "npc/301": ["מונית"], "npc/302": ["מונית"], "monster/100100": ["חילזון"]}
+
+
+def test_names_lose_the_sites_trailing_space(tmp_path):
+    # quest/506116 "Asking After Chun Ji " in the 10-05 KB: an exact lookup by name missed it
+    import json
+
+    from maplehelper.kb import KnowledgeBase
+    (tmp_path / "index.json").write_text(json.dumps([{"key": "quest/506116", "category": "quest",
+                                                      "name": "Asking After Chun Ji "}]), encoding="utf-8")
+    assert KnowledgeBase(tmp_path).entities["quest/506116"]["name"] == "Asking After Chun Ji"

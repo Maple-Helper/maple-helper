@@ -25,7 +25,7 @@ class Recipe:
 @dataclass
 class Level:
     level: int
-    needs_exp: int | None           # profession EXP to reach this level
+    needs_exp: int | None           # profession EXP from this level to the next (pages/formula/leveling.md)
     char_level: int | None          # character level it asks for
     recipes: list[Recipe] = field(default_factory=list)
 
@@ -89,6 +89,41 @@ def for_level(kb, profession: str, level: int) -> tuple[Level | None, Level | No
         if x:
             x.recipes.sort(key=lambda r: (-r.exp_per_meso, -r.exp))
     return now, nxt
+
+
+@lru_cache(maxsize=4)
+def _exp_table(page: str) -> dict[int, tuple[int, int]]:
+    out, inside = {}, False
+    for line in page.splitlines():
+        cols = [c.strip() for c in line.split("|")]
+        if cols[0] == "Crafting level":
+            inside = True
+            continue
+        if inside and len(cols) >= 4 and cols[0].isdigit():
+            out[int(cols[0])] = (_int(cols[1]), _int(cols[3]))
+        elif inside and out:
+            break
+    return out
+
+
+def exp_table(kb) -> dict[int, tuple[int, int]]:
+    """Crafting level -> (EXP to the next level, the character level this level asks for), from the KB's
+    "Crafting Levels" table (pages/formula/leveling.md: "1 | 50 | 0 | 10"): the same for every profession."""
+    return _exp_table(kb.page("formula/leveling"))
+
+
+def next_level(kb, profession: str, level: int) -> tuple[int, int, int | None] | None:
+    """(the next level, the EXP from this level to it, the character level it asks for), or None at the top.
+    The efficiency page's "Lv. N needs X EXP" is from N to N+1, so it was shown one level late (Smithing 1 said
+    115 EXP to level 2, the KB says 50) and vanished at a level the page has no block for (audit GAM-1)."""
+    table = exp_table(kb)
+    if level + 1 in table and level in table:
+        return level + 1, table[level][0], table[level + 1][1]
+    lv = {x.level: x for x in levels(kb, profession)}
+    now, nxt = lv.get(level), lv.get(level + 1)
+    if now and nxt and now.needs_exp:
+        return level + 1, now.needs_exp, nxt.char_level
+    return None
 
 
 def up_to(kb, profession: str, level: int) -> list[Recipe]:

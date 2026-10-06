@@ -54,7 +54,14 @@ DISCORD = {"title": "Discord | #maplestory-classic | MapleGuild", "cls": "Chrome
 @pytest.mark.parametrize("others", [[CHROME], [DISCORD], [CHROME, DISCORD],
                                     [{"title": "MapleStory notes.txt - Notepad", "cls": "Notepad"}],
                                     [{"title": "MapleStory", "cls": "CabinetWClass"}],                # a folder
-                                    [{"title": "MapleStory guide - Mozilla Firefox", "cls": "SomethingNew"}]])
+                                    [{"title": "MapleStory guide - Mozilla Firefox", "cls": "SomethingNew"}],
+                                    # audit SCR-2: a player, a terminal, a PDF, a photo, Paint, Steam
+                                    [{"title": "MapleStory_BGM.mp3 - VLC media player", "cls": "Qt5QWindowIcon"}],
+                                    [{"title": "C:\\Games\\MapleStory", "cls": "CASCADIA_HOSTING_WINDOW_CLASS"}],
+                                    [{"title": "C:\\Windows\\system32\\cmd.exe - python maplestory.py"}],
+                                    [{"title": "MapleStory guide.pdf - Adobe Acrobat Reader (64-bit)"}],
+                                    [{"title": "MapleStory.png - Photos"}], [{"title": "MapleStory - Paint"}],
+                                    [{"title": "MapleStory Worlds - Steam"}]])
 def test_a_window_that_only_mentions_the_game_is_never_the_game(win, others):
     winapi, _ = win({i + 1: w for i, w in enumerate(others)})
     assert winapi.find_game_window() is None
@@ -111,6 +118,15 @@ def test_unknown_cover_state_is_never_captured(win, monkeypatch):
         raise OSError("no")
     monkeypatch.setattr(winapi, "_window_from_point", broken)
     assert winapi.capture_game(3) is None and capture.LAST_PROBLEM == "covered"
+
+
+def test_a_minimized_game_says_so(win):
+    """Not "the game isn't open": the player is told to bring it back (audit SCR-12)."""
+    winapi, capture = win({1: CHROME, 3: {"title": GAME, "iconic": True}})
+    assert winapi.find_game_window() is None and capture.problem_key() == "shot_game_minimized"
+    assert winapi.capture_game(3) is None and capture.LAST_PROBLEM == "minimized"
+    winapi, capture = win({1: CHROME})
+    assert winapi.find_game_window() is None and capture.problem_key() is None
 
 
 def test_looking_for_the_game_resets_the_last_problem(win):

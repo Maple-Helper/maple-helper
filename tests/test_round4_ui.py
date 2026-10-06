@@ -1,6 +1,7 @@
 """Round 4 UI and logic fixes (offscreen Qt): keyboard focus, tab order, history paging, pins, confirmations,
 language switches, prices, profile safety (another character), the ⟳ sync, and the worker-thread reads."""
 import os
+import re
 import time
 from types import SimpleNamespace
 
@@ -85,11 +86,23 @@ def test_focus_ring_only_for_keyboard_focus():
 def test_dialogs_open_on_their_search_field_not_the_close_button(kb):
     from maplehelper.ui.guides import GuidesDialog
     from maplehelper.ui.pinsview import HistoryDialog
-    for d in (HistoryDialog([], "Elipaz", "he", ""), GuidesDialog(kb, None, "en", "")):
+    pairs = [{"q": "where?", "a": "here", "t": time.time()}]
+    for d in (HistoryDialog(pairs, "Elipaz", "he", ""), GuidesDialog(kb, None, "en", "")):
         d.move(-4000, -4000)
         d.show()
         assert wait_for(lambda d=d: d.focusWidget() is d.search)
         d.close()
+
+
+def test_an_empty_history_shows_no_search_field():
+    """review3 VIS6-a: nothing to search: no field, and the focus isn't on one."""
+    from maplehelper.ui.pinsview import HistoryDialog
+    d = HistoryDialog([], "Elipaz", "he", "")
+    d.move(-4000, -4000)
+    d.show()
+    pump()
+    assert not d.search.isVisible() and d.focusWidget() is not d.search
+    d.close()
 
 
 def test_a_confirmation_opens_on_its_safe_answer():
@@ -488,6 +501,36 @@ def test_ayashii_via_sync_is_offered_not_renamed(overlay):
     assert (c.name, c.level) == ("Ayash", 131)
 
 
+MISREADS = ({"name": "Elipaz", "level": 10, "job": "Beginner", "base_class": "Beginner"},   # the owner's "Beginner 10"
+            {"level": 3, "exp_percent": 12.5}, {"job": "Thief", "level": 32}, {"job": "Bandit", "level": 32},
+            {"job": "Cleric", "level": 32}, {"base_class": "Beginner"})
+
+
+@pytest.mark.parametrize("update", MISREADS)
+def test_a_sync_read_asks_before_a_demotion(overlay, update):
+    """⟳ that reads a lower level, another class or a job back/sideways asks first (audit SCR-1 / AI-1)."""
+    c = overlay.profiles.active
+    overlay._syncing, overlay._sync_cid, overlay._sync_shot = True, c.id, b"jpeg"
+    overlay._on_sync_done(Answer(text="ok", profile_update=dict(update)))
+    assert (c.base_class, c.job, c.level, c.exp_pct) == ("Thief", "Assassin", 32, None)
+    from PySide6.QtWidgets import QPushButton
+    yes = bidi.plain(I18n("he")("profile_update_yes"), True)
+    assert [b for b in overlay.feed.findChildren(QPushButton) if b.text() == yes]     # update / add as new / cancel
+
+
+@pytest.mark.parametrize("update", MISREADS)
+def test_the_minute_grind_read_never_demotes(overlay, update):
+    c = overlay.profiles.active
+    got = []
+    overlay.grind_read.connect(got.append)
+    overlay._sync_cid = c.id
+    overlay._quiet_grind_read(Answer(text="ok", profile_update=dict(update)))
+    assert (c.base_class, c.job, c.level, c.exp_pct) == ("Thief", "Assassin", 32, None)
+    assert got and not lines(overlay)                         # the tracker still gets its numbers; no prompt
+    overlay._quiet_grind_read(Answer(text="ok", profile_update={"level": 33, "exp_percent": 2.0}))
+    assert (c.level, c.exp_pct) == (33, 2.0)                  # a level up still follows
+
+
 def test_same_character_button_takes_the_hud_name(overlay):
     c = overlay.profiles.active
     c.name = "Kalimero"
@@ -521,6 +564,24 @@ def test_class_change_in_chat_asks_and_advancement_does_not(overlay):
     # a lower level asks
     overlay._apply_profile_update({"level": 20})
     assert c.level == 30
+    # back to Beginner, to the 1st job, or sideways to the other 2nd job: asked, not applied (audit AI-2)
+    c.base_class, c.job, c.level = "Thief", "Assassin", 31
+    for update in ({"job": "Beginner"}, {"job": "Beginner", "level": 31}, {"job": "Thief", "level": 31},
+                   {"job": "Bandit", "level": 31}, {"base_class": "Beginner"}):
+        overlay._apply_profile_update(update)
+        assert (c.base_class, c.job, c.level) == ("Thief", "Assassin", 31), update
+    overlay._apply_profile_update({"job": "Hermit", "level": 70})
+    assert (c.job, c.level) == ("Hermit", 70)
+
+
+def test_job_advances_only_along_its_line():
+    from maplehelper.jobs import advances
+    assert advances("Beginner", "Thief") and advances("Thief", "Assassin") and advances("Thief", "Chief Bandit")
+    assert advances("Assassin", "Hermit") and advances("Fighter", "Crusader") and advances("Assassin", "Assassin")
+    assert not advances("Assassin", "Chief Bandit") and not advances("Fighter", "White Knight")
+    assert not advances("Assassin", "Beginner") and not advances("Thief", "Beginner")
+    assert not advances("Assassin", "Thief") and not advances("Assassin", "Bandit")
+    assert not advances("Hermit", "Assassin")
 
 
 def test_reply_rules_keep_profile_update_to_the_active_character():
@@ -558,9 +619,28 @@ def test_real_kb_shop_grades_and_unpriced_sellers():
     from maplehelper.kb import KnowledgeBase
     real = KnowledgeBase(Path(REAL_KB))
     try:
-        # pages/item/274.md: Max City General Store, "COT2 prices Citizen of Honor +"
-        assert "Citizen of Honor" in market.npc_prices(real, "item/274").ranks.values()
-        # pages/item/241.md: Jane in Lith Harbor sells it with "-" for a price
-        assert any(n == "Jane" for n, _ in market.npc_prices(real, "item/241").unpriced)
+        # every shop list in the KB, read here line by line, against what npc_prices makes of it: a price, a "-"
+        # with no price (pages/item/241.md: Jane), a "<build> prices <grade> +" grade (pages/item/274.md: Citizen
+        # of Honor). The exact parse is test_unpriced_sellers_and_citizen_grades; here no live shop or grade is
+        # named, so a store changing its stock or grades doesn't stop the nightly
+        priced = unpriced = graded = 0
+        for key, e in real.entities.items():
+            if e.get("category") != "item":
+                continue
+            lines = [ln.strip() for ln in real.page(key).split("\n---", 2)[-1].splitlines()]
+            if "Where to buy" not in lines:
+                continue
+            i, blocks = lines.index("Where to buy") + 1, []
+            while i + 3 < len(lines) and lines[i + 3] == "mesos":
+                grade = lines[i + 4] if i + 4 < len(lines) and re.match(r"^\S+ prices\b", lines[i + 4]) else None
+                blocks.append((lines[i + 2], grade))
+                i += 5 if grade else 4
+            p = market.npc_prices(real, key)
+            assert len(p.shops) + len(p.unpriced) == len(blocks), key
+            assert len(p.unpriced) == sum(1 for price, _ in blocks if price == "-"), key
+            grades = {g.split(" prices", 1)[1].rstrip("+ ").strip() for _, g in blocks if g and g.endswith("+")}
+            assert set(p.ranks.values()) == grades - {""}, key
+            priced, unpriced, graded = priced + len(p.shops), unpriced + len(p.unpriced), graded + len(p.ranks)
+        assert priced > 200 and graded > 0          # a broken page scrape reads no shops (or no grades) at all
     finally:
         bidi.set_names([])

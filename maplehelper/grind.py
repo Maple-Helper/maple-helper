@@ -250,33 +250,78 @@ def _per_hour(value: float, seconds: float) -> int | None:
     return round(value * 3600 / seconds) if seconds >= 60 else None     # under a minute a rate means nothing
 
 
+def _level_fits(a: Reading, b: Reading) -> bool:
+    """b can follow a: the level never goes down, and goes up by at most one, plus one per 5 minutes between them
+    (35 read as 53 ten minutes later gave 48 million EXP/h, audit SCR-6)."""
+    return 0 <= b.level - a.level <= 1 + int(max(0.0, b.t - a.t) / 300)
+
+
+def _level_jump(a: Reading, b: Reading) -> bool:
+    """Where a new EXP run may start: the same level or a little higher (two quick level-ups), never lower. The same
+    misread twice ("35" as "53" while a tooltip covers the HUD) is no jump a player makes (review2 LOG-1)."""
+    return 0 <= b.level - a.level <= 2 + int(max(0.0, b.t - a.t) / 300)
+
+
+def _mesos_fit(a: Reading, b: Reading) -> bool:
+    """A digit too many or too few is a 10x jump: 1,234,567 read as 11,234,567 (audit SCR-6). Small sums move
+    freely (a few hundred mesos can triple with one drop)."""
+    lo, hi = sorted((a.mesos, b.mesos))
+    return lo * 5 >= hi or hi < 10_000
+
+
+def _agreeing(reads: list[Reading], fits, jump=None) -> list[list[Reading]]:
+    """The reads that agree with the one kept before them, in runs: one misread at either end of a session doesn't
+    become the session's gain. The first kept read is the first that agrees with the read after it. A read that
+    breaks with the last kept one but agrees with the next (which breaks too) is a real change, a shop trip or two
+    quick level-ups: a new run starts there instead of every later read being dropped (review PLT-3). jump: where a
+    new run may start from the last kept read (None: anywhere)."""
+    start = next((i for i in range(len(reads) - 1) if fits(reads[i], reads[i + 1])), 0)
+    runs = [reads[start:start + 1]]
+    rest = reads[start + 1:]
+    for i, r in enumerate(rest):
+        nxt = rest[i + 1] if i + 1 < len(rest) else None
+        if fits(runs[-1][-1], r):
+            runs[-1].append(r)
+        elif (nxt is not None and fits(r, nxt) and not fits(runs[-1][-1], nxt)
+              and (jump is None or jump(runs[-1][-1], r))):
+            runs.append([r])
+    return runs
+
+
 def summarize(kb, s: Session, now: float | None = None) -> Summary:
     now = now or time.time()
     end = s.ended or now
     out = Summary(max(0.0, end - s.start), s.map, s.monster)
-    exp_reads = [r for r in s.reads if r.level and r.exp_pct is not None]
-    if exp_reads:
-        a, b = exp_reads[0], exp_reads[-1]
+    exp_runs = _agreeing([r for r in s.reads if r.level and r.exp_pct is not None], _level_fits,
+                         _level_jump)
+    if exp_runs[0]:
+        a, b = exp_runs[0][0], exp_runs[-1][-1]
         out.level_from, out.level_to, out.exp_level = a.level, b.level, b.level
-        pa, pb = plan.exp_position(kb, a.level, a.exp_pct), plan.exp_position(kb, b.level, b.exp_pct)
+        # the gain inside each run: the jump between two runs is not measured, so it is not counted
+        ends = [(plan.exp_position(kb, r[0].level, r[0].exp_pct), plan.exp_position(kb, r[-1].level, r[-1].exp_pct))
+                for r in exp_runs]
+        gain = None if any(pa is None or pb is None for pa, pb in ends) else sum(pb - pa for pa, pb in ends)
         if a is b:
             out.exp_note = "one_read"
-        elif pa is None or pb is None:
+        elif gain is None:
             out.exp_note = "no_table"           # past the KB's EXP table (Lv. 100+)
-        elif pb <= pa:
+        elif gain <= 0:
             out.exp_note = "no_gain"
-            out.exp = 0 if pb == pa else None
+            out.exp = 0 if gain == 0 else None
         else:
-            out.exp = round(pb - pa)
-            rate = plan.exp_rate(kb, (a.t, a.level, a.exp_pct), (b.t, b.level, b.exp_pct))
-            if rate and b.t - a.t >= 60:
-                out.exp_h, out.pct_h, out.to_level = rate["per_hour"], rate.get("pct_hour"), rate.get("to_level")
+            out.exp = round(gain)
+            if b.t - a.t >= 60:
+                out.exp_h = round(gain * 3600 / (b.t - a.t))
+                need = plan.exp_table(kb).get(b.level)
+                if need:
+                    out.pct_h = round(gain * 3600 / (b.t - a.t) / need * 100, 1)
+                    out.to_level = round(need * (1 - b.exp_pct / 100) / (gain / (b.t - a.t)))
     else:
         out.exp_note = "no_exp"
-    mesos_reads = [r for r in s.reads if r.mesos is not None]
-    if len(mesos_reads) >= 2:
-        a, b = mesos_reads[0], mesos_reads[-1]
-        out.mesos = b.mesos - a.mesos
+    mesos_runs = _agreeing([r for r in s.reads if r.mesos is not None], _mesos_fit)
+    if sum(len(r) for r in mesos_runs) >= 2:
+        a, b = mesos_runs[0][0], mesos_runs[-1][-1]
+        out.mesos = sum(r[-1].mesos - r[0].mesos for r in mesos_runs)    # a shop trip between runs is no loss
         out.mesos_h = _per_hour(out.mesos, b.t - a.t)
     pot_reads = [r for r in s.reads if r.potions is not None]
     if len(pot_reads) >= 2:
@@ -300,7 +345,7 @@ def summarize(kb, s: Session, now: float | None = None) -> Summary:
     out.monster_exp = plan.monster_exp(kb, s.monster) if s.monster else None
     if out.exp and out.monster_exp:
         out.kills = round(out.exp / out.monster_exp)
-        a, b = exp_reads[0], exp_reads[-1]
+        a, b = exp_runs[0][0], exp_runs[-1][-1]
         out.kills_h = _per_hour(out.kills, b.t - a.t)
         cm = community_mesos(kb, s.monster)
         if cm:

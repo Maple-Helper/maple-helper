@@ -1,0 +1,65 @@
+[
+ {
+  "key": "quest/506000",
+  "id": "506000",
+  "name": "To Henesys, the Prairie Town",
+  "category": "quest",
+  "url": "https://meowdb.com/msclassic/quest-tracker/506000",
+  "image": null,
+  "props": {
+   "Minimum Level": 12,
+   "EXP Reward": 321,
+   "Meso Reward": 351,
+   "Area": "Citizenship"
+  },
+  "type": "Quest"
+ },
+ {
+  "key": "quest/506002",
+  "id": "506002",
+  "name": "Asking After Rina, the Town Resident",
+  "category": "quest",
+  "url": "https://meowdb.com/msclassic/quest-tracker/506002",
+  "image": null,
+  "props": {
+   "Minimum Level": 12,
+   "EXP Reward": 224,
+   "Meso Reward": 245,
+   "NPC": "Community Board (Henesys)",
+   "Area": "Citizenship"
+  },
+  "type": "Quest"
+ },
+ {
+  "key": "quest/506001",
+  "id": "506001",
+  "name": "First Greeting with Rina, the Town Resident",
+  "category": "quest",
+  "url": "https://meowdb.com/msclassic/quest-tracker/506001",
+  "image": null,
+  "props": {
+   "Minimum Level": 12,
+   "EXP Reward": 321,
+   "Meso Reward": 351,
+   "NPC": "Community Board (Henesys)",
+   "Area": "Citizenship"
+  },
+  "type": "Quest"
+ },
+ {
+  "key": "quest/506100",
+  "id": "506100",
+  "name": "To the Gray City, Kerning City",
+  "category": "quest",
+  "url": "https://meowdb.com/msclassic/quest-tracker/506100",
+  "image": null,
+  "props": {
+   "Minimum Level": 12,
+   "EXP Reward": 321,
+   "Meso Reward": 351,
+   "NPC": "Arthur",
+   "Area": "Citizenship"
+  },
+  "type": "Quest"
+ }
+]

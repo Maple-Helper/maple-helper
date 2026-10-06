@@ -1,4 +1,5 @@
-"""The wishlist window: each wished item, who drops it (lowest level first) and where they live."""
+"""The wishlist window: each wished item, who drops it (community-reported droppers first, then the reference
+list, each lowest level first) and where they live."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, Slot
@@ -8,10 +9,10 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollA
 from .. import availability, bidi, quick, sources
 from ..i18n import I18n
 from ..kb import KnowledgeBase
-from .controls import rtl_buttons
+from .controls import FlowLayout, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, chip_row, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
+from .widgets import EntityCard, chip_row, fit_picture, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
 
 
 class WishlistDialog(GlassDialog):
@@ -138,7 +139,7 @@ class WishlistDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 44, 44, pic))
                 zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -147,9 +148,15 @@ class WishlistDialog(GlassDialog):
         title.setAlignment(self._align)
         # this row's own drop list when the droppers mix them, the players' votes when players reported it ("16 ✓"),
         # and a KB update this week that changed the monster
-        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else [])             + [c for c in [updated_tag(t, kb, m)] if c]
+        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else []) \
+            + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
-            col.addLayout(chip_row(chips, title))
+            # a flow, not one row: name + Lv, "Community", "Single report" and "Updated" in one row were 570 px
+            # and pushed the whole window wider than its 434 px view, clipping every row (the site's shot)
+            flow = FlowLayout(spacing=6, line_spacing=2)
+            for w in [title, *chips]:
+                flow.addWidget(w)
+            col.addLayout(flow)
         else:
             col.addWidget(title)
         if maps:

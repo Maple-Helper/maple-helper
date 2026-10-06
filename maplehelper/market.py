@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import statistics
+import threading
 import time
 import urllib.parse
 import urllib.request
@@ -27,6 +28,9 @@ TREND_DAYS = 30             # the price-history window the trend is read over (t
 LISTINGS_SHOWN = 3
 _cache: dict[str, tuple[float, dict | None]] = {}
 _item_cache: dict[int, tuple[float, "ItemMarket | None"]] = {}
+# the price card's and the sell check's threads both use the cache: an insert while the other picked the oldest
+# raised "dictionary changed size during iteration" (TL2-10). Held for the cache only, never over a request
+_cache_lock = threading.Lock()
 
 
 @dataclass
@@ -171,7 +175,13 @@ class ItemMarket:
 
 
 def _num(v) -> int | None:
-    return int(v) if isinstance(v, (int, float)) and v > 0 else None
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+
+
+def _count(v, default: int = 0) -> int:
+    """A count from the site's API, or default for anything else ("n/a", a list, null): int() on what the site
+    sent raised, and the market card waited forever."""
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else default
 
 
 def _when(v) -> float | None:
@@ -194,7 +204,7 @@ def trend(points: list[dict]) -> tuple[int | None, int, int]:
     from datetime import date
     pts = [p for p in points if isinstance(p, dict) and _num(p.get("median")) and isinstance(p.get("day"), str)]
     pts.sort(key=lambda p: p["day"])
-    volume = sum(int(p["count"]) for p in pts if isinstance(p.get("count"), (int, float)))
+    volume = sum(_count(p.get("count")) for p in pts)
     if len(pts) < 2:
         return None, 0, volume
     first, last = pts[0], pts[-1]
@@ -214,7 +224,7 @@ def listings(rows) -> list[Listing]:
         price = _num(r.get("priceEach") or r.get("price"))
         if price is None:
             continue
-        out.append(Listing(price, int(r.get("quantity") or 1), "buy" if r.get("side") == "buy" else "sell",
+        out.append(Listing(price, _count(r.get("quantity"), 1) or 1, "buy" if r.get("side") == "buy" else "sell",
                            r.get("channel") if isinstance(r.get("channel"), int) else None,
                            r.get("fmRoom") if isinstance(r.get("fmRoom"), int) else None, _when(r.get("createdAt"))))
     out.sort(key=lambda x: x.created or 0, reverse=True)
@@ -228,8 +238,8 @@ def parse_item_market(summary, history, listed) -> ItemMarket:
     if isinstance(summary, dict):
         m.usual, m.cheapest_sell, m.best_buy = (_num(summary.get("usual")), _num(summary.get("cheapestSell")),
                                                 _num(summary.get("bestBuy")))
-        m.checks, m.trades = int(summary.get("priceChecks") or 0), int(summary.get("finishedTrades") or 0)
-        m.for_sale, m.window = int(summary.get("forSale") or 0), int(summary.get("windowDays") or 14)
+        m.checks, m.trades = _count(summary.get("priceChecks")), _count(summary.get("finishedTrades"))
+        m.for_sale, m.window = _count(summary.get("forSale")), _count(summary.get("windowDays"), 14) or 14
     if isinstance(history, dict):
         m.trend_pct, m.trend_days, m.volume = trend(history.get("points") or [])
     if isinstance(listed, dict):
@@ -237,7 +247,7 @@ def parse_item_market(summary, history, listed) -> ItemMarket:
         brief = listed.get("summary") if isinstance(listed.get("summary"), dict) else {}
         m.cheapest_sell = m.cheapest_sell or _num(brief.get("lowestSell"))
         m.best_buy = m.best_buy or _num(brief.get("highestBuy"))
-        m.for_sale = m.for_sale or int(brief.get("activeCount") or 0)
+        m.for_sale = m.for_sale or _count(brief.get("activeCount"))
     return m
 
 
@@ -253,13 +263,15 @@ def _get(url: str, timeout: float):
 
 def item_market(item_id: int, timeout: float = 8) -> ItemMarket | None:
     """One item's Free Market (clean condition, as its page opens). None when the site can't be reached; cached
-    CACHE_SECONDS. Its three requests go one after another, never in parallel, and stop at the first failure.
+    CACHE_SECONDS. Its three requests go one after another, never in parallel (up to 3 x timeout); a failed
+    summary stops it, the history and listings are each asked for anyway.
     (The tests stub this entry point out; _lookup is the work.)"""
     return _lookup(item_id, timeout)
 
 
 def _lookup(item_id: int, timeout: float = 8) -> ItemMarket | None:
-    hit = _item_cache.get(item_id)
+    with _cache_lock:
+        hit = _item_cache.get(item_id)
     if hit and time.time() - hit[0] < (CACHE_SECONDS if hit[1] is not None else 60):     # offline: retry sooner
         return hit[1]
     q = urllib.parse.urlencode
@@ -270,9 +282,10 @@ def _lookup(item_id: int, timeout: float = 8) -> ItemMarket | None:
                        timeout)
         listed = _get(f"{API}/market-listings?{q({'itemId': item_id})}", timeout)
         out = parse_item_market(summary, history, listed)
-    if len(_item_cache) >= CACHE_ITEMS and item_id not in _item_cache:
-        _item_cache.pop(min(_item_cache, key=lambda k: _item_cache[k][0]))
-    _item_cache[item_id] = (time.time(), out)
+    with _cache_lock:
+        if len(_item_cache) >= CACHE_ITEMS and item_id not in _item_cache:
+            _item_cache.pop(min(_item_cache, key=lambda k: _item_cache[k][0]))
+        _item_cache[item_id] = (time.time(), out)
     return out
 
 

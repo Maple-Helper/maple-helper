@@ -1,5 +1,6 @@
 """Choosing Claude or Codex in onboarding and settings (offscreen Qt, no real CLI calls)."""
 import os
+import threading
 
 import pytest
 
@@ -22,17 +23,31 @@ def env(qapp, isolated_store, kb, monkeypatch):
                         lambda self: {"status": "logged_out", "email": None, "method": None})
     s = isolated_store.Settings()
     s["language"] = "en"
-    return s, isolated_store.Profiles(), kb
+    from PySide6.QtWidgets import QApplication
+    windows = set(QApplication.topLevelWidgets())
+    before = set(threading.enumerate())
+    yield s, isolated_store.Profiles(), kb
+    # the dialogs' account checks run on threads: they end before their dialog is freed (an emit into a deleted
+    # dialog crashed the next file's first event pump, test_overlay_audit's, the review UI-6)
+    for th in set(threading.enumerate()) - before:
+        th.join(timeout=10)
+    # a dialog a test left open kept its sign-in timer: it fired in the next file's first event pump, with this
+    # file's fakes gone, and the run died of an access violation (test_overlay_audit after these, the review UI-6)
+    from PySide6.QtCore import QTimer
+    for w in set(QApplication.topLevelWidgets()) - windows:
+        for timer in w.findChildren(QTimer):
+            timer.stop()
+        w.close()
 
 
 def test_onboarding_relabels_the_connect_page_for_codex(env):
     from maplehelper.ui.dialogs import Onboarding
     s, profiles, kb = env
     dlg = Onboarding(s, profiles, kb, lambda *_: "")
-    assert dlg.install_btn.text() == "Install Claude Code"
+    assert dlg.install_btn.text() == "Install Claude Code (Anthropic's official tool)"
     dlg._on_provider("codex")
     assert s["provider"] == "codex"
-    assert dlg.install_btn.text() == "Install ChatGPT"
+    assert dlg.install_btn.text() == "Install ChatGPT (Codex, OpenAI's official tool)"
     assert dlg.login_btn.text() == "Sign in with ChatGPT"
     assert "OpenAI" in dlg.key_edit.placeholderText()
     assert "OpenAI" in dlg.privacy_label.text()
@@ -46,10 +61,10 @@ def test_onboarding_relabels_the_connect_page_for_gemini(env, monkeypatch):
     dlg = Onboarding(s, profiles, kb, lambda *_: "")
     dlg._on_provider("gemini")
     assert s["provider"] == "gemini"
-    assert dlg.install_btn.text() == "Install Gemini"
+    assert dlg.install_btn.text() == "Install Gemini (Google Antigravity, Google's official tool)"
     assert dlg.login_btn.text() == "Sign in with Google"
     assert "AIza" in dlg.key_edit.placeholderText()
-    assert "the AI you chose (now Google's Gemini)" in dlg.privacy_label.text()
+    assert "the AI you chose (currently Google's Gemini)" in dlg.privacy_label.text()
 
 
 def test_offline_says_so_and_offers_no_sign_in(env, monkeypatch):
@@ -92,17 +107,20 @@ def test_settings_account_text_follows_the_provider(env):
     assert dlg.account_label.text() == "Signed in with ChatGPT"
 
 
-def test_settings_switching_provider_tells_the_app(env):
+def test_settings_switching_provider_tells_the_app_on_save(env):
+    """UX-6: the provider waits for Save like every other setting, then the app moves over to it."""
     from maplehelper.ui.dialogs import SettingsDialog
     s, profiles, kb = env
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     seen = []
     dlg.account_changed.connect(lambda: seen.append(s["provider"]))
     dlg._on_provider("codex")
-    assert seen == ["codex"]
+    assert seen == [] and s["provider"] == "claude" and dlg.unsaved()
+    dlg._save()
+    assert seen == ["codex"] and s["provider"] == "codex"
 
 
-def test_settings_model_pick_applies_right_away(env):
+def test_settings_model_pick_applies_on_save(env):
     from maplehelper.ui.dialogs import SettingsDialog
     s, profiles, kb = env
     s["provider"] = "claude"
@@ -112,6 +130,8 @@ def test_settings_model_pick_applies_right_away(env):
     dlg.account_changed.connect(lambda: seen.append(s["model"]))
     assert dlg.model_pick.text() == "Sonnet (recommended)" and "Sonnet 5" in dlg.model_hint.text()
     dlg._on_model(dlg._model_values.index("opus"))
+    assert s["model"] != "opus" and seen == [] and dlg.unsaved()
+    dlg._save()
     assert s["model"] == "opus" and seen == ["opus"]
 
 
@@ -141,7 +161,7 @@ def test_onboarding_sign_in_that_cannot_start_says_so(env, monkeypatch):
     dlg._on_provider("codex")
     monkeypatch.setattr(type(providers.get("codex")), "login", lambda self: None)
     dlg._start_login()
-    assert "The ChatGPT sign-in didn't work" in dlg.login_hint.text()
+    assert "The ChatGPT sign-in didn't finish" in dlg.login_hint.text()
     assert not dlg.install_btn.isHidden()
     dlg.close()
 
@@ -161,7 +181,7 @@ def test_onboarding_reports_a_sign_in_that_ended_in_failure(env, monkeypatch):
     monkeypatch.setattr(type(providers.get("codex")), "login", lambda self: Ended())
     dlg._start_login()
     dlg._poll_tick()
-    assert "The ChatGPT sign-in didn't work" in dlg.login_hint.text()
+    assert "The ChatGPT sign-in didn't finish" in dlg.login_hint.text()
     assert not dlg.install_btn.isHidden()
     dlg.close()
 
@@ -269,7 +289,7 @@ def test_settings_offers_install_and_says_when_a_sign_in_timed_out(env, monkeypa
     s["provider"] = "codex"
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     dlg._on_account({"status": "not_installed", "email": None, "provider": "codex"})
-    assert not dlg.install_btn.isHidden() and dlg.install_btn.text() == "Install ChatGPT"
+    assert not dlg.install_btn.isHidden() and dlg.install_btn.text() == "Install ChatGPT (Codex, OpenAI's official tool)"
     dlg._on_account({"status": "logged_out", "email": None, "provider": "codex"})
     assert dlg.install_btn.isHidden()
 
@@ -301,7 +321,11 @@ def test_settings_esc_keeps_unsaved_changes_and_keys_must_differ(env):
     assert not dlg.save_btn.isEnabled() and not dlg.keys_error.isHidden()
     dlg._save()
     assert s["hotkey_voice"] != s["hotkey_toggle"]           # not saved like that
-    dlg.hk_voice.setCurrentText("F11")            # (F12 is not offered on Windows: it never registers)
+    # any other key the list offers (F12 is not offered on Windows: it never registers; macOS's toggle is F11)
+    from maplehelper.ui.dialogs import hotkey_choices
+    other = next(k for k in hotkey_choices((s["hotkey_toggle"], s["hotkey_voice"]))
+                 if k not in (dlg.hk_toggle.currentText(), ""))
+    dlg.hk_voice.setCurrentText(other)
     assert dlg.save_btn.isEnabled() and dlg.keys_error.isHidden()
     dlg.close()
 
@@ -433,3 +457,28 @@ def test_a_second_sign_in_click_does_not_open_a_second_browser(env, monkeypatch)
     dlg._switch_account()                    # a second click while the first waits for the browser
     assert starts == [1] and logouts == []
     base._login = None
+
+
+def test_closing_settings_during_a_sign_in_stops_its_timer(env, monkeypatch):
+    """Settings closed while a sign-in waited kept its 3-second timer: at its timeout it showed the closed window
+    again (_set_on_top), and its account checks ran on (the review, UI-6)."""
+    from maplehelper import providers
+    from maplehelper.ui.dialogs import SettingsDialog
+    s, profiles, kb = env
+    s["provider"] = "codex"
+
+    class Waiting:
+        returncode = None
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            pass
+    monkeypatch.setattr(type(providers.get("codex")), "login", lambda self: Waiting())
+    dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
+    dlg._on_account({"status": "logged_out", "email": None, "provider": "codex"})
+    dlg._start_login()
+    assert dlg._login_timer.isActive() and dlg.isVisible()
+    dlg.close()
+    assert not dlg._login_timer.isActive()

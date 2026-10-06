@@ -14,6 +14,7 @@ import os
 import plistlib
 import re
 import sys
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
@@ -84,7 +85,7 @@ def microphone_denied() -> bool:
 # apps whose windows only mention the game (a guide in a browser, a Discord channel, a folder): never "the game"
 NOT_GAME_OWNERS = {"safari", "google chrome", "chrome", "firefox", "microsoft edge", "arc", "brave browser", "opera",
                    "vivaldi", "orion", "discord", "finder", "preview", "textedit", "notes", "telegram", "whatsapp",
-                   "slack", "messages", "mail"}
+                   "slack", "messages", "mail", "terminal", "iterm2", "vlc", "steam", "code", "spotify"}
 NOT_GAME_APPS = re.compile(r"\b(chrome|safari|edge|firefox|opera|brave|vivaldi|discord|youtube|telegram|whatsapp|"
                            r"twitch|reddit)\b", re.IGNORECASE)
 SEPARATORS = (" - ", " | ", " — ", " – ")
@@ -203,14 +204,27 @@ def focus_window(window_id: int) -> None:
         app.activateWithOptions_(_ACTIVATE_IGNORING_OTHER_APPS)
 
 
+_self_activated_at = 0.0
+
+
 def activate_self(win_id: int) -> None:
     """Bring our own app (and with it, its Qt windows) to the front."""
+    global _self_activated_at
     from AppKit import NSApplication
+    _self_activated_at = time.monotonic()
     NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+
+
+def seconds_since_self_activation() -> float:
+    """How long ago activate_self ran: an activation right after it is ours, not the player reopening the app."""
+    return time.monotonic() - _self_activated_at
 
 
 def float_over_fullscreen(win_id: int) -> None:
     """Let a Qt window (winId = its NSView) appear on every Space, also over a fullscreen game."""
+    from PySide6.QtGui import QGuiApplication
+    if QGuiApplication.platformName() != "cocoa":
+        return      # offscreen (tests, renders): the id is no NSView, and messaging it crashed the process
     try:
         import objc
         window = objc.objc_object(c_void_p=ctypes.c_void_p(int(win_id))).window()

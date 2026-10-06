@@ -224,7 +224,23 @@ def test_the_players_level_is_named_as_one():
     assert drop_keys("הרבה מתחתיכם (אתם ב-31)") == "הרבה מתחתיכם (אתם ברמה 31)"
     assert drop_keys("אתם ב31 עכשיו") == "אתם ברמה 31 עכשיו"
     assert drop_keys("אתם בלבל 31") == "אתם ברמה 31" and drop_keys("עוד 3 לבלים") == "עוד 3 רמות"
-    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהלבל" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+    assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהרמה" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+    # a count after "אתם/אני" stays a count, with or without ה- (review2 LOG-4)
+    for count in ("אתם ב-50 אחוז מהדרך", "אני ב-3 משימות במקביל", "אני ב-2 קווסטים", "את ב-10 מפלצות",
+                  "אתם ב-20 המפות הראשונות", "אתם ב-2 הערוצים", "אני ב-100 אלף mesos"):
+        assert drop_keys(count) == count
+
+
+@pytest.mark.parametrize("src,out", [("ולבל 30 כדאי", "ורמה 30 כדאי"), ("הלבלים הבאים", "הרמות הבאים"),
+                                     ("כשהלבל עולה", "כשהרמה עולה"), ("שלבל 30", "שרמה 30"),
+                                     ("לבל אפ", "עליית רמה"), ("עשיתי לבל-אפ", "עשיתי עליית רמה"),
+                                     ("לבלינג מהיר", "עליית רמות מהיר"), ("בלבל-30", "ברמה-30"),
+                                     ("זה בלבל אותי", "זה בלבל אותי"), ("לבלבל אותם", "לבלבל אותם"),
+                                     ("מבלבל", "מבלבל"), ("עץ מלבלב", "עץ מלבלב")])
+def test_level_slang_after_any_prefix_but_never_the_verb_confuse(src, out):
+    """"לבל" after any prefix reads "רמה" and "לבל אפ" a climb; "בלבל" (confused) stays unless a number follows."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys(src) == out
 
 
 
@@ -232,3 +248,80 @@ def test_slashed_stat_bonuses_are_written_one_per_stat():
     from maplehelper.brain import drop_keys
     assert drop_keys("עם STR/DEX/INT/LUK +1 ו-HP/MP +10") == "עם STR +1, DEX +1, INT +1, LUK +1 ו-HP +10, MP +10"
     assert drop_keys("W.DEF/M.DEF -2") == "W.DEF -2, M.DEF -2" and drop_keys("HP/MP recovery") == "HP/MP recovery"
+
+
+# ---------------------------------------------------------------- launch audit (AI area)
+
+def test_a_count_after_a_pronoun_is_no_level():
+    """"Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7)."""
+    assert brain.drop_keys("Stirge הוא ב-5 מפות") == "Stirge הוא ב-5 מפות"
+    assert brain.drop_keys("הם ב-2 קבוצות") == "הם ב-2 קבוצות"
+    assert brain.drop_keys("אתם ב-31 ולכן") == "אתם ברמה 31 ולכן"
+    assert brain.drop_keys("אתם ב-31.") == "אתם ברמה 31."
+    # the player's level whatever word follows (review CORE-5); a counted noun still keeps the count
+    assert brain.drop_keys("אתם ב-31 כבר, אז") == "אתם ברמה 31 כבר, אז"
+    assert brain.drop_keys("אתם ב-31 עם Assassin") == "אתם ברמה 31 עם Assassin"
+    assert brain.drop_keys("הדמות שלכם ב-31 בדיוק") == "הדמות שלכם ברמה 31 בדיוק"
+    assert brain.drop_keys("אתם ב-3 מפות שונות") == "אתם ב-3 מפות שונות"
+    assert brain.drop_keys("אני ב-2 ערוצים") == "אני ב-2 ערוצים"
+    assert brain.drop_keys("היא ב-5 מקומות") == "היא ב-5 מקומות"
+
+
+def test_a_key_goes_with_its_hebrew_prefix():
+    assert brain.drop_keys("ראו item/294 ו-(monster/5) ו-;") == "ראו ו-;"          # audit AI-23
+
+
+def test_bare_about_is_no_detail_question():
+    assert not brain.DETAIL_WORDS.search("what about Lupin vs Ligator at level 35?")      # audit AI-8
+    assert brain.DETAIL_WORDS.search("tell me about Mano")
+
+
+def test_meta_is_the_last_block_and_its_own_json():
+    """audit AI-14: a second block or trailing braces lost the META, a quoted marker cut the answer."""
+    two = 'A\n@@META@@\n{"entities": []}\n@@META@@\n{"profile_update": {"level": 31}}'
+    assert brain.split_meta(two) == ("A", {"profile_update": {"level": 31}})
+    assert brain.split_meta('A\n@@META@@\n{"profile_update": {"level": 31}} and {x}')[1] == {"profile_update": {"level": 31}}
+    assert brain.split_meta("Use the @@META@@ marker\nmore\n@@META@@\n{}") == ("Use the @@META@@ marker\nmore", {})
+    assert brain.split_meta("Answer\n@@META") == ("Answer", {})
+
+
+def test_profile_levels_out_of_range_and_other_characters():
+    assert brain.split_meta('A\n@@META@@\n{"profile_update": {"level": 0}}')[1] == {"profile_update": {}}  # AI-15
+    assert brain.stated_level("im lvl 15 on my other char") is None
+    assert brain.stated_level("I'm level 10 and my friend is level 40") is None
+    assert brain.stated_level("I'm level 16") == 16
+    # friends who are only company, or in another sentence, take nothing from the player's own level (review CORE-7)
+    assert brain.stated_level("I'm level 30, played with friends all day") == 30
+    assert brain.stated_level("אני רמה 30 עם חבר") == 30
+    assert brain.stated_level("my friend is level 40. I'm level 10") == 10
+    assert brain.stated_level("אני רמה 30 בדמות אחרת") is None
+
+
+@pytest.mark.parametrize("q", ["who's Grendel", "can't find Mano", "sauna robe stats", "2nd job warrior level?"])
+def test_short_english_questions_get_english(q):
+    assert brain.reply_language(q, "he") == "English"            # audit AI-17
+    assert brain.reply_language("Mano", "he") == "Hebrew"         # a name alone: the app's language
+
+
+def test_english_planning_line_is_dropped_but_an_answer_is_not():
+    raw = "Let me check the data for the player first.\nMano is a level 20 boss.\n@@META@@\n{}"
+    assert brain.split_meta(raw)[0] == "Mano is a level 20 boss."               # audit AI-19
+    keep = "Let's head to Perion first, the Warrior instructor is there.\nThen talk to him."
+    assert brain.split_meta(keep)[0] == keep
+
+
+def test_a_brace_in_the_tables_note_never_breaks_the_prompt(monkeypatch):
+    import importlib
+    from maplehelper import tables
+    monkeypatch.setattr(tables, "prompt_note", lambda: "a {brace} note")
+    fresh = importlib.reload(brain)
+    try:
+        assert "a {brace} note" in fresh.SYSTEM_PROMPT.format(length="x")     # audit AI-24
+    finally:
+        monkeypatch.undo()
+        importlib.reload(brain)
+
+
+def test_scope_is_not_called_official_and_summaries_leave_the_level_out():
+    assert "official (Nexon)" not in brain.SYSTEM_PROMPT                  # audit AI-16
+    assert "Leave out the character's level" in brain.SUMMARY_PROMPT      # audit AI-20

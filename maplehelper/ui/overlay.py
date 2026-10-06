@@ -8,7 +8,7 @@ import time
 from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF,
                             Qt, QThread, QTimer, Signal)
 from PySide6.QtGui import QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
 from .. import __version__, bidi, osapi, quick, sources, telemetry
@@ -134,17 +134,20 @@ class Capsule(QFrame):
 
 class FocusLineEdit(QLineEdit):
     focus_changed = Signal(bool)
-    _hint = ""
+    _hint = _short = ""
 
-    def set_hint(self, text: str) -> None:
+    def set_hint(self, text: str, short: str = "") -> None:
         """The placeholder, cut with "…" at the end of its reading direction when the field is too narrow (at
-        470 px with the large font the English hint was cut mid-letter at the edge)."""
-        self._hint = text
+        470 px with the large font the English hint was cut mid-letter at the edge). short: the hint for a narrow
+        field, used when the whole one doesn't fit (it lost the talk key: "…(Enter to send, F10 t…", VIS-18)."""
+        self._hint, self._short = text, short
         self._fit_hint()
 
     def _fit_hint(self):
-        room = self.contentsRect().width() - 14          # the text margins and the cursor
-        self.setPlaceholderText(self.fontMetrics().elidedText(self._hint, Qt.ElideRight, max(40, room)))
+        room = max(40, self.contentsRect().width() - 14)          # the text margins and the cursor
+        fm = self.fontMetrics()
+        hint = self._short if self._short and fm.horizontalAdvance(self._hint) > room else self._hint
+        self.setPlaceholderText(fm.elidedText(hint, Qt.ElideRight, room))
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -263,6 +266,29 @@ def other_class(update: dict, c) -> str | None:
     return cls if cls and cls != "Beginner" and mine and cls != mine else None
 
 
+def demotes(update: dict, c) -> bool:
+    """A profile update that moves the character back or sideways in its job line: Beginner (job or class) for a
+    character past it, Assassin -> Thief, Assassin -> Bandit. The game never does that, a misread does (audit AI-2)."""
+    from ..jobs import advances, canonical_class
+    job = update_job(update)
+    if job and not advances(c.job, job):
+        return True
+    base = update.get("base_class")
+    return (isinstance(base, str) and canonical_class(base) == "Beginner"
+            and c.base_class in ("Warrior", "Magician", "Bowman", "Thief"))
+
+
+def risky_read(update: dict, c) -> bool:
+    """A screenshot read that would lower the level, change the class or move the job back or sideways: one misread
+    of the HUD (the owner's KalimeroZz, Lv. 31 Assassin, became "Beginner 10") must never change the character
+    without the player saying so (audit SCR-1 / AI-1)."""
+    if not c or not isinstance(update, dict):
+        return False
+    level = update.get("level")
+    lower = isinstance(level, int) and not isinstance(level, bool) and level < c.level
+    return lower or bool(other_class(update, c)) or demotes(update, c)
+
+
 def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     """(detail tiles, inventory slots, their reading for the AI, <inventory_read>) from a full-resolution grab. Runs
     in a worker thread; a failed read still leaves the AI the screenshot."""
@@ -332,10 +358,18 @@ def windows_over(rect: tuple[int, int, int, int]) -> list[QWidget]:
         try:
             if not win.isVisible() or win.windowOpacity() == 0 or win.isMinimized():
                 continue
+            if isinstance(win, QDialog) and win.isModal():
+                continue       # hiding it would end its exec() as cancelled (audit OVL-1)
             g = win.frameGeometry()
-            ratio = win.devicePixelRatioF() if osapi.SCREEN_COORDS_ARE_PHYSICAL else 1.0
-            left, top = g.x() * ratio, g.y() * ratio
-            right, bottom = left + g.width() * ratio, top + g.height() * ratio
+            left, top, width, height = g.x(), g.y(), g.width(), g.height()
+            screen = win.screen() if osapi.SCREEN_COORDS_ARE_PHYSICAL else None
+            if screen is not None:
+                # Qt maps each screen from its own native origin: native = origin + (logical - origin) * ratio.
+                # logical * ratio was right only for a screen at (0, 0), not a scaled second monitor (audit SCR-4)
+                o, ratio = screen.geometry().topLeft(), screen.devicePixelRatio()
+                left, top = o.x() + (left - o.x()) * ratio, o.y() + (top - o.y()) * ratio
+                width, height = width * ratio, height * ratio
+            right, bottom = left + width, top + height
         except RuntimeError:       # deleted meanwhile
             continue
         # a few pixels of slack: a mixed-DPI desktop rounds the two coordinate systems apart
@@ -376,6 +410,9 @@ class Overlay(QWidget):
     profile_requested = Signal()
     add_character_requested = Signal()
     mic_clicked = Signal()
+    voice_download_requested = Signal()     # yes to the speech model's first download (UX-12)
+    voice_download_cancel = Signal()
+    voice_gpu_declined = Signal()           # "not now" to the NVIDIA part only: voice runs on the CPU
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
@@ -441,7 +478,7 @@ class Overlay(QWidget):
         return path
 
     def paintEvent(self, e):
-        """Liquid glass: the blurred game behind, a neutral tint, a light-catching sheen and rim."""
+        """Liquid glass: an opaque neutral tint, a light-catching sheen and rim (paint_glass)."""
         paint_glass(self, None)
 
     # ------------------------------------------------------------------ layout
@@ -660,7 +697,7 @@ class Overlay(QWidget):
         row.addWidget(self.mic_btn)
         self.send_btn = QToolButton(objectName="Send", text=theme.ICON["send"])     # (named in apply_language)
         self.send_btn.setCursor(Qt.PointingHandCursor)
-        self.send_btn.clicked.connect(self._send_typed)
+        self.send_btn.clicked.connect(self._send_clicked)     # while an answer runs it is the Stop button
         self.send_btn.setEnabled(False)
         row.addWidget(self.send_btn)
         # what the next question sends: the F9 screenshot goes with the first question only
@@ -800,15 +837,20 @@ class Overlay(QWidget):
         self._fit_header()
         self.pins_bar.fit()             # the open pinned list stays a share of the conversation's height
         if self.isVisible():
-            QTimer.singleShot(300, self.save_geometry)
+            # one write when the drag ends, not one per resize step (a drag wrote settings.json ~50 times)
+            if not hasattr(self, "_geo_timer"):
+                self._geo_timer = QTimer(self, singleShot=True, interval=300, timeout=self.save_geometry)
+            self._geo_timer.start()
 
     def show_scope(self) -> None:
         """The line under the chat: answers follow the game as it is now, as the KB last verified it (a KB update
         brings a new date, and content the KB confirms as released appears without an app update)."""
         from .. import availability, updater
 
-        def day(iso: str) -> str:            # "2026-10-03" -> "03.10.2026"
-            return ".".join(reversed(iso.split("-"))) if iso else ""
+        from .. import dates
+
+        def day(iso: str) -> str:            # "3.10" / "Oct 3", the year when it isn't this year (HEB-16)
+            return dates.iso(iso, self.t.rtl) if iso else ""
         checked = day(updater.kb_checked())     # the last night the KB was checked against NiaMeowDB
         changed = day(availability.of(self.kb).verified)       # when the release guide last changed what's out
         text = self.t("scope_note", date=checked) if checked else self.t("scope_note_nodate")
@@ -833,7 +875,7 @@ class Overlay(QWidget):
             self._render_tags()
         hk_voice = self.settings["hotkey_voice"]
         self._placeholder = self.t("input_placeholder").replace("F10", hk_voice)
-        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl))
+        self._show_placeholder()
         # its name for a screen reader: the placeholder changes (listening, transcribing) and isn't read as one
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
@@ -847,13 +889,13 @@ class Overlay(QWidget):
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
-        self.send_btn.setAccessibleName(self.t("send_question"))
+        self._show_send_or_stop()
         self.profile_card.now_btn.setText(self.t("plan_what_now"))
         self.profile_card.now_btn.setToolTip(self.t("what_now_tip"))
         if getattr(self, "_update_version", None):
             # the download's last percent too (a language switch showed 0% until the next progress report)
             self.show_update(self._update_version, getattr(self, "_update_state", "available"),
-                             getattr(self, "_update_pct", None))
+                             getattr(self, "_update_pct", None), redraw_only=True)
         set_tip(self.profile_card, self.t("switch_character"))
         set_tip(self.min_btn, self.t("minimize"))
         set_tip(self.update_close, self.t("notice_close"))
@@ -869,9 +911,14 @@ class Overlay(QWidget):
         for widget, render in getattr(self, "_renders", []):      # system lines and yes/no rows
             if _alive(widget):
                 render(self.t)
+        b = getattr(self, "_pending_bubble", None)
+        if self.busy and b is not None and _alive(b) and b._text in STRINGS["thinking"].values():
+            b.set_text(self.t("thinking"))       # no word of the answer yet: "Thinking…" in the new language
 
-    def show_update(self, version: str, state: str = "available", pct: float | None = None):
-        """The update bar: available (button) -> downloading (progress) -> installing; failed (retry)."""
+    def show_update(self, version: str, state: str = "available", pct: float | None = None,
+                    redraw_only: bool = False):
+        """The update bar: available (button) -> downloading (progress) -> installing; failed (retry).
+        redraw_only: a language switch re-renders the texts but leaves a bar the player closed with ✕ closed."""
         self._update_version, self._update_state, self._update_pct = version, state, pct
         t, rtl = self.t, self.t.rtl
         text = {"available": t("update_bar_available", version=version),
@@ -888,7 +935,8 @@ class Overlay(QWidget):
             self.update_progress.setValue(round((pct or 0) * 10))
         elif state == "installing":
             self.update_progress.setRange(0, 0)          # busy: the installer takes over in a moment
-        self.update_bar.show()
+        if not redraw_only:
+            self.update_bar.show()
 
     def refresh_profile_chip(self):
         WISHLIST.changed.emit()          # the stars follow the active character
@@ -1016,10 +1064,12 @@ class Overlay(QWidget):
         self._server = st
         if change == "started":
             from .serverdot import when
-            until = when(st.notice_end) if st.notice_end and not st.notice_done else ""
+            # an overrunning maintenance has no end time to promise (the dot's tooltip has the same rule)
+            ends = bool(st.notice_end and not st.notice_done and st.notice_end > time.time())
 
-            def text(t, until=until):
-                return t("server_maint_started_until", time=until) if until else t("server_maint_started")
+            def text(t, ends=ends, end=st.notice_end):
+                # the date in the language shown now: a switch redraws it (it kept the first one's, review3 HEB-16-a)
+                return t("server_maint_started_until", time=when(end, t.rtl)) if ends else t("server_maint_started")
             if st.notice_url:
                 self.add_notice(text, lambda t: t("server_notice_open"),
                                 lambda url=st.notice_url: __import__("webbrowser").open(url))
@@ -1042,10 +1092,14 @@ class Overlay(QWidget):
 
     def _say_busy(self):
         """A question that can't go yet says so (once, not a line per Enter press)."""
+        # no question running: a screen read holds the chat ("still answering" was false during a grind session)
+        key = "busy_wait" if self.busy else "busy_reading"
         line = getattr(self, "_busy_line", None)
-        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2:
+        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2 \
+                and getattr(self, "_busy_key", None) == key:
             return
-        self._busy_line = self.add_system(lambda t: t("busy_wait"))
+        self._busy_key = key
+        self._busy_line = self.add_system(lambda t: t(key))
 
     def ask_with_screenshot(self, question: str, detail: bool = False, shown: str | None = None):
         """Like "What now?": a fresh screenshot of the game, then the question. detail: also send the
@@ -1054,7 +1108,7 @@ class Overlay(QWidget):
         if self._is_busy():               # the question would be dropped: don't flash the chat for a shot
             self._say_busy()
             return
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, lambda: self._capture_and_ask(question, detail, shown))
 
     def _capture_and_ask(self, question: str, detail: bool = False, shown: str | None = None):
@@ -1153,7 +1207,7 @@ class Overlay(QWidget):
             import logging
             logging.getLogger(__name__).warning("screenshot failed", exc_info=True)
         finally:
-            self.setWindowOpacity(1.0)
+            self._step_aside(False)
 
     def character_menu(self):
         """Click the character card: pick another character or add one, right from the chat."""
@@ -1261,7 +1315,28 @@ class Overlay(QWidget):
         self.input.setLayoutDirection(Qt.RightToLeft if d == "rtl" else Qt.LeftToRight)
         # absolute: in an RTL widget a plain AlignRight means "trailing" = left
         self.input.setAlignment((Qt.AlignRight if d == "rtl" else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
-        self.send_btn.setEnabled(bool(text.strip()) and not self.busy)
+        self._show_send_or_stop()
+        if text.strip() and self.brain is not None:
+            self._tell_brain_typing()
+
+    def _tell_brain_typing(self):
+        """Typing after a long quiet spell warms the AI again (audit PRF-1: none is kept while the chat sits open
+        unused); typing a question outlasts the CLI's start."""
+        try:
+            if self.brain.note_use() is True:
+                import threading
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        except Exception:      # noqa: BLE001 - typing works whatever the AI's state
+            pass
+
+    def _show_send_or_stop(self):
+        """Send, or Stop while an answer is running (a stalled AI held the chat for minutes with no way out, audit
+        OVL-2); Stop is always clickable, send only with something to send."""
+        stop = self.busy
+        self.send_btn.setText(theme.ICON["stop" if stop else "send"])
+        self.send_btn.setToolTip(self.t("stop_answer") if stop else "")
+        self.send_btn.setAccessibleName(self.t("stop_answer" if stop else "send_question"))
+        self.send_btn.setEnabled(stop or bool(self.input.text().strip()))
 
     # ------------------------------------------------------------------ geometry
 
@@ -1343,6 +1418,7 @@ class Overlay(QWidget):
 
     def open_overlay(self, shot: bytes | None, game_hwnd: int | None):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
+        self._tell_brain_shown(True)          # the first answer's AI process starts now, while the player types
         self._update_shot_hint()
         self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
@@ -1366,6 +1442,18 @@ class Overlay(QWidget):
             # the first time the chat shows, however it opens (a start in the tray, autostart or a silent update,
             # never ran the tour: only a foreground start did); once it is up and laid out
             QTimer.singleShot(700, self.start_tour)
+
+    def _tell_brain_shown(self, shown: bool):
+        """Brain keeps a process warm only while the chat is in use (audit PRF-1): opening warms one."""
+        if self.brain is None:
+            return
+        try:
+            self.brain.chat_shown(shown)
+            if shown:
+                import threading
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        except Exception:      # noqa: BLE001 - the chat opens whatever the AI's state
+            pass
 
     def _show_last_session(self):
         """A new session starts: first, what happened in the previous one, one block per character."""
@@ -1416,6 +1504,7 @@ class Overlay(QWidget):
         self.bubble.hide()
         if not self.isVisible():
             return
+        self._tell_brain_shown(False)
         self.closed.emit()
         def done():
             self.hide()
@@ -1454,8 +1543,16 @@ class Overlay(QWidget):
         hwnd = osapi.find_game_window()
         self.open_overlay(self._safe_shot(hwnd), hwnd)
 
+    def _step_aside(self, on: bool) -> None:
+        """See-through for a moment while a screenshot is taken (the chat is part of the screen), then back."""
+        self._stepping_aside = on
+        self.setWindowOpacity(0.0 if on else 1.0)
+
     def is_open(self) -> bool:
-        """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt)."""
+        """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt). A chat stepping
+        aside for a screenshot is still open (F9 in those 120 ms opened it again instead of closing it)."""
+        if getattr(self, "_stepping_aside", False):
+            return self.isVisible() and not self.isMinimized()
         return self.isVisible() and self.windowOpacity() > 0.5 and not self.isMinimized()
 
     def toggle(self, shot_provider):
@@ -1537,7 +1634,7 @@ class Overlay(QWidget):
 
     def recapture(self):
         # the chat is part of the screen: step aside for a moment so the shot shows the game
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, self._do_recapture)
 
     def _do_recapture(self):
@@ -1548,7 +1645,7 @@ class Overlay(QWidget):
         except Exception:      # noqa: BLE001 - the chat must come back even when the capture fails
             self.shot = None
         finally:
-            self.setWindowOpacity(1.0)
+            self._step_aside(False)
         self.shot_used = False
         from ..capture import problem_key
         missing = problem_key() or "sync_no_game"
@@ -1634,7 +1731,7 @@ class Overlay(QWidget):
                 w.deleteLater()
         chips = []
         for k in self.focus_keys:
-            name = self.kb.get(k)["name"]
+            name = (self.kb.get(k) or {}).get("name", k)      # a KB update may have dropped it meanwhile
             chip = QPushButton(objectName="TagChip")
             chip.setIcon(QIcon(str(self.kb.picture(k))))
             chip.ensurePolished()           # the stylesheet's font, so the "…" lands where it is drawn
@@ -1796,6 +1893,49 @@ class Overlay(QWidget):
 
     # ------------------------------------------------------------------ asking
 
+    def _send_clicked(self):
+        """The send button: Stop while an answer runs (Enter in the field never stops one: it says "one moment")."""
+        if self.busy:
+            self.stop_answer()
+        else:
+            self._send_typed()
+
+    def stop_answer(self):
+        """Stop the answer being written: its AI run is ended (every provider's process, through Brain.cancel), the
+        chat takes questions again at once, and a short line says it stopped. What already streamed stays."""
+        if not self.busy:
+            return
+        import threading
+        worker, thread = getattr(self, "_worker", None), getattr(self, "_thread", None)
+        self._dropped_workers = [*getattr(self, "_dropped_workers", []), worker]
+        if thread is not None and _alive(thread):
+            # still ending in the background: App.shutdown waits for it too (a running QThread at exit crashes)
+            self._stopped_threads = [th for th in getattr(self, "_stopped_threads", []) if _alive(th)] + [thread]
+        if self.brain is not None:
+            # off the GUI thread: stopping a CLI on Windows runs taskkill, which can take a moment
+            threading.Thread(target=self._cancel_brain, daemon=True).start()
+        self.busy = False
+        self._stop_deltas()
+        b = self._pending_bubble
+        if b is not None and _alive(b) and b._text in STRINGS["thinking"].values():
+            b.set_text(self.t("answer_stopped"))         # no word of it yet: the bubble itself says so
+            self._remember_render(b, lambda t, b=b: b.set_text(t("answer_stopped")))
+        else:
+            if b is not None and _alive(b) and b._text.strip():
+                b.set_text(b._text.rstrip() + " …")     # cut off: it doesn't look finished (review3 OVL2-b)
+            self.add_system(lambda t: t("answer_stopped"))
+        history = getattr(self, "_pending_history", None)
+        if history and getattr(self, "_pending_stored", None):
+            history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too, as on an error
+        self._pending_bubble = None
+        self._show_send_or_stop()
+
+    def _cancel_brain(self):
+        try:
+            self.brain.cancel()
+        except Exception:      # noqa: BLE001 - stopping must never break the chat
+            pass
+
     def _send_typed(self):
         q = self.input.text().strip()
         if q and self._is_busy():
@@ -1807,7 +1947,10 @@ class Overlay(QWidget):
         """Ask (instant answer or Claude). False when nothing was asked (busy, empty).
         shown: what the player's bubble and the history say instead of the question itself (the inventory check's
         nine lines of instructions showed as a nine-line bubble); the AI still gets the whole question."""
-        if self._is_busy() or not question.strip():
+        if not question.strip():
+            return False
+        if self._is_busy():
+            self._say_busy()        # "Ask Claude anyway", the tip strip and voice went silent while busy
             return False
         label = shown or question
         # the app-made context belongs to this question only, however it gets answered (an instant answer too)
@@ -1818,7 +1961,7 @@ class Overlay(QWidget):
         self._asked_cid = c.id if c else None
         history = History(c.id) if c else None
         focus = list(self.focus_keys)
-        focus_name = ", ".join(self.kb.get(k)["name"] for k in focus)
+        focus_name = ", ".join((self.kb.get(k) or {}).get("name", k) for k in focus)
         if not force_claude:          # "Ask Claude anyway" re-asks a question already in the chat
             self.add_bubble(label, "user", focus_name)
             if focus:
@@ -1828,7 +1971,13 @@ class Overlay(QWidget):
             if self.stats:
                 self.stats.question(c)     # once per question, however it gets answered
             if not focus and not shown and self.settings["instant_answers"]:
-                qa = quick.answer(question, self.kb, self.t, c)
+                # in the question's language, as the AI answers it: an English question in the Hebrew UI got a
+                # Hebrew instant answer and an English "Ask Claude anyway" one (audit AI-13); with the KB, as the AI
+                # reads it, so a name holding "of"/"to" is no English sentence here either (review CORE-3)
+                from ..brain import reply_language
+                lang = "en" if reply_language(question, self.settings["language"] or "he", self.kb) == "English" \
+                    else "he"
+                qa = quick.answer(question, self.kb, self.t if self.t.lang == lang else I18n(lang), c)
                 if qa:
                     if history:
                         history.append("user", question)
@@ -1849,14 +1998,16 @@ class Overlay(QWidget):
         telemetry.track("question_asked", answered_by=self.settings["provider"], tagged=bool(focus),
                         screenshot=shot is not None, saver=bool(self.settings["saver_mode"]), retry=force_claude)
         stored = f"[about {focus_name}] {label}" if focus_name else label
+        self._pending_stored = None
         if history and not (force_claude and self._just_answered(history, stored)):
             # "Ask Claude anyway" right under the instant answer: the question is already the one before it (the
             # history search pairs both answers with it); asked later, after other questions, it goes in again
             history.append("user", stored)
+            self._pending_stored = stored
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
         self._start_reading(self._pending_bubble)
         self.busy = True
-        self.send_btn.setEnabled(False)
+        self._show_send_or_stop()        # Stop, for as long as the answer runs
 
         self._thread = QThread(self)
         self._worker = AskWorker(self.brain, question, c, history, [shot, *tiles] if shot and tiles else shot, focus,
@@ -1872,8 +2023,17 @@ class Overlay(QWidget):
         # one thread per question: free it (and its worker) once it ends, not when the app quits
         self._thread.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
+        # and forget it: a deleted QThread's isRunning() raises (App.shutdown then skipped a running read's wait)
+        self._thread.finished.connect(self._forget_threads)      # bound method: runs on the GUI thread
         self._thread.start()
         return True
+
+    def _forget_threads(self) -> None:
+        """A finished thread is about to be deleted: drop the reference (a newer one still running stays)."""
+        for attr in ("_thread", "_sync_thread"):
+            th = getattr(self, attr, None)
+            if th is not None and (not _alive(th) or th.isFinished()):
+                setattr(self, attr, None)
 
     @staticmethod
     def _just_answered(history, question: str) -> bool:
@@ -1936,12 +2096,14 @@ class Overlay(QWidget):
         # written in the UI's language (its list of English map names must not turn a Hebrew answer left-to-right)
         b = self.add_bubble(qa.text, "assistant", direction="rtl" if self.t.rtl else "ltr")
         self._start_reading(b)
-        b.add_pin(lambda: self.pin_answer(question, qa.text), self.t("pin"))
+        # the character it was asked for (pinned after a switch, it went to the other one)
+        b.add_pin(lambda cid=getattr(self, "_asked_cid", None): self.pin_answer(question, qa.text, cid), self.t("pin"))
         row = QWidget()
         from .controls import FlowLayout
         rl = FlowLayout(row, spacing=8, line_spacing=0)       # the link goes under the badge when the chat is narrow
         rl.setContentsMargins(4, 0, 4, 0)
-        rl.addWidget(QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine"))
+        badge = QLabel(bidi.plain(self.t("quick_badge"), self.t.rtl), objectName="SystemLine")
+        rl.addWidget(badge)
         # where the answer's data comes from ("COT2" stats, "MSEA" drops, a shop's "COT2" price), beside the badge
         stamp = sources.stat_source(self.kb, qa.entities[0]) if qa.entities else None
         for chip in source_tags(self.t, getattr(qa, "sources", ()), stamp):
@@ -1951,6 +2113,11 @@ class Overlay(QWidget):
         again.setCursor(Qt.PointingHandCursor)
         again.clicked.connect(lambda: again.setEnabled(not self.ask(question, force_claude=True, extra=hidden)))
         rl.addWidget(again)
+
+        def render(t):          # a language or AI switch: the link names the AI it would ask now
+            badge.setText(bidi.plain(t("quick_badge"), t.rtl))
+            again.setText(bidi.plain(t.p("quick_ask_ai", self.settings["provider"]), t.rtl))
+        self._remember_render(row, render)
         self._add_widget(row)
         if history:
             history.append("assistant", qa.text, qa.entities)
@@ -2006,6 +2173,8 @@ class Overlay(QWidget):
         every row): only the latest text is drawn, about ten times a second."""
         if not (self._pending_bubble and text):
             return
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            return             # a stopped answer's last words never land in the next question's bubble
         self._delta_text = text
         if not hasattr(self, "_delta_timer"):
             self._delta_timer = QTimer(self, singleShot=True, interval=self.DELTA_MS, timeout=self._draw_delta)
@@ -2050,6 +2219,10 @@ class Overlay(QWidget):
     def sync_profile(self, grind: bool = False):
         """grind: a grind tracker read (the play tools), which also reads the map, the monster, mesos and potions."""
         if getattr(self, "_syncing", False):
+            if getattr(self, "_sync_auto", False) and not grind:
+                # the grind tracker's quiet read is running: ⟳ makes it the player's read (spinner, result line)
+                self._sync_auto = False
+                self.profile_card.set_busy(True, self.t("syncing"), self.t("sync_reading"))
             return                 # a read is on its way already; it ends with sync_finished for every caller
         if self._is_busy():
             # an answer or an inventory check is running: say so, and end the request (the play tools' grind tracker
@@ -2065,7 +2238,7 @@ class Overlay(QWidget):
             self._sync_timer = QTimer(self, singleShot=True, interval=self.SYNC_TIMEOUT_MS, timeout=self._sync_timed_out)
         self._sync_timer.start()
         # the chat is opaque and on screen: step aside for the capture
-        self.setWindowOpacity(0.0)
+        self._step_aside(True)
         QTimer.singleShot(120, self._sync_capture)
 
     def auto_grind_read(self):
@@ -2075,6 +2248,11 @@ class Overlay(QWidget):
         The capture is a screen grab, so only our windows that are over the game step aside, and only for the
         grab: beside the game (the usual place while playing) nothing moves at all."""
         if getattr(self, "_syncing", False) or self._is_busy():
+            self.grind_skipped.emit("busy")
+            return
+        if QApplication.activeModalWidget() or QApplication.activePopupWidget():
+            # hiding a dialog in exec() ends it as cancelled (Edit character lost its edits) and closes a menu
+            # under the cursor: this minute is skipped, the next one reads (audit OVL-1)
             self.grind_skipped.emit("busy")
             return
         try:
@@ -2092,7 +2270,7 @@ class Overlay(QWidget):
         over = windows_over(rect)
         hidden = [w for w in over if w is not self]
         if self in over:
-            self.setWindowOpacity(0.0)
+            self._step_aside(True)
         for w in hidden:
             w.hide()           # hidden, not see-through: a see-through tools window left traces in the grab
         # Windows fades a hidden window out (~250 ms); the chat's opacity takes effect at once
@@ -2105,7 +2283,7 @@ class Overlay(QWidget):
             shot = osapi.capture_game(hwnd) if hwnd else None
         except Exception:      # noqa: BLE001 - a failed capture must not leave the button spinning forever
             shot = None
-        self.setWindowOpacity(1.0)
+        self._step_aside(False)
         for w in stepped_aside or ():
             show_quietly(w)
         if not shot:
@@ -2143,6 +2321,7 @@ class Overlay(QWidget):
             self._sync_worker.done.connect(self._sync_thread.quit)
             self._sync_thread.finished.connect(self._sync_worker.deleteLater)
             self._sync_thread.finished.connect(self._sync_thread.deleteLater)
+            self._sync_thread.finished.connect(self._forget_threads)
             self._sync_thread.start()
         except Exception:
             import logging
@@ -2180,7 +2359,8 @@ class Overlay(QWidget):
         self._sync_ended()
         if ans.error:
             if not auto:
-                self.add_system(lambda t: t("err_generic"))
+                key = self._error_key(ans.error)     # signed out / out of quota said so, not "something went wrong"
+                self.add_system(lambda t: t.p(key, self.settings["provider"]))
             self.sync_finished.emit(False)
             return
         if self.profiles.active_id != getattr(self, "_sync_cid", None):
@@ -2196,7 +2376,15 @@ class Overlay(QWidget):
         if grind:
             # the read as the AI gave it: the tracker compares this moment's numbers, never a stale saved EXP %
             self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
-        changes = self.profiles.apply_update(ans.profile_update or {})
+        # a lower level, another class or a job back/sideways: asked like a chat answer's, never applied silently
+        asked = risky_read(ans.profile_update, self.profiles.active)
+        if asked:
+            import logging
+            logging.getLogger(__name__).info("sync read held for the player: %s", ans.profile_update)
+            changes = []
+            self._apply_profile_update(dict(ans.profile_update))
+        else:
+            changes = self.profiles.apply_update(ans.profile_update or {})
         full, self._sync_full = getattr(self, "_sync_full", None), None
         self._syncing = True            # until the portrait is cropped (a worker thread): no other read meanwhile
 
@@ -2204,7 +2392,7 @@ class Overlay(QWidget):
             self._syncing = False
             if changes:
                 self._show_changes(changes)
-            if not [ch for ch in changes if ch[0] != "exp"]:
+            if not asked and not [ch for ch in changes if ch[0] != "exp"]:
                 # nothing that shows as its own line (an EXP change only moves the bar): still say it worked
                 key = "sync_nothing" if ans.profile_update or ans.avatar_box or avatar or changes else "sync_not_found"
                 self.add_system(lambda t: t(key))
@@ -2226,12 +2414,27 @@ class Overlay(QWidget):
             self.sync_finished.emit(False)
             return
         self.grind_read.emit((self._sync_cid, dict(ans.profile_update or {}), dict(ans.grind or {})))
+        if risky_read(ans.profile_update, c):
+            # nobody is asked a minute into a grind: the profile stays as it is, the log keeps the read (audit SCR-1)
+            import logging
+            logging.getLogger(__name__).info("grind read not applied to the profile: %s", ans.profile_update)
+            self.sync_finished.emit(False)
+            return
         changes = self.profiles.apply_update(ans.profile_update or {})
         if changes:
             self._show_changes(changes)
         self.sync_finished.emit(bool(ans.profile_update))
 
+    @staticmethod
+    def _error_key(error: str) -> str:
+        """The text for an answer's error: the kinds the player can act on have their own, the rest are generic."""
+        return f"err_{error}" if error in ("offline", "not_logged_in", "usage_limit", "not_installed", "no_credit",
+                                           "timeout", "cli_outdated") else "err_generic"
+
     def _on_done_main(self, ans: Answer):
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            self._dropped_workers.remove(self.sender())
+            return             # stopped by the player: its late end (an error, a half answer) goes nowhere
         self._on_done(ans, self._pending_history)
 
     def _on_done(self, ans: Answer, history: History | None):
@@ -2243,20 +2446,26 @@ class Overlay(QWidget):
         self._on_text(self.input.text())
         self._note_usage(ans.limits)
         self._read_limits_after_answer()
-        if ans.model:
-            self.settings["last_model"] = {**(self.settings["last_model"] or {}), self.settings["provider"]: ans.model}
         if not ans.error and not ans.text.strip():
             ans.error = "no_result"            # only META came back: an error line, not an empty bubble
         if ans.error:
             import logging
             logging.getLogger(__name__).warning("answer failed: %s", ans.error)
-            key = f"err_{ans.error}" if ans.error in ("offline", "not_logged_in", "usage_limit",
-                                                      "not_installed", "no_credit") else "err_generic"
-            self._pending_bubble.set_text(self.t.p(key, self.settings["provider"]))
+            key, provider = self._error_key(ans.error), self.settings["provider"]
+            if ans.error in ("not_logged_in", "usage_limit") and self.settings.api_key_mode(provider):
+                # an API key: no sign-in or plan to point at (it said "sign in to Claude again")
+                self._pending_bubble.set_text(self.t(key + "_key"))
+            else:
+                self._pending_bubble.set_text(self.t.p(key, provider))
+            self._remember_model(ans)
+            if history and getattr(self, "_pending_stored", None):
+                history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too
             return
         self._pending_bubble.set_text(ans.text)
+        self._remember_model(ans)
         q = getattr(self, "_last_question", "")
-        self._pending_bubble.add_pin(lambda q=q, a=ans.text: self.pin_answer(q, a), self.t("pin"))
+        self._pending_bubble.add_pin(lambda q=q, a=ans.text, cid=getattr(self, "_asked_cid", None):
+                                     self.pin_answer(q, a, cid), self.t("pin"))
         QTimer.singleShot(0, self._keep_answer_readable)
         QTimer.singleShot(250, self._keep_answer_readable)   # after the cards' layout settles
         if history:
@@ -2272,6 +2481,14 @@ class Overlay(QWidget):
             # treetop), so replacing a good portrait is left to the explicit ⟳ sync
             if ans.avatar_box and getattr(self, "_question_shot", None) and not self.profiles.avatar_path():
                 self._update_avatar(self._question_shot, ans.avatar_box)
+
+    def _remember_model(self, ans: Answer) -> None:
+        """The model that answered, for Settings: stored after the answer is on screen, so a settings write can
+        never leave the bubble on "thinking…"."""
+        last = self.settings["last_model"] or {}
+        if ans.model and last.get(self.settings["provider"]) != ans.model:
+            # only a change is written: settings.json was rewritten (fsync + backup) after every answer (PRF-9)
+            self.settings["last_model"] = {**last, self.settings["provider"]: ans.model}
 
     def _offer_other_character(self, ans: Answer, shot: bytes | None, full) -> bool:
         """The screenshot shows another character than the active one (a new one, or another saved one):
@@ -2338,7 +2555,8 @@ class Overlay(QWidget):
             return
         new_cls, new_job, new_level = other_class(update, c), update_job(update), update.get("level")
         lower = isinstance(new_level, int) and new_level < c.level
-        if not new_cls and not lower:
+        # back to Beginner, or Assassin -> Thief / Bandit: asked too, never applied on one read (audit AI-2)
+        if not new_cls and not lower and not demotes(update, c):
             self._show_changes(self.profiles.apply_update(update))
             return
         cid, name, held = c.id, c.name, dict(update)
@@ -2384,11 +2602,17 @@ class Overlay(QWidget):
     def _on_avatar_cropped(self, r: tuple):
         cid, png, on_done = r
         changed = bool(png) and cid is not None and self.profiles.active_id == cid
-        if changed:
-            self.profiles.set_avatar(png)
-            self.refresh_profile_chip()
-        if on_done:
-            on_done(changed)
+        try:
+            if changed:
+                self.profiles.set_avatar(png)
+                self.refresh_profile_chip()
+        except Exception:      # noqa: BLE001 - a portrait that can't be saved must not leave the read running
+            import logging
+            logging.getLogger(__name__).exception("portrait could not be saved")
+            changed = False
+        finally:
+            if on_done:
+                on_done(changed)
 
     def _show_changes(self, changes):
         if changes:
@@ -2412,8 +2636,62 @@ class Overlay(QWidget):
         text = {"listening": self.t("listening", key=self.settings["hotkey_voice"]),
                 "transcribing": self.t("transcribing"),
                 "loading": self.t("voice_loading"),
-                "downloading": self.t("voice_downloading")}.get(state, self._placeholder)
-        self.input.set_hint(bidi.plain(text, self.t.rtl))
+                "downloading": self.t("voice_downloading")}.get(state)
+        if text is None:
+            self._show_placeholder()
+        else:
+            self.input.set_hint(bidi.plain(text, self.t.rtl))
+
+    def _show_placeholder(self):
+        """The field's own hint, and its shorter form for a narrow chat (no "Enter to send": the talk key stays)."""
+        short = self.t("input_placeholder_short").replace("F10", self.settings["hotkey_voice"])
+        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl), bidi.plain(short, self.t.rtl))
+
+    def offer_voice_download(self, size: int):
+        """The first voice question: the speech model isn't on disk. Ask before downloading it, with its size (it
+        started silently after the player spoke, audit UX-12); a question still unanswered isn't asked twice."""
+        row = getattr(self, "_voice_offer", None)
+        if row is not None and _alive(row) and row.isEnabled():
+            return
+        gb = f"{size / 1e9:.1f} GB"
+        self._voice_offer = self.add_choices(lambda t: t("voice_dl_ask", size=gb),
+                                             [("voice_dl_yes", self.voice_download_requested.emit),
+                                              ("voice_dl_no", None)])
+
+    def offer_voice_gpu_download(self, size: int):
+        """The model is on disk, but an NVIDIA PC lacks its cuBLAS part: asked too, with its size (review3 UX12-a);
+        "not now" runs voice on the CPU."""
+        row = getattr(self, "_voice_offer", None)
+        if row is not None and _alive(row) and row.isEnabled():
+            return
+        mb = f"{size / 1e6:.0f} MB"
+        self._voice_offer = self.add_choices(lambda t: t("voice_gpu_ask", size=mb),
+                                             [("voice_dl_yes", self.voice_download_requested.emit),
+                                              ("voice_dl_no", self.voice_gpu_declined.emit)])
+
+    def voice_download_progress(self, pct: int):
+        """The download's line, its percent, and Cancel."""
+        self._voice_pct = pct
+        row = getattr(self, "_voice_dl_row", None)
+        if row is None or not _alive(row) or (pct == 0 and not row.isEnabled()):     # (0: a new download)
+            self._voice_dl_row = self.add_choices(lambda t: t("voice_dl_progress", pct=self._voice_pct),
+                                                  [("voice_dl_cancel", self.voice_download_cancel.emit)])
+        else:
+            row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=pct))
+
+    def voice_download_finished(self, how: str):
+        """done: ready to talk; cancelled: said so (a failure is said by App.on_voice_failed)."""
+        row = getattr(self, "_voice_dl_row", None)
+        if row is not None and _alive(row):
+            row.setDisabled(True)
+            for b in row.chips:
+                b.hide()          # no faint Cancel on a finished row (review3 UX12-c)
+            if how == "done":
+                self._voice_pct = 100        # not the last 37% report
+                row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=100))
+        key = {"done": "voice_dl_done", "cancelled": "voice_dl_stopped"}.get(how)
+        if key:
+            self.add_system(lambda t: t(key, key=self.settings["hotkey_voice"]))
 
     def voice_text(self, text: str, send: bool):
         text = text.strip()

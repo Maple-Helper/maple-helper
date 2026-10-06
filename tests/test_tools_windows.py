@@ -180,20 +180,30 @@ def test_closing_during_a_free_market_lookup_logs_nothing(tools, monkeypatch):
 def test_pickers_offer_only_what_the_kb_says_is_in_the_game(tools, real_kb):
     from maplehelper import availability
     from maplehelper.ui.tools import map_rows, monster_rows
+    from maplehelper import combat
+    o = availability.of(real_kb)
+    assert o.known
+    # Ossyria's maps and monsters (and Jr. Sentinel's Forgotten Hollow) stay out while the release guide keeps them
+    # shut, by the guide, not by this list: the day one opens, the nightly still passes
     maps = map_rows(real_kb)
-    assert maps and not [s for s, _, _ in maps if "Ossyria" in s]
-    for bad in ("Dead Mine I", "Wolf Territory I", "Cloud Park I", "The Door to Zakum"):
-        assert bad not in {n for _, n, _ in maps}
+    assert maps and all(o.place_open(s.split("  ·  ")[-1]) for s, _, _ in maps if "  ·  " in s)
+    every = [(e["name"], o.entity_open(k)) for k, e in real_kb.entities.items() if e.get("category") == "map"]
+    shut = {n for n, op in every if not op} - {n for n, op in every if op}      # (a name both ways: not shut)
+    assert not shut & {n for _, n, _ in maps}            # today: Dead Mine I, Wolf Territory I, Cloud Park I, ...
     names = {n for _, n, _ in monster_rows(real_kb)}
     assert "Green Mushroom" in names
-    assert not names & {"Star Pixie", "Hector", "White Fang", "Ratz", "Crimson Balrog", "Jr. Sentinel"}
-    # typed by hand, the calculator doesn't find them either
+    closed = {m.name for m in combat.monsters(real_kb)} - {m.name for m in combat.monsters(real_kb)
+                                                            if o.monster_key_open(m.key)}
+    assert not names & closed
+    # typed by hand, the calculator doesn't find a closed one either (today Star Pixie)
     d, _ = tools("Thief", "Assassin", 34, "calc")
-    d.calc_input.setText("Star Pixie")
-    assert d._calc_monster() is None
+    hidden = next((n for n in ("Star Pixie", "Hector", "White Fang") if n in closed), next(iter(sorted(closed)), None))
+    if hidden:
+        d.calc_input.setText(hidden)
+        assert d._calc_monster() is None
     d.calc_input.setText("Green Mushroom")
     assert d._calc_monster().name == "Green Mushroom"
-    assert availability.of(real_kb).known
+    assert closed or not o.not_at_launch                 # something is shut while the guide names something
 
 
 # ------------------------------------------------------------------ wishlist
@@ -206,11 +216,32 @@ def test_wishlist_shows_only_droppers_and_maps_in_the_game(real_kb):
     items = ["item/2", real_kb._item_by_name["stiff feather"]]
     d = WishlistDialog(items, real_kb, "en", "")
     texts = [lb.text() for lb in d.findChildren(QLabel)]
-    assert not [x for x in texts if "Crimson Balrog" in x or "Tick-Tock" in x]
-    assert not [x for x in texts if "Orbis" in x or "El Nath" in x]
+    # by the release guide, not by name: the day Ossyria opens, its droppers and towns may show
+    from maplehelper import availability, combat
+    o = availability.of(real_kb)
+    names = [(m.name, o.monster_key_open(m.key)) for m in combat.monsters(real_kb)]
+    shut = {n for n, op in names if not op} - {n for n, op in names if op}
+    assert not [x for x in texts for n in shut & {"Crimson Balrog", "Tick-Tock", "Jr. Cellion"} if n in x]
+    assert not [x for x in texts for town in ("Orbis", "El Nath") if town in x and not o.place_open(town)]
     assert any("Green Mushroom" in x for x in texts)
     # under each list, which list its drops are on: the MSEA reference caveat, or players' own reports
     assert sum("reference data" in x or "Players saw these drops" in x for x in texts) == 2
+    d.close()
+
+
+@needs_kb
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_wishlist_rows_fit_the_window(real_kb, lang):
+    from PySide6.QtWidgets import QScrollArea
+    from maplehelper.ui.wishlist import WishlistDialog
+    # the site's shot: Dark Stone Golem's row (name + Lv, Community, Single report, Updated in one row) was 570 px
+    # wide in a 434 px view, so every row was cut off at the edge
+    from maplehelper.ui import theme
+    d = WishlistDialog(["item/298", "item/379"], real_kb, lang, theme.stylesheet(theme.load_fonts(), 14))
+    d.show()
+    pump(60)
+    scroll = d.findChild(QScrollArea)
+    assert scroll.widget().minimumSizeHint().width() <= scroll.viewport().width()
     d.close()
 
 
@@ -441,7 +472,7 @@ def test_yesterday_follows_the_calendar_across_a_clock_change(monkeypatch):
     monkeypatch.setattr(pinsview.time, "time", lambda: now)
     d = pinsview.HistoryDialog([], "Elipaz", "en", "")
     assert d._day(local_ts(2026, 3, 27, 10, 0)) == "Yesterday"
-    assert d._day(local_ts(2026, 3, 26, 23, 45)) == "26.03.2026"
+    assert d._day(local_ts(2026, 3, 26, 23, 45)) == "Mar 26"            # never day.month in English (HEB-16)
     assert d._day(local_ts(2026, 3, 28, 0, 10)) == "Today"
     d.close()
 
@@ -465,22 +496,25 @@ def test_share_card_ellipsizes_a_long_name_and_wraps_a_long_map(isolated_store, 
     long = p.add("ElipazTheVeryLongNameXY", "Thief", "Assassin", 34)
     long.map = "Physical Fitness Test <Normal Waiting Room>"
     from maplehelper.ui import theme
-    app.setStyleSheet(theme.stylesheet(theme.load_fonts(), 14))      # the card's real fonts (bold, 22 px name)
     labels = []
     orig = QLabel.setText
 
     def spy(self, text):
-        labels.append((self.objectName(), text, self.wordWrap()))
+        if self.objectName() == "ShareName":           # only the card's own name label, not every QLabel alive
+            labels.append((self.objectName(), text, self.wordWrap()))
         orig(self, text)
-    QLabel.setText = spy
+    app.setStyleSheet(theme.stylesheet(theme.load_fonts(), 14))      # the card's real fonts (bold, 22 px name)
     try:
-        a = character_card_image(short, None, real_kb, None, I18n("en"))
-        b = character_card_image(long, None, real_kb, None, I18n("en"))
+        with pytest.MonkeyPatch.context() as mp:        # undone even when the card raises
+            mp.setattr(QLabel, "setText", spy)
+            a = character_card_image(short, None, real_kb, None, I18n("en"))
+            b = character_card_image(long, None, real_kb, None, I18n("en"))
     finally:
-        QLabel.setText = orig
         app.setStyleSheet("")
     names = [t for o, t, _ in labels if o == "ShareName"]
-    assert "Kiwi" in names and any(t.endswith("…") and t.startswith("ElipazTheVery") for t in names)
+    # cut where the font's widths say, ending in "…": how many letters fit moved with the font engine's state in a
+    # full run ("ElipazThe…" once), so the cut is checked, not its exact place
+    assert "Kiwi" in names and any(t.endswith("…") and len(t) > 6 and long.name.startswith(t[:-1]) for t in names)
     assert a.width() == b.width() and b.height() >= a.height()        # the long map took a second line
 
 

@@ -68,6 +68,38 @@ def test_one_read_no_gain_and_past_the_table(math):
     assert sm.exp is None and sm.exp_note == "no_exp" and sm.mesos == 300 and sm.mesos_h == 600
 
 
+def test_one_misread_at_either_end_is_not_the_sessions_gain(math):
+    """A level or a mesos sum misread at the first or last read (audit SCR-6)."""
+    ok = (read(0, 21, 10.0, mesos=1_234_567), read(10, 21, 30.0, mesos=1_300_000), read(20, 21, 60.0, mesos=1_350_000))
+    sm = grind.summarize(math, session(*ok))
+    assert sm.exp == 600 and sm.mesos == 115_433
+    # Lv. 12 dropped (600); the second's 70% is a fine read (720), only its mesos are off
+    for bad_end, exp in ((read(30, 12, 70.0, mesos=11_350_000), 600), (read(30, 21, 70.0, mesos=135_000), 720)):
+        sm = grind.summarize(math, session(*ok, bad_end))
+        assert sm.exp == exp and sm.mesos == 115_433 and sm.level_to == 21
+    sm = grind.summarize(math, session(read(0, 23, 10.0, mesos=12_345_670), *ok[1:]))     # the first read misread
+    assert sm.exp == 360 and sm.mesos == 50_000 and sm.level_from == 21
+    # a real level up still counts, two of them in half an hour too
+    sm = grind.summarize(math, session(read(0, 20, 90.0), read(30, 22, 10.0)))
+    assert sm.level_to == 22 and sm.exp
+
+
+def test_a_real_big_change_mid_session_does_not_freeze_the_session(math):
+    """A shop trip with most of the mesos, or two level-ups between reads, broke with the read before it and every
+    later read was dropped: the session's gain froze (review PLT-3). The run after it counts; the trip doesn't."""
+    sm = grind.summarize(math, session(*(read(m, mesos=v) for m, v in enumerate(
+        (1_000_000, 1_010_000, 1_020_000, 150_000, 160_000, 170_000, 180_000)))))
+    assert sm.mesos == 20_000 + 30_000
+    # one misread in the middle still counts for nothing
+    sm = grind.summarize(math, session(read(0, mesos=1_000_000), read(1, mesos=11_010_000), read(2, mesos=1_020_000)))
+    assert sm.mesos == 20_000
+    # Lv. 20 -> 22 a minute apart, then 22 -> 23: the levels after the jump are kept
+    sm = grind.summarize(math, session(read(0, 20, 10.0), read(1, 20, 20.0), read(2, 22, 10.0), read(3, 22, 60.0),
+                                       read(4, 23, 0.0)))
+    assert sm.level_to == 23 and sm.exp == 100 + 1350       # 10% of Lv. 20, then Lv. 22 from 10% to Lv. 23
+    assert sm.exp_h == round(sm.exp * 15)
+
+
 def test_a_read_that_missed_the_exp_bar_keeps_the_last_one_that_had_it(math):
     s = session(read(0, 21, 10.0), read(30, 21, 60.0), read(40, None, None, mesos=5))
     sm = grind.summarize(math, s, now=1_000_000 + 40 * 60)
@@ -474,7 +506,7 @@ def test_a_session_left_idle_does_not_start_reading_by_itself(runner):
     assert r.timer.isActive()
 
 
-@pytest.mark.parametrize("case", ["busy", "no_game", "covered", "read"])
+@pytest.mark.parametrize("case", ["busy", "modal", "no_game", "covered", "read"])
 def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypatch, case):
     from unittest.mock import Mock
 
@@ -506,6 +538,12 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
     win.setWindowOpacity(1.0)
     if case == "busy":
         win.busy = True
+    dialog = None
+    if case == "modal":            # Edit character open: hiding it would cancel its exec() (audit OVL-1)
+        from PySide6.QtWidgets import QDialog
+        dialog = QDialog()
+        dialog.setModal(True)
+        dialog.show()
     try:
         win.auto_grind_read()
         deadline = time.monotonic() + 5
@@ -519,14 +557,35 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
             assert skipped == [] and finished == [True] and got[0][1] == {"exp_percent": 40.0}
             assert brain.ask.call_args.kwargs.get("model") is None and brain.ask.call_args.kwargs["light"]
         else:
-            assert skipped == [case] and finished == [] and not brain.ask.called
+            assert skipped == ["busy" if case == "modal" else case] and finished == [] and not brain.ask.called
+        if dialog is not None:
+            assert dialog.isVisible()
     finally:
+        if dialog is not None:
+            dialog.close()
         from shiboken6 import isValid
         thread = getattr(win, "_sync_thread", None)
         if thread is not None and isValid(thread):
             thread.quit()
             thread.wait(2000)
         win.deleteLater()
+
+
+def test_windows_over_maps_each_screen_from_its_own_origin(monkeypatch):
+    """A window on a scaled second monitor: native = origin + (logical - origin) * ratio (audit SCR-4)."""
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui import overlay
+    monkeypatch.setattr(overlay.osapi, "SCREEN_COORDS_ARE_PHYSICAL", True)
+    screen = SimpleNamespace(geometry=lambda: QRect(2560, 0, 1707, 960), devicePixelRatio=lambda: 1.5)
+    win = SimpleNamespace(isVisible=lambda: True, windowOpacity=lambda: 1.0, isMinimized=lambda: False,
+                          frameGeometry=lambda: QRect(QPoint(2627, 100), QPoint(2627 + 299, 299)), screen=lambda: screen)
+    monkeypatch.setattr(QApplication, "topLevelWidgets", staticmethod(lambda: [win]))
+    assert overlay.windows_over((2600, 0, 400, 400)) == [win]        # native x 2660: over the game there
+    assert overlay.windows_over((3900, 0, 400, 400)) == []           # not where logical * 1.5 put it
 
 
 def test_windows_over_the_game_step_aside(monkeypatch):
@@ -546,3 +605,17 @@ def test_windows_over_the_game_step_aside(monkeypatch):
         assert w.isVisible() and not w.testAttribute(overlay.Qt.WA_ShowWithoutActivating)
     finally:
         w.close()
+
+
+def test_the_same_level_misread_twice_starts_no_run(math):
+    """PLT-3's runs let two identical misreads in a row ("35" as "53" while a tooltip covers the HUD) start a run of
+    their own: Lv 35 -> 53 and EXP/h a quarter too high (review2 LOG-1). A new EXP run starts only at the same or a
+    little higher level."""
+    clean = grind.summarize(math, session(read(0, 21, 10.0), read(10, 21, 30.0), read(20, 21, 50.0),
+                                          read(30, 21, 60.0)))
+    for bad in ((read(10, 12, 30.0), read(15, 12, 40.0)),):
+        middle = grind.summarize(math, session(read(0, 21, 10.0), read(5, 21, 20.0), *bad, read(20, 21, 50.0),
+                                               read(30, 21, 60.0)))
+        end = grind.summarize(math, session(read(0, 21, 10.0), read(10, 21, 30.0), read(20, 21, 50.0),
+                                            read(30, 21, 60.0), read(31, 12, 61.0), read(32, 12, 62.0)))
+        assert middle.exp == clean.exp == end.exp == 600 and middle.level_to == end.level_to == 21

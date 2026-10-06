@@ -1,6 +1,7 @@
 """Sell or keep: each item an inventory read found (inventory.py), sorted by what the KB says about it, with no AI and
 nothing guessed. Kept: an item a quest the player can do now asks for, an ingredient of a recipe of a profession they
-work, an item they starred, equipment they can wear (its page's REQ LEV and JOB). Sold: what an NPC pays for the rest
+work, an item they starred, the supplies they play with (potions, food, buffs, Return Scrolls, their class's ammo, by
+the item's type), equipment they can wear (its page's REQ LEV and JOB). Sold: what an NPC pays for the rest
 (the item page's sell price). An item the read couldn't name is said so, never named by a guess."""
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ _JOB_WORD = {"Mage": "Magician"}
 
 @dataclass
 class Verdict:
-    kind: str           # quest | recipe | wish | wear | not_yet | other_job | fm | sell | no_price | unknown
+    kind: str           # quest | recipe | wish | supply | wear | not_yet | other_job | fm | sell | no_price | unknown
     key: str = ""
     name: str = ""
     why: str = ""        # the quest or recipe it's kept for; the level it's worn from
@@ -37,6 +38,45 @@ def _wear(kb, key: str) -> tuple[int, list[str]] | None:
     j = re.search(r"\bJOB ([A-Za-z/]+)", page)
     jobs = [_JOB_WORD.get(x, x) for x in j.group(1).split("/")] if j else []
     return level, jobs
+
+
+# Use items a player spends while playing, by the KB item's type: never "sell" (an audit found the page telling a Thief
+# to sell the stars they attack with and everyone their potions and Return Scrolls)
+_SUPPLY_TYPES = ("Use / Potion", "Use / Food", "Use / Buff", "Use / Return Scroll")
+# a plain "Use" item whose page says it's a buff (Supreme potions) or a return scroll (Return Scroll to Orbis)
+_SUPPLY_PAGE = re.compile(r"^(?:Shared item buff slot|Returns you to\b)", re.M)
+# the class's ammunition: the KB's class pages say Bandits fight with daggers, Assassins/Hermits throw stars
+_AMMO = {"Thief": "Use / Throwing Star", "Bowman": "Use / Arrow"}
+_NO_AMMO_JOBS = ("Bandit", "Chief Bandit")
+_ARROWS = {"Hunter": "for bows", "Ranger": "for bows", "Crossbowman": "for crossbows", "Sniper": "for crossbows"}
+
+
+def _supply(kb, key: str, base_class: str = "", job: str = "") -> bool:
+    """Potions, elixirs, food, buffs, Return Scrolls and the player's own class's ammo (by the KB's item types)."""
+    from . import grind
+    e = kb.get(key) or {}
+    kind = str(e.get("type") or "")
+    if not kind.startswith("Use"):
+        return False
+    if kind in _SUPPLY_TYPES or grind.is_potion(kb, key):
+        return True
+    if kind == _AMMO.get(base_class) and job not in _NO_AMMO_JOBS:
+        # after the 2nd job a Bowman shoots only one weapon: bow arrows or crossbow bolts
+        arrows = _ARROWS.get(job)
+        return not arrows or arrows in str(e.get("name", "")).lower()
+    return kind == "Use" and bool(_SUPPLY_PAGE.search(kb.page(key)))
+
+
+def _sell_back(kb, slot, name: str) -> int:
+    """What an NPC pays for the slot's item: its page's price, else that of a copy of it the read matched too (the
+    same name, a picture as close). The KB has some prices on one copy's page only: Jr. Sentinel Shellpiece read as
+    item/347 said "no price" while item/2584 pays 26 mesos."""
+    for k, _ in slot.matches:
+        if k == slot.matches[0][0] or (kb.get(k) or {}).get("name") == name:
+            sell = market.npc_prices(kb, k).sell_back
+            if sell:
+                return sell
+    return 0
 
 
 def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", done: list[str] | None = None,
@@ -66,15 +106,18 @@ def classify(kb, slots: list, level: int, base_class: str = "", job: str = "", d
                 kind = "not_yet"
             else:
                 kind = "wear"
-            sell = market.npc_prices(kb, key).sell_back or 0
+            sell = _sell_back(kb, s, name)
             out.append(Verdict(kind, key, name, str(lv or ""), sell, s.index))
             continue
-        sell = market.npc_prices(kb, key).sell_back or 0
+        if _supply(kb, key, base_class, job):
+            out.append(Verdict("supply", key, name, slot=s.index))
+            continue
+        sell = _sell_back(kb, s, name)
         out.append(Verdict("sell" if sell else "no_price", key, name, price=sell, slot=s.index))
     return _sorted(out)
 
 
-ORDER = ["quest", "recipe", "wish", "wear", "not_yet", "other_job", "fm", "sell", "no_price", "unknown"]
+ORDER = ["quest", "recipe", "wish", "supply", "wear", "not_yet", "other_job", "fm", "sell", "no_price", "unknown"]
 
 
 def _sorted(out: list[Verdict]) -> list[Verdict]:

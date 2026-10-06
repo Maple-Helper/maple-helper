@@ -12,9 +12,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from maplehelper import routes  # noqa: E402
 
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
-# (no "knowledge base" in the reason: CI fails a real-KB test that skips, and a published KB from before the nightly
-# map-connections scrape has no routes.json yet)
-needs_routes = pytest.mark.skipif(not (REAL_KB / routes.ROUTES_FILE).exists(), reason="no routes.json in data/kb")
+# "knowledge base" in the reason: CI (MAPLEHELPER_REQUIRE_REAL_KB) fails a real-KB test that skips. Every published
+# kb.zip has routes.json now (each nightly run refreshes it), so a KB without it is a broken one, not an old one
+needs_routes = pytest.mark.skipif(not (REAL_KB / routes.ROUTES_FILE).exists(),
+                                  reason="no routes.json in the real knowledge base")
 
 HENESYS, HG1, HG2, GARDEN = "100000000", "100000001", "100000002", "100000003"
 ORBIS, PERION, SOUTHPERRY, FLORINA = "200000000", "100000100", "000000060", "110000000"
@@ -219,30 +220,54 @@ def real():
     return kb, routes.of(kb)
 
 
+def _sound(kb, g, r, a, b):
+    """A route as it must be whatever the game adds: from a to b, every step a real edge of the graph (a portal one
+    of routes.json's own), every map open and on a continent the release guide confirms."""
+    from maplehelper import availability
+    o = availability.of(kb)
+    assert r and g.name(r.end) == b
+    assert [leg.frm for leg in r.legs] == r.maps[:-1]                              # one step after another
+    assert all(leg in g.edges[leg.frm] for leg in r.legs)
+    raw = {str(m["id"]): {str(p.get("to")) for p in m.get("portals") or []}
+           for m in json.loads((REAL_KB / routes.ROUTES_FILE).read_text(encoding="utf-8"))["maps"]}
+    assert all(leg.to in raw[leg.frm] for leg in r.legs if leg.kind == "portal")
+    assert all(o.entity_open(f"map/{m}") and g.maps[m].continent in o.confirmed for m in r.maps)  # never through Ossyria
+
+
 @needs_routes
 @pytest.mark.parametrize("a,b,first", [
     ("Henesys", "Kerning City", "taxi"), ("Lith Harbor", "Sleepywood", "taxi"), ("Ellinia", "Perion", "taxi"),
     ("Southperry", "Lith Harbor", "boat"), ("Henesys", "Florina Beach", "taxi"),
 ])
 def test_real_routes(real, a, b, first):
-    from maplehelper import availability
     kb, g = real
     r = g.route(g.find(a), g.find(b))
-    assert r and r.legs[0].kind == first and g.name(r.end) == b
-    assert all(availability.of(kb).entity_open(f"map/{m}") for m in r.maps)      # never through Ossyria
-    assert all(g.maps[m].continent in ("Victoria Island", "Maple Island") for m in r.maps)
+    _sound(kb, g, r, a, b)
+    # the cab (the boat) is taken while the KB has one there: a fare change or a cab gone doesn't stop the nightly,
+    # a router that ignores it does (the exact routing is test_portals_go_one_way_and_a_short_walk_beats_a_cab and the other fixture tests)
+    if any(leg.kind == first for leg in g.edges[r.start]):
+        assert r.legs[0].kind == first
 
 
 @needs_routes
 def test_real_walks_and_closed_places(real):
+    from maplehelper import availability
     kb, g = real
+    o = availability.of(kb)
     walk = g.route(g.find("Lith Harbor"), g.find("Sleepywood"), taxi=False)
-    assert walk and all(leg.kind == "portal" for leg in walk.legs) and len(walk.legs) > 5
-    assert g.find("Orbis") is None and g.not_in_game("Orbis") and g.find("El Nath") is None
-    # Victoria Island can't reach Maple Island (the boat from Southperry goes one way)
-    assert g.route(g.find("Henesys"), g.find("Southperry")) is None
+    _sound(kb, g, walk, "Lith Harbor", "Sleepywood")
+    assert all(leg.kind == "portal" for leg in walk.legs) and len(walk.legs) > 1
+    # Orbis and El Nath: not found while the guide keeps Ossyria shut, found once it opens
+    for town in ("Orbis", "El Nath"):
+        assert (g.find(town) is None) == (not o.place_open(town))
+    assert g.not_in_game("Orbis") == (not o.place_open("Orbis"))
+    # Victoria Island reaches Maple Island only if some step leads there (today: none, Shanks' boat goes one way)
+    maple = {m for m, info in g.maps.items() if info.continent == "Maple Island"}
+    into = any(leg.to in maple for frm, legs in g.edges.items() if frm not in maple for leg in legs)
+    assert (g.route(g.find("Henesys"), g.find("Southperry")) is None) == (not into)
     text = routes.ai_context(kb, "איך מגיעים מהניסיס לסליפיווד?", None)
-    assert "From Henesys to Sleepywood" in text and "Ossyria" not in text
+    assert "From Henesys to Sleepywood" in text
+    assert all(c not in text for c in o.continents - o.confirmed if not o.place_open(c))
 
 
 # ---------------------------------------------------------------- Play tools and the chat card
@@ -265,7 +290,7 @@ def test_route_page(world, qt, isolated_store, lang):
     d = ToolsDialog(kb, p, isolated_store.Settings(), lang, "", {}, "route")
     try:
         assert d.route_from.text() == "Snail Garden"            # from the character's map
-        assert any("Pick where to" in lb.text() or "בחרו לאן" in lb.text() for lb in d.pages["route"].findChildren(QLabel))
+        assert any("Pick a destination" in lb.text() or "בחרו לאן" in lb.text() for lb in d.pages["route"].findChildren(QLabel))
         d.route_to_map(f"map/{PERION}")
         assert d.stack.currentIndex() == PAGES.index("route") and d.route_to.text() == "Perion"
         steps = [w for w in d.pages["route"].findChildren(QFrame, "Card") if w.isVisibleTo(d)]
@@ -323,5 +348,39 @@ def test_a_map_card_offers_the_way_there(world, qt):
 def test_the_no_cab_way_from_maple_island_is_not_called_free():
     """The walk from Southperry still starts with Shanks' boat (300 mesos): "free" only when no step costs."""
     from maplehelper.kb import KnowledgeBase
-    text = routes.ai_context(KnowledgeBase(REAL_KB), "how do I get from Southperry to Henesys?")
-    assert "Without a cab (no cab, but the boat still costs mesos)" in text and "(free)" not in text
+    kb = KnowledgeBase(REAL_KB)
+    g = routes.of(kb)
+    text = routes.ai_context(kb, "how do I get from Southperry to Henesys?")
+    a, b = g.find("Southperry"), g.find("Henesys")
+    r, walk = g.route(a, b), g.route(a, b, taxi=False)
+    # by what the walk itself takes (today Shanks' boat first), not by tonight's fares or ferries
+    if r and walk and any(leg.kind == "taxi" for leg in r.legs):
+        assert f"Without a cab ({_walk_cost(walk)})" in text and ("(free)" in text) == (_walk_cost(walk) == "free")
+    else:
+        assert "Without a cab" not in text
+
+
+def _walk_cost(walk) -> str:
+    """What the no-cab line must call a walk: a boat costs mesos, an NPC's trip has no fare in the KB (KB-13)."""
+    npcs = list(dict.fromkeys(leg.via for leg in walk.legs if leg.kind == "npc"))
+    return ("no cab, but the boat still costs mesos" if walk.paid
+            else f"no cab; {', '.join(npcs)} takes you part of the way, the KB lists no fare" if npcs else "free")
+
+
+@needs_routes
+def test_a_taxi_town_asked_from_nowhere_is_no_0_step_route_and_pason_is_not_free():
+    """"how do I get to Perion" (map unknown) said "from Perion to Perion (0 steps)"; Pason's trip has no fare in the KB,
+    so the walk through it isn't "free"; routes.json's "A Hill West of Henesys " keeps no trailing space."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    g = routes.of(kb)
+    text = routes.ai_context(kb, "how do I get to Perion")
+    assert "Perion is a taxi town" in text and "to Perion (0 steps" not in text and "1. In " in text
+    text = routes.ai_context(kb, "how do I get to Florina Beach from Ellinia")
+    a, b = g.find("Ellinia"), g.find("Florina Beach")
+    r, walk = g.route(a, b), g.route(a, b, taxi=False)
+    # by the walk the KB has tonight (Pason's trip, no fare), never "free" while a step is an NPC's or a boat
+    if r and walk and any(leg.kind == "taxi" for leg in r.legs):
+        assert f"Without a cab ({_walk_cost(walk)})" in text
+        assert ("(free)" in text) == (_walk_cost(walk) == "free")
+    assert not [m.name for m in g.maps.values() if m.name != m.name.strip()]

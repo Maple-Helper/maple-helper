@@ -720,7 +720,13 @@
    "kind": "training",
    "checks": {
     "must_mention_any": [
-     "Ant Tunnel"
+     "Ant Tunnel I",
+     "Ant Tunnel II",
+     "Ant Tunnel III",
+     "Ant Tunnel IV",
+     "Ant Tunnel Park",
+     "Deep Ant Tunnel I",
+     "Deep Ant Tunnel II"
     ]
    }
   },
@@ -814,7 +820,9 @@
     "must_mention_any": [
      "kill steal",
      "kill-steal",
-     "killsteal"
+     "killsteal",
+     "kill stealing",
+     "kill-stealing"
     ]
    }
   },
@@ -1121,8 +1129,8 @@
     ],
     "must_list": [
      "Raymond",
-     "Henesys",
-     "Kerning City"
+     "Henesys|Henesys Town Hall",
+     "Kerning City|Kerning City Civic Center"
     ]
    }
   },
@@ -1154,13 +1162,13 @@
     "list",
     "monsters"
    ],
-   "why": "Deep Ant Tunnel I (map/010005066) monster table: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27, Jr. Boogie 2 35 (2 spawns, 3 min respawn). 'Jr. Boogie' matches the name with or without the 2.",
+   "why": "Deep Ant Tunnel I (map/010005066) monster table: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27, Jr. Boogie 2 35 (2 spawns, 3 min respawn). 'Jr. Boogie|Jr. Boogie 2': either name.",
    "checks": {
     "must_list": [
      "Horny Mushroom",
      "Zombie Mushroom",
      "Evil Eye",
-     "Jr. Boogie"
+     "Jr. Boogie|Jr. Boogie 2"
     ]
    }
   },
@@ -1213,14 +1221,15 @@
     "list",
     "monsters"
    ],
-   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Lorang 86 (Lv 38), Lupin 82 (Lv 37). Glowshroom 90 (Lv 39) lives only on Forgotten Hollow maps, closed at launch (audit KB-1). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
    "checks": {
     "must_list": [
      "Cold Eye",
-     "Glowshroom",
-     "Lorang"
+     "Lorang",
+     "Lupin"
     ],
     "must_not_list": [
+     "Glowshroom",
      "Tick-Tock",
      "Raffle",
      "Barnard Gray",
@@ -1239,14 +1248,15 @@
     "list",
     "monsters"
    ],
-   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Glowshroom 90 (Lv 39), Lorang 86 (Lv 38). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
+   "why": "index.json monsters with Level 30-40, in game per availability.monster_key_open, by EXP: Mushmom 376 and King Slime 248 are bosses; then Cold Eye 94 (Lv 40), Lorang 86 (Lv 38), Lupin 82 (Lv 37). Glowshroom 90 (Lv 39) lives only on Forgotten Hollow maps, closed at launch (audit KB-1). Tick-Tock/Raffle/Barnard Gray (94) and Tweeter/Toy Trojan (90) are Ludibrium monsters, not in the game.",
    "checks": {
     "must_list": [
      "Cold Eye",
-     "Glowshroom",
-     "Lorang"
+     "Lorang",
+     "Lupin"
     ],
     "must_not_list": [
+     "Glowshroom",
      "Tick-Tock",
      "Raffle",
      "Barnard Gray",
@@ -1363,10 +1373,10 @@
     "must_list": [
      "Bow Mastery",
      "Amazon's Judgement",
-     "Final Attack",
+     "Final Attack|Final Attack: Bow",
      "Bow Booster",
-     "Soul Arrow",
-     "Arrow Bomb"
+     "Soul Arrow|Soul Arrow: Bow",
+     "Arrow Bomb|Arrow Bomb: Bow"
     ]
    }
   },
@@ -1422,7 +1432,7 @@
    "why": "Maya (npc/207) page: Location 'Henesys Townstreet, Victoria Road'; 'Quests Given (5)': Maya of Henesys, Maya's First, Second, Third and Last Collection (all in game).",
    "checks": {
     "must_mention": [
-     "Henesys"
+     "Henesys|Henesys Townstreet"
     ],
     "must_list": [
      "Maya of Henesys",
@@ -1534,6 +1544,95 @@
      "22",
      "24",
      "27"
+    ]
+   }
+  },
+  {
+   "id": "job-hermit-not-out-en",
+   "question": "how do I become a Hermit?",
+   "lang": "en",
+   "kind": "job",
+   "why": "audit AI-3: the planner called Hermit 'the 2nd job' and Sonnet listed the 2nd-job quests",
+   "checks": {
+    "must_mention_any": [
+     "not in the game",
+     "not out",
+     "isn't out",
+     "not available",
+     "not yet"
+    ],
+    "must_not_mention": [
+     "Proof of Qualification"
+    ]
+   }
+  },
+  {
+   "id": "job-second-named-he",
+   "question": "ג'וב שני לגנב באיזה רמה?",
+   "lang": "he",
+   "kind": "job",
+   "why": "audit AI-4: the class named with 2nd job got the 1st-job lead (level 10). A Thief before the 2nd job, so both branches are the right answer (an Assassin profile got only its own)",
+   "checks": {
+    "must_mention": [
+     "30",
+     "Assassin",
+     "Bandit"
+    ]
+   },
+   "profile": {
+    "name": "EvalThief",
+    "base_class": "Thief",
+    "job": "Thief",
+    "level": 27
+   }
+  },
+  {
+   "id": "job-second-named-en",
+   "question": "second job for magician, at what level?",
+   "lang": "en",
+   "kind": "job",
+   "why": "audit AI-4",
+   "checks": {
+    "must_mention": [
+     "30",
+     "Cleric"
+    ]
+   }
+  },
+  {
+   "id": "train-pig-park-he",
+   "question": "כדאי לעשות גריינד ב-Pig Park?",
+   "lang": "he",
+   "kind": "training",
+   "profile": {
+    "level": 28
+   },
+   "why": "audit AI-5: the scope listed Hidden Street as not in the game, Pig Park is on it (Victoria Island)",
+   "checks": {
+    "must_mention": [
+     "Pig Park"
+    ],
+    "must_not_mention": [
+     "לא במשחק",
+     "עוד לא יצא",
+     "not in the game"
+    ]
+   }
+  },
+  {
+   "id": "scope-offtopic-he",
+   "question": "מי ראש הממשלה של ישראל?",
+   "lang": "he",
+   "kind": "judgement",
+   "why": "the scope rule: anything but the game gets one line that the helper only helps with MapleStory Classic",
+   "checks": {
+    "must_mention_any": [
+     "MapleStory",
+     "מייפל"
+    ],
+    "must_not_mention": [
+     "נתניהו",
+     "Netanyahu"
     ]
    }
   }

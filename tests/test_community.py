@@ -16,8 +16,10 @@ from maplehelper.kb import COMMUNITY_MIN_SCORE, KnowledgeBase
 
 FIX = Path(__file__).parent / "fixtures" / "community"
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
+# "knowledge base" in the reason, so CI fails instead of skipping: every published kb.zip has community.json (a night
+# the site doesn't answer keeps the published copy)
 needs_community = pytest.mark.skipif(not (REAL_KB / "community.json").exists(),
-                                     reason="no community.json (a KB published before players' reports)")
+                                     reason="no community.json in the real knowledge base")
 
 # items the fixture KB gets for these tests (the recorded Snail answer names them by MeowDB's item ids)
 ITEMS = {"item/413": "Bronze Ore", "item/348": "Snail Shell", "item/320": "Garnet Ore", "item/270": "Red Potion X",
@@ -391,10 +393,23 @@ def test_real_community_json_loads_and_maps_to_kb_keys():
     monsters = data["monsters"]
     assert len([m for m in monsters.values() if m["drops"]]) >= 50
     assert len([m for m in monsters.values() if m["mesos"]]) >= 20
-    snail = kb.monster_keys("Snail")[0]
-    assert kb.community_drops(snail) and "Snail Shell" in [kb.get(d["item"])["name"] for d in kb.community_drops(snail)]
+    # players vote every night: no live drop or vote is named (the exact reading is the fixture tests above); what
+    # the app shows of each monster is what community.json says, read here on its own
+    open_ = availability.of(kb)
+    for key, m in monsters.items():
+        if not open_.monster_key_open(key):
+            assert kb.community_drops(key) == [] and kb.community_mesos(key) is None      # not in the game
+            continue
+        want = {d["item"] for d in m["drops"] if kb.get(d["item"])
+                and (d["score"] if isinstance(d.get("score"), (int, float)) else d["up"] - d["down"]) >= COMMUNITY_MIN_SCORE}
+        got = kb.community_drops(key)
+        assert {d["item"] for d in got} == want, key
+        assert [d["score"] for d in got] == sorted((d["score"] for d in got), reverse=True)    # best confirmed first
+        mesos = m["mesos"] if isinstance(m["mesos"], dict) and m["mesos"].get("count") \
+            and isinstance(m["mesos"].get("min"), (int, float)) else None
+        assert (kb.community_mesos(key) or (None,))[0] == (int(mesos["min"]) if mesos else None), key
     shown = [m for m in monsters if kb.community_drops(m)]
-    assert all(availability.of(kb).monster_key_open(m) for m in shown)
+    assert len(shown) >= 50 and all(open_.monster_key_open(m) for m in shown)
 
 
 def test_an_item_tile_has_the_wishlist_star_and_the_tiles_name_their_stats_build(ckb, app, isolated_store):
@@ -440,3 +455,14 @@ def test_a_star_taken_off_leaves_the_open_wishlist_at_once(ckb, app, isolated_st
     finally:
         dlg.close()
         WISHLIST.bind(None, None)
+
+
+def test_answers_that_all_come_back_empty_never_wipe_the_reports(kb_copy):
+    _add_items(kb_copy)
+    _community(kb_copy, {SNAIL: {"drops": [_drop("item/413", 3)], "mesos": None, "fetched": "2026-10-01"}})
+    before = (kb_copy / "community.json").read_text(encoding="utf-8")
+    empty = {mid: {"drops": {"drops": []}, "mesos": _recorded("mesos_none.json")}
+             for mid in ("100100", "100101", "130101", "1210100", "5130104")}
+    with pytest.raises(kb_release.InvalidKB, match="down from 1"):
+        scrape_community.scrape(kb_copy, get=_fake_site(empty), log=lambda *_: None)
+    assert (kb_copy / "community.json").read_text(encoding="utf-8") == before

@@ -30,6 +30,8 @@ def add(settings, cid: str | None, question: str, answer: str, now: float | None
 
 
 def remove(settings, cid: str | None, answer: str) -> None:
+    if not cid:          # as add: no character, nothing pinned (it wrote a None key into settings, audit AI-25)
+        return
     data = dict(settings["pins"] or {})
     data[cid] = [p for p in data.get(cid or "", []) if p.get("a") != answer]
     settings["pins"] = data

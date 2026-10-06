@@ -7,7 +7,7 @@ name: Update knowledge base
 on:
   schedule:
     # off the hour: GitHub queues runs at :00 behind everyone else's (01:00 runs started 5-6 hours late)
-    - cron: "23 0 * * *"         # 00:23 UTC ≈ 03:23 Israel (still the same UTC day, for the Sunday check)
+    - cron: "23 0 * * *"         # 00:23 UTC = 03:23 Israel in summer, 02:23 in winter (still the same UTC day, for the Sunday check)
   workflow_dispatch:
     inputs:
       full:
@@ -18,13 +18,14 @@ on:
 permissions:
   contents: write
 
+# two nights (or a Run workflow during the nightly) never scrape at the same time
 concurrency:
   group: kb-update
   cancel-in-progress: false
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04      # pinned: ubuntu-latest moves to 26 from Oct 19, 2026; move once the nightly is tried there
     timeout-minutes: 180
     env:
       GH_TOKEN: ${{ github.token }}
@@ -35,7 +36,11 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"     # the same Python as the app, the tests and the builds
+
+      # the scraper turns every picture into a PNG with Pillow: without it no new picture was ever saved
+      - name: Install Pillow
+        run: python -m pip install "pillow>=12.3.0"
 
       - name: Find the latest release
         id: rel
@@ -109,9 +114,10 @@ jobs:
       - name: Stamp tonight's check
         if: steps.rel.outputs.exists == 'true' && steps.changed.outputs.changed == 0
         run: |
-          gh release download --repo "$GITHUB_REPOSITORY" --pattern kb-manifest.json --dir /tmp/stamp
-          python -c "import json,os,time;p='/tmp/stamp/kb-manifest.json';m=json.load(open(p));m['checked']=time.strftime('%Y-%m-%d',time.gmtime());m['url']='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/latest/download/kb.zip';json.dump(m,open(p,'w'))"
+          # one release read and stamped: a release published meanwhile (Release doesn't wait for this job) keeps its own
           tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern kb-manifest.json --dir /tmp/stamp
+          python -c "import json,os,time;p='/tmp/stamp/kb-manifest.json';m=json.load(open(p));m['checked']=time.strftime('%Y-%m-%d',time.gmtime());m['url']='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/latest/download/kb.zip';json.dump(m,open(p,'w'))"
           gh release upload "$tag" /tmp/stamp/kb-manifest.json --clobber --repo "$GITHUB_REPOSITORY"
 
       # the candidate goes to the tests first: a scrape with a valid shape but wrong game values stops there
@@ -139,8 +145,12 @@ jobs:
     name: Publish the new knowledge base
     needs: [update, test]
     if: needs.update.outputs.changed > 0
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # shared with release.yml's publish: the two never modify release assets at the same time
+    concurrency:
+      group: release-assets
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -148,7 +158,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - uses: actions/download-artifact@v8
         with:

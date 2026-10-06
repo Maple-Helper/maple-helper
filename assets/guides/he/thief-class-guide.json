@@ -1,5 +1,5 @@
 {
- "title": "מדריך בילד ולבלינג ל-Thief ב-MapleStory Classic: רמה 1-30",
+ "title": "מדריך בילד ועליית רמות ל-Thief ב-MapleStory Classic: רמה 1-30",
  "intro": "Thief מתאמן אצל ה-Dark Lord מתחת ל-Kerning City. Lucky Seven הוא הבילד המהיר יותר לרמה 10-30 ל-Assassin ו-Bandit עתידיים. הרבה Bandits ישחקו כ-Sindit, ואז יעבירו את ה-SP של הג'וב הראשון לסקילי dagger אחרי ההתקדמות לג'וב השני עם SP reset.",
  "blocks": [
   {
@@ -32,7 +32,7 @@
    "h": 166
   },
   {
-   "p": "להבין Accuracy זה הבסיס של כל מדריך קלאס והמלצת אימון. מיס עדיין שורף MP וכוכבי זריקה... ואין לכם את זה להרשות לעצמכם עם המחסור החמור בפוטים ובמסוס בתחילת המשחק."
+   "p": "להבין Accuracy זה הבסיס של כל מדריך קלאס והמלצת אימון. מיס עדיין שורף MP וכוכבי זריקה... ואין לכם את זה להרשות לעצמכם עם המחסור החמור בפוטים וב-mesos בתחילת המשחק."
   },
   {
    "note": "**Base Accuracy**\nfloor((1.2 x Total DEX + 2 x Level + 0.6 x Total LUK) x 0.25 + 15)\nTotal Accuracy הוא Base Accuracy ועוד Accuracy ישיר מ-Nimble Body, ציוד או פוטים."
@@ -50,7 +50,7 @@
    "p": "**+1.00** Total ACC לכל ACC ישיר"
   },
   {
-   "p": "**DEX הוא לא סטט ה-Accuracy היחיד שלכם.** רמה הדמות ו-LUK גם מעלים Base Accuracy, ו-Nimble Body מקסימלי מוסיף 15 Accuracy ישיר. לכל מוב יש Avoidability, ולהילחם במובים מעל הרמה שלכם מעלה עוד את דרישת ה-Accuracy. מפת אימון \"גרועה\" יכולה להפוך לטובה פשוט מעליית רמה או מהעלאת עוד LUK."
+   "p": "**DEX הוא לא סטט ה-Accuracy היחיד שלכם.** רמת הדמות ו-LUK גם מעלים Base Accuracy, ו-Nimble Body מקסימלי מוסיף 15 Accuracy ישיר. לכל מוב יש Avoidability, ולהילחם במובים מעל הרמה שלכם מעלה עוד את דרישת ה-Accuracy. מפת אימון \"גרועה\" יכולה להפוך לטובה פשוט מעליית רמה או מהעלאת עוד LUK."
   },
   {
    "note": "**אחוז פגיעה: פער רמות ו-Avoidability של המוב**\nL = max(0, Mob Level - Your Level)\nA = Total Accuracy x 100 / (10 x L + 255)\nD = A - Mob Avoidability\nמוב עם Avoidability גבוה יותר קשה יותר לפגיעה. פער רמות חיובי גם מוריד את הערך של ה-Accuracy שלכם לפני שהמשחק בודק את ה-Avoidability של המוב."
@@ -65,9 +65,9 @@
    "table": [
     [
      "מוב",
-     "רמה המוב",
+     "רמת המוב",
      "Avoid של המוב",
-     "הרמה שלך",
+     "הרמה שלכם",
      "100% פגיעה",
      "סה\"כ בבילד לדוגמה"
     ],
@@ -106,7 +106,7 @@
    ]
   },
   {
-   "p": "ההשוואה של Zombie Mushroom מראה כמה הרמה משנה. הבילד לדוגמה של רמה 20 יכול לפספס למרות שהבילד שלו בסדר ל-Stirges. חמישה רמות אחר כך, אותו מוב צריך שבעה ACC פחות ו-Nimble Body קיבל עוד שמונה רמות של סקיל."
+   "p": "ההשוואה של Zombie Mushroom מראה כמה הרמה משנה. הבילד לדוגמה של רמה 20 יכול לפספס למרות שהבילד שלו בסדר ל-Stirges. חמש רמות אחר כך, אותו מוב צריך שבעה ACC פחות ו-Nimble Body קיבל עוד שמונה רמות של סקיל."
   },
   {
    "h2": "רמות 1-10: מ-Beginner ל-Thief"
@@ -251,7 +251,7 @@
    "p": "[[img:2884cdb372bd03.png]] **Blue Snail** 100% פגיעה · מובטח בקאסט אחד · 4 EXP לקאסט [[img:ca2dec0d81316e.png]] **Red Snail** 100% פגיעה · מובטח בשני קאסטים · 4 EXP לקאסט"
   },
   {
-   "h2": "רמות 10-30: בילד סקילים ולבלינג ל-Thief"
+   "h2": "רמות 10-30: בילד סקילים ועליית רמות ל-Thief"
   },
   {
    "img": "d46094244fa2cd.png",
@@ -456,19 +456,19 @@
    ]
   },
   {
-   "h3": "למה כל Thief צריך לעשות לבלינג עם Lucky Seven"
+   "h3": "למה כל Thief צריך לעלות רמות עם Lucky Seven"
   },
   {
    "p": "Lucky Seven מקסימלי עושה שתי שורות של 140% ב-16 MP ושני כוכבים. Keen Eyes מקסימלי מעלה את טווח הזריקה ל-400 px. המרחק הנוסף שומר עליכם בטוחים יותר ומאפשר לפארם Stirges ביעילות. Lucky Seven הוא הסקיל הברור לרמות 10-30 גם ל-Assassins וגם ל-Bandits העתידיים."
   },
   {
-   "note": "**Bandit עתידי? תעשו לבלינג כ-Sindit.** תשאירו את Lucky Seven לאורך הג'וב הראשון, תשימו את ה-SP הראשון של Bandit ב-Haste, ותשתמשו ב-Lucky Seven בזמן ש-Savage Blow גדל. המחיר הנוכחי של SP Reset לא מאומת."
+   "note": "**Bandit עתידי? תעלו רמות כ-Sindit.** תשאירו את Lucky Seven לאורך הג'וב הראשון, תשימו את ה-SP הראשון של Bandit ב-Haste, ותשתמשו ב-Lucky Seven בזמן ש-Savage Blow גדל. המחיר הנוכחי של SP Reset לא מאומת."
   },
   {
    "img": "0ee0648b915903.png",
    "w": 360,
    "h": 200,
-   "cap": "Lucky Seven: סקיל הלבלינג מרחוק המומלץ ל-Assassins ול-Sindits."
+   "cap": "Lucky Seven: סקיל עליית הרמות מרחוק המומלץ ל-Assassins ול-Sindits."
   },
   {
    "img": "7b2b8b4a3f84fd.png",
@@ -477,10 +477,10 @@
    "cap": "Double Stab: האופציה המלי לבילד Bandit של dagger אמיתי."
   },
   {
-   "p": "Bandit של dagger אמיתי יכול למקסם Double Stab במקום, אם המטרה היא לסיים את הג'וב הראשון עם Dark Sight מקסימלי. נקודת הסיום הזו היא Double Stab 20, Nimble Body 15, Disorder 6 ו-Dark Sight 20. היא מוותרת על Lucky Seven ו-Keen Eyes, אז הגרינד של רמות 10-30 איטי יותר ומלי לגמרי."
+   "p": "Bandit של dagger אמיתי יכול למקסם Double Stab במקום, אם המטרה היא לסיים את הג'וב הראשון עם Dark Sight מקסימלי. נקודת הסיום הזו היא Double Stab 20, Nimble Body 15, Disorder 6 ו-Dark Sight 20. היא מוותרת על Lucky Seven ו-Keen Eyes, אז הגריינד של רמות 10-30 איטי יותר ומלי לגמרי."
   },
   {
-   "p": "האופציה השנייה היא לעשות לבלינג כ-Sindit, להפוך ל-Bandit, ואז לעשות reset ל-SP של הג'וב הראשון מיד או אחרי ש-Savage Blow מוכן. מורידים את Lucky Seven ו-Keen Eyes, ואז מסיימים את Double Stab ו-Dark Sight."
+   "p": "האופציה השנייה היא לעלות רמות כ-Sindit, להפוך ל-Bandit, ואז לעשות reset ל-SP של הג'וב הראשון מיד או אחרי ש-Savage Blow מוכן. מורידים את Lucky Seven ו-Keen Eyes, ואז מסיימים את Double Stab ו-Dark Sight."
   },
   {
    "h3": "איך הסטטים של Thief משפיעים על הדמג'"
@@ -499,7 +499,7 @@
    "note": "**דמג' פיזי לפני הגנה**\nMAX = (1.0 + (LUK x W + STR + DEX) / 100 + Attack Power / 50) x Total W.ATK x Skill %\nMIN = (0.8 + (LUK x W x Mastery + STR + DEX) / 100 + Attack Power / 50) x Total W.ATK x Skill %\nLucky Seven מכריח W = 3.0 ו-Mastery = 0.5. Double Stab משתמש במכפיל הדקירה של dagger, W = 2.0. Total W.ATK כולל את ה-claw ואת כוכב הזריקה ב-Lucky Seven."
   },
   {
-   "p": "ב-Lucky Seven, LUK אחד מוסיף 125% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד, לפני הגנה. ב-Double Stab בלי Dagger Mastery, LUK אחד מוסיף בערך 8% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד. Dagger Mastery מקסימלי מרחיב את היתרון הזה לבערך 88%."
+   "p": "ב-Lucky Seven, LUK אחד מוסיף 125% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד, לפני הגנה. ב-Double Stab בלי Dagger Mastery, LUK אחד מוסיף בערך 8% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד. Dagger Mastery מקסימלי מרחיב את היתרון הזה לכ-88%."
   },
   {
    "note": "**אל תוסיפו STR בשביל dagger של STR, אלא אם שדרוג הנשק שווה את ה-LUK שאתם מפסידים.** תבדקו את הדרישה המדויקת של ה-dagger ב-Character Builder. Reef Claw הוא ה-dagger הנקי הכי חזק ברמה 30. הוא משתמש ב-DEX ואין לו דרישת STR."
@@ -670,7 +670,7 @@
    "p": "סקרולי Lesser Overall LUK מוסיפים +1 LUK ב-100%. סקרולי Intermediate מוסיפים +2 LUK ב-60%. לחולצות ולמכנסיים אין סקרולים של STR, DEX, INT או LUK, אז הרבה יותר קל לבנות overall של 10 סלוטים לדמג'."
   },
   {
-   "note": "**Thieves נקבות מקבלות overall של הקלאס חזק יותר ברמה 35.** Dark Avenger מתחיל עם +6 LUK ו-10 סלוטים. Sauna Robe מתחיל עם +1 LUK. Thieves זכרים לא מקבלים overall מקביל של Thief ברמה הזה."
+   "note": "**Thieves נקבות מקבלות overall של הקלאס חזק יותר ברמה 35.** Dark Avenger מתחיל עם +6 LUK ו-10 סלוטים. Sauna Robe מתחיל עם +1 LUK. Thieves זכרים לא מקבלים overall מקביל של Thief ברמה הזאת."
   },
   {
    "h3": "מפות אימון: רמות 10-30"
@@ -743,7 +743,7 @@
    "p": "**סקילים:** Nimble Body 15, Keen Eyes 15, Disorder 3, Dark Sight 8, Lucky Seven 20."
   },
   {
-   "p": "**אחרי ההתקדמות לג'וב השני:** 1,134 HP בסיסי ו-953 MP בסיסי לפני ציוד. Lucky Seven עושה 366-622 לקאסט נגד טרגט באותו רמה עם 0 WDEF, בממוצע בערך 502 אחרי ה-7% Critical Rate וה-21% Critical Damage של הדוגמה."
+   "p": "**אחרי ההתקדמות לג'וב השני:** 1,134 HP בסיסי ו-953 MP בסיסי לפני ציוד. Lucky Seven עושה 366-622 לקאסט נגד טרגט באותה רמה עם 0 WDEF, בממוצע בערך 502 אחרי ה-7% Critical Rate וה-21% Critical Damage של הדוגמה."
   },
   {
    "p": "[[img:7f4e91463e6782.png]]Adamantium Guards [[img:6b8e85bc094214.png]]Wolbi [[img:b7bfab8434bc30.png]]Dark Guise [[img:b7809c05ccf52e.png]]Steel Sylvia [[img:ce6353bc3a96de.png]]Sauna Robe [[img:7016676a1496a2.png]]Bronze Chain Boots [[img:756539415b1d40.png]]Old Raggedy Cape"
@@ -825,10 +825,10 @@
    "h": 125
   },
   {
-   "p": "**הכי משתלם לקנות** הריפוי הכי טוב בחנות לכל מסו"
+   "p": "**הכי משתלם לקנות** הריפוי הכי טוב בחנות לכל mesos"
   },
   {
-   "p": "[[img:be80aa4791c684.png]] **Red Potion** 100 HP ב-50 mesos · 0.5 מסו לכל HP [[img:39a28ad40190a6.png]] **Fried Chicken** 120 HP ב-60 mesos · 0.5 מסו לכל HP [[img:51e2250795d8f6.png]] **Meat** 160 HP ב-80 mesos · 0.5 מסו לכל HP [[img:da1e5c881a1df6.png]] **Orange** 50 MP ב-50 mesos · 1 מסו לכל MP [[img:d59bc967011b87.png]] **Lemon** 150 MP ב-150 mesos · 1 מסו לכל MP"
+   "p": "[[img:be80aa4791c684.png]] **Red Potion** 100 HP ב-50 mesos · 0.5 mesos לכל HP [[img:39a28ad40190a6.png]] **Fried Chicken** 120 HP ב-60 mesos · 0.5 mesos לכל HP [[img:51e2250795d8f6.png]] **Meat** 160 HP ב-80 mesos · 0.5 mesos לכל HP [[img:da1e5c881a1df6.png]] **Orange** 50 MP ב-50 mesos · 1 mesos לכל MP [[img:d59bc967011b87.png]] **Lemon** 150 MP ב-150 mesos · 1 mesos לכל MP"
   },
   {
    "p": "**לפי מצב** תקנו בשביל נקודת שבירה או באף ארוך יותר"
@@ -837,10 +837,10 @@
    "p": "[[img:4e15182d2a8a6e.png]] **Sniper Potion** +5 Accuracy ל-10 דק' · סוגר פער קטן באחוז הפגיעה [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** +7 Accuracy ל-15 דק' · נמכר אצל Raymond ב-Henesys [[img:8d7b05272e3e8b.png]] **Warrior Potion** +10 Attack Power ל-10 דק' · באף לדמג' פיזי"
   },
   {
-   "p": "**לא משתלם לקנות** יותר ריפוי לכל שימוש, פחות ריפוי לכל מסו"
+   "p": "**לא משתלם לקנות** יותר ריפוי לכל שימוש, פחות ריפוי לכל mesos"
   },
   {
-   "p": "[[img:a699b6aea354d7.png]] **White Potion** 500 HP ב-350 mesos · 0.7 מסו לכל HP [[img:d19cbf8225851d.png]] **Blue Potion** 200 MP ב-220 mesos · 1.1 מסו לכל MP"
+   "p": "[[img:a699b6aea354d7.png]] **White Potion** 500 HP ב-350 mesos · 0.7 mesos לכל HP [[img:d19cbf8225851d.png]] **Blue Potion** 200 MP ב-220 mesos · 1.1 mesos לכל MP"
   },
   {
    "p": "ערימה של Subi או Wolbi מחזיקה 500 כוכבים, מספיק ל-250 קאסטים של Lucky Seven. בסקיל Lv20, הקאסטים האלה גם צורכים 4,000 MP. תסחבו כמה ערימות ותשתמשו בסקרול לעיר הקרובה לפני שאתם נגמרים."
@@ -856,7 +856,7 @@
   {
    "ol": [
     "**להוסיף DEX בשביל ההתקדמות לג'וב הראשון.** MSClassic World הוריד את דרישת הסטטים להתקדמויות ג'וב. תוסיפו DEX רק כשה-claw או השריון הבא צריכים את זה.",
-    "**לבנות Double Stab בלי להתחייב ללבלינג אמיתי עם dagger.** Lucky Seven הוא הבילד הקל יותר לרמות 10-30 ל-Bandits עתידיים. Double Stab שייך לאלטרנטיבה בלי reset ועם Dark Sight מקסימלי.",
+    "**לבנות Double Stab בלי להתחייב לעליית רמות אמיתית עם dagger.** Lucky Seven הוא הבילד הקל יותר לרמות 10-30 ל-Bandits עתידיים. Double Stab שייך לאלטרנטיבה בלי reset ועם Dark Sight מקסימלי.",
     "**להוסיף DEX בלי לבדוק ציוד.** תעמדו בדרישת הנשק עם הסטטים הכוללים מהציוד האחר שעליכם, ואז תשימו את השאר ב-LUK.",
     "**לקנות כוכבים נדירים לפני שדרוגים בסיסיים.** תקנו קודם claw עדכני ומספיק אוכל ל-MP. תסחבו כמה ערימות שאפשר לטעון לפני שאתם מוציאים על כוכבי זריקה יקרים.",
     "**לשכוח את זמן המילוי.** מפת אימון מומלצת יכולה להיות פחות אידיאלית אם היא רחוקה מחנויות פוטים וטעינת כוכבים.",

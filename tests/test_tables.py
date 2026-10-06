@@ -262,7 +262,7 @@ def test_equips_read_the_stat_header(tiny):
     bow = one(tables.rows(tiny, "equips"), key="item/663")
     assert (bow["slot"], bow["job"], bow["req_lv"], bow["req_dex"], bow["watk"]) == ("Bow", "Bowman", 10, 25, 30)
     assert (bow["attack_speed"], bow["slots"], bow["sell"], bow["buy"]) == ("Normal (6)", 7, 2500, 5000)
-    assert bow["seller"] == "Karl (Henesys)"
+    assert bow["seller"] == "Karl (Henesys, COT2 price)"          # the price's label, for the answer's "(COT2)"
     claw = one(tables.rows(tiny, "equips"), key="item/680")
     assert (claw["job"], claw["req_luk"], claw["attack_speed"]) == ("Thief", 25, "Fast (5)")
     gloves = one(tables.rows(tiny, "equips"), key="item/1435")
@@ -290,7 +290,7 @@ def test_monsters_spawns_and_maps(tiny):
     assert (sp["count"], sp["share"], sp["mob_rate"], sp["street"]) == (4, 10, 1.5, "Victoria Road")
     hhg = one(tables.rows(tiny, "maps"), key="map/010001010")
     assert (hhg["region"], hhg["lv_min"], hhg["lv_max"], hhg["spawn_points"], hhg["exp_hr"], hhg["exp_rank"]) == \
-        ("Victoria Island", 2, 14, 39, 41429, 244)
+        ("Victoria Island", 2, 14, 39, 41429, 1)        # the site's #244 of all maps, the best of this KB's
     assert (hhg["monsters"], hhg["npcs"], hhg["connects"]) == ("Ligator; Snail", "Arturo", "Snail Hunting Ground I")
 
 
@@ -448,6 +448,24 @@ def test_a_failed_build_waits_before_trying_again(tiny, monkeypatch):
     assert len(built) == 1                  # a read-only folder: not a 2 s build before every question
 
 
+def test_a_held_table_fails_the_build_before_any_is_replaced_and_retries_soon(tiny, monkeypatch):
+    """Written one by one, a table an antivirus held failed the build midway: old and new tables mixed, for 10 min."""
+    (tiny.root / tables.MARK_FILE).unlink()
+    tables._fresh.clear()
+    tables._failed.clear()
+    staged = []
+
+    def held(src, dst):
+        staged.append(len(list(tiny.root.glob("*.tmp"))))
+        raise PermissionError("in use")
+    monkeypatch.setattr(tables.os, "replace", held)
+    monkeypatch.setattr(tables.time, "sleep", lambda s: None)
+    assert not tables.ensure(tiny)
+    assert staged[0] == len(tables.GENERATED)          # every table (and the mark) written before the first replace
+    assert not list(tiny.root.glob("*.tmp")) and not (tiny.root / tables.MARK_FILE).exists()
+    assert tables._failed[str(tiny.root)][2] == tables.HELD_RETRY
+
+
 def test_a_bad_page_or_table_never_stops_the_build(tiny, monkeypatch):
     real = tables._equip
 
@@ -510,22 +528,53 @@ def test_real_tables_counts(real):
 
 @needs_kb
 def test_real_tables_known_facts(real):
+    """Each row says what its own page says, on every row: a balance patch changes a number in both places, a
+    broken parser or a shifted column only in one. (The exact parses, War Bow 30 WATK, Henesys Hunting Ground I
+    2-14, Double Shot 16 MP / 120 %, are pinned on the frozen page copies above.)"""
+    from maplehelper import availability
     kb, t = real
-    assert one(t["rewards"], quest="Stranger's Identity", item="Old Raggedy Cape")["kind"] == "sure"
-    bow = one(t["equips"], item="War Bow")
-    assert (bow["job"], bow["req_lv"], bow["watk"], bow["attack_speed"]) == ("Bowman", 10, 30, "Normal (6)")
-    red = [r for r in t["shops"] if r["item"] == "Red Potion"]
-    assert red and all(r["price"] == 50 for r in red)
-    assert not [r for r in red if "El Nath" in r["place"] or "Orbis" in r["place"]]       # not in the game yet
-    ingot = [r for r in t["recipes"] if r["product"] == "Bronze Ingot"]
-    assert [(r["ingredient"], r["qty"], r["discipline"]) for r in ingot] == [("Bronze Ore", 5, "Smithing")]
-    assert one(t["monsters"], monster="Snail")["level"] == 1
-    assert one(t["spawns"], monster="Snail", map="Snail Hunting Ground I")["count"] > 0
-    hhg = one(t["maps"], map="Henesys Hunting Ground I")
-    assert (hhg["lv_min"], hhg["lv_max"], hhg["region"]) == (2, 14, "Victoria Island") and "Blue Snail" in hhg["monsters"]
-    ds = one(t["skills"], skill="Double Shot")
-    assert (ds["mp"], ds["damage"], ds["max_lv"]) == (16, 120, 20)
-    assert not [r for r in t["skills"] if r["rank"] == "3rd Job"]          # 3rd job isn't out
+
+    def props(r):
+        return kb.get(r["key"])["props"]
+    for name, cols in (("equips", (("req_lv", "Level Requirement"), ("watk", "Weapon Attack"), ("slots", "Upgrade Slots"))),
+                       ("monsters", (("level", "Level"), ("hp", "HP"), ("exp", "EXP"))),
+                       ("skills", (("max_lv", "Max Level"), ("job", "Job"), ("rank", "Job Rank")))):
+        wrong = [(r["key"], c) for r in t[name] for c, prop in cols if prop in props(r) and r.get(c) != props(r)[prop]]
+        assert wrong == [], name
+        assert all(any(prop in props(r) for _, prop in cols) for r in t[name][:50]), name     # the props are there
+    assert sum(1 for r in t["equips"] if r.get("watk")) > 100 and all(r["watk"] > 0 for r in t["equips"] if r.get("watk"))
+    assert all(r["level"] >= 1 and r["hp"] > 0 for r in t["monsters"])
+    assert sum(1 for r in t["skills"] if r["mp"] and f"MP -{r['mp']}" in r["effect"]) > 0.9 * sum(1 for r in t["skills"] if r["mp"])
+    assert all(r["lv_min"] <= r["lv_max"] for r in t["maps"] if r["lv_min"] and r["lv_max"])
+    # a region on every map but those whose page names no continent (the Free Market, KPQ's stages, KB-3)
+    o = availability.of(kb)
+    nowhere = {k for k, c in o.map_cell.items() if o.map_place[c][0] == availability.NO_CONTINENT}
+    assert all(r["region"] or r["key"] in nowhere for r in t["maps"]) and any(r["lv_min"] for r in t["maps"])
+    priced = [r["price"] for r in t["shops"] if r["price"] is not None]
+    assert len(priced) > 0.9 * len(t["shops"]) and all(isinstance(p, int) and p > 0 for p in priced)
+    assert {r["kind"].split(" ")[0] for r in t["rewards"]} <= {"sure", "random", "pick", "gender"}
+    assert all(r["qty"] > 0 and r["discipline"] for r in t["recipes"])
+    assert all(r["count"] > 0 for r in t["spawns"] if r.get("count") is not None)
+    # only the jobs the release guide has opened: 3rd job skills appear the night the guide confirms it
+    ranks = {"Beginner", "1st Job", "2nd Job"} | ({"3rd Job"} if availability.of(kb).job_tier >= 3 else set())
+    assert {r["rank"] for r in t["skills"]} <= ranks
+    assert {"Beginner", "1st Job", "2nd Job"} <= {r["rank"] for r in t["skills"]}
+    # a shop in a town the guide hasn't opened never shows (Red Potion was sold in El Nath and Orbis too)
+    a = availability.of(kb)
+    assert all(a.place_open(r["place"].rsplit(" · ", 1)[-1]) for r in t["shops"] if " · " in r["place"])
+    # a damage written "apply 180% in damage" (Steal) is read as the page says it, at the max level (P84A-21)
+    import re
+    steal = one(t["skills"], skill="Steal")
+    said = [int(n) for n in re.findall(r"(\d+)% in damage", kb.page(steal["key"]))]    # per skill level: the max
+    assert said and steal["damage"] == max(said)
+    # the cheapest seller's citizen rank (Raymond sells Bronze Arrows for Bows for 2 mesos to a Helpful Stranger
+    # only): whatever shop is cheapest tonight, its rank is in the cell (P84A-19)
+    for r in t["consumables"]:
+        offers = [o for o in t["shops"] if o["item_key"] == r["key"] and o["price"] == r["buy"] and o["rank"]]
+        if r.get("seller") and offers and len({o["rank"] for o in offers}) == 1 \
+                and len([o for o in t["shops"] if o["item_key"] == r["key"] and o["price"] == r["buy"]]) == 1:
+            assert f"citizen rank {offers[0]['rank']}" in r["seller"], r["item"]
+    assert not [r for r in t["monsters"] if "spawns.tsv" in str(r["maps"])]     # answers never name files
 
 
 @needs_kb
@@ -555,3 +604,39 @@ def test_real_tables_cover_the_pages(real):
     # most shop items, spawn maps and NPC places resolve to their keys
     assert sum(1 for r in t["shops"] if r["item_key"]) > 0.95 * len(t["shops"])
     assert all(r["map_key"] for r in t["spawns"])
+
+
+@needs_kb
+def test_real_tables_audit_fixes(real):
+    """Launch audit (KB-1, 3, 4, 9, 10, 11, 15, 16, 17, 28, 29): each one a row the tables had wrong."""
+    kb, t = real
+    # the Hollow's boss and hidden maps are out; the Free Market, a KPQ stage, the crafting stations are in
+    assert not [r for r in t["monsters"] if r["monster"] in ("Rotten Mushmom", "Rotten Mushroom", "Rafflesia")]
+    assert not [r for r in t["maps"] if r["map"] in ("Someone Else's Grave", "Forgotten Hollow", "Primeval Forest I")]
+    assert one(t["maps"], map="Free Market Entrance")["street"] == "Hidden Street"
+    assert one(t["maps"], map="1st Accompaniment <1st Stage>")
+    assert one(t["npcs"], npc="Anvil")["map"] == "Perion" and one(t["npcs"], npc="Doofus")
+    # "Success rate :100%" and "Success rate:10%" are read like "Success rate: 60%"
+    assert one(t["scrolls"], scroll="Cape DEX Scroll: Lesser")["success"] == 100
+    assert one(t["scrolls"], scroll="Spear Attack Scroll: Greater")["success"] == 10
+    # Henesys armor is sold by Henesys' Sam, once; a shop table's own spelling finds its item
+    assert not [r for r in t["shops"] if r["npc_key"] == kb.npc_key("Sam") and "Henesys" in r["place"]]
+    pairs = [(r["npc_key"], r["item_key"]) for r in t["shops"]]
+    assert len(pairs) == len(set(pairs)) and all(r["item_key"] for r in t["shops"])
+    # "Craftable (2 recipes)": the craftable arrows are in the game
+    assert [r for r in t["consumables"] if r["item"] == "Iron Arrows for Crossbows"]
+    # one row per boss (the map-less copy goes), the twins told apart, the best map in the game is rank 1
+    for boss in ("Mano", "Mushmom", "Jr. Balrog", "King Slime"):
+        assert len([r for r in t["monsters"] if r["monster"] == boss]) == 1, boss
+    twins = sorted((r["key"], r["gender"]) for r in t["equips"] if r["item"] == "Green Bennis Chainmail")
+    assert twins == [("item/1003", "Male"), ("item/1013", "Female")]
+    assert kb.droppers.get("item/1013")
+    assert min(r["exp_rank"] for r in t["maps"] if r["exp_rank"]) == 1
+    assert not [r for r in t["scrolls"] if "Forgotten Hollow" in (r.get("seller") or "")]
+    assert not [r for r in t["shops"] if "Forgotten Hollow" in r["place"]]
+
+
+def test_the_background_build_warms_the_first_questions_caches(tiny):
+    """The name indexes, droppers and route graph were built on the first question's answer path (~1 s)."""
+    tables.ensure_async(tiny).join(timeout=60)
+    assert {"_question_names", "_hebrew_words", "droppers"} <= set(vars(tiny)) and getattr(tiny, "_routes", None)

@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (QAbstractButton, QButtonGroup, QFrame, QHBoxLayou
 from .. import bidi
 from . import theme
 
+DISABLED_OPACITY = 0.45      # a Switch / Select that can't be used now
+
 
 class Switch(QAbstractButton):
     """iOS switch: the knob slides with a critically damped ease; mirrors in RTL."""
@@ -45,6 +47,8 @@ class Switch(QAbstractButton):
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # greyed, as iOS does (it looked live while it did nothing)
         w, h = 46, 28
         track = QRectF(0, (self.height() - h) / 2, w, h)
         off = QColor(120, 120, 128, 90) if theme.MODE == "dark" else QColor(120, 120, 128, 60)
@@ -248,7 +252,16 @@ class Section(QFrame):
             sep = QFrame(objectName="Separator")
             sep.setFixedHeight(1)
             self.rows.addWidget(sep)
-        self.rows.addWidget(w)
+        if isinstance(w, QPushButton) and w.objectName() in ("Link", "LinkDanger"):
+            # a link at its own width on the leading side (the layout mirrors it): full width, its "text-align:
+            # left" isn't mirrored, and in Hebrew every link sat at the far end from its section's header
+            self.rows.addWidget(w, 0, Qt.AlignLeading | Qt.AlignVCenter)
+        else:
+            if isinstance(w, QLabel) and w.contentsMargins().isNull():
+                # a plain text row gets the rows' own top and bottom room (add_row's 8 px): the pets' intro sat
+                # 4 px from the card's edge
+                w.setContentsMargins(0, 8, 0, 8)
+            self.rows.addWidget(w)
         self._items.append((sep, w))
         # a row that is hidden for now (a sign-in hint, the installer's progress) left its divider behind, an
         # empty line at the bottom of the card: each divider shows only when its row and one above it do
@@ -296,6 +309,11 @@ def track_slider(slider, rtl: bool) -> None:
 from PySide6.QtCore import QPoint, QPointF  # noqa: E402
 from PySide6.QtGui import QAction, QPainterPath, QPen  # noqa: E402
 from PySide6.QtWidgets import QMenu  # noqa: E402
+
+
+# the room around a Select's value: theme.py's "padding: 0 28px" and its 1px border, both sides. 48 left 10px too few:
+# at font size 16 the Hebrew "ברירת המחדל של המערכת" fit the cap, wasn't cut, and lost its first letter at the edge
+SELECT_PAD = 58
 
 
 class Select(QPushButton):
@@ -366,7 +384,7 @@ class Select(QPushButton):
     def _shown(self, text: str) -> str:
         if self.text_width is None:
             return text
-        room = min(self.text_width, self.width() - 48) if self.isVisible() else self.text_width
+        room = min(self.text_width, self.width() - SELECT_PAD) if self.isVisible() else self.text_width
         cut = self.fontMetrics().elidedText(text, Qt.ElideRight, max(room, 20))
         # an English name in a Hebrew window: one LTR block, or the "…" jumped to its left end
         return bidi.ltr_name(cut, self.layoutDirection() == Qt.RightToLeft)
@@ -381,8 +399,8 @@ class Select(QPushButton):
         longest = max((self.fontMetrics().horizontalAdvance(t) for t in self._items), default=40)
         if self.text_width is not None:
             longest = min(longest, self.text_width)
-            s.setWidth(longest + 48)        # the button's own hint measured the uncut text
-        return s.expandedTo(QSize(longest + 48, 30))
+            s.setWidth(longest + SELECT_PAD)        # the button's own hint measured the uncut text
+        return s.expandedTo(QSize(longest + SELECT_PAD, 30))
 
     def _open(self):
         menu = QMenu(self)
@@ -410,6 +428,8 @@ class Select(QPushButton):
         cx = 14 if rtl else self.width() - 14          # chevrons on the trailing side
         cy = self.height() / 2
         col = QColor(235, 235, 245, 160) if theme.MODE == "dark" else QColor(60, 60, 67, 160)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # the chevrons grey out with the value (theme.py)
         p.setPen(QPen(col, 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         up, down = QPainterPath(), QPainterPath()
         up.moveTo(QPointF(cx - 3.5, cy - 2))

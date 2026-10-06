@@ -197,31 +197,58 @@ def haystack(answer, kb) -> str:
     return _norm("\n".join([answer.text or ""] + names))
 
 
+_EDGE = "A-Za-z0-9"       # a value's edges: "3000" is not in "30000", "Raffle" not in "Rafflesia" (Hebrew prefixes glue)
+
+
+def _longer(kb, value: str) -> list[str]:
+    """The KB names that hold this value as whole words and are longer ("Garnet Ore" for "Garnet")."""
+    cache = kb.__dict__.setdefault("_eval_longer", {})
+    if value not in cache:
+        pat = re.compile(rf"(?<![{_EDGE}]){re.escape(value)}(?![{_EDGE}])")
+        cache[value] = sorted({n for e in kb.entities.values() if (n := _norm(e.get("name") or "")) != value
+                               and pat.search(n)}, key=len, reverse=True)
+    return cache[value]
+
+
+def _found(hay: str, value: str, kb) -> bool:
+    """value is in what the player sees as itself: whole words or a whole number, and not only inside a longer KB
+    name ("Garnet" is not said by "Garnet Ore", "Henesys" not by a "Return Scroll to Henesys" card). Plain
+    substrings passed wrong answers and failed right ones. "a|b" is found when either is: the name a longer KB name
+    rightly says too ("Jr. Boogie|Jr. Boogie 2", "Soul Arrow|Soul Arrow: Bow")."""
+    if "|" in value:
+        return any(_found(hay, v, kb) for v in value.split("|"))
+    value = _norm(value)
+    covered = [m.span() for n in _longer(kb, value) if n in hay
+               for m in re.finditer(rf"(?<![{_EDGE}]){re.escape(n)}(?![{_EDGE}])", hay)] if kb is not None else []
+    return any(not any(a <= m.start() and m.end() <= b for a, b in covered)
+               for m in re.finditer(rf"(?<![{_EDGE}]){re.escape(value)}(?![{_EDGE}])", hay))
+
+
 def recall(checks: dict, answer, kb) -> float | None:
     """The share of must_list names the answer shows (None: not a list case)."""
     names = checks.get("must_list")
     if not names or answer is None:
         return None
     hay = haystack(answer, kb)
-    return round(sum(_norm(n) in hay for n in names) / len(names), 3)
+    return round(sum(_found(hay, n, kb) for n in names) / len(names), 3)
 
 
 def score(checks: dict, answer, kb) -> list[str]:
     """Problems with one answer (empty = pass). Only the content checks: "instant" is the caller's business.
     must_list passes only when every name is there (recall() gives the share)."""
     hay = haystack(answer, kb)
-    problems = [f"missing '{s}'" for s in checks.get("must_mention", []) if _norm(s) not in hay]
+    problems = [f"missing '{s}'" for s in checks.get("must_mention", []) if not _found(hay, s, kb)]
     anyof = checks.get("must_mention_any")
-    if anyof and not any(_norm(s) in hay for s in anyof):
+    if anyof and not any(_found(hay, s, kb) for s in anyof):
         problems.append("none of " + ", ".join(f"'{s}'" for s in anyof))
-    problems += [f"mentions '{s}'" for s in checks.get("must_not_mention", []) if _norm(s) in hay]
+    problems += [f"mentions '{s}'" for s in checks.get("must_not_mention", []) if _found(hay, s, kb)]
     keys = set(answer_keys(answer))
     problems += [f"no card for {k}" for k in checks.get("entities_include", []) if k not in keys]
     wanted = checks.get("must_list") or []
-    missing = [s for s in wanted if _norm(s) not in hay]
+    missing = [s for s in wanted if not _found(hay, s, kb)]
     if missing:
         problems.append(f"list misses {len(missing)}/{len(wanted)}: " + ", ".join(f"'{s}'" for s in missing))
-    problems += [f"lists '{s}'" for s in checks.get("must_not_list", []) if _norm(s) in hay]
+    problems += [f"lists '{s}'" for s in checks.get("must_not_list", []) if _found(hay, s, kb)]
     return problems
 
 
@@ -571,12 +598,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--compare", nargs=2, type=Path, metavar=("BEFORE", "AFTER"),
                     help="print the per-case deltas between two reports, then exit (1 on regressions)")
     args = ap.parse_args(argv)
-    # each run's timings (sent, first sign of life, a hedge twin and who won) go to evals/reports/<...>.log: a slow
-    # case can then be told apart from a slow server (shop-arrows-he took 61 s once, first text at the hedge time)
-    if args.mode != "quick" or args.provider:
-        REPORTS.mkdir(parents=True, exist_ok=True)
-        logging.basicConfig(level=logging.INFO, filename=REPORTS / f"{time.strftime('%Y%m%d-%H%M%S')}.log",
-                            encoding="utf-8", format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     if args.compare:
         a, b = (json.loads(p.read_text(encoding="utf-8")) for p in args.compare)
@@ -610,6 +631,13 @@ def main(argv: list[str] | None = None) -> int:
     if os.environ.get("CI") or os.environ.get("PYTEST_CURRENT_TEST"):
         print("live mode spends a real player's plan usage: refusing to run in CI or under pytest.")
         return 2
+    # each run's timings (sent, first sign of life, a hedge twin and who won) go to evals/reports/<...>.log: a slow
+    # case can then be told apart from a slow server (shop-arrows-he took 61 s once, first text at the hedge time).
+    # Live runs only (quick and --compare made an empty log every run, P84B-9), and only past the refusal: the refusing
+    # tests made evals/reports in the checkout and could take the root logger
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, filename=REPORTS / f"{time.strftime('%Y%m%d-%H%M%S')}.log",
+                        encoding="utf-8", format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     provider = args.provider or "claude"
     names = signed_in_providers() if provider == ALL_SIGNED_IN else [provider]
     if not names:

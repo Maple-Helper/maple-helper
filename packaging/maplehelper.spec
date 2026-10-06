@@ -71,7 +71,7 @@ if MAC:
             "CFBundleShortVersionString": VERSION,
             "CFBundleVersion": VERSION,
             "LSUIElement": True,            # menu bar app: no Dock icon, may float over a fullscreen game
-            "LSMinimumSystemVersion": "12.0",
+            "LSMinimumSystemVersion": "14.0",  # onnxruntime ships only macosx_14_0 wheels (Qt: 13.0)
             "NSHighResolutionCapable": True,
             # without this text macOS silently denies the microphone
             "NSMicrophoneUsageDescription": "Maple Helper records only after you press the talk key or the mic "

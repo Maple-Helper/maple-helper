@@ -1,5 +1,5 @@
 {
- "title": "MapleStory Classic: מדריך בילד ולבלינג ל-Cleric, רמה 30-70",
+ "title": "MapleStory Classic: מדריך בילד ועליית רמות ל-Cleric, רמה 30-70",
  "intro": "Clerics מרפאים את הפארטי שלהם, מחזקים Accuracy עם Bless, ויורים Holy Arrow על מובים. תמקסמו קודם Holy Arrow בשביל ההתקפה הרגילה שלכם, או תתחילו ב-Heal לריפוי מוקדם ואימון על אנדדים.",
  "blocks": [
   {
@@ -96,15 +96,15 @@
   },
   {
    "ul": [
-    "[[img:32b086d39a1fbe.png]]Magic Armor **קחו אותו קודם.** רמה 14 נותן +92 Weapon ו-Magic Defense ל-495 שניות; רמה 16 נותן +100 ל-525 שניות.",
-    "[[img:211a115f0a6318.png]]Magic Guard **תעלו אותו מאוחר יותר.** רמה 13 מעביר 74% מהמכה ל-MP ולבל 15 מעביר 80%. תעלו אותו כשמכות בודדות נהיות גדולות מספיק כדי לאיים עליכם. העברת נזק ל-MP עולה יותר mesos למלא מחדש, אז הוא קונה ביטחון."
+    "[[img:32b086d39a1fbe.png]]Magic Armor **קחו אותו קודם.** רמה 14 נותנת +92 Weapon ו-Magic Defense ל-495 שניות; רמה 16 נותנת +100 ל-525 שניות.",
+    "[[img:211a115f0a6318.png]]Magic Guard **תעלו אותו מאוחר יותר.** רמה 13 מעבירה 74% מהמכה ל-MP ורמה 15 מעבירה 80%. תעלו אותו כשמכות בודדות נהיות גדולות מספיק כדי לאיים עליכם. העברת נזק ל-MP עולה יותר mesos למלא מחדש, אז הוא קונה ביטחון."
    ]
   },
   {
    "h3": "אזרחות מומלצת"
   },
   {
-   "p": "אנחנו ממליצים על Kerning City מרמה 30 עד 70. מגילות הרובים שלה יכולות לעזור להגיע לדרישת LUK או להוסיף עוד INT. גם ההנחות בחנות עוזרות כשהמסוס שלכם הולך על שחזור MP."
+   "p": "אנחנו ממליצים על Kerning City מרמה 30 עד 70. מגילות הרובים שלה יכולות לעזור להגיע לדרישת LUK או להוסיף עוד INT. גם ההנחות בחנות עוזרות כשה-mesos שלכם הולכים על שחזור MP."
   },
   {
    "h2": "Accuracy אחרי רמה 30"
@@ -121,13 +121,13 @@
    "note": "**Magician Base Accuracy**\nהרמה, ה-Total INT, ה-Total LUK וה-Accuracy הישיר שלכם מתווספים כולם ל-ACC הכולל.\n**+0.39** ACC לכל רמה\n**+0.24** ACC לכל INT\n**+0.12** ACC לכל LUK\n**+1.00** ACC לכל ACC ישיר"
   },
   {
-   "p": "לכל מוב יש Avoidability. להילחם מעל הרמה שלכם מעלה את ה-ACC שצריך כדי לא לפספס אף פעם; לעלות רמות מוריד את העונש הזה. מפה ברמה נמוך יותר יכולה בקלות לנצח כשאתם מקבלים שם קילים אמינים בהטלה אחת או שתיים."
+   "p": "לכל מוב יש Avoidability. להילחם מעל הרמה שלכם מעלה את ה-ACC שצריך כדי לא לפספס אף פעם; לעלות רמות מוריד את העונש הזה. מפה ברמה נמוכה יותר יכולה בקלות לנצח כשאתם מקבלים שם קילים אמינים בהטלה אחת או שתיים."
   },
   {
    "table": [
     [
      "מוב",
-     "רמה מוב",
+     "רמת המוב",
      "Avoid של המוב",
      "ACC כדי לא לפספס ברמה שווה"
     ],
@@ -162,7 +162,7 @@
    "text": "קראו את ההסבר המלא על Accuracy של Magician"
   },
   {
-   "h2": "רמות 30-70: בילד סקילים ולבלינג ל-Cleric"
+   "h2": "רמות 30-70: בילד סקילים ועליית רמות ל-Cleric"
   },
   {
    "img": "006b79f4d98b74.png",
@@ -187,7 +187,7 @@
    "p": "[[img:9a7face47a910e.png]] **Magician Job Instructor** מריץ את מבחן ה-Dark Marble צפונית ל-Ellinia."
   },
   {
-   "note": "**בילד פארטי: התחילו Holy Arrow ברמה 31, אבל תמשיכו לתקוף עם Energy Bolt עד בערך רמה 38.** הגלגול הנמוך ביותר של Holy Arrow עוקף את Energy Bolt 20 ברמה סקיל 18 (רמה 37) מול Zombie Mushrooms ו-Jr. Wraith, ובלבל סקיל 24 (רמה 39) מול Horny Mushrooms. ברמה 40, Holy Arrow 28 מגיע לבערך 4,860 EXP/min ב-Training Advisor מול 3,240 של Energy Bolt. סדר המשחק הסולו שומר על Energy Bolt עד רמה 41 כדי לחסוך mesos."
+   "note": "**בילד פארטי: התחילו Holy Arrow ברמה 31, אבל תמשיכו לתקוף עם Energy Bolt עד בערך רמה 38.** הגלגול הנמוך ביותר של Holy Arrow עוקף את Energy Bolt 20 ברמת סקיל 18 (רמה 37) מול Zombie Mushrooms ו-Jr. Wraith, וברמת סקיל 24 (רמה 39) מול Horny Mushrooms. ברמה 40, Holy Arrow 28 מגיע בערך ל-4,860 EXP/min ב-Training Advisor מול 3,240 של Energy Bolt. סדר המשחק הסולו שומר על Energy Bolt עד רמה 41 כדי לחסוך mesos."
   },
   {
    "h3": "יעד הסקילים ברמה 70 (בילד פארטי)"
@@ -235,7 +235,7 @@
    "h3": "חלוקת SP ל-Cleric פארטי: רמות 30-70"
   },
   {
-   "p": "ל-Cleric שמשחק בפארטי. Holy Arrow בא קודם כדי שעדיין תעלו רמות מהר. Invincible 5 ו-Bless 16 באים אחריו, כך שמלבל 49 כל מי שקרוב מקבל +16 Accuracy, +16 Evasion ו-8% יותר שחזור מ-Heal. Heal ממוקס אחרי זה. Invincible נשאר על 5 כי הוא מגן רק עליכם, ו-Teleport ממוקס אחרון בשביל המרחק של 150."
+   "p": "ל-Cleric שמשחק בפארטי. Holy Arrow בא קודם כדי שעדיין תעלו רמות מהר. Invincible 5 ו-Bless 16 באים אחריו, כך שמרמה 49 כל מי שקרוב מקבל +16 Accuracy, +16 Evasion ו-8% יותר שחזור מ-Heal. Heal ממוקס אחרי זה. Invincible נשאר על 5 כי הוא מגן רק עליכם, ו-Teleport ממוקס אחרון בשביל המרחק של 150."
   },
   {
    "table": [
@@ -332,7 +332,7 @@
    "h3": "חלוקת SP ל-Cleric סולו: רמות 30-70"
   },
   {
-   "p": "ל-Cleric שבעיקר מגרנד לבד, מבוסס על Cleric Meso Management Guide של Grummash בלי איפוס ה-SP שלו ברמה 41. מתחיל מבילד הג'וב הראשון של חוסך ה-mesos."
+   "p": "ל-Cleric שבעיקר עושה גריינד לבד, מבוסס על Cleric Meso Management Guide של Grummash בלי איפוס ה-SP שלו ברמה 41. מתחיל מבילד הג'וב הראשון של חוסך ה-mesos."
   },
   {
    "ul": [
@@ -461,13 +461,13 @@
    "p": "Recovery Rate הוא ערך הסקיל הרשום ולא מתורגם לאחוז מה-Max HP. תראו איך Heal מחלק את המטרות שלו לפני שאתם בוחרים מפת אנדדים."
   },
   {
-   "p": "**תשתמשו בלבלי הסקילים שלכם ב-Training Advisor.** בחירות המפות למטה עוקבות אחרי סדר הפארטי. הכניסו את לבלי הסקילים שלכם ב-Training Advisor בשביל הסדר הסולו."
+   "p": "**תשתמשו ברמות הסקילים שלכם ב-Training Advisor.** בחירות המפות למטה עוקבות אחרי סדר הפארטי. הכניסו את רמות הסקילים שלכם ב-Training Advisor בשביל הסדר הסולו."
   },
   {
    "h2": "חלוקת AP ל-Cleric: רמות 30-70"
   },
   {
-   "p": "תשאירו את ה-LUK הבסיסי על הרמה שלכם פחות 10 ותשימו את כל השאר ב-INT בשביל יותר נזק, MP ו-Accuracy. זה עומד בדרישות של Mithril Wand, Esther Shield, Fairy Wand ו-Cromi ברמה שבו אפשר ללבוש אותם."
+   "p": "תשאירו את ה-LUK הבסיסי על הרמה שלכם פחות 10 ותשימו את כל השאר ב-INT בשביל יותר נזק, MP ו-Accuracy. זה עומד בדרישות של Mithril Wand, Esther Shield, Fairy Wand ו-Cromi ברמה שבה אפשר ללבוש אותם."
   },
   {
    "p": "ברמה 50, תכינו Green Goldwind Shoes עם Tailoring Lv 10. ה-+5 LUK שלהן מכסה את Thorns, Evil Tale, Evil Wings ו-Angel Wings כשאתם מגיעים לכל אחד מהם. תדלגו על Arc Staff: הוא דורש 40 LUK ברמה 45, כשבתוכנית הזאת יש 35, אז תישארו על Fairy Wand עד Cromi ב-50."
@@ -626,7 +626,7 @@
   {
    "ul": [
     "[[img:24dcca787059a4.png]]Energy Bolt ברמה 30, [[img:ee22f70546674f.png]]Holy Arrow מרמה 41.",
-    "**ציוד:** רמות 41 עד 60 לובשים את כובע המאג', האוברול, הכפפות והנעליים החדשים ביותר לאותו רמה, Esther Shield, ואת הנשק מטבלת הציוד. רמה 70 לובש את הציוד של Grummash.",
+    "**ציוד:** רמות 41 עד 60 לובשים את כובע המאג', האוברול, הכפפות והנעליים החדשים ביותר לאותה רמה, Esther Shield, ואת הנשק מטבלת הציוד. ברמה 70 לובשים את הציוד של Grummash.",
     "**הטלה אחת מובטחת:** כל שלושת החיצים הורגים את המוב בגלגול הכי חלש, ב-100% hit rate.",
     "[[img:94ac0043dcd64d.png]]Heal אף פעם לא נתן מפה של הטלה אחת או שתיים עם הבילדים האלה."
    ]
@@ -638,7 +638,7 @@
    "note": "רמה 30\nEnergy Bolt 20 / MG 3 / MA 20 / 71 ACC / 155 INT\n[[img:ae64823f427bc0.png]] **Transfer Area** Energy Bolt: Stirge בהטלה אחת, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 4 פורטלים; בערך 2,741 EXP/min [[img:059caff41683e8.png]] **Dungeon, Southern Forest IV** Energy Bolt: Blue Mushroom בשתי הטלות ושאר הספאונים בהטלה אחת, Safe ב-9%; מילוי אצל Len the Fairy במרחק 5 פורטלים; בערך 2,435 EXP/min\nרמה 41\nHoly Arrow 30, 86 ACC, 196 INT\n[[img:34dcba7b3807fe.png]] **Line 1 <Area 1>** Bubbling בהטלה אחת מובטחת, Safe ב-2%; מילוי אצל Dr. Faymus במרחק 3 פורטלים; בערך 5,190 EXP/min [[img:777ced8b4048a6.png]] **Line 1 <Area 2>** Jr. Wraith ו-Stirge בהטלה אחת מובטחת, Safe ב-7%; מילוי אצל Dr. Faymus במרחק 5 פורטלים; בערך 5,004 EXP/min\nרמה 50\nHoly Arrow 30, Bless 16 ו-Invincible 5 פעילים, 116 ACC, 235 INT\n[[img:36750484773e65.png]] **Ant Tunnel II** שתי הפטריות בהטלה אחת מובטחת, Safe ב-4%; מילוי אצל Mr. Sweatbottom במרחק 4 פורטלים; בערך 9,716 EXP/min [[img:36750484773e65.png]] **Ant Tunnel III** אותו שילוב של הטלה אחת, Safe ב-4%; מילוי אצל Mr. Sweatbottom במרחק 5 פורטלים; בערך 9,659 EXP/min\nרמה 60\nHoly Arrow 30, Bless 16 ו-Invincible 5 פעילים, 132 ACC, 280 INT\n[[img:36750484773e65.png]] **Ant Tunnel II** שתי הפטריות בהטלה אחת מובטחת, Safe ב-3%; מילוי אצל Mr. Sweatbottom במרחק 4 פורטלים; בערך 9,716 EXP/min [[img:36750484773e65.png]] **Ant Tunnel III** אותו שילוב של הטלה אחת, Safe ב-3%; מילוי אצל Mr. Sweatbottom במרחק 5 פורטלים; בערך 9,659 EXP/min\nרמה 70\nהציוד של Grummash, Bless 16 ו-Invincible 5 פעילים, 153 ACC, 352 INT, 311 M.ATK\n[[img:a951e586bae69f.png]] **Ant Tunnel Park** Evil Eye ושתי הפטריות בהטלה אחת מובטחת, Safe ב-4%; מילוי אצל Mr. Sweatbottom במרחק 11 פורטלים; בערך 10,533 EXP/min [[img:0386eea7010d4c.png]] **Line 2 <Area 3>** Wraith בהטלה אחת מובטחת, Safe ב-6%; מילוי אצל Dr. Faymus במרחק 7 פורטלים; בערך 9,778 EXP/min\nGrummash מציין שרוב הציוד הזה לא יהיה זמין עד ש-Ossyria תיפתח. תצפו למספרים נמוכים יותר בהשקה."
   },
   {
-   "p": "**לפני שאתם מתמקמים:** Ant Tunnel II מנצח את Ant Tunnel III בפורטל אחד פחות לחנות המילוי, עם אותם קילים בהטלה אחת ואותה סכנה ברמות 50 ו-60. עשרה רמות נוספים לבד הם לא סיבה לעבור."
+   "p": "**לפני שאתם מתמקמים:** Ant Tunnel II מנצח את Ant Tunnel III בפורטל אחד פחות לחנות המילוי, עם אותם קילים בהטלה אחת ואותה סכנה ברמות 50 ו-60. עשר רמות נוספות לבד הן לא סיבה לעבור."
   },
   {
    "p": "**למה לא Jr. Wraith ברמה 50?** עד אז Jr. Wraith מת משניים משלושת החיצים שלכם, אז למקד באחד מבזבז את השלישי. Training Advisor סופר את החץ המבוזבז: Line 1 <Area 2> יוצא בערך 7,836 EXP/min ומפות ה-Wraith בערך 5,867. ב-Ant Tunnel II חץ אחד הורג כל פטרייה, אז שום דבר לא מתבזבז."
@@ -681,7 +681,7 @@
    "p": "ראו בילד פארטי מול בילד סולו בשביל ערכי הסקילים."
   },
   {
-   "p": "**לאימון על אנדדים, הכניסו ב-Training Advisor את רמה ה-Heal שלכם ואת מספר חברי הפארטי והאנדדים הקרובים.**"
+   "p": "**לאימון על אנדדים, הכניסו ב-Training Advisor את רמת ה-Heal שלכם ואת מספר חברי הפארטי והאנדדים הקרובים.**"
   },
   {
    "h3": "Invincible ו-Bless"
@@ -794,7 +794,7 @@
    "ol": [
     "טענו את ההגדרה המדויקת שלכם ב-Character Builder.",
     "הגדירו 100% hit rate. השתמשו ב-Holy Arrow, או הכניסו את מספר מטרות הפארטי והאנדדים כשאתם בודקים Heal.",
-    "השאירו את Factor Danger into recommendations מופעל. הכניסו את לבלי הסקיל האמיתיים שלכם של Magic Guard ו-Invincible.",
+    "השאירו את Factor Danger into recommendations מופעל. הכניסו את רמות הסקיל האמיתיות שלכם של Magic Guard ו-Invincible.",
     "השוו את המפות הכי טובות של הטלה אחת או שתיים. בדקו סכנה ומרחק מחנות פוטים לפני שאתם בוחרים."
    ]
   },
@@ -816,10 +816,10 @@
    "note": "**Heal עדיף על כל פוט HP.** Grummash מדד ש-Heal 2 מחזיר בערך 110 HP תמורת 12 MP, בערך 12 mesos. אותם 110 HP עולים בערך 55 mesos בפוטים. לכן פוטי ה-HP למטה הם למקרי חירום."
   },
   {
-   "p": "**הכי שווה לקנות** הכי הרבה HP או MP לכל מסו"
+   "p": "**הכי שווה לקנות** הכי הרבה HP או MP לכל mesos"
   },
   {
-   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל מסו [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל מסו [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל מסו [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל מסו [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל מסו"
+   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל mesos [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל mesos [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל mesos [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל mesos [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל mesos"
   },
   {
    "p": "**לפי מצב** קנו רק כשהבאף מגיע לנקודת שבירה שימושית"
@@ -828,10 +828,10 @@
    "p": "[[img:01a2e09235af46.png]] **Magic Potion** 500 mesos · +10 M.ATK ל-10 דקות לנקודת שבירה בנזק [[img:4e15182d2a8a6e.png]] **Sniper Potion** 500 mesos · +5 ACC ל-10 דקות כדי לבטל פספוסים [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** 600 mesos · +7 ACC ל-15 דקות באף ה-ACC הכי טוב בחנות"
   },
   {
-   "p": "**לא לקנות** שחזור גרוע יותר לכל מסו מהאפשרויות למעלה"
+   "p": "**לא לקנות** שחזור גרוע יותר לכל mesos מהאפשרויות למעלה"
   },
   {
-   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל מסו [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל מסו"
+   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל mesos [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל mesos"
   },
   {
    "h2": "טעויות נפוצות של Cleric"

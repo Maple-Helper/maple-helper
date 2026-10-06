@@ -58,6 +58,18 @@ def test_opted_in_event_shape(tel):
     assert p["$process_person_profile"] is False
 
 
+def test_no_id_until_stats_are_turned_on(tel):
+    """The random id was created at every start, opted in or not (audit SEC-16)."""
+    settings, _ = tel
+    telemetry.init(settings, "0.6.0")
+    assert settings["install_id"] == "" and telemetry._state["id"] == ""
+    settings["telemetry"] = True
+    telemetry.set_enabled(True)
+    telemetry.track("app_started")
+    [e] = telemetry._drain()
+    assert len(settings["install_id"]) == 32 and e["distinct_id"] == settings["install_id"]
+
+
 def test_install_id_is_stable(tel):
     settings, _ = tel
     first = telemetry.install_id(settings)
@@ -108,6 +120,16 @@ def test_post_failure_is_swallowed(monkeypatch):
     def offline(*a, **kw):
         raise urllib.error.URLError("no network")
     monkeypatch.setattr(telemetry.urllib.request, "urlopen", offline)
+    assert telemetry._post([{"event": "x"}]) is False
+
+
+def test_a_broken_http_answer_never_kills_the_worker(monkeypatch):
+    # LIF-11: BadStatusLine isn't an OSError: it killed the worker thread and the stats stopped for the session
+    import http.client
+
+    def garbled(*a, **kw):
+        raise http.client.BadStatusLine("garbage")
+    monkeypatch.setattr(telemetry.urllib.request, "urlopen", garbled)
     assert telemetry._post([{"event": "x"}]) is False
 
 

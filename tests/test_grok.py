@@ -4,6 +4,7 @@ import io
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -120,6 +121,54 @@ def test_read_guard_allows_only_the_knowledge_base_and_the_screenshot(home, tmp_
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_read_guard_checks_every_key_that_names_a_path(home, tmp_path, guard_kind):
+    """Only target_file / target_directory / path were checked: the same read under file_path, filePath, paths or a
+    glob went through (audit SEC-1). Every path-like key is checked now; a grep pattern is no path."""
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    grok.write_guard(kb)
+    win = "C:\\Windows\\win.ini"
+
+    def decide(tool_input, cwd=kb):
+        return guard_decides(home, kb, None, raw=json.dumps(
+            {"cwd": str(cwd), "tool_name": "read_file", "tool_input": tool_input}, ensure_ascii=False).encode("utf-8"))
+    for ti in ({"file_path": win}, {"filePath": win}, {"target_file": "", "file_path": win},
+               {"target_file": None, "file_path": win}, {"target_file": "a.md", "file_path": win},
+               {"pattern": "x", "paths": ["C:\\Users"]}, {"pattern": "x", "paths": ["a.md", "C:\\Users"]},
+               {"pattern": "x", "glob": "C:/Users/**"}, {"pattern": "x", "glob": "../**"},
+               {"pattern": "x", "glob_pattern": "C:\\*"}, {"options": {"dir": "C:\\Users"}},
+               {"target_file": "~/.ssh/id_rsa"}, {"FILE": win}):
+        assert decide(ti) == "deny", ti
+    for ti in ({"file_path": "a.md"}, {"filePath": str(kb / "pages" / "b.md")}, {"paths": ["a.md", "pages"]},
+               {"pattern": "C:\\\\Users", "glob": "**/*.md"}, {"pattern": "\\d+"},
+               {"path": "pages", "include_hidden": True, "max_depth": 2}):
+        assert decide(ti) == "allow", ti
+    assert decide({"pattern": "x", "glob": "*.md"}, cwd="C:\\") == "deny"        # a glob runs where Grok runs
+    # a wildcard in a grep path is a glob too, and an empty list_dir is the folder it runs in (review PLT-12)
+    for ti in ({"pattern": "x", "path": "pages/*.md"}, {"pattern": "x", "path": "pages/**/*.md"},
+               {"pattern": "x", "path": "x?.md"}, {}):
+        assert decide(ti) == "allow", ti
+    for ti in ({"pattern": "x", "path": "../*.md"}, {"pattern": "x", "path": "C:\\*.md"},
+               {"pattern": "x", "path": "C:/Users/*"}, {"pattern": "x", "path": "/Users/*"},
+               {"pattern": "x", "path": "pages/../../*"}, {"pattern": "x", "path": "\\\\?\\C:\\*"}):
+        assert decide(ti) == "deny", ti
+    assert decide({"pattern": "x", "path": "pages/*.md"}, cwd="C:\\") == "deny" and decide({}, cwd="C:\\") == "deny"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
+def test_no_trusted_hook_means_no_file_tools(home, tmp_path, monkeypatch):
+    """Grok lets a read through when its hook fails: a PowerShell guard whose quoted path the shell would change
+    ($ or ` in the user name) can't be trusted, so the run reads nothing (audit SEC-15)."""
+    kb = tmp_path / "kb"
+    kb.mkdir()
+    monkeypatch.setattr(grok, "guard_exe", lambda kb_root: None)
+    assert grok.write_guard(kb) is True
+    odd = tmp_path / "a$b" / "grok"
+    monkeypatch.setattr(grok, "home", lambda: odd)
+    assert grok.write_guard(kb) is False
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
 @pytest.mark.parametrize("user", ["גבי", "עמית", "O’Neil‘s ‚x‛", "John Smith"])
 def test_read_guard_holds_under_a_hebrew_or_quoted_user_folder(tmp_path, monkeypatch, user, guard_kind):
     """The data folder sits under the Windows user name. ב and ג are the bytes D7 91 / D7 92, which PowerShell 5.1
@@ -228,6 +277,10 @@ def test_models_and_saver():
     out = "Default model: grok-4.6\n\nAvailable models:\n  * grok-4.6 (default)\n  - grok-4.6-fast\n"
     models = grok.parse_models(out)
     assert [m for m, _ in models] == ["grok-4.6", "grok-4.6-fast"] and grok.lightest(models) == "grok-4.6-fast"
+    # PRV-19: the picker shows readable names, like the other AIs' ("Grok 4.6 Fast", not "grok-4.6-fast")
+    assert [n for _, n in models] == ["Grok 4.6", "Grok 4.6 Fast"]
+    from maplehelper.providers.base import model_name
+    assert model_name("grok-4.6") == "Grok 4.6"
 
 
 class Done:
@@ -278,6 +331,7 @@ class FakePopen:
     def __init__(self, cmd, **kw):
         self.cmd, self.kw = cmd, kw
         pf = cmd[cmd.index("--prompt-file") + 1]
+        self.prompt_file = Path(pf)
         self.prompt = open(pf, encoding="utf-8").read()
         self.shots = [p.name for p in grok.shots_dir().rglob("*.jpg")]
         FakePopen.calls.append(self)
@@ -317,9 +371,12 @@ class TestBackend:
         p = FakePopen.calls[0]
         assert "<question>" in p.prompt and p.shots == ["screenshot-0.jpg"]
         instructions = p.cmd[p.cmd.index("--system-prompt-override") + 1]
-        assert "screenshot-0.jpg" in instructions and "read_file" in instructions
+        # the per-run screenshot path goes with the question: the instructions stay the same (audit PRV-10)
+        assert "screenshot-0.jpg" in p.prompt and "screenshot-0.jpg" not in instructions and "read_file" in instructions
         assert p.kw["cwd"] == str(kb.root) and p.kw["env"]["GROK_HOME"] == str(home / ".grok")
-        assert not list(grok.shots_dir().rglob("*.jpg"))                     # gone after
+        # the question file sits in the run's folder in GROK_HOME (macOS's strict sandbox reads there, audit PRV-6)
+        assert p.prompt_file.parent.parent == grok.shots_dir()
+        assert not list(grok.shots_dir().rglob("*.jpg")) and not list(grok.shots_dir().rglob("*.txt"))   # gone after
 
     def test_the_sync_screenshot_read_opens_only_the_screenshot(self, kb, home, monkeypatch):
         """light (the ⟳ sync, 60 s): read_file for the screenshot, no grep or list_dir in the knowledge base."""
@@ -328,7 +385,7 @@ class TestBackend:
         p = FakePopen.calls[0]
         assert p.cmd[p.cmd.index("--disallowed-tools") + 1] == "search_tool,use_tool,grep,list_dir"
         instructions = p.cmd[p.cmd.index("--system-prompt-override") + 1]
-        assert "quick screenshot read" in instructions and "screenshot-0.jpg" in instructions
+        assert "quick screenshot read" in instructions and "screenshot-0.jpg" in p.prompt
         assert "read it with read_file, grep and list_dir" not in instructions
 
     def test_api_key_and_summary(self, kb, home, monkeypatch):
@@ -364,3 +421,135 @@ def test_the_account_email_comes_from_grok_s_sign_in_file(home, monkeypatch):
     monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
         "You are logged in with grok.com.\n\nAvailable models:\n  * grok-4.7 (default)\n"))
     assert providers.get("grok").account() == {"status": "ok", "email": "player@x.com"}
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("session 0194a401-7f22 error: model returned empty response", None),          # an id, not a 401
+    ("request id 7a3429fe failed: internal server error", None),
+    ("HTTP 401 Unauthorized", "not_logged_in"),
+    ("status: 429 Too Many Requests", "usage_limit"),
+    ("Error: xAI API returned status 429.", "usage_limit"),                       # at the end of a sentence
+    ("HTTP 401.", "not_logged_in"),
+    ("took 429.5 s, then failed", None),
+    ("id 429-ab failed", None),
+    ("waited 1429 ms", None),
+])
+def test_status_codes_count_only_on_their_own(text, kind):
+    """"401" / "429" anywhere in stderr made an unrelated failure a sign-out or a limit (audit PRV-5)."""
+    assert grok.classify(text) == kind
+
+
+def test_offline_is_not_signed_out(home, monkeypatch):
+    """No connection: no model list, and a sign-in would fail too (audit PRV-13)."""
+    monkeypatch.setattr(grok, "_models_cache", [])
+    monkeypatch.setattr(grok, "find_grok", lambda: "grok.exe")
+    monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
+        "Error: error sending request for url (https://api.x.ai/v1/models): dns error: no such host", 1))
+    assert providers.get("grok").account() == {"status": "offline", "email": None}
+    assert providers.get("grok").models() == [(None, "")]
+
+
+def test_the_offline_log_line_has_no_email_or_link(home, monkeypatch, caplog):
+    """`grok models` output is where the account email is read from, and the log ships in a report (review PLT-10)."""
+    import logging
+    monkeypatch.setattr(grok, "_models_cache", [])
+    monkeypatch.setattr(grok, "find_grok", lambda: "grok.exe")
+    monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
+        "Logged in as player@x.com\nError: error sending request for url (https://api.x.ai/v1/models): dns error", 1))
+    with caplog.at_level(logging.WARNING, logger="maplehelper"):
+        assert providers.get("grok").account()["status"] == "offline"
+    assert "no connection" in caplog.text and "player@x.com" not in caplog.text and "api.x.ai" not in caplog.text
+    import inspect
+
+    from maplehelper.providers import codex                # Codex's stall line, the same way
+    assert 'STALL_TIMEOUT_S, base.scrub(stderr[-1000:]))' in inspect.getsource(codex)
+
+
+def test_each_run_s_saved_session_is_removed(home, tmp_path):
+    """Grok saves every run under GROK_HOME/sessions (no flag turns it off): the run's own one goes when it ends,
+    and old ones a crash left at the next start (audit PRV-3)."""
+    import os
+    import time
+    group = grok.grok_home() / "sessions" / "C%3A%5Ckb"
+    mine, other, old = group / "01a10d99-127d-7c42", group / "01a10d99-74d0-7082", group / "0190aaaa-0000-0000"
+    for d in (mine, other, old):
+        d.mkdir(parents=True)
+        (d / "summary.json").write_text("{}", encoding="utf-8")
+    os.utime(old, (time.time() - 2 * 86400,) * 2)
+
+    class Ended:
+        def wait(self, timeout=None):
+            return 0
+    grok.drop_session(Ended(), "01a10d99-127d-7c42")
+    grok.drop_session(Ended(), "../..")                      # never a path
+    for _ in range(100):
+        if not mine.exists():
+            break
+        time.sleep(0.05)
+    assert not mine.exists() and other.exists() and old.exists()
+    grok.sweep_sessions()
+    assert other.exists() and not old.exists()
+
+
+def test_grok_s_prompt_history_goes_with_the_sessions(home):
+    """Grok also writes every run's whole prompt to sessions/<folder>/prompt_history.jsonl, next to the sessions
+    (review PLT-1): the run's cleanup and the startup sweep both remove it."""
+    import time
+    group = grok.grok_home() / "sessions" / "C%3A%5Ckb"
+    run = group / "01a10d99-127d-7c42"
+    run.mkdir(parents=True)
+    history = group / "prompt_history.jsonl"
+    history.write_text('{"prompt":"the whole question"}\n', encoding="utf-8")
+
+    class Ended:
+        def wait(self, timeout=None):
+            return 0
+    grok.drop_session(Ended(), "01a10d99-127d-7c42")
+    for _ in range(100):
+        if not history.exists():
+            break
+        time.sleep(0.05)
+    assert not history.exists() and not run.exists()
+    history.write_text("{}\n", encoding="utf-8")
+    grok.sweep_sessions()
+    assert not history.exists()
+
+
+def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
+    """A quit mid-answer left Grok's question file (the whole prompt, with the profile and history) in %TEMP% and
+    Gemini's temp folders behind; the startup sweep only knew the screenshots (audit LIF-8 / PRV-11)."""
+    import os
+    import tempfile
+    import time
+
+    from maplehelper import app
+    from maplehelper.providers import gemini
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(temp))
+    monkeypatch.setattr(gemini, "home", lambda: tmp_path / "antigravity")
+    old = time.time() - 2 * 3600
+    left = [temp / "maplehelper-grok-abc.txt", gemini.tmp_dir() / "run-1", grok.shots_dir() / "run-2",
+            gemini.shots_dir() / "run-3"]
+    fresh = gemini.tmp_dir() / "run-4"                    # a run going on now
+    for p in left + [fresh]:
+        if p.suffix:
+            p.write_text("q", encoding="utf-8")
+        else:
+            (p / "question.txt").parent.mkdir(parents=True)
+            (p / "question.txt").write_text("q", encoding="utf-8")
+    for p in left:
+        os.utime(p, (old, old))
+    app._remove_stray_screenshots()
+    assert not any(p.exists() for p in left) and fresh.exists()
+
+
+def test_the_startup_sweep_runs_off_the_ui_thread():
+    """Old versions kept every Grok session: the first sweep after the update froze the UI ~1.7 s per thousand
+    (review PLT-8). It only touches files, so it runs on a thread."""
+    import inspect
+
+    from maplehelper import app
+    src = inspect.getsource(app)
+    assert "threading.Thread(target=_remove_stray_screenshots, daemon=True).start()" in src
+    assert "singleShot(9000, _remove_stray_screenshots)" not in src

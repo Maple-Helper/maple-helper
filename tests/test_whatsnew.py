@@ -18,3 +18,28 @@ def test_since_shows_only_unseen_versions_up_to_the_running_one(monkeypatch):
 
 def test_versions_compare_as_numbers_not_text():
     assert whatsnew.version_tuple("0.10.0") > whatsnew.version_tuple("0.9.0")
+
+
+
+def test_whats_new_window_lists_every_version_in_both_languages():
+    import os
+    import unicodedata
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QLabel
+
+    from maplehelper.ui.patchnotes import WhatsNewDialog
+    app = QApplication.instance() or QApplication([])
+
+    def bare(text):              # the rows carry direction marks around English names, and no-break spaces
+        return "".join(ch for ch in text if unicodedata.category(ch) != "Cf").replace(" ", " ")
+    notes = whatsnew.load()[:2]
+    for lang in ("he", "en"):
+        d = WhatsNewDialog(notes, lang, "")
+        shown = bare(" ".join(lb.text() for lb in d.findChildren(QLabel)))
+        assert all(n["version"] in shown for n in notes)
+        assert all(bare(line) in shown for n in notes for line in n[lang]), lang
+        assert d.layoutDirection() == (Qt.RightToLeft if lang == "he" else Qt.LeftToRight)
+        d.close()
+        d.deleteLater()
+    app.processEvents()

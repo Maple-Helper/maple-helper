@@ -16,6 +16,10 @@ for base in ['mano', 'hp', 'wishlist', 'settings', 'guide', 'tools-train', 'tool
         for lang in ['he', 'en']:
             src = f'{RAW}/{base}-{mode}{"" if lang == "he" else "-en"}.png'
             dst = f'{OUT}/{"" if lang == "he" else "en/"}{base}-{mode}.webp'
+            if not os.path.exists(src):          # a shot not rendered this time: the site keeps its old one
+                print('skipped (no raw shot):', src)
+                continue
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
             im = Image.open(src).convert('RGBA')
             w, h = im.size
             im = im.crop((M, M, w - M, h - M))

@@ -107,9 +107,9 @@ def test_the_real_high_contrast_check_answers_without_failing():
 def test_short_english_names_stay_whole_in_hebrew():
     he, en = I18n("he"), I18n("en")
     plan = he("ob_need_plan")
-    assert f"Claude{NBSP}Pro" in plan
+    assert f"Claude{NBSP}Code" in plan          # (the plan line names Claude Code since UX-10)
     assert f"Free{NBSP}Market" in he("sell_why_no_price")
-    assert "Claude Pro" in en("ob_need_plan")                    # English lines wrap normally
+    assert "Claude Code" in en("ob_need_plan")                    # English lines wrap normally
     # a name through a placeholder; a long KB name stays as spelled (bidi keeps it whole by that spelling)
     assert f"Red{NBSP}Snail" in he("other_char_switch", name="Red Snail")
     assert "Tree Dungeon, Monkey Forest I" in he("other_char_switch", name="Tree Dungeon, Monkey Forest I")

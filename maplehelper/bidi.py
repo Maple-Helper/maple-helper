@@ -35,7 +35,9 @@ _RUN = re.compile(
     rf"(?:(?<![{RTL_CHARS}])[+\-±](?=\d)|[$#](?=\d)|[\[\"](?=[A-Za-z0-9])|\d|[A-Za-z])"
     # body; "1,500" keeps its comma, a@b.com its @, "11:41" its colon; ": " ends the block
     # ("ה-AI: Claude או Codex" is two blocks, not "AI: Claude" read backwards)
-    r"(?:(?:[A-Za-z0-9.'’&/+\-–%#×_  ()\[\]\"@<>]|:(?! )|,(?=\d{3}\b))*"   # (no-break space: i18n.WHOLE_NAMES)
+    r"(?:(?:[A-Za-z0-9.'’&/+\-–%#×_  ()\[\]\"@<>→]|:(?! )|,(?=\d{3}\b))*"   # (no-break space: i18n.WHOLE_NAMES)
+    # "→" too: "Henesys → Ellinia → Perion" is one route, as "->" already was (three runs showed it
+    # backwards in a Hebrew line, the review UI-1)
     r"(?:[A-Za-z0-9%)\]\">]|(?<=\d)\+))?"        # "Line 2 <Area 1>" stays one map name; "ACC 40+" keeps its +
 )
 
@@ -103,12 +105,45 @@ def direction(text: str) -> str:
     return "rtl" if words and rtl_words / len(words) >= 0.4 else "ltr"
 
 
+# "מ-10% → 25%", "COT1 -> COT2": the two values and the arrow as one left-to-right block, as sitedata.change_text
+# writes them. As two runs in a Hebrew line the arrow pointed at the old value ("25% → 10%", read backwards)
+# A side is a value, never a word: "any letters" cut a name at its first space and paired "Blue Snail → Red Snail"
+# as "Snail → Red" (the review, UI-1). Names are blocked first (set_names); a whole chain "10 → 20 → 30" is one block
+_ARROW_SIDE = (rf"(?:Lv\.[ \u00a0]?)?(?:(?<![{RTL_CHARS}])[+\-]|\$)?\d(?:[\d.,:/×%\-–]*[\d%])?[KMx×%]?"
+               r"|COT\d|Launch|MSEA")
+_ARROW = re.compile(rf"(?<![A-Za-z0-9.,%])(?:{_ARROW_SIDE})(?:[ \u00a0]?(?:→|->)[ \u00a0]?(?:{_ARROW_SIDE}))+"
+                    r"(?![A-Za-z0-9%])")
+_ARROW_GAP = re.compile("[ \u00a0]?(→|->)[ \u00a0]?")
+
+
+def _arrow_block(m: re.Match) -> str:
+    return LRI + _ARROW_GAP.sub(lambda a: "\u00a0" + a.group(1) + "\u00a0", m.group(0)) + PDI
+
+
+def _block_arrows(text: str) -> str:
+    return _ARROW.sub(_arrow_block, text) if "→" in text or "->" in text else text
+
+
+_ROUTE_END = r"[A-Za-z0-9][A-Za-z0-9 .'’&()\-→]*[A-Za-z0-9)]"
+_ROUTE_GAP = "[  ]?(?:→|->)[  ]?"
+
+
+def _join_routes(text: str) -> str:
+    """A name block next to an arrow: the route is one block ("A, B → C" read "C → A, B" in a Hebrew line)."""
+    text = re.sub(rf"{PDI}({_ROUTE_GAP}){LRI}", lambda m: m.group(1), text)
+    text = re.sub(rf"{PDI}({_ROUTE_GAP}{_ROUTE_END})(?![A-Za-z0-9])", lambda m: m.group(1) + PDI, text)
+    text = re.sub(rf"(?<![A-Za-z0-9])({_ROUTE_END}{_ROUTE_GAP}){LRI}", lambda m: LRI + m.group(1), text)
+    return text
+
+
 def isolate_ltr_runs(text: str) -> str:
     """Wrap English/number runs in LRE…PDF. Only for RTL paragraphs.
     A name already isolated as one block (ltr_block), or a KB name the runs would split (set_names), is kept
-    as one block."""
-    if _NAMES is not None:
+    as one block, and so is an "old → new" pair."""
+    if _NAMES is not None:      # names first: an arrow between two names leaves both whole
         text = "".join(part if part.startswith(LRI) else _block_names(part) for part in _ISOLATED.split(text))
+        text = _join_routes(text)
+    text = "".join(part if part.startswith(LRI) else _block_arrows(part) for part in _ISOLATED.split(text))
     if LRI in text:
         return "".join(part if part.startswith(LRI) else _isolate_runs(part) for part in _ISOLATED.split(text))
     return _isolate_runs(text)
@@ -122,6 +157,11 @@ def _keep_together(run: str) -> str:
     lines in mirrored order ("HP/" at one line's end and "MP +10" on the next, seen live). No-break spaces, and
     a word joiner after each "/" (a line may break after a slash)."""
     if len(run) > KEEP_TOGETHER:
+        # a long route: each stop stays whole and the line breaks only after an arrow (as one long run it broke
+        # inside "(Lv. 35)", review2 UI2-4)
+        if "→" in run or "->" in run:
+            stops = "".join(p if p in ("→", "->") else _keep_together(p.strip()) for p in re.split(r"(→|->)", run))
+            return re.sub(r"\s*(→|->)\s*", lambda m: " " + m.group(1) + " ", stops)
         return run
     return run.replace(" ", " ").replace("/", "/⁠")
 

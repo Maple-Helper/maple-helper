@@ -64,8 +64,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
-Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
+; English first: a Windows whose language matches neither gets the first entry (a Spanish PC got the Hebrew wizard)
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -76,6 +77,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; (see KbNeedsInstall). Only the KB: removing all of _internal would leave nothing that can even start if a silent
 ; update stopped halfway
 Type: filesandordirs; Name: "{app}\_internal\data\kb"; Check: KbNeedsInstall
+; package metadata of the previous build: an upgraded package left its old version's folder beside the new one.
+; Small, and [Files] writes the new ones right after
+Type: filesandordirs; Name: "{app}\_internal\*.dist-info"
 
 [Files]
 Source: "..\dist\Maple Helper\*"; Excludes: "\_internal\data\kb"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -114,6 +118,13 @@ hebrew.FinishedLabel=בכניסה הראשונה נחבר את ה-AI שלכם (C
 ; the player is addressed in plural, like everywhere in the app (the stock Hebrew texts use the singular)
 hebrew.ClickNext=לחצו 'הבא' כדי להמשיך, או 'ביטול' כדי לצאת.
 hebrew.ClickFinish=לחצו 'סיום' כדי לסגור.
+; the stock button says 'סיים': the text above names it 'סיום', like the other noun buttons ('הבא', 'הקודם', 'עיון')
+hebrew.ButtonFinish=&סיום
+hebrew.ExitSetupMessage=ההתקנה עוד לא הסתיימה. אם תצאו עכשיו, Maple Helper לא יותקן.%n%nאפשר להריץ את ההתקנה שוב בפעם אחרת.%n%nלצאת בכל זאת?
+hebrew.ApplicationsFound=התוכנות הבאות משתמשות בקבצים שההתקנה צריכה לעדכן. מומלץ לאפשר להתקנה לסגור אותן אוטומטית.
+hebrew.ApplicationsFound2=התוכנות הבאות משתמשות בקבצים שההתקנה צריכה לעדכן. מומלץ לאפשר להתקנה לסגור אותן אוטומטית. בסוף ההתקנה היא תנסה לפתוח אותן מחדש.
+hebrew.PrepareToInstallNeedsRestart=כדי לסיים את ההתקנה צריך להפעיל מחדש את המחשב. אחרי ההפעלה מחדש, הריצו שוב את ההתקנה כדי לסיים את ההתקנה של [name].%n%nלהפעיל מחדש עכשיו?
+hebrew.ConfirmUninstall=להסיר את %1 ואת כל הרכיבים שלו?
 hebrew.WizardSelectDir=איפה להתקין?
 hebrew.SelectDirDesc=בחרו את התיקייה של [name]
 hebrew.SelectDirLabel3=[name] יותקן בתיקייה הזו. אפשר להשאיר אותה כמו שהיא.
@@ -142,6 +153,9 @@ hebrew.AdditionalIcons=קיצורי דרך:
 hebrew.CreateDesktopIcon=קיצור דרך על &שולחן העבודה
 hebrew.LaunchProgram=לפתוח את %1 עכשיו
 english.LaunchProgram=Open %1 now
+; asked once the app is removed (never when silent); "No" is the default, so Enter keeps everything
+hebrew.DeleteUserData=למחוק גם את הנתונים שלכם ב-Maple Helper?%n%nזה מוחק את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nאי אפשר לבטל את זה. אם לא תמחקו, הכל יחכה לכם בהתקנה הבאה.%n%nמפתחות API שמורים נשארים במנהל האישורים של Windows: מחקו אותם קודם בהגדרות.
+english.DeleteUserData=Also delete your Maple Helper data?%n%nThis deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nThis can't be undone. If you keep it, everything will be there when you reinstall.%n%nSaved API keys stay in Windows Credential Manager; remove them in Settings first.
 
 [Code]
 var
@@ -216,6 +230,23 @@ begin
     Sleep(1500);
   end;
   Result := True;
+end;
+
+// After the app is removed: ask whether the player's own data goes too (SEC-12: chats, characters and the Grok and
+// Gemini sign-ins stayed on disk). Only that one folder, only when the player says yes; a silent uninstall keeps it
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataDir: String;
+begin
+  if (CurUninstallStep <> usPostUninstall) or UninstallSilent then
+    Exit;
+  DataDir := ExpandConstant('{userappdata}\MapleHelper');
+  if not DirExists(DataDir) then
+    Exit;
+  if MsgBox(FmtMessage(CustomMessage('DeleteUserData'), [DataDir]), mbConfirmation,
+            MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    if not DelTree(DataDir, True, True, True) then
+      Log('could not delete all of ' + DataDir);
 end;
 
 // Uninstalling while the app runs left its files behind (in use): close it first

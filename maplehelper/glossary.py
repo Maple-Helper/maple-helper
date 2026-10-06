@@ -34,7 +34,7 @@ APP = {
     # a monster's own numbers (the calculator's big numbers): the plain "HP" entry is the player's HP / MP
     "Monster P.DEF": ("ההגנה של המפלצת מפני מכות פיזיות: מורידה מהנזק שאתם עושים לה במכות רגילות (לא בקסמים). "
                       "0 = לא מורידה כלום.",
-                      "The monster's defence against physical hits: it lowers the damage your basic attacks do to it "
+                      "The monster's defense against physical hits: it lowers the damage your basic attacks do to it "
                       "(not magic). 0 = nothing off."),
     "Monster HP": ("כמה נזק צריך כדי להרוג את המפלצת: כל מכה מורידה ממנו, וכשהוא מגיע ל-0 היא מתה.",
                    "How much damage the monster takes before it dies: every hit takes some off, and at 0 it dies."),
@@ -64,7 +64,7 @@ APP = {
            "then 3 per level after the first job."),
     "NPC": ("דמות של המשחק (לא שחקן): חנויות, נותני קווסטים ומדריכי ג'וב.",
             "A character run by the game (not a player): shops, quest givers, job instructors."),
-    "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מ-Lv. 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
+    "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מרמה 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
                     "Citizenship of a town (Henesys or Kerning City) from Lv. 12. Donations raise your grade, "
                     "which opens discounts and items in that town's shops."),
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",

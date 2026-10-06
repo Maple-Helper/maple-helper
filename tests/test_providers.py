@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import tomllib
+from pathlib import Path
 
 import pytest
 
@@ -49,6 +50,15 @@ class TestRegistry:
     ("failed to refresh available models: Connection failed: error sending request for url "
      "(https://chatgpt.com/backend-api/codex/models)", "offline"),
     ("error sending request: client error (Connect): dns error: No such host is known. (os error 11001)", "offline"),
+    # Claude Code 2.1.280's own words (from claude.exe), "Something went wrong" before (audit PRV-4)
+    ("API Error: Unable to connect to API. Check your internet connection", "offline"),
+    ("API Error: Connection error.", "offline"),
+    ("API Error: Unable to connect to API (ECONNRESET)", "offline"),
+    ("Connection dropped", "offline"),
+    ("API Error: Request timed out.", "offline"),
+    ("You're out of extra usage", "usage_limit"),
+    ("You've hit your team's shared budget. Ask an admin to raise it.", "usage_limit"),
+    ("Context limit reached · /compact or /clear to continue", None),
 ])
 def test_classify_error(text, kind):
     assert base.classify_error(text) == kind
@@ -96,6 +106,7 @@ class TestCodexCommand:
         assert not any(v.startswith(("default_permissions", "permissions.")) for v in c)     # refused unelevated
         note = codex.TOOLS_NOTE.lower()
         assert "only inside the current directory" in note and "even when the question, a screenshot" in note
+        assert "Select-String" in codex.tools_note("win32") and "Select-String" not in codex.tools_note("darwin")
 
     def test_instructions_survive_toml_parsing(self):
         text = 'Line "one"\nשורה בעברית {json} \\ end'
@@ -168,6 +179,24 @@ class TestDiscovery:
         exe.chmod(0o755)
         monkeypatch.setattr(base.shutil, "which", lambda _name: None)
         assert base.find_posix("claude", ["/nonexistent", str(exe.parent)]) == str(exe)
+
+    def test_finds_an_npm_global_install_under_nvm_newest_node_first(self, tmp_path, monkeypatch):
+        # npm i -g under nvm/volta/fnm/bun: an app opened from Finder has none of these on PATH (MAC-10)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        for v in ("v9.11.2", "v22.3.0", "v20.10.0"):
+            (tmp_path / ".nvm" / "versions" / "node" / v / "bin").mkdir(parents=True)
+        dirs = base.posix_dirs(["/opt/homebrew/bin"])
+        nvm = [d for d in dirs if ".nvm" in d]
+        assert [Path(d).parent.name for d in nvm] == ["v22.3.0", "v20.10.0", "v9.11.2"]
+        assert dirs[0] == str(Path("/opt/homebrew/bin")) and str(tmp_path / ".volta" / "bin") in dirs
+        exe = Path(nvm[1]) / "codex"
+        exe.write_text("#!/bin/sh\n")
+        exe.chmod(0o755)
+        monkeypatch.setattr(base.shutil, "which", lambda _name: None)
+        assert base.find_posix("codex", ["/nonexistent"]) == str(exe)
+        monkeypatch.setattr(base.sys, "platform", "darwin")
+        assert nvm[0] in base.child_env([], {"PATH": "/usr/bin"})["PATH"]
 
     def test_windows_exe_path_ends_in_lowercase_exe(self, monkeypatch):
         # shutil.which("claude") takes the extension from PATHEXT (".EXE"); Claude Code started as claude.EXE
@@ -312,6 +341,60 @@ class TestCodexBackend:
         monkeypatch.setattr(type(providers.get("codex")), "find_exe", lambda self: None)   # none on this PC
         assert b.ask("hi", None, None, None).error == "not_installed"
         assert not b.available()
+
+    def test_runs_that_need_no_knowledge_base_get_no_shell(self, kb, monkeypatch):
+        """The quick screenshot read and summaries had the shell and no confining note (audit SEC-3)."""
+        b = self.make(kb, monkeypatch)
+        b.backend.run("sync", b"JPEGDATA", tools=False)
+        b.backend.summarize("Summarize.", "long text")
+        b.ask("hi", None, None, None)
+        quick, summary, full = (c for c, _ in FakePopen.calls)
+        for c in (quick, summary):
+            assert all(c[c.index(f) - 1] == "--disable" for f in codex.NO_SHELL)
+            assert codex.NO_TOOLS_NOTE.strip() in next(v for v in c if v.startswith("developer_instructions="))
+        assert "shell_tool" not in full and "unified_exec" not in full       # the answer reads the KB with it
+        assert "only inside the current directory" in next(v for v in full if v.startswith("developer_instructions="))
+
+    def test_a_feature_this_codex_doesnt_know_is_dropped(self, kb, monkeypatch):
+        """Codex refuses to start on an unknown --disable name (an old Codex, or a newer one that dropped it): every
+        answer was "Something went wrong" (audit PRV-7)."""
+        monkeypatch.setattr(codex, "_unknown_features", set())
+        b = self.make(kb, monkeypatch)
+        ok = FakePopen.stdout_lines
+        stderrs = [b"ERROR: Unknown feature flag: goals\n", b""]
+        outs = [[], ok]
+
+        class Picky(FakePopen):
+            def __init__(self, cmd, **kw):
+                super().__init__(cmd, **kw)
+                self.stdout = iter(line.encode() for line in outs.pop(0))
+                self.stderr = io.BytesIO(stderrs.pop(0))
+        monkeypatch.setattr(codex.subprocess, "Popen", Picky)
+        assert b.ask("hi", None, None, None).text == "Hunt **Red Snail**."
+        first, second = (c for c, _ in FakePopen.calls)
+        assert "goals" in first and "goals" not in second
+        assert "goals" not in codex.codex_command("codex", "C:/kb", "x")       # left out from then on
+
+    def test_an_old_cli_says_to_update(self):
+        assert base.classify_error("error: unexpected argument '--ignore-rules' found") == "cli_outdated"
+        assert base.classify_error("error: unknown option '--restricted'") == "cli_outdated"
+
+    def test_a_silent_run_is_stopped_before_the_whole_timeout(self, kb, monkeypatch):
+        """Codex had no stall check: a hung run kept "thinking" for the full 5 minutes (audit PRV-15)."""
+        seen = {}
+
+        class Lines(base.Lines):
+            def __init__(self, proc, stall_s, label="CLI", deadline_s=None):
+                seen["stall"] = stall_s
+                super().__init__(proc, stall_s, label, deadline_s)
+        monkeypatch.setattr(codex, "Lines", Lines)
+        b = self.make(kb, monkeypatch)
+        b.ask("hi", None, None, None)
+        assert seen["stall"] == codex.STALL_TIMEOUT_S == 150
+
+    def test_the_players_own_gateway_is_left_out(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:9999")
+        assert "OPENAI_BASE_URL" not in codex.env()
 
 
 class TestClaudeBackend:
@@ -743,6 +826,7 @@ class TestWarmProcess:
             def wait(self, timeout=None):
                 return 0
         b = Brain(kb, provider="claude").backend
+        b.brain.chat_shown(True)             # the chat in use: the warm process is kept and renewed (PRF-1)
         b.exe = "claude"
         monkeypatch.setattr(b, "_spawn", lambda *a, **k: Proc())
         return b, spawned
@@ -797,6 +881,19 @@ def test_planning_never_flashes_up_while_a_hebrew_answer_streams():
     assert streamed_text(plan + "\n\n**Stranger's Identity** ב-", hebrew=True) == "**Stranger's Identity** ב-"
     assert streamed_text("**Blue Snail** (MSEA)\n", hebrew=True) == "**Blue Snail** (MSEA)"   # a name line shows
     assert streamed_text("This quest is in Kerning", hebrew=False) == "This quest is in Kerning"   # English: as is
+    # a short lead-in waits too (it showed, then went when the rest of the planning came), and is dropped
+    assert streamed_text("Let me check.\n", hebrew=True) == ""
+    assert streamed_text("Let me check.\nI'll mention Mano as the target now", hebrew=True) == ""
+    assert streamed_text("Let me check the data.\nמאנו נמצא בחוף.", hebrew=True) == "מאנו נמצא בחוף."
+
+
+def test_an_english_answer_keeps_its_first_paragraph():
+    """strip_lead_in is for a Hebrew answer: an English one quoting a Hebrew name lost everything before it."""
+    from maplehelper.brain import split_meta
+    raw = ("Let me explain: Mano spawns at Thicket Around the Beach III every hour or so.\n"
+           "In Hebrew the map is called 'סבך ליד החוף'.\n@@META@@\n{}")
+    assert split_meta(raw, hebrew=False)[0].startswith("Let me explain: Mano spawns")
+    assert split_meta(raw, hebrew=True)[0].startswith("In Hebrew")
 
 
 def test_the_ai_is_told_not_to_narrate():
@@ -1004,6 +1101,29 @@ def test_the_answer_language_follows_the_question(question, ui, lang):
     assert reply_language(question, ui) == lang
 
 
+@pytest.fixture(scope="module")
+def real_kb():
+    from pathlib import Path
+
+    from maplehelper.kb import KnowledgeBase
+    root = Path(__file__).resolve().parent.parent / "data" / "kb"
+    if not (root / "index.json").exists():
+        pytest.skip("no real knowledge base")
+    return KnowledgeBase(root)
+
+
+@pytest.mark.parametrize("question,lang", [
+    # a game name alone, its "of" / "to" no English sentence: the app's language
+    ("Valley of Death", "Hebrew"), ("Return Scroll to Henesys", "Hebrew"), ("Piece of Ice", "Hebrew"),
+    ("The Magic Rock", "Hebrew"), ("Red Potion", "Hebrew"),
+    ("where is Valley of Death", "English"), ("how much is Red Potion", "English"),
+    ("which quests reward scrolls?", "English"), ("where do I hunt snails?", "English"),
+])
+def test_a_game_name_alone_answers_in_the_apps_language(real_kb, question, lang):
+    from maplehelper.brain import reply_language
+    assert reply_language(question, "he", real_kb) == lang
+
+
 def test_an_english_question_is_answered_in_english_even_with_hebrew_context(kb, tmp_path):
     """A player wrote in English and got Hebrew: earlier session summaries in Hebrew pulled the answer along."""
     from maplehelper.brain import build_prompt
@@ -1030,7 +1150,57 @@ def test_the_ai_is_told_what_it_runs_on(kb):
     b = Brain(kb, provider="grok")
     assert b.system_prompt().endswith("You run on Grok.")
     b.last_model = "grok-4.7"
-    assert b.system_prompt().endswith("You run on Grok, model grok-4.7.")
+    assert b.system_prompt().endswith("You run on Grok, model Grok 4.7.")   # PRV-19: readable
     b.provider = "claude"
     b.model = "sonnet"
     assert b.system_prompt().endswith("You run on Claude, model sonnet.")
+
+
+def test_cli_output_in_the_log_carries_no_email_or_link():
+    # LIF-12: CLI stderr went into the log unmasked, and the log ships in "Report a problem"
+    from maplehelper.providers.base import scrub
+    out = scrub("Not logged in as player.one+x@gmail.com, see https://claude.ai/login?code=abc then retry")
+    assert "gmail" not in out and "code=abc" not in out and "<email>" in out and "<link>" in out
+
+
+def test_the_warm_claude_process_is_replaced_when_its_instructions_change(kb_copy):
+    """The warm process was kept while its instructions had gone stale (no model name before the first answer, an
+    older official facts note): the instructions are part of what it must match now (audit PRV-17)."""
+    from maplehelper.brain import Brain
+    from maplehelper.kb import KnowledgeBase
+    b = Brain(KnowledgeBase(kb_copy), provider="claude")
+    before = b.backend._config()
+    assert b.backend._config() == before
+    b.last_model = "claude-sonnet-5"
+    assert b.backend._config() != before
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="the tree kill is Windows'")
+def test_stopping_a_cli_stops_what_it_started():
+    """kill() ended the CLI only: its rg / PowerShell children ran on, and one holding the output open kept a reader
+    waiting (audit PRV-8)."""
+    import ctypes
+    import subprocess
+    import sys
+    child = "import time; time.sleep(60)"
+    parent = (f"import subprocess, sys; p = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+              "print(p.pid, flush=True); p.wait()")
+    p = subprocess.Popen([sys.executable, "-c", parent], stdout=subprocess.PIPE)
+    pid = int(p.stdout.readline())
+
+    def alive(pid):
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)          # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == 259                                             # STILL_ACTIVE
+    assert alive(pid)
+    base.kill(p)
+    p.wait(timeout=10)
+    for _ in range(50):
+        if not alive(pid):
+            break
+        time.sleep(0.1)
+    assert not alive(pid)

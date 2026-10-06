@@ -1,18 +1,20 @@
 """Patch notes for knowledge-base updates: exactly what changed, so players know what's new."""
 from __future__ import annotations
 
+from datetime import date
+
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
                                QWidget)
 
-from .. import bidi, recent
+from .. import bidi, dates, recent
 from ..i18n import NBSP, STRINGS, I18n
 from ..kb import KnowledgeBase
 from . import newsview
 from .controls import Section, Segmented, rtl_buttons
 from .glass import GlassDialog
-from .widgets import EntityCard, Selectable, zoom_on_hover
+from .widgets import EntityCard, Selectable, fit_picture, zoom_on_hover
 
 SHOWN = 80   # rows per list; the rest is counted
 
@@ -74,11 +76,10 @@ def _category(t: I18n, cat: str) -> str:
     return t(f"cat_{cat}") if f"cat_{cat}" in STRINGS else cat
 
 
-def _date(e: dict) -> str:
-    """2026-10-02 -> 2.10.2026 (reads the same in both directions)."""
+def _date(e: dict, rtl: bool) -> str:
+    """2026-10-02 -> 2.10 / Oct 2 (dates.day); the version when there's no date."""
     try:
-        y, m, d = (int(x) for x in str(e.get("date") or "").split("-"))
-        return f"{d}.{m}.{y}"
+        return dates.day(date.fromisoformat(str(e.get("date") or "")), rtl)
     except ValueError:
         return str(e.get("version", ""))
 
@@ -104,7 +105,9 @@ class ChangeCard(Selectable, QFrame):
         img = kb.picture(r["key"])
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # without the sprite's empty margins: Trixter (a small bug in a 67x81 canvas) drew half the size of
+            # Jr. Sentinel on the next card (VIS-22)
+            pic.setPixmap(fit_picture(pm, 48, 48, pic, trim=True))
             zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -148,6 +151,11 @@ class WhatsNewDialog(GlassDialog):
         lay.setSpacing(18)
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
+        if not notes:
+            # no notes (the bundled file missing or unreadable): a line, not an empty window with only Close (VIS-7)
+            empty = QLabel(bidi.plain(t("whats_new_empty"), t.rtl), objectName="DialogBody")
+            empty.setWordWrap(True)
+            lay.addWidget(empty)
         for n in notes:
             sec = Section(t("version_title", version=n["version"]), t.rtl)
             for line in n.get(t.lang) or n.get("en") or []:
@@ -282,7 +290,7 @@ class PatchNotesDialog(GlassDialog):
         counts = e.get("counts") or {}
         if not any(counts.get(k, len(e.get(k) or [])) for k in KINDS):
             return            # every change of this update is among the player's own, above
-        title = QLabel(bidi.plain(t("pn_update", date=_date(e)), rtl), objectName="ProfileName")
+        title = QLabel(bidi.plain(t("pn_update", date=_date(e, rtl)), rtl), objectName="ProfileName")
         lay.addWidget(title)
 
         def section(kind: str, rows: list[dict], card_fn):

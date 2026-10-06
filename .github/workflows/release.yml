@@ -15,11 +15,6 @@ on:
   push:
     tags: ["v*"]
 
-# shared with kb-update.yml: the two never modify release assets at the same time
-concurrency:
-  group: kb-update
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -27,6 +22,7 @@ jobs:
   version:
     name: Check version
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       version: ${{ steps.v.outputs.version }}
       prerelease: ${{ steps.v.outputs.prerelease }}
@@ -76,12 +72,24 @@ jobs:
       - name: Get the knowledge base
         run: |
           mkdir -p kb-in dist-kb
-          gh release download --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in 2>/dev/null || true
-          if [ ! -f kb-in/kb.zip ]; then
+          # the nightly may be re-uploading both files right now (--clobber deletes each, then uploads it), and this
+          # job is outside its concurrency group: retry until both are there and agree before taking the seed
+          ok() { [ -f kb-in/kb.zip ] && [ -f kb-in/kb-manifest.json ] && echo "$(python -c 'import json; print(json.load(open("kb-in/kb-manifest.json"))["sha256"])' 2>/dev/null)  kb-in/kb.zip" | sha256sum -c --status -; }
+          seen=""
+          for i in 1 2 3 4 5 6; do
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in --clobber 2>/dev/null || true
+            if [ -f kb-in/kb-manifest.json ]; then seen=1; fi
+            if ok || [ "$i" = 6 ]; then break; fi
+            echo "The published KB is not complete yet (attempt $i), retrying in 20 s"
+            sleep 20
+          done
+          if [ -z "$seen" ]; then
             # no release yet: a hand-curated seed (prerelease "kb-seed") carries what a fresh scrape can't
             # rebuild in CI, e.g. the Hebrew name dictionary (aliases.json) made with Claude
-            gh release download kb-seed --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in 2>/dev/null || true
+            gh release download kb-seed --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in --clobber 2>/dev/null || true
             if [ -f kb-in/kb.zip ]; then echo "Using the kb-seed release"; fi
+          elif [ ! -f kb-in/kb.zip ]; then
+            echo "::error::the published kb-manifest.json has no kb.zip next to it"; exit 1
           fi
           if [ -f kb-in/kb.zip ]; then
             # carry the published KB forward unchanged (its manifest already points at latest/download)
@@ -100,7 +108,9 @@ jobs:
             python tools/kb_release.py validate data/kb --min-entities 500
             python tools/kb_release.py pack data/kb dist-kb
           fi
-          python tools/kb_release.py validate data/kb --min-entities 100
+          # the same bar as the scrape above and the nightly: a carried-forward or seed KB is no exception
+          python tools/kb_release.py validate data/kb --min-entities 500
+          python tools/kb_release.py tables-check data/kb
 
       # both builds bundle exactly this KB, and Publish attaches it
       - uses: actions/upload-artifact@v7
@@ -142,12 +152,21 @@ jobs:
       - name: Unpack the knowledge base
         run: python -m zipfile -e kb-in/kb.zip data/kb
 
+      # the round trip updates over the installer players have now, the way every existing player gets this release
+      - name: Get the published installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern MapleHelper-Setup.exe --dir prev-release 2>/dev/null ||
+            echo "No published installer yet: the round trip tests a fresh install only"
+
       - name: Build, sign, self-test, installer round trip
         shell: pwsh
         env:
           PYTHON: python
           MAPLEHELPER_SIGN: ${{ secrets.MAPLEHELPER_SIGN }}
-        run: ./packaging/build.ps1 -KbDir data/kb -RequireKb -TestInstaller
+        run: ./packaging/build.ps1 -KbDir data/kb -RequireKb -TestInstaller -UpgradeFrom prev-release/MapleHelper-Setup.exe
 
       - uses: actions/upload-artifact@v7
         with:
@@ -199,6 +218,12 @@ jobs:
     name: Publish
     needs: [version, test, build, build-macos]
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # shared with kb-update.yml's publish: the two never modify release assets at the same time. Only this short
+    # job: on the whole workflow, a tag pushed during the ~1 h nightly waited behind it, or was cancelled while pending
+    concurrency:
+      group: release-assets
+      cancel-in-progress: false
     permissions:
       contents: write
     env:
@@ -229,6 +254,23 @@ jobs:
           name: kb
           path: assets
 
+      # the nightly may have published a newer KB to the current release while this one built (they no longer wait
+      # for each other): ship that one, or this release would send new downloads back to the older KB
+      - name: Take a newer knowledge base published meanwhile
+        run: |
+          mkdir -p kb-now
+          gh release download --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-now 2>/dev/null || true
+          [ -f kb-now/kb.zip ] && [ -f kb-now/kb-manifest.json ] || { echo "no published KB to compare with"; exit 0; }
+          now=$(python3 -c 'import json; print(json.load(open("kb-now/kb-manifest.json"))["version"])')
+          ours=$(python3 -c 'import json; print(json.load(open("assets/kb-manifest.json"))["version"])')
+          if [[ "$now" > "$ours" ]]; then
+            want=$(python3 -c 'import json; print(json.load(open("kb-now/kb-manifest.json"))["sha256"])')
+            echo "$want  kb-now/kb.zip" | sha256sum -c - || { echo "::error::published kb.zip does not match kb-manifest.json"; exit 1; }
+            cp kb-now/kb.zip kb-now/kb-manifest.json assets/
+            python3 -c "import json,os;p='assets/kb-manifest.json';m=json.load(open(p));m['url']='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/latest/download/kb.zip';json.dump(m,open(p,'w'))"
+            echo "Publishing the newer KB $now (this build bundled $ours)"
+          fi
+
       - name: Create the GitHub Release
         id: publish
         run: |
@@ -242,7 +284,7 @@ jobs:
           Already installed? Maple Helper updates itself: the new version downloads in the background and installs when you close the app.
           Windows may show "Windows protected your PC" because the app is not code-signed yet: click **More info → Run anyway**.
 
-          **macOS 12 or later, Apple Silicon (M1 or newer)**
+          **macOS 14 or later, Apple Silicon (M1 or newer)**
           - **[MapleHelper-macOS.dmg](https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/MapleHelper-macOS.dmg)**: open it and drag **Maple Helper** into Applications (over the old version when updating)
 
           The app is not notarized yet, so macOS blocks the first launch: open **System Settings → Privacy & Security** and click **Open Anyway**.
@@ -262,16 +304,24 @@ jobs:
           gh release create "$TAG" assets/* --repo "$GITHUB_REPOSITORY" "${flags[@]}"
 
       - name: Verify what players will download
-        if: steps.publish.outputs.skip != 'true'      # a duplicate run built other bytes than the ones published
+        env:
+          SKIP: ${{ steps.publish.outputs.skip }}
         run: |
           base="https://github.com/$GITHUB_REPOSITORY/releases"
           if [ "$PRERELEASE" = true ]; then src="$base/download/$TAG"; else src="$base/latest/download"; fi
-          ok=false
-          for attempt in 1 2 3 4 5 6; do
-            if curl -fsSL "$src/SHA256SUMS.txt" -o SHA256SUMS.txt && cmp -s SHA256SUMS.txt assets/SHA256SUMS.txt; then ok=true; break; fi
-            echo "waiting for the release CDN ($attempt)"; sleep 10
-          done
-          [ "$ok" = true ] || { echo "::error::$src/SHA256SUMS.txt is not the one just published"; exit 1; }
+          if [ "$SKIP" = true ]; then
+            # a re-run (or duplicate run) built other bytes than the ones published: check the published files against
+            # the published SHA256SUMS.txt instead. Skipping the check turned a re-run of a failed verification green
+            src="$base/download/$TAG"
+            curl -fsSL "$src/SHA256SUMS.txt" -o SHA256SUMS.txt || { echo "::error::$src/SHA256SUMS.txt is missing"; exit 1; }
+          else
+            ok=false
+            for attempt in 1 2 3 4 5 6; do
+              if curl -fsSL "$src/SHA256SUMS.txt" -o SHA256SUMS.txt && cmp -s SHA256SUMS.txt assets/SHA256SUMS.txt; then ok=true; break; fi
+              echo "waiting for the release CDN ($attempt)"; sleep 10
+            done
+            [ "$ok" = true ] || { echo "::error::$src/SHA256SUMS.txt is not the one just published"; exit 1; }
+          fi
           # the CDN can serve the previous release's file for a little while after SHA256SUMS.txt is new
           for f in MapleHelper-Setup.exe MapleHelper-macOS.dmg; do
             ok=false
@@ -282,7 +332,7 @@ jobs:
             [ "$ok" = true ] || { echo "::error::$src/$f does not match SHA256SUMS.txt"; exit 1; }
           done
           if [ "$PRERELEASE" = false ]; then
-            curl -fsSL "$src/kb-manifest.json" -o manifest.json
+            curl -fsSL "$base/latest/download/kb-manifest.json" -o manifest.json   # what installed apps read
             url=$(python3 -c 'import json; print(json.load(open("manifest.json"))["url"])')
             want=$(python3 -c 'import json; print(json.load(open("manifest.json"))["sha256"])')
             curl -fsSL "$url" -o kb.zip

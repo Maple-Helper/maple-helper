@@ -33,7 +33,7 @@ from . import availability, crafting, market, quests, sources
 
 log = logging.getLogger("maplehelper")
 
-TABLES_VERSION = 1          # bump when a builder changes what it writes (the schema itself is hashed in too)
+TABLES_VERSION = 3          # bump when a builder changes what it writes (the schema itself is hashed in too)
 MARK_FILE = "drops.ingame"  # the name the first table's mark had: an older app's mark reads as stale here
 DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
               "and the players' votes on community drops\n"
@@ -43,8 +43,10 @@ ROUTES_FILE = "routes.json"
 INPUTS = ("index.json", COMMUNITY_FILE, ROUTES_FILE)     # the files the tables are built from (with the pages)
 REPLACE_TRIES = 10          # os.replace on Windows fails while a reader holds the old file: wait it out
 MAPS_LISTED = 6             # a monster row's maps (the most spawns first); spawns.tsv has them all
-ASK_WAIT = 20               # seconds a question waits for a build already running before it goes without
+ASK_WAIT = 5                # seconds a question waits for a build already running before it goes without (it
+                            # answers without the tables anyway: 20 s felt stuck while a stale KB rebuilt them)
 RETRY_AFTER = 600           # seconds before a failed build (a read-only folder) is tried again on the same files
+HELD_RETRY = 30             # ... and when only a table held by a reader (an antivirus scan) failed it
 
 # name -> (columns, what it answers). Only the columns' order and names are the file format.
 TABLES: dict[str, tuple[tuple[str, ...], str]] = {
@@ -55,14 +57,15 @@ TABLES: dict[str, tuple[tuple[str, ...], str]] = {
     "rewards": (("quest", "quest_level", "quest_key", "area", "item", "count", "item_type", "item_key", "kind",
                  "for"),
                 "kind sure / pick one (for = class) / random 16.7% / gender"),
-    "equips": (("item", "key", "slot", "job", "req_lv", "req_str", "req_dex", "req_int", "req_luk", "watk", "matk",
+    "equips": (("item", "key", "slot", "job", "gender", "req_lv", "req_str", "req_dex", "req_int", "req_luk", "watk", "matk",
                 "wdef", "mdef", "acc", "avoid", "speed", "jump", "hp", "mp", "str", "dex", "int", "luk", "crit",
                 "attack_speed", "slots", "sell", "buy", "seller"),
-               "job Any = all classes; buy = cheapest NPC price"),
+               "job Any = all classes; gender Male / Female (twin items share a name); buy = cheapest NPC "
+               "price, seller = (town, citizen rank, price label)"),
     "consumables": (("item", "key", "type", "hp", "mp", "effect", "req_lv", "sell", "buy", "seller"),
-                    "potions, food, buffs, arrows, stars"),
+                    "potions, food, buffs, arrows, stars; buy, seller as in equips"),
     "scrolls": (("scroll", "key", "slot", "grade", "success", "stats", "sell", "buy", "seller"),
-                "success %"),
+                "success %; buy, seller as in equips"),
     "monsters": (("monster", "key", "level", "hp", "mp", "exp", "hp_per_exp", "wdef", "mdef", "acc", "avoid",
                   "acc_needed", "element", "mesos", "mesos_kill", "boss", "respawn", "maps"),
                  "acc_needed = ACC to never miss at equal level; mesos = community range; respawn s"),
@@ -98,7 +101,9 @@ GENERATED = tuple(f"{name}.tsv" for name in TABLES) + (MARK_FILE,)   # every fil
 
 _lock = threading.Lock()
 _fresh: dict[str, tuple] = {}       # KB folder -> the inputs' file stats when its tables were last found current
-_failed: dict[str, tuple[tuple, float]] = {}    # KB folder -> ((its file stats, KB loaded), when) of a failed build
+# KB folder -> ((its file stats, KB loaded), when, seconds before a retry) of a failed build
+_failed: dict[str, tuple[tuple, float, float]] = {}
+_held: set[str] = set()             # KB folders whose last build failed on a table a reader held
 _rows: dict[tuple[str, str], tuple[tuple, list[dict]]] = {}     # (folder, table) -> (file stat, typed rows)
 
 
@@ -179,26 +184,37 @@ def ensure(kb, wait: float = ASK_WAIT) -> bool:
             return True
         failed = _failed.get(str(root))
         tried = (stats, getattr(kb, "index_hash", ""))      # (a KB loaded since is tried at once)
-        if failed and failed[0] == tried and time.monotonic() - failed[1] < RETRY_AFTER:
+        if failed and failed[0] == tried and time.monotonic() - failed[1] < failed[2]:
             return False            # a folder it can't write to: not a 2 s build before every question
+        _held.discard(str(root))
         ok = current(root) or build(kb)
         if ok:
             _fresh[str(root)] = _stats(root)
             _failed.pop(str(root), None)
         else:
-            _failed[str(root)] = ((_stats(root), getattr(kb, "index_hash", "")), time.monotonic())
+            _failed[str(root)] = ((_stats(root), getattr(kb, "index_hash", "")), time.monotonic(),
+                                  HELD_RETRY if str(root) in _held else RETRY_AFTER)
         return ok
     finally:
         _lock.release()
 
 
-def ensure_async(kb) -> threading.Thread:
-    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait."""
+def ensure_async(kb, then=None) -> threading.Thread:
+    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait.
+    then(): more warm-up on the same thread once the tables are done (kb.warm() when not given)."""
     def work():
         try:
             ensure(kb, wait=600)
         except Exception:          # noqa: BLE001 - a background build never takes the app down
             log.warning("knowledge-base tables not built", exc_info=True)
+        # the name indexes, the droppers and the route graph are built on first use: here, not on the first
+        # question's answer path (~1 s cold; KB-19, PRF-7). A KB's own warm() unless the caller gives one
+        then_ = then if then is not None else getattr(kb, "warm", None)
+        if then_ is not None:
+            try:
+                then_()
+            except Exception:      # noqa: BLE001 - only a warm-up: the question builds it if this didn't
+                log.warning("knowledge-base warm-up failed", exc_info=True)
     th = threading.Thread(target=work, daemon=True, name="kb-tables")
     th.start()
     return th
@@ -206,8 +222,17 @@ def ensure_async(kb) -> threading.Thread:
 
 def _write(path: Path, text: str) -> None:
     """Whole or not at all: a grep never reads half a table. A reader holding the old file (Windows) is waited out."""
+    _replace(_stage(path, text), path)
+
+
+def _stage(path: Path, text: str) -> Path:
+    """The table's text in a temp file next to it (os.replace'd over it by _replace)."""
     tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(text, encoding="utf-8", newline="\n")
+    return tmp
+
+
+def _replace(tmp: Path, path: Path) -> None:
     for attempt in range(REPLACE_TRIES):
         try:
             os.replace(tmp, path)
@@ -257,15 +282,31 @@ def build(kb, out: Path | None = None) -> bool:
     except Exception:          # noqa: BLE001 - a KB the shared lookups can't read: the question goes on without
         log.warning("knowledge-base tables not built", exc_info=True)
         return False
+    # every table to a temp file first, then all replaced in a row, the mark last: written one by one, a file held
+    # by a reader (an antivirus) failed the build midway and left old and new tables mixed for RETRY_AFTER
+    staged: list[tuple[Path, Path]] = []
+    replacing = False
     try:
         for name, rows in made.items():
-            _write(out / f"{name}.tsv", tsv(name, rows))
+            staged.append((_stage(out / f"{name}.tsv", tsv(name, rows)), out / f"{name}.tsv"))
         if loaded and loaded != _sha(root / "index.json"):
             return False            # swapped while it was being built: no mark, the next question builds again
-        _write(out / MARK_FILE, mark)
-    except OSError:
+        staged.append((_stage(out / MARK_FILE, mark), out / MARK_FILE))
+        replacing = True
+        while staged:
+            _replace(*staged[0])
+            staged.pop(0)
+    except OSError as e:
         log.warning("knowledge-base tables not written", exc_info=True)
+        if replacing and isinstance(e, PermissionError):
+            _held.add(str(root))        # a reader held a table: tried again soon, not in RETRY_AFTER
         return False
+    finally:
+        for tmp, _ in staged:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
     log.info("knowledge-base tables built in %.1f s: %s", time.perf_counter() - t0,
              ", ".join(f"{n} {len(r)}" for n, r in made.items()))
     return True
@@ -364,6 +405,9 @@ def _guard(rows: list, what: str, key: str, fn, *args) -> None:
         rows.extend(got)
 
 
+_TOWN_NOTE = re.compile(r"\s*\([^()]*\)$")       # a shop line's note on its town: "Warning Street (Forgotten Hollow)"
+
+
 class _Ctx:
     """One build's shared lookups: page lines read once, the maps by their "name street" cell, the shops."""
 
@@ -377,13 +421,17 @@ class _Ctx:
         for k, e in kb.entities.items():
             if e.get("category") != "map":
                 continue
-            m = re.search(r"^Location (.+?) / (.+?)\s*$", kb.page(k), re.M)
-            street, cont = (m.group(1).strip(), m.group(2).strip()) if m else ("", "")
+            # availability's reading of the page ("Location Hidden Street" alone: the Free Market, the KPQ stages)
+            cell = self.open.map_cell.get(k)
+            cont, street = self.open.map_place.get(cell, ("", "")) if cell else ("", "")
+            cont = cont.split(" · ", 1)[0]
+            cont = "" if cont == availability.NO_CONTINENT else cont
             self.map_place[k] = (street, cont)
             self.map_by_cell.setdefault(f"{e.get('name', '')} {street}".strip(), k)
             self.map_by_name.setdefault(e.get("name", ""), []).append(k)
         self._prices: dict[str, market.NpcPrices] = {}
         self._spawns: list[dict] | None = None
+        self._npc_names: dict[str, list[str]] | None = None
 
     def spawns(self) -> list[dict]:
         """spawns.tsv's rows, which maps.tsv groups per map too: read once."""
@@ -406,6 +454,16 @@ class _Ctx:
     def name(self, key: str) -> str:
         return (self.kb.get(key) or {}).get("name", "")
 
+    def npcs_named(self, name: str) -> list[str]:
+        """Every NPC of this name, a role in brackets aside ("Sam", "Sam (Henesys Armor Seller)")."""
+        if self._npc_names is None:
+            self._npc_names = {}
+            for k, e in self.kb.entities.items():
+                if e.get("category") == "npc":
+                    base = re.sub(r"\s*\(.*?\)", "", e.get("name", "")).strip().lower()
+                    self._npc_names.setdefault(base, []).append(k)
+        return self._npc_names.get(re.sub(r"\s*\(.*?\)", "", name).strip().lower(), [])
+
     def prices(self, key: str) -> market.NpcPrices:
         if key not in self._prices:
             self._prices[key] = market.npc_prices(self.kb, key)
@@ -426,8 +484,15 @@ class _Ctx:
         out = {"sell": p.sell_back}
         if shops:
             npc, where, price = shops[0]
-            town = where.rsplit(" · ", 1)[-1]
-            out.update(buy=price, seller=f"{_npc_name(self.kb, npc)[0]} ({town})")
+            # the town alone: an item page's "Victoria Road (Forgotten Hollow scroll vendor)" put El Moth, who stands
+            # on The Tree That Grew III, in the closed Hollow
+            town = _TOWN_NOTE.sub("", where.rsplit(" · ", 1)[-1])
+            # the citizen rank the price needs (Raymond's 2-meso arrows) and the price's build label, for the
+            # answer's "(COT2)": shops.tsv has both, this cell had neither
+            rank = p.ranks.get((npc, where), "")
+            label = p.labels.get((npc, where), "")
+            out.update(buy=price, seller=f"{_npc_name(self, npc, where)[0]} ({town}"
+                       + (f", citizen rank {rank}" if rank else "") + (f", {label} price" if label else "") + ")")
         return out
 
     def items(self, prefix: str = "", exclude: str | None = None):
@@ -539,6 +604,9 @@ def _equip(ctx, key: str, e: dict) -> dict:
             m = re.match(r"^(\S+) ([+-]\d[\d,]*)$", ln)
             if m and m.group(1) in _EQUIP_STAT:
                 row[_EQUIP_STAT[m.group(1)]] = _int(m.group(2))
+    # "Male only" / "Female only": the twin items of one name ("Green Bennis Chainmail") told apart
+    sex = next((m.group(1) for ln in ctx.lines(key)[:80] for m in [re.match(r"(Male|Female) only\b", ln)] if m), "")
+    row["gender"] = sex
     # what the page's header lacked, from index.json's props
     p = e.get("props") or {}
     for prop, col in (("Level Requirement", "req_lv"), ("Weapon Attack", "watk"), ("Magic Attack", "matk"),
@@ -599,7 +667,7 @@ def _scroll(ctx, key: str, e: dict) -> dict:
                 break
         row.update(slot=head, grade=m.group(2) or "")
     for ln in ctx.lines(key):
-        s = re.match(r"^Success rate: (\d+)%,?\s*(.*)$", ln)
+        s = re.match(r"^Success rate\s*:\s*(\d+)%,?\s*(.*)$", ln)     # "Success rate: 60%", ":100%", " :10%"
         if s:
             row.update(success=int(s.group(1)), stats=s.group(2))
             break
@@ -629,9 +697,11 @@ def _monster(ctx, key: str, e: dict) -> dict:
     mesos = kb.community_mesos(key)
     m = combat.monster(kb, key)
     page = kb.page(key)
-    maps = [ctx.name(ctx.map_key(c[0])) or c[0] for c in combat._map_rows(page) if ctx.open.map_open(c[0])]
+    # where to hunt it: never a KPQ stage or a job-test room (their Lv 30 copies became map-less, merged below)
+    maps = [ctx.name(ctx.map_key(c[0])) or c[0] for c in combat._map_rows(page)
+            if ctx.open.map_open(c[0]) and not ctx.open.instance_map(c[0])]
     if len(maps) > MAPS_LISTED:          # most spawns first; spawns.tsv has every one
-        maps = maps[:MAPS_LISTED] + [f"+{len(maps) - MAPS_LISTED} more in spawns.tsv"]
+        maps = maps[:MAPS_LISTED] + [f"+{len(maps) - MAPS_LISTED} more maps"]     # no file name: answers never name files
     return {"monster": e["name"], "key": key, "level": level, "hp": hp, "mp": p.get("MP"), "exp": exp,
             "hp_per_exp": round(hp / exp, 2) if isinstance(hp, (int, float)) and exp else None,
             "wdef": p.get("Physical Defense"), "mdef": p.get("Magic Defense"), "acc": p.get("Accuracy"),
@@ -650,7 +720,17 @@ def _monsters(ctx) -> list[dict]:
     for k, e in ctx.kb.entities.items():
         if e.get("category") == "monster" and ctx.open.monster_key_open(k):
             _guard(rows, "monsters", k, _monster, ctx, k, e)
-    return sorted(rows, key=lambda r: (r["level"] if isinstance(r["level"], (int, float)) else 999, r["monster"]))
+    # a boss's map-less copy (Mano 700004 / 800018, King Slime...) beside the row with its maps: one row, as
+    # kb._monsters keeps (the AI saw two rows, one without spawn or respawn); all map-less: the first
+    mapped = {r["monster"] for r in rows if r.get("maps")}
+    kept: set[str] = set()
+    out = []
+    for r in rows:
+        if not r.get("maps") and (r["monster"] in mapped or r["monster"] in kept):
+            continue
+        kept.add(r["monster"])
+        out.append(r)
+    return sorted(out, key=lambda r: (r["level"] if isinstance(r["level"], (int, float)) else 999, r["monster"]))
 
 
 def _spawns(ctx: _Ctx) -> list[dict]:
@@ -661,8 +741,8 @@ def _spawns(ctx: _Ctx) -> list[dict]:
     def one(key: str, e: dict) -> list[dict]:
         out = []
         for c in combat._map_rows(ctx.kb.page(key)):
-            if not ctx.open.map_open(c[0]):
-                continue
+            if not ctx.open.map_open(c[0]) or ctx.open.instance_map(c[0]):
+                continue            # an instance (KPQ, a job test) is no spawn anyone hunts at (review CORE-1)
             mk = ctx.map_key(c[0])
             share = re.search(r"(\d+)\s*%", c[2]) if len(c) > 2 else None
             rate = re.match(r"([\d.]+)\s*x", c[4]) if len(c) > 4 else None
@@ -710,6 +790,8 @@ def _maps(ctx: _Ctx) -> list[dict]:
             if ctx.kb.get(to) and ctx.open.entity_open(to) and ctx.name(to) not in exits and to != key:
                 exits.append(ctx.name(to))
         mobs = sorted(here.get(key, []), key=lambda s: -s["count"])
+        if ctx.open.instance_map(ctx.open.map_cell.get(key, "")):
+            exp_hr = rank = None    # known, never ranked among the hunting grounds (review CORE-1)
         return {"map": e["name"], "key": key, "street": street, "region": cont, "town": "yes" if r.get("town") else "",
                 "lv_min": int(lv.group(1)) if lv else None, "lv_max": int(lv.group(2) or lv.group(1)) if lv else None,
                 "spawn_points": _int(get("Spawn points ")), "exp_hr": exp_hr,
@@ -719,18 +801,30 @@ def _maps(ctx: _Ctx) -> list[dict]:
     for k, e in ctx.kb.entities.items():
         if e.get("category") == "map" and ctx.open.entity_open(k):
             _guard(rows, "maps", k, one, k, e)
+    # the site ranks all 279 maps, Ossyria's too: ranked again over the maps in the game, so the best one is 1
+    ranked = sorted((r for r in rows if r.get("exp_rank")), key=lambda r: r["exp_rank"])
+    for n, r in enumerate(ranked, 1):
+        r["exp_rank"] = n
     return rows
 
 
 # ---- NPCs and shops
 
-def _npc_name(kb, text: str) -> tuple[str, str]:
+def _npc_name(ctx, text: str, where: str = "") -> tuple[str, str]:
     """(name, key) of the NPC a shop line names with its role glued on ("Arturo Grocer", "24 Hr Mobile Store
-    Mobile Store"): the longest start of it that is an NPC's name."""
+    Mobile Store"): the longest start of it that is an NPC's name. Several NPCs of that name ("Sam" on Maple
+    Island, "Sam (Henesys Armor Seller)"): the one standing on the shop's map ("Victoria Road: Henesys Weapon
+    Store · Henesys"), not the first (Henesys armor was sold by Maple Island's Sam)."""
+    kb = ctx.kb
     words = text.split()
     for n in range(len(words), 0, -1):
         key = kb.npc_key(" ".join(words[:n]))
         if key:
+            m = availability._SHOP_PLACE.match(where)
+            same = ctx.npcs_named(kb.get(key)["name"]) if m else []
+            if len(same) > 1:
+                cell = f"{m.group(2)} {m.group(1)}"
+                key = next((k for k in same if cell in ctx.open.npc_places(k)), key)
             return (kb.get(key) or {}).get("name", " ".join(words[:n])), key
     return text, ""
 
@@ -739,10 +833,12 @@ def _npc(ctx, key: str, e: dict) -> dict:
     lines = ctx.lines(key)
     name = e["name"]
     role, place = [], ""
-    i = next((n for n, ln in enumerate(lines) if ln in ("Location", "Locations")), None)
+    # "Location", or "Locations (4)" (the crafting stations, Doofus)
+    i = next((n for n, ln in enumerate(lines) if re.fullmatch(r"Locations?(?: \(\d+\))?", ln)), None)
     if i is not None:
-        # the first place it stands ("Locations" lists more, each line "<map> <street>")
-        place = next((ln for ln in lines[i + 1:i + 4] if ln and ln != "Find path here"), "")
+        # the first open place it stands ("Locations" lists more, each line "<map> <street>")
+        places = ctx.open.npc_places(key)
+        place = next((p for p in places if ctx.open.map_open(p)), places[0] if places else "")
         # the role lines stand between the name (its second time, under the description) and "Location"
         first = max((n for n in range(i) if lines[n] == name), default=i)
         role = [ln for ln in lines[first + 1:i] if ln]
@@ -770,7 +866,31 @@ def _shop_item(kb, cell: str) -> tuple[str, str, str]:
             if name.lower() in items:
                 return name, items[name.lower()], " ".join(words[n:-1])
     plain = re.sub(r" \([MF]\)$", "", cell)
-    return cell, items.get(cell.lower()) or items.get(plain.lower(), ""), ""
+    key = items.get(cell.lower()) or items.get(plain.lower(), "")
+    if not key:
+        # the shop table spells it its own way: "Arrow for Bow" (Arrows for Bows), "Subi Throwing-Stars"
+        key = _loose_items(kb).get(_loose(plain), "")
+    return cell, key, ""
+
+
+def _loose(name: str) -> str:
+    """An item name without case, hyphens or plural s: "Subi Throwing-Stars" -> "subi throwing star"."""
+    return " ".join(w.removesuffix("s") for w in re.split(r"[\s-]+", name.lower()) if w)
+
+
+def _loose_items(kb) -> dict[str, str]:
+    """_loose(name) -> item key, for the forms only one item has (none is guessed between two)."""
+    found = getattr(kb, "_loose_item_keys", None)
+    if found is None:
+        seen: dict[str, set[str]] = {}
+        for name, key in kb._item_by_name.items():
+            seen.setdefault(_loose(name), set()).add(key)
+        found = {n: next(iter(ks)) for n, ks in seen.items() if len(ks) == 1}
+        try:
+            kb._loose_item_keys = found
+        except AttributeError:
+            pass
+    return found
 
 
 def _shops(ctx) -> list[dict]:
@@ -785,12 +905,12 @@ def _shops(ctx) -> list[dict]:
         for npc, where, price in [*p.shops, *((n, w, None) for n, w in p.unpriced)]:
             if not ctx.place_open(where):
                 continue
-            name, nkey = _npc_name(kb, npc)
+            name, nkey = _npc_name(ctx, npc, where)
             if (nkey or name, key) in seen:
                 continue
             seen.add((nkey or name, key))
             out.append({"npc": name, "npc_key": nkey, "item": e["name"], "item_key": key,
-                        "item_type": e.get("type") or "", "price": price, "place": where,
+                        "item_type": e.get("type") or "", "price": price, "place": _TOWN_NOTE.sub("", where),
                         "label": p.labels.get((npc, where), ""), "rank": p.ranks.get((npc, where), "")})
         return out
 
@@ -967,7 +1087,7 @@ def _skill(ctx, key: str, e: dict) -> dict | None:
     i = next((n for n, ln in enumerate(lines) if re.fullmatch(r"Level \d+ \(MAX\)", ln)), None)
     effect = lines[i + 1] if i is not None and i + 1 < len(lines) else ""
     mp = re.search(r"\bMP -?(\d+)", effect)       # "MP -16; Damage 120%" (Invincible's page: "MP 36")
-    dmg = re.search(r"[Dd]amage (\d+)%|(\d+)% damage", effect)
+    dmg = re.search(r"[Dd]amage (\d+)%|(\d+)% (?:in )?damage", effect)      # Steal: "apply 180% in damage"
     element = next((m.group(1) for ln in lines if (m := re.match(r"^Element ((?:\w+)(?: and \w+)?) The skill", ln))),
                    "")
     weapon = next((m.group(1) for ln in lines if (m := re.match(r"^Weapon requirement (.+?) The skill", ln))), "")

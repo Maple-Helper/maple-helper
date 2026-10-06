@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from . import APP_NAME, __version__, news, osapi, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
-from .i18n import I18n
+from .i18n import I18n, system_language
 from .kb import KnowledgeBase
 from .store import ASSETS, DATA_DIR, History, Profiles, Settings
 from .ui import theme
@@ -38,11 +38,14 @@ APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
 def _remove_stray_screenshots() -> None:
     """Screenshots handed to ChatGPT live in %TEMP% only for one answer; a quit mid-answer left them there
-    (Gemini's are in Maple Helper's Antigravity folder, removed the same way)."""
+    (Gemini's are in Maple Helper's Antigravity folder, removed the same way). So are the other per-run leftovers:
+    Grok's question files (in its run folders now, in %TEMP% before), Gemini's temp folders and Grok's saved
+    sessions."""
     import glob
     import tempfile
     import time
-    for f in glob.glob(os.path.join(tempfile.gettempdir(), "maplehelper-shot-*.jpg")):
+    tmp = tempfile.gettempdir()
+    for f in glob.glob(os.path.join(tmp, "maplehelper-shot-*.jpg")) + glob.glob(os.path.join(tmp, "maplehelper-grok-*.txt")):
         try:
             if time.time() - os.path.getmtime(f) > 3600:
                 os.remove(f)
@@ -51,18 +54,21 @@ def _remove_stray_screenshots() -> None:
     import shutil
 
     from .providers import gemini, grok
-    for d in glob.glob(str(gemini.shots_dir() / "run-*")) + glob.glob(str(grok.shots_dir() / "run-*")):
+    for d in (glob.glob(str(gemini.shots_dir() / "run-*")) + glob.glob(str(gemini.tmp_dir() / "run-*"))
+              + glob.glob(str(grok.shots_dir() / "run-*"))):
         try:
             if time.time() - os.path.getmtime(d) > 3600:
                 shutil.rmtree(d, ignore_errors=True)
         except OSError:
             pass
+    grok.sweep_sessions()
 
 
 def load_kb() -> KnowledgeBase:
     """The newest KB; the bundled one when the downloaded copy can't be read (one bad release mustn't stop
     every start)."""
-    from .store import BUNDLED_KB
+    from .store import BUNDLED_KB, adopt_bundled_kb
+    adopt_bundled_kb()          # macOS: tables are never written inside the signed .app
     try:
         return KnowledgeBase()
     except Exception:      # noqa: BLE001
@@ -88,7 +94,8 @@ class MapleHelperApp:
         self.settings = Settings()
         self.profiles = Profiles()
         self.kb = load_kb()
-        tables.ensure_async(self.kb)        # the KB's grep tables, off the GUI thread: ready before the first question
+        # the KB's grep tables, off the GUI thread: ready before the first question
+        tables.ensure_async(self.kb)           # (and kb.warm(): the first question's caches, PRF-7)
         self.font_family = theme.load_fonts()
         theme.FONT_FAMILY = self.font_family
         qapp.setWindowIcon(QIcon(str(ASSETS / "brand" / APP_ICON)))
@@ -100,7 +107,8 @@ class MapleHelperApp:
 
     def style(self, opacity: float | None = None) -> str:
         theme.set_mode(self.settings["appearance"])
-        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"]).rtl else Qt.LeftToRight)
+        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"] or system_language()).rtl
+                                     else Qt.LeftToRight)
         css = theme.stylesheet(self.font_family, self.settings["font_size"])
         # restyling the app re-polishes every open widget (the chat with its answers too): only when it changed,
         # not each time a window opens, which held "Play tools" back for a second
@@ -132,6 +140,9 @@ class MapleHelperApp:
         # listening from the start: a second launch while onboarding (or the character setup) is still open
         # brings that window forward instead of timing out against a server that wasn't up yet
         self._listen_for_second_launch()
+        if osapi.IS_MAC:
+            # macOS never starts a second copy: opening the app again only reactivates this one
+            self.qapp.applicationStateChanged.connect(self._on_mac_reopen)
         fresh_install = not self.settings["onboarding_done"]
         if not self.settings["onboarding_done"]:
             if not self.run_onboarding():
@@ -145,7 +156,8 @@ class MapleHelperApp:
                         provider=self.settings["provider"], language=self.settings["language"])
         self.brain = Brain(self.kb, provider=self.settings["provider"], length=self.settings["answer_length"])
         self.apply_ai_settings()
-        threading.Thread(target=self.brain.prewarm, daemon=True).start()   # first answer without startup delay
+        # no AI process is started here: it is warmed when the chat opens (Overlay.open_overlay), so a start in the
+        # tray at login keeps none waiting all day (audit PRF-1); typing the first question outlasts its start
         self.overlay = Overlay(self.settings, self.profiles, self.kb, self.brain)
         self.overlay.setStyleSheet(self.style())
         self.overlay.setWindowOpacity(1.0)
@@ -192,16 +204,28 @@ class MapleHelperApp:
         self.voice.text.connect(self.on_voice_text)
         self.voice.failed.connect(self.on_voice_failed)
         self.voice.text.connect(lambda _: telemetry.track("voice_used"))
+        self.voice.text.connect(self._stamp_voice_use)
         self.overlay.mic_clicked.connect(self.voice.toggle)
+        # the first voice question asks before the speech model downloads, then shows its progress (UX-12)
+        self.voice.need_download.connect(self.on_voice_need_download)
+        self.voice.need_gpu_download.connect(self.on_voice_need_gpu_download)
+        self.overlay.voice_gpu_declined.connect(self.voice.skip_gpu)
+        self.overlay.voice_download_requested.connect(self.voice.download)
+        self.overlay.voice_download_cancel.connect(self.voice.cancel_download)
+        self.voice.download_progress.connect(self.overlay.voice_download_progress)
+        self.voice.download_done.connect(self.overlay.voice_download_finished)
 
         self.make_tray()
         self.apply_autostart()
         self.pending_installer = None
         self._reopen_after_update = False
         QTimer.singleShot(4000, self.check_kb_update_silently)
-        QTimer.singleShot(6000, self.voice.preload)    # voice answers right away after a start or an update
+        # voice answers right away after a start or an update, for a player who used it lately (PRF-2)
+        QTimer.singleShot(6000, lambda: self.voice.preload(self.settings["voice_last_used"]))
         QTimer.singleShot(8000, updater.remove_old_installers)
-        QTimer.singleShot(9000, _remove_stray_screenshots)
+        # only files: off the UI thread (the first sweep after the update removed ~1.7 s of old Grok sessions per
+        # thousand, review PLT-8)
+        QTimer.singleShot(9000, lambda: threading.Thread(target=_remove_stray_screenshots, daemon=True).start())
         from . import inventory     # the icon index for "check the inventory", built before it's needed
         QTimer.singleShot(10000, lambda: threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start())
         # a session can run for hours: look again for a new KB every hour, for a new release every 15 minutes
@@ -224,6 +248,11 @@ class MapleHelperApp:
 
     def replay_tour(self, settings_dialog) -> None:
         """Settings → "Take the app tour": the settings window steps away and the chat shows the tour."""
+        if settings_dialog.unsaved():
+            # changes not saved yet: ask, as the X does (closing it threw them away); the question closed: no tour
+            settings_dialog._close_clicked()
+            if settings_dialog.isVisible():
+                return
         settings_dialog.close()
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
@@ -246,6 +275,18 @@ class MapleHelperApp:
                 self.bring_dialogs_forward()
                 win.raise_()
                 win.activateWindow()
+            return
+        self.show_chat()
+
+    def _on_mac_reopen(self, state) -> None:
+        """Maple Helper opened again from Finder, Launchpad or Spotlight while it runs (menu bar only, no Dock icon):
+        the chat shows, as a second launch does on Windows. Only when nothing of ours is on screen and the app didn't
+        just activate itself (a hotkey opening the chat, a dialog brought forward)."""
+        if state != Qt.ApplicationActive or getattr(self, "overlay", None) is None:
+            return
+        if osapi.seconds_since_self_activation() < 1.5:
+            return
+        if any(w.isVisible() for w in QApplication.topLevelWidgets()):
             return
         self.show_chat()
 
@@ -324,9 +365,9 @@ class MapleHelperApp:
             t = I18n(self.settings["language"])
             self.toast(t("perm_title"), t("perm_screen_body"), timeout_ms=20000)
 
-    def toast(self, title: str, message: str = "", timeout_ms: int = 5000):
+    def toast(self, title: str, message: str = "", timeout_ms: int = 5000, on_click=None):
         notify(title, message, rtl=I18n(self.settings["language"]).rtl, font_family=self.font_family,
-               timeout_ms=timeout_ms, screen=self._toast_screen())
+               timeout_ms=timeout_ms, screen=self._toast_screen(), on_click=on_click)
 
     def _toast_screen(self):
         """Where the player is looking: the chat's monitor when it is open, else the game's (a toast on the
@@ -376,8 +417,24 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         key = ("voice_mic_failed" if error.startswith("mic:") else
-               "voice_download_failed" if error.startswith("download:") else "voice_failed")
+               "voice_download_failed" if error.startswith("download:") else
+               "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
+
+    def on_voice_need_download(self, size: int):
+        # the talk key in game: the question about the download shows in the chat
+        if not self.overlay.is_open():
+            self.overlay.toggle(self.capture)
+        self.overlay.offer_voice_download(size)
+
+    def on_voice_need_gpu_download(self, size: int):
+        if not self.overlay.is_open():
+            self.overlay.toggle(self.capture)
+        self.overlay.offer_voice_gpu_download(size)
+
+    def _stamp_voice_use(self, _text: str):
+        import time
+        self.settings["voice_last_used"] = int(time.time())
 
     def on_voice_text(self, text: str):
         if not text.strip():          # silence (or only noise): say so, instead of nothing happening
@@ -438,8 +495,10 @@ class MapleHelperApp:
         menu.addSeparator()
         menu.addAction(a_quit)
         self.tray.setContextMenu(menu)
+        # macOS: a click on the menu bar icon opens this menu and also reports Trigger (Qt's Cocoa status item),
+        # so the click is the menu there, not a chat toggle under it
         self.tray.activated.connect(lambda r: self.overlay.toggle(self.capture)
-                                    if r == QSystemTrayIcon.Trigger else None)
+                                    if r == QSystemTrayIcon.Trigger and not osapi.IS_MAC else None)
         self.tray.show()
         self._tray_menu = menu
         self._add_announced_item()
@@ -547,7 +606,7 @@ class MapleHelperApp:
         self.brain.provider = self.settings["provider"]
         ai = providers.get(self.settings["provider"])
         self.brain.api_key = ai.load_api_key() if self.settings.api_key_mode(ai.name) else None
-        self.brain.ui_lang = self.settings["language"]
+        self.brain.ui_lang = self.settings["language"] or "he"     # (None before a first save: the UI is Hebrew)
         self.apply_saver_mode()
 
     def on_account_changed(self):
@@ -582,7 +641,10 @@ class MapleHelperApp:
         report.log.info("problem report written: %s", path.name)
         # show the file, selected, in Explorer / Finder
         subprocess.Popen(["explorer", "/select,", str(path)] if sys.platform == "win32" else ["open", "-R", str(path)])
-        self.toast(t(saved), t("report_saved_body", name=path.name), timeout_ms=12000)
+        # its issues address wraps inside the narrow card ("maple-" / "helper/issues"): a click opens it (review3 UX8-a)
+        from .ui.dialogs import ISSUES_URL
+        self.toast(t(saved), t("report_saved_body", name=path.name), timeout_ms=12000,
+                   on_click=lambda: osapi.open_url(ISSUES_URL))
 
     def on_history_cleared(self):
         self.overlay.clear_feed()
@@ -602,6 +664,8 @@ class MapleHelperApp:
         settings_win = self.__dict__.get("_windows", {}).get("settings")
         if settings_win is not None and hasattr(settings_win, "saver"):
             settings_win.saver.setChecked(True)     # its Save must not switch it off again
+            if hasattr(settings_win, "_initial"):
+                settings_win._initial["saver_mode"] = True      # already saved: its X asked "Save your changes?"
         self.apply_saver_mode()
         self.overlay.show_saver_badge(True)
         self.overlay.add_system(I18n(self.settings["language"])("saver_turned_on"))
@@ -621,6 +685,8 @@ class MapleHelperApp:
         terms.hide()
         self.overlay.apply_capture_mode()
         self.apply_saver_mode()
+        # the answers' language for a name-only question: the new one now, not after a restart
+        self.brain.ui_lang = self.settings["language"] or "he"
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.voice.set_key(self.settings["hotkey_voice"])
@@ -634,8 +700,11 @@ class MapleHelperApp:
         self.make_tray()
 
     def apply_autostart(self):
+        if sys.platform == "win32" and not getattr(sys, "frozen", False):
+            return      # a run from source would replace the installed app's Run value with "python -m maplehelper"
         # the setting means "start at login" on macOS (named before macOS support)
-        if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False:
+        # Windows says False too when the Run key couldn't be written (logged there): the macOS text isn't for it
+        if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False and osapi.IS_MAC:
             t = I18n(self.settings["language"])     # macOS, run from the disk image: the login item would break
             self.toast(t("start_at_login"), t("start_at_login_move"), timeout_ms=15000)
 
@@ -667,7 +736,7 @@ class MapleHelperApp:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
         player is waiting on an answer or the KB's tables are being built (then _retry_kb_update tries again in a
         few minutes)."""
-        if self.overlay.busy or getattr(self.overlay, "_syncing", False):
+        if self.overlay._is_busy():        # an inventory read too: it works from the KB's icons
             return False
         if tables.building():
             return False            # the KB's tables are being written into the folder that would be swapped
@@ -676,8 +745,12 @@ class MapleHelperApp:
 
     def _update_kb_in_background(self, interactive: bool):
         if getattr(self, "_kb_updating", False):
+            # "Update knowledge base" clicked while the start-up/hourly check runs: that check's result is toasted,
+            # or the click did nothing at all
+            self._kb_interactive = getattr(self, "_kb_interactive", False) or interactive
             return
         self._kb_updating = True
+        self._kb_interactive = interactive
 
         def work():
             before = updater.local_version()
@@ -687,9 +760,10 @@ class MapleHelperApp:
                 report.log.exception("knowledge base update failed")
                 status = "failed"
             self._kb_updating = False
+            shown = self._kb_interactive
             if status == "updated":
                 report.log.info("knowledge base updated to %s", updater.local_version())
-            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, interactive))
+            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, shown))
         threading.Thread(target=work, daemon=True).start()
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):
@@ -979,14 +1053,25 @@ class MapleHelperApp:
 
     def reload_kb(self):
         self.kb = load_kb()
-        tables.ensure_async(self.kb)        # a new KB's tables (a downloaded one usually brings them current)
+        tables.ensure_async(self.kb)    # a new KB's tables (a downloaded one usually brings them current) and warm-up
         from . import inventory
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb
         self.overlay.kb = self.kb
+        # a tagged card the new KB dropped would crash the next question (set_tags keeps only cards it has)
+        self.overlay.set_tags(self.overlay.focus_keys)
         self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
+        # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
+        # they are, except the one the player is using (and Settings, which may hold unsaved changes)
+        for kind, dlg in list(self.__dict__.get("_windows", {}).items()):
+            if dlg is None or kind in ("settings", "whats_new") or dlg.isActiveWindow() or not dlg.isVisible():
+                continue
+            again = self._reopen_call(kind, dlg)
+            if again:                       # none: no way to bring it back as it is, leave it open
+                dlg.close()
+                QTimer.singleShot(0, again)
 
     def shutdown(self):
         telemetry.flush()
@@ -997,12 +1082,17 @@ class MapleHelperApp:
             pass
         try:
             self.brain.cancel()                  # an answer in progress ends now...
-            for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None)):
+        except Exception:
+            pass
+        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None),
+                   *getattr(self.overlay, "_stopped_threads", [])):      # (an answer stopped just before, ending)
+            # each on its own: a finished answer's thread already deleted must not skip a running read's
+            try:
                 if th is not None and th.isRunning():
                     th.quit()
                     th.wait(2000)               # ...and its thread with it (a running QThread at exit crashes)
-        except Exception:
-            pass
+            except RuntimeError:
+                pass
         try:
             self.brain.shutdown()
         except Exception:
@@ -1052,7 +1142,6 @@ def main():
         return selftest.main(sys.argv[1:])
     osapi.prepare_process()
     report.setup_logging()
-    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, " ".join(sys.argv[1:]) or "no args")
     qapp = QApplication(sys.argv)
     # Fusion: the native Windows 11 style ignores rounded corners on buttons. AppStyle adds the hand cursor and
     # the focus ring as Qt styles each widget (no app-wide event filter)
@@ -1060,14 +1149,18 @@ def main():
     qapp.setApplicationName(APP_NAME)
     qapp.setApplicationDisplayName(APP_NAME)
     lock = QLockFile(str(DATA_DIR / "app.lock"))
+    args = " ".join(sys.argv[1:]) or "no args"
     if not lock.tryLock(100):
         # already running (often in the tray): ask it to show the chat, unless this start is itself a background one
+        # (logged as such: a "starting" line here read as "the app restarted twice" in a report)
+        report.log.info("Maple Helper %s already running: showing it (%s)", __version__, args)
         if BACKGROUND_ARG not in sys.argv[1:]:
             sock = QLocalSocket()
             sock.connectToServer(INSTANCE_SERVER)
             sock.waitForConnected(1000)
             sock.disconnectFromServer()
         return 0
+    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, args)
     _hold_running_mutex()
     app = MapleHelperApp(qapp)
     if not app.start():

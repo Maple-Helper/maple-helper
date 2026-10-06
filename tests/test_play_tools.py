@@ -1,12 +1,37 @@
 """Play tools: combat math (checked against NiaMeowDB's own numbers), quests, build tables, grind tracker."""
+import re
 from pathlib import Path
 
 import pytest
 
-from maplehelper import buildplan, combat, plan, quests
+from maplehelper import availability, buildplan, combat, plan, quests
 
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
 needs_kb = pytest.mark.skipif(not (REAL_KB / "index.json").exists(), reason="no real knowledge base")
+# The real-KB tests below run on the KB the nightly is about to publish: they check what holds whatever tonight's
+# numbers are (a balance patch or a new recipe must not hold the KB back); exact parses run on frozen page copies.
+
+# pages/crafting/efficiency__smithing.md as the real KB wrote it (Lv. 2 and the head of Lv. 3), frozen
+SMITHING = """---
+{}
+---
+68 recipes 1 profitable to grind
+Lv. 2
+needs 115 EXP · char Lv. 10 + ( 2 recipes )
+# | Recipe / Ingredients | EXP | Catalyst | Mat value | Mat Craft Value | Sell-back | Net | EXP / meso | Mats
+1 | Juno
+2 x Iron Ingot 2 x Processed Leather 6 x Screw
+| 40 | 1,200 | + 226 | + 600 | + 1,200 | -226 | 0.177 | Farm only
+2 | Steel Helmet
+1 x Bronze Helmet 2 x Iron Ingot
+| 40 | 1,000 | + 900 | + 200 | + 750 | -1,150 | 0.035 | Mixed
+Lv. 3
+needs 199 EXP · char Lv. 15 + ( 1 recipes )
+# | Recipe / Ingredients | EXP | Catalyst | Mat value | Mat Craft Value | Sell-back | Net | EXP / meso | Mats
+1 | Steel Fingerless Gloves
+3 x Iron Ingot 2 x Processed Leather 9 x Screw
+| 60 | 1,800 | + 329 | + 700 | + 1,800 | -329 | 0.182 | Farm only
+"""
 
 
 def test_accuracy_to_never_miss_matches_the_site():
@@ -21,15 +46,18 @@ def test_base_accuracy_and_damage():
     m = combat.Monster("monster/1", "Test", level=30, hp=1000, exp=50, pdef=0)
     assert combat.hits_to_kill(100, 300, m, 30) == (10, 5.0)
     assert combat.level_scale(30, 35) < 1 and combat.level_scale(30, 25) == 1
+    assert combat.landed(10**6, 0, 1, 1) == 99_999 and combat.landed(0.2, 50, 1, 1) == 1     # the game's clamp (GAM-15)
 
 
 @needs_kb
 def test_training_spots_are_reachable_and_ranked():
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
+    from maplehelper import availability
     rows = combat.spots(kb, 30, acc=73, dmg=(140, 300), n=6)
     assert rows and all(combat.grind_map(kb, s.map) for s in rows)
-    assert not any("Orbis" in s.map or "Warrior's" in s.map for s in rows)
+    assert not any("Warrior's" in s.map for s in rows)
+    assert availability.of(kb).place_open("Orbis") or not any("Orbis" in s.map for s in rows)    # not out: not shown
     assert rows == sorted(rows, key=lambda s: -s.score)
 
 
@@ -54,7 +82,9 @@ def test_quests_for_a_level():
     first = r["now"][0].key
     assert first not in [q.key for q in quests.for_level(kb, 22, "Warrior", "Warrior", [first])["now"]]
     mai = next(quests.quest(kb, k) for k, e in kb.entities.items() if e["name"] == "Mai's Training")
-    assert mai.level == 3 and "Beginner" in mai.job and any("Blue Snail x 10" in n for n in mai.needs)
+    # its level is the page's own, a Beginner's quest, asking "<monster or item> x N"
+    assert mai.level == kb.get(mai.key)["props"].get("Minimum Level", 1) and "Beginner" in mai.job
+    assert mai.needs and all(re.search(r" x \d+$", n) for n in mai.needs)
 
 
 @needs_kb
@@ -66,7 +96,7 @@ def test_build_tables_follow_the_level():
     kinds = [t.kind for t in tables]
     assert "ap" in kinds and "sp" in kinds
     ap = next(t for t in tables if t.kind == "ap")
-    assert "10-30" in ap.heading and ap.current is not None
+    assert re.search(r"\d+-\d+", ap.heading) and ap.current is not None      # "10-30": the guide's level range
     assert buildplan.current_row([["Level"], ["10"], ["11-12"], ["20"]], 15) == 2
 
 
@@ -106,28 +136,48 @@ def test_tools_window_builds_every_page(tmp_path, monkeypatch):
     d.close()
 
 
+def test_crafting_page_rows_read_exactly():
+    from maplehelper import crafting
+    crafting._levels.cache_clear()
+    lv2, lv3 = crafting._levels(SMITHING)
+    juno = next(r for r in lv2.recipes if r.name == "Juno")
+    assert (juno.level, juno.exp, juno.catalyst, juno.net, juno.exp_per_meso, juno.mats) == \
+        (2, 40, 1200, -226, 0.177, "Farm only")
+    assert juno.ingredients == [(2, "Iron Ingot"), (2, "Processed Leather"), (6, "Screw")]
+    assert (lv2.needs_exp, lv2.char_level, len(lv2.recipes)) == (115, 10, 2)
+    assert (lv3.level, lv3.needs_exp, lv3.char_level) == (3, 199, 15)
+    crafting._levels.cache_clear()
+
+
 @needs_kb
 def test_crafting_recipes_by_profession_level():
     from maplehelper import crafting
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
     smithing = crafting.levels(kb, "smithing")
-    assert sum(len(lv.recipes) for lv in smithing) == 68            # the page says "68 recipes"
+    total = re.search(r"(\d+) recipes", kb.page("crafting/efficiency__smithing"))
+    assert sum(len(lv.recipes) for lv in smithing) == int(total.group(1))      # the page's own "68 recipes"
     now, nxt = crafting.for_level(kb, "smithing", 2)
-    juno = next(r for r in now.recipes if r.name == "Juno")
-    assert juno.exp == 40 and juno.catalyst == 1200 and juno.net == -226
-    assert (2, "Iron Ingot") in juno.ingredients and (6, "Screw") in juno.ingredients
+    assert now.level == 2 and now.recipes and all(r.exp > 0 and r.catalyst >= 0 and r.ingredients for r in now.recipes)
     assert now.recipes == sorted(now.recipes, key=lambda r: (-r.exp_per_meso, -r.exp))
-    assert nxt.level == 3 and nxt.needs_exp == 199
+    assert nxt.level == 3 and nxt.needs_exp and nxt.needs_exp > (now.needs_exp or 0)
     assert all(crafting.levels(kb, p) for p in crafting.PROFESSIONS)
+    # the EXP to the next level is the current level's (pages/formula/leveling.md "1 | 50 | 0 | 10"), and
+    # Smithing 8 still has a next level though the efficiency page has no "Lv. 9" block (audit GAM-1)
+    assert crafting.next_level(kb, "smithing", 1) == (2, 50, 10)
+    assert crafting.next_level(kb, "smithing", 8) == (9, 1187, 45)
+    assert crafting.next_level(kb, "smithing", 10) is None
 
 
 @needs_kb
 def test_citizenship_town_and_quests():
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
-    assert buildplan.citizenship_advice(kb, "Warrior", "Fighter", "en")[0] == "Henesys"   # from the Warrior guide
-    assert buildplan.citizenship_advice(kb, "Thief", "Assassin", "en")[0] == "Kerning City"
+    # the town each class guide advises (Henesys for a Warrior, Kerning City for a Thief tonight): a citizenship
+    # town, named in that guide
+    for base, job in (("Warrior", "Fighter"), ("Thief", "Assassin")):
+        town = buildplan.citizenship_advice(kb, base, job, "en")[0]
+        assert town in quests.TOWNS and town in kb.page(plan.class_guide(kb, base, base))
     rows = quests.citizenship(kb, "Henesys", 30)
     assert rows and all(quests.town_of(kb, q) == "Henesys" and q.level <= 30 for q in rows)
     assert quests.citizenship(kb, "Henesys", 11) == [] or all(q.level <= 11 for q in quests.citizenship(kb, "Henesys", 11))
@@ -138,8 +188,12 @@ def test_npc_prices_from_the_item_page():
     from maplehelper import market
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
-    red = market.npc_prices(kb, kb._item_by_name["red potion"])
-    assert red.sell_back == 5 and red.shops and red.shops[0][2] == 50
+    key = kb._item_by_name["red potion"]
+    red = market.npc_prices(kb, key)
+    # the page's own sell-back line (the exact parse is pinned on tests/test_tables.py's frozen Red Potion page)
+    back = re.search(r"NPC Sell-back(?: \(per unit\))? ([\d,]+) mesos", kb.page(key))
+    assert red.sell_back == int(back.group(1).replace(",", "")) and red.shops
+    assert all(isinstance(s[2], int) and s[2] > 0 for s in red.shops)
     assert red.shops == sorted(red.shops, key=lambda s: s[2])
 
 
@@ -151,6 +205,18 @@ def test_free_market_summary_keeps_the_exact_item():
     m = market.summarize(rows, "Work Gloves")
     assert (m.count, m.median, m.low, m.high) == (2, 2000, 1000, 3000) and m.latest
     assert market.summarize([], "Work Gloves").count == 0
+
+
+def test_an_odd_market_answer_still_parses():
+    """int() on what the site sent ("n/a", a list) raised in the lookup thread, and the price card never got an
+    answer (audit SEC-7)."""
+    from maplehelper import market
+    m = market.parse_item_market({"priceChecks": "n/a", "forSale": [1], "windowDays": None, "usual": True,
+                                  "finishedTrades": 3},
+                                 {"points": [{"day": "2026-10-01", "median": 10, "count": "x"}]},
+                                 {"listings": [{"priceEach": 5, "quantity": "lots"}], "summary": {"activeCount": {}}})
+    assert (m.checks, m.trades, m.for_sale, m.window, m.usual) == (0, 3, 0, 14, None)
+    assert m.listings[0].quantity == 1 and m.volume == 0
 
 
 def test_damage_range_typed_by_hand():
@@ -171,10 +237,18 @@ def test_quest_item_names_with_a_lowercase_x():
 def test_class_specific_rewards_follow_the_class():
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
-    q = next(quests.quest(kb, k) for k, e in kb.entities.items() if e["name"] == "Welcome to the Hollow")
-    assert q.rewards_pick("Magician") == ["Wand Magic Attack Scroll: Greater x 1", "Staff Magic Attack Scroll: Greater x 1"]
-    assert "One-Handed Axe Attack Scroll: Greater x 1" in q.rewards_pick("Warrior")
-    assert q.rewards_pick("Beginner") == [] and not any("Scroll" in r for r in q.rewards)
+    # every quest with class-specific choices (Welcome to the Hollow's scrolls): a class gets its own set and the
+    # "Any Class" ones, never another class's, and the choices aren't also promised as sure rewards
+    picky = [q for q in (quests.quest(kb, k) for k, e in kb.entities.items() if e["category"] == "quest")
+             if q and q.class_rewards]
+    assert picky
+    for q in picky:
+        for cls in ("Warrior", "Magician", "Bowman", "Thief", "Beginner"):
+            assert q.rewards_pick(cls) == q._for_class(q.class_rewards, cls), q.key
+            others = {x for c, xs in q.class_rewards.items() if c not in (cls, "Any Class") for x in xs}
+            own = set(q.class_rewards.get(cls, [])) | set(q.class_rewards.get("Any Class", []))
+            assert not (set(q.rewards_pick(cls)) & (others - own)), (q.key, cls)
+        assert not set(q.rewards) & {x for xs in q.class_rewards.values() for x in xs}, q.key
 
 
 @needs_kb
@@ -208,10 +282,28 @@ def test_guides_for_you_and_third_job_build():
     from maplehelper.store import Character
     kb = KnowledgeBase(REAL_KB)
     hollow = "guide/forgotten-hollow-the-new-endgame-area"
-    assert hollow in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 39))
+    # picked from Lv. 39, unless the release guide says the Hollow is closed (Founder's Access)
+    closed = "Forgotten Hollow" in availability.of(kb).closed_areas
+    assert (hollow in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 39))) is not closed
     assert hollow not in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 38))
     assert plan.class_guide(kb, "Warrior", "Crusader") == "guide/fighter-class-guide"
     assert plan.class_guide(kb, "Magician", "Priest") == "guide/cleric-class-guide"
+
+
+@needs_kb
+def test_a_closed_hollow_is_not_picked_for_you(monkeypatch):
+    # Founder's Access (10-06): "Forgotten Hollow is closed", so a Lv. 45 player isn't sent to its guide
+    from types import SimpleNamespace
+
+    from maplehelper import guides
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.store import Character
+    kb = KnowledgeBase(REAL_KB)
+    hollow = "guide/forgotten-hollow-the-new-endgame-area"
+    monkeypatch.setattr(availability, "of", lambda _kb: SimpleNamespace(closed_areas=["Forgotten Hollow"]))
+    assert hollow not in guides.for_you(kb, Character("1", "A", "Thief", "Assassin", 45))
+    monkeypatch.setattr(availability, "of", lambda _kb: SimpleNamespace(closed_areas=[]))
+    assert hollow in guides.for_you(kb, Character("1", "A", "Thief", "Assassin", 45))
 
 
 @needs_kb
@@ -253,11 +345,13 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     d._quest_undo(first)
     assert first not in c.quests_done and d.q_done_toggle.isHidden()
     d.show_page(PAGES.index("exp"))
+    from maplehelper import plan
     from maplehelper.grind import Reading
-    d.grind.start(c.id, Reading(0, 99, 90.0))
-    d.grind.add(c.id, Reading(600, 100, 1.0))          # across 99 -> 100: past the KB's EXP table
+    top = max(plan.exp_table(d.kb))                    # Lv. 99 tonight: the KB's EXP table's last level
+    d.grind.start(c.id, Reading(0, top, 90.0))
+    d.grind.add(c.id, Reading(600, top + 1, 1.0))      # across its last level: past the KB's EXP table
     d._fill_exp()
-    assert "past Lv. 99" in d.grind_cells["exp"][0].toolTip()
+    assert f"past Lv. {top}" in d.grind_cells["exp"][0].toolTip()
     d.close()
     app.processEvents()
 
@@ -267,10 +361,15 @@ def test_profession_info_names_teacher_town_and_quests():
     from maplehelper import crafting
     from maplehelper.kb import KnowledgeBase
     KB = KnowledgeBase(REAL_KB)
-    i = crafting.info(KB, "smithing")
-    assert i.teacher == "Silas Irons" and i.teacher_town == "Perion"
-    assert i.start_level == 10 and i.master_level == 25
-    assert "Perion" in i.station_towns and "El Nath" not in " ".join(i.station_towns)
+    from maplehelper import availability
+    a = availability.of(KB)
+    # Silas Irons in Perion, Lv. 10 to 25 tonight: whoever the KB names, a real NPC with a town, a start before the
+    # mastery, and work stations only in towns that are out (no El Nath while Ossyria isn't)
+    for prof in crafting.PROFESSIONS:
+        i = crafting.info(KB, prof)
+        assert i.teacher and KB.get(i.teacher_key) and i.teacher_town, prof
+        assert i.start_quest and i.master_quest and 0 < i.start_level < i.master_level, prof
+        assert i.station_towns and all(a.place_open(t) for t in i.station_towns), prof
     assert crafting.info(KB, "leatherworking").start_quest       # no "in Need of an Apprentice": the first one
 
 

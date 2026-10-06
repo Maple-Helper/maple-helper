@@ -44,6 +44,60 @@ def test_parse_keeps_only_the_article():
     assert "Explore the database" not in html and "catnip" not in html
 
 
+MECH_PAGE = """---
+{"name": "EXP Table", "category": "guide"}
+---
+
+# MapleStory Classic EXP Table: Levels 1-100
+
+EXP requirements for levels 1-100.
+
+Explore the database
+Mechanics 5 min read · By Nia Meow
+Damage Formula Atk Speed Attack Styles HP/MP Gain EXP Table Spawn Rate Shop Item Efficiency Every EXP requirement in MapleStory Classic World, level by level, with the formula behind it.
+Contents
+Per-level EXP requirement
+The EXP Formula
+Per-level EXP requirement
+Level | EXP to next
+1 | 15
+The EXP Formula
+EXP grows with level.
+"""
+
+HOLLOW_PAGE = """---
+{"name": "Forgotten Hollow Guide", "category": "guide"}
+---
+
+# Forgotten Hollow Guide
+
+Forgotten Hollow exists nowhere else in MapleStory.
+
+Forgotten Hollow is a brand-new area that exists nowhere else in MapleStory, with its own fairy town.
+Getting into the Hollow
+The lore
+Level range
+Getting into the Hollow
+The front door is The Tree Tunnel.
+The lore
+Grendel the Really Old
+Level range
+Levels 39 to 60.
+"""
+
+
+def test_parse_fallback_keeps_the_opening_and_finds_unlabeled_contents():
+    # the reader's fallback for a guide the nightly KB adds before it has a book: the mechanics tabs glued onto
+    # the first paragraph dropped it, and a contents list without "Contents" made one untitled section
+    g = guides.parse("guide/exp-table-level-1-to-100", MECH_PAGE)
+    assert [h for h, _ in g.sections] == ["", "Per-level EXP requirement", "The EXP Formula"]
+    assert g.sections[0][1][0].startswith("Every EXP requirement in MapleStory Classic World")
+    assert "Atk Speed" not in guides.to_html(g, {"pros": "Pros", "cons": "Cons"})
+    g = guides.parse("guide/forgotten-hollow-the-new-endgame-area", HOLLOW_PAGE)
+    assert [h for h, _ in g.sections] == ["", "Getting into the Hollow", "The lore", "Level range"]
+    assert g.sections[2][1] == ["Grendel the Really Old"]
+
+
 @pytest.mark.parametrize("key,cat", [("guide/fighter-class-guide", "classes"),
                                      ("guide/best-grind-maps-every-level", "leveling"),
                                      ("guide/weapon-reach", "mechanics"),
@@ -158,6 +212,31 @@ def test_every_guide_link_opens_a_guide():
     assert not dead
 
 
+# every Hebrew guide, swept for the owner's Hebrew rules (launch audit HEB-1/2/3, hebrew1 and hebrew2, and the 4 books
+# AST-1/2 rebuilt): a new guide joins by itself
+HEB_CLEAN = sorted(f.stem for f in (guides.TRANSLATIONS / "he").glob("*.json"))
+
+
+def test_the_hebrew_terms_check_covers_every_guide():
+    assert len(HEB_CLEAN) == len(list((guides.TRANSLATIONS / "en").glob("*.json"))) >= 32
+
+
+@pytest.mark.parametrize("stem", HEB_CLEAN)
+def test_hebrew_guide_keeps_the_owners_terms(stem):
+    """רמה (never לבל; לבלבל "to confuse" and מבולבל are real words), גריינד without ל-, plural address, mesos in
+    English and plural ("לכל mesos", never "לכל meso", the review UI-8)."""
+    import json
+    import re
+    he = json.loads((guides.TRANSLATIONS / "he" / f"{stem}.json").read_text(encoding="utf-8"))
+    text = json.dumps({k: v for k, v in he.items() if k != "source_hash"}, ensure_ascii=False)
+    bad = re.findall(r"\S*(?:(?<!ל)(?<!לב)(?<!בו)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|[בלמ]בערך)\S*", text)
+    bad += re.findall(r"(?<![א-ת])(?:אתה|שלך|ממך|אותך|בשבילך|עליך|לפניך|בינך)(?![א-ת])", text)
+    bad += re.findall(r"(?<![א-ת])[לב]?(?:כל )?מסו(?![א-ת])", text)
+    bad += re.findall(r"ברמה (?:גבוה|נמוך|מקסימלי|הבא)(?![א-ת])", text)
+    bad += re.findall(r"\bmeso\b", text)
+    assert not bad, bad
+
+
 def test_translation_round_trip_keeps_blocks():
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
@@ -251,3 +330,64 @@ def test_hovering_a_guide_cover_shows_it_large(tmp_path):
     QApplication.sendEvent(pic, QEvent(QEvent.Leave))
     assert not pic.pop.isVisible()
     app.processEvents()
+
+
+def test_build_drops_the_sites_live_list_that_only_says_loading():
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_guides as bg
+    blocks = [{"h3": "Companion's Magic Box"}, {"p": "The table below tracks what players report."},
+              {"h2": "Possible Contents"}, {"p": "Community sourced"},
+              {"p": "Items players have received from opening this. Record the count range you've seen."},
+              {"p": "Loading…"}, {"h2": "Finding a party"}]
+    assert bg.merge(blocks) == [{"h3": "Companion's Magic Box"}, {"p": "The table below tracks what players report."},
+                                {"h2": "Finding a party"}]
+
+
+def test_build_holds_a_guide_whose_picture_did_not_download(monkeypatch, tmp_path):
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import build_guides as bg
+
+    def down(url, binary=False):
+        raise OSError("connection reset")
+    monkeypatch.setattr(bg, "fetch", down)
+    with pytest.raises(bg.PictureMissing):
+        bg.Images(tmp_path).get("/msclassic/guides/figure.png")
+
+
+def test_a_full_width_table_row_spans_the_table():
+    book = {"lang": "en", "title": "T", "intro": "", "blocks": [
+        {"table": [["Skill", "Default plan", "Swap"], ["**Longer Booster earlier.** Take it if..."],
+                   ["Haste", "Lv20 at level 54", "Lv20 at level 56"]]}]}
+    html = guides.book_html(book)
+    assert html.count("colspan='3'") == 1 and "colspan='1'" not in html
+
+
+def test_hebrew_guide_titles_wrap_as_right_to_left_paragraphs():
+    """As plain text a nearly full Hebrew title line lost its last letter at the card's edge ("רמה" showed "רמ",
+    the review UI-2): titles are right-to-left rich text, as the sign-in hints (DLG-8)."""
+    import sys
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QLabel
+    app = QApplication.instance() or QApplication(sys.argv)
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.guides import GuideRow, GuidesDialog
+    key = "guide/assassin-class-guide"
+    kb = SimpleNamespace(entities={}, page=lambda k: "", get=lambda k: None, picture=lambda k: None)
+    g = {"key": key, "title": "Assassin Guide", "category": "class", "minutes": None}
+    for lang, fmt in (("he", Qt.RichText), ("en", Qt.PlainText)):
+        t = I18n(lang)
+        row = GuideRow(kb, g, t, t.rtl)
+        title = next(lb for lb in row.findChildren(QLabel) if lb.objectName() == "CardName")
+        assert title.textFormat() == fmt
+        assert ('dir="rtl"' in title.text()) == (lang == "he")
+        assert "Assassin" in title.text()
+        row.deleteLater()
+    d = GuidesDialog(kb, None, "he", "")
+    try:
+        d.open_guide(key)
+        app.processEvents()
+        assert d.r_title.textFormat() == Qt.RichText and 'dir="rtl"' in d.r_title.text()
+    finally:
+        d.close()

@@ -1,6 +1,7 @@
 """Hebrew for texts the knowledge base brings in English: a quest's journal line, a pet skill's description, a skill
 change's note. tools/translate_kb.py makes them every night into the KB's own he.json, so a new quest or note reads in
-Hebrew from the next night on, with no app release; the files the app ships (assets/<kind>/he.json) stand behind it.
+Hebrew from the next night on, with no app release; the files the app ships (assets/<kind>/he.json) are the owner's
+own and win whenever they were made from the same English.
 
 A translation is used only while it was made from the very English the KB has now ("en"): a text NiaMeowDB rewrites
 shows in English until the next night translates it again.
@@ -41,11 +42,13 @@ def kb_table(root: Path | None, kind: str) -> dict:
 
 
 def he(root: Path | None, kind: str, key: str, en: str) -> str | None:
-    """The Hebrew of `en` (kind, key), the KB's first, then the app's own; None when none was made from it."""
+    """The Hebrew of `en` (kind, key), the app's own first, then the KB's; None when none was made from it. The app's
+    file is the owner's curated Hebrew: made from the same English, it beats the night's machine translation (the
+    KB's came first, so a hand fix to a poor nightly line never showed)."""
     en = (en or "").strip()
     if not en:
         return None
-    for table in (kb_table(root, kind), _load(ASSETS / kind / "he.json")):
+    for table in (_load(ASSETS / kind / "he.json"), kb_table(root, kind)):
         row = table.get(key)
         if isinstance(row, dict) and str(row.get("en") or "").strip() == en and str(row.get("he") or "").strip():
             return str(row["he"]).strip()

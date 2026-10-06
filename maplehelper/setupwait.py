@@ -37,6 +37,8 @@ def wait_for_setup(limit_s: float = 900, step_s: float = 0.5) -> bool:
             told = True
             _tell_waiting()      # an installer window left open would otherwise mean a silent, long wait
         time.sleep(step_s)
+    if told:
+        _close_note()            # "it opens by itself" stayed on screen after the app had opened
     return waited
 
 
@@ -56,6 +58,29 @@ def _tell_waiting() -> None:
     flags = 0x40 | 0x10000 | (0x80000 | 0x100000 if lang == "he" else 0)   # info, foreground, RTL in Hebrew
     threading.Thread(target=lambda: ctypes.windll.user32.MessageBoxW(None, WAITING_TEXT.get(lang, WAITING_TEXT["en"]),
                                                                      "Maple Helper", flags), daemon=True).start()
+
+
+def _close_note() -> None:
+    """Close the note _tell_waiting showed: a dialog of this process titled "Maple Helper"."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    from ctypes import wintypes
+    u32 = ctypes.WinDLL("user32")          # its own instance: argtypes here don't change anyone else's calls
+    u32.FindWindowExW.restype = wintypes.HWND
+    u32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+    u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    u32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    me = ctypes.windll.kernel32.GetCurrentProcessId()
+    h = None
+    for _ in range(50):
+        h = u32.FindWindowExW(None, h, "#32770", "Maple Helper")
+        if not h:
+            break
+        pid = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        if pid.value == me:
+            u32.PostMessageW(h, 0x0010, 0, 0)           # WM_CLOSE: the box ends as if OK was clicked
 
 
 DOWNLOAD_URL = "https://github.com/Maple-Helper/maple-helper/releases/latest/download/MapleHelper-Setup.exe"
@@ -83,13 +108,22 @@ STARTUP_TEXT = {
     "en": "Maple Helper couldn't start. The details were saved to:\n%s\n\nYou can send it to us (Report a problem), "
           "or try restarting the PC.",
 }
+# a release that fails at start never reaches its own update check: the way out is the latest installer
+STARTUP_NEWER_TEXT = {
+    "he": "ייתכן שגרסה חדשה יותר כבר מתקנת את זה. להוריד את הגרסה האחרונה?",
+    "en": "A newer version may already fix this. Download the latest version?",
+}
 
 
 RELEASES_URL = "https://github.com/Maple-Helper/maple-helper/releases/latest"
 MAC_TEXT = {
     "startup": {"he": STARTUP_TEXT["he"].replace("המחשב", "ה-Mac"), "en": STARTUP_TEXT["en"].replace("the PC", "the Mac")},
-    "broken": {"he": BROKEN_TEXT["he"].replace("להתקין מחדש?", "להוריד מחדש? (גררו את האפליקציה שוב לתיקיית Applications.)"),
-               "en": BROKEN_TEXT["en"].replace("Reinstall now?", "Download it again? (Drag the app into Applications again.)")},
+    # written whole: an interrupted update or an antivirus (the Windows causes) don't fit a drag-installed Mac app
+    "broken": {"he": "חלק מהקבצים של Maple Helper חסרים או פגומים (למשל, האפליקציה נפתחה מתוך קובץ ההתקנה אחרי שנסגר).\n\n"
+                     "להוריד מחדש? (גררו את האפליקציה שוב לתיקיית Applications.) ההגדרות והדמויות שלכם יישמרו.",
+               "en": "Some Maple Helper files are missing or damaged (for example, the app was opened from the disk "
+                     "image after it was ejected).\n\nDownload it again? (Drag the app into Applications again.) "
+                     "Your settings and characters are kept."},
     "download": {"he": "להורדה", "en": "Download"},
     "close": {"he": "סגירה", "en": "Close"},
 }
@@ -162,8 +196,12 @@ def report_broken_install(exc: BaseException) -> None:
         except Exception:
             where = "startup-error.log"
         rtl = MB_RIGHT | MB_RTLREADING if lang == "he" else 0
-        ctypes.windll.user32.MessageBoxW(None, STARTUP_TEXT.get(lang, STARTUP_TEXT["en"]) % where, "Maple Helper",
-                                         MB_ICONERROR | MB_SETFOREGROUND | rtl)
+        text = STARTUP_TEXT.get(lang, STARTUP_TEXT["en"]) % where + "\n\n" + \
+            STARTUP_NEWER_TEXT.get(lang, STARTUP_NEWER_TEXT["en"])
+        if ctypes.windll.user32.MessageBoxW(None, text, "Maple Helper",
+                                            MB_YESNO | MB_ICONERROR | MB_SETFOREGROUND | rtl) == IDYES:
+            import webbrowser
+            webbrowser.open(DOWNLOAD_URL)       # always the latest release's installer
         return
     # one language per box: Hebrew in a left-to-right box came out scrambled (seen in testing)
     flags = MB_YESNO | MB_ICONERROR | MB_SETFOREGROUND | (MB_RIGHT | MB_RTLREADING if lang == "he" else 0)

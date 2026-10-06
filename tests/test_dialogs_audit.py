@@ -3,6 +3,7 @@ CLI, no sign-in, no AI call)."""
 import gc
 import os
 import sys
+import threading
 import weakref
 
 import pytest
@@ -28,7 +29,20 @@ def env(qapp, isolated_store, kb, monkeypatch):
     s = isolated_store.Settings()
     s["language"] = "en"
     s["provider"] = "claude"
-    return s, isolated_store.Profiles(), kb
+    from PySide6.QtWidgets import QApplication
+    windows = set(QApplication.topLevelWidgets())
+    before = set(threading.enumerate())
+    yield s, isolated_store.Profiles(), kb
+    # the dialogs' account checks run on threads: they end before their dialog is freed (the review UI-6)
+    for th in set(threading.enumerate()) - before:
+        th.join(timeout=10)
+    # a dialog a test left open kept its sign-in timer: it fired in the next file's first event pump, with this
+    # file's fakes gone, and the run died of an access violation (test_overlay_audit after these, the review UI-6)
+    from PySide6.QtCore import QTimer
+    for w in set(QApplication.topLevelWidgets()) - windows:
+        for timer in w.findChildren(QTimer):
+            timer.stop()
+        w.close()
 
 
 class WaitingLogin:
@@ -224,6 +238,8 @@ def test_f12_is_not_offered_on_windows_and_a_saved_f12_falls_back(env, monkeypat
     dlg.close()
     monkeypatch.setattr(sys, "platform", "darwin")
     assert dialogs.hotkey_choices()[-1] == "F12"               # macOS has it
+    assert "F11" not in dialogs.hotkey_choices()               # macOS shows the desktop on F11
+    assert "F11" in dialogs.hotkey_choices(("F11", "F10"))     # a saved F11 is still shown
 
 
 def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
@@ -238,7 +254,7 @@ def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
         dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
         shown = [lb.text() for lb in dlg.findChildren(QLabel) if "fn+F9" in lb.text()]
         assert shown == ([hint] if mac else [])
-        assert ("F11" in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
+        assert ("F11" not in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
         dlg.close()
 
 
@@ -337,5 +353,6 @@ def test_a_long_microphone_name_never_widens_settings(env, monkeypatch):
     assert dlg.mic.currentIndex() == 2 and dlg._mic_value() == s.data["microphone"]
     assert "Microphone (" not in dlg.mic.text()
     dlg.mic.addItems(["Microphone Array (Realtek(R) High Definition Audio with a very long driver name)"])
-    assert dlg.mic.sizeHint().width() <= dlg.mic.text_width + 48
+    from maplehelper.ui.controls import SELECT_PAD
+    assert dlg.mic.sizeHint().width() <= dlg.mic.text_width + SELECT_PAD     # (the padding around the value)
     dlg.close()

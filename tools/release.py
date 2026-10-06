@@ -2,8 +2,10 @@
 with MapleHelper-Setup.exe, kb.zip and kb-manifest.json.
 
 Usage:
-    python tools/release.py 0.1.0            # full release (app + knowledge base)
-    python tools/release.py --kb-only        # refresh kb.zip/kb-manifest.json on the latest release
+    python tools/release.py --kb-only        # refresh kb.zip/kb-manifest.json on the latest release (the nightly)
+    python tools/release.py 0.1.0 --force    # emergency only: Windows installer + KB, no macOS DMG or portable zip
+
+Full releases are made by the Release workflow (push a tag vX.Y.Z, see docs/RELEASING.md).
 """
 from __future__ import annotations
 
@@ -80,19 +82,28 @@ def build_kb(patch_notes: bool = False) -> tuple[Path, Path]:
                 z.write(f, f.relative_to(KB))
     sha = hashlib.sha256(zpath.read_bytes()).hexdigest()
     manifest = DIST / "kb-manifest.json"
+    # "checked" like kb_release.pack and the nightly's stamp: the app shows it as "knowledge base verified on"
     manifest.write_text(json.dumps({"version": version, "sha256": sha,
-                                    "url": f"https://github.com/{REPO}/releases/latest/download/kb.zip"}),
+                                    "url": f"https://github.com/{REPO}/releases/latest/download/kb.zip",
+                                    "checked": time.strftime("%Y-%m-%d", time.gmtime())}),
                         encoding="utf-8")
     print(f"kb {version}: {zpath.stat().st_size / 1e6:.1f} MB")
     return zpath, manifest
 
 
-def main():
+def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("version", nargs="?")
     ap.add_argument("--kb-only", action="store_true")
     ap.add_argument("--notes", default="")
-    args = ap.parse_args()
+    ap.add_argument("--force", action="store_true")
+    args = ap.parse_args(argv)
+
+    # a release cut here has no macOS DMG (Mac players' download link 404s once it is latest), no portable zip and
+    # no tag/main check: the Release workflow makes full releases
+    if not args.kb_only and not args.force:
+        sys.exit("Full releases are made by the Release workflow: push a tag vX.Y.Z (docs/RELEASING.md). "
+                 "--force publishes a Windows-only release from this PC anyway.")
 
     # the same gate as CI (release.yml, kb-update.yml): never ship or bundle a broken or partial KB
     try:

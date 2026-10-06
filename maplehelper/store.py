@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -10,6 +11,8 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
+
+log = logging.getLogger("maplehelper")
 
 
 def _app_root() -> Path:
@@ -36,10 +39,9 @@ def _data_root() -> Path:
 DATA_DIR = _data_root() / "MapleHelper"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 USER_KB = DATA_DIR / "kb"            # knowledge base updates downloaded at runtime
-SHOTS_DIR = DATA_DIR / "shots"       # screenshots live only until the answer arrives
 HISTORY_DIR = DATA_DIR / "history"
 AVATAR_DIR = DATA_DIR / "avatars"
-for d in (SHOTS_DIR, HISTORY_DIR, AVATAR_DIR):
+for d in (HISTORY_DIR, AVATAR_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 
@@ -48,6 +50,32 @@ def kb_dir() -> Path:
     if (USER_KB / "index.json").exists() and _kb_version(USER_KB) >= _kb_version(BUNDLED_KB):
         return USER_KB      # an app update may ship a newer KB than the one downloaded earlier
     return BUNDLED_KB if (BUNDLED_KB / "index.json").exists() or not (USER_KB / "index.json").exists() else USER_KB
+
+
+def adopt_bundled_kb() -> None:
+    """macOS app: copy the bundled KB to the data folder once, while it is the one in use. The grep tables are
+    built into the KB's own folder (the AI works there), and the bundled one sits inside the signed .app: a write
+    there breaks the code seal (or fails, read-only, and every question goes without tables). Windows installs
+    per user into a folder of its own, so it keeps using the bundled copy."""
+    if not (getattr(sys, "frozen", False) and sys.platform == "darwin") or kb_dir() != BUNDLED_KB:
+        return
+    import shutil
+    tmp, old = USER_KB.with_name("kb.new"), USER_KB.with_name("kb.old")
+    try:
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.copytree(BUNDLED_KB, tmp)
+        shutil.rmtree(old, ignore_errors=True)
+        if USER_KB.exists():
+            os.replace(USER_KB, old)        # an older download: the bundled KB is newer (kb_dir chose it)
+        os.replace(tmp, USER_KB)
+        shutil.rmtree(old, ignore_errors=True)
+    except OSError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if old.exists() and not USER_KB.exists():
+            try:
+                os.replace(old, USER_KB)
+            except OSError:
+                pass                       # kb_dir falls back to the bundled copy
 
 
 def _kb_version(root: Path) -> str:
@@ -71,24 +99,32 @@ def _read_json(path: Path, default):
 
 def _write_json(path: Path, data) -> None:
     tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False, indent=1))
-        f.flush()
-        os.fsync(f.fileno())                # on disk before the rename: a power cut can't leave it empty
-    if path.exists():
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=1))
+            f.flush()
+            os.fsync(f.fileno())                # on disk before the rename: a power cut can't leave it empty
+        if path.exists():
+            try:
+                import shutil
+                shutil.copyfile(path, path.with_suffix(path.suffix + ".bak"))    # the last good copy
+            except OSError:
+                pass
+        # antivirus / the search indexer holds the file for a moment: a hold of 0.4 s outlasted 5 x 0.1 s
+        for attempt in range(10):
+            try:
+                tmp.replace(path)
+                return
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.2)
+    except OSError:
         try:
-            import shutil
-            shutil.copyfile(path, path.with_suffix(path.suffix + ".bak"))    # the last good copy
+            tmp.unlink(missing_ok=True)         # no stray .tmp left behind by a failed write
         except OSError:
             pass
-    for attempt in range(5):
-        try:
-            tmp.replace(path)
-            return
-        except PermissionError:     # antivirus / the search indexer holds the file for a moment
-            if attempt == 4:
-                raise
-            time.sleep(0.1)
+        raise
 
 
 # ---------------------------------------------------------------- settings
@@ -106,6 +142,7 @@ DEFAULT_SETTINGS = {
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
     "voice_language": "app",       # app: transcribe in the app's language | auto: the model guesses
+    "voice_last_used": None,       # when a voice question was last heard (epoch s): the model preloads only if recent
     "provider": "claude",          # claude | codex | gemini | grok: which AI CLI answers (see providers/)
     "model": "sonnet",             # Claude's model
     "codex_model": None,           # Codex's model; None = the Codex CLI default
@@ -121,7 +158,7 @@ DEFAULT_SETTINGS = {
     "tips_dismissed": {},         # character id -> {tip kind: level it was hidden at}
     "usage": None,                # last known Claude plan usage (see usage.py)
     "saver_mode": False,          # short answers on a lighter model, so the plan lasts longer
-    "usage_warned": 0,            # reset time of the 5-hour window we already warned about
+    "usage_warned": 0,            # [reset time, level] of the plan-usage warning already shown
     "wishlist": {},               # character id -> item keys the player is hunting for
     "farm_target": {},            # character id -> the item key the Farm tab shows the droppers of (farm.py)
     "seen_version": "",           # the app version whose "what's new" the player has seen
@@ -139,7 +176,28 @@ class Settings:
 
     def __init__(self):
         self.data = {**DEFAULT_SETTINGS, **_read_json(self.path, {})}
+        self._sane_types()
         self._windows_keys()
+        self._stored_language()
+
+    # stored in another shape than the default on purpose: a single bool from older versions, [reset, level]
+    _ANY_TYPE = ("api_key_fallback", "usage_warned")
+
+    def _sane_types(self) -> None:
+        """A known setting of the wrong type (a hand edit: "font_size": "big") loads as its default: it crashed
+        every start in the stylesheet. Settings whose default is None, and unknown ones, are kept as they are."""
+        for key, default in DEFAULT_SETTINGS.items():
+            v = self.data.get(key)
+            if default is None or key in self._ANY_TYPE:
+                continue
+            if isinstance(default, bool):
+                ok = isinstance(v, bool)
+            elif isinstance(default, (int, float)):
+                ok = isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+            else:
+                ok = isinstance(v, type(default))
+            if not ok:
+                self.data[key] = default
 
     def _windows_keys(self) -> None:
         """Windows keeps F12 for the debugger and never lets a program register it: a hotkey saved as F12 (older
@@ -155,6 +213,14 @@ class Settings:
             self.data[key] = next(k for k in (DEFAULT_SETTINGS[key], *(DEFAULT_SETTINGS[k] for k in keys),
                                               *(f"F{i}" for i in range(1, 12))) if k != other)
 
+    def _stored_language(self) -> None:
+        """v0.9.x stored the language only when it was clicked (Hebrew was preselected): a player who set up the app
+        and never clicked it has none, and the system language (for brand-new installs only, UX-3) turned the app's
+        direction LTR under a Hebrew UI on an English Windows. They keep Hebrew, as before (review3 UX3-a)."""
+        if self.data.get("onboarding_done") and not self.data.get("language"):
+            self.data["language"] = "he"
+            self.save()
+
     def __getitem__(self, key):
         return self.data.get(key, DEFAULT_SETTINGS.get(key))
 
@@ -163,7 +229,12 @@ class Settings:
         self.save()
 
     def save(self):
-        _write_json(self.path, self.data)
+        # a write that fails (file held by a scanner, read-only, disk full) keeps the value in memory: raising here
+        # left an answer on "thinking…" (the slot died before set_text) or stopped the app at start
+        try:
+            _write_json(self.path, self.data)
+        except OSError as e:
+            log.warning(f"settings not saved: {e}")
 
     def _api_key_flags(self) -> dict:
         v = self["api_key_fallback"]
@@ -526,9 +597,37 @@ class History:
 
     def append(self, role: str, text: str, entities: list[str] | None = None) -> None:
         rec = {"t": time.time(), "role": role, "text": text, "entities": entities or []}
-        with self.log.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        line = (json.dumps(rec, ensure_ascii=False) + "\n").encode("utf-8")
+        try:
+            with self.log.open("ab+") as f:
+                # a crash mid-write leaves a torn last line: without a newline first, this record would be glued to
+                # it and lost too
+                if f.seek(0, os.SEEK_END) > 0:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        line = b"\n" + line
+                f.write(line)
+        except OSError as e:        # history is a convenience: a failed write must not stop the question
+            log.warning(f"history not saved: {e}")
+            return
         self._trim()
+
+    def drop_last_if_user(self, text: str) -> bool:
+        """Take back the last record when it is this question with no answer (the answer failed): the History
+        window showed questions without answers, and a retry put the question in the conversation twice."""
+        try:
+            data = self.log.read_bytes()
+            body = data.rstrip(b"\n")
+            start = body.rfind(b"\n") + 1
+            rec = json.loads(body[start:].decode("utf-8"))
+            if not (isinstance(rec, dict) and rec.get("role") == "user" and rec.get("text") == text):
+                return False
+            tmp = self.log.with_suffix(".tmp")
+            tmp.write_bytes(data[:start])
+            tmp.replace(self.log)
+            return True
+        except (OSError, ValueError):
+            return False
 
     MAX_BYTES = 4_000_000       # ~8,000 questions: every question reads the file, it mustn't grow forever
     # a trim cuts well under the cap, by size: a fixed line count left long Hebrew answers over it, and then every
@@ -581,7 +680,10 @@ class History:
     def add_summary(self, text: str) -> None:
         s = self.summaries()
         s.append(text)
-        _write_json(self.summaries_path, s[-10:])
+        try:
+            _write_json(self.summaries_path, s[-10:])
+        except OSError as e:
+            log.warning(f"session summary not saved: {e}")
 
     def clear(self) -> None:
         for p in (self.log, self.summaries_path, self.summaries_path.with_suffix(".json.bak")):

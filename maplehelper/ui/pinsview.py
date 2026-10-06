@@ -9,7 +9,7 @@ from PySide6.QtGui import QFontMetrics, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton, QScrollArea,
                                QToolButton, QVBoxLayout, QWidget)
 
-from .. import bidi, pins
+from .. import bidi, dates, pins
 from ..i18n import I18n
 from . import theme
 from .controls import follow_typing, rtl_buttons
@@ -104,6 +104,7 @@ class PinsBar(QFrame):
             top.addWidget(q, 1)
             x = QToolButton(objectName="Icon", text="✕")
             x.setToolTip(t("unpin"))
+            x.setAccessibleName(t("unpin"))         # a screen reader said "✕"
             x.setCursor(Qt.PointingHandCursor)
             x.clicked.connect(lambda _=False, a=p["a"]: self.unpin.emit(a))
             top.addWidget(x, 0, Qt.AlignTop)
@@ -234,7 +235,9 @@ class HistoryDialog(GlassDialog):
         self._debounce = QTimer(self, singleShot=True, interval=self.DEBOUNCE_MS, timeout=self._new_search)
         self.search.textChanged.connect(lambda *_: self._debounce.start())
         outer.addWidget(self.search)
-        self.initial_focus = self.search
+        # nothing to search in an empty History: no field, and no focus on one (review3 VIS6-a)
+        self.search.setVisible(bool(pairs))
+        self.initial_focus = self.search if pairs else None
         self._shown = self.PAGE
         self.count = QLabel(objectName="RowHint")
         outer.addWidget(self.count)
@@ -259,7 +262,7 @@ class HistoryDialog(GlassDialog):
             return self.t("day_today")
         if day == today - dt.timedelta(days=1):
             return self.t("day_yesterday")
-        return day.strftime("%d.%m.%Y")
+        return dates.day(day, self.t.rtl, day.year != today.year)
 
     PAGE = 80              # cards built at a time; "Show more" adds the next PAGE
     DEBOUNCE_MS = 150
@@ -291,9 +294,12 @@ class HistoryDialog(GlassDialog):
         q = self.search.text().strip()
         self._hits = pins.search(self.pairs, q)
         self._last_day = None
+        # nothing asked yet (a new character): its own line, not a failed search's "0 results / Nothing found" (VIS-6)
+        self.count.setVisible(bool(self.pairs))
         if not self._hits:
             self.count.setText(bidi.plain(t("history_count", n=0), rtl))
-            self.rows.addWidget(QLabel(bidi.plain(t("history_none"), rtl), objectName="RowHint"))
+            self.rows.addWidget(QLabel(bidi.plain(t("history_none" if self.pairs else "history_empty"), rtl),
+                                       objectName="RowHint"))
             self.rows.addStretch(1)
             return
         self._add_cards(0)

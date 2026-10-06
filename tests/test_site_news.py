@@ -277,7 +277,7 @@ def test_the_news_strip_shows_the_newest_unread_and_dismisses_per_item(chat):
     assert chat.news_strip.isVisible()
     # the Hebrew title (assets/news/he.json), its English names kept whole
     assert "תקרת רמה" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
-    assert "ועוד אחת שלא קראתם" in chat.news_strip.head.text() and "חדשה מ-" in chat.news_strip.head.text()
+    assert "ועוד כתבה אחת שלא קראתם" in chat.news_strip.head.text() and "כתבה מ-" in chat.news_strip.head.text()
     chat.news_strip.close_btn.click()
     assert chat.settings["news_read"] == ["founders-access-release-notes"]
     assert "Classic World opens" in chat.news_strip.title.text()
@@ -336,8 +336,8 @@ def test_the_news_tab_lists_news_and_reports_what_was_seen(news_kb):
 def test_patch_notes_summary_counts_news():
     from maplehelper.ui.patchnotes import summary
     entries = [{"version": "1", "counts": {"added": 0, "changed": 0, "updated": 0, "removed": 0, "news": 2}}]
-    assert summary(I18n("en"), entries) == "2 news items"
-    assert summary(I18n("he"), [{"version": "1", "counts": {"news": 1}}]) == "ידיעה חדשה אחת"
+    assert summary(I18n("en"), entries) == "2 new articles"
+    assert summary(I18n("he"), [{"version": "1", "counts": {"news": 1}}]) == "כתבה חדשה אחת"
 
 
 # ------------------------------------------------------------------ one item's Free Market (market.py)
@@ -486,3 +486,42 @@ def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_day
     st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
     tip = serverdot.tip(I18n("he"), st)
     assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and "6.10, 21:00" in tip
+    assert serverdot.when(other_day, rtl=False) == "Oct 6, 21:00"     # never day.month in English (HEB-16)
+    assert "Oct 6, 21:00" in serverdot.tip(I18n("en"), st)
+
+
+@pytest.mark.parametrize("q,asks", [
+    ("מתי אני מקבל ג'וב שני?", False), ("where do I open my inventory", False), ("is the event shop good?", False),
+    ("מה החדשות?", True), ("מתי השרת נפתח?", True), ("is the server open?", True), ("when is the next GM event", True),
+    ("any patch notes today?", True), ("מתי ההשקה?", True), ("מתי Orbis יוצא?", True),
+])
+def test_only_a_news_question_asks_for_the_news(q, asks):
+    """"מתי" or "open" alone added the news block to every such prompt."""
+    assert news.asks_news(q) is asks
+
+
+def test_one_more_article_on_meowdb_is_singular():
+    """"עוד 1 כתבות ב-MeowDB" for a section of 31 (review2 UI2-5)."""
+    from maplehelper.i18n import I18n
+    assert I18n("he")("news_more_site", n=1) == "עוד כתבה אחת ב-MeowDB"
+    assert I18n("he")("news_more_site", n=3) == "עוד 3 כתבות ב-MeowDB"
+
+
+def test_the_maintenance_notice_redraws_its_date_in_the_new_language(chat):
+    """review3 HEB-16-a: the end date kept the format of the language it was first drawn in."""
+    from datetime import date
+
+    from maplehelper import dates
+    from maplehelper.ui.widgets import NoticeCard
+    now = time.time()
+    end = now + 3 * 86400                                   # another day: the date shows, not only the hour
+    chat._on_server_status(serverstatus.parse({"verdict": "up"}, now))
+    chat._on_server_status(serverstatus.parse(
+        {"verdict": "maintenance", "notice": {"url": "https://www.nexon.com/maplestory/news/maintenance/1",
+                                              "endAt": end * 1000}}, now))
+    day = date.fromtimestamp(end)
+    notice = chat.feed.findChildren(NoticeCard)[0]
+    assert dates.day(day, True, False) in notice.msg.text()
+    chat.settings["language"] = "en"
+    chat.apply_language()
+    assert dates.day(day, False, False) in notice.msg.text() and "until about" in notice.msg.text()

@@ -6,13 +6,14 @@ is a translation of its current text, else the English one under a Hebrew note t
 """
 from __future__ import annotations
 
+import html
 import re
-import webbrowser
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi, news
+from ..osapi import open_url
 from . import theme
 
 SHOWN = 30          # cards per section; the rest are a link away on MeowDB
@@ -42,10 +43,25 @@ def _title(i: dict, rtl: bool) -> str:
     return sentences(he, rtl) if he != i["title"] else bidi.ltr_name(i["title"], rtl)
 
 
+def set_title(lb: QLabel, i: dict, rtl: bool) -> None:
+    """A translated Hebrew title as right-to-left rich text, sentence by sentence as sentences(): as plain text a
+    wrapped title kept the space before its English name at the end of line 1, which then started ~6 px in from
+    line 2 and the summary (VIS-14; guides.set_title does the same)."""
+    he = news.title(i, "he" if rtl else "en")
+    if rtl and he != i["title"]:
+        body = " ".join(bidi.isolate_ltr_runs(x) for x in re.split(r"(?<=[.!?])\s+", he.strip()) if x)
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(f'<p dir="rtl" align="right" style="margin:0;">{html.escape(body, quote=False)}</p>')
+    else:
+        lb.setTextFormat(Qt.PlainText)
+        lb.setText(_title(i, rtl))
+
+
 def title_label(i: dict, rtl: bool, name: str = "CardName") -> QLabel:
     """The title: in Hebrew when translated (news.title), else as published."""
-    lb = QLabel(_title(i, rtl), objectName=name)
+    lb = QLabel(objectName=name)
     lb.setWordWrap(True)
+    set_title(lb, i, rtl)
     lb.setAlignment(_align(rtl))
     return lb
 
@@ -109,11 +125,11 @@ class NewsStrip(QFrame):
             return
         i, rtl = self._item, t.rtl
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        head = t("news_strip_head", date=news.short_date(i))
+        head = t("news_strip_head", date=news.short_date(i, rtl))
         if len(unread) > 1:
             head += " · " + t("news_strip_more", n=len(unread) - 1)
         self.head.setText(bidi.plain(head, rtl))
-        self.title.setText(_title(i, rtl))
+        set_title(self.title, i, rtl)
         for lb in (self.head, self.title):
             lb.setAlignment(_align(rtl))
         text, _ = news.summary(i, t.lang)
@@ -154,7 +170,7 @@ class NewsCard(QFrame):
         chips.addWidget(source_chip(t, i))
         if i.get("region") in ("cms", "tms"):
             chips.addWidget(chip(t(f"news_region_{i['region']}"), rtl))
-        date = QLabel(bidi.plain(news.short_date(i), rtl), objectName="CardSub")
+        date = QLabel(bidi.plain(news.short_date(i, rtl), rtl), objectName="CardSub")
         chips.addWidget(date)
         chips.addStretch(1)
         col.addLayout(chips)
@@ -180,14 +196,14 @@ class NewsCard(QFrame):
             read.clicked.connect(lambda _=False, item=i: on_open(item))
         else:
             read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
-            read.clicked.connect(lambda _=False, u=i.get("url"): webbrowser.open(u))
+            read.clicked.connect(lambda _=False, u=i.get("url"): open_url(u))
         read.setCursor(Qt.PointingHandCursor)
         links.addWidget(read)
         src = i.get("source_url") or ""
         if src.startswith("https://") and i.get("publisher"):
             orig = QPushButton(bidi.plain(t("news_read_source", who=i["publisher"]), rtl), objectName="Link")
             orig.setCursor(Qt.PointingHandCursor)
-            orig.clicked.connect(lambda _=False, u=src: webbrowser.open(u))
+            orig.clicked.connect(lambda _=False, u=src: open_url(u))
             links.addWidget(orig)
         links.addStretch(1)
         col.addLayout(links)
@@ -223,7 +239,7 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
         if len(rows) > SHOWN:
             more = QPushButton(bidi.plain(t("news_more_site", n=len(rows) - SHOWN), rtl), objectName="Link")
             more.setCursor(Qt.PointingHandCursor)
-            more.clicked.connect(lambda: webbrowser.open(news.NEWS_PAGE))
+            more.clicked.connect(lambda: open_url(news.NEWS_PAGE))
             lay.addWidget(more, 0, _align(rtl))
     return page
 
@@ -240,7 +256,7 @@ def article(t, i: dict) -> QWidget:
     chips = QHBoxLayout()
     chips.setSpacing(6)
     chips.addWidget(source_chip(t, i))
-    chips.addWidget(QLabel(bidi.plain(news.short_date(i), rtl), objectName="CardSub"))
+    chips.addWidget(QLabel(bidi.plain(news.short_date(i, rtl), rtl), objectName="CardSub"))
     chips.addStretch(1)
     lay.addLayout(chips)
     lay.addWidget(title_label(i, rtl, "ProfileName"))
@@ -269,12 +285,14 @@ def article(t, i: dict) -> QWidget:
         lay.addWidget(para(note, body_translated, "RowLabel"))
     links = QHBoxLayout()
     links.setSpacing(16)
-    for label, url in ((t("news_read_meowdb"), i.get("url") or ""),
-                       (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "")):
-        if url.startswith("https://") and i.get("publisher"):
+    # the source's link needs its publisher's name; MeowDB's own link doesn't (an item without one lost both)
+    for label, url, ok in ((t("news_read_meowdb"), i.get("url") or "", True),
+                           (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "",
+                            bool(i.get("publisher")))):
+        if url.startswith("https://") and ok:
             b = QPushButton(bidi.plain(label, rtl), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
-            b.clicked.connect(lambda _=False, u=url: webbrowser.open(u))
+            b.clicked.connect(lambda _=False, u=url: open_url(u))
             links.addWidget(b)
     links.addStretch(1)
     lay.addLayout(links)

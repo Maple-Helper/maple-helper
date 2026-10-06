@@ -1,6 +1,7 @@
 """What every AI provider shares: process flags, finding the CLI, keyring storage, error codes."""
 from __future__ import annotations
 
+import glob
 import logging
 import os
 import queue
@@ -14,6 +15,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 log = logging.getLogger(__name__)
+
+
+def scrub(text: str) -> str:
+    """CLI output on its way into the log, which ships in "Report a problem": no account email, no one-time link."""
+    return re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", re.sub(r"https?://\S+", "<link>", text))
+
 
 # no console window flashing up on Windows; elsewhere creationflags must stay 0
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
@@ -62,11 +69,23 @@ HEDGE_AFTER_S = 25.0
 
 
 def _kill(proc) -> None:
+    """Stop a CLI and, on Windows, what it started (rg, PowerShell, a hook): kill() alone left those running, and
+    one that held the CLI's output open kept a reader thread waiting until it ended."""
     try:
         if proc.poll() is None:
+            pid = getattr(proc, "pid", None)
+            if sys.platform == "win32" and isinstance(pid, int):
+                try:
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=5,
+                                   creationflags=CREATE_NO_WINDOW)
+                except (OSError, subprocess.SubprocessError):
+                    pass
             proc.kill()
     except OSError:
         pass
+
+
+kill = _kill
 
 
 class Attempt:
@@ -335,24 +354,46 @@ class StreamText:
 
 def model_name(model_id: str) -> str:
     """A readable name: "claude-sonnet-5-20260101" -> "Sonnet 5", "claude-opus-4-5" -> "Opus 4.5",
-    "gpt-6.1-sol" -> "GPT-6.1-Sol"."""
+    "gpt-6.1-sol" -> "GPT-6.1-Sol", "grok-4.6-fast" -> "Grok 4.6 Fast"."""
     import re
     m = re.fullmatch(r"claude-([a-z]+)-(\d+(?:-\d+)?)(?:-\d{8})?(?:\[.*\])?", model_id or "")
     if m:
         return f"{m.group(1).capitalize()} {m.group(2).replace('-', '.')}"
     if (model_id or "").startswith("gpt-"):
         return "GPT-" + "-".join(w.capitalize() for w in model_id[4:].split("-"))
-    if (model_id or "").startswith("gemini-"):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
+    if (model_id or "").startswith(("gemini-", "grok-")):      # "gemini-3.8-flash-lite" -> "Gemini 3.8 Flash Lite"
         return " ".join(w if w[:1].isdigit() else w.capitalize() for w in model_id.split("-"))
     return model_id or ""
+
+
+# where Node version managers put npm's global installs (npm i -g @anthropic-ai/claude-code, @openai/codex) and
+# node itself: an app opened from Finder gets launchd's PATH (/usr/bin:/bin:/usr/sbin:/sbin), none of these
+NODE_DIRS = ["~/.volta/bin", "~/.bun/bin", "~/.nvm/versions/node/*/bin", "~/.local/state/fnm_multishells/*/bin",
+             "~/Library/Application Support/fnm/node-versions/*/installation/bin"]
+
+
+def _version_key(path: str) -> list:
+    return [(0, int(x), "") if x.isdigit() else (1, 0, x) for x in re.split(r"(\d+)", path)]
+
+
+def posix_dirs(dirs: list[str]) -> list[str]:
+    """The install folders plus the Node managers' ones, globs expanded (the newest Node version first)."""
+    out = []
+    for d in dirs + NODE_DIRS:
+        d = str(Path(d).expanduser())
+        if "*" in d:
+            out += sorted(glob.glob(d), key=_version_key, reverse=True)
+        else:
+            out.append(d)
+    return out
 
 
 def find_posix(name: str, dirs: list[str]) -> str | None:
     p = shutil.which(name)
     if p:
         return p
-    for d in dirs:
-        c = Path(d).expanduser() / name
+    for d in posix_dirs(dirs):
+        c = Path(d) / name
         if c.is_file() and os.access(c, os.X_OK):
             return str(c)
     return None
@@ -375,7 +416,7 @@ def child_env(dirs: list[str], env: dict | None = None) -> dict:
     """Environment for a CLI: on macOS the install folders join PATH (an npm install needs node)."""
     env = dict(os.environ if env is None else env)
     if sys.platform != "win32":
-        extra = [str(Path(d).expanduser()) for d in dirs]
+        extra = posix_dirs(dirs)
         env["PATH"] = os.pathsep.join([env.get("PATH") or "/usr/bin:/bin"] + extra)
     return env
 
@@ -408,8 +449,7 @@ def open_login(exe: str, args: list[str], env: dict | None = None, cwd: str | No
                 except Exception:      # noqa: BLE001 - the sign-in goes on; the log says why it didn't open
                     log.warning("sign-in line handler failed", exc_info=True)
             if text:   # the one-time sign-in links stay out of the log
-                text = re.sub(r"https?://\S+", "<link>", text)
-                log.info("sign-in: %s", re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text))   # no email in reports
+                log.info("sign-in: %s", scrub(text))   # no email in reports
         if p.wait():
             log.warning("sign-in ended with code %s", p.returncode)
     threading.Thread(target=drain, daemon=True).start()
@@ -550,7 +590,7 @@ class Installer:
             text = ANSI.sub("", raw.decode("utf-8", errors="replace")).strip()
             if text:
                 self.lines.append(text)
-                log.info("installer: %s", re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text))
+                log.info("installer: %s", scrub(text))
         self.code = self.proc.wait()
         log.info("installer ended with code %s", self.code)
         self.done.set()
@@ -589,12 +629,30 @@ def http_ok(url: str, headers: dict) -> bool:
 SIGNED_OUT = ("not logged in", "please run /login", "invalid api key", "invalid_api_key", "401 unauthorized",
               "authentication", "sign in again", "log out and sign in", "access token could not be refreshed",
               "re-authenticate", "token is invalid or expired")
-# No connection: Node's words (Claude Code) and the Go (Antigravity: "dial tcp: lookup ...: no such host",
-# "proxyconnect tcp", "connectex") and Rust (Codex: "Connection failed: error sending request ... dns error")
-# ones. Checked after sign-in and limits: those messages can carry a URL or a "request" too.
+# No connection: Node's words (Claude Code: "API Error: Connection error.", "Unable to connect to API. Check your
+# internet connection", "... (ECONNRESET)", "Request timed out.") and the Go (Antigravity: "dial tcp: lookup ...: no
+# such host", "proxyconnect tcp", "connectex") and Rust (Codex: "Connection failed: error sending request ... dns
+# error") ones. Checked after sign-in and limits: those messages can carry a URL or a "request" too.
 OFFLINE = ("enotfound", "econnrefused", "network", "fetch failed", "no such host", "dial tcp", "connectex",
            "proxyconnect", "dns error", "error sending request", "connection failed", "getaddrinfo",
-           "workspace routing discovery failed")
+           "workspace routing discovery failed", "unable to connect to api", "connection error", "connection dropped",
+           "econnreset", "etimedout", "request timed out")
+# The plan's limit in Claude Code's other words ("You're out of extra usage", "You've hit your team's shared budget")
+LIMIT = ("usage limit", "rate limit", "limit reached", "resets", "out of extra usage", "out of usage credits",
+         "shared budget")
+
+
+# A CLI too old for a flag Maple Helper passes, in its own words: Claude Code (commander) "error: unknown option
+# '--restricted'", Codex (clap) "error: unexpected argument '--ignore-rules' found". Every answer failed with
+# "Something went wrong" and no hint to update.
+OUTDATED = ("error: unknown option", "error: unexpected argument")
+
+
+def http_status(text: str, code: int) -> bool:
+    """An HTTP status code standing on its own ("(429)", "status 401"): not part of a request id, a session id or a
+    duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit. A period
+    after it ends a sentence ("status 429."), unless a digit follows ("429.5 s", review PLT-7)."""
+    return re.search(rf"(?<![\w.-]){code}(?![\w-]|\.\d)", text) is not None
 
 
 def classify_error(text: str) -> str | None:
@@ -603,10 +661,13 @@ def classify_error(text: str) -> str | None:
         return "no_credit"          # an API key with no money on it (its check passed: the key itself is valid)
     if any(s in t for s in SIGNED_OUT):
         return "not_logged_in"
-    if "usage limit" in t or "rate limit" in t or "limit reached" in t or "resets" in t:
+    # (the context window filling up, "Context limit reached", is no plan limit)
+    if any(s in t.replace("context limit reached", "") for s in LIMIT):
         return "usage_limit"
     if any(s in t for s in OFFLINE):
         return "offline"
+    if any(s in t for s in OUTDATED):
+        return "cli_outdated"
     return None
 
 

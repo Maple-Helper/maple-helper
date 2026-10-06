@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .. import usage
 from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Lines, Provider, Race, RawResult, StreamText, \
-    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer
+    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer, scrub
 
 log = logging.getLogger(__name__)
 
@@ -55,10 +55,12 @@ def find_claude() -> str | None:
     return None
 
 
-# credentials in the player's environment that would override the account (or the stored key) Maple Helper
-# chose: Claude Code takes them over the sign-in
+# credentials, providers and endpoints in the player's environment that would override the account (or the stored
+# key) Maple Helper chose: Claude Code takes them over the sign-in (a gateway or Foundry of a developer's own
+# routed the answers there, or made them fail). Not CLAUDE_CONFIG_DIR: it locates the player's own sign-in
 FOREIGN_AUTH = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
-                "CLAUDE_CODE_OAUTH_TOKEN")
+                "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL")
 
 
 def env(api_key: str | None = None) -> dict:
@@ -159,7 +161,8 @@ class ClaudeBackend:
 
     def _config(self) -> tuple:
         b = self.brain
-        return (self.exe, b.model, b.length, b.api_key, str(b.kb.root))
+        # the instructions too: they name the model only after the first answer, and carry the official facts
+        return (self.exe, b.model, b.length, b.api_key, str(b.kb.root), hash(b.system_prompt()))
 
     def _spawn(self, model: str | None = None, tools: bool = True) -> subprocess.Popen:
         """model / tools: a one-off call's own (the ⟳ sync: Haiku, no file tools); the warm process uses the
@@ -194,6 +197,13 @@ class ClaudeBackend:
 
     def _refresh(self, proc: subprocess.Popen) -> None:
         if self._warm is proc and proc.poll() is None:
+            wants = getattr(self.brain, "wants_warm", None)
+            if wants is not None and not wants():
+                # the chat closed, or no question, for long: let it go; the next F9, typing or question warms one
+                # again (audit PRF-1)
+                log.info("chat not in use for a while: the warm Claude Code process is stopped, not renewed")
+                self.drop_warm()
+                return
             log.info("warm Claude Code process is %d min old: starting a fresh one", WARM_MAX_AGE_S // 60)
             self.prewarm()
 
@@ -372,14 +382,14 @@ class ClaudeBackend:
         if not result and ended and META_MARK in text.text and not stalled:
             result = {"result": text.text}      # the answer ended its turn; Claude Code never said "result"
         if stalled:
-            log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
+            log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, scrub(stderr[-1000:]))
             return RawResult(error="timeout", limits=limits)
         if not result:
             if not limits and not a.lost:
-                log.warning("no result from Claude Code (exit %s): %s", proc.poll(), stderr[-1500:])
+                log.warning("no result from Claude Code (exit %s): %s", proc.poll(), scrub(stderr[-1500:]))
             return RawResult(error=classify_error(stderr) or "no_result", limits=limits)
         if result.get("is_error"):
-            log.warning("Claude Code error: %s | %s", str(result.get("result", ""))[:500], stderr[-1000:])
+            log.warning("Claude Code error: %s | %s", scrub(str(result.get("result", ""))[:500]), scrub(stderr[-1000:]))
             # with the plan usage: hitting the limit is exactly when the meter and its warning matter
             return RawResult(error=classify_error(str(result.get("result", "")) + stderr) or "api_error",
                              limits=limits)

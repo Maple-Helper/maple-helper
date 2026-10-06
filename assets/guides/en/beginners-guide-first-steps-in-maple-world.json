@@ -1,8 +1,8 @@
 {
  "title": "Beginner's Guide: MapleStory Classic World",
- "intro": "Your first hours in MapleStory Classic World, from Maple Island through level 10. Job choices, AP allocation rules, and what to grind on the way.",
+ "intro": "Your first hours in MapleStory Classic World: Maple Island, first job, AP, potions that stretch your mesos, and quests worth doing to level 35.",
  "hero": null,
- "minutes": 8,
+ "minutes": 11,
  "blocks": [
   {
    "p": "[[img:d6e564683a59cd.png]]"
@@ -16,8 +16,33 @@
   {
    "ul": [
     "Talk to every NPC. Most hand out a one-quest, small-EXP-and-an-item reward.",
-    "**Grab the Green Relaxer chair.** It's the reward from Pio's quest below, and this is the only place you can get it.",
-    "By the time you finish all the beginner quests on Maple Island, you'll likely be lv 8. That's when you take the boat from Shanks at the dock to Lith Harbor and continue questing there."
+    "**Grab the Green Relaxer chair.** It's the reward from Pio's quest below, and this is the only place you can get it. If too many players are camping Pio's boxes, buy the Sky-blue Wooden Chair instead.",
+    "By the time you finish all the beginner quests on Maple Island, you'll likely be lv 8. Shanks at the dock sails you to Lith Harbor for 300 mesos once you reach level 7. **The boat is one-way.** Hand in every Maple Island quest before you board."
+   ]
+  },
+  {
+   "table": [
+    [
+     "",
+     "Chair",
+     "Where",
+     "Cost",
+     "Restores"
+    ],
+    [
+     "[[img:2cd24f013c4612.png]]",
+     "The Green Relaxer",
+     "Pio's quest, Maple Island",
+     "Free",
+     "30 HP every 10 s"
+    ],
+    [
+     "[[img:ce555cc5b170aa.png]]",
+     "Sky-blue Wooden Chair",
+     "Mina, Lith Harbor",
+     "1,000 mesos",
+     "30 HP every 10 s"
+    ]
    ]
   },
   {
@@ -105,7 +130,7 @@
    ]
   },
   {
-   "p": "**Plan your AP for the job you want.** STR gives a Beginner stronger basic attacks than INT does. Putting AP into INT for Magician can mean slower kills before advancement, but your AP does not reset when you take your first job. Keep the points in your future job's primary stat."
+   "p": "**Plan your AP for the job you want.** You place your first 9 AP on the character creation screen, so pick your class before you make your character. STR gives a Beginner stronger basic attacks than INT does. Putting AP into INT for Magician can mean slower kills before advancement, but your AP does not reset when you take your first job. Keep the points in your future job's primary stat."
   },
   {
    "h2": "Pick Wooden Club, then Razor at level 5"
@@ -114,30 +139,34 @@
    "p": "[[img:9eab57ead0d224.png]]Choose the Wooden Club at character creation. It has 19 W.ATK; the Sword and Hand Axe have 17. Club attacks one tier slower than Sword or Hand Axe, but across levels 1 to 4, the Club reaches the useful damage breakpoints more often."
   },
   {
-   "p": "Against a level 1 Snail with the fixed starting stats, the current COT2 damage model gives:"
+   "p": "Against a level 1 Snail with all 9 creation AP in STR (13 STR, 4 DEX, 4 INT, 4 LUK), each starter weapon needs:"
   },
   {
    "table": [
     [
-     "Damage result",
-     "Sword",
-     "Hand Axe",
-     "Wooden Club"
-    ],
-    [
+     "",
+     "Weapon",
      "Minimum damage",
-     "4 hits",
-     "4 hits",
-     "3 hits"
-    ],
-    [
      "Average damage",
-     "3 hits",
+     "Maximum damage"
+    ],
+    [
+     "[[img:a09b689ea0f78f.png]]",
+     "Sword",
+     "4 hits",
      "3 hits",
      "3 hits"
     ],
     [
-     "Maximum damage",
+     "[[img:965078a4a03c2a.png]]",
+     "Hand Axe",
+     "4 hits",
+     "3 hits",
+     "3 hits"
+    ],
+    [
+     "[[img:9eab57ead0d224.png]]",
+     "Wooden Club",
      "3 hits",
      "3 hits",
      "2 hits"
@@ -148,7 +177,7 @@
    "p": "Club matches or beats both 17 W.ATK weapons on minimum, average, and maximum damage for **every class path**. Its higher damage can save a hit when it crosses a monster's HP threshold."
   },
   {
-   "p": "**At level 5, switch to Razor.** Its 23 W.ATK and faster speed give every class path higher minimum and average damage than Wooden Club."
+   "p": "[[img:eb1de53f04fc53.png]]**At level 5, switch to Razor.** Its 23 W.ATK and faster speed give every class path higher minimum and average damage than Wooden Club."
   },
   {
    "h2": "Max your Beginner skills by level 10"
@@ -162,7 +191,7 @@
      "",
      "Skill",
      "Max",
-     "What it does at max"
+     "At max level"
     ],
     [
      "[[img:edc2244a5bda10.png]]",
@@ -209,20 +238,86 @@
    ]
   },
   {
+   "p": "**Taxis are 90% off while you are still a Beginner.** Ride to your job's town before you advance."
+  },
+  {
    "p": "**Don't spend AP on the wrong stat thinking advancement will fix it.** 1st job has no stat requirements (a 4-INT Beginner can advance to Warrior), but your AP does not reset on advancement. Every misallocated point follows you into your job. The only way to undo it is a cash-shop AP Reset."
   },
   {
    "h2": "Ability Points allocation"
   },
   {
-   "p": "You get 5 AP per level for STR, DEX, INT, and LUK. Safe split for new players: 5 in your primary until level 10."
+   "p": "Every character starts with 4 in each stat. You place 9 more AP at character creation, then get 5 AP per level for STR, DEX, INT, and LUK. Safe split for new players: all of it in your primary until level 10."
   },
   {
    "ul": [
-    "Warrior: 5 STR",
-    "Magician: 5 INT",
-    "Bowman: 5 DEX",
-    "Thief: 5 LUK"
+    "Warrior: STR",
+    "Magician: INT",
+    "Bowman: DEX",
+    "Thief: LUK"
+   ]
+  },
+  {
+   "h2": "Potions and mesos"
+  },
+  {
+   "p": "Potions are most of what you spend mesos on early. Mobs drop them rarely, so buy the ones that restore the most per meso:"
+  },
+  {
+   "table": [
+    [
+     "",
+     "Item",
+     "Restores",
+     "Price",
+     "Per meso"
+    ],
+    [
+     "[[img:51e2250795d8f6.png]]",
+     "Meat",
+     "160 HP",
+     "80",
+     "2.0 HP"
+    ],
+    [
+     "[[img:be80aa4791c684.png]]",
+     "Red Potion",
+     "100 HP",
+     "50",
+     "2.0 HP"
+    ],
+    [
+     "[[img:5fa106a591e538.png]]",
+     "Orange Potion",
+     "250 HP",
+     "150",
+     "1.67 HP"
+    ],
+    [
+     "[[img:d59bc967011b87.png]]",
+     "Lemon",
+     "150 MP",
+     "150",
+     "1.0 MP"
+    ],
+    [
+     "[[img:d19cbf8225851d.png]]",
+     "Blue Potion",
+     "200 MP",
+     "220",
+     "0.91 MP"
+    ]
+   ]
+  },
+  {
+   "p": "Mina's shop in Lith Harbor sells Meat and Lemons. The item efficiency tool ranks every HP and MP item."
+  },
+  {
+   "ul": [
+    "**Train where you kill in one or two hits.** Every extra hit costs MP and gives the monster another chance to hit you. If a mob takes three hits, move to weaker mobs until your next weapon.",
+    "**Higher skill levels cost more MP.** Energy Bolt goes from 8 MP at level 1 to 16 at max. Power Strike goes from 4 to 12. A level that doesn't save a hit on your map only raises the cost.",
+    "**Rest when you run low.** Sit in your chair to refill HP. Switch to basic attacks when MP is low; they cost no MP.",
+    "**Gloves and capes are never sold at NPC shops.** They come from drops, crafting, quests, and other players."
    ]
   },
   {
@@ -251,44 +346,109 @@
    "p": "Lv 30 is 2nd job. Same town, same instructor, and you pick a branch:\n• **Warrior**: Fighter, Page, Spearman\n• **Magician**: Cleric, Ice/Lightning, Fire/Poison\n• **Bowman**: Hunter, Crossbowman\n• **Thief**: Assassin, Bandit\nThe class tier list breaks down each branch."
   },
   {
-   "h2": "Vendor early weapon drops"
+   "h2": "Citizenship at level 12"
   },
   {
-   "p": "COT2 cut many consumable and material sell-back values, so random equipment drops matter more than they look. These weapon prices come from the current COT2 items; the monster sources are community-confirmed in Classic."
+   "p": "At level 12 you can become a citizen of Henesys or Kerning City. Daily and weekly town quests earn contribution. Each citizen grade raises your discount: 5% to 25% off shops, taxis, and services in your town, and up to 50% off storage. Your class guide recommends a town. The citizenship page lists every grade."
+  },
+  {
+   "h2": "Quests worth doing from level 10 to 35"
+  },
+  {
+   "p": "These chains reward potions and gear on top of EXP. Rewards are totals for the whole chain."
   },
   {
    "table": [
     [
+     "",
+     "Quest",
+     "Lv",
+     "Start",
+     "Rewards"
+    ],
+    [
+     "[[img:8378a3d1721d5e.png]]",
+     "Nella & Kerning City Citizen's Request",
+     "10",
+     "Nella, Kerning City",
+     "15x Lemon, 15x Cake, Work Gloves, 2x Return Scroll to Kerning City, 513 EXP, 876 mesos. Nella charges 1,000 mesos to start."
+    ],
+    [
+     "[[img:76a91b4fb11f5c.png]]",
+     "Alex the Runaway Kid",
+     "18",
+     "Alex, Kerning City",
+     "10x Blue Potion, Weighted Earrings or Yellow Square (random), 3,701 EXP, 1,420 mesos"
+    ],
+    [
+     "[[img:8a8b5f51c1c5b4.png]]",
+     "Jane and the Mushroom",
+     "20",
+     "Jane, Lith Harbor",
+     "1 random weapon Attack Scroll: Intermediate (one of 14 weapon types), 2,021 EXP, 585 mesos"
+    ],
+    [
+     "[[img:756539415b1d40.png]]",
+     "Mystery of Naora Hospital",
+     "23",
+     "Jane Doe, Niora Hospital (Kerning City)",
+     "15x Blue Potion, Old Raggedy Cape, 4,836 EXP, 1,344 mesos"
+    ],
+    [
+     "[[img:cb8cd36b54e18a.png]]",
+     "What Shumi Lost",
+     "35",
+     "Shumi, Kerning City",
+     "30x Blue Potion, 30x Mana Elixir, 23 return scrolls, 12,486 EXP, 12,046 mesos"
+    ]
+   ]
+  },
+  {
+   "h2": "Vendor early weapon drops"
+  },
+  {
+   "p": "COT2 cut many consumable and material sell-back values, so random equipment drops matter more than they look. These early weapon drops sell back for:"
+  },
+  {
+   "table": [
+    [
+     "",
      "Drop",
-     "Confirmed from",
+     "Dropped by",
      "NPC sell-back"
     ],
     [
+     "[[img:561ddd599e1045.png]]",
      "Long Sword",
      "Orange Mushroom",
      "1,500"
     ],
     [
+     "[[img:316f93ddbfcc34.png]]",
      "Double Axe",
      "Orange Mushroom",
      "1,500"
     ],
     [
+     "[[img:ce09d7582d3fbc.png]]",
      "Wooden Staff",
      "Stump",
      "1,500"
     ],
     [
+     "[[img:45b1997932fe5e.png]]",
      "Wooden Sword",
      "Red Snail",
      "2,500"
     ],
     [
+     "[[img:4dcc2d13aa3641.png]]",
      "Metal Axe",
      "Slime",
      "2,500"
     ],
     [
+     "[[img:5ff1190b10b2c6.png]]",
      "Spear",
      "Orange Mushroom",
      "2,500"
@@ -296,13 +456,13 @@
    ]
   },
   {
-   "p": "**The number above is what the NPC pays you for the weapon.** Keep one upgrade you can use, then check duplicates in Safe to Sell? for quest and crafting uses before vendoring them."
+   "p": "**The number above is the NPC sell-back price.** Keep one upgrade you can use, then check duplicates in Safe to Sell? for quest and crafting uses before vendoring them."
   },
   {
    "h2": "Party play"
   },
   {
-   "p": "Party kills pay a bonus on top of the EXP each member earns, and the bonus grows with party size up to four members. The same table sits in the EXP table guide."
+   "p": "Party kills give a bonus on top of the EXP each member earns, and the bonus grows with party size up to four members. The same table sits in the EXP table guide."
   },
   {
    "table": [
@@ -334,7 +494,7 @@
   },
   {
    "ul": [
-    "**The bonus stops growing at four.** Four, five and six members all pay 30%. Extra members still add kill speed.",
+    "**The bonus stops growing at four.** Four, five and six members all get 30%. Extra members still add kill speed.",
     "**Keep swinging.** A member who has not attacked for 15 seconds stops receiving party EXP until they attack again."
    ]
   },
@@ -345,8 +505,7 @@
    "ul": [
     "**Party up.** Classic gives bonus EXP for party kills, and most early quests are faster with two or three people.",
     "Don't sell quest items. The quest tracker lists which inventory items are needed for active quests so you can check before clearing junk.",
-    "Potions are scarce. Mobs drop them rarely, so expect to spend most of your mesos at NPCs.",
-    "**Buy smart at NPC shops.** The item efficiency tool ranks HP and MP potions by meso-per-point."
+    "**Keep your ores and ETC items.** Crafting opens at level 10. Many recipes start from common drops: 5 Leather make 1 Processed Leather, and 10 Pig's Ribbons make 1 Processed Cloth. Safe to Sell? shows which quests and recipes use each item, and Crafting lists every recipe."
    ]
   },
   {
@@ -354,5 +513,5 @@
   }
  ],
  "source": "https://meowdb.com/msclassic/guides/beginners-guide-first-steps-in-maple-world",
- "hash": "5a55047bb580"
+ "hash": "0e25b8f911a2"
 }

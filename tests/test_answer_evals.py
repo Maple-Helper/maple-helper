@@ -3,6 +3,7 @@
 Claude mode is never run from tests: it spends a real player's plan usage.
 """
 import json
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -56,6 +57,26 @@ def test_score_reads_text_and_card_names(kb):
     assert eval_answers.score(checks, a, kb) == []
 
 
+def test_values_match_as_whole_words_and_not_inside_a_longer_name():
+    """Plain substrings passed "30,000" for 3000 and "Garnet Ore" for Garnet, and failed "Rafflesia" as "Raffle"."""
+    class KB:
+        entities = {"item/1": {"name": "Garnet Ore"}, "item/2": {"name": "Garnet"},
+                    "item/3": {"name": "Return Scroll to Henesys"}}
+
+        def get(self, key):
+            return self.entities.get(key)
+    kb = KB()
+    assert eval_answers.score({"must_mention": ["3000"]}, ans("sells it for 30,000 mesos"), kb) == ["missing '3000'"]
+    assert eval_answers.score({"must_mention": ["3000"]}, ans("sells it for 3,000 mesos"), kb) == []
+    assert eval_answers.score({"must_not_list": ["Raffle"]}, ans("Rafflesia is level 47"), kb) == []
+    assert eval_answers.score({"must_list": ["Garnet"]}, ans("Garnet Ore, Opal Ore"), kb) == [
+        "list misses 1/1: 'Garnet'"]
+    assert eval_answers.score({"must_list": ["Garnet"]}, ans("1 Garnet and 1 Opal"), kb) == []
+    assert eval_answers.score({"must_mention": ["Henesys"]}, ans("ב-Henesys"), kb) == []
+    assert eval_answers.score({"must_mention": ["Henesys"]}, ans("a Return Scroll to Henesys"), kb) == [
+        "missing 'Henesys'"]
+
+
 def test_score_reports_every_problem(kb):
     a = ans("Snail drops P.DMG", entities=["monster/100100"])
     checks = {"must_mention": ["Red Potion"], "must_mention_any": ["Henesys", "Snail Garden"],
@@ -93,10 +114,12 @@ def test_reports_compare_with_the_previous_one(tmp_path):
     assert eval_answers.compare(None, new) == ([], [])
 
 
-def test_claude_mode_refuses_to_run_under_pytest(capsys):
+def test_claude_mode_refuses_to_run_under_pytest(capsys, tmp_path, monkeypatch):
     fixture_kb = Path(__file__).parent / "fixtures" / "kb"
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
     assert eval_answers.main(["--mode", "claude", "--yes", "--kb", str(fixture_kb)]) == 2
     assert "refusing" in capsys.readouterr().out
+    assert not (tmp_path / "reports").exists()          # a refused run leaves no report folder or log behind
 
 
 @pytest.fixture(scope="module")
@@ -112,11 +135,88 @@ def test_case_keys_exist_in_the_real_kb(real_kb):
     assert missing == []
 
 
+# the stat a question asks for, by its words: the KB prop whose current value a stats answer must carry
+STAT_WORDS = {"HP": ("hp", "חיים"), "Level": ("level", "לבל"), "EXP": ("exp", "אקספי"),
+              "Accuracy": ("accuracy", "דיוק"), "Physical Defense": ("defense", "הגנה")}
+
+
+def tonight(case: dict, kb) -> tuple[dict, list[str]]:
+    """The case's checks as tonight's KB has the facts, and what in them a game change made stale.
+
+    The case file is also the live-eval set, written with the values of its day (Mano 7420 HP). A balance patch
+    or a moved spawn must not fail the nightly's KB (kb-update.yml publishes only on a green suite), while a wrong
+    instant answer must: a number the subject's prop no longer has is replaced by the prop's value tonight; a drop,
+    map or dropper its own page no longer names is left out (and warned about)."""
+    checks = dict(case["checks"])
+    keys = checks.get("entities_include") or []
+    subject = kb.get(keys[0]) if keys else None
+    if not subject or not checks.get("instant"):
+        return checks, []
+    props = subject.get("props") or {}
+    page = eval_answers._norm(kb.page(keys[0]))
+    q = case["question"].lower()
+    asked = [n for n, words in STAT_WORDS.items() if any(w in q for w in words) and n in props]
+    current = {str(props[n]) for n in asked}
+    stale, keep = [], []
+    for lit in checks.get("must_mention", []):
+        if lit.isdigit() and asked:
+            if lit not in current:
+                stale.append(lit)
+                continue
+        elif not lit.isdigit() and lit != subject["name"] and eval_answers._norm(lit) not in page:
+            stale.append(lit)
+            continue
+        keep.append(lit)
+    if any(s.isdigit() for s in stale):         # the answer must still give the stat as the KB has it tonight
+        checks["must_mention_any"] = sorted(current)
+    checks["must_mention"] = keep
+    names = {k: (kb.get(k) or {}).get("name", "") for k in keys}
+    checks["entities_include"] = [k for k in keys if k == keys[0] or eval_answers._norm(names[k]) in page]
+    stale += [k for k in keys if k not in checks["entities_include"]]
+    return checks, stale
+
+
 @needs_real_kb
 def test_instant_answers_pass_on_the_real_kb(real_kb):
-    results = eval_answers.run_quick(eval_answers.load_cases(), real_kb)
+    cases, stale = [], {}
+    for c in eval_answers.load_cases():
+        checks, old = tonight(c, real_kb)
+        cases.append({**c, "checks": checks})
+        if old:
+            stale[c["id"]] = old
+    results = eval_answers.run_quick(cases, real_kb)
     failed = {r["id"]: r["problems"] for r in results if not r["ok"]}
     assert results and failed == {}
+    if stale:
+        warnings.warn(f"evals/answers.json cases older than tonight's KB (checked against the KB instead): {stale}",
+                      stacklevel=2)
+    # a few cases out of date is the game moving on; most of them at once is a broken scrape, not a patch
+    facts = sum(len(c["checks"].get("must_mention", [])) + len(c["checks"].get("entities_include", []))
+                for c in eval_answers.load_cases() if c["checks"].get("instant"))
+    assert sum(map(len, stale.values())) * 3 < facts, stale
+
+
+def test_a_stale_case_is_checked_against_the_kb_not_dropped():
+    """Mano's HP patched from 7420 to 8000: the case asks for the KB's 8000, and an answer still saying 7420 fails;
+    a drop no longer on Mano's page is left out of the case, and so is its card."""
+    page = "Mano\nDrops\nGold Burgernet Helm\n"
+    kb = SimpleNamespace(get=lambda k: {"monster/1": {"name": "Mano", "props": {"HP": 8000, "Level": 20}},
+                                        "item/2": {"name": "Subi Throwing Stars"}}.get(k),
+                         page=lambda k: page if k == "monster/1" else "")
+    case = {"id": "x", "question": "how much hp does mano have", "lang": "en",
+            "checks": {"must_mention": ["Mano", "7420"], "entities_include": ["monster/1"], "instant": True}}
+    checks, stale = tonight(case, kb)
+    assert stale == ["7420"] and checks["must_mention"] == ["Mano"] and checks["must_mention_any"] == ["8000"]
+    case = {"id": "y", "question": "what does mano drop", "lang": "en",
+            "checks": {"must_mention": ["Gold Burgernet Helm", "Subi Throwing Stars"],
+                       "entities_include": ["monster/1", "item/2"], "instant": True}}
+    checks, stale = tonight(case, kb)
+    assert checks["must_mention"] == ["Gold Burgernet Helm"] and checks["entities_include"] == ["monster/1"]
+    assert stale == ["Subi Throwing Stars", "item/2"]
+    # the values of their day still hold: nothing changes
+    case["checks"]["must_mention"] = ["Gold Burgernet Helm"]
+    case["checks"]["entities_include"] = ["monster/1"]
+    assert tonight(case, kb) == (case["checks"], [])
 
 
 def test_claude_runner_scores_and_cleans_up(kb, monkeypatch):
@@ -223,10 +323,12 @@ def test_profiles_default_case_and_override():
 
 @needs_real_kb
 def test_list_names_are_real_kb_names(real_kb):
-    """Every name a list check expects (or forbids) is part of a real KB name: a typo would fail every run."""
+    """Every name a list check expects (or forbids) is part of a real KB name: a typo would fail every run. Each
+    alternative of an "a|b" needle on its own."""
     names = [eval_answers._norm(e["name"]) for e in real_kb.entities.values()]
-    unknown = [(c["id"], n) for c in eval_answers.load_cases() for k in ("must_list", "must_not_list")
-               for n in c["checks"].get(k, []) if not any(eval_answers._norm(n) in m for m in names)]
+    unknown = [(c["id"], v) for c in eval_answers.load_cases() for k in ("must_list", "must_not_list")
+               for n in c["checks"].get(k, []) for v in n.split("|")
+               if not any(eval_answers._norm(v) in m for m in names)]
     assert unknown == []
 
 
@@ -376,10 +478,12 @@ def test_signed_in_providers_reads_each_account(monkeypatch):
     assert eval_answers.signed_in_providers() == ["claude", "grok"]
 
 
-def test_live_mode_refuses_any_provider_under_pytest(capsys):
+def test_live_mode_refuses_any_provider_under_pytest(capsys, tmp_path, monkeypatch):
     fixture_kb = Path(__file__).parent / "fixtures" / "kb"
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
     assert eval_answers.main(["--provider", "all-signed-in", "--yes", "--kb", str(fixture_kb)]) == 2
     assert "refusing" in capsys.readouterr().out
+    assert not (tmp_path / "reports").exists()
 
 
 def test_unknown_case_filter_fails_before_anything_runs(capsys):
@@ -465,3 +569,46 @@ def test_brain_passes_the_counts_on(kb_copy):
     b.backend = Backend()
     a = b.ask("where to hunt?", None, None, None)
     assert (a.tool_calls, a.turns) == (5, 6)
+
+
+def test_a_quick_run_writes_no_log_file(kb, tmp_path, monkeypatch):
+    """The timing log is for live runs: a quick run (--mode left out) made an empty evals/reports/<time>.log."""
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
+    cases = tmp_path / "cases.json"
+    cases.write_text(json.dumps({"cases": [
+        {"id": "hp", "question": "Red Snail hp", "lang": "en", "kind": "stats",
+         "checks": {"must_mention": ["45"], "instant": True}}]}), encoding="utf-8")
+    assert eval_answers.main(["--case-file", str(cases), "--kb", str(kb.root)]) == 0
+    assert not (tmp_path / "reports").exists()
+
+
+def test_gemini_counts_overlapping_tool_steps_by_their_id():
+    from maplehelper.providers import gemini
+
+    def step(**kw):
+        return json.dumps({"event": "step_update", "step_update": kw})
+    lines = [step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="ACTIVE", step_id=2),
+             step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="DONE", step_id=1),
+             step(step_type="tool", state="DONE", step_id=2), step(step_type="agent_response", text_delta="Hunt"),
+             json.dumps({"event": "result", "result": {"status": "SUCCESS"}})]
+    stats: dict = {}
+    gemini.parse_events(lines, None, stats)
+    assert stats == {"tool_calls": 2}          # the second began before the first was done
+
+
+def test_a_needle_can_name_the_longer_name_that_rightly_says_it():
+    """The whole-word rule failed right answers: the Deep Ant Tunnel's monster is "Jr. Boogie 2", a Hunter's skill is
+    "Soul Arrow: Bow". "a|b" takes either; a plain needle still isn't said by a longer name."""
+    class KB:
+        entities = {"monster/1": {"name": "Jr. Boogie 2"}, "monster/2": {"name": "Jr. Boogie"}}
+
+        def get(self, key):
+            return self.entities.get(key)
+    kb = KB()
+
+    def ans(text):
+        return type("A", (), {"text": text, "entities": [], "drop_groups": []})()
+    assert eval_answers.score({"must_list": ["Jr. Boogie|Jr. Boogie 2"]}, ans("Evil Eye and Jr. Boogie 2"), kb) == []
+    assert eval_answers.score({"must_list": ["Jr. Boogie|Jr. Boogie 2"]}, ans("Evil Eye and Jr. Boogie"), kb) == []
+    assert eval_answers.score({"must_list": ["Jr. Boogie"]}, ans("Evil Eye and Jr. Boogie 2"), kb) == [
+        "list misses 1/1: 'Jr. Boogie'"]

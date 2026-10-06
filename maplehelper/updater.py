@@ -151,6 +151,8 @@ def fetch_kb(before_swap=None) -> str:
     _remember_checked(manifest.get("checked"))
     if str(manifest.get("version", "")) <= local_version():
         return "uptodate"
+    # the same KB was "updated" again on consecutive starts once (0.9.2): say what was compared, to explain it
+    log.info("knowledge base %s found: installed %s in %s", manifest["version"], local_version() or "none", kb_dir())
     data = _get(manifest["url"], timeout=300)
     if not data:
         return _failed("kb.zip didn't download")
@@ -174,29 +176,50 @@ def fetch_kb(before_swap=None) -> str:
         shutil.rmtree(tmp, ignore_errors=True)
         return _failed(f"the new KB doesn't load ({e})")
     meta_path = tmp / "meta.json"
-    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-    meta["version"] = manifest["version"]
-    meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        if not isinstance(meta, dict):
+            raise ValueError("not an object")
+        meta["version"] = manifest["version"]
+        meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    except (OSError, ValueError, TypeError) as e:
+        shutil.rmtree(tmp, ignore_errors=True)      # not ~46 MB of kb.new left behind
+        return _failed(f"the new KB's meta.json is unusable ({e})")
     # swap by renames: on Windows a folder another process works in (the AI runs inside the KB)
     # can't be removed or renamed; then keep the current KB intact and try again next time
-    if before_swap is not None and before_swap() is False:
+    from . import tables
+    # the table build's lock is held across the renames: a question's build that started right after before_swap
+    # would write the old KB's tables into the new folder, whose own shipped mark then calls them current
+    # a build already running is said as one, before before_swap stops the warm AI for nothing (review CORE-9)
+    if tables.building():
+        why = "the KB's tables are being built"
+    elif before_swap is not None and before_swap() is False:
+        why = "an answer is running"
+    elif not tables._lock.acquire(blocking=False):
+        why = "the KB's tables are being built"     # one started right after before_swap
+    else:
+        why = ""
+    if why:
         shutil.rmtree(tmp, ignore_errors=True)
-        log.info("knowledge base %s waits: an answer is running", manifest["version"])
-        return "postponed"            # an answer is running: the app tries again in a few minutes
+        log.info("knowledge base %s waits: %s", manifest["version"], why)
+        return "postponed"            # the app tries again in a few minutes
     old = USER_KB.with_name("kb.old")
-    shutil.rmtree(old, ignore_errors=True)
     try:
-        if USER_KB.exists():
-            _rename(USER_KB, old)
-        _rename(tmp, USER_KB)
-    except OSError as e:
-        if old.exists() and not USER_KB.exists():
-            try:
-                _rename(old, USER_KB)
-            except OSError:
-                pass        # the app falls back to the bundled KB (kb_dir) on its next reload
-        shutil.rmtree(tmp, ignore_errors=True)
-        return _failed(f"the KB folder can't be swapped ({e})")    # mostly a process still working inside it
+        shutil.rmtree(old, ignore_errors=True)
+        try:
+            if USER_KB.exists():
+                _rename(USER_KB, old)
+            _rename(tmp, USER_KB)
+        except OSError as e:
+            if old.exists() and not USER_KB.exists():
+                try:
+                    _rename(old, USER_KB)
+                except OSError:
+                    pass        # the app falls back to the bundled KB (kb_dir) on its next reload
+            shutil.rmtree(tmp, ignore_errors=True)
+            return _failed(f"the KB folder can't be swapped ({e})")    # mostly a process still working inside it
+    finally:
+        tables._lock.release()
     shutil.rmtree(old, ignore_errors=True)
     return "updated"
 
@@ -320,7 +343,11 @@ def download_app_update(current: str, progress=None) -> str | None:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
     part = path.with_suffix(".part")
-    part.write_bytes(data)
+    try:
+        part.write_bytes(data)
+    except OSError:
+        part.unlink(missing_ok=True)    # a cut write (disk full) mustn't leave ~100 MB behind
+        raise
     part.replace(path)          # whole or not at all: a cut write never looks like a ready installer
     return str(path)
 
@@ -335,6 +362,12 @@ def remove_old_installers() -> None:
                 f.unlink()
             except OSError:
                 pass
+    # a half-written download (MapleHelper-Setup-v0.9.6.part) is never used: the next download writes it again
+    for f in folder.glob("MapleHelper-Setup-*.part") if folder.exists() else []:
+        try:
+            f.unlink()
+        except OSError:
+            pass
 
 
 def installer_version(path: str) -> str:
