@@ -1570,7 +1570,10 @@ class SettingsDialog(GlassDialog):
                 level = float(np.sqrt(np.mean(np.square(audio))))
             except Exception:      # noqa: BLE001
                 level = -1.0
-            self._mic_heard.emit(level)
+            try:
+                self._mic_heard.emit(level)
+            except RuntimeError:
+                pass                # Settings closed meanwhile (it was logged as a crash)
         threading.Thread(target=run, daemon=True).start()
 
     def _mic_tested(self, level: float):
