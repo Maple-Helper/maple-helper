@@ -84,6 +84,20 @@ def test_a_chosen_language_wins_over_the_system(env, monkeypatch):
     assert dlg.t.lang == "he" and dlg.lang_group.checkedButton().property("lang") == "he"
 
 
+def test_a_set_up_app_with_no_stored_language_keeps_hebrew(isolated_store):
+    """review3 UX3-a: v0.9.x stored the language only on a click; such a player keeps Hebrew (stored now), and only a
+    brand-new install follows the system language."""
+    import json
+    path = isolated_store.Settings.path
+    path.write_text(json.dumps({"onboarding_done": True, "language": None}), encoding="utf-8")
+    assert isolated_store.Settings()["language"] == "he"
+    assert json.loads(path.read_text(encoding="utf-8"))["language"] == "he"
+    path.write_text(json.dumps({"onboarding_done": True, "language": "en"}), encoding="utf-8")
+    assert isolated_store.Settings()["language"] == "en"
+    path.write_text(json.dumps({"onboarding_done": False}), encoding="utf-8")
+    assert isolated_store.Settings()["language"] is None
+
+
 # --- UX-11: each install button names the tool it installs ----------------------------------------------------------
 
 @pytest.mark.parametrize("provider, tool", [("claude", "Claude Code"), ("codex", "Codex"),

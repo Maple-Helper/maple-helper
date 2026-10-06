@@ -178,6 +178,7 @@ class Settings:
         self.data = {**DEFAULT_SETTINGS, **_read_json(self.path, {})}
         self._sane_types()
         self._windows_keys()
+        self._stored_language()
 
     # stored in another shape than the default on purpose: a single bool from older versions, [reset, level]
     _ANY_TYPE = ("api_key_fallback", "usage_warned")
@@ -211,6 +212,14 @@ class Settings:
             other = self.data.get(next(k for k in keys if k != key))
             self.data[key] = next(k for k in (DEFAULT_SETTINGS[key], *(DEFAULT_SETTINGS[k] for k in keys),
                                               *(f"F{i}" for i in range(1, 12))) if k != other)
+
+    def _stored_language(self) -> None:
+        """v0.9.x stored the language only when it was clicked (Hebrew was preselected): a player who set up the app
+        and never clicked it has none, and the system language (for brand-new installs only, UX-3) turned the app's
+        direction LTR under a Hebrew UI on an English Windows. They keep Hebrew, as before (review3 UX3-a)."""
+        if self.data.get("onboarding_done") and not self.data.get("language"):
+            self.data["language"] = "he"
+            self.save()
 
     def __getitem__(self, key):
         return self.data.get(key, DEFAULT_SETTINGS.get(key))
