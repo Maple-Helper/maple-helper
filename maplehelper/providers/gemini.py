@@ -630,6 +630,9 @@ class GeminiBackend:
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):
             return RawResult(error="bad_model")
+        if self._stopped:      # the player's Stop: no "gave no answer" in the log (review3 OVL2-a)
+            log.info("Gemini run stopped by the player")
+            return RawResult(error="no_result")
         r = to_result(text, result, stderr, model)
         r.tool_calls = stats.get("tool_calls")
         return r

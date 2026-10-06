@@ -425,6 +425,9 @@ class CodexBackend:
         if out.stalled:
             log.warning("Codex stalled for %ss, stopped: %s", STALL_TIMEOUT_S, base.scrub(stderr[-1000:]))
             return RawResult(error="timeout"), stderr
+        if self._stopped:      # the player's Stop: no "gave no answer" in the log (review3 OVL2-a)
+            log.info("Codex run stopped by the player")
+            return RawResult(error="no_result"), stderr
         return parse_events(lines, stderr), stderr
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,

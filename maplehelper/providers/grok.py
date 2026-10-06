@@ -779,6 +779,9 @@ class GrokBackend:
         errors = " ".join(str(e) for e in ((result or {}).get("errors") or [])) + stderr
         if model and re.search(r"model.{0,40}(not found|unknown|invalid|not available)", errors, re.I):
             return RawResult(error="bad_model")
+        if self._stopped:      # the player's Stop: no "gave no answer" in the log (review3 OVL2-a)
+            log.info("Grok run stopped by the player")
+            return RawResult(error="no_result")
         r = to_result(text, result, stderr, used or model)
         r.tool_calls, r.turns = stats.get("tool_calls"), stats.get("turns")
         return r

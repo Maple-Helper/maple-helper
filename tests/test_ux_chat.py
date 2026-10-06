@@ -119,7 +119,7 @@ def test_a_stop_before_the_ai_run_starts_skips_it(kb):
 
 
 @pytest.mark.parametrize("name", ["codex", "gemini", "grok"])
-def test_every_cli_run_started_after_stop_is_killed(name, monkeypatch, tmp_path, kb):
+def test_every_cli_run_started_after_stop_is_killed(name, monkeypatch, tmp_path, kb, caplog):
     import importlib
     import io
     from types import SimpleNamespace
@@ -158,6 +158,8 @@ def test_every_cli_run_started_after_stop_is_killed(name, monkeypatch, tmp_path,
         q.write_text("q", encoding="utf-8")
         be._once("", q, None, False, None, True, None)
     assert made and made[0] in killed
+    # a Stop is no AI failure in the log ("Report a problem" showed one, review3 OVL2-a)
+    assert not [r for r in caplog.records if r.levelname == "WARNING" and "no answer" in r.getMessage()]
     killed.clear()
     be._proc = made[0]
     be.cancel()
