@@ -23,3 +23,11 @@ def test_first_jobs_open_at_the_official_level():
     for cls, level in levels.items():
         first = next(lv for job, lv in JOBS[cls] if job != "Beginner")
         assert first == level, cls
+
+
+def test_the_level_cap_is_official_and_reaches_the_prompt(kb):
+    """The KB's exp-table guide still says "Nexon has never announced a level cap"; the release notes say 100 (AST-12)."""
+    from maplehelper.brain import Brain
+    cap = next(f for f in official.facts() if f["id"] == "level-cap")
+    assert "100" in cap["en"] and "100" in cap["he"] and "Founder's Access" in cap["en"]
+    assert cap["en"] in Brain(kb, provider="claude").system_prompt()
