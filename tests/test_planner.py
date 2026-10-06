@@ -412,6 +412,69 @@ def test_real_second_job_names_its_level_and_choices(real):
 
 
 @needs_kb
+@pytest.mark.parametrize("question", ["how do I become a hermit", "how do I become a ranger", "איך נהיים Priest",
+                                      "how do I become a crusader"])
+def test_real_a_third_job_is_not_out_and_gets_no_npc_or_quests(real, question):
+    """The planner called every non-base job "the 2nd job" with Dark Lord and the 2nd-job quests (audit AI-3)."""
+    text = ask(real, question).render()
+    assert "3rd job" in text and "NOT in the game" in text and "2nd job" not in text
+    assert "Dark Lord" not in text and "Qualification" not in text and "jobs.tsv" not in text
+
+
+@needs_kb
+@pytest.mark.parametrize("question", ["ג'וב שני של גנב באיזה רמה", "second job for thief", "2nd job thief level",
+                                      "how do I become a thief 2nd job"])
+def test_real_second_job_with_the_class_named(real, question):
+    """The class named with "2nd job" got "Thief: the 1st job, at level 10" (audit AI-4)."""
+    p = ask(real, question, character=None)
+    assert p.blocks[0].lead.startswith("Thief: the 2nd job, at level 30, one of Assassin, Bandit")
+
+
+@needs_kb
+def test_real_first_job_titles_the_quests_as_the_later_2nd_job(real):
+    beginner = Character(id="b", name="N", base_class="Beginner", job="Beginner", level=8)
+    text = ask(real, "איך נהיים קוסם", beginner).render()
+    assert "Magician: the 1st job, at level 10" in text and "for the later 2nd job only" in text
+
+
+@needs_kb
+@pytest.mark.parametrize("question", ["how to be a better assassin", "how do I get to the thieves hideout",
+                                      "i'm level 31, should i grind or quest", "how do I get to Ellinia as a thief?",
+                                      "how can I get more mesos as a warrior?", "how do I get Haste as an assassin?"])
+def test_real_no_job_advancement_or_list_for_these(real, question):
+    assert ask(real, question) is None          # audit AI-10 (and P84A-5), AI-12
+
+
+@needs_kb
+def test_real_get_the_2nd_job_is_still_a_job_advancement(real):
+    assert ask(real, "how do I get my second job as a thief").intent == "job_advance"
+
+
+@needs_kb
+def test_real_shops_follow_the_class_level_and_town(real):
+    """Every hat for any class, every town's weapons (audit AI-9)."""
+    kb, all_rows = real
+    gear = {r["key"]: r for r in all_rows("equips")}
+    p = ask(real, "איזה כובע כדאי לי לקנות")
+    assert p.intent == "shops" and "not by quality" in p.render()
+    for r in p.blocks[0].rows:
+        e = gear[r["item_key"]]
+        assert ("Thief" in e["job"].split("/") or e["job"] == "Any") and (e["req_lv"] or 0) <= 31
+    p = ask(real, "what does the Henesys weapon store sell", character=None)
+    assert p.blocks[0].rows and all("Henesys" in r["sellers"] for r in p.blocks[0].rows)
+
+
+@needs_kb
+def test_real_a_level_is_no_row_count_and_exp_grind_with_gear_is_training(real):
+    assert ask(real, "which monsters at level 15 most exp").top is None          # audit AI-11
+    assert ask(real, "where to grind at 12 best map").top is None
+    assert ask(real, "top 3 monsters at level 20 for exp").top == 3
+    for q in ("איזה מפלצות ברמה 15 הכי טובות לאקספי", "level 20 most exp monsters", "monsters lvl 20 best exp"):
+        assert ask(real, q).top is None, q          # P84A-6
+    assert ask(real, "where do I hunt for exp at 31 with a claw").intent == "training_maps"     # audit AI-12
+
+
+@needs_kb
 def test_real_capes_from_quests(real):
     text = ask(real, "איזה משימות נותנות לי גלימות כשאני מסיים אותן?").render()
     for quest in ("Stranger's Identity", "Delivering the Flying Medicine", "Maya's Last Collection"):

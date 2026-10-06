@@ -232,3 +232,68 @@ def test_slashed_stat_bonuses_are_written_one_per_stat():
     from maplehelper.brain import drop_keys
     assert drop_keys("עם STR/DEX/INT/LUK +1 ו-HP/MP +10") == "עם STR +1, DEX +1, INT +1, LUK +1 ו-HP +10, MP +10"
     assert drop_keys("W.DEF/M.DEF -2") == "W.DEF -2, M.DEF -2" and drop_keys("HP/MP recovery") == "HP/MP recovery"
+
+
+# ---------------------------------------------------------------- launch audit (AI area)
+
+def test_a_count_after_a_pronoun_is_no_level():
+    """"Stirge הוא ב-5 מפות" became "הוא ברמה 5 מפות" (audit AI-7)."""
+    assert brain.drop_keys("Stirge הוא ב-5 מפות") == "Stirge הוא ב-5 מפות"
+    assert brain.drop_keys("הם ב-2 קבוצות") == "הם ב-2 קבוצות"
+    assert brain.drop_keys("אתם ב-31 ולכן") == "אתם ברמה 31 ולכן"
+    assert brain.drop_keys("אתם ב-31.") == "אתם ברמה 31."
+
+
+def test_a_key_goes_with_its_hebrew_prefix():
+    assert brain.drop_keys("ראו item/294 ו-(monster/5) ו-;") == "ראו ו-;"          # audit AI-23
+
+
+def test_bare_about_is_no_detail_question():
+    assert not brain.DETAIL_WORDS.search("what about Lupin vs Ligator at level 35?")      # audit AI-8
+    assert brain.DETAIL_WORDS.search("tell me about Mano")
+
+
+def test_meta_is_the_last_block_and_its_own_json():
+    """audit AI-14: a second block or trailing braces lost the META, a quoted marker cut the answer."""
+    two = 'A\n@@META@@\n{"entities": []}\n@@META@@\n{"profile_update": {"level": 31}}'
+    assert brain.split_meta(two) == ("A", {"profile_update": {"level": 31}})
+    assert brain.split_meta('A\n@@META@@\n{"profile_update": {"level": 31}} and {x}')[1] == {"profile_update": {"level": 31}}
+    assert brain.split_meta("Use the @@META@@ marker\nmore\n@@META@@\n{}") == ("Use the @@META@@ marker\nmore", {})
+    assert brain.split_meta("Answer\n@@META") == ("Answer", {})
+
+
+def test_profile_levels_out_of_range_and_other_characters():
+    assert brain.split_meta('A\n@@META@@\n{"profile_update": {"level": 0}}')[1] == {"profile_update": {}}  # AI-15
+    assert brain.stated_level("im lvl 15 on my other char") is None
+    assert brain.stated_level("I'm level 10 and my friend is level 40") is None
+    assert brain.stated_level("I'm level 16") == 16
+
+
+@pytest.mark.parametrize("q", ["who's Grendel", "can't find Mano", "sauna robe stats", "2nd job warrior level?"])
+def test_short_english_questions_get_english(q):
+    assert brain.reply_language(q, "he") == "English"            # audit AI-17
+    assert brain.reply_language("Mano", "he") == "Hebrew"         # a name alone: the app's language
+
+
+def test_english_planning_line_is_dropped_but_an_answer_is_not():
+    raw = "Let me check the data for the player first.\nMano is a level 20 boss.\n@@META@@\n{}"
+    assert brain.split_meta(raw)[0] == "Mano is a level 20 boss."               # audit AI-19
+    keep = "Let's head to Perion first, the Warrior instructor is there.\nThen talk to him."
+    assert brain.split_meta(keep)[0] == keep
+
+
+def test_a_brace_in_the_tables_note_never_breaks_the_prompt(monkeypatch):
+    import importlib
+    from maplehelper import tables
+    monkeypatch.setattr(tables, "prompt_note", lambda: "a {brace} note")
+    fresh = importlib.reload(brain)
+    try:
+        assert "a {brace} note" in fresh.SYSTEM_PROMPT.format(length="x")     # audit AI-24
+    finally:
+        monkeypatch.undo()
+        importlib.reload(brain)
+
+
+def test_scope_is_not_called_official_and_summaries_leave_the_level_out():
+    assert "official (Nexon)" not in brain.SYSTEM_PROMPT                  # audit AI-16
+    assert "Leave out the character's level" in brain.SUMMARY_PROMPT      # audit AI-20

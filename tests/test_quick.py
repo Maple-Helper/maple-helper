@@ -71,3 +71,14 @@ def test_two_questions_in_one_go_to_claude(kb):
     # answering only the drops of "level and drops" would look like the whole answer
     assert quick.answer("Red Snail level and drops", kb, t) is None
     assert quick.answer("where is Red Snail and what's its HP", kb, t) is None
+
+
+def test_the_players_level_and_the_damage_they_deal_are_not_the_monsters_stats(kb):
+    """audit AI-18: "... at level 40" added the monster's own Level, "כמה נזק עושים ל-X" gave its attack."""
+    key = first_monster(kb)
+    e = kb.get(key)
+    if (e.get("props") or {}).get("EXP") in (None, ""):
+        pytest.skip("no EXP on the first monster")
+    ans = quick.answer(f"how much exp does {e['name']} give at level 40", kb, t)
+    assert ans and "Level:" not in ans.text
+    assert quick.answer(f"כמה נזק עושים ל-{e['name']}", kb, t) is None

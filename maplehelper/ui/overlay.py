@@ -263,6 +263,18 @@ def other_class(update: dict, c) -> str | None:
     return cls if cls and cls != "Beginner" and mine and cls != mine else None
 
 
+def demotes(update: dict, c) -> bool:
+    """A profile update that moves the character back or sideways in its job line: Beginner (job or class) for a
+    character past it, Assassin -> Thief, Assassin -> Bandit. The game never does that, a misread does (audit AI-2)."""
+    from ..jobs import advances, canonical_class
+    job = update_job(update)
+    if job and not advances(c.job, job):
+        return True
+    base = update.get("base_class")
+    return (isinstance(base, str) and canonical_class(base) == "Beginner"
+            and c.base_class in ("Warrior", "Magician", "Bowman", "Thief"))
+
+
 def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     """(detail tiles, inventory slots, their reading for the AI, <inventory_read>) from a full-resolution grab. Runs
     in a worker thread; a failed read still leaves the AI the screenshot."""
@@ -1828,7 +1840,11 @@ class Overlay(QWidget):
             if self.stats:
                 self.stats.question(c)     # once per question, however it gets answered
             if not focus and not shown and self.settings["instant_answers"]:
-                qa = quick.answer(question, self.kb, self.t, c)
+                # in the question's language, as the AI answers it: an English question in the Hebrew UI got a
+                # Hebrew instant answer and an English "Ask Claude anyway" one (audit AI-13)
+                from ..brain import reply_language
+                lang = "en" if reply_language(question, self.settings["language"] or "he") == "English" else "he"
+                qa = quick.answer(question, self.kb, self.t if self.t.lang == lang else I18n(lang), c)
                 if qa:
                     if history:
                         history.append("user", question)
@@ -2344,7 +2360,8 @@ class Overlay(QWidget):
             return
         new_cls, new_job, new_level = other_class(update, c), update_job(update), update.get("level")
         lower = isinstance(new_level, int) and new_level < c.level
-        if not new_cls and not lower:
+        # back to Beginner, or Assassin -> Thief / Bandit: asked too, never applied on one read (audit AI-2)
+        if not new_cls and not lower and not demotes(update, c):
             self._show_changes(self.profiles.apply_update(update))
             return
         cid, name, held = c.id, c.name, dict(update)

@@ -668,3 +668,12 @@ def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
     assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
     assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
     assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))
+
+
+@needs_kb
+def test_real_level_digest_merges_twins_and_skips_mapless(real):
+    """audit AI-26: "Jr. Boogie 1" and "2" both listed, a map-less King Slime among the nearby monsters."""
+    for lv in (30, 33):
+        rows = [r.split(" | ") for r in real.level_digest(lv).split("\n")[1:]]
+        assert all(r[5].strip() for r in rows), lv
+        assert sum("Jr. Boogie" in r[0] for r in rows) <= 1, lv

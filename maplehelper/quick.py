@@ -26,7 +26,11 @@ def _he(words: str, the: bool = False) -> str:
 # ("how much / how many" is a plain number question, not a "how do I")
 NEEDS_CLAUDE = re.compile(
     r"\b(why|how(?!\s+(?:much|many)\b)|should|best|better|worth|recommend|my|me|i|here|this|that)\b|"
-    + _he("למה|איך|כדאי|הכי|עדיף|שווה|מומלץ|שלי|אני|פה|כאן|הזה|הזאת|זה|במסך|תמליץ|לי"), re.I)
+    + _he("למה|איך|כדאי|הכי|עדיף|שווה|מומלץ|שלי|אני|פה|כאן|הזה|הזאת|זה|במסך|תמליץ|לי")
+    # the damage the player deals to it, not its own attack ("כמה נזק עושים ל-Mano" got "Mano · Damage: 252",
+    # audit AI-18)
+    + r"|\bdamage\s+(?:to|on|against)\b|" + _he("עושים|מורידים|נותנים") + r"\s+נזק|נזק\s+" + _he("עושים|מורידים|נותנים"),
+    re.I)
 DROPS = re.compile(r"\b(drops?|loot)\b|(מפיל|מפילה|מפילים|דרופ|דרופים|נופל)", re.I)
 WHO = re.compile(r"\b(who|which (monster|mob)s?)\b|" + _he("מי|מאיפה") + "|איזה מפלצ|איפה משיגים", re.I)
 WHERE = re.compile(r"\b(where|location|spawn)\b|(איפה|באיזו מפה|באיזה מפה|מיקום)", re.I)
@@ -129,7 +133,8 @@ def answer(question: str, kb: KnowledgeBase, t, char=None) -> Answer | None:
     if not availability.of(kb).monster_key_open(key):
         # the KB doesn't confirm it in the game (Ossyria, no map at all): say so, never its stats as if it were
         # (what is out comes from the release guide's official statements and the map pages: availability.py)
-        return Answer(text=t("quick_not_in_game", name=name), entities=[], sources=[sources.OFFICIAL])
+        # (MeowDB's release guide and the map pages: no "official" chip, that is facts.json's only; audit AI-16)
+        return Answer(text=t("quick_not_in_game", name=name), entities=[], sources=[sources.MEOWDB])
     acc = bool(ACC_NEEDED.search(q))
     asks = [bool(DROPS.search(q) and not WHO.search(q)), bool(WHERE.search(q)),
             acc or any(rx.search(q) for rx, _, _ in STATS)]
@@ -169,7 +174,9 @@ def answer(question: str, kb: KnowledgeBase, t, char=None) -> Answer | None:
                              n90=combat.acc_needed(lv, m.level, m.avoid, 0.9)), entities=[key],
                       sources=[sources.source_of(kb, key)])
     props = e.get("props") or {}
-    asked = [(k, label) for rx, k, label in STATS if rx.search(q) and props.get(k) not in (None, "")]
+    # "how much exp does Stirge give at level 40": the player's level is no question about Stirge's (audit AI-18)
+    q_stats = ASKED_LEVEL.sub(" ", q)
+    asked = [(k, label) for rx, k, label in STATS if rx.search(q_stats) and props.get(k) not in (None, "")]
     if asked:
         return Answer(text="\n".join(f"{name} · {label}: {props[k]}" for k, label in asked), entities=[key],
                       sources=[sources.source_of(kb, key)])

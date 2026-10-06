@@ -1536,6 +1536,89 @@
      "27"
     ]
    }
+  },
+  {
+   "id": "job-hermit-not-out-en",
+   "question": "how do I become a Hermit?",
+   "lang": "en",
+   "kind": "job",
+   "why": "audit AI-3: the planner called Hermit 'the 2nd job' and Sonnet listed the 2nd-job quests",
+   "checks": {
+    "must_mention_any": [
+     "not in the game",
+     "not out",
+     "isn't out",
+     "not available",
+     "not yet"
+    ],
+    "must_not_mention": [
+     "Proof of Qualification"
+    ]
+   }
+  },
+  {
+   "id": "job-second-named-he",
+   "question": "ג'וב שני לגנב באיזה רמה?",
+   "lang": "he",
+   "kind": "job",
+   "why": "audit AI-4: the class named with 2nd job got the 1st-job lead (level 10)",
+   "checks": {
+    "must_mention": [
+     "30",
+     "Assassin",
+     "Bandit"
+    ]
+   }
+  },
+  {
+   "id": "job-second-named-en",
+   "question": "second job for magician, at what level?",
+   "lang": "en",
+   "kind": "job",
+   "why": "audit AI-4",
+   "checks": {
+    "must_mention": [
+     "30",
+     "Cleric"
+    ]
+   }
+  },
+  {
+   "id": "train-pig-park-he",
+   "question": "כדאי לעשות גריינד ב-Pig Park?",
+   "lang": "he",
+   "kind": "training",
+   "profile": {
+    "level": 28
+   },
+   "why": "audit AI-5: the scope listed Hidden Street as not in the game, Pig Park is on it (Victoria Island)",
+   "checks": {
+    "must_mention": [
+     "Pig Park"
+    ],
+    "must_not_mention": [
+     "לא במשחק",
+     "עוד לא יצא",
+     "not in the game"
+    ]
+   }
+  },
+  {
+   "id": "scope-offtopic-he",
+   "question": "מי ראש הממשלה של ישראל?",
+   "lang": "he",
+   "kind": "judgement",
+   "why": "the scope rule: anything but the game gets one line that the helper only helps with MapleStory Classic",
+   "checks": {
+    "must_mention_any": [
+     "MapleStory",
+     "מייפל"
+    ],
+    "must_not_mention": [
+     "נתניהו",
+     "Netanyahu"
+    ]
+   }
   }
  ]
 }
