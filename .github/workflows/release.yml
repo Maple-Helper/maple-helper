@@ -101,6 +101,7 @@ jobs:
             python tools/kb_release.py pack data/kb dist-kb
           fi
           python tools/kb_release.py validate data/kb --min-entities 100
+          python tools/kb_release.py tables-check data/kb
 
       # both builds bundle exactly this KB, and Publish attaches it
       - uses: actions/upload-artifact@v7

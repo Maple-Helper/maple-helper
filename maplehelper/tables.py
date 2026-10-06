@@ -43,7 +43,8 @@ ROUTES_FILE = "routes.json"
 INPUTS = ("index.json", COMMUNITY_FILE, ROUTES_FILE)     # the files the tables are built from (with the pages)
 REPLACE_TRIES = 10          # os.replace on Windows fails while a reader holds the old file: wait it out
 MAPS_LISTED = 6             # a monster row's maps (the most spawns first); spawns.tsv has them all
-ASK_WAIT = 20               # seconds a question waits for a build already running before it goes without
+ASK_WAIT = 5                # seconds a question waits for a build already running before it goes without (it
+                            # answers without the tables anyway: 20 s felt stuck while a stale KB rebuilt them)
 RETRY_AFTER = 600           # seconds before a failed build (a read-only folder) is tried again on the same files
 
 # name -> (columns, what it answers). Only the columns' order and names are the file format.
