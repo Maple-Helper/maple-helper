@@ -12,7 +12,7 @@ from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, Q
                                QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
-from .. import bidi, providers
+from .. import bidi, osapi, providers
 from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
@@ -83,6 +83,10 @@ def _body(text: str) -> QLabel:
     lb = QLabel(bidi.plain(text), objectName="PageBody")
     lb.setWordWrap(True)
     return lb
+
+
+# where players report problems (the owner's choice, UX-8); the report toast names it too (report_saved_body)
+ISSUES_URL = "https://github.com/Maple-Helper/maple-helper/issues"
 
 
 def _field(text: str) -> QLabel:
@@ -1206,6 +1210,12 @@ class SettingsDialog(GlassDialog):
         report_btn.setCursor(Qt.PointingHandCursor)
         report_btn.clicked.connect(self.report_requested.emit)
         sec.add_widget(report_btn)
+        # where a report goes: the project's GitHub Issues (UX-8)
+        issues = QPushButton(t("report_github"), objectName="Link")
+        issues.setCursor(Qt.PointingHandCursor)
+        issues.setToolTip(ISSUES_URL)
+        issues.clicked.connect(lambda: osapi.open_url(ISSUES_URL))
+        sec.add_widget(issues)
         clear = QPushButton(t("clear_history"), objectName="LinkDanger")
         clear.setCursor(Qt.PointingHandCursor)
         clear.clicked.connect(self._clear_history)

@@ -117,3 +117,23 @@ def test_sign_in_failure_names_the_connection_and_account_first(provider):
     assert "online" in en and "account" in en and en.index("online") < en.index("reinstall")
     he = I18n("he").p("ob_login_failed", provider)
     assert "חיבור לאינטרנט" in he and "חשבון" in he and he.index("חיבור") < he.index("מחדש")
+
+
+# --- UX-8: a problem report says where to send it --------------------------------------------------------------------
+
+def test_report_points_to_github_issues(env, monkeypatch):
+    from PySide6.QtWidgets import QPushButton
+    from maplehelper import osapi
+    from maplehelper.i18n import I18n
+    from maplehelper.ui import dialogs
+    assert dialogs.ISSUES_URL == "https://github.com/Maple-Helper/maple-helper/issues"
+    for lang in ("he", "en"):
+        body = I18n(lang)("report_saved_body", name="report.zip")
+        assert "github.com/Maple-Helper/maple-helper/issues" in body and "report.zip" in body
+    opened = []
+    monkeypatch.setattr(osapi, "open_url", lambda url: opened.append(url) or True)
+    s, profiles, kb = env
+    dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
+    btn = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Open an issue on GitHub")
+    btn.click()
+    assert opened == [dialogs.ISSUES_URL]
