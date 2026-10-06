@@ -36,6 +36,21 @@ def test_hebrew_installer_speaks_in_plural():
             assert singular not in line.group(1), (key, singular)
 
 
+def test_uninstall_asks_before_deleting_the_players_data():
+    """SEC-12: the data folder (chats, characters, Grok/Gemini sign-ins) goes only when the player says yes:
+    never on a silent uninstall, "No" the default, and nothing but {userappdata}\\MapleHelper."""
+    code = _section(ISS, "Code")
+    proc = code[code.index("procedure CurUninstallStepChanged"):]
+    proc = proc[:proc.index("\nend;") + 5]
+    assert "usPostUninstall" in proc and "UninstallSilent" in proc
+    assert "MB_DEFBUTTON2" in proc and "= IDYES" in proc
+    assert re.findall(r"ExpandConstant\('([^']*)'\)", proc) == ["{userappdata}\\MapleHelper"]
+    assert proc.count("DelTree(") == 1 and "DelTree(DataDir," in proc
+    msgs = _section(ISS, "CustomMessages")
+    for lang in ("hebrew", "english"):
+        assert re.search(rf"^{lang}\.DeleteUserData=.*%1", msgs, re.M), lang
+
+
 def test_update_clears_old_package_metadata():
     assert 'Type: filesandordirs; Name: "{app}\\_internal\\*.dist-info"' in _section(ISS, "InstallDelete")
 

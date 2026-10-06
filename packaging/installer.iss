@@ -153,6 +153,9 @@ hebrew.AdditionalIcons=קיצורי דרך:
 hebrew.CreateDesktopIcon=קיצור דרך על &שולחן העבודה
 hebrew.LaunchProgram=לפתוח את %1 עכשיו
 english.LaunchProgram=Open %1 now
+; asked once the app is removed (never when silent); "No" is the default, so Enter keeps everything
+hebrew.DeleteUserData=למחוק גם את הנתונים שלכם ב-Maple Helper?%n%nזה מוחק את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nאי אפשר לבטל את זה. אם לא תמחקו, הכל יחכה לכם בהתקנה הבאה.
+english.DeleteUserData=Also delete your Maple Helper data?%n%nThis deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nThis can't be undone. If you keep it, everything will be there when you reinstall.
 
 [Code]
 var
@@ -227,6 +230,23 @@ begin
     Sleep(1500);
   end;
   Result := True;
+end;
+
+// After the app is removed: ask whether the player's own data goes too (SEC-12: chats, characters and the Grok and
+// Gemini sign-ins stayed on disk). Only that one folder, only when the player says yes; a silent uninstall keeps it
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  DataDir: String;
+begin
+  if (CurUninstallStep <> usPostUninstall) or UninstallSilent then
+    Exit;
+  DataDir := ExpandConstant('{userappdata}\MapleHelper');
+  if not DirExists(DataDir) then
+    Exit;
+  if MsgBox(FmtMessage(CustomMessage('DeleteUserData'), [DataDir]), mbConfirmation,
+            MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    if not DelTree(DataDir, True, True, True) then
+      Log('could not delete all of ' + DataDir);
 end;
 
 // Uninstalling while the app runs left its files behind (in use): close it first
