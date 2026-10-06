@@ -1840,7 +1840,11 @@ class Overlay(QWidget):
             if self.stats:
                 self.stats.question(c)     # once per question, however it gets answered
             if not focus and not shown and self.settings["instant_answers"]:
-                qa = quick.answer(question, self.kb, self.t, c)
+                # in the question's language, as the AI answers it: an English question in the Hebrew UI got a
+                # Hebrew instant answer and an English "Ask Claude anyway" one (audit AI-13)
+                from ..brain import reply_language
+                lang = "en" if reply_language(question, self.settings["language"] or "he") == "English" else "he"
+                qa = quick.answer(question, self.kb, self.t if self.t.lang == lang else I18n(lang), c)
                 if qa:
                     if history:
                         history.append("user", question)
