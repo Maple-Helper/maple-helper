@@ -35,7 +35,9 @@ _RUN = re.compile(
     rf"(?:(?<![{RTL_CHARS}])[+\-±](?=\d)|[$#](?=\d)|[\[\"](?=[A-Za-z0-9])|\d|[A-Za-z])"
     # body; "1,500" keeps its comma, a@b.com its @, "11:41" its colon; ": " ends the block
     # ("ה-AI: Claude או Codex" is two blocks, not "AI: Claude" read backwards)
-    r"(?:(?:[A-Za-z0-9.'’&/+\-–%#×_  ()\[\]\"@<>]|:(?! )|,(?=\d{3}\b))*"   # (no-break space: i18n.WHOLE_NAMES)
+    r"(?:(?:[A-Za-z0-9.'’&/+\-–%#×_  ()\[\]\"@<>→]|:(?! )|,(?=\d{3}\b))*"   # (no-break space: i18n.WHOLE_NAMES)
+    # "→" too: "Henesys → Ellinia → Perion" is one route, as "->" already was (three runs showed it
+    # backwards in a Hebrew line, the review UI-1)
     r"(?:[A-Za-z0-9%)\]\">]|(?<=\d)\+))?"        # "Line 2 <Area 1>" stays one map name; "ACC 40+" keeps its +
 )
 
@@ -105,12 +107,17 @@ def direction(text: str) -> str:
 
 # "מ-10% → 25%", "COT1 -> COT2": the two values and the arrow as one left-to-right block, as sitedata.change_text
 # writes them. As two runs in a Hebrew line the arrow pointed at the old value ("25% → 10%", read backwards)
-_ARROW_SIDE = rf"(?:[A-Za-z0-9$#]|(?<![{RTL_CHARS}])[+\-])(?:[A-Za-z0-9.,%+\-:$#×/]*[A-Za-z0-9%])?"
-_ARROW = re.compile(rf"(?<![A-Za-z0-9.,%])({_ARROW_SIDE})[ \u00a0]?(→|->)[ \u00a0]?({_ARROW_SIDE})(?![A-Za-z0-9%])")
+# A side is a value, never a word: "any letters" cut a name at its first space and paired "Blue Snail → Red Snail"
+# as "Snail → Red" (the review, UI-1). Names are blocked first (set_names); a whole chain "10 → 20 → 30" is one block
+_ARROW_SIDE = (rf"(?:Lv\.[ \u00a0]?)?(?:(?<![{RTL_CHARS}])[+\-]|\$)?\d(?:[\d.,:/×%\-]*[\d%])?[KMx×%]?"
+               r"|COT\d|Launch|MSEA")
+_ARROW = re.compile(rf"(?<![A-Za-z0-9.,%])(?:{_ARROW_SIDE})(?:[ \u00a0]?(?:→|->)[ \u00a0]?(?:{_ARROW_SIDE}))+"
+                    r"(?![A-Za-z0-9%])")
+_ARROW_GAP = re.compile("[ \u00a0]?(→|->)[ \u00a0]?")
 
 
 def _arrow_block(m: re.Match) -> str:
-    return f"{LRI}{m.group(1)}\u00a0{m.group(2)}\u00a0{m.group(3)}{PDI}"
+    return LRI + _ARROW_GAP.sub(lambda a: "\u00a0" + a.group(1) + "\u00a0", m.group(0)) + PDI
 
 
 def _block_arrows(text: str) -> str:
@@ -121,9 +128,9 @@ def isolate_ltr_runs(text: str) -> str:
     """Wrap English/number runs in LRE…PDF. Only for RTL paragraphs.
     A name already isolated as one block (ltr_block), or a KB name the runs would split (set_names), is kept
     as one block, and so is an "old → new" pair."""
-    text = "".join(part if part.startswith(LRI) else _block_arrows(part) for part in _ISOLATED.split(text))
-    if _NAMES is not None:
+    if _NAMES is not None:      # names first: an arrow between two names leaves both whole
         text = "".join(part if part.startswith(LRI) else _block_names(part) for part in _ISOLATED.split(text))
+    text = "".join(part if part.startswith(LRI) else _block_arrows(part) for part in _ISOLATED.split(text))
     if LRI in text:
         return "".join(part if part.startswith(LRI) else _isolate_runs(part) for part in _ISOLATED.split(text))
     return _isolate_runs(text)
