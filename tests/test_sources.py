@@ -287,6 +287,18 @@ def test_changes_that_affect_the_character_come_first(tiny):
     assert update_notice(en, entries, tiny, None, []) == "Database updated: 3 changed"
 
 
+def test_a_change_to_what_is_not_in_the_game_never_affects_the_character(tiny, monkeypatch):
+    """An Ossyria monster in the training range (Jr. Sentinel to a Lv 34 Thief, live) or gear with no source in the
+    game is no "affects you"; a wished item still is."""
+    from maplehelper import availability
+    shut = SimpleNamespace(entity_open=lambda k: k != "monster/1", item_open=lambda k: k != "item/10")
+    monkeypatch.setattr(availability, "of", lambda kb: shut)
+    warrior = SimpleNamespace(level=32, base_class="Warrior")
+    entries = recent.changelog(tiny)[:1]
+    assert recent.split(entries, tiny, warrior, [])[0] == []
+    assert [r["key"] for _, _, r in recent.split(entries, tiny, warrior, ["item/10"])[0]] == ["item/10"]
+
+
 # ---------------------------------------------------------------- the widgets
 
 def test_cards_and_groups_show_their_source(tiny, qapp):
