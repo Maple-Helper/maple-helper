@@ -9,7 +9,7 @@ The graph:
 - NPC trips: an NPC whose own words offer one ("Want to head over to Florina Beach?"), and the NPC there who takes
   you "back to where you were before".
 Only maps the KB confirms are in the game (availability.py) are on it: a route never passes through Ossyria, an
-event map or a map without a known continent. The KB lists no fares: a route says which steps cost mesos, never how
+event map or a closed area (Forgotten Hollow). The KB lists no fares: a route says which steps cost mesos, never how
 many.
 """
 from __future__ import annotations
@@ -92,9 +92,10 @@ class Graph:
             if not kb.get(key) or not open_.entity_open(key):
                 continue      # not in the game, as the KB says: never on a route
             raw[mid] = m
-            place = availability._MAP_LOCATION.search(kb.page(key))
-            self.maps[mid] = MapInfo(mid, m.get("name") or kb.get(key)["name"], m.get("street") or "",
-                                     bool(m.get("town")), place.group(2).strip() if place else "",
+            cont = open_.map_place.get(open_.map_cell.get(key, ""), ("",))[0]
+            # routes.json's name, trimmed ("A Hill West of Henesys " made "to A Hill West of Henesys .")
+            self.maps[mid] = MapInfo(mid, (m.get("name") or "").strip() or kb.get(key)["name"], m.get("street") or "",
+                                     bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
                                      m.get("minimap"), list(m.get("npcs") or []))
         self.edges: dict[str, list[Leg]] = {mid: [] for mid in self.maps}
         for mid, m in raw.items():
@@ -231,10 +232,11 @@ class Graph:
         return Route(start, end, legs[::-1])
 
     def nearest_town(self, end: str, taxi_towns_only: bool = True) -> Route | None:
-        """The shortest way to a map from the town closest to it (for a player whose map isn't known)."""
+        """The shortest way to a map from the town closest to it (for a player whose map isn't known), never from
+        the map itself ("how do I get to Perion" got "from Perion to Perion, 0 steps")."""
         towns = [m for m, legs in self.edges.items() if any(e.kind == "taxi" for e in legs)] if taxi_towns_only \
             else [m.id for m in self.maps.values() if m.town]
-        found = [r for t in towns if (r := self.route(t, end, taxi=False))]
+        found = [r for t in towns if t != end and (r := self.route(t, end, taxi=False))]
         return min(found, key=lambda r: (len(r.legs), r.start)) if found else None
 
     # ------------------------------------------------------------ names
@@ -402,11 +404,16 @@ def ai_context(kb, question: str, character=None, tagged=()) -> str:
             "maps that are in the game; fares are not in the KB):")
     if not start:
         r = graph.nearest_town(end)
+        taxi = any(leg.kind == "taxi" for leg in graph.edges.get(end, ()))
+        cab = f"{graph.name(end)} is a taxi town: a Regular Cab in another town goes there (costs mesos)."
         if not r:
+            if taxi:
+                return f"{head}\n{cab}"
             return f"{head}\nThe KB has no known way to {graph.name(end)} from any town (an NPC, quest or event map)."
-        return "\n".join([f"{head}\nThe player's current map is unknown. From the nearest taxi town, "
-                          f"{graph.name(r.start)}, to {graph.name(end)} ({len(r.legs)} steps, walking):",
-                          *describe(graph, r)])
+        lines = [f"{head}\nThe player's current map is unknown."] + ([f"{cab} On foot:"] if taxi else [])
+        lines.append(f"From the nearest taxi town, {graph.name(r.start)}, to {graph.name(end)} ({len(r.legs)} steps, "
+                     "walking):")
+        return "\n".join([*lines, *describe(graph, r)])
     r = graph.route(start, end)
     if r is None:
         return (f"{head}\nThe KB has no known way from {graph.name(start)} to {graph.name(end)} (it may be reached "
@@ -417,8 +424,12 @@ def ai_context(kb, question: str, character=None, tagged=()) -> str:
     if any(leg.kind == "taxi" for leg in r.legs):
         walk = graph.route(start, end, taxi=False)
         if walk:
-            # "free" only when it is: from Maple Island even the walk starts with the paid boat
-            cost = "free" if not walk.paid else "no cab, but the boat still costs mesos"
+            # "free" only when it is: from Maple Island even the walk starts with the paid boat; an NPC's trip
+            # (Pason to Florina Beach) has no fare in the KB either way, so it isn't called free
+            npcs = list(dict.fromkeys(leg.via for leg in walk.legs if leg.kind == "npc"))
+            cost = ("no cab, but the boat still costs mesos" if walk.paid
+                    else f"no cab; {', '.join(npcs)} takes you part of the way, the KB lists no fare" if npcs
+                    else "free")
             lines.append(f"Without a cab ({cost}): {len(walk.legs)} steps: "
                          + " → ".join(graph.name(m) for m in walk.maps))
     return "\n".join(lines)

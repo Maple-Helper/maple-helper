@@ -503,7 +503,8 @@ def test_real_ant_tunnel_monsters(real):
 @needs_kb
 def test_real_top_regular_monsters_and_manjis_quests(real):
     p = ask(real, "which regular monsters (not bosses) between level 30 and 40 give the most EXP? top 3")
-    assert [r["monster"] for r in p.blocks[0].rows][:3] == ["Cold Eye", "Glowshroom", "Lorang"]
+    # (Glowshroom lives only in Forgotten Hollow's hidden map, closed at launch)
+    assert [r["monster"] for r in p.blocks[0].rows][:3] == ["Cold Eye", "Lorang", "Lupin"]
     p = ask(real, "איפה מנג'י ואיזה קווסטים הוא נותן?")
     assert {r["quest"] for r in p.blocks[1].rows} == {"Arcon's Blood?", "Getting Arcon's Blood", "Old Gladius"}
 

@@ -3,6 +3,7 @@
 import copy
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -380,3 +381,14 @@ def test_a_row_gone_from_a_list_page_is_in_the_patch_notes(tmp_path, site_kb, pa
     write(site_kb, new)
     rows = {r["key"]: r for r in kb_release.section_changes(old, site_kb)}
     assert rows["item/1524"]["props"][0] == ["Lifespan", "7 days", None]
+
+
+def test_the_pets_launch_lifespan_note_is_the_kbs_own(site_kb):
+    """The note came from a string in code; the pets page says it, and says it again when it changes."""
+    real = Path(__file__).resolve().parent.parent / "data" / "kb"
+    for kb in (KnowledgeBase(site_kb), *([KnowledgeBase(real)] if (real / "index.json").exists() else [])):
+        page = kb.page("formula/pets") if kb.get("formula/pets") else ""
+        m = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
+        closed = [ln for ln in sitedata.ai_pet_lines(kb) if "closed-test value" in ln]
+        assert closed and all((f"NiaMeowDB: {m.group(0)})" if m else "(closed-test value)") in ln for ln in closed)
+    assert "expects 30 to 90 days" not in Path(sitedata.__file__).read_text(encoding="utf-8")

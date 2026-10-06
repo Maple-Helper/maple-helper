@@ -74,7 +74,13 @@ ALIAS_DROP = {
     "נהר", "הנהר", "פסל", "סדן", "צור", "הצור", "השף", "שף", "רוח רפאים", "טוויטר", "טיק טוק", "שוער", "ליצן",
     "תיבת אוצר",
     "מיין",        # Myen's alias is the verb "to sort" ("למיין את האינבנטורי" made a Myen card, and voice "ל-Myen")
+    # everyday words: "איפה אפשר להרוג פיה" (a fairy) gave Pia, "טיק" (a tick) Tick, "פול HP" Paul, "לוק" (a look)
+    # Luke, "ברי לי" Bari, "אורה" (light) Aura, "יונה" (a dove) Yoona, "לין" (to sleep over) Lyn
+    "פיה", "טיק", "פול", "לוק", "ברי", "אורה", "יונה", "לין",
 }
+# aliases that are also Israeli first names ("אלון חבר שלי" is a friend, not Oak): a question asking for the NPC
+# ("איפה מאיה") still finds it, an AI answer and a dictated question never turn the name into the NPC
+FIRST_NAME_ALIASES = {"אלון", "מאיה", "אלכס", "רנה"}
 # alias -> entity key, over aliases.json (keys and names as in the KB's index.json)
 ALIAS_SET = {
     "פטרייה רקובה": "monster/62",        # Rotten Mushroom (aliases.json gave this spelling to Rotten Mushmom)
@@ -94,6 +100,8 @@ PLAYER_HEBREW = (
     "מכיר מעדיף מצפה מתכנן ממוקם מטיל ומטיל מגביל מתקזז קודמים גבוהים המאוחרים שמופיעים שהחזקת הסתיים "
     "חזור תביא תדליק תוציא תחליט תחליף תחפש תטיל תירשם תכבה תסקרל תעבור תעלה תפליג ותבנה ותמלא ותפעיל "
     "ותשווה ותתחיל לבל לבלים לבלינג הלבלינג שלבלי שלבלים גרינד בגרינד מגרינדים הושלם מתוכנן")
+# the words after "Max" that make it a stat, not the NPC ("Max HP", "max level")
+_STAT_WORDS = {"hp", "mp", "level", "lv", "lvl", "stat", "stats", "damage", "dmg", "exp", "str", "dex", "int", "luk"}
 NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant form ("פיה" -> "פי" is no name)
 # the part of a name that marks one variant of an entity: "Nella (KPQ 1st Stage)", "Forgotten Hollow Instance 080003500"
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
@@ -341,7 +349,10 @@ class KnowledgeBase:
             return ""
         cat, _, slug = key.partition("/")
         p = self.root / "pages" / cat / f"{slug}.md"
-        return p.read_text(encoding="utf-8") if p.exists() else ""
+        try:          # a page damaged on disk (an antivirus, a disk error) reads as what's left, never fails a question
+            return p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
 
     def page_body(self, key: str, limit: int = 2500) -> str:
         text = self.page(key)
@@ -551,16 +562,20 @@ class KnowledgeBase:
         """The first place `name` stands in `hay` (" word word ... ") outside the spans already taken, as a
         (first word, last word + 1) range. Hebrew prefixes glue on to a long enough name ("לחילזון", "בהנסיס"),
         and a monster's name may be plural ("fire boars", "תמנונים"), an item's English name too ("red potions")."""
-        if name not in hay:
-            return None          # cheap: most names aren't in the question at all
         heb = bool(HEBREW.search(name))
+        # a monster's Hebrew plural turns its final letter plain: "גדם" -> "גדמים" (Stumps)
+        stem = name[:-1] + name[-1].translate(_FINALS) if heb and key.startswith("monster/") \
+            and name[-1] in "ךםןףץ" else ""
+        if name not in hay and not (stem and stem in hay):
+            return None          # cheap: most names aren't in the question at all
         pre = f"(?:{_PREFIX})?" if heb and _heb_letters(name) >= PREFIX_FROM else ""
         plural = ""
         if key.startswith("monster/"):
             plural = "(?:ימ|ות|ים)?" if heb else "(?:e?s)?"
         elif key.startswith("item/") and not heb and " " in name:
             plural = "(?:e?s)?"      # "red potions", "red snail shells" ("swords" is any sword, not the Sword)
-        for m in re.finditer(f"(?<= ){pre}{re.escape(name)}{plural}(?= )", hay):
+        body = f"(?:{re.escape(name)}{plural}|{re.escape(stem)}(?:ים|ות))" if stem else f"{re.escape(name)}{plural}"
+        for m in re.finditer(f"(?<= ){pre}{body}(?= )", hay):
             w0 = hay.count(" ", 0, m.start()) - 1
             span = (w0, w0 + name.count(" ") + 1)
             if not any(a < span[1] and span[0] < b for a, b in taken):
@@ -593,6 +608,8 @@ class KnowledgeBase:
         names = self._names if answer else self._question_names
         blocks = {} if answer else self._family_cats
         for name, key, is_loose in names:
+            if answer and name in FIRST_NAME_ALIASES:
+                continue
             here = taken + [(a, b) for a, b, cats in family if key.partition("/")[0] not in cats]
             for hay, loose_copy in copies:
                 if loose_copy != is_loose:
@@ -601,7 +618,7 @@ class KnowledgeBase:
                 if span and not key and name in blocks:
                     family.append((*span, blocks[name]))
                     break
-                if span and not HEBREW.search(name) and (answer or key in self._common_npcs) \
+                if span and not HEBREW.search(name) and (answer or key in self._common_words) \
                         and not self._written(text, key, name, answer):
                     span = None       # a question's "max level" is no Max either; "where is Max" is
                 if span:
@@ -708,6 +725,15 @@ class KnowledgeBase:
     def _common_npcs(self) -> set[str]:
         return {k for k, e in self.entities.items() if e.get("category") == "npc" and e.get("name") in COMMON_WORD_NPCS}
 
+    @cached_property
+    def _common_words(self) -> set[str]:
+        """The NPCs named like an everyday word, and the items named for a whole kind of gear ("Sword", "Spear": a
+        word of an equip type): a question names them only when written as a name (_written)."""
+        kinds = {w.lower() for e in self.entities.values() if e.get("category") == "item"
+                 and str(e.get("type") or "").startswith("Equip") for w in re.findall(r"[A-Za-z]+", str(e["type"]))}
+        return self._common_npcs | {k for k, e in self.entities.items() if e.get("category") == "item"
+                                    and str(e.get("name") or "").strip().lower() in kinds}
+
     def _written(self, text: str, key: str, name: str, answer: bool = True) -> bool:
         """An English entity name written as the game writes it (its own case). In an answer an NPC named like an
         everyday word never counts (the AI lists the ones it means)."""
@@ -716,7 +742,18 @@ class KnowledgeBase:
             return False          # an English alias, or an everyday word
         words = re.escape(fold_quotes(e["name"])).replace(r"\ ", r"\s+")
         plural = "(?:e?s)?" if key.startswith("monster/") else ""
-        return re.search(rf"(?<![\w]){words}{plural}(?![\w])", fold_quotes(text)) is not None
+        text = fold_quotes(text)
+        found = list(re.finditer(rf"(?<![\w]){words}{plural}(?![\w])", text))
+        if answer or key not in self._common_words:
+            return bool(found)
+        # a question: any sentence starts with a capital ("Max HP is important", "Rain or shine", "Exit the map"),
+        # and "Max HP" / "Max level" is no NPC; "where is Max", "talk to Max" still are
+        for m in found:
+            before, after = text[:m.start()].rstrip(), text[m.end():].split(None, 1)
+            if before and before[-1] not in ".!?:;\n\"(" and before.split()[-1].lower() not in ("the", "a", "an") \
+                    and not (after and after[0].lower().strip(".,!?") in _STAT_WORDS):
+                return True
+        return False
 
     def find_mentions(self, text: str, max_results: int = 5, answer: bool = False) -> list[str]:
         """Entities named in free text (English names, Hebrew aliases, transliterations); answer=True for an AI
@@ -746,6 +783,12 @@ class KnowledgeBase:
         def name(m: re.Match) -> str:
             if m.group("name") not in self.aliases:
                 return m.group(0)      # a dropped alias (in the pattern so no shorter alias inside it matches)
+            alias = m.group("name")
+            # a short alias that is an everyday word or a first name: the player's own words stay as said
+            # ("אלון חבר שלי משחק איתי" became "Oak חבר שלי")
+            if alias in FIRST_NAME_ALIASES or _heb_letters(alias) <= 4 and not m.groupdict().get("pre") \
+                    and alias.translate(_FINALS) in self._hebrew_words:
+                return m.group(0)
             # keep a glued Hebrew prefix: "ובלו סנייל" → "ו-Blue Snail"
             en = self.get(self.aliases[m.group("name")])["name"]
             pre = m.groupdict().get("pre")
@@ -792,8 +835,12 @@ class KnowledgeBase:
             name = self.get(key)["name"]
             for src, text in parts.items():
                 lines = text.split("\n")
+                again: dict[str, int] = {}       # a name the list repeats: its next item of that name
                 for n, line in enumerate(lines):
-                    k = self._drop_item(line.strip().lower(), lines[n + 1].strip() if n + 1 < len(lines) else "", name)
+                    item = line.strip().lower()
+                    k = self._drop_item(item, lines[n + 1].strip() if n + 1 < len(lines) else "", name,
+                                        again.get(item, 0))
+                    again[item] = again.get(item, 0) + 1
                     if k and k not in out[src] and not (src == sources.MSEA and k in out[sources.COMMUNITY]):
                         out[src].append(k)
         memo[key] = out
@@ -894,14 +941,16 @@ class KnowledgeBase:
                 out.setdefault(e["name"].strip().lower(), []).append(k)
         return out
 
-    def _drop_item(self, name: str, hint: str, monster: str) -> str | None:
+    def _drop_item(self, name: str, hint: str, monster: str, again: int = 0) -> str | None:
         """The item a drop line names. Some items share a name (the Lv 40 earring "Blue Moon" and the Lv 50 Thief
         top "Blue Moon"): the line under the name tells them apart ("Lv 50 · Thief" for equipment, the type
         word, "Potion" or "Monster Drop", otherwise), and when it can't (two "Dark Shadow" tops, Lv 40 · Thief),
-        the item page whose own "Dropped By" list names this monster. Still a tie: the first one, as before."""
+        the item page whose own "Dropped By" list names this monster. Still a tie: the first one, as before, and
+        for the name's next line in the same list (`again`) the next one: a list naming "Green Bennis Chainmail"
+        twice drops the male and the female one."""
         keys = self._items_by_name.get(name)
         if not keys or len(keys) == 1:
-            return keys[0] if keys else None
+            return keys[0] if keys and not again else None
         lv = re.match(r"Lv (\d+)\b", hint)
         if lv:
             fit = [k for k in keys if str(self.get(k).get("type") or "").startswith("Equip")
@@ -911,6 +960,9 @@ class KnowledgeBase:
         fit = fit or keys
         if len(fit) > 1:
             fit = [k for k in fit if self._dropped_by(k, monster)] or fit
+        if again:
+            rest = [k for k in keys if k != fit[0]]
+            return rest[again - 1] if again - 1 < len(rest) else None
         return fit[0]
 
     def _dropped_by(self, item: str, monster: str) -> bool:
@@ -1089,5 +1141,7 @@ class KnowledgeBase:
         for same in list(merged.values())[:40]:
             r = same[0]
             lines.append(f"{' / '.join(dict.fromkeys(x['name'] for x in same))} | {r['level']} | {r['hp']} | "
-                         f"{r['exp']} | {r['mesos']} | {', '.join(r['maps'])} | {', '.join(x['key'] for x in same)}")
+                         # map_label: not "Drake's Meal Table Dungeon"
+                         f"{r['exp']} | {r['mesos']} | {', '.join(map(self.map_label, r['maps']))} | "
+                         f"{', '.join(x['key'] for x in same)}")
         return "\n".join(lines) if len(lines) > 1 else ""

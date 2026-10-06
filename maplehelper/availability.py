@@ -15,19 +15,32 @@ the content appears without a new app version.
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
 
 _SECTION_END = re.compile(r"^(Level cap|Changes since|Preparing for launch|Not at launch|Confirmed content)\s*$", re.M)
 _MAP_LOCATION = re.compile(r"^Location (.+?) / (.+?)\s*$", re.M)
-_NPC_LOCATION = re.compile(r"^Location\n(.+?)\s*$", re.M)
+# a map page's location in any form: "Location Maple Road / Maple Island", or one part only ("Location Hidden Street":
+# the Free Market, the KPQ stages, the 2nd-job test maps; "Location Victoria Island": the Hollow's instances)
+_MAP_LOCATION_ANY = re.compile(r"^Location (.+?)(?: / (.+?))?\s*$", re.M)
+# an NPC page's "Location" or "Locations (4)", then its places, one "<map> <street>" line each ("Find path here"
+# between them)
+_NPC_LOCATION = re.compile(r"^Locations?(?: \(\d+\))?\n", re.M)
+# the continent of a map whose page names none: on no continent the KB closes, so in the game unless the release
+# guide's "Not at launch" names it (never printed: scope_note leaves it out)
+NO_CONTINENT = "(no continent)"
+_NO_CONTINENT_SHUT = f"{NO_CONTINENT} · not at launch"
 # an item page's sources and the headings that end them
 # ("Dropped By" opens with the community's own list, the monsters players saw drop it in Classic; then the MSEA one)
 _ITEM_SOURCES = ("Dropped By", "MSEA Reference Drops", "Where to buy", "Quest Reward", "Quests", "Craftable",
                  "Cash Shop")
 _ITEM_STOP = re.compile(r"^(Free Market Prices|Dropped By|Needed By|Recipes|Ingredients|Change history|← Previous|"
-                        r"Safe to Sell\?.*|(Similar|Compare) .* items|" + "|".join(map(re.escape, _ITEM_SOURCES)) + ")$")
+                        r"Safe to Sell\?.*|(Similar|Compare) .* items|Craftable \(\d+ recipes?\)|"
+                        + "|".join(map(re.escape, _ITEM_SOURCES)) + ")$")
+_CRAFTABLE_N = re.compile(r"^Craftable \(\d+ recipes?\)$")      # "Craftable (2 recipes)": Iron Arrows, Processed Leather
 _SHOP_PLACE = re.compile(r"^(.+?): (.+?) · (.+)$")          # "Victoria Road: Perion Department Store · Perion"
 _PERCENT = re.compile(r"\(\s*[\d.]+\s*%\s*\)")
 
@@ -39,7 +52,7 @@ def _item_sections(lines: list[str]):
         if _ITEM_STOP.match(s):
             if head:
                 yield head, body
-            head, body = (s if s in _ITEM_SOURCES else None), []
+            head, body = ("Craftable" if _CRAFTABLE_N.match(s) else s if s in _ITEM_SOURCES else None), []
         elif head:
             body.append(s)
     if head:
@@ -63,6 +76,7 @@ class Availability:
         # a KB with no release guide at all says nothing about what's out (a test's tiny KB): nothing is
         # filtered then. The real KB always has it (tools/kb_release.py refuses to publish one without it).
         self.known = bool(guide)
+        self.guide = guide
         # when the KB last checked what is out: the release guide's own date ("2026-09-29T00:00:00.000Z")
         self.verified = str((kb.get(RELEASE_GUIDE) or {}).get("lastmod") or "")[:10]
         self._memo: dict[tuple[str, str], object] = {}       # (what, key) -> answer: pages are read once
@@ -75,21 +89,40 @@ class Availability:
         self.map_place_by_name: dict[str, set[str]] = {}       # bare map name -> its continents
         self.continents: set[str] = set()
         self.streets: dict[str, set[str]] = {}                 # street -> continents it appears on
+        self.map_cell: dict[str, str] = {}                     # map key -> its "name street" cell
+        found: list[tuple[str, str, str, str | None]] = []
         for key, e in kb.entities.items():
             if e.get("category") != "map":
                 continue
-            m = _MAP_LOCATION.search(kb.page(key))
-            if not m:
-                continue
-            street, continent = m.group(1).strip(), m.group(2).strip()
-            name = e.get("name", "")
-            self.map_place[f"{name} {street}"] = (continent, street)
+            m = _MAP_LOCATION_ANY.search(kb.page(key))
+            if m:
+                found.append((key, e.get("name", ""), m.group(1).strip(), (m.group(2) or "").strip() or None))
+        paired = {(s, c) for _, _, s, c in found if c}
+        street_names = {s for s, _ in paired}
+        continent_names = {c for _, c in paired} - street_names
+        for key, name, street, continent in found:
+            if continent is None and street in continent_names:
+                street, continent = "", street             # "Location Victoria Island": a continent, no street
+            elif continent in street_names:
+                # "Location Yellow Mushroom House / Hidden Street" (two pages write it reversed): "Hidden Street"
+                # is a street on several continents, no continent of its own. Printed as one, the AI was told the
+                # 43 Victoria maps on that street (Pig Park, Wild Boar) were not in the game.
+                street, continent = continent, None
+            if continent is None:
+                continent = NO_CONTINENT if not self._named(name, self.not_at_launch_text) else _NO_CONTINENT_SHUT
+            cell = f"{name} {street}".strip()
+            self.map_cell[key] = cell
+            self.map_place[cell] = (continent, street)
             self.map_place_by_name.setdefault(name, set()).add(continent)
             self.continents.add(continent)
             self.streets.setdefault(street, set()).add(continent)
         self.confirmed = {c for c in self.continents if self._named(c, self.confirmed_text)}
         self.not_at_launch = {c for c in self.continents if self._named(c, self.not_at_launch_text)}
         self.confirmed -= self.not_at_launch
+        # a map page with no continent (the Free Market, the KPQ stages, the 2nd-job test maps): the release guide
+        # confirms KPQ and 2nd job, and these are on no continent the KB closes, so they're in the game
+        if NO_CONTINENT in self.continents:
+            self.confirmed.add(NO_CONTINENT)
         self._close_areas(kb)
         # monsters the guide names one by one ("Confirmed bosses: Mushmom, Zombie Mushmom, ...", new monsters)
         names = sorted({e["name"] for e in kb.entities.values() if e.get("category") == "monster"}, key=len, reverse=True)
@@ -111,6 +144,7 @@ class Availability:
         page names the maps, and when the release guide stops calling it closed, it opens with the next KB."""
         self.closed_areas: list[str] = []
         streets: set[str] = set()
+        guide_maps: set[str] = set()                # every map an area's guide names
         for name in sorted(self.map_place_by_name, key=len, reverse=True):
             if not (self.map_place_by_name[name] & self.confirmed) or not self._named(name, self.not_at_launch_text):
                 continue
@@ -124,6 +158,7 @@ class Availability:
                 if e.get("category") == "guide" and name.lower() in e.get("name", "").lower():
                     page = kb.page(key)
                     listed |= {m for m in self.map_place_by_name if len(m) > 4 and self._named(m, page)}
+            guide_maps |= listed
             # a street is the area's when most of its maps are in the area's guide: Shallow / Deep Passage, not
             # Victoria Road (the guide names Ellinia and Henesys too, and they are no part of it)
             per_street: dict[str, list[bool]] = {}
@@ -133,17 +168,57 @@ class Availability:
             for street, hits in per_street.items():
                 if sum(hits) * 2 > len(hits):
                     streets.add(street)
-        if not streets:
+        if not self.closed_areas:
             return
         closed = " · ".join(self.closed_areas)
-        for cell, (cont, street) in list(self.map_place.items()):
-            if street in streets:
-                shut = f"{cont} · {closed}"            # a continent of its own, never in self.confirmed
-                self.map_place[cell] = (shut, street)
-                name = cell[:-len(street)].strip()
-                self.map_place_by_name[name] = (self.map_place_by_name.get(name, set()) - {cont}) | {shut}
+
+        def shut_map(cell: str, cont: str, street: str, whole_street: bool) -> None:
+            shut = f"{cont} · {closed}"            # a continent of its own, never in self.confirmed
+            self.map_place[cell] = (shut, street)
+            name = cell[:-len(street)].strip() if street else cell
+            self.map_place_by_name[name] = (self.map_place_by_name.get(name, set()) - {cont}) | {shut}
+            if whole_street:
                 self.streets[street] = (self.streets.get(street, set()) - {cont}) | {shut}
-                self.continents.add(shut)
+            else:
+                self.streets.setdefault(street, set()).add(shut)
+            self.continents.add(shut)
+
+        for cell, (cont, street) in list(self.map_place.items()):
+            name = cell[:-len(street)].strip() if street else cell
+            if street in streets:
+                shut_map(cell, cont, street, True)
+            elif any(self._named(a, name) for a in self.closed_areas):
+                shut_map(cell, cont, street, False)     # "Forgotten Hollow Instance 080003000" (Victoria Island)
+        # the area's maps on a street it shares with open maps: "Someone Else's Grave" (Rotten Mushmom), "The Valley
+        # of Death" sit on Victoria's "Hidden Street" beside Pig Park. One the area's guide names whose every
+        # connected map is closed is closed too; the guide's open entrances (The Tree Tunnel At the Forest Up North,
+        # Sleepy Dungeon V) lead to open maps and stay open. The portals are routes.json's (a page's "Connected Maps"
+        # line leaves out the street of a same-street map, so it can't be read map by map).
+        portals = self._portals()
+        changed = True
+        while changed:
+            changed = False
+            for key, cell in self.map_cell.items():
+                cont, street = self.map_place[cell]
+                name = cell[:-len(street)].strip() if street else cell
+                to = [self.map_cell.get(t) for t in portals.get(key, ())]
+                if cont not in self.confirmed or name not in guide_maps or not to or None in to:
+                    continue
+                if not any(self.map_open(t) for t in to):
+                    shut_map(cell, cont, street, False)
+                    changed = True
+
+    def _portals(self) -> dict[str, set[str]]:
+        """Map key -> the map keys its portals lead to, from the KB's routes.json ({} without one)."""
+        try:
+            data = json.loads((Path(self.kb.root) / "routes.json").read_text(encoding="utf-8"))
+            out: dict[str, set[str]] = {}
+            for m in data.get("maps") or []:
+                key = f"map/{m.get('id')}"
+                out[key] = {f"map/{p.get('to')}" for p in m.get("portals") or [] if p.get("to")} - {key}
+            return out
+        except (OSError, ValueError, AttributeError, TypeError):
+            return {}
 
     @staticmethod
     def _named(name: str, text: str) -> bool:
@@ -201,10 +276,28 @@ class Availability:
             return False
         return self._once("monster", key, lambda: self.monster_open(e.get("name", ""), self.kb.all_maps(key)))
 
-    def npc_continent(self, key: str) -> str | None:
+    def npc_places(self, key: str) -> list[str]:
+        """The maps an NPC page says it stands on ("Location" has one; "Locations (4)" lists every crafting station's
+        town: Anvil, Doofus), as "<map> <street>" cells; [] for a dynamically placed one ("Locations (0)")."""
         def work():
-            m = _NPC_LOCATION.search(self.kb.page(key))
-            return self.continent_of(m.group(1)) if m else None
+            page = self.kb.page(key)
+            m = _NPC_LOCATION.search(page)
+            places: list[str] = []
+            for ln in page[m.end():].splitlines() if m else ():
+                ln = ln.strip()
+                if ln == "Find path here":
+                    continue
+                if self.continent_of(ln) is None:
+                    break           # past the places: "About", "What <NPC> Says", ...
+                places.append(ln)
+            return places
+        return self._once("npc places", key, work)
+
+    def npc_continent(self, key: str) -> str | None:
+        """The continent of the first open place an NPC stands on, else of its first place."""
+        def work():
+            conts = [self.continent_of(p) for p in self.npc_places(key)]
+            return next((c for c in conts if c in self.confirmed), conts[0] if conts else None)
         return self._once("npc", key, work)
 
     def npc_open(self, key: str) -> bool:
@@ -218,7 +311,8 @@ class Availability:
     def _quest_open(self, key: str) -> bool:
         e = self.kb.get(key) or {}
         page = self.kb.page(key)
-        if re.search(r"^Ended\s*$", page, re.M):
+        # "Ended", or after the quest's kind: "Daily Ended", "Self-Starting Ended" (the ended event quests)
+        if re.search(r"^(?:[A-Z][\w-]* )?Ended\s*$", page, re.M):
             return False
         props = e.get("props") or {}
         # the quest's own area first: the El Nath storyline handed out by Victoria's job instructors is El Nath's
@@ -243,8 +337,8 @@ class Availability:
         return self._once("map", key, lambda: self._map_key_open(key))
 
     def _map_key_open(self, key: str) -> bool:
-        m = _MAP_LOCATION.search(self.kb.page(key))
-        return bool(m) and m.group(2).strip() in self.confirmed
+        cell = self.map_cell.get(key)
+        return cell is not None and self.map_place.get(cell, ("",))[0] in self.confirmed
 
     # ------------------------------------------------------------ items
 
@@ -319,22 +413,33 @@ class Availability:
 
     def scope_note(self) -> str:
         """The game's scope as the KB states it, for the AI's prompt."""
-        shut = sorted(self.continents - self.confirmed)
-        parts = [f"Released and confirmed by the knowledge base: {', '.join(sorted(self.confirmed)) or 'nothing'}."]
+        if not self.known:
+            return ""      # a KB with no release guide filters nothing: "Maple Island is not in the game" contradicted it
+        real = lambda cs: sorted(c for c in cs if not c.startswith(NO_CONTINENT))    # noqa: E731
+        shut = real(self.continents - self.confirmed)
+        # "Event": the release guide lists the GM events (Coconut Harvest, Physical Fitness...) by date; their maps
+        # aren't in the tables, but "not in the game" told the AI the Founder's Access events weren't
+        events = [c for c in shut if re.search(rf"^.*\b{re.escape(c)}s\s*$", self.guide, re.M | re.I)]
+        shut = [c for c in shut if c not in events]
+        parts = [f"Released and confirmed by the knowledge base: {', '.join(real(self.confirmed)) or 'nothing'}."]
         if shut:
             parts.append(f"NOT in the game (the KB does not confirm them): {', '.join(shut)} — never send the player "
                          "there, never suggest their maps, monsters, NPCs or quests, and if asked say they are not in "
                          "the game yet.")
+        if events:
+            parts.append(f"{', '.join(events)} maps open only during GM events (the release guide lists the dates).")
+        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park and
+        # Monkey Forest are open Victoria Island maps on it (audit AI-5, KB-22)
+        if len(self.streets.get("Hidden Street", ())) > 1:
+            parts.append("\"Hidden Street\" is a street name used on several continents, not a place of its own: the "
+                         "maps the tables list on it are in the game (Pig Park and Monkey Forest on Victoria Island "
+                         "are).")
         # said both ways: with only "3rd job is not in the game" the AI answered that the 2nd job isn't out either
         # (to an Assassin, live)
         tiers = ["1st", "2nd", "3rd", "4th"][:max(1, self.job_tier)]
         parts.append(f"Job advancements in the game: {', '.join(tiers)} (players do them now).")
         if self.job_tier < 3:
             parts.append("3rd job advancement is not in the game; never present 3rd-job jobs or skills as available.")
-        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park and
-        # Monkey Forest are open Victoria Island maps on it (audit AI-5)
-        parts.append("\"Hidden Street\" is a street name used on several continents, not a place of its own: a map on "
-                     "it is in the game when its continent is (Pig Park, Monkey Forest on Victoria Island are).")
         parts.append("Anything the KB does not confirm is not in the game: say so instead of guessing.")
         return " ".join(parts)
 

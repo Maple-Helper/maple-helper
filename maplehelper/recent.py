@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from . import bidi, sources
+from . import availability, bidi, sources
 
 DAYS = 7              # how long a change keeps its "Updated" chip
 GEAR_LEVELS = 10      # equipment within this many levels of the player's is "gear for you"
@@ -210,6 +210,10 @@ def why(kb, row: dict, char, wished: set[str]) -> str | None:
     level = int(char.level)
     e = kb.get(key) or {}
     props = e.get("props") or {}
+    open_ = availability.of(kb)
+    # not in the game (an Ossyria monster, gear with no source in it): the notice said Jr. Sentinel "affects you"
+    if not (open_.item_open(key) if key.startswith("item/") else open_.entity_open(key)):
+        return None
     if key.startswith("item/") and str(e.get("type") or "").startswith("Equip"):
         req = props.get("Level Requirement") or 0
         if not isinstance(req, (int, float)) or abs(int(req) - level) > GEAR_LEVELS:

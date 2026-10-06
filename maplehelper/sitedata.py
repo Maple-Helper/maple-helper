@@ -303,10 +303,15 @@ def ai_pet_lines(kb, keys=None) -> list[str]:
     """One line per pet (only `keys` when given) for the AI."""
     want = set(keys) if keys is not None else None
     out = []
+    # the KB's own word on the launch lifespan ("Lifespans at launch are likely 30 to 90 days."), not a copy of it
+    # here that would outlive the page
+    page = kb.page("formula/pets") if kb.get("formula/pets") else ""
+    expect = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
+    note = f" (closed-test value; NiaMeowDB: {expect.group(0).strip()})" if expect else " (closed-test value)"
     for p in pets(kb):
         if want is not None and p.key not in want:
             continue
-        life = p.lifespan + (" (closed-test value; NiaMeowDB expects 30 to 90 days at launch)" if "lifespan" in p.closed_test else "")
+        life = p.lifespan + (note if "lifespan" in p.closed_test else "")
         out.append(f"Pet {p.name} [{p.key}]: lifespan {life}; hunger rate {p.hunger}; Lv {p.level} in about "
                    f"{p.commands_text.lstrip('~')} commands; {p.availability} (NiaMeowDB pets page)")
     return out
