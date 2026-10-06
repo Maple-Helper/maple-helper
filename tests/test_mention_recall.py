@@ -96,6 +96,11 @@ def test_a_unique_first_word_names_its_entity(tmp_path):
     assert names(kb, "is florina road safe") == []                    # a different place
     assert names(kb, "boat from lith") == ["Lith Harbor"]
     assert names(kb, "when is zakum coming") == []                    # the boss, not the helmet
+    (tmp_path / "people").mkdir()
+    kb = small_kb(tmp_path / "people", [("item/1", "Hella's Pendant"), ("npc/2", "Daniel the Scholar"),
+                                        ("item/3", "Esther Shield")])
+    for text in ("this game is hella fun", "my friend daniel plays a thief", "my friend esther"):
+        assert names(kb, text) == []                                  # slang and people's names
 
 
 def test_a_word_the_kb_writes_in_lower_case_is_no_short_name(tmp_path):
@@ -121,6 +126,10 @@ def test_an_alias_that_is_a_prefix_and_another_alias(tmp_path):
     kb = small_kb(tmp_path, [("map/1", "Ellinia"), ("map/2", "To Ellinia")], {"map/1": ["אלינה"], "map/2": ["לאלינה"]})
     assert names(kb, "איך מגיעים לאלינה") == ["Ellinia"]
     assert kb.resolve_names("איך מגיעים לאלינה") == "איך מגיעים ל-Ellinia"
+    # the English "to ellinia" too: the town; the boat map only as its name is written
+    for text in ("how do i get to ellinia", "i am new to ellinia", "go to Ellinia"):
+        assert names(kb, text) == ["Ellinia"]
+    assert names(kb, "where is To Ellinia") == ["To Ellinia"]
 
 
 def test_english_names_in_hebrew_letters(tmp_path):

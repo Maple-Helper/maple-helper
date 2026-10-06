@@ -131,6 +131,9 @@ COMMON_LEAD_WORDS = {
     "table", "water", "flower", "clock", "cross", "flying", "memory", "special", "power", "fire", "iron", "gold",
     "crimson", "luster",
     "zakum", "nemi",       # a boss the KB has no page of (only the Zakum Helmet), a game designer (not the Nemi Hat)
+    # slang and people's names ("this game is hella fun" was Hella's Pendant, "my friend daniel" Daniel the Scholar;
+    # "steely" stays: players call the knives so)
+    "hella", "daniel", "esther", "zeta",
 }
 FIRST_JOBS = {"Warrior", "Magician", "Bowman", "Thief"}
 _ROMAN_OR_NUMBER = re.compile(r"\s+(?:\d+|[IVX]+)$")
@@ -596,6 +599,9 @@ class KnowledgeBase:
                 if span and not HEBREW.search(name) and (answer or key in self._common_npcs) \
                         and not self._written(text, key, name, answer):
                     span = None       # a question's "max level" is no Max either; "where is Max" is
+                if span and not answer and name.startswith("to ") and name[3:] in self._first_key \
+                        and not self._written(text, key, name, answer):
+                    span = None       # "how do i get to ellinia" is the town, not the boat map "To Ellinia"
                 if span:
                     taken.append(span)
                     if key and key not in [k for k, _, _ in out]:
