@@ -121,12 +121,30 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
             if not isinstance(items, list) or not all(isinstance(n, dict) and n.get("id") and n.get("title")
                                                       and n.get("date") for n in items):
                 problems.append("news.json: items without an id, a title or a date")
+            else:
+                problems += _news_hebrew_problems(items)
         except (OSError, ValueError, AttributeError) as e:
             problems.append(f"news.json unreadable: {e}")
 
     if problems:
         raise InvalidKB("; ".join(problems))
     return {"count": count, "categories": sorted(seen)}
+
+
+def _news_hebrew_problems(items: list[dict]) -> list[str]:
+    """The news' Hebrew is shown as it is: "לבל" there broke the owner's "רמה" rule in the first thing a Hebrew
+    player reads (tools/scrape_news.he_text puts every translation in the app's terms; this catches a KB that
+    skipped it). The verb "לבלבל" (to confuse) is no level word."""
+    root = str(Path(__file__).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    from maplehelper.brain import _LEVEL_WORD
+    bad = []
+    for n in items:
+        texts = [n.get("title_he"), n.get("summary_he"), n.get("commentary_he"), *(n.get("highlights_he") or [])]
+        if any(isinstance(x, str) and _LEVEL_WORD.search(x) for x in texts):
+            bad.append(str(n.get("id")))
+    return [f"news.json: Hebrew with \"לבל\" instead of \"רמה\" in {', '.join(bad[:5])}"] if bad else []
 
 
 def validate_community(data, keys: set[str]) -> None:

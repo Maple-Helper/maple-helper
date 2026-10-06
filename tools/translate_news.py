@@ -45,6 +45,13 @@ def _body_hash(i: dict) -> str:
     return scrape_news._body_hash(i)
 
 
+def _he_text(text: str) -> str:
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import scrape_news
+    return scrape_news.he_text(text)
+
+
 def export(lang: str, out: Path, kb: Path) -> int:
     """Every item whose title + summary or whose body (highlights, note) has no current translation."""
     have = _current(lang)
@@ -62,21 +69,23 @@ def export(lang: str, out: Path, kb: Path) -> int:
 
 
 def import_(lang: str, src: Path) -> int:
-    """{"strings", "titles", "highlights", "commentary"} translated, next to the export's hashes."""
+    """{"strings", "titles", "highlights", "commentary"} translated, next to the export's hashes. Hebrew goes through
+    the app's terms ("רמה", never "לבל"; scrape_news.he_text) whoever translated it."""
     data = json.loads(src.read_text(encoding="utf-8"))
     hashes, body_hashes = data.get("hashes") or {}, data.get("body_hashes") or {}
     done = data.get("strings") or {}
     titles, highlights, notes = data.get("titles") or {}, data.get("highlights") or {}, data.get("commentary") or {}
     have = _current(lang)
+    fix = _he_text if lang == "he" else str.strip
     n = 0
     for nid, text in done.items():
         if nid in hashes and isinstance(text, str) and text.strip():
-            have[nid] = {"summary": text.strip(), "source_hash": hashes[nid]}
+            have[nid] = {"summary": fix(text), "source_hash": hashes[nid]}
             if isinstance(titles.get(nid), str) and titles[nid].strip():
-                have[nid]["title"] = titles[nid].strip()
+                have[nid]["title"] = fix(titles[nid])
             if nid in body_hashes and isinstance(highlights.get(nid), list):
-                have[nid]["highlights"] = [str(x).strip() for x in highlights[nid]]
-                have[nid]["commentary"] = str(notes.get(nid) or "").strip()
+                have[nid]["highlights"] = [fix(str(x)) for x in highlights[nid]]
+                have[nid]["commentary"] = fix(str(notes.get(nid) or ""))
                 have[nid]["body_hash"] = body_hashes[nid]
             n += 1
     OUT.mkdir(parents=True, exist_ok=True)
