@@ -204,8 +204,9 @@ def level_scale(player_level: int, mob_level: int) -> float:
 
 def landed(raw: float, defense: int, player_level: int, mob_level: int) -> float:
     """A hit's damage on this monster: defense, then the higher-level penalty."""
-    # whole numbers, as the game deals them (the KB's damage guide truncates each hit)
-    return float(max(1, int(raw * 100 / (defense + 100) * level_scale(player_level, mob_level))))
+    # whole numbers, as the game deals them (the KB's damage guide truncates each hit), at most 99,999
+    # (pages/formula/damage.md: "Final = trunc(clamp(value, 1, 99,999))", audit GAM-15)
+    return float(min(99_999, max(1, int(raw * 100 / (defense + 100) * level_scale(player_level, mob_level)))))
 
 
 def damage_range(dmg_min: int | None, dmg_max: int | None) -> tuple[int, int] | None:

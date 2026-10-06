@@ -21,6 +21,7 @@ def test_base_accuracy_and_damage():
     m = combat.Monster("monster/1", "Test", level=30, hp=1000, exp=50, pdef=0)
     assert combat.hits_to_kill(100, 300, m, 30) == (10, 5.0)
     assert combat.level_scale(30, 35) < 1 and combat.level_scale(30, 25) == 1
+    assert combat.landed(10**6, 0, 1, 1) == 99_999 and combat.landed(0.2, 50, 1, 1) == 1     # the game's clamp (GAM-15)
 
 
 @needs_kb
