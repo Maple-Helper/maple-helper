@@ -9,7 +9,8 @@ Output (under data/kb/):
     index.json                   compact index: id, name, category, url, image, props
     skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
-    routes.json                  every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
+    news.json, img/news/         the news and their pictures (tools/scrape_news.py)
+    routes.json                 every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
 
 Usage:
     python tools/scrape_meowdb.py            # full run (resumes)
