@@ -2718,6 +2718,15 @@ class ToolsDialog(GlassDialog):
         m = int(seconds) // 60
         return self.t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else self.t("grind_minutes", m=m)
 
+    def _started_ago(self, s) -> str:
+        """ "Started 12 min ago", from an hour in the time cell's own format: "Started 62 min ago" stood beside
+        "1:01 h" (TL2-18)."""
+        secs = max(0.0, time.time() - s.start)
+        m = int(secs) // 60
+        if m >= 60:
+            return self.t("grind_started_ago_time", time=self._clock(secs))
+        return self.t("grind_started_ago", n=m)
+
     def _cell(self, key: str, value: str, tip: str = ""):
         box, label = self.grind_cells[key]
         label.setText(value)
@@ -2745,7 +2754,7 @@ class ToolsDialog(GlassDialog):
             self.grind_auto_state.hide()
             self._gs(self.grind_state, t("grind_ended_state", time=self._clock(end - s.start)))
             return
-        self._gs(self.grind_state, t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+        self._gs(self.grind_state, self._started_ago(s))
         self._fill_auto_state(s)
 
     def _fill_auto_state(self, s=None):
@@ -3491,7 +3500,7 @@ class ToolsDialog(GlassDialog):
         self.farm_tag.style().polish(self.farm_tag)
         end = s.ended or time.time()
         self._fs(self.farm_state, t("grind_ended_state", time=self._clock(end - s.start)) if s.ended else
-                 t("grind_started_ago", n=round((time.time() - s.start) / 60)))
+                 self._started_ago(s))
         mob = s.monster if not (s.ended and self._grind_choice) else self._grind_choice
         self.farm_mob.show()
         self._fs(self.farm_mob, t("farm_mob", mob=bidi.ltr_block(mob, t.rtl)) if mob else t("farm_mob_none"))
