@@ -496,3 +496,10 @@ def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_day
 def test_only_a_news_question_asks_for_the_news(q, asks):
     """"מתי" or "open" alone added the news block to every such prompt."""
     assert news.asks_news(q) is asks
+
+
+def test_one_more_article_on_meowdb_is_singular():
+    """"עוד 1 כתבות ב-MeowDB" for a section of 31 (review2 UI2-5)."""
+    from maplehelper.i18n import I18n
+    assert I18n("he")("news_more_site", n=1) == "עוד כתבה אחת ב-MeowDB"
+    assert I18n("he")("news_more_site", n=3) == "עוד 3 כתבות ב-MeowDB"
