@@ -121,3 +121,10 @@ def test_the_speech_model_has_one_name_and_its_failure_no_stale_size():
     """review3 UX12-b: "speech model" everywhere in English; the failure line names no size (an NVIDIA PC's is 2.2 GB)."""
     assert not [k for k, v in STRINGS.items() if "voice model" in v["en"]]
     assert "GB" not in STRINGS["voice_download_failed"]["he"] + STRINGS["voice_download_failed"]["en"]
+
+
+def test_the_no_ai_note_turns_the_next_button_on():
+    """review3 UX10-b: a button "is turned on", not "opens"; the Play tools by their button's own name."""
+    note = STRINGS["ob_no_ai_note"]
+    assert note["he"].startswith("הכפתור \"הבא\" יופעל ") and STRINGS["tools"]["he"] in note["he"]
+    assert note["en"].startswith("Next turns on once")

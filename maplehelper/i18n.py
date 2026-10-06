@@ -1159,10 +1159,11 @@ STRINGS = {
                           "en": "Free: Gemini and Grok (with a limited quota). ChatGPT: a paid plan, or check whether "
                                 "yours has a free quota. Claude: paid plans only."},
     # why Next waits, and the way on without any AI (the Play tools need none)
-    "ob_no_ai_note": {"he": "\"הבא\" ייפתח אחרי שה-AI יתחבר. עוד אין לכם AI? כלי המשחק עובדים גם בלי: אפשר להמשיך "
-                            "בלי AI ולחבר אחד אחר כך בהגדרות.",
-                      "en": "Next opens once your AI is connected. No AI yet? The Play tools work without one: you can "
-                            "go on without an AI and connect one later in Settings."},
+    # a button is turned on, not opened; "כלי משחק" is the Play tools button's own name (review3 UX10-b)
+    "ob_no_ai_note": {"he": "הכפתור \"הבא\" יופעל אחרי שה-AI יתחבר. עוד אין לכם AI? כלי משחק עובדים גם בלי: אפשר "
+                            "להמשיך בלי AI ולחבר אחד אחר כך בהגדרות.",
+                      "en": "Next turns on once your AI is connected. No AI yet? The Play tools work without one: you "
+                            "can go on without an AI and connect one later in Settings."},
     "ob_skip_ai": {"he": "להמשיך בינתיים בלי AI", "en": "Continue without an AI for now"},
     "ob_use_api_key": {"he": "או: שימוש במפתח API", "en": "Or: use an API key"},
     "ob_api_key_hint": {"he": "הדביקו מפתח Anthropic API (מתחיל ב-sk-ant-)", "en": "Paste an Anthropic API key (starts with sk-ant-)"},
