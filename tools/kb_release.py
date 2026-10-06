@@ -506,6 +506,21 @@ def refresh_tables(kb: Path) -> bool:
         return False
 
 
+def tables_current(kb: Path) -> bool | None:
+    """The KB's grep tables are the ones this app's tables.py makes (None: the app's package can't be loaded here).
+    Stale ones are rebuilt by every player's app at its first start: ~20 s of one core beside the game, and a
+    question asked meanwhile waits (tables.ASK_WAIT)."""
+    root = str(Path(__file__).resolve().parent.parent)
+    if root not in sys.path:
+        sys.path.insert(0, root)
+    try:
+        from maplehelper import tables
+        return tables.current(kb)
+    except Exception as e:          # noqa: BLE001 - a check, never a failed release
+        print(f"KB tables not checked ({e})")
+        return None
+
+
 def pack(kb: Path, out: Path, version: str | None = None, previous_kb: Path | None = None) -> dict:
     """Stamp the version into meta.json, zip the KB (files at the zip root) and write the manifest."""
     version = version or time.strftime("%Y.%m.%d.%H%M", time.gmtime())
@@ -536,6 +551,8 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("kb", type=Path)
     v.add_argument("--previous", type=Path)
     v.add_argument("--min-entities", type=int, default=1)
+    c = sub.add_parser("tables-check", help="warn when the KB's tables aren't what this app builds")
+    c.add_argument("kb", type=Path)
     p = sub.add_parser("pack")
     p.add_argument("kb", type=Path)
     p.add_argument("out", type=Path)
@@ -546,6 +563,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if a.cmd == "validate":
             print("KB valid:", json.dumps(validate(a.kb, a.previous, a.min_entities)))
+        elif a.cmd == "tables-check":
+            ok = tables_current(a.kb)
+            if ok is False:
+                print("::warning::the knowledge base's tables are older than this app's: every player's app rebuilds "
+                      "them at its first start. Run the KB update (it packs current tables) before releasing.")
+            elif ok:
+                print("KB tables: current")
         else:
             for k in (a.kb, a.previous_kb):
                 if k:

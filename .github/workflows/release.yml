@@ -98,6 +98,7 @@ jobs:
           fi
           # the same bar as the scrape above and the nightly: a carried-forward or seed KB is no exception
           python tools/kb_release.py validate data/kb --min-entities 500
+          python tools/kb_release.py tables-check data/kb
 
       # both builds bundle exactly this KB, and Publish attaches it
       - uses: actions/upload-artifact@v7

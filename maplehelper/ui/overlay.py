@@ -2390,8 +2390,10 @@ class Overlay(QWidget):
     def _remember_model(self, ans: Answer) -> None:
         """The model that answered, for Settings: stored after the answer is on screen, so a settings write can
         never leave the bubble on "thinking…"."""
-        if ans.model:
-            self.settings["last_model"] = {**(self.settings["last_model"] or {}), self.settings["provider"]: ans.model}
+        last = self.settings["last_model"] or {}
+        if ans.model and last.get(self.settings["provider"]) != ans.model:
+            # only a change is written: settings.json was rewritten (fsync + backup) after every answer (PRF-9)
+            self.settings["last_model"] = {**last, self.settings["provider"]: ans.model}
 
     def _offer_other_character(self, ans: Answer, shot: bytes | None, full) -> bool:
         """The screenshot shows another character than the active one (a new one, or another saved one):

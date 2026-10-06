@@ -43,7 +43,8 @@ ROUTES_FILE = "routes.json"
 INPUTS = ("index.json", COMMUNITY_FILE, ROUTES_FILE)     # the files the tables are built from (with the pages)
 REPLACE_TRIES = 10          # os.replace on Windows fails while a reader holds the old file: wait it out
 MAPS_LISTED = 6             # a monster row's maps (the most spawns first); spawns.tsv has them all
-ASK_WAIT = 20               # seconds a question waits for a build already running before it goes without
+ASK_WAIT = 5                # seconds a question waits for a build already running before it goes without (it
+                            # answers without the tables anyway: 20 s felt stuck while a stale KB rebuilt them)
 RETRY_AFTER = 600           # seconds before a failed build (a read-only folder) is tried again on the same files
 
 # name -> (columns, what it answers). Only the columns' order and names are the file format.
@@ -192,22 +193,22 @@ def ensure(kb, wait: float = ASK_WAIT) -> bool:
         _lock.release()
 
 
-def ensure_async(kb) -> threading.Thread:
-    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait."""
+def ensure_async(kb, then=None) -> threading.Thread:
+    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait.
+    then(): more warm-up on the same thread once the tables are done (kb.warm() when not given)."""
     def work():
         try:
             ensure(kb, wait=600)
         except Exception:          # noqa: BLE001 - a background build never takes the app down
             log.warning("knowledge-base tables not built", exc_info=True)
-        try:
-            # the name indexes, the droppers and the route graph are built on first use: here, not on the first
-            # question's answer path (~1 s cold)
-            from . import routes
-            for name in ("_question_names", "_hebrew_words", "droppers"):
-                getattr(kb, name, None)
-            routes.of(kb)
-        except Exception:          # noqa: BLE001 - warming is a nicety: the question builds them itself
-            log.warning("knowledge-base caches not warmed", exc_info=True)
+        # the name indexes, the droppers and the route graph are built on first use: here, not on the first
+        # question's answer path (~1 s cold; KB-19, PRF-7). A KB's own warm() unless the caller gives one
+        then_ = then if then is not None else getattr(kb, "warm", None)
+        if then_ is not None:
+            try:
+                then_()
+            except Exception:      # noqa: BLE001 - only a warm-up: the question builds it if this didn't
+                log.warning("knowledge-base warm-up failed", exc_info=True)
     th = threading.Thread(target=work, daemon=True, name="kb-tables")
     th.start()
     return th

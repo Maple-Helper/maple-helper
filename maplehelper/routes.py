@@ -23,6 +23,7 @@ from pathlib import Path
 from . import availability
 
 ROUTES_FILE = "routes.json"
+FOUND_MAX = 4096                # Graph.find's remembered texts (names; the AI's free text can't grow it for ever)
 # what a step costs in the search: a short walk beats a cab ride, a long one doesn't
 COST = {"portal": 1, "npc": 2, "boat": 3, "taxi": 4}
 PAID = ("taxi", "boat")         # steps a player pays mesos for (how many only when a guide says: Leg.fare)
@@ -251,16 +252,25 @@ class Graph:
 
     def find(self, text: str) -> str | None:
         """A map by its name as a player or the AI writes it ("Henesys", "henesys", "Ant Tunnel I"), or the map an
-        NPC named so stands on."""
+        NPC named so stands on. Remembered per text: the Town tab looked up its quest cards' NPCs and towns through
+        the whole mention matcher on every redraw (~0.5 s with the GUI frozen)."""
         t = (text or "").strip()
         if not t:
             return None
+        found = self.__dict__.setdefault("_found", {})
+        if t not in found:
+            if len(found) > FOUND_MAX:
+                found.clear()
+            found[t] = self._find(t)
+        return found[t]
+
+    def _find(self, t: str) -> str | None:
         if t.isdigit() and t.zfill(9) in self.maps:
             return t.zfill(9)
         hit = self.exact(t)
         if hit:
             return hit
-        for key in self.kb.find_mentions(text, max_results=3):
+        for key in self.kb.find_mentions(t, max_results=3):
             mid = self.of_key(key)
             if mid:
                 return mid

@@ -1007,6 +1007,17 @@ class KnowledgeBase:
                 "sources": {i: self.drop_source(monster, i) or sources.MSEA for i in items},
                 "votes": {i: (v["up"], v["down"]) for i in items if (v := self.community_vote(monster, i))}}
 
+    def warm(self) -> None:
+        """Build what the first question would (the mention matcher's names and Hebrew words, what is in the game):
+        ~0.6 s that froze the chat on the first question after a start, since quick answers run on the GUI thread.
+        Called on a background thread; a question racing it only builds a cache twice."""
+        from . import availability, routes
+        availability.of(self)
+        self.find_mentions("איפה יש warm")          # (Hebrew too: its word lists are built on their first use)
+        self.map_label("warm")
+        self.droppers                               # noqa: B018 - the drop index and the route graph (KB-19)
+        routes.of(self)
+
     def ensure_drop_table(self) -> None:
         """Make sure the flat tables beside index.json are current (tables.py): drops.tsv ("which monsters drop X"
         in one grep), names.tsv, rewards.tsv and the rest, rebuilt when the KB changed. The old name stays: every

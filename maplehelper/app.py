@@ -94,7 +94,8 @@ class MapleHelperApp:
         self.settings = Settings()
         self.profiles = Profiles()
         self.kb = load_kb()
-        tables.ensure_async(self.kb)        # the KB's grep tables, off the GUI thread: ready before the first question
+        # the KB's grep tables, off the GUI thread: ready before the first question
+        tables.ensure_async(self.kb)           # (and kb.warm(): the first question's caches, PRF-7)
         self.font_family = theme.load_fonts()
         theme.FONT_FAMILY = self.font_family
         qapp.setWindowIcon(QIcon(str(ASSETS / "brand" / APP_ICON)))
@@ -1020,7 +1021,7 @@ class MapleHelperApp:
 
     def reload_kb(self):
         self.kb = load_kb()
-        tables.ensure_async(self.kb)        # a new KB's tables (a downloaded one usually brings them current)
+        tables.ensure_async(self.kb)    # a new KB's tables (a downloaded one usually brings them current) and warm-up
         from . import inventory
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb

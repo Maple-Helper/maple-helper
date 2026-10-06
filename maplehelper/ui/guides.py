@@ -105,6 +105,9 @@ class ImageZoom(QObject):
         b = self.browser
         if not b.isVisible():
             self.hide()
+            # nothing to look at until it shows again (eventFilter): the Tools window kept waking the app 8 times
+            # a second for its Build page while another page or the game was in front
+            self._poll.stop()
             return
         vp = b.viewport()
         under = QApplication.widgetAt(QCursor.pos())
@@ -137,6 +140,8 @@ class ImageZoom(QObject):
                 self.hide()
         elif e.type() in (QEvent.Leave, QEvent.Wheel, QEvent.MouseButtonPress):
             self.hide()
+        elif e.type() == QEvent.Show and not self._poll.isActive():
+            self._poll.start()
         elif e.type() == QEvent.Hide and self._shown:
             # the window closed (or another page took its place) with a picture zoomed: Qt sends no Leave to a
             # window that is closing
