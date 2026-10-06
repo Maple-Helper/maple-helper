@@ -189,6 +189,11 @@ def activate_self(win_id: int) -> None:
     focus_window(win_id)
 
 
+def seconds_since_self_activation() -> float:
+    """Only macOS reads this (its reopen check): a second launch on Windows reaches the running copy itself."""
+    return float("inf")
+
+
 def float_over_fullscreen(win_id: int) -> None:
     """Nothing to do: on Windows a topmost window already floats over a borderless game."""
 

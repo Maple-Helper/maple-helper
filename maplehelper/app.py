@@ -132,6 +132,9 @@ class MapleHelperApp:
         # listening from the start: a second launch while onboarding (or the character setup) is still open
         # brings that window forward instead of timing out against a server that wasn't up yet
         self._listen_for_second_launch()
+        if osapi.IS_MAC:
+            # macOS never starts a second copy: opening the app again only reactivates this one
+            self.qapp.applicationStateChanged.connect(self._on_mac_reopen)
         fresh_install = not self.settings["onboarding_done"]
         if not self.settings["onboarding_done"]:
             if not self.run_onboarding():
@@ -246,6 +249,18 @@ class MapleHelperApp:
                 self.bring_dialogs_forward()
                 win.raise_()
                 win.activateWindow()
+            return
+        self.show_chat()
+
+    def _on_mac_reopen(self, state) -> None:
+        """Maple Helper opened again from Finder, Launchpad or Spotlight while it runs (menu bar only, no Dock icon):
+        the chat shows, as a second launch does on Windows. Only when nothing of ours is on screen and the app didn't
+        just activate itself (a hotkey opening the chat, a dialog brought forward)."""
+        if state != Qt.ApplicationActive or getattr(self, "overlay", None) is None:
+            return
+        if osapi.seconds_since_self_activation() < 1.5:
+            return
+        if any(w.isVisible() for w in QApplication.topLevelWidgets()):
             return
         self.show_chat()
 
@@ -438,8 +453,10 @@ class MapleHelperApp:
         menu.addSeparator()
         menu.addAction(a_quit)
         self.tray.setContextMenu(menu)
+        # macOS: a click on the menu bar icon opens this menu and also reports Trigger (Qt's Cocoa status item),
+        # so the click is the menu there, not a chat toggle under it
         self.tray.activated.connect(lambda r: self.overlay.toggle(self.capture)
-                                    if r == QSystemTrayIcon.Trigger else None)
+                                    if r == QSystemTrayIcon.Trigger and not osapi.IS_MAC else None)
         self.tray.show()
         self._tray_menu = menu
         self._add_announced_item()

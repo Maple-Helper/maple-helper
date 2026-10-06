@@ -14,6 +14,7 @@ import os
 import plistlib
 import re
 import sys
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QObject, Signal
@@ -203,10 +204,20 @@ def focus_window(window_id: int) -> None:
         app.activateWithOptions_(_ACTIVATE_IGNORING_OTHER_APPS)
 
 
+_self_activated_at = 0.0
+
+
 def activate_self(win_id: int) -> None:
     """Bring our own app (and with it, its Qt windows) to the front."""
+    global _self_activated_at
     from AppKit import NSApplication
+    _self_activated_at = time.monotonic()
     NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+
+
+def seconds_since_self_activation() -> float:
+    """How long ago activate_self ran: an activation right after it is ours, not the player reopening the app."""
+    return time.monotonic() - _self_activated_at
 
 
 def float_over_fullscreen(win_id: int) -> None:
