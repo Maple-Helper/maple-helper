@@ -12,6 +12,7 @@ import errno
 import hashlib
 import logging
 import os
+import re
 import sys
 import threading
 import zipfile
@@ -90,6 +91,9 @@ def download_gpu_libs():
 
 _NETWORK_ERRORS = ("URLError", "ConnectionError", "ConnectError", "ConnectTimeout", "ReadTimeout", "Timeout",
                    "TimeoutError", "gaierror", "LocalEntryNotFoundError", "OfflineModeIsEnabled")
+# what Hugging Face says offline, whatever wraps it: "cannot find the appropriate snapshot folder ... local cache"
+_OFFLINE_TEXT = re.compile(r"snapshot folder|local cache|offline|internet connection|connection (?:error|refused)",
+                           re.IGNORECASE)
 
 
 def download_problem(e: BaseException) -> str:
@@ -100,7 +104,8 @@ def download_problem(e: BaseException) -> str:
         seen.add(id(e))
         if isinstance(e, OSError) and e.errno == errno.ENOSPC:
             return "nospace"
-        if any(type(e).__name__ == n for n in _NETWORK_ERRORS) or isinstance(e, (ConnectionError, TimeoutError)):
+        if any(type(e).__name__ == n for n in _NETWORK_ERRORS) or isinstance(e, (ConnectionError, TimeoutError)) \
+                or _OFFLINE_TEXT.search(str(e)):
             return "download"
         e = e.__cause__ or e.__context__
     return ""

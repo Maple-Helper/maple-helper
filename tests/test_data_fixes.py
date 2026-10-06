@@ -396,7 +396,9 @@ def test_below_level_8_the_plan_stays_on_maple_island(real):
     for lv in (1, 4, 7):
         p = plan.progress(real, lv, 50.0)
         mob = next(k for k, e in real.entities.items() if e["name"] == p["mob"] and e["category"] == "monster")
-        assert all(m.endswith(" Maple Road") for m in real._top_maps(mob))
+        # Maple Island is Maple Road and Rainbow Street (pages/map/*.md "/ Maple Island", audit GAM-3)
+        assert any(m.endswith((" Maple Road", " Rainbow Street")) for m in real._top_maps(mob))
+    assert plan.progress(real, 7, 50.0)["mob"] == "Orange Mushroom"         # not 280 Snails
     assert plan.progress(real, 9, 50.0)["mob"] == plan.spots_for(real, 9, 1)[0].mob
     assert "you'll likely be lv 8" in real.page("guide/beginners-guide-first-steps-in-maple-world")
 
