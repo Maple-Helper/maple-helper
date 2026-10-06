@@ -25,6 +25,8 @@ from pathlib import Path
 REPO = "Maple-Helper/maple-helper"
 CATEGORIES = ["monster", "item", "map", "quest", "npc", "skill", "class", "guide", "shop", "crafting", "formula"]
 MIN_KEEP_RATIO = 0.9   # an update may not lose more than 10% of the previous entities
+MAX_REMOVED = 25       # ...nor more than this many at once (a refresh drops only what left the sitemap)
+MIN_PROPS_RATIO = 0.9  # ...nor the stats (JSON-LD properties) of more than 10% of a category's entries
 CHANGELOG = "changelog.json"
 NEWS = "news.json"           # MapleStory Classic news (tools/scrape_news.py); optional, but never broken
 CHANGELOG_KEEP = 30    # updates kept, so a player who skipped a few still sees everything they missed
@@ -69,9 +71,11 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
     if count < min_entities:
         problems.append(f"only {count} entities (minimum {min_entities})")
     if previous_index and previous_index.exists():
-        prev = len(json.loads(previous_index.read_text(encoding="utf-8")))
+        before = [e for e in json.loads(previous_index.read_text(encoding="utf-8")) if isinstance(e, dict)]
+        prev = len(before)
         if count < prev * MIN_KEEP_RATIO:
             problems.append(f"{count} entities, down from {prev} (more than {100 - MIN_KEEP_RATIO * 100:.0f}% lost)")
+        problems += _lost_from(before, index)
 
     seen = {e.get("category") for e in index if isinstance(e, dict)}
     missing_cats = [c for c in categories if c not in seen]
@@ -89,6 +93,12 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
             missing_pages.append(key)
     if missing_pages:
         problems.append(f"{len(missing_pages)} entries without a page, e.g. {', '.join(missing_pages[:5])}")
+    # a page with no entry is something the site removed: the AI's grep would still find it
+    keys = {e.get("key") for e in index if isinstance(e, dict)}
+    orphans = sorted(f"{p.parent.name}/{p.stem}" for p in (kb / "pages").glob("*/*.md")
+                     if f"{p.parent.name}/{p.stem}" not in keys)
+    if orphans:
+        problems.append(f"{len(orphans)} pages without an entry, e.g. {', '.join(orphans[:5])}")
 
     guide = kb / "pages" / f"{RELEASE_GUIDE}.md"
     if RELEASE_GUIDE not in {e.get("key") for e in index if isinstance(e, dict)} or not guide.exists():
@@ -127,6 +137,28 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
     if problems:
         raise InvalidKB("; ".join(problems))
     return {"count": count, "categories": sorted(seen)}
+
+
+def _lost_from(before: list[dict], index: list) -> list[str]:
+    """What a broken scrape loses that the counts don't show: more than a few entities gone at once (a night of site
+    hiccups dropped 80 quests and NPCs within the 10% allowance), or the stats of a whole category (a layout change
+    that empties every JSON-LD property still leaves every entity in place)."""
+    problems = []
+    now = {e.get("key"): e for e in index if isinstance(e, dict)}
+    gone = sorted(str(e.get("key")) for e in before if e.get("key") not in now)
+    if len(gone) > MAX_REMOVED:
+        problems.append(f"{len(gone)} entities removed at once (at most {MAX_REMOVED}), e.g. {', '.join(gone[:5])}; "
+                        "if the site really removed them, publish this KB by hand")
+    for cat in CATEGORIES:
+        had = [e for e in before if e.get("category") == cat]
+        has = [e for e in now.values() if e.get("category") == cat]
+        if not had or not has:
+            continue
+        was = sum(1 for e in had if e.get("props")) / len(had)
+        share = sum(1 for e in has if e.get("props")) / len(has)
+        if was and share < was * MIN_PROPS_RATIO:
+            problems.append(f"{cat}: {share:.0%} of entries have stats, down from {was:.0%}")
+    return problems
 
 
 def validate_community(data, keys: set[str]) -> None:
