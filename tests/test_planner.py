@@ -709,3 +709,7 @@ def test_real_equips_for_another_named_class_skip_the_profiles_level(real):
     assert "req_lv <=" not in b.what and "can wear" not in b.lead and "the highest W.ATK in the game" in b.lead
     assert b.rows and {r["slot"] for r in b.rows} <= planner.JOB_WEAPONS["Fighter"]
     assert "req_lv <= 31" in ask(real, "best claw for an assassin").blocks[0].what       # their own line: still theirs
+    # a Beginner choosing a 1st job keeps their level: a Lv 8 got a Lv 70 sledge (review2 LOG-5)
+    beginner = Character(id="b", name="B", base_class="Beginner", job="Beginner", level=8)
+    b = ask(real, "best weapon for a warrior", beginner).blocks[0]
+    assert b.rows and all(r["req_lv"] <= 8 for r in b.rows)

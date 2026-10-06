@@ -29,6 +29,8 @@ MODEL = "claude-opus-5"   # Haiku wrote word-for-word Hebrew ("אחרונים 30
 EFFORT = "medium"         # short texts: enough thought for natural Hebrew, at a fraction of the default's tokens
 API = "https://api.anthropic.com/v1/messages"
 MAX_TEXTS = 120          # a night's ceiling, whatever the KB brings
+BUDGET_S = 20 * 60       # a night's time: past it no new batch starts, so a slow API never runs the job out of
+                         # time (a cancelled job publishes nothing, review2 LOG-6); what's done is kept
 BATCH = 20               # texts a request
 RETRY_WAIT = 20          # seconds before another try on a busy API (then 40)
 HEBREW = re.compile(r"[א-ת]")
@@ -90,8 +92,8 @@ def translate(key: str, texts: list[str]) -> list[str]:
     out = _ask(key, RULES, texts, len(texts))
     try:
         out = _ask(key, REVIEW, [{"en": en, "he": he} for en, he in zip(texts, out)], len(texts))
-    except ValueError as e:
-        print(f"translations: proofreading skipped for {len(texts)} text(s) ({e})")
+    except (ValueError, OSError) as e:          # a bad answer, or the API busy or down (HTTPError is an OSError):
+        print(f"translations: proofreading skipped for {len(texts)} text(s) ({e})")   # the translation is kept
     import scrape_news
     # the prompt's rule alone let "תקרת לבל 100" through into the news: the app's own Hebrew rules, applied
     return [scrape_news.he_text(x) for x in out]
@@ -196,7 +198,11 @@ def run(root: Path, key: str, jobs: list[dict] | None = None) -> int:
         return 0
     made: dict[str, str] = {}
     problems: list[str] = []
+    began = time.monotonic()
     for n in range(0, len(texts), BATCH):
+        if time.monotonic() - began > BUDGET_S:
+            problems.append(f"out of time after {len(made)} (the rest waits for the next night)")
+            break
         chunk = texts[n:n + BATCH]
         try:
             try:
@@ -206,6 +212,9 @@ def run(root: Path, key: str, jobs: list[dict] | None = None) -> int:
                 # the texts one at a time, a text that still fails waits for tomorrow
                 got = []
                 for t in chunk:
+                    if time.monotonic() - began > BUDGET_S:
+                        got.append(None)            # out of time: waits for the next night
+                        continue
                     try:
                         got += _translate(key, [t])
                     except ValueError as e:

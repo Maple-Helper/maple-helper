@@ -605,3 +605,17 @@ def test_windows_over_the_game_step_aside(monkeypatch):
         assert w.isVisible() and not w.testAttribute(overlay.Qt.WA_ShowWithoutActivating)
     finally:
         w.close()
+
+
+def test_the_same_level_misread_twice_starts_no_run(math):
+    """PLT-3's runs let two identical misreads in a row ("35" as "53" while a tooltip covers the HUD) start a run of
+    their own: Lv 35 -> 53 and EXP/h a quarter too high (review2 LOG-1). A new EXP run starts only at the same or a
+    little higher level."""
+    clean = grind.summarize(math, session(read(0, 21, 10.0), read(10, 21, 30.0), read(20, 21, 50.0),
+                                          read(30, 21, 60.0)))
+    for bad in ((read(10, 12, 30.0), read(15, 12, 40.0)),):
+        middle = grind.summarize(math, session(read(0, 21, 10.0), read(5, 21, 20.0), *bad, read(20, 21, 50.0),
+                                               read(30, 21, 60.0)))
+        end = grind.summarize(math, session(read(0, 21, 10.0), read(10, 21, 30.0), read(20, 21, 50.0),
+                                            read(30, 21, 60.0), read(31, 12, 61.0), read(32, 12, 62.0)))
+        assert middle.exp == clean.exp == end.exp == 600 and middle.level_to == end.level_to == 21

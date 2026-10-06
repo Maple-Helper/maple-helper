@@ -1090,8 +1090,10 @@ def _equips_for(rows, s: Slots, character) -> Block:
     asking for claws), the class and then the level the question didn't name are dropped."""
     base = _player_class(s, character)
     job = s.job if s.job else character.job if character and base and base == character.base_class else None
-    # another class named ("best weapon for a fighter" from a Lv 31 Assassin): not the player's level either
-    if not character or s.said_level or s.job and base != character.base_class:
+    # another class named ("best weapon for a fighter" from a Lv 31 Assassin): not the player's level either; a
+    # Beginner asking about the class they're about to pick still is (a Lv 8 got a Lv 70 sledge, review2 LOG-5)
+    if not character or s.said_level or (s.job and character.base_class not in ("", "Beginner")
+                                          and base != character.base_class):
         return equips(rows, s, base, job)
     level = int(character.level or 0) or None
     mine = base or character.base_class or None

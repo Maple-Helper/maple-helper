@@ -244,3 +244,32 @@ def test_a_failed_proofreading_keeps_the_translation(monkeypatch):
     import translate_kb
     _answers(monkeypatch, ["דברו עם Arthur ב-Henesys."], [])                 # a proofreading answer of no strings
     assert translate_kb.translate("key", ["Talk to Arthur in Henesys."]) == ["דברו עם Arthur ב-Henesys."]
+
+
+def test_a_busy_api_on_the_proofreading_keeps_the_translation(monkeypatch):
+    """Only a bad answer was caught: a 529 on the proofreading threw the translation away, was paid three times and
+    ended the night (review2 LOG-2)."""
+    import urllib.error
+
+    import translate_kb
+    sent = []
+
+    def post(key, body):
+        sent.append(body["system"])
+        if body["system"] == translate_kb.REVIEW:
+            raise urllib.error.HTTPError("u", 529, "Overloaded", {}, None)
+        return {"content": [{"type": "text", "text": '["דברו עם Arthur ב-Henesys."]'}], "stop_reason": "end_turn"}
+    monkeypatch.setattr(translate_kb, "_post", post)
+    assert translate_kb.translate("key", ["Talk to Arthur in Henesys."]) == ["דברו עם Arthur ב-Henesys."]
+    assert sent == [translate_kb.RULES, translate_kb.REVIEW]
+
+
+def test_a_slow_night_stops_starting_batches_when_its_time_is_up(tmp_path, monkeypatch):
+    """A cancelled job publishes nothing, so the translations stop in time and what's done is kept (review2 LOG-6)."""
+    import translate_kb
+    clock = iter(range(0, 10 ** 6, 500))                    # each look at the clock: 500 s later
+    monkeypatch.setattr(translate_kb.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(translate_kb, "BATCH", 1)
+    monkeypatch.setattr(translate_kb, "translate", lambda key, texts: [f"דברו עם Arthur {t}" for t in texts])
+    jobs = [{"kind": "quest_tasks", "key": f"quest/{n}", "en": f"Talk to Arthur {n} times."} for n in range(5)]
+    assert translate_kb.run(tmp_path, "key", jobs) == 2      # batches at 500 s and 1,000 s; 1,500 s is past 1,200 s

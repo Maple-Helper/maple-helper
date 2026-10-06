@@ -225,6 +225,10 @@ def test_the_players_level_is_named_as_one():
     assert drop_keys("אתם ב31 עכשיו") == "אתם ברמה 31 עכשיו"
     assert drop_keys("אתם בלבל 31") == "אתם ברמה 31" and drop_keys("עוד 3 לבלים") == "עוד 3 רמות"
     assert drop_keys("אתם ב-50% מהלבל") == "אתם ב-50% מהרמה" and drop_keys("הוא ב-10:00") == "הוא ב-10:00"
+    # a count after "אתם/אני" stays a count, with or without ה- (review2 LOG-4)
+    for count in ("אתם ב-50 אחוז מהדרך", "אני ב-3 משימות במקביל", "אני ב-2 קווסטים", "את ב-10 מפלצות",
+                  "אתם ב-20 המפות הראשונות", "אתם ב-2 הערוצים", "אני ב-100 אלף mesos"):
+        assert drop_keys(count) == count
 
 
 @pytest.mark.parametrize("src,out", [("ולבל 30 כדאי", "ורמה 30 כדאי"), ("הלבלים הבאים", "הרמות הבאים"),

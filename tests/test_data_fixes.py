@@ -874,8 +874,11 @@ def test_first_name_aliases_count_only_when_the_player_asks_for_the_npc(real):
     "Jack of all trades builds are weak.", "Exit the map and talk to the cab.", "The Oak tree near the river looks nice.",
     "Silver is a good color for armor.", "Pan your camera to the left.", "Go to Henesys and talk to the Chef there.",
     "which is better for me, a sword or an axe", "I want max level fast. Max HP or Max MP?",
+    "Sword or Axe for a lvl 20 fighter?", "Sword vs Axe?", "Crossbow or Bow for a bowman?",
+    "Spear or Polearm for a spearman?", "the Sword or the Axe for my fighter", "Silver in the Ores?", "Jack in a box",
 ])
 def test_a_sentence_start_or_a_generic_word_is_no_npc_or_item(real, text):
+    """Two weapon families compared name no starter item (review2 LOG-3); "in a box" is no place (LOG-8)."""
     assert not {k for k in real.find_mentions(text) if k.startswith(("npc/", "item/"))}
 
 
@@ -891,6 +894,7 @@ def test_a_common_word_npc_written_as_a_name_still_counts(real):
     ("where is the Anvil", "Anvil"), ("Anvil location", "Anvil"), ("where is the Anvil in Perion?", "Anvil"),
     ("Max", "Max"), ("Exit", "Exit"), ("Max?", "Max"),
     ("Sword stats", "Sword"), ("how much does the Spear cost", "Spear"), ("Spear vs Fork on a Stick", "Spear"),
+    ("what does the Chef sell", "Chef"),
 ])
 def test_a_plain_question_about_a_common_word_npc_or_item_still_finds_it(real, text, name):
     """KB-8/KB-31's rule (a sentence start or "the <Name>" is no name) dropped "where is the Anvil", "Max" asked

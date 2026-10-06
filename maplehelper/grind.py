@@ -256,6 +256,12 @@ def _level_fits(a: Reading, b: Reading) -> bool:
     return 0 <= b.level - a.level <= 1 + int(max(0.0, b.t - a.t) / 300)
 
 
+def _level_jump(a: Reading, b: Reading) -> bool:
+    """Where a new EXP run may start: the same level or a little higher (two quick level-ups), never lower. The same
+    misread twice ("35" as "53" while a tooltip covers the HUD) is no jump a player makes (review2 LOG-1)."""
+    return 0 <= b.level - a.level <= 2 + int(max(0.0, b.t - a.t) / 300)
+
+
 def _mesos_fit(a: Reading, b: Reading) -> bool:
     """A digit too many or too few is a 10x jump: 1,234,567 read as 11,234,567 (audit SCR-6). Small sums move
     freely (a few hundred mesos can triple with one drop)."""
@@ -263,11 +269,12 @@ def _mesos_fit(a: Reading, b: Reading) -> bool:
     return lo * 5 >= hi or hi < 10_000
 
 
-def _agreeing(reads: list[Reading], fits) -> list[list[Reading]]:
+def _agreeing(reads: list[Reading], fits, jump=None) -> list[list[Reading]]:
     """The reads that agree with the one kept before them, in runs: one misread at either end of a session doesn't
     become the session's gain. The first kept read is the first that agrees with the read after it. A read that
     breaks with the last kept one but agrees with the next (which breaks too) is a real change, a shop trip or two
-    quick level-ups: a new run starts there instead of every later read being dropped (review PLT-3)."""
+    quick level-ups: a new run starts there instead of every later read being dropped (review PLT-3). jump: where a
+    new run may start from the last kept read (None: anywhere)."""
     start = next((i for i in range(len(reads) - 1) if fits(reads[i], reads[i + 1])), 0)
     runs = [reads[start:start + 1]]
     rest = reads[start + 1:]
@@ -275,7 +282,8 @@ def _agreeing(reads: list[Reading], fits) -> list[list[Reading]]:
         nxt = rest[i + 1] if i + 1 < len(rest) else None
         if fits(runs[-1][-1], r):
             runs[-1].append(r)
-        elif nxt is not None and fits(r, nxt) and not fits(runs[-1][-1], nxt):
+        elif (nxt is not None and fits(r, nxt) and not fits(runs[-1][-1], nxt)
+              and (jump is None or jump(runs[-1][-1], r))):
             runs.append([r])
     return runs
 
@@ -284,7 +292,8 @@ def summarize(kb, s: Session, now: float | None = None) -> Summary:
     now = now or time.time()
     end = s.ended or now
     out = Summary(max(0.0, end - s.start), s.map, s.monster)
-    exp_runs = _agreeing([r for r in s.reads if r.level and r.exp_pct is not None], _level_fits)
+    exp_runs = _agreeing([r for r in s.reads if r.level and r.exp_pct is not None], _level_fits,
+                         _level_jump)
     if exp_runs[0]:
         a, b = exp_runs[0][0], exp_runs[-1][-1]
         out.level_from, out.level_to, out.exp_level = a.level, b.level, b.level

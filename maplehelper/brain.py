@@ -539,7 +539,8 @@ _KEY_IN_TEXT = re.compile(r"\s*(?:[ובלמהשכ]-)?[\(\[]\s*(?:monster|item|ma
 # a level whatever follows ("אתם ב-31 כבר", review CORE-5), but for a counted noun; of "הוא/היא/הם", a Hebrew word
 # after the number keeps it as written, but for "ו...", "עכשיו", "כרגע" and "אז"
 _BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(?:(?P<me>אתם|אתן|אתה|את|אני|הדמות שלכם|הדמות שלך)\s+ב-?(?P<n>\d{1,3})"
-                         r"(?![\d%.,:]\d|\d|%)(?!\s*(?:מפות|מקומות|ערוצים|חלקים|שלבים|קבוצות|דקות|שעות|ימים|פעמים)"
+                         r"(?![\d%.,:]\d|\d|%)(?!\s*ה?(?:מפות|מקומות|ערוצים|חלקים|שלבים|קבוצות|דקות|שעות|ימים|פעמים|אחוז|אלף"
+                         r"|משימות|קווסטים|מפלצות|דמויות|פריטים)"
                          r"(?![\u0590-\u05FF]))|(?P<he>הוא|היא|הם)\s+ב-?(?P<n2>\d{1,3})"
                          r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF]))")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)

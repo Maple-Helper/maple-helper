@@ -103,7 +103,18 @@ PLAYER_HEBREW = (
 # the words after "Max" that make it a stat, not the NPC ("Max HP", "max level")
 _STAT_WORDS = {"hp", "mp", "level", "lv", "lvl", "stat", "stats", "damage", "dmg", "exp", "str", "dex", "int", "luk"}
 # the words after a sentence-start "Anvil" or a "the Anvil" that ask for the NPC itself ("Anvil location")
-_NPC_ASK = {"location", "locations", "where", "npc", "map", "quest", "quests", "shop", "sells", "in", "at", "on"}
+_NPC_ASK = {"location", "locations", "where", "npc", "map", "quest", "quests", "shop", "sell", "sells", "buy", "give",
+            "gives"}
+# a place after "in/at/on" ("the Anvil in Ellinia"); "Silver in the Ores", "Jack in a box" are no NPC (review2 LOG-8)
+_NPC_PLACE = {"in", "at", "on"}
+# the words after a sentence-start "Sword" or a "the Spear" that ask for the item itself ("Sword stats", "the Spear
+# cost"); "Sword or Axe", "Crossbow vs Bow" name the weapon families (review2 LOG-3)
+_ITEM_ASK = _STAT_WORDS | {"cost", "costs", "price", "drop", "drops", "where", "attack", "atk", "req", "recipe",
+                           "sell", "sells", "buy"}
+# weapon families: "Sword or Axe" compares two of them, "Spear vs Fork on a Stick" names the item
+_FAMILIES = {"sword", "swords", "axe", "axes", "bow", "bows", "crossbow", "crossbows", "spear", "spears", "polearm",
+             "polearms", "claw", "claws", "dagger", "daggers", "wand", "wands", "staff", "staffs", "mace", "maces",
+             "blunt", "shield", "shields"}
 NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant form ("פיה" -> "פי" is no name)
 # the part of a name that marks one variant of an entity: "Nella (KPQ 1st Stage)", "Forgotten Hollow Instance 080003500"
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
@@ -762,17 +773,27 @@ class KnowledgeBase:
             before, after = text[:m.start()].rstrip(), text[m.end():].split(None, 1)
             nxt = after[0].lower().strip(".,!?") if after else ""
             prev = before.split()[-1].lower() if before else ""
+            at_start = not before or before[-1] in ".!?:;\n\"(" or prev == "the"
+            alone = not nxt or after[0][0] in ".,!?;:)"
             if key.startswith("item/"):
                 # an equip type's word: "a Sword" is the family; "Sword stats", "the Spear cost" name the item
-                if prev not in ("a", "an"):
+                if prev in ("a", "an"):
+                    continue
+                if not at_start or alone or nxt in _ITEM_ASK:
                     return True
+                if nxt in ("vs", "vs.", "or", "versus") and len(after) > 1:
+                    other = [w.lower().strip(".,!?") for w in after[1].split()[:2]]
+                    other = [w for w in other if w not in ("the", "a", "an")][:1]
+                    if other and other[0] not in _FAMILIES:
+                        return True
                 continue
             if nxt in _STAT_WORDS:
                 continue
             if not before or before[-1] in ".!?:;\n\"(" or prev in ("the", "a", "an"):
                 # "The Oak tree", "the Chef there": only the name alone, at its clause's end or asked about
                 # ("Max", "where is the Anvil", "Anvil location"; review CORE-2)
-                if not nxt or after[0][0] in ".,!?;:)" or nxt in _NPC_ASK:
+                if alone or nxt in _NPC_ASK or (nxt in _NPC_PLACE and len(after) > 1
+                                                 and after[1].split(None, 1)[0][:1].isupper()):
                     return True
                 continue
             return True
