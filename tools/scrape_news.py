@@ -181,10 +181,37 @@ def apply_translations(kb: Path) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
 
+def clean_hebrew(kb: Path) -> int:
+    """The Hebrew news.json already has, put in the app's terms (he_text). A KB published before the pipeline did that
+    still said "תקרת לבל 100", which kb_release validate refuses (the night's run and a release carrying the KB
+    forward both failed): the next night rewrites it even when the news page can't be fetched and nothing is
+    translated. Returns how many items changed (counted as changes, so the cleaned KB gets published)."""
+    path = kb / "news.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        items = [i for i in data.get("items") or [] if isinstance(i, dict)]
+    except (OSError, json.JSONDecodeError, AttributeError):
+        return 0
+    changed = 0
+    for i in items:
+        before = json.dumps(i, ensure_ascii=False)
+        for f in ("summary_he", "title_he", "commentary_he"):
+            if isinstance(i.get(f), str) and i[f].strip():
+                i[f] = he_text(i[f])
+        if isinstance(i.get("highlights_he"), list):
+            i["highlights_he"] = [he_text(str(x)) for x in i["highlights_he"]]
+        changed += json.dumps(i, ensure_ascii=False) != before
+    if changed:
+        path.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        print(f"news: {changed} items' Hebrew put in the app's terms", flush=True)
+    return changed
+
+
 def update(kb: Path, fetch) -> int:
     """Refresh kb/news.json with fetch(url) -> str | None (the scraper's polite fetch). Returns how many items are
     new or changed (0 when nothing changed). A failed fetch or an unreadable page keeps the news.json there is:
     a site hiccup must not wipe the news, or the next good night announce all of it again."""
+    cleaned = clean_hebrew(kb)
     path = kb / "news.json"
     try:
         old = {i["id"]: i for i in json.loads(path.read_text(encoding="utf-8")).get("items", [])}
@@ -193,12 +220,12 @@ def update(kb: Path, fetch) -> int:
     page = fetch(NEWS_URL)
     if not page:
         print("news: the news page could not be fetched; keeping the news there is", flush=True)
-        return 0
+        return cleaned
     try:
         items = build(page, translations(kb=kb))
     except NewsError as e:
         print(f"news: {e}; keeping the news there is", flush=True)
-        return 0
+        return cleaned
     changed = sum(1 for i in items if old.get(i["id"]) != i)
     removed = len(old.keys() - {i["id"] for i in items})
     if changed or removed:
@@ -211,7 +238,7 @@ def update(kb: Path, fetch) -> int:
             # never changed from news; the release guide stays the source)
             print(f"::notice::official news names {', '.join(i['mentions'])}: {i['title']} ({i['url']})", flush=True)
     print(f"news: {len(items)} items, {changed} new or changed", flush=True)
-    return changed + removed
+    return changed + removed + cleaned
 
 
 if __name__ == "__main__":
