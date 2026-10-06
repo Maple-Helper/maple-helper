@@ -332,3 +332,24 @@ def test_a_bubbles_tag_line_sits_on_its_questions_side(question, ui_rtl, rtl):
     assert bool(label.alignment() & Qt.AlignRight) == rtl and label.alignment() & Qt.AlignAbsolute
     assert ("↪" if rtl else "↩") in label.text()
     assert label.text().startswith("‏") == rtl          # an RTL line, though it starts with an English name
+
+
+# ------------------------------------------------------------------ VIS-18: a narrow chat's input hint keeps the talk key
+
+def test_a_narrow_field_shows_the_short_hint_with_the_talk_key(overlay):
+    from maplehelper.i18n import I18n
+    overlay.settings["language"] = "en"
+    overlay.t = I18n("en")
+    overlay.apply_language()
+    field = overlay.input
+    field.resize(900, field.height())
+    pump(overlay.app, 20)
+    assert shown(field.placeholderText()) == overlay.t("input_placeholder")
+    full = field.fontMetrics().horizontalAdvance(overlay.t("input_placeholder"))
+    field.resize(full - 20, field.height())                # (470 px at the large font)
+    pump(overlay.app, 20)
+    assert shown(field.placeholderText()) == overlay.t("input_placeholder_short") and "F10" in shown(field.placeholderText())
+    overlay.voice_state("listening")
+    assert shown(field.placeholderText()) != overlay.t("input_placeholder_short")
+    overlay.voice_state("idle")                            # back to the field's own hint, short as before
+    assert shown(field.placeholderText()) == overlay.t("input_placeholder_short")

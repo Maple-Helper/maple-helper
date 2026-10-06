@@ -134,17 +134,20 @@ class Capsule(QFrame):
 
 class FocusLineEdit(QLineEdit):
     focus_changed = Signal(bool)
-    _hint = ""
+    _hint = _short = ""
 
-    def set_hint(self, text: str) -> None:
+    def set_hint(self, text: str, short: str = "") -> None:
         """The placeholder, cut with "…" at the end of its reading direction when the field is too narrow (at
-        470 px with the large font the English hint was cut mid-letter at the edge)."""
-        self._hint = text
+        470 px with the large font the English hint was cut mid-letter at the edge). short: the hint for a narrow
+        field, used when the whole one doesn't fit (it lost the talk key: "…(Enter to send, F10 t…", VIS-18)."""
+        self._hint, self._short = text, short
         self._fit_hint()
 
     def _fit_hint(self):
-        room = self.contentsRect().width() - 14          # the text margins and the cursor
-        self.setPlaceholderText(self.fontMetrics().elidedText(self._hint, Qt.ElideRight, max(40, room)))
+        room = max(40, self.contentsRect().width() - 14)          # the text margins and the cursor
+        fm = self.fontMetrics()
+        hint = self._short if self._short and fm.horizontalAdvance(self._hint) > room else self._hint
+        self.setPlaceholderText(fm.elidedText(hint, Qt.ElideRight, room))
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -869,7 +872,7 @@ class Overlay(QWidget):
             self._render_tags()
         hk_voice = self.settings["hotkey_voice"]
         self._placeholder = self.t("input_placeholder").replace("F10", hk_voice)
-        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl))
+        self._show_placeholder()
         # its name for a screen reader: the placeholder changes (listening, transcribing) and isn't read as one
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
@@ -2615,8 +2618,16 @@ class Overlay(QWidget):
         text = {"listening": self.t("listening", key=self.settings["hotkey_voice"]),
                 "transcribing": self.t("transcribing"),
                 "loading": self.t("voice_loading"),
-                "downloading": self.t("voice_downloading")}.get(state, self._placeholder)
-        self.input.set_hint(bidi.plain(text, self.t.rtl))
+                "downloading": self.t("voice_downloading")}.get(state)
+        if text is None:
+            self._show_placeholder()
+        else:
+            self.input.set_hint(bidi.plain(text, self.t.rtl))
+
+    def _show_placeholder(self):
+        """The field's own hint, and its shorter form for a narrow chat (no "Enter to send": the talk key stays)."""
+        short = self.t("input_placeholder_short").replace("F10", self.settings["hotkey_voice"])
+        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl), bidi.plain(short, self.t.rtl))
 
     def offer_voice_download(self, size: int):
         """The first voice question: the speech model isn't on disk. Ask before downloading it, with its size (it

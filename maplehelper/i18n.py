@@ -110,6 +110,8 @@ STRINGS = {
     "price_fm_ago_d_one": {"he": "אתמול", "en": "1 day ago"},
     "input_placeholder": {"he": "שאלו אותי משהו… (Enter לשליחה, F10 לדיבור)",
                           "en": "Ask me anything… (Enter to send, F10 to talk)"},
+    # a narrow chat (470 px, the large font): the whole hint was cut before the talk key (VIS-18)
+    "input_placeholder_short": {"he": "שאלו אותי משהו… (F10 לדיבור)", "en": "Ask me anything… (F10 to talk)"},
     "thinking": {"he": "חושב…", "en": "Thinking…"},
     "cancel": {"he": "ביטול", "en": "Cancel"},
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
@@ -1512,7 +1514,7 @@ MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
 # strings that teach a hotkey: on a Mac keyboard F9/F10 are media keys unless fn is held, so a Mac shows
 # "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+")
 FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
-                "shot_hint_ready", "ob_done_hint", "voice_dl_done"}
+                "shot_hint_ready", "ob_done_hint", "voice_dl_done", "input_placeholder_short"}
 _FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
 
 
