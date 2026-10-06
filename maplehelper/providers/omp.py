@@ -191,17 +191,48 @@ def find_omp() -> str | None:
     return find_windows() if sys.platform == "win32" else find_posix("omp", POSIX_DIRS)
 
 
-def env(zai_key: str | None = None, meta_key: str | None = None) -> dict:
+def env(zai_key: str | None = None, meta_key: str | None = None, player: bool = False) -> dict:
+    """player: the player's own omp home (their Z.AI key or Muse sign-in made in omp itself), with their omp profile
+    and keys as they set them; else Maple Helper's home, with nothing of theirs."""
     e = child_env(POSIX_DIRS)
     for k in list(e):
+        if player and k in ("OMP_PROFILE", "PI_CODING_AGENT_DIR", "ZAI_API_KEY", "MODEL_API_KEY", "META_API_KEY"):
+            continue
         if k in FOREIGN_ENV or k.startswith(FOREIGN_PREFIXES):
             e.pop(k, None)
-    e["PI_CODING_AGENT_DIR"] = str(agent_dir())
+    if not player:
+        e["PI_CODING_AGENT_DIR"] = str(agent_dir())
     if zai_key:
         e["ZAI_API_KEY"] = zai_key
     if meta_key:
         e["MODEL_API_KEY"] = meta_key
     return e
+
+
+# whether the player's own omp is signed in to a provider (omp's name), as last checked: a question runs on it
+# without asking omp again (that takes a second or two)
+PLAYER_MAX_AGE_S = 600
+_player: dict[str, tuple[float, dict]] = {}
+_own_account: dict[str, tuple[float, dict]] = {}
+
+
+def player_account(provider: str, max_age: float = PLAYER_MAX_AGE_S) -> dict:
+    """The player's own omp sign-in for a provider: {'status': 'ok' | 'logged_out' | 'offline', 'email': ...}.
+    `omp token <provider> -l` names OAuth accounts ("1. <email>"); a provider with a stored key or a key in the
+    environment answers `omp token <provider>` with it (exit 0)."""
+    got = _player.get(provider)
+    if got and time.monotonic() - got[0] < max_age:
+        return got[1]
+    e = env(player=True)
+    r = _run(["token", provider, "-l"], e)
+    out = (r.stdout + r.stderr).decode("utf-8", errors="replace") if r else ""
+    acc = parse_account(out) if r else {"status": "logged_out", "email": None}
+    if acc["status"] == "logged_out" and r is not None:
+        k = _run(["token", provider], e)       # an API key (Z.AI's): printed, never kept here
+        if k is not None and k.returncode == 0 and k.stdout.strip():
+            acc = {"status": "ok", "email": None}
+    _player[provider] = (time.monotonic(), acc)
+    return acc
 
 
 def _write(path: Path, text: str) -> None:
@@ -242,6 +273,8 @@ def command(exe: str, model: str, system_file, guard=None, shots: list | None = 
     cmd = [exe, "-p", "--mode", "json", "--model", model, "--thinking", "low"]
     cmd += ["--tools", "read,grep,glob"] if tools else ["--no-tools"]
     cmd += ["--no-session", "--no-extensions", "--no-skills", "--no-rules", "--no-lsp", "--no-title",
+            # our settings on top of whichever home the run uses (the player's own, for their sign-in)
+            "--config", str(agent_dir() / "config.yml"),
             # a path with no line break: omp reads the instructions from the file
             "--system-prompt", str(system_file)]
     if tools and guard:
@@ -442,6 +475,7 @@ def sweep(max_age: float = RUN_MAX_AGE_S) -> None:
 class _Omp(Provider):
     saver_model = None
     reports_usage = True
+    reinstall_fixes_login = False
     default = ""
     omp_provider = ""            # omp's name for the provider (models, usage)
 
@@ -470,8 +504,22 @@ class _Omp(Provider):
     def run_key(self, api_key: str | None) -> str | None:
         return api_key
 
+    def own_signed_in(self) -> bool:
+        """Signed in in Maple Helper's own omp home (a sign-in made from the app)."""
+        return False
+
+    def uses_player(self, api_key: str | None) -> bool:
+        """No key and no sign-in of the app's own, but the player's omp is signed in to this provider: the answers
+        run on that, as with the other AIs' CLIs."""
+        return not api_key and not self.own_signed_in() and player_account(self.omp_provider)["status"] == "ok"
+
+    def player_status(self) -> dict | None:
+        """The account() of the player's own omp sign-in, when there is one."""
+        acc = player_account(self.omp_provider, max_age=0)
+        return {"status": "ok", "email": acc.get("email"), "source": "omp"} if acc["status"] == "ok" else None
+
     def read_limits(self) -> dict | None:
-        return read_usage(self.omp_provider)
+        return read_usage(self.omp_provider, env(player=self.uses_player(None)))
 
 
 class Zai(_Omp):
@@ -488,7 +536,8 @@ class Zai(_Omp):
             return {"status": "not_installed", "email": None}
         if self.load_api_key():
             return {"status": "ok", "email": None, "method": "api_key"}
-        return {"status": "logged_out", "email": None}
+        # a Z.AI key the player already gave omp itself (`omp login zai`, or ZAI_API_KEY)
+        return self.player_status() or {"status": "logged_out", "email": None}
 
     def login(self) -> subprocess.Popen | None:
         return None                # a key is the only way in
@@ -508,11 +557,11 @@ class Zai(_Omp):
         return f"zai/{model or ZAI_MODEL}"
 
     def run_env(self, api_key: str | None) -> dict:
-        return env(zai_key=api_key)
+        return env(zai_key=api_key, player=self.uses_player(api_key))
 
     def read_limits(self) -> dict | None:
         key = self.load_api_key()
-        return read_usage("zai", env(zai_key=key)) if key else None
+        return read_usage("zai", env(zai_key=key, player=self.uses_player(key)))
 
 
 class Muse(_Omp):
@@ -523,13 +572,28 @@ class Muse(_Omp):
     default = MUSE_MODEL
     omp_provider = "muse-code"
 
+    def _own(self, max_age: float = PLAYER_MAX_AGE_S) -> dict:
+        """The sign-in in Maple Helper's own omp home (made from the app), as last checked."""
+        got = _own_account.get("muse-code")
+        if got and time.monotonic() - got[0] < max_age:
+            return got[1]
+        r = _run(["token", "muse-code", "-l"])
+        acc = parse_account((r.stdout + r.stderr).decode("utf-8", errors="replace")) if r else \
+            {"status": "logged_out", "email": None}
+        _own_account["muse-code"] = (time.monotonic(), acc)
+        return acc
+
+    def own_signed_in(self) -> bool:
+        return self._own()["status"] == "ok"
+
     def account(self) -> dict:
         if not find_omp():
             return {"status": "not_installed", "email": None}
-        r = _run(["token", "muse-code", "-l"])
-        if r is None:
-            return {"status": "logged_out", "email": None}
-        return parse_account((r.stdout + r.stderr).decode("utf-8", errors="replace"))
+        own = self._own(max_age=0)
+        if own["status"] == "ok":
+            return own
+        # a Muse Code sign-in the player already made in omp itself
+        return self.player_status() or own
 
     def login(self) -> subprocess.Popen | None:
         """Device sign-in, hidden: omp prints Meta's link with the code in it (opened here) and waits for the
@@ -568,7 +632,7 @@ class Muse(_Omp):
         return f"{'meta' if api_key else 'muse-code'}/{model or MUSE_MODEL}"
 
     def run_env(self, api_key: str | None) -> dict:
-        return env(meta_key=api_key)
+        return env(meta_key=api_key, player=self.uses_player(api_key))
 
 
 class OmpBackend:
@@ -595,9 +659,9 @@ class OmpBackend:
     def shutdown(self) -> None:
         self.cancel()
 
-    def _spawn(self, cmd: list[str], key: str | None) -> subprocess.Popen:
+    def _spawn(self, cmd: list[str], e: dict) -> subprocess.Popen:
         return subprocess.Popen(cmd, cwd=str(self.brain.kb.root), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE, env=self.provider.run_env(key), creationflags=CREATE_NO_WINDOW)
+                                stderr=subprocess.PIPE, env=e, creationflags=CREATE_NO_WINDOW)
 
     @staticmethod
     def _send(proc: subprocess.Popen, text: str) -> bool:
@@ -608,12 +672,12 @@ class OmpBackend:
         except OSError:
             return False
 
-    def _attempt(self, a: Attempt, cmd: list[str], key: str | None, prompt: str) -> RawResult:
+    def _attempt(self, a: Attempt, cmd: list[str], e: dict, prompt: str) -> RawResult:
         try:
-            proc = self._spawn(cmd, key)
-        except OSError as e:
-            log.error("could not start omp: %s", e)
-            return RawResult(error=f"launch_failed: {e}")
+            proc = self._spawn(cmd, e)
+        except OSError as exc:
+            log.error("could not start omp: %s", exc)
+            return RawResult(error=f"launch_failed: {exc}")
         if not a.track(proc):
             return RawResult(error="no_result")
         err: list[bytes] = []
@@ -663,8 +727,10 @@ class OmpBackend:
         """race: a summary's own (no hedging, and the chat's Stop is not for it); a question's is self._race."""
         p = self.provider
         key = p.run_key(self.brain.api_key)
-        if p.key_only and not key:
-            return RawResult(error="not_logged_in")      # Z.AI with no key: nothing to run on
+        # (no key of the app's: the player's own omp sign-in, when it has one)
+        e = p.run_env(key)
+        if p.key_only and not key and "ZAI_API_KEY" not in e and not p.uses_player(key):
+            return RawResult(error="not_logged_in")      # Z.AI with no key anywhere: nothing to run on
         system_file = folder / "instructions.md"
         system_file.write_text(instructions, encoding="utf-8")
         guard = prepare(self.brain.kb.root)
@@ -681,7 +747,7 @@ class OmpBackend:
             hedge = HEDGE_AFTER_S
         else:
             hedge = None
-        return race.run(lambda a: self._attempt(a, cmd, key, prompt), hedge)
+        return race.run(lambda a: self._attempt(a, cmd, e, prompt), hedge)
 
     def _folder(self) -> Path:
         shots_dir().mkdir(parents=True, exist_ok=True)

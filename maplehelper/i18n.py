@@ -453,6 +453,9 @@ STRINGS = {
     "account_signed_in": {"he": "החשבון המחובר: {email}", "en": "Signed in as {email}"},
     "account_signed_in_no_email": {"he": "מחובר עם {name}", "en": "Signed in with {name}"},
     "account_api_key": {"he": "מחובר עם מפתח API", "en": "Connected with an API key"},
+    # signed in in the player's own Oh My Pi (outside the app): it's theirs, the app neither switches nor signs it out
+    "account_from_omp": {"he": "מחובר דרך Oh My Pi שבמחשב: {who}", "en": "Connected through your Oh My Pi: {who}"},
+    "account_from_omp_key": {"he": "המפתח שהוגדר ב-Oh My Pi", "en": "the key set in Oh My Pi"},
     "account_switch": {"he": "החלפת חשבון", "en": "Switch account"},
     "account_logout": {"he": "התנתקות", "en": "Sign out"},
     "account_logout_confirm": {"he": "להתנתק מחשבון Claude? העוזר לא יוכל לענות עד שתתחברו שוב.",

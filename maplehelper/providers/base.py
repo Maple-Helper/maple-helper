@@ -686,6 +686,9 @@ class Provider:
     reports_usage = False    # the CLI reports the player's plan usage (drives the usage meter)
     login_code = False       # the sign-in ends with a code the player pastes back (submit_login_code)
     key_only = False         # no account sign-in: the player connects with an API key only (Z.AI)
+    # a sign-in that doesn't open or ends at once is offered the CLI's installer (it fixed Claude Code's); not where the
+    # installer can't help and the sign-in is simply tried again ("Install Oh My Pi" with omp installed)
+    reinstall_fixes_login = True
 
     def submit_login_code(self, code: str) -> bool:
         return False

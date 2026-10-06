@@ -185,10 +185,48 @@ def test_a_question_runs_on_the_stored_zai_key(home, tmp_path, monkeypatch):
     assert not list((home / "shots").glob("run-*"))           # the screenshots went with the run
 
 
-def test_zai_with_no_key_never_starts_omp(home, tmp_path, monkeypatch):
-    FakeProc.calls = []
+def fake_omp_token(signed_in: set):
+    """`omp token <provider> [-l]` of the home the env names: ours (PI_CODING_AGENT_DIR set by env()) is empty; the
+    player's own is signed in to the providers in signed_in (Muse Code by OAuth, Z.AI by a key)."""
+    def run(args, env=None, **kw):
+        ours = env.get("PI_CODING_AGENT_DIR") == str(omp.agent_dir())
+        provider, listing = args[2], "-l" in args
+        out, code = f'No active credential found for provider "{provider}".\n', 1
+        if not ours and provider in signed_in:
+            out, code = ("1. player@example.com\n", 0) if provider == "muse-code" else ("", 1) if listing else \
+                ("their.key\n", 0)
+        return subprocess.CompletedProcess(args, code, out.encode(), b"")
+    return run
+
+
+@pytest.fixture
+def omp_found(home, monkeypatch):
     monkeypatch.setattr(omp, "find_omp", lambda: "omp.exe")
     monkeypatch.setattr(omp.Zai, "load_api_key", lambda self: None)
+    monkeypatch.setattr(omp, "_player", {})
+    monkeypatch.setattr(omp, "_own_account", {})
+
+
+def test_zai_with_no_key_anywhere_never_starts_omp(omp_found, tmp_path, monkeypatch):
+    FakeProc.calls = []
+    monkeypatch.setattr(subprocess, "run", fake_omp_token(set()))
     monkeypatch.setattr(subprocess, "Popen", FakeProc)
+    assert providers.get("zai").account()["status"] == "logged_out"
     assert omp.OmpBackend(FakeBrain(tmp_path), providers.get("zai")).run("q", None).error == "not_logged_in"
     assert FakeProc.calls == []
+
+
+@pytest.mark.parametrize("name,provider,email", [("muse", "muse-code", "player@example.com"), ("zai", "zai", None)])
+def test_the_players_own_omp_sign_in_counts(omp_found, tmp_path, monkeypatch, name, provider, email):
+    """Signed in to omp itself before (`omp login muse-code`, a Z.AI key in omp): connected, and answers run on it."""
+    FakeProc.calls = []
+    monkeypatch.setenv("PI_CODING_AGENT_DIR", "C:/players/omp")
+    monkeypatch.setattr(subprocess, "run", fake_omp_token({provider}))
+    monkeypatch.setattr(subprocess, "Popen", FakeProc)
+    assert providers.get(name).account() == {"status": "ok", "email": email, "source": "omp"}
+    assert omp.OmpBackend(FakeBrain(tmp_path), providers.get(name)).run("q", None).text == "Hi."
+    cmd, kw = FakeProc.calls[0]
+    # the player's omp home and its sign-in, with our settings laid over it
+    assert kw["env"]["PI_CODING_AGENT_DIR"] == "C:/players/omp" and "ZAI_API_KEY" not in kw["env"]
+    assert cmd[cmd.index("--config") + 1] == str(omp.agent_dir() / "config.yml")
+    assert cmd[cmd.index("--model") + 1].startswith(f"{provider}/")

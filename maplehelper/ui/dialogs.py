@@ -510,16 +510,13 @@ class Onboarding(GlassDialog):
         lay.setSpacing(12)
         lay.addWidget(_title(self.t("ob_connect")))
         rtl = self.t.rtl
-        self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl,
-                                       per_row=3)
+        self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl)
         self.provider_pick.set_label(self.t("ai_provider"))
         self.provider_pick.changed.connect(self._on_provider)
         for b in self.provider_pick.group.buttons():       # each AI's cost, on hover too (UX-10)
             b.setToolTip(bidi.plain(self.t.p("ob_need_plan", b.property("value")), rtl))
-        prow = QHBoxLayout()
-        prow.addWidget(self.provider_pick)
-        prow.addStretch(1)
-        lay.addLayout(prow)
+        # all six on one line, across the page (its own row: beside a stretch it left the six squeezed)
+        lay.addWidget(self.provider_pick)
         # which AI a player without a paid plan can start with, before they click through all six
         overview = QLabel(bidi.plain(self.t("ob_plans_overview"), rtl), objectName="RowHint")
         overview.setWordWrap(True)
@@ -718,11 +715,11 @@ class Onboarding(GlassDialog):
             self._end_sign_in()
             set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
             self.login_hint.show()
-            self.install_btn.show()
+            self.install_btn.setVisible(self._ai().reinstall_fixes_login)
             return
         set_hint(self.login_hint, self.t.p("ob_login_wait", self.provider), self.t.rtl)
         self.login_hint.show()
-        self.install_btn.show()     # the way out when no sign-in window shows up
+        self.install_btn.setVisible(self._ai().reinstall_fixes_login)     # the way out when no sign-in window shows up
         if self._ai().login_code:
             self.code_edit.clear()
             self.code_row.show()
@@ -825,7 +822,8 @@ class Onboarding(GlassDialog):
             self._login_proc = None
             self._end_sign_in()
             set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
-            self.install_btn.setVisible(not self._ai().login_code)    # Gemini: sign in again, see _login_failed
+            # Gemini: sign in again (see _login_failed); omp: the same, the installer wouldn't help
+            self.install_btn.setVisible(not self._ai().login_code and self._ai().reinstall_fixes_login)
             return
         self._check_status()
 
@@ -1464,6 +1462,8 @@ class SettingsDialog(GlassDialog):
             api_key = False
         if api_key:
             self._set_account_text(t("account_api_key"))
+        elif st == "ok" and acc.get("source") == "omp":
+            self._set_account_text(t("account_from_omp", who=acc.get("email") or t("account_from_omp_key")))
         elif st == "ok":
             self._set_account_text(t("account_signed_in", email=acc["email"]) if acc.get("email")
                                    else t("account_signed_in_no_email", name=self._ai().label))
@@ -1473,9 +1473,11 @@ class SettingsDialog(GlassDialog):
             self._set_account_text(t.p("ob_not_logged", p) if st == "logged_out" else t.p("ob_not_installed", p))
         connected = api_key or st == "ok"
         self.switch_btn.setText(t("account_switch") if connected else t.p("ob_login", p))
-        # key_only providers (Z.AI) have no account to sign in to or switch: the key is the way in
-        self.switch_btn.setVisible(st not in ("not_installed", "offline") and not self._ai().key_only)
-        self.logout_btn.setVisible(connected or key_saved)      # (a saved key can be dropped, CLI or not)
+        # key_only providers (Z.AI) have no account to sign in to or switch: the key is the way in. A sign-in in the
+        # player's own omp is theirs: the app neither switches nor signs it out
+        theirs = acc.get("source") == "omp" and not api_key
+        self.switch_btn.setVisible(st not in ("not_installed", "offline") and not self._ai().key_only and not theirs)
+        self.logout_btn.setVisible((connected or key_saved) and not theirs)   # (a saved key can be dropped, CLI or not)
         # key_only providers (Z.AI) take the key here, not a sign-in: no key in use and the CLI
         # there, offer its field (hidden again on _on_provider and after a key checks out)
         show_key = self._ai().key_only and not key_saved and st not in ("not_installed", "ok")
@@ -1640,7 +1642,7 @@ class SettingsDialog(GlassDialog):
     def _login_failed(self):
         self.code_row.hide()
         self._set_account_text(self.t.p("ob_login_failed", self._ai().name))
-        if not self._ai().login_code:
+        if not self._ai().login_code and self._ai().reinstall_fixes_login:
             # a sign-in that can't even start or ends at once: reinstalling fixes it. Gemini's ends when the
             # minute for the code runs out: its text says to sign in again, the installer wouldn't help
             self._login_broken = True
