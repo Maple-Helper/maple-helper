@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLay
 
 from .. import bidi
 from . import theme
+from .glass import _TabKeys
 
 # (overlay attribute of the control, or None for a card in the middle; the i18n key of its texts)
 STEPS = (
@@ -52,6 +53,7 @@ class Tour(QWidget):
     def __init__(self, overlay, t, hotkeys: dict):
         super().__init__(overlay)
         self.overlay, self.t, self.keys = overlay, t, hotkeys
+        _TabKeys.watch()                 # which button the player Tabbed to (Enter on it)
         self.setAttribute(Qt.WA_NoSystemBackground)
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self.steps = [(path, key) for path, key in STEPS if path is None or self._visible(path)]
@@ -118,7 +120,9 @@ class Tour(QWidget):
         _, key = self.steps[self.i]
         t, rtl = self.t, self.t.rtl
         last = self.i == len(self.steps) - 1
-        self.count.setText(f"{self.i + 1} / {len(self.steps)}" if 0 < self.i < len(self.steps) - 1 else "")
+        # the numbered cards only: the welcome and the last card aren't counted, so it runs 1 / 13 .. 13 / 13 (it
+        # started at "2 / 15", UX-20)
+        self.count.setText(f"{self.i} / {len(self.steps) - 2}" if 0 < self.i < len(self.steps) - 1 else "")
         self.count.setVisible(bool(self.count.text()))
         self.title.setText(bidi.plain(t(f"{key}_title"), rtl))
         self.body.setText(bidi.plain(t(f"{key}_body", toggle=self.keys["toggle"], voice=self.keys["voice"]), rtl))
@@ -190,7 +194,12 @@ class Tour(QWidget):
         if k == Qt.Key_Escape:
             self.finish()
         elif k in (Qt.Key_Return, Qt.Key_Enter):
-            self.go(self.i + 1)
+            # a Skip or Back the player Tabbed to: Enter does that, not the next step (UX-14)
+            w = self.focusWidget()
+            if w in (self.skip_btn, self.back_btn) and _TabKeys.by_keyboard(w):
+                w.click()
+            else:
+                self.go(self.i + 1)
         elif k in (Qt.Key_Left, Qt.Key_Right):
             forward = (k == Qt.Key_Left) == self.t.rtl
             self.go(self.i + 1 if forward else self.i - 1)

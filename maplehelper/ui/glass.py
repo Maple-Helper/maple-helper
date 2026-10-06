@@ -69,8 +69,8 @@ class GlassBackdrop(QObject):
 
 from PySide6.QtCore import QMetaMethod, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QCursor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen  # noqa: E402
-from PySide6.QtWidgets import (QAbstractScrollArea, QApplication, QDialog, QHBoxLayout, QLabel, QLineEdit,  # noqa: E402
-                               QPushButton, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractButton, QAbstractScrollArea, QApplication, QDialog, QHBoxLayout,  # noqa: E402
+                               QLabel, QLineEdit, QPushButton, QToolButton, QVBoxLayout, QWidget)
 
 from . import theme  # noqa: E402
 
@@ -176,6 +176,7 @@ class _TabKeys(QObject):
     """When the player last pressed Tab (app-wide): the focus moving by a real Tab, not by a deleted control."""
     _at = 0.0
     _me = None
+    _focused = None            # the control the player's last Tab put the focus on (by_keyboard)
 
     @classmethod
     def watch(cls) -> None:
@@ -188,7 +189,16 @@ class _TabKeys(QObject):
         if e.type() == QEvent.KeyPress and e.key() in (Qt.Key_Tab, Qt.Key_Backtab):
             import time
             _TabKeys._at = time.monotonic()
+        elif e.type() == QEvent.FocusIn and isinstance(obj, QWidget):     # (the style sees a copy of it too)
+            # a Tab the player pressed, not a focus handed on by a deleted control or set by the window itself
+            by_tab = e.reason() in (Qt.TabFocusReason, Qt.BacktabFocusReason) and _TabKeys.pressed_just_now()
+            _TabKeys._focused = obj if by_tab else None
         return False
+
+    @classmethod
+    def by_keyboard(cls, w) -> bool:
+        """The player Tabbed to this control (Enter then clicks it, not the window's own Enter button)."""
+        return w is not None and w is cls._focused and w.hasFocus()
 
     @classmethod
     def pressed_just_now(cls) -> bool:
@@ -272,9 +282,14 @@ class GlassDialog(QDialog):
             e.accept()
             return
         if e.key() in (Qt.Key_Return, Qt.Key_Enter) and not (e.modifiers() & ~Qt.KeypadModifier):
-            # Enter does what this window says (or nothing), never "click the first button Qt found"
-            b = self.enter_button
-            if not _handles_enter(self.focusWidget()) and b is not None and b.isVisible() and b.isEnabled():
+            # Enter does what this window says (or nothing), never "click the first button Qt found". A button the
+            # player Tabbed to is theirs: Enter on a focused Back went forward, on Save did nothing (UX-14). Not
+            # the first control a window focuses by itself (a chip), and a ConfirmDialog's safe answer stays safe
+            b, w = self.enter_button, self.focusWidget()
+            if isinstance(w, QAbstractButton) and w is not b and _TabKeys.by_keyboard(w):
+                if w.isEnabled():
+                    w.click()
+            elif not _handles_enter(w) and b is not None and b.isVisible() and b.isEnabled():
                 b.click()
             e.accept()
             return
