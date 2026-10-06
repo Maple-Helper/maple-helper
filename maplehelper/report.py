@@ -9,6 +9,7 @@ import json
 import logging
 import logging.handlers
 import platform
+import re
 import sys
 import threading
 import time
@@ -26,6 +27,9 @@ REPORT_SETTINGS = ("language", "hotkey_toggle", "hotkey_voice", "appearance", "f
                    "gemini_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "usage",
                    "saver_mode", "seen_version", "instant_answers", "telemetry", "grind_auto")
 log = logging.getLogger("maplehelper")
+# libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link
+# among them, into the log that goes with problem reports
+QUIET_LOGGERS = ("httpx", "httpcore", "huggingface_hub", "faster_whisper", "urllib3")
 
 
 def setup_logging() -> None:
@@ -37,6 +41,8 @@ def setup_logging() -> None:
     if not any(isinstance(h, logging.handlers.RotatingFileHandler) for h in root.handlers):
         root.addHandler(handler)
     root.setLevel(logging.INFO)
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
 
     def on_crash(exc_type, exc, tb):
         log.critical("uncaught exception", exc_info=(exc_type, exc, tb))
@@ -63,8 +69,44 @@ def build_report(out_dir: Path, info: dict, settings: dict) -> Path:
         z.writestr("settings.json", json.dumps(clean, ensure_ascii=False, indent=1))
         for f in sorted(LOG_DIR.glob("maplehelper.log*")) + sorted(LOG_DIR.glob("update-*.log"))[-2:] + \
                 sorted(LOG_DIR.glob("startup-error.log")):
-            z.write(f, f"logs/{f.name}")
+            z.writestr(f"logs/{f.name}", without_home(_read_log(f)))
     return path
+
+
+def _read_log(f: Path) -> str:
+    data = f.read_bytes()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError:            # an installer log in the PC's code page
+        import locale
+        return data.decode(locale.getpreferredencoding(False), errors="replace")
+
+
+def _home_forms() -> list[str]:
+    """The user's home folder as it shows in a log: C:\\Users\\<name>, with / or JSON's \\\\, and its 8.3 name."""
+    home = str(Path.home())
+    # (json.dumps: a Hebrew name as \u escapes too)
+    forms = {home, home.replace("\\", "/"), home.replace("\\", "\\\\"), json.dumps(home)[1:-1]}
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            buf = ctypes.create_unicode_buffer(1024)
+            if 0 < ctypes.windll.kernel32.GetShortPathNameW(home, buf, 1024) < 1024:
+                short = buf.value
+                forms |= {short, short.replace("\\", "/"), short.replace("\\", "\\\\")}
+        except (AttributeError, OSError):
+            pass
+    return sorted((f for f in forms if len(f) > 3), key=len, reverse=True)
+
+
+def without_home(text: str) -> str:
+    """The logs name files under C:\\Users\\<name>: the report promises no personal details, so the home folder
+    becomes %USERPROFILE%."""
+    for form in _home_forms():
+        # the whole folder name only (not C:\Users\amit2 for C:\Users\amit)
+        text = re.sub(re.escape(form) + r"(?![^\\/\s\"':;,)\]}>])", "%USERPROFILE%", text,
+                      flags=re.IGNORECASE if sys.platform == "win32" else 0)
+    return text
 
 
 def save_report(desktop: Path, info: dict, settings: dict) -> tuple[Path, str]:

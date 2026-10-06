@@ -80,3 +80,43 @@ def test_mac_report_never_touches_the_protected_desktop(tmp_path, monkeypatch):
     monkeypatch.setattr(sys, "platform", "darwin")
     path, key = report.save_report(tmp_path / "desk", {}, {})
     assert path.parent == tmp_path / "data" and key == "report_saved_data" and not (tmp_path / "desk").exists()
+
+
+def test_the_report_logs_name_no_user_folder(tmp_path, monkeypatch):
+    """The app and installer logs name files under the user's home, and so carried the Windows user name, while
+    the report promises no personal details (audit SEC-8)."""
+    from pathlib import Path
+    home = tmp_path / "עמית כהן"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    monkeypatch.setattr(report, "LOG_DIR", logs)
+    h = str(home)
+    (logs / "maplehelper.log").write_text(f"read {h}\\AppData\\x.json\nJSON {json.dumps(h)}\nslash "
+                                          f"{h.replace(chr(92), '/')}/a\nother {h}2\\x\n", encoding="utf-8")
+    (logs / "update-1.log").write_bytes(f"Dest filename: {h}\\AppData\\Local\\a.exe\n".encode("cp1255"))
+    path = report.build_report(tmp_path / "out", {}, {})
+    with zipfile.ZipFile(path) as z:
+        app, upd = z.read("logs/maplehelper.log").decode("utf-8"), z.read("logs/update-1.log").decode("utf-8")
+    assert "עמית" not in app.replace(f"{h}2", "") and "%USERPROFILE%\\AppData\\x.json" in app
+    assert app.count("%USERPROFILE%") == 3 and f"{h}2" in app          # another folder that only starts the same
+    assert "עמית" not in upd and "%USERPROFILE%\\AppData\\Local\\a.exe" in upd
+
+
+def test_libraries_dont_log_every_request(tmp_path, monkeypatch):
+    """httpx logged each model download's URL (a signed CDN link among them) at INFO (audit SEC-9)."""
+    monkeypatch.setattr(report, "LOG_DIR", tmp_path)
+    monkeypatch.setattr(report, "LOG_FILE", tmp_path / "maplehelper.log")
+    root = logging.getLogger()
+    before = list(root.handlers)
+    try:
+        report.setup_logging()
+        for name in ("httpx", "huggingface_hub", "urllib3"):
+            assert not logging.getLogger(name).isEnabledFor(logging.INFO)
+        assert logging.getLogger("maplehelper.x").isEnabledFor(logging.INFO)
+    finally:
+        for h in root.handlers[:]:
+            if h not in before:
+                root.removeHandler(h)
+                h.close()
