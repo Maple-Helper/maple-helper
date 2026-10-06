@@ -2251,8 +2251,13 @@ class Overlay(QWidget):
             import logging
             logging.getLogger(__name__).warning("answer failed: %s", ans.error)
             key = f"err_{ans.error}" if ans.error in ("offline", "not_logged_in", "usage_limit",
-                                                      "not_installed", "no_credit") else "err_generic"
-            self._pending_bubble.set_text(self.t.p(key, self.settings["provider"]))
+                                                      "not_installed", "no_credit", "cli_outdated") else "err_generic"
+            provider = self.settings["provider"]
+            if ans.error in ("not_logged_in", "usage_limit") and self.settings.api_key_mode(provider):
+                # an API key: no sign-in or plan to point at (it said "sign in to Claude again")
+                self._pending_bubble.set_text(self.t(key + "_key"))
+                return
+            self._pending_bubble.set_text(self.t.p(key, provider))
             return
         self._pending_bubble.set_text(ans.text)
         q = getattr(self, "_last_question", "")

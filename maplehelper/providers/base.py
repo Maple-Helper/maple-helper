@@ -602,6 +602,12 @@ LIMIT = ("usage limit", "rate limit", "limit reached", "resets", "out of extra u
          "shared budget")
 
 
+# A CLI too old for a flag Maple Helper passes, in its own words: Claude Code (commander) "error: unknown option
+# '--restricted'", Codex (clap) "error: unexpected argument '--ignore-rules' found". Every answer failed with
+# "Something went wrong" and no hint to update.
+OUTDATED = ("error: unknown option", "error: unexpected argument")
+
+
 def http_status(text: str, code: int) -> bool:
     """An HTTP status code standing on its own ("(429)", "status 401"): not part of a request id, a session id or a
     duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit."""
@@ -619,6 +625,8 @@ def classify_error(text: str) -> str | None:
         return "usage_limit"
     if any(s in t for s in OFFLINE):
         return "offline"
+    if any(s in t for s in OUTDATED):
+        return "cli_outdated"
     return None
 
 

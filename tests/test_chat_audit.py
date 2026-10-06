@@ -547,3 +547,20 @@ def test_patch_notes_count_each_page_once_over_several_updates():
     gone = [{"version": "1", "counts": {"added": 1}, "added": [{"key": "k"}]},
             {"version": "2", "counts": {"removed": 1}, "removed": [{"key": "k"}]}]
     assert sum(totals(gone).values()) == 0
+
+
+def test_an_api_key_error_names_the_key_not_a_sign_in(overlay):
+    """On an API key there's nothing to sign in to: "sign in to Claude again" / "your Claude plan" were wrong
+    (audit PRV-20)."""
+    ov = overlay
+    shown = []
+    for mode in (False, True):
+        ov.settings.set_api_key_mode(ov.settings["provider"], mode)
+        for err in ("not_logged_in", "usage_limit", "cli_outdated"):
+            ov._pending_bubble = b = ov.add_bubble("", "assistant")
+            b.set_text = shown.append
+            ov._on_done(Answer(error=err), None)
+    provider = ov.settings["provider"]
+    assert shown[:3] == [ov.t.p("err_not_logged_in", provider), ov.t.p("err_usage_limit", provider),
+                         ov.t.p("err_cli_outdated", provider)]
+    assert shown[3:] == [ov.t("err_not_logged_in_key"), ov.t("err_usage_limit_key"), ov.t.p("err_cli_outdated", provider)]

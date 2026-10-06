@@ -322,6 +322,60 @@ class TestCodexBackend:
         assert b.ask("hi", None, None, None).error == "not_installed"
         assert not b.available()
 
+    def test_runs_that_need_no_knowledge_base_get_no_shell(self, kb, monkeypatch):
+        """The quick screenshot read and summaries had the shell and no confining note (audit SEC-3)."""
+        b = self.make(kb, monkeypatch)
+        b.backend.run("sync", b"JPEGDATA", tools=False)
+        b.backend.summarize("Summarize.", "long text")
+        b.ask("hi", None, None, None)
+        quick, summary, full = (c for c, _ in FakePopen.calls)
+        for c in (quick, summary):
+            assert all(c[c.index(f) - 1] == "--disable" for f in codex.NO_SHELL)
+            assert codex.NO_TOOLS_NOTE.strip() in next(v for v in c if v.startswith("developer_instructions="))
+        assert "shell_tool" not in full and "unified_exec" not in full       # the answer reads the KB with it
+        assert "only inside the current directory" in next(v for v in full if v.startswith("developer_instructions="))
+
+    def test_a_feature_this_codex_doesnt_know_is_dropped(self, kb, monkeypatch):
+        """Codex refuses to start on an unknown --disable name (an old Codex, or a newer one that dropped it): every
+        answer was "Something went wrong" (audit PRV-7)."""
+        monkeypatch.setattr(codex, "_unknown_features", set())
+        b = self.make(kb, monkeypatch)
+        ok = FakePopen.stdout_lines
+        stderrs = [b"ERROR: Unknown feature flag: goals\n", b""]
+        outs = [[], ok]
+
+        class Picky(FakePopen):
+            def __init__(self, cmd, **kw):
+                super().__init__(cmd, **kw)
+                self.stdout = iter(line.encode() for line in outs.pop(0))
+                self.stderr = io.BytesIO(stderrs.pop(0))
+        monkeypatch.setattr(codex.subprocess, "Popen", Picky)
+        assert b.ask("hi", None, None, None).text == "Hunt **Red Snail**."
+        first, second = (c for c, _ in FakePopen.calls)
+        assert "goals" in first and "goals" not in second
+        assert "goals" not in codex.codex_command("codex", "C:/kb", "x")       # left out from then on
+
+    def test_an_old_cli_says_to_update(self):
+        assert base.classify_error("error: unexpected argument '--ignore-rules' found") == "cli_outdated"
+        assert base.classify_error("error: unknown option '--restricted'") == "cli_outdated"
+
+    def test_a_silent_run_is_stopped_before_the_whole_timeout(self, kb, monkeypatch):
+        """Codex had no stall check: a hung run kept "thinking" for the full 5 minutes (audit PRV-15)."""
+        seen = {}
+
+        class Lines(base.Lines):
+            def __init__(self, proc, stall_s, label="CLI", deadline_s=None):
+                seen["stall"] = stall_s
+                super().__init__(proc, stall_s, label, deadline_s)
+        monkeypatch.setattr(codex, "Lines", Lines)
+        b = self.make(kb, monkeypatch)
+        b.ask("hi", None, None, None)
+        assert seen["stall"] == codex.STALL_TIMEOUT_S == 150
+
+    def test_the_players_own_gateway_is_left_out(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:9999")
+        assert "OPENAI_BASE_URL" not in codex.env()
+
 
 class TestClaudeBackend:
     RATE = {"type": "rate_limit_event", "rate_limit_info": {"unifiedWindows": {
@@ -1043,3 +1097,15 @@ def test_the_ai_is_told_what_it_runs_on(kb):
     b.provider = "claude"
     b.model = "sonnet"
     assert b.system_prompt().endswith("You run on Claude, model sonnet.")
+
+
+def test_the_warm_claude_process_is_replaced_when_its_instructions_change(kb_copy):
+    """The warm process was kept while its instructions had gone stale (no model name before the first answer, an
+    older official facts note): the instructions are part of what it must match now (audit PRV-17)."""
+    from maplehelper.brain import Brain
+    from maplehelper.kb import KnowledgeBase
+    b = Brain(KnowledgeBase(kb_copy), provider="claude")
+    before = b.backend._config()
+    assert b.backend._config() == before
+    b.last_model = "claude-sonnet-5"
+    assert b.backend._config() != before
