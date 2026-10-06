@@ -2,8 +2,6 @@
 Hebrew/English summary on demand and "Ask about this guide" (tags it in the chat)."""
 from __future__ import annotations
 
-import webbrowser
-
 from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QCursor, QFontInfo, QGuiApplication, QPixmap, QTextCharFormat, QTextCursor, QTextFormat, QTextOption, QTextTable
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
@@ -11,6 +9,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 
 from .. import bidi, guides
 from ..i18n import I18n
+from ..osapi import open_url
 from .controls import FlowLayout, follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
@@ -425,7 +424,7 @@ class GuidesDialog(GlassDialog):
         actions.addWidget(ask)
         web = QPushButton(bidi.plain(t("g_web"), rtl), objectName="Link")
         web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda: webbrowser.open((self.kb.get(self._reading) or {}).get("url", "")))
+        web.clicked.connect(lambda: open_url((self.kb.get(self._reading) or {}).get("url", "")))
         actions.addWidget(web)
         actions.addStretch(1)
         lay.addLayout(actions)
@@ -466,7 +465,7 @@ class GuidesDialog(GlassDialog):
                     self._trail.append((self._reading, self.browser.verticalScrollBar().value()))
                 self._show(key)
         elif link.startswith("http"):
-            webbrowser.open(link)
+            open_url(link)
 
     def open_guide(self, key: str):
         """A guide opened from the list (or by the app): Back from it goes to the list."""

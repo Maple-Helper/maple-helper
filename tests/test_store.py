@@ -389,3 +389,17 @@ def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch)
     assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("F9", "F10")
     monkeypatch.setattr(isolated_store.sys, "platform", "darwin")
     assert isolated_store.Settings()["hotkey_toggle"] == "F12"
+
+
+def test_only_web_links_are_opened(monkeypatch):
+    """On Windows webbrowser.open runs any other string through os.startfile: a bad KB or news link must never
+    start a file or program (audit SEC-6)."""
+    import webbrowser
+
+    from maplehelper import osapi
+    opened = []
+    monkeypatch.setattr(webbrowser, "open", lambda u: opened.append(u) or True)
+    for bad in (r"C:\Windows\System32\calc.exe", "file:///C:/x.bat", "", None, "javascript:alert(1)", r"\\host\s"):
+        assert osapi.open_url(bad) is False
+    assert osapi.open_url("https://meowdb.com/x") and osapi.open_url("HTTP://example.com")
+    assert opened == ["https://meowdb.com/x", "HTTP://example.com"]
