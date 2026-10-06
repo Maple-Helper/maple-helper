@@ -75,7 +75,26 @@ lsp:
   enabled: false
 bash:
   enabled: false
+mcp:
+  enableProjectConfig: false
+disabledProviders:
+  - native
+  - mcp-json
+  - omp-plugins
+  - agent-plugins
+  - claude
+  - claude-plugins
+  - codex
+  - cursor
+  - gemini
+  - opencode
+  - vscode
+  - windsurf
+  - github
+  - cline
 """
+# (disabledProviders: every place omp finds MCP servers, plugins and their hooks, its own folder and other tools'
+# configs: a run on the player's own omp home starts none of theirs; an MCP server in their omp folder did before)
 
 GUARD_ROOTS = "maplehelper-guard-roots.json"
 # The read guard: an omp extension that sees each tool call before it runs. Anything unexpected (another tool, a
