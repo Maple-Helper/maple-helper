@@ -439,9 +439,15 @@ def test_real_first_job_titles_the_quests_as_the_later_2nd_job(real):
 
 @needs_kb
 @pytest.mark.parametrize("question", ["how to be a better assassin", "how do I get to the thieves hideout",
-                                      "i'm level 31, should i grind or quest"])
+                                      "i'm level 31, should i grind or quest", "how do I get to Ellinia as a thief?",
+                                      "how can I get more mesos as a warrior?", "how do I get Haste as an assassin?"])
 def test_real_no_job_advancement_or_list_for_these(real, question):
-    assert ask(real, question) is None          # audit AI-10, AI-12
+    assert ask(real, question) is None          # audit AI-10 (and P84A-5), AI-12
+
+
+@needs_kb
+def test_real_get_the_2nd_job_is_still_a_job_advancement(real):
+    assert ask(real, "how do I get my second job as a thief").intent == "job_advance"
 
 
 @needs_kb
@@ -463,6 +469,8 @@ def test_real_a_level_is_no_row_count_and_exp_grind_with_gear_is_training(real):
     assert ask(real, "which monsters at level 15 most exp").top is None          # audit AI-11
     assert ask(real, "where to grind at 12 best map").top is None
     assert ask(real, "top 3 monsters at level 20 for exp").top == 3
+    for q in ("איזה מפלצות ברמה 15 הכי טובות לאקספי", "level 20 most exp monsters", "monsters lvl 20 best exp"):
+        assert ask(real, q).top is None, q          # P84A-6
     assert ask(real, "where do I hunt for exp at 31 with a claw").intent == "training_maps"     # audit AI-12
 
 
