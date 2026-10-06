@@ -607,6 +607,8 @@ class MapleHelperApp:
         settings_win = self.__dict__.get("_windows", {}).get("settings")
         if settings_win is not None and hasattr(settings_win, "saver"):
             settings_win.saver.setChecked(True)     # its Save must not switch it off again
+            if hasattr(settings_win, "_initial"):
+                settings_win._initial["saver_mode"] = True      # already saved: its X asked "Save your changes?"
         self.apply_saver_mode()
         self.overlay.show_saver_badge(True)
         self.overlay.add_system(I18n(self.settings["language"])("saver_turned_on"))

@@ -239,3 +239,21 @@ def test_a_failing_account_check_settles_on_offline(env, monkeypatch):
     dlg._on_status("claude", dialogs._safe_status(claude))
     assert "Checking" not in dlg.status_label.text() and "reach" in dlg.status_label.text()
     dlg.close()
+
+
+# --- DLG-16: saver mode turned on from the chat leaves nothing unsaved in Settings ----------------------------------
+
+def test_saver_turned_on_from_the_chat_is_no_unsaved_change(env):
+    from unittest.mock import MagicMock
+
+    from maplehelper import app
+    from maplehelper.ui.dialogs import SettingsDialog
+    s, profiles, kb, _ = env
+    sd = SettingsDialog(s, profiles, kb, lambda *_: "")
+    fake = MagicMock()
+    fake.settings = s
+    fake.__dict__["_windows"] = {"settings": sd}
+    fake.brain.prewarm = lambda: None
+    app.MapleHelperApp.turn_on_saver(fake)
+    assert s["saver_mode"] and sd.saver.isChecked() and not sd.unsaved()
+    sd.close()
