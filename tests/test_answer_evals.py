@@ -56,6 +56,26 @@ def test_score_reads_text_and_card_names(kb):
     assert eval_answers.score(checks, a, kb) == []
 
 
+def test_values_match_as_whole_words_and_not_inside_a_longer_name():
+    """Plain substrings passed "30,000" for 3000 and "Garnet Ore" for Garnet, and failed "Rafflesia" as "Raffle"."""
+    class KB:
+        entities = {"item/1": {"name": "Garnet Ore"}, "item/2": {"name": "Garnet"},
+                    "item/3": {"name": "Return Scroll to Henesys"}}
+
+        def get(self, key):
+            return self.entities.get(key)
+    kb = KB()
+    assert eval_answers.score({"must_mention": ["3000"]}, ans("sells it for 30,000 mesos"), kb) == ["missing '3000'"]
+    assert eval_answers.score({"must_mention": ["3000"]}, ans("sells it for 3,000 mesos"), kb) == []
+    assert eval_answers.score({"must_not_list": ["Raffle"]}, ans("Rafflesia is level 47"), kb) == []
+    assert eval_answers.score({"must_list": ["Garnet"]}, ans("Garnet Ore, Opal Ore"), kb) == [
+        "list misses 1/1: 'Garnet'"]
+    assert eval_answers.score({"must_list": ["Garnet"]}, ans("1 Garnet and 1 Opal"), kb) == []
+    assert eval_answers.score({"must_mention": ["Henesys"]}, ans("ב-Henesys"), kb) == []
+    assert eval_answers.score({"must_mention": ["Henesys"]}, ans("a Return Scroll to Henesys"), kb) == [
+        "missing 'Henesys'"]
+
+
 def test_score_reports_every_problem(kb):
     a = ans("Snail drops P.DMG", entities=["monster/100100"])
     checks = {"must_mention": ["Red Potion"], "must_mention_any": ["Henesys", "Snail Garden"],
@@ -465,3 +485,28 @@ def test_brain_passes_the_counts_on(kb_copy):
     b.backend = Backend()
     a = b.ask("where to hunt?", None, None, None)
     assert (a.tool_calls, a.turns) == (5, 6)
+
+
+def test_a_quick_run_writes_no_log_file(kb, tmp_path, monkeypatch):
+    """The timing log is for live runs: a quick run (--mode left out) made an empty evals/reports/<time>.log."""
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
+    cases = tmp_path / "cases.json"
+    cases.write_text(json.dumps({"cases": [
+        {"id": "hp", "question": "Red Snail hp", "lang": "en", "kind": "stats",
+         "checks": {"must_mention": ["45"], "instant": True}}]}), encoding="utf-8")
+    assert eval_answers.main(["--case-file", str(cases), "--kb", str(kb.root)]) == 0
+    assert not (tmp_path / "reports").exists()
+
+
+def test_gemini_counts_overlapping_tool_steps_by_their_id():
+    from maplehelper.providers import gemini
+
+    def step(**kw):
+        return json.dumps({"event": "step_update", "step_update": kw})
+    lines = [step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="ACTIVE", step_id=2),
+             step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="DONE", step_id=1),
+             step(step_type="tool", state="DONE", step_id=2), step(step_type="agent_response", text_delta="Hunt"),
+             json.dumps({"event": "result", "result": {"status": "SUCCESS"}})]
+    stats: dict = {}
+    gemini.parse_events(lines, None, stats)
+    assert stats == {"tool_calls": 2}          # the second began before the first was done

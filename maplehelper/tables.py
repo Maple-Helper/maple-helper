@@ -46,6 +46,7 @@ MAPS_LISTED = 6             # a monster row's maps (the most spawns first); spaw
 ASK_WAIT = 5                # seconds a question waits for a build already running before it goes without (it
                             # answers without the tables anyway: 20 s felt stuck while a stale KB rebuilt them)
 RETRY_AFTER = 600           # seconds before a failed build (a read-only folder) is tried again on the same files
+HELD_RETRY = 30             # ... and when only a table held by a reader (an antivirus scan) failed it
 
 # name -> (columns, what it answers). Only the columns' order and names are the file format.
 TABLES: dict[str, tuple[tuple[str, ...], str]] = {
@@ -59,11 +60,12 @@ TABLES: dict[str, tuple[tuple[str, ...], str]] = {
     "equips": (("item", "key", "slot", "job", "gender", "req_lv", "req_str", "req_dex", "req_int", "req_luk", "watk", "matk",
                 "wdef", "mdef", "acc", "avoid", "speed", "jump", "hp", "mp", "str", "dex", "int", "luk", "crit",
                 "attack_speed", "slots", "sell", "buy", "seller"),
-               "job Any = all classes; gender Male / Female (twin items share a name); buy = cheapest NPC price"),
+               "job Any = all classes; gender Male / Female (twin items share a name); buy = cheapest NPC "
+               "price, seller = (town, citizen rank, price label)"),
     "consumables": (("item", "key", "type", "hp", "mp", "effect", "req_lv", "sell", "buy", "seller"),
-                    "potions, food, buffs, arrows, stars"),
+                    "potions, food, buffs, arrows, stars; buy, seller as in equips"),
     "scrolls": (("scroll", "key", "slot", "grade", "success", "stats", "sell", "buy", "seller"),
-                "success %"),
+                "success %; buy, seller as in equips"),
     "monsters": (("monster", "key", "level", "hp", "mp", "exp", "hp_per_exp", "wdef", "mdef", "acc", "avoid",
                   "acc_needed", "element", "mesos", "mesos_kill", "boss", "respawn", "maps"),
                  "acc_needed = ACC to never miss at equal level; mesos = community range; respawn s"),
@@ -99,7 +101,9 @@ GENERATED = tuple(f"{name}.tsv" for name in TABLES) + (MARK_FILE,)   # every fil
 
 _lock = threading.Lock()
 _fresh: dict[str, tuple] = {}       # KB folder -> the inputs' file stats when its tables were last found current
-_failed: dict[str, tuple[tuple, float]] = {}    # KB folder -> ((its file stats, KB loaded), when) of a failed build
+# KB folder -> ((its file stats, KB loaded), when, seconds before a retry) of a failed build
+_failed: dict[str, tuple[tuple, float, float]] = {}
+_held: set[str] = set()             # KB folders whose last build failed on a table a reader held
 _rows: dict[tuple[str, str], tuple[tuple, list[dict]]] = {}     # (folder, table) -> (file stat, typed rows)
 
 
@@ -180,14 +184,16 @@ def ensure(kb, wait: float = ASK_WAIT) -> bool:
             return True
         failed = _failed.get(str(root))
         tried = (stats, getattr(kb, "index_hash", ""))      # (a KB loaded since is tried at once)
-        if failed and failed[0] == tried and time.monotonic() - failed[1] < RETRY_AFTER:
+        if failed and failed[0] == tried and time.monotonic() - failed[1] < failed[2]:
             return False            # a folder it can't write to: not a 2 s build before every question
+        _held.discard(str(root))
         ok = current(root) or build(kb)
         if ok:
             _fresh[str(root)] = _stats(root)
             _failed.pop(str(root), None)
         else:
-            _failed[str(root)] = ((_stats(root), getattr(kb, "index_hash", "")), time.monotonic())
+            _failed[str(root)] = ((_stats(root), getattr(kb, "index_hash", "")), time.monotonic(),
+                                  HELD_RETRY if str(root) in _held else RETRY_AFTER)
         return ok
     finally:
         _lock.release()
@@ -216,8 +222,17 @@ def ensure_async(kb, then=None) -> threading.Thread:
 
 def _write(path: Path, text: str) -> None:
     """Whole or not at all: a grep never reads half a table. A reader holding the old file (Windows) is waited out."""
+    _replace(_stage(path, text), path)
+
+
+def _stage(path: Path, text: str) -> Path:
+    """The table's text in a temp file next to it (os.replace'd over it by _replace)."""
     tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(text, encoding="utf-8", newline="\n")
+    return tmp
+
+
+def _replace(tmp: Path, path: Path) -> None:
     for attempt in range(REPLACE_TRIES):
         try:
             os.replace(tmp, path)
@@ -267,15 +282,31 @@ def build(kb, out: Path | None = None) -> bool:
     except Exception:          # noqa: BLE001 - a KB the shared lookups can't read: the question goes on without
         log.warning("knowledge-base tables not built", exc_info=True)
         return False
+    # every table to a temp file first, then all replaced in a row, the mark last: written one by one, a file held
+    # by a reader (an antivirus) failed the build midway and left old and new tables mixed for RETRY_AFTER
+    staged: list[tuple[Path, Path]] = []
+    replacing = False
     try:
         for name, rows in made.items():
-            _write(out / f"{name}.tsv", tsv(name, rows))
+            staged.append((_stage(out / f"{name}.tsv", tsv(name, rows)), out / f"{name}.tsv"))
         if loaded and loaded != _sha(root / "index.json"):
             return False            # swapped while it was being built: no mark, the next question builds again
-        _write(out / MARK_FILE, mark)
-    except OSError:
+        staged.append((_stage(out / MARK_FILE, mark), out / MARK_FILE))
+        replacing = True
+        while staged:
+            _replace(*staged[0])
+            staged.pop(0)
+    except OSError as e:
         log.warning("knowledge-base tables not written", exc_info=True)
+        if replacing and isinstance(e, PermissionError):
+            _held.add(str(root))        # a reader held a table: tried again soon, not in RETRY_AFTER
         return False
+    finally:
+        for tmp, _ in staged:
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
     log.info("knowledge-base tables built in %.1f s: %s", time.perf_counter() - t0,
              ", ".join(f"{n} {len(r)}" for n, r in made.items()))
     return True
@@ -456,7 +487,12 @@ class _Ctx:
             # the town alone: an item page's "Victoria Road (Forgotten Hollow scroll vendor)" put El Moth, who stands
             # on The Tree That Grew III, in the closed Hollow
             town = _TOWN_NOTE.sub("", where.rsplit(" · ", 1)[-1])
-            out.update(buy=price, seller=f"{_npc_name(self, npc, where)[0]} ({town})")
+            # the citizen rank the price needs (Raymond's 2-meso arrows) and the price's build label, for the
+            # answer's "(COT2)": shops.tsv has both, this cell had neither
+            rank = p.ranks.get((npc, where), "")
+            label = p.labels.get((npc, where), "")
+            out.update(buy=price, seller=f"{_npc_name(self, npc, where)[0]} ({town}"
+                       + (f", citizen rank {rank}" if rank else "") + (f", {label} price" if label else "") + ")")
         return out
 
     def items(self, prefix: str = "", exclude: str | None = None):
@@ -663,7 +699,7 @@ def _monster(ctx, key: str, e: dict) -> dict:
     page = kb.page(key)
     maps = [ctx.name(ctx.map_key(c[0])) or c[0] for c in combat._map_rows(page) if ctx.open.map_open(c[0])]
     if len(maps) > MAPS_LISTED:          # most spawns first; spawns.tsv has every one
-        maps = maps[:MAPS_LISTED] + [f"+{len(maps) - MAPS_LISTED} more in spawns.tsv"]
+        maps = maps[:MAPS_LISTED] + [f"+{len(maps) - MAPS_LISTED} more maps"]     # no file name: answers never name files
     return {"monster": e["name"], "key": key, "level": level, "hp": hp, "mp": p.get("MP"), "exp": exp,
             "hp_per_exp": round(hp / exp, 2) if isinstance(hp, (int, float)) and exp else None,
             "wdef": p.get("Physical Defense"), "mdef": p.get("Magic Defense"), "acc": p.get("Accuracy"),
@@ -1047,7 +1083,7 @@ def _skill(ctx, key: str, e: dict) -> dict | None:
     i = next((n for n, ln in enumerate(lines) if re.fullmatch(r"Level \d+ \(MAX\)", ln)), None)
     effect = lines[i + 1] if i is not None and i + 1 < len(lines) else ""
     mp = re.search(r"\bMP -?(\d+)", effect)       # "MP -16; Damage 120%" (Invincible's page: "MP 36")
-    dmg = re.search(r"[Dd]amage (\d+)%|(\d+)% damage", effect)
+    dmg = re.search(r"[Dd]amage (\d+)%|(\d+)% (?:in )?damage", effect)      # Steal: "apply 180% in damage"
     element = next((m.group(1) for ln in lines if (m := re.match(r"^Element ((?:\w+)(?: and \w+)?) The skill", ln))),
                    "")
     weapon = next((m.group(1) for ln in lines if (m := re.match(r"^Weapon requirement (.+?) The skill", ln))), "")

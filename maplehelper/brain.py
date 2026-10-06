@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
-from .kb import KnowledgeBase
+from .kb import KnowledgeBase, _norm
 from .store import Character, History
 
 log = logging.getLogger(__name__)
@@ -33,9 +33,10 @@ BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskill
 DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 # a comparison or a list ("Mano, Mushmom, King Slime and Jr. Balrog", "הרמיט או צ'יף בנדיט"): the pages of up to
-# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages
-LIST_WORDS = re.compile(r",|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|בין|השוו\w*|"
-                        r"השוואה|ההבדל|הבדל)(?![א-ת])|(?:^|\s)ו(?=[א-ת]{2})", re.I)
+# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages.
+# A list's commas (two: "hi, where is mano" is none) and a glued "and" after a word ("ויזארד אש" is no list)
+LIST_WORDS = re.compile(r",[^,]*,|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|"
+                        r"בין|השוו\w*|השוואה|ההבדל|הבדל)(?![א-ת])|(?<=\S\s)ו(?=[א-ת]{2})", re.I)
 MENTIONS, LIST_MENTIONS = 4, 8
 PAGE_CHARS = 2500          # a pre-fetched page, MENTIONS of them at most at full length
 MIN_PAGE_CHARS = 800       # a page cut for a long list still keeps its head: level, HP, EXP, where
@@ -314,7 +315,7 @@ ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats",
                  "need", "can't", "cant", "thanks", "nd", "st", "rd", "th"}
 
 
-def reply_language(question: str, ui_lang: str = "he") -> str:
+def reply_language(question: str, ui_lang: str = "he", kb: KnowledgeBase | None = None) -> str:
     """The answer's language: the question's (Hebrew letters: Hebrew, Latin ones: English), else the app's.
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
     if re.search(r"[\u0590-\u05FF]", question):
@@ -323,6 +324,16 @@ def reply_language(question: str, ui_lang: str = "he") -> str:
     # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English);
     # a short question with an English question or function word is one ("which quests reward scrolls?" got Hebrew)
     words = re.findall(r"[A-Za-z']+", bare)
+    if kb is not None:
+        # the words of the game names it holds don't count: "Valley of Death", "Return Scroll to Henesys" typed alone
+        # are names (their "of", "to" made 256 KB names an English sentence); "where is Valley of Death" isn't
+        spans = kb.mention_spans(bare, LIST_MENTIONS)
+        if spans:
+            inside = {i for _, a, b in spans for i in range(a, b)}
+            # (letters only, as above: "2nd" is "nd", one of AI-17's words)
+            words = [x for i, w in enumerate(_norm(bare).split()) if i not in inside for x in re.findall(r"[a-z']+", w)]
+            return "English" if len(words) > 4 or any(w in ENGLISH_WORDS for w in words) else \
+                "Hebrew" if ui_lang == "he" else "English"
     if len(words) > 4 or (len(words) >= 2 and any(w.lower() in ENGLISH_WORDS for w in words)):
         return "English"
     return "Hebrew" if ui_lang == "he" else "English"
@@ -333,7 +344,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
                  kb_context: bool = True, ui_lang: str = "he") -> str:
     """kb_context=False: no knowledge-base pre-fetch (a screenshot read needs only the profile and the picture).
     ui_lang: the app's language, for a question with no words to tell by."""
-    language = f"Reply in {reply_language(question, ui_lang)}, whatever language the context above is in."
+    language = f"Reply in {reply_language(question, ui_lang, kb)}, whatever language the context above is in."
     parts = []
     if character:
         parts.append(f"<player_profile>\n{character.summary()}\n</player_profile>")
@@ -563,6 +574,7 @@ _NARRATION = re.compile(r"\b(?:I'll|I will|I'm going to|I am going to|I need to|
                         r"page|grep|search) (?:says|shows|lists|confirms|returned)|I'?ve (?:got|found|checked))", re.I)
 # a line that is part of an answer's layout, never a monologue: a list item, a bold name, a heading, a table row
 _LAYOUT = re.compile(r"\s*(?:[-*•#|>]|\d+[.)]|\*\*)")
+_PLAN_START = re.compile(r"\s*(?:Let me|I'll|I will|Now)\b", re.I)
 
 
 def _narration(lines: list[str]) -> bool:
@@ -572,7 +584,8 @@ def _narration(lines: list[str]) -> bool:
     if not lines or any(_LAYOUT.match(s) for s in lines):
         return False
     head = " ".join(lines)
-    return len(head.split()) >= 6 and bool(_NARRATION.search(head))
+    # a short one too when it opens as planning ("Let me check the data." stayed above the Hebrew answer)
+    return (len(head.split()) >= 6 or bool(_PLAN_START.match(head))) and bool(_NARRATION.search(head))
 
 
 # an English answer's own planning first line: "Let me check the data for the player first." (audit AI-19); narrower
@@ -588,13 +601,20 @@ def strip_lead_in(text: str) -> str:
     lines = text.split("\n")
     first = next((i for i, s in enumerate(lines) if _HEBREW.search(s)), None)
     if first is None:
-        rest = "\n".join(lines[1:]).strip()
-        if rest and _EN_PLANNING.search(lines[0]) and _narration(lines[:1]):
-            return rest
-        return text
+        return strip_english_planning(text)
     if not first or not _narration(lines[:first]):
         return text
     return "\n".join(lines[first:])
+
+
+def strip_english_planning(text: str) -> str:
+    """An answer without a first line of the model's own planning in English ("Let me check the data for the player
+    first."): that line only, and only when more follows (audit AI-19). An English answer gets this alone (P84B-4)."""
+    lines = text.split("\n")
+    rest = "\n".join(lines[1:]).strip()
+    if rest and _EN_PLANNING.search(lines[0]) and _narration(lines[:1]):
+        return rest
+    return text
 
 
 def _without_partial_marker(text: str) -> str:
@@ -605,17 +625,21 @@ def _without_partial_marker(text: str) -> str:
     return text
 
 
-def split_meta(raw: str) -> tuple[str, dict]:
+def split_meta(raw: str, hebrew: bool | None = None) -> tuple[str, dict]:
     """Separate the visible answer from the trailing @@META@@ JSON. The last marker with JSON after it is the META
     (prose that mentions the marker cut the answer there), parsed up to its own closing brace (a second "{...}"
-    after it lost the whole META: entities and profile_update; audit AI-14)."""
+    after it lost the whole META: entities and profile_update; audit AI-14).
+    hebrew: the answer should be Hebrew; False keeps an English answer whole but for a first line of planning (its
+    "Let me explain: ..." first paragraph went when a later line quoted a Hebrew name, P84B-4). None: not known,
+    the lead-in rule decides alone."""
+    lead_in = strip_lead_in if hebrew is not False else strip_english_planning
     if META not in raw:
-        return drop_keys(strip_lead_in(_without_partial_marker(raw.rstrip()))).strip(), {}
+        return drop_keys(lead_in(_without_partial_marker(raw.rstrip()))).strip(), {}
     text, _, meta = raw.rpartition(META)
     if "{" not in meta:
         text, _, meta = raw.partition(META)
     # an earlier META block (the model wrote two): out of the text
-    text = strip_lead_in(re.sub(re.escape(META) + r"\s*\{[\s\S]*$", "", text))
+    text = lead_in(re.sub(re.escape(META) + r"\s*\{[\s\S]*$", "", text))
     start = meta.find("{")
     try:
         data = json.JSONDecoder().raw_decode(meta[start:])[0] if start >= 0 else {}
@@ -671,10 +695,12 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     line to end, and English planning (strip_lead_in) waits for the Hebrew after it: it never flashes up."""
     text = _without_partial_marker(raw.split(META)[0])
     if hebrew and not _HEBREW.search(text):
+        # English prose waits for the Hebrew (or the end): a short "Let me check." showed, then went once the rest
+        # of the planning arrived. A list or bold line (a name, a route) shows at once
         lines = text.split("\n")
-        if len(lines) == 1 or _narration(lines):
+        if len(lines) == 1 or not any(_LAYOUT.match(s) for s in lines[:-1] if s.strip()):
             return ""
-    return drop_keys(strip_lead_in(text)).strip()
+    return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
 class Brain:
@@ -783,7 +809,7 @@ class Brain:
         has = (len(shots) - 1 if len(shots) > 1 else True) if shots else False
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
-        hebrew = reply_language(question, self.ui_lang) == "Hebrew"
+        hebrew = reply_language(question, self.ui_lang, self.kb) == "Hebrew"
         raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
         if model or light:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta, model=model, tools=not light)
@@ -791,7 +817,7 @@ class Brain:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta)
         if result.error:
             return Answer(error=result.error, limits=result.limits)
-        text, meta = split_meta(result.text)
+        text, meta = split_meta(result.text, hebrew)
         if not text and not meta:
             return Answer(error="no_result", limits=result.limits)   # nothing at all came back: no empty bubble
         if "profile_update" not in meta:

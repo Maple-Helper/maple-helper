@@ -262,7 +262,7 @@ def test_equips_read_the_stat_header(tiny):
     bow = one(tables.rows(tiny, "equips"), key="item/663")
     assert (bow["slot"], bow["job"], bow["req_lv"], bow["req_dex"], bow["watk"]) == ("Bow", "Bowman", 10, 25, 30)
     assert (bow["attack_speed"], bow["slots"], bow["sell"], bow["buy"]) == ("Normal (6)", 7, 2500, 5000)
-    assert bow["seller"] == "Karl (Henesys)"
+    assert bow["seller"] == "Karl (Henesys, COT2 price)"          # the price's label, for the answer's "(COT2)"
     claw = one(tables.rows(tiny, "equips"), key="item/680")
     assert (claw["job"], claw["req_luk"], claw["attack_speed"]) == ("Thief", 25, "Fast (5)")
     gloves = one(tables.rows(tiny, "equips"), key="item/1435")
@@ -448,6 +448,24 @@ def test_a_failed_build_waits_before_trying_again(tiny, monkeypatch):
     assert len(built) == 1                  # a read-only folder: not a 2 s build before every question
 
 
+def test_a_held_table_fails_the_build_before_any_is_replaced_and_retries_soon(tiny, monkeypatch):
+    """Written one by one, a table an antivirus held failed the build midway: old and new tables mixed, for 10 min."""
+    (tiny.root / tables.MARK_FILE).unlink()
+    tables._fresh.clear()
+    tables._failed.clear()
+    staged = []
+
+    def held(src, dst):
+        staged.append(len(list(tiny.root.glob("*.tmp"))))
+        raise PermissionError("in use")
+    monkeypatch.setattr(tables.os, "replace", held)
+    monkeypatch.setattr(tables.time, "sleep", lambda s: None)
+    assert not tables.ensure(tiny)
+    assert staged[0] == len(tables.GENERATED)          # every table (and the mark) written before the first replace
+    assert not list(tiny.root.glob("*.tmp")) and not (tiny.root / tables.MARK_FILE).exists()
+    assert tables._failed[str(tiny.root)][2] == tables.HELD_RETRY
+
+
 def test_a_bad_page_or_table_never_stops_the_build(tiny, monkeypatch):
     real = tables._equip
 
@@ -525,7 +543,11 @@ def test_real_tables_known_facts(real):
     assert (hhg["lv_min"], hhg["lv_max"], hhg["region"]) == (2, 14, "Victoria Island") and "Blue Snail" in hhg["monsters"]
     ds = one(t["skills"], skill="Double Shot")
     assert (ds["mp"], ds["damage"], ds["max_lv"]) == (16, 120, 20)
+    assert one(t["skills"], skill="Steal")["damage"] == 180                # "apply 180% in damage"
     assert not [r for r in t["skills"] if r["rank"] == "3rd Job"]          # 3rd job isn't out
+    # the cheapest seller's citizen rank (Raymond sells these for 2 mesos to a Helpful Stranger only)
+    assert "citizen rank Helpful Stranger" in one(t["consumables"], item="Bronze Arrows for Bows")["seller"]
+    assert not [r for r in t["monsters"] if "spawns.tsv" in str(r["maps"])]     # answers never name files
 
 
 @needs_kb
