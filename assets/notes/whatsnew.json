@@ -2,9 +2,11 @@
  {
   "version": "0.10.1",
   "he": [
+   "חדשות עם תמונות: כל כתבה מציגה את התמונה שלה, ובכתבות הרשמיות של Nexon גם את התמונות של הפריטים שהכתבה מזכירה, עם השם של כל אחד.",
    "תפריט הדמות: הטקסט של השורות כבר לא נעלם כשמזיזים את העכבר משורה לשורה."
   ],
   "en": [
+   "News with pictures: each article shows its picture, and Nexon's official articles also show the pictures of the items they name, each with its name.",
    "Character menu: a row's text no longer disappears when the mouse moves from row to row."
   ]
  },

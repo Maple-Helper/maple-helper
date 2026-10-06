@@ -85,7 +85,7 @@ def _night(tmp_path, monkeypatch, site: dict[str, str | None], refresh: bool):
                 "lastmod": "2026-10-06"}
     monkeypatch.setattr(scrape_meowdb, "scrape_one", one)
     monkeypatch.setattr(meowdb_sections, "scrape", lambda kb, fetch, delay: 0)
-    monkeypatch.setattr(scrape_news, "update", lambda kb, fetch: 0)
+    monkeypatch.setattr(scrape_news, "update", lambda kb, fetch, fetch_bytes=None: 0)
     monkeypatch.setattr(scrape_meowdb, "scrape_routes", lambda: 0)
     scrape_meowdb.scrape(None, refresh=refresh, changed_only=not refresh)
     index = {e["key"]: e for e in json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))}

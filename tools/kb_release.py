@@ -132,7 +132,7 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
                                                       and n.get("date") for n in items):
                 problems.append("news.json: items without an id, a title or a date")
             else:
-                problems += _news_hebrew_problems(items)
+                problems += _news_hebrew_problems(items) + _news_picture_problems(kb, items)
         except (OSError, ValueError, AttributeError) as e:
             problems.append(f"news.json unreadable: {e}")
 
@@ -178,6 +178,30 @@ def _news_hebrew_problems(items: list[dict]) -> list[str]:
         if any(isinstance(x, str) and _LEVEL_WORD.search(x) for x in texts):
             bad.append(str(n.get("id")))
     return [f"news.json: Hebrew with \"לבל\" instead of \"רמה\" in {', '.join(bad[:5])}"] if bad else []
+
+
+NEWS_PICTURES = "img/news/"
+NEWS_PICTURE_BYTES = 1_000_000      # tools/scrape_news.MAX_IMAGE_BYTES
+
+
+def _news_picture_problems(kb: Path, items: list[dict]) -> list[str]:
+    """Every picture news.json names is in the KB, under img/news/ and not oversized (tools/scrape_news.py downloads
+    them; a missing one would show as a hole in the article)."""
+    files = []
+    for n in items:
+        files.append(n.get("image"))
+        nx = n.get("nexon") if isinstance(n.get("nexon"), dict) else {}
+        files.append((nx.get("banner") or {}).get("file") if isinstance(nx.get("banner"), dict) else None)
+        files += [p.get("file") if isinstance(p, dict) else "" for p in nx.get("pictures") or []]
+    bad = []
+    for f in files:
+        if f is None:
+            continue
+        path = kb / f if isinstance(f, str) else None
+        if not (isinstance(f, str) and f.startswith(NEWS_PICTURES) and ".." not in f and "\\" not in f
+                and path.is_file() and path.stat().st_size <= NEWS_PICTURE_BYTES):
+            bad.append(str(f))
+    return [f"news.json: {len(bad)} pictures missing or not allowed, e.g. {', '.join(bad[:5])}"] if bad else []
 
 
 def validate_community(data, keys: set[str]) -> None:

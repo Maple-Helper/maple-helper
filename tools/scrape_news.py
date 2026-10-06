@@ -13,20 +13,41 @@ publisher, source_url, url, tags, mentions, hash, summary_he?}]}, newest first.
   availability.py reads the release guide, never the news (an announcement is not the game).
 - summary_he: the Hebrew summary from assets/news/he.json (tools/translate_news.py), kept only while it was made from
   this very English text (hash): a summary NiaMeowDB rewrote shows in English until it is translated again.
+- image, image_w, image_h, image_src: NiaMeowDB's cover picture of the item, saved in the KB as img/news/<id>.<ext>
+  (only a meowdb.com picture; an item whose cover is elsewhere has none).
+- nexon: for Nexon's own announcements, the pictures of the article on nexon.com that show what the item's text names
+  (the AP Reset Scroll, the six pets...) and its banner, in img/news/<id>/<media id>.<ext> (nexon_pictures()):
+  {"id", "key", "banner": {file, w, h, src}?, "pictures": [{name, file, w, h, src}]}.
+
+A picture is downloaded once: the next nights keep it while its address is the same; the pictures of items no longer
+listed are deleted (prune_pictures). Every failure (a site down, a picture too big or not a picture) only means no
+picture: the news stay.
 
     python tools/scrape_news.py            # refresh data/kb/news.json alone (the nightly scrape calls update())
 """
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 import sys
 import time
+from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 NEWS_URL = "https://meowdb.com/msclassic/news"
+MEOWDB = "https://meowdb.com"
+# a Nexon article's content as JSON (www.nexon.com's article page is a script that loads it from here)
+NEXON_ARTICLE = re.compile(r"https://www\.nexon\.com/maplestory/news/[a-z-]+/(\d+)(?:[/?#]|$)")
+NEXON_API = "https://g.nexonstatic.com/maplestory/cms/v1/news/{id}"
+NEXON_MEDIA = re.compile(r"https://g\.nexonstatic\.com/media/([a-z0-9]+)/([a-z0-9-]+)\.(png|jpe?g|webp)", re.I)
+PICTURES = "img/news"
+MAX_IMAGE_BYTES = 1_000_000          # a news picture is ~20-200 KB; anything over a megabyte is refused
+MAX_PICTURES = 20                    # an article's named pictures (the Cash Shop's has 17)
+FORMATS = {"webp": "WEBP", "png": "PNG", "jpg": "JPEG", "jpeg": "JPEG"}    # extension -> what Pillow must read
+PAUSE = 0.5                          # between two picture requests (the scraper's own pace)
 # the app's news start here (the owner's call, 2026-10-04): every item from then on, none older (maplehelper/news.py)
 SINCE = "2026-10-02"
 TRANSLATIONS = ROOT / "assets" / "news"
@@ -207,10 +228,256 @@ def clean_hebrew(kb: Path) -> int:
     return changed
 
 
-def update(kb: Path, fetch) -> int:
+# ---------------------------------------------------------------- pictures
+
+def _image_size(data: bytes, ext: str) -> tuple[int, int] | None:
+    """(width, height) when data is a picture of the format its name says (Pillow reads it), else None: an error page
+    saved as .webp would show as nothing in the app."""
+    import io
+    try:
+        from PIL import Image
+    except ImportError:
+        print("::warning::news: no Pillow, no news pictures", flush=True)
+        return None
+    try:
+        with Image.open(io.BytesIO(data)) as img:
+            if img.format != FORMATS.get(ext):
+                return None
+            img.load()
+            return img.width, img.height
+    except Exception:          # noqa: BLE001 - any undecodable picture is no picture
+        return None
+
+
+def _download(fetch_bytes, src: str, kb: Path, file: str) -> dict | bool | None:
+    """One picture into kb/file: {"file", "w", "h", "src"}; None when the site didn't answer (asked again another
+    night), False when what came is refused for good: over MAX_IMAGE_BYTES, or no picture (nothing written)."""
+    try:
+        data = fetch_bytes(src)
+    except Exception:          # noqa: BLE001 - a failed picture never stops the news
+        data = None
+    time.sleep(PAUSE)
+    if not isinstance(data, bytes) or not data:
+        print(f"news: no answer for {src}", flush=True)
+        return None
+    ext = file.rsplit(".", 1)[-1]
+    size = _image_size(data, ext) if len(data) <= MAX_IMAGE_BYTES else None
+    if not size:
+        print(f"news: {src} refused ({len(data):,} bytes, not a {ext} picture or too big)", flush=True)
+        return False
+    path = kb / file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return {"file": file, "w": size[0], "h": size[1], "src": src}
+
+
+def _kept(old: dict | None, src: str, kb: Path) -> dict | None:
+    """The picture there is when it came from this very address (the nights don't download it again)."""
+    if isinstance(old, dict) and old.get("src") == src and isinstance(old.get("file"), str) \
+            and old["file"].startswith(PICTURES + "/") and (kb / old["file"]).is_file():
+        return {k: old.get(k) for k in ("file", "w", "h", "src")}
+    return None
+
+
+def _picture(old: dict | None, src: str, kb: Path, file: str, fetch_bytes) -> dict | bool | None:
+    return _kept(old, src, kb) or (_download(fetch_bytes, src, kb, file) if fetch_bytes else None)
+
+
+def cover_src(e: dict) -> str | None:
+    """NiaMeowDB's cover of a news entry, when it is on meowdb.com (some old items point at other sites: none)."""
+    url = str(e.get("image_url") or "").strip()
+    if url.startswith("/") and not url.startswith("//"):
+        url = MEOWDB + url
+    if not re.fullmatch(r"https://meowdb\.com/[\w/.-]+\.(?:webp|png|jpe?g)", url, re.I):
+        return None
+    return url
+
+
+def add_cover(i: dict, e: dict, old: dict | None, kb: Path, fetch_bytes) -> None:
+    """The item's cover picture fields (image, image_w, image_h, image_src) when there is one."""
+    src = cover_src(e)
+    if not src or not re.fullmatch(r"[a-z0-9-]+", i["id"]):
+        return
+    ext = src.rsplit(".", 1)[-1].lower()
+    was = {"file": old.get("image"), "w": old.get("image_w"), "h": old.get("image_h"),
+           "src": old.get("image_src")} if isinstance(old, dict) else None
+    got = _picture(was, src, kb, f"{PICTURES}/{i['id']}.{ext}", fetch_bytes)
+    if got:
+        i.update(image=got["file"], image_w=got["w"], image_h=got["h"], image_src=got["src"])
+
+
+class _Images(HTMLParser):
+    """Every <img src alt> of an article's HTML, in order."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.found: list[tuple[str, str]] = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "img":
+            a = dict(attrs)
+            if a.get("src"):
+                self.found.append((a["src"].strip(), " ".join(str(a.get("alt") or "").split())))
+
+
+def _fold(text: str) -> str:
+    return text.replace("’", "'").replace("‘", "'")
+
+
+def _slugify(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", _fold(name).lower().replace("'", "")).strip("-")
+
+
+def _alt_name(alt: str, article: str) -> str:
+    """What a picture shows, from its alt: Nexon writes "<what> <the article's name> <the game's name>" ("AP Reset
+    Scroll Founder's Access Cash Shop Global MapleStory Classic World"). "" when the alt isn't written that way."""
+    alt = _fold(html.unescape(alt)).strip()
+    at = alt.lower().find(_fold(article).lower()) if article else -1
+    if at > 0:
+        return alt[:at].strip()
+    m = re.search(r"\s+(?:Global\s+)?MapleStory(?:\s+Classic\s+World)?\s*$", alt, re.I)
+    return alt[:m.start()].strip() if m and at < 0 else ""
+
+
+def item_text(i: dict) -> str:
+    """The English an item shows: what its pictures must be named in, in the order they come. The title last: it
+    names things in short ("AP and SP Reset Scrolls" put the SP Reset Scroll first)."""
+    return "\n".join([i.get("summary") or "", *(i.get("highlights") or []), i.get("commentary") or "",
+                      i.get("title") or ""])
+
+
+def nexon_pictures(body: str, article: str, text: str) -> tuple[str | None, list[tuple[str, str]]]:
+    """(the banner's address or None, [(name, address)]) of a Nexon article's HTML: the pictures of the things the
+    item's text names, in the order it names them.
+
+    A picture counts when its alt and its file name say the same thing ("AP Reset Scroll ..." and
+    ".../ap-reset-scroll-founders-access-...png"): Nexon's article has alts that don't match their picture (a "Water of
+    Life" alt on the Expanded Auto Move picture, "Signature Hair Coupon" on a palette): those are skipped. A name
+    counts as written in the text, with its case, maybe plural; inside a longer name it doesn't ("Megaphone" in
+    "Super Megaphones")."""
+    parser = _Images()
+    try:
+        parser.feed(body)
+    except Exception:          # noqa: BLE001 - a broken page is no pictures
+        return None, []
+    banner, named, seen = None, {}, set()
+    for src, alt in parser.found:
+        m = NEXON_MEDIA.fullmatch(src)
+        if not m or src in seen:
+            continue
+        seen.add(src)
+        slug = m.group(2).lower()
+        if banner is None and "banner" in slug.split("-"):
+            banner = src
+            continue
+        name = _alt_name(alt, article)
+        if not name or len(name) > 60:
+            continue
+        s = _slugify(name)
+        if s and (slug == s or slug.startswith(s + "-")) and name not in named:
+            named[name] = src
+    hay, found = _fold(text), []
+    for name in sorted(named, key=len, reverse=True):            # the longest first, masked once found
+        pat = re.compile(rf"(?<![\w']){re.escape(name)}(?:e?s)?(?![\w'])")
+        hits = list(pat.finditer(hay))
+        if hits:
+            found.append((hits[0].start(), name))
+            hay = pat.sub(lambda x: " " * len(x.group(0)), hay)
+    found.sort()
+    return banner, [(name, named[name]) for _, name in found[:MAX_PICTURES]]
+
+
+def add_nexon(i: dict, old: dict | None, kb: Path, fetch, fetch_bytes) -> None:
+    """i["nexon"]: the pictures of Nexon's own article (nexon_pictures), for an item Nexon published. One request
+    for the article when the item's text or address changed since the night that matched its pictures; the pictures
+    already there are kept. A failure keeps what there was."""
+    m = NEXON_ARTICLE.match(i.get("source_url") or "")
+    if not (m and i.get("publisher") == "Nexon" and re.fullmatch(r"[a-z0-9-]+", i["id"])):
+        return
+    prev = old.get("nexon") if isinstance(old, dict) and isinstance(old.get("nexon"), dict) else None
+    pics = [p for p in (prev or {}).get("pictures") or [] if isinstance(p, dict)]
+    have = [_kept(p, p.get("src"), kb) for p in pics] + \
+        ([_kept(prev.get("banner"), (prev.get("banner") or {}).get("src"), kb)] if prev and prev.get("banner") else [])
+    key = _hash(i.get("source_url") or "", item_text(i))
+    if prev and prev.get("key") == key and all(have):
+        i["nexon"] = prev                     # the same article, every picture there: nothing fetched
+        return
+    if not fetch_bytes:
+        if prev and all(have):
+            i["nexon"] = prev
+        return
+    try:
+        page = fetch(NEXON_API.format(id=m.group(1)))
+        data = json.loads(page) if page else None
+    except Exception:          # noqa: BLE001
+        data = None
+    time.sleep(PAUSE)
+    if not (isinstance(data, dict) and isinstance(data.get("body"), str)):
+        print(f"news: Nexon's article {m.group(1)} unreadable; keeping its pictures", flush=True)
+        if prev and all(have):
+            i["nexon"] = prev
+        return
+    banner, named = nexon_pictures(data["body"], str(data.get("name") or ""), item_text(i))
+    by_src = {p.get("src"): p for p in pics}
+    out: dict = {"id": int(m.group(1)), "key": key}
+    complete = True
+
+    def get(src: str, was: dict | None) -> dict | bool | None:
+        nonlocal complete
+        mm = NEXON_MEDIA.fullmatch(src)
+        ext = mm.group(3).lower()
+        got = _picture(was, src, kb, f"{PICTURES}/{i['id']}/{mm.group(1).lower()}.{ext}", fetch_bytes)
+        complete = complete and got is not None      # (a picture refused for good is not asked again)
+        return got
+
+    if banner:
+        b = get(banner, (prev or {}).get("banner"))
+        if b:
+            out["banner"] = b
+    out["pictures"] = [dict(name=name, **got) for name, src in named if (got := get(src, by_src.get(src)))]
+    if not complete:
+        out["key"] = ""             # a picture failed: the next night asks again
+    if out.get("banner") or out["pictures"] or complete:
+        i["nexon"] = out
+
+
+def picture_files(items: list[dict]) -> set[str]:
+    """Every picture file the items use (KB-relative)."""
+    out = set()
+    for i in items:
+        out.add(i.get("image"))
+        nx = i.get("nexon") if isinstance(i.get("nexon"), dict) else {}
+        out.add((nx.get("banner") or {}).get("file"))
+        out.update(p.get("file") for p in nx.get("pictures") or [] if isinstance(p, dict))
+    return {f for f in out if isinstance(f, str)}
+
+
+def prune_pictures(kb: Path, items: list[dict]) -> int:
+    """Delete the pictures no item uses any more (an item gone from the list, a picture replaced). Returns how many."""
+    root = kb / PICTURES
+    if not root.is_dir():
+        return 0
+    used = picture_files(items)
+    gone = 0
+    for f in sorted(root.rglob("*"), reverse=True):        # files before their folders
+        rel = f.relative_to(kb).as_posix()
+        if f.is_file() and rel not in used:
+            f.unlink()
+            gone += 1
+        elif f.is_dir() and not any(f.iterdir()):
+            f.rmdir()
+    if gone:
+        print(f"news: {gone} old pictures deleted", flush=True)
+    return gone
+
+
+def update(kb: Path, fetch, fetch_bytes=None) -> int:
     """Refresh kb/news.json with fetch(url) -> str | None (the scraper's polite fetch). Returns how many items are
     new or changed (0 when nothing changed). A failed fetch or an unreadable page keeps the news.json there is:
-    a site hiccup must not wipe the news, or the next good night announce all of it again."""
+    a site hiccup must not wipe the news, or the next good night announce all of it again.
+
+    fetch_bytes(url) -> bytes | None downloads the pictures (add_cover, add_nexon); without it the items keep the
+    pictures they have and get no new ones."""
     cleaned = clean_hebrew(kb)
     path = kb / "news.json"
     try:
@@ -226,8 +493,13 @@ def update(kb: Path, fetch) -> int:
     except NewsError as e:
         print(f"news: {e}; keeping the news there is", flush=True)
         return cleaned
+    found = {str(e.get("slug") or ""): e for e in entries(page)}
+    for i in items:
+        add_cover(i, found.get(i["id"], {}), old.get(i["id"]), kb, fetch_bytes)
+        add_nexon(i, old.get(i["id"]), kb, fetch, fetch_bytes)
     changed = sum(1 for i in items if old.get(i["id"]) != i)
     removed = len(old.keys() - {i["id"] for i in items})
+    pruned = prune_pictures(kb, items)            # (a picture deleted is a change too: the KB gets lighter)
     if changed or removed:
         path.write_text(json.dumps({"source": "NiaMeowDB (meowdb.com/msclassic/news)",
                                     "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -238,11 +510,11 @@ def update(kb: Path, fetch) -> int:
             # never changed from news; the release guide stays the source)
             print(f"::notice::official news names {', '.join(i['mentions'])}: {i['title']} ({i['url']})", flush=True)
     print(f"news: {len(items)} items, {changed} new or changed", flush=True)
-    return changed + removed + cleaned
+    return changed + removed + cleaned + pruned
 
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.path.insert(0, str(ROOT / "tools"))
     import scrape_meowdb
-    update(scrape_meowdb.KB, scrape_meowdb.fetch)
+    update(scrape_meowdb.KB, scrape_meowdb.fetch, lambda url: scrape_meowdb.fetch(url, binary=True))

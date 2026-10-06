@@ -9,7 +9,8 @@ Output (under data/kb/):
     index.json                   compact index: id, name, category, url, image, props
     skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
-    routes.json                  every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
+    news.json, img/news/         the news and their pictures (tools/scrape_news.py)
+    routes.json                 every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
 
 Usage:
     python tools/scrape_meowdb.py            # full run (resumes)
@@ -356,9 +357,10 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     changes[0] += meowdb_sections.scrape(KB, fetch, DELAY_SECONDS)
 
     if not limit:
-        # the news page too (one request: tools/scrape_news.py); a new item counts as a change, so it gets published
+        # the news page too (one request: tools/scrape_news.py); a new item counts as a change, so it gets published.
+        # Its pictures come once each (a new item's cover, a Nexon article's named pictures), kept on later nights
         import scrape_news
-        changes[0] += scrape_news.update(KB, fetch)
+        changes[0] += scrape_news.update(KB, fetch, lambda url: fetch(url, binary=True))
     meta_path = KB / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
     meta.update({"source": "NiaMeowDB (meowdb.com)", "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
