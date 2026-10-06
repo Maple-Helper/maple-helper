@@ -137,3 +137,37 @@ def test_report_points_to_github_issues(env, monkeypatch):
     btn = next(b for b in dlg.findChildren(QPushButton) if b.text() == "Open an issue on GitHub")
     btn.click()
     assert opened == [dialogs.ISSUES_URL]
+
+
+# --- UX-6: "Don't save" keeps the AI the player had -----------------------------------------------------------------
+
+def test_dont_save_restores_the_previous_ai(env, monkeypatch):
+    from maplehelper.ui import dialogs
+    s, profiles, kb = env
+    s["provider"] = "claude"
+    dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
+    seen = []
+    dlg.account_changed.connect(lambda: seen.append(s["provider"]))
+    dlg._on_provider("grok")
+    assert dlg._ai().name == "grok" and "Grok" in dlg.install_btn.text()     # the page shows Grok's account
+    assert s["provider"] == "claude" and dlg.unsaved()
+
+    class Answer:                     # the "Save your changes?" question, answered "Don't save"
+        def __init__(self, *a, **k):
+            self.choice = "no"
+
+        def exec(self):
+            return 0
+    monkeypatch.setattr(dialogs, "ConfirmDialog", Answer)
+    dlg._close_clicked()
+    assert s["provider"] == "claude" and seen == []
+
+
+def test_switching_back_before_save_is_no_change(env):
+    from maplehelper.ui import dialogs
+    s, profiles, kb = env
+    s["provider"] = "claude"
+    dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
+    dlg._on_provider("codex")
+    dlg._on_provider("claude")
+    assert not dlg.unsaved()

@@ -107,17 +107,20 @@ def test_settings_account_text_follows_the_provider(env):
     assert dlg.account_label.text() == "Signed in with ChatGPT"
 
 
-def test_settings_switching_provider_tells_the_app(env):
+def test_settings_switching_provider_tells_the_app_on_save(env):
+    """UX-6: the provider waits for Save like every other setting, then the app moves over to it."""
     from maplehelper.ui.dialogs import SettingsDialog
     s, profiles, kb = env
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     seen = []
     dlg.account_changed.connect(lambda: seen.append(s["provider"]))
     dlg._on_provider("codex")
-    assert seen == ["codex"]
+    assert seen == [] and s["provider"] == "claude" and dlg.unsaved()
+    dlg._save()
+    assert seen == ["codex"] and s["provider"] == "codex"
 
 
-def test_settings_model_pick_applies_right_away(env):
+def test_settings_model_pick_applies_on_save(env):
     from maplehelper.ui.dialogs import SettingsDialog
     s, profiles, kb = env
     s["provider"] = "claude"
@@ -127,6 +130,8 @@ def test_settings_model_pick_applies_right_away(env):
     dlg.account_changed.connect(lambda: seen.append(s["model"]))
     assert dlg.model_pick.text() == "Sonnet (recommended)" and "Sonnet 5" in dlg.model_hint.text()
     dlg._on_model(dlg._model_values.index("opus"))
+    assert s["model"] != "opus" and seen == [] and dlg.unsaved()
+    dlg._save()
     assert s["model"] == "opus" and seen == ["opus"]
 
 

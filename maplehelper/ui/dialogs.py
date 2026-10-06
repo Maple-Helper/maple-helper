@@ -1103,13 +1103,16 @@ class SettingsDialog(GlassDialog):
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         lay.addWidget(sec)
 
-        # AI account: the provider and its sign-in act right away (like sign-out), not on Save
+        # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
+        # provider picked only to read about it, UX-6); a sign-in, an install or a sign-out act right away
+        self._provider = providers.get(settings["provider"]).name
+        self._pending_models: dict[str, str | None] = {}      # model setting -> the model picked, until Save
         sec = Section(t("sec_ai"), rtl)
         self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()],
-                                       providers.get(settings["provider"]).name, rtl)
+                                       self._provider, rtl)
         self.provider_pick.changed.connect(self._on_provider)
         sec.add_row(t("ai_provider"), self.provider_pick)
-        # the model acts right away too; under it, which model answered last
+        # the model; under it, which model answered last
         self.model_pick = Select()
         # the hint under the whole row: beside the dropdown it was squeezed into a narrow column
         self.model_hint = sec.add_row(t("ai_model"), self.model_pick, hint=" ", hint_below=True).findChild(QLabel, "RowHint")
@@ -1260,7 +1263,7 @@ class SettingsDialog(GlassDialog):
     # AI account ----------------------------------------------------------
 
     def _ai(self):
-        return providers.get(self.settings["provider"])
+        return providers.get(self._provider)       # the one shown (saved only with Save)
 
     def _label_usage(self):
         """The meter shows the plan of the AI that answers now (Claude's or ChatGPT's); saver mode is there for both."""
@@ -1310,7 +1313,7 @@ class SettingsDialog(GlassDialog):
         if name != ai.name:
             return              # a list that arrived after the player switched AI
         t = self.t
-        cur = self.settings[ai.model_setting]
+        cur = self._model_of(ai)
         labels, values = [], []
         for value, shown in models:
             if value is None:
@@ -1345,11 +1348,13 @@ class SettingsDialog(GlassDialog):
     def _on_model(self, i: int):
         ai = self._ai()
         if 0 <= i < len(self._model_values):
-            self.settings[ai.model_setting] = self._model_values[i]
-            self.account_changed.emit()      # the app moves its AI to the new model
+            self._pending_models[ai.model_setting] = self._model_values[i]     # stored by Save
+
+    def _model_of(self, ai) -> str | None:
+        return self._pending_models.get(ai.model_setting, self.settings[ai.model_setting])
 
     def _on_provider(self, name: str):
-        self.settings["provider"] = name
+        self._provider = name
         self._fill_models()
         self._label_usage()
         self._login_timer.stop()
@@ -1366,7 +1371,6 @@ class SettingsDialog(GlassDialog):
             self._install_for = name
             self.install_panel.start(running_install(name), self._ai().label)
         self._set_account_text(self.t("ob_checking"))
-        self.account_changed.emit()        # the app moves its AI over to this provider
         self._refresh_account()
 
     def _refresh_account(self):
@@ -1618,8 +1622,10 @@ class SettingsDialog(GlassDialog):
         self.mic_test.setEnabled(True)
 
     def _values(self) -> dict:
-        """What Save would store (the AI account and model act at once, they're not in here)."""
+        """What Save would store (a sign-in or sign-out acts at once, it's not in here)."""
         return {
+            "provider": self._provider,
+            **{p.model_setting: self._model_of(p) for p in providers.PROVIDERS.values()},
             "language": self.lang.value(),
             "appearance": self.appearance.value(),
             "font_size": self.font.value(),
@@ -1658,7 +1664,11 @@ class SettingsDialog(GlassDialog):
             self._check_keys()
             return
         s = self.settings
+        ai_keys = ["provider", *(p.model_setting for p in providers.PROVIDERS.values())]
+        ai_before = [s[k] for k in ai_keys]
         s.data.update(self._values())
         s.save()
+        if [s[k] for k in ai_keys] != ai_before:
+            self.account_changed.emit()     # the app moves its AI over to the saved provider and model
         self.changed.emit()
         self.accept()
