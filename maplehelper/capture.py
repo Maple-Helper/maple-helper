@@ -18,7 +18,8 @@ LAST_CURSOR: tuple[int, int] | None = None
 # over it: its pixels are never sent as the game), "screen_permission" (macOS Screen Recording is off: the grab would
 # be the wallpaper), None otherwise. Reset by every find_game_window; the chat says it instead of "no game".
 LAST_PROBLEM: str | None = None
-PROBLEM_TEXT = {"covered": "shot_game_covered", "screen_permission": "perm_screen_body"}
+PROBLEM_TEXT = {"covered": "shot_game_covered", "screen_permission": "perm_screen_body",
+                "minimized": "shot_game_minimized"}
 
 
 def problem_key() -> str | None:

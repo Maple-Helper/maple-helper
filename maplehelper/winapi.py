@@ -62,9 +62,12 @@ def _pid(hwnd) -> int:
 # Google Chrome"). Never "the game": its screenshot went to the AI when the game was closed or minimized
 NOT_GAME_CLASSES = {"Chrome_WidgetWin_0", "Chrome_WidgetWin_1", "MozillaWindowClass", "MozillaDialogClass",
                     "CabinetWClass", "ExploreWClass", "ApplicationFrameWindow", "Windows.UI.Core.CoreWindow",
-                    "IEFrame", "OperaWindowClass", "Notepad", "Notepad++", "OpusApp", "XLMAIN", "PPTFrameClass"}
+                    "IEFrame", "OperaWindowClass", "Notepad", "Notepad++", "OpusApp", "XLMAIN", "PPTFrameClass",
+                    "CASCADIA_HOSTING_WINDOW_CLASS", "ConsoleWindowClass"}        # Windows Terminal, a console
+# a media player, a PDF, a photo, a terminal at a MapleStory folder were taken for the game too (audit SCR-2)
 NOT_GAME_APPS = re.compile(r"\b(chrome|edge|firefox|opera|brave|vivaldi|discord|youtube|explorer|notepad|telegram|"
-                           r"whatsapp|twitch|reddit|obs)\b", re.IGNORECASE)
+                           r"whatsapp|twitch|reddit|obs|vlc|acrobat|photos|paint|steam|spotify|powershell|cmd\.exe|"
+                           r"terminal|visual studio code)\b", re.IGNORECASE)
 _BIDI_MARKS = re.compile("[\u200e\u200f\u202a-\u202e\u2066-\u2069]")    # Chrome wraps titles in them
 
 
@@ -79,15 +82,17 @@ def is_game_window(title: str, class_name: str) -> bool:
 def find_game_window() -> int | None:
     capture.LAST_PROBLEM = None
     found: list[int] = []
+    minimized: list[int] = []
     own = os.getpid()
 
     def cb(hwnd, _):
-        if user32.IsWindowVisible(hwnd) and not user32.IsIconic(hwnd):
-            if is_game_window(_title(hwnd), _class_name(hwnd)) and _pid(hwnd) != own:
-                found.append(hwnd)
+        if user32.IsWindowVisible(hwnd) and is_game_window(_title(hwnd), _class_name(hwnd)) and _pid(hwnd) != own:
+            (minimized if user32.IsIconic(hwnd) else found).append(hwnd)
         return True
 
     user32.EnumWindows(EnumWindowsProc(cb), 0)
+    if not found and minimized:
+        capture.LAST_PROBLEM = "minimized"     # "the game isn't open" sent the player to open it (audit SCR-12)
     # the game's own title first; a title with a separator last (a window of some other app that slipped through)
     found.sort(key=lambda h: (_title(h) not in GAME_TITLES, any(s in _title(h) for s in (" - ", " | ", " — "))))
     return found[0] if found else None
@@ -154,6 +159,9 @@ def capture_game(hwnd: int | None = None) -> bytes | None:
     covers it (then capture.LAST_PROBLEM says so, and the chat asks to bring the game to the front)."""
     hwnd = hwnd or find_game_window()
     if not hwnd:
+        return None
+    if user32.IsIconic(hwnd):          # the game remembered from earlier, minimized since
+        capture.LAST_PROBLEM = "minimized"
         return None
     rect = window_rect(hwnd)
     if not rect:

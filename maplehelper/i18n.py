@@ -157,6 +157,8 @@ STRINGS = {
     "sync_no_game": {"he": "חלון המשחק לא נמצא. פתחו את המשחק ונסו שוב.", "en": "Game window not found. Open the game and try again."},
     "shot_game_covered": {"he": "חלון אחר מסתיר את המשחק, אז לא צילמתי אותו. העבירו את המשחק לקדמת המסך ונסו שוב (F9 או המצלמה).",
                           "en": "Another window is covering the game, so I didn't take a screenshot. Bring the game to the front and try again (F9 or the camera)."},
+    "shot_game_minimized": {"he": "המשחק ממוזער: החזירו אותו למסך ונסו שוב.",
+                            "en": "The game is minimized: bring it back and try again."},
     # what the read needs (portrait.py: the player's own name tag, whole or only cut by the chat box, and no other
     # tag that fits the name near it; capture.py: the game window uncovered)
     "refresh_tip": {"he": "עדכון הרמה, הג'וב והתמונה מהמשחק.\nכדי שהצילום יצליח:\n• המשחק פתוח ולא מוסתר מאחורי חלון אחר\n• הדמות שלכם על המסך, ותג השם שמתחתיה גלוי\n• עמדו רחוק משחקנים אחרים, כדי שהתמונה תהיה של הדמות שלכם\n• הסרגל התחתון של המשחק גלוי (רמה, ג'וב ואחוזי ניסיון)",
