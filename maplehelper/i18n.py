@@ -1042,10 +1042,17 @@ STRINGS = {
                              "en": "Your browser opened: sign in to Google there, click Copy to Clipboard and paste the code here. You have one minute."},
     "ob_login_wait_grok": {"he": "נפתח דפדפן: אשרו שם את ההתחברות לחשבון ה-Grok שלכם (הקוד כבר ממולא), וזה מתעדכן כאן לבד.",
                            "en": "Your browser opened: approve the sign-in to your Grok account there (the code is filled in), and this updates by itself."},
-    "ob_login_failed": {"he": "ההתחברות ל-Claude Code לא הצליחה. כדאי להתקין אותו מחדש.",
-                        "en": "The Claude Code sign-in didn't work. Reinstalling it should fix this."},
-    "ob_login_failed_codex": {"he": "ההתחברות ל-ChatGPT לא הצליחה. כדאי להתקין אותו מחדש.",
-                              "en": "The ChatGPT sign-in didn't work. Reinstalling it should fix this."},
+    # not only the install: the connection or the account in the browser fail it too (DLG-15)
+    "ob_login_failed": {"he": "ההתחברות ל-Claude Code לא הושלמה. בדקו שיש חיבור לאינטרנט ושהתחברתם בדפדפן לחשבון הנכון, "
+                              "ולחצו שוב על \"התחברות לחשבון Claude\". אם זה חוזר, התקינו את Claude Code מחדש.",
+                        "en": "The Claude Code sign-in didn't finish. Check that you're online and signed in to the right "
+                              "account in the browser, then click \"Sign in to Claude\" again. If it keeps failing, "
+                              "reinstall Claude Code."},
+    "ob_login_failed_codex": {"he": "ההתחברות ל-ChatGPT לא הושלמה. בדקו שיש חיבור לאינטרנט ושהתחברתם בדפדפן לחשבון הנכון, "
+                                    "ולחצו שוב על \"התחברות עם ChatGPT\". אם זה חוזר, התקינו את Codex מחדש.",
+                              "en": "The ChatGPT sign-in didn't finish. Check that you're online and signed in to the right "
+                                    "account in the browser, then click \"Sign in with ChatGPT\" again. If it keeps "
+                                    "failing, reinstall Codex."},
     "ob_login_failed_gemini": {"he": "ההתחברות ל-Gemini לא הושלמה: הקוד לא התקבל, או שעברה יותר מדקה. לחצו שוב על \"התחברות עם Google\" והדביקו את הקוד החדש.",
                                "en": "The Gemini sign-in didn't finish: the code wasn't accepted, or more than a minute passed. Click \"Sign in with Google\" again and paste the new code."},
     "ob_login_failed_grok": {"he": "ההתחברות ל-Grok לא הושלמה. לחצו שוב על \"התחברות עם Grok\".",

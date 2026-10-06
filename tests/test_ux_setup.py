@@ -106,3 +106,14 @@ def test_not_installed_reads_the_same_for_every_ai(provider):
     from maplehelper.i18n import I18n
     assert I18n("en").p("ob_not_installed", provider).endswith(" isn't installed on this computer")
     assert I18n("he").p("ob_not_installed", provider).endswith(" לא מותקן במחשב")
+
+
+# --- DLG-15: a failed sign-in no longer blames only the install -----------------------------------------------------
+
+@pytest.mark.parametrize("provider", ["claude", "codex"])
+def test_sign_in_failure_names_the_connection_and_account_first(provider):
+    from maplehelper.i18n import I18n
+    en = I18n("en").p("ob_login_failed", provider)
+    assert "online" in en and "account" in en and en.index("online") < en.index("reinstall")
+    he = I18n("he").p("ob_login_failed", provider)
+    assert "חיבור לאינטרנט" in he and "חשבון" in he and he.index("חיבור") < he.index("מחדש")
