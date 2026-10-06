@@ -93,10 +93,12 @@ def test_reports_compare_with_the_previous_one(tmp_path):
     assert eval_answers.compare(None, new) == ([], [])
 
 
-def test_claude_mode_refuses_to_run_under_pytest(capsys):
+def test_claude_mode_refuses_to_run_under_pytest(capsys, tmp_path, monkeypatch):
     fixture_kb = Path(__file__).parent / "fixtures" / "kb"
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
     assert eval_answers.main(["--mode", "claude", "--yes", "--kb", str(fixture_kb)]) == 2
     assert "refusing" in capsys.readouterr().out
+    assert not (tmp_path / "reports").exists()          # a refused run leaves no report folder or log behind
 
 
 @pytest.fixture(scope="module")
@@ -376,10 +378,12 @@ def test_signed_in_providers_reads_each_account(monkeypatch):
     assert eval_answers.signed_in_providers() == ["claude", "grok"]
 
 
-def test_live_mode_refuses_any_provider_under_pytest(capsys):
+def test_live_mode_refuses_any_provider_under_pytest(capsys, tmp_path, monkeypatch):
     fixture_kb = Path(__file__).parent / "fixtures" / "kb"
+    monkeypatch.setattr(eval_answers, "REPORTS", tmp_path / "reports")
     assert eval_answers.main(["--provider", "all-signed-in", "--yes", "--kb", str(fixture_kb)]) == 2
     assert "refusing" in capsys.readouterr().out
+    assert not (tmp_path / "reports").exists()
 
 
 def test_unknown_case_filter_fails_before_anything_runs(capsys):

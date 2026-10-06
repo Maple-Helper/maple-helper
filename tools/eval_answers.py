@@ -571,12 +571,6 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--compare", nargs=2, type=Path, metavar=("BEFORE", "AFTER"),
                     help="print the per-case deltas between two reports, then exit (1 on regressions)")
     args = ap.parse_args(argv)
-    # each run's timings (sent, first sign of life, a hedge twin and who won) go to evals/reports/<...>.log: a slow
-    # case can then be told apart from a slow server (shop-arrows-he took 61 s once, first text at the hedge time)
-    if args.mode != "quick" or args.provider:
-        REPORTS.mkdir(parents=True, exist_ok=True)
-        logging.basicConfig(level=logging.INFO, filename=REPORTS / f"{time.strftime('%Y%m%d-%H%M%S')}.log",
-                            encoding="utf-8", format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     if args.compare:
         a, b = (json.loads(p.read_text(encoding="utf-8")) for p in args.compare)
@@ -610,6 +604,12 @@ def main(argv: list[str] | None = None) -> int:
     if os.environ.get("CI") or os.environ.get("PYTEST_CURRENT_TEST"):
         print("live mode spends a real player's plan usage: refusing to run in CI or under pytest.")
         return 2
+    # each run's timings (sent, first sign of life, a hedge twin and who won) go to evals/reports/<...>.log: a slow
+    # case can then be told apart from a slow server (shop-arrows-he took 61 s once, first text at the hedge time).
+    # Only past the refusal: the refusing tests made evals/reports in the checkout and could take the root logger
+    REPORTS.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(level=logging.INFO, filename=REPORTS / f"{time.strftime('%Y%m%d-%H%M%S')}.log",
+                        encoding="utf-8", format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     provider = args.provider or "claude"
     names = signed_in_providers() if provider == ALL_SIGNED_IN else [provider]
     if not names:
