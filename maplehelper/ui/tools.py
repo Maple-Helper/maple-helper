@@ -3799,7 +3799,7 @@ class ToolsDialog(GlassDialog):
         name = v.name or t("sell_unknown_slot", n=v.slot)
         col.addWidget(QLabel(bidi.ltr_name(name, t.rtl) if v.name else self._p(name), objectName="CardName"))
         why = {"quest": t("farm_need_quest_tip", name=v.why), "recipe": t("farm_need_recipe_tip", name=v.why),
-               "wish": t("sell_why_wish"), "wear": t("sell_why_wear", lv=v.why or "-"),
+               "wish": t("sell_why_wish"), "supply": t("sell_why_supply"), "wear": t("sell_why_wear", lv=v.why or "-"),
                "not_yet": t("sell_why_not_yet", lv=v.why), "other_job": t("sell_why_other_job"),
                "sell": t("sell_why_sell", n=f"{v.price:,}"), "no_price": t("sell_why_no_price"),
                "fm": t("sell_why_fm", n=f"{v.fm:,}") + (" " + t("sell_or_npc", n=f"{v.price:,}") if v.price else ""),

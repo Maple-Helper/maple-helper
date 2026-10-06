@@ -470,6 +470,33 @@ def test_sell_or_keep_sorts_the_bag_by_the_kb():
     assert v[3].kind == "unknown" and not v[3].name
 
 
+@needs_kb
+def test_sell_or_keep_never_sells_potions_return_scrolls_or_the_class_ammo():
+    # TL2-1: the page told a Thief to sell the stars they attack with and everyone their potions and Return Scrolls
+    from maplehelper import sellkeep
+    from maplehelper.inventory import Slot
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    key = lambda n: kb._item_by_name[n.lower()]  # noqa: E731
+    names = ["Red Potion", "Mana Elixir", "Return Scroll - Nearest Town", "Return Scroll to Orbis", "Sniper Potion",
+             "Supreme Sniper Potion", "Subi Throwing Stars", "Arrows for Bows", "Arrows for Crossbows"]
+    slots = [Slot(i, b"", [(key(n), 0.0)]) for i, n in enumerate(names, 1)]
+
+    def kinds(base, job, lv=35):
+        v = sellkeep.classify(kb, slots, lv, base, job)
+        assert not set(sellkeep.for_market(kb, v)) & {key(n) for n in names[:6]}   # no Free Market tip either
+        return {x.name: x.kind for x in v}
+    thief = kinds("Thief", "Assassin")
+    assert all(thief[n] == "supply" for n in names[:7])
+    assert thief["Arrows for Bows"] != "supply"
+    assert kinds("Thief", "Bandit")["Subi Throwing Stars"] != "supply"        # Bandits fight with daggers
+    assert kinds("Warrior", "Fighter")["Subi Throwing Stars"] != "supply"
+    hunter = kinds("Bowman", "Hunter")
+    assert hunter["Arrows for Bows"] == "supply" and hunter["Arrows for Crossbows"] != "supply"
+    bowman = kinds("Bowman", "Bowman", 15)
+    assert bowman["Arrows for Bows"] == bowman["Arrows for Crossbows"] == "supply"
+
+
 def test_an_item_the_free_market_pays_more_for_is_sold_there():
     from maplehelper import sellkeep
     v = [sellkeep.Verdict("sell", "item/1", "A", price=10), sellkeep.Verdict("no_price", "item/2", "B"),
