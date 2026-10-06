@@ -585,7 +585,18 @@ def drop_session(proc, session_id) -> None:
             pass
         for d in (grok_home() / "sessions").glob(f"*/{session_id}"):
             shutil.rmtree(d, ignore_errors=True)
+        _drop_prompt_history()
     threading.Thread(target=drop, daemon=True).start()
+
+
+def _drop_prompt_history() -> None:
+    """Grok also appends every run's whole prompt to sessions/<folder>/prompt_history.jsonl. This GROK_HOME is the
+    app's own, so nothing else reads it: it goes with the sessions."""
+    for h in (grok_home() / "sessions").glob("*/prompt_history.jsonl"):
+        try:
+            h.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def sweep_sessions(max_age: float = SESSION_MAX_AGE_S) -> None:
@@ -597,6 +608,7 @@ def sweep_sessions(max_age: float = SESSION_MAX_AGE_S) -> None:
                 shutil.rmtree(d, ignore_errors=True)
         except OSError:
             pass
+    _drop_prompt_history()
 
 
 class Grok(Provider):

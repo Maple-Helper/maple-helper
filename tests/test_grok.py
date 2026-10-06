@@ -457,6 +457,30 @@ def test_each_run_s_saved_session_is_removed(home, tmp_path):
     assert other.exists() and not old.exists()
 
 
+def test_grok_s_prompt_history_goes_with_the_sessions(home):
+    """Grok also writes every run's whole prompt to sessions/<folder>/prompt_history.jsonl, next to the sessions
+    (review PLT-1): the run's cleanup and the startup sweep both remove it."""
+    import time
+    group = grok.grok_home() / "sessions" / "C%3A%5Ckb"
+    run = group / "01a10d99-127d-7c42"
+    run.mkdir(parents=True)
+    history = group / "prompt_history.jsonl"
+    history.write_text('{"prompt":"the whole question"}\n', encoding="utf-8")
+
+    class Ended:
+        def wait(self, timeout=None):
+            return 0
+    grok.drop_session(Ended(), "01a10d99-127d-7c42")
+    for _ in range(100):
+        if not history.exists():
+            break
+        time.sleep(0.05)
+    assert not history.exists() and not run.exists()
+    history.write_text("{}\n", encoding="utf-8")
+    grok.sweep_sessions()
+    assert not history.exists()
+
+
 def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
     """A quit mid-answer left Grok's question file (the whole prompt, with the profile and history) in %TEMP% and
     Gemini's temp folders behind; the startup sweep only knew the screenshots (audit LIF-8 / PRV-11)."""
