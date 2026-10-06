@@ -2243,8 +2243,10 @@ class Overlay(QWidget):
         self._on_text(self.input.text())
         self._note_usage(ans.limits)
         self._read_limits_after_answer()
-        if ans.model:
-            self.settings["last_model"] = {**(self.settings["last_model"] or {}), self.settings["provider"]: ans.model}
+        last = self.settings["last_model"] or {}
+        if ans.model and last.get(self.settings["provider"]) != ans.model:
+            # only a change is written: settings.json was rewritten (fsync + backup) after every answer
+            self.settings["last_model"] = {**last, self.settings["provider"]: ans.model}
         if not ans.error and not ans.text.strip():
             ans.error = "no_result"            # only META came back: an error line, not an empty bubble
         if ans.error:

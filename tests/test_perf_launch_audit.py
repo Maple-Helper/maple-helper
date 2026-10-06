@@ -5,8 +5,6 @@ import os
 import sys
 from pathlib import Path
 
-import pytest
-
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
@@ -68,3 +66,24 @@ def test_a_failing_warm_up_never_takes_the_app_down(kb_copy):
     th = tables.ensure_async(KnowledgeBase(kb_copy), then=boom)
     th.join(timeout=120)
     assert not th.is_alive()
+
+
+# --- PRF-9: an unchanged model isn't written again -------------------------------------------------------------------
+
+from test_chat_audit import overlay as chat  # noqa: E402,F401 - the chat window, offscreen
+
+
+def test_an_answer_from_the_same_model_doesnt_rewrite_settings(chat, monkeypatch):  # noqa: F811 - the fixture
+    from maplehelper.brain import Answer
+    ov = chat
+    saves = []
+    real = type(ov.settings).save
+    monkeypatch.setattr(type(ov.settings), "save", lambda self: (saves.append(1), real(self)))
+    ov.settings["provider"] = "claude"
+    saves.clear()
+    ov._on_done(Answer(text="one", model="claude-sonnet-5"), None)
+    assert ov.settings["last_model"]["claude"] == "claude-sonnet-5" and len(saves) == 1
+    ov._on_done(Answer(text="two", model="claude-sonnet-5"), None)
+    assert len(saves) == 1                                                    # nothing changed: not written again
+    ov._on_done(Answer(text="three", model="claude-opus-5"), None)
+    assert ov.settings["last_model"]["claude"] == "claude-opus-5" and len(saves) == 2
