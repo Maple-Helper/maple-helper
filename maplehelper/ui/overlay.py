@@ -1920,6 +1920,8 @@ class Overlay(QWidget):
             b.set_text(self.t("answer_stopped"))         # no word of it yet: the bubble itself says so
             self._remember_render(b, lambda t, b=b: b.set_text(t("answer_stopped")))
         else:
+            if b is not None and _alive(b) and b._text.strip():
+                b.set_text(b._text.rstrip() + " …")     # cut off: it doesn't look finished (review3 OVL2-b)
             self.add_system(lambda t: t("answer_stopped"))
         history = getattr(self, "_pending_history", None)
         if history and getattr(self, "_pending_stored", None):

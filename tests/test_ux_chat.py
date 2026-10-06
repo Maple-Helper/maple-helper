@@ -98,6 +98,23 @@ def test_send_becomes_stop_and_stopping_frees_the_chat(overlay):
     assert shown(bubble._text) == overlay.t("answer_stopped")
 
 
+def test_a_partial_answer_kept_after_stop_ends_in_an_ellipsis(overlay):
+    """review3 OVL2-b: what streamed before Stop stays, marked as cut off."""
+    release = threading.Event()
+
+    def slow_ask(*a, **kw):
+        release.wait(5)
+        return Answer(text="late")
+    overlay.brain.ask.side_effect = slow_ask
+    assert overlay.ask("where is Mano?")
+    bubble = overlay._pending_bubble
+    bubble.set_text("Mano is at the Turtle Bridge, ")     # streamed so far
+    overlay.stop_answer()
+    release.set()
+    assert shown(bubble._text) == "Mano is at the Turtle Bridge, …"
+    assert wait_until(overlay.app, lambda: overlay.brain.cancel.called)
+
+
 def test_enter_while_busy_never_stops_the_answer(overlay):
     overlay.busy = True
     overlay.input.setText("again?")
