@@ -168,3 +168,37 @@ def test_a_run_from_source_never_rewrites_the_windows_run_value(monkeypatch):
     monkeypatch.setattr(app.sys, "frozen", True, raising=False)
     app.MapleHelperApp.apply_autostart(fake)
     assert len(calls) == 1
+
+
+def test_a_kb_update_reopens_the_open_kb_windows_but_not_the_one_in_use(qapp, monkeypatch):
+    # LIF-13: Tools/Guides/... kept the old KnowledgeBase after an update, listing pages the swap removed
+    from maplehelper import inventory
+    monkeypatch.setattr(app, "load_kb", lambda: "new kb")
+    monkeypatch.setattr(app.tables, "ensure_async", lambda kb: None)
+    monkeypatch.setattr(inventory, "warm", lambda kb: None)
+    shots = []
+    monkeypatch.setattr(app.QTimer, "singleShot", lambda ms, fn: shots.append(fn))
+
+    class Win:
+        def __init__(self, active=False):
+            self.active, self.closed = active, False
+
+        def isActiveWindow(self):
+            return self.active
+
+        def isVisible(self):
+            return True
+
+        def close(self):
+            self.closed = True
+    tools, guides, settings = Win(), Win(active=True), Win()
+    reopened = []
+    fake = SimpleNamespace(brain=SimpleNamespace(), grind=SimpleNamespace(),
+                           overlay=SimpleNamespace(show_scope=lambda: None, show_news=lambda: None),
+                           _windows={"tools": tools, "guides": guides, "settings": settings},
+                           _reopen_call=lambda kind, dlg: lambda: reopened.append(kind))
+    app.MapleHelperApp.reload_kb(fake)
+    assert fake.overlay.kb == "new kb" and tools.closed and not guides.closed and not settings.closed
+    for fn in shots:
+        fn()
+    assert reopened == ["tools"]

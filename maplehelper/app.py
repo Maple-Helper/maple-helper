@@ -994,6 +994,15 @@ class MapleHelperApp:
         self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
+        # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
+        # they are, except the one the player is using (and Settings, which may hold unsaved changes)
+        for kind, dlg in list(self.__dict__.get("_windows", {}).items()):
+            if dlg is None or kind in ("settings", "whats_new") or dlg.isActiveWindow() or not dlg.isVisible():
+                continue
+            again = self._reopen_call(kind, dlg)
+            if again:                       # none: no way to bring it back as it is, leave it open
+                dlg.close()
+                QTimer.singleShot(0, again)
 
     def shutdown(self):
         telemetry.flush()
