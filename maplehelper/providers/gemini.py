@@ -209,6 +209,7 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
     "tool_calls", the tool steps it ran (the evals)."""
     current, result, errors, conv = "", None, [], None
     tools, active = 0, False      # a tool step reports ACTIVE, then DONE: counted when it turns active
+    seen: set = set()             # the tool steps' ids counted
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -225,7 +226,16 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
             s = ev.get("step_update") or {}
             conv = s.get("conversation_id") or conv
             if s.get("step_type") == "tool":
-                tools += s.get("state") == "ACTIVE" and not active
+                # by the step's id when it has one: a second tool going ACTIVE before the first was DONE wasn't
+                # counted; with none, a run of ACTIVE updates is one step
+                sid = next((s[k] for k in ("step_id", "step_index", "tool_call_id", "id") if s.get(k) is not None),
+                           None)
+                if sid is not None:
+                    if s.get("state") == "ACTIVE" and sid not in seen:
+                        tools += 1
+                        seen.add(sid)
+                else:
+                    tools += s.get("state") == "ACTIVE" and not active
                 active = s.get("state") == "ACTIVE"
             if s.get("step_type") == "tool" and s.get("state") == "ACTIVE":
                 current = ""

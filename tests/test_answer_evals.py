@@ -496,3 +496,17 @@ def test_a_quick_run_writes_no_log_file(kb, tmp_path, monkeypatch):
          "checks": {"must_mention": ["45"], "instant": True}}]}), encoding="utf-8")
     assert eval_answers.main(["--case-file", str(cases), "--kb", str(kb.root)]) == 0
     assert not (tmp_path / "reports").exists()
+
+
+def test_gemini_counts_overlapping_tool_steps_by_their_id():
+    from maplehelper.providers import gemini
+
+    def step(**kw):
+        return json.dumps({"event": "step_update", "step_update": kw})
+    lines = [step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="ACTIVE", step_id=2),
+             step(step_type="tool", state="ACTIVE", step_id=1), step(step_type="tool", state="DONE", step_id=1),
+             step(step_type="tool", state="DONE", step_id=2), step(step_type="agent_response", text_delta="Hunt"),
+             json.dumps({"event": "result", "result": {"status": "SUCCESS"}})]
+    stats: dict = {}
+    gemini.parse_events(lines, None, stats)
+    assert stats == {"tool_calls": 2}          # the second began before the first was done
