@@ -877,6 +877,10 @@ class Onboarding(GlassDialog):
                 self.settings["onboarding_done"] = True
             self.accept()
             return
+        if not self.only_character and self.stack.currentIndex() == 0:
+            # the pre-selected language, kept without a click: it was stored only on a click, so the AI got None
+            # and answered a Hebrew player's "Mano" in English
+            self.settings["language"] = self.lang_group.checkedButton().property("lang")
         self.stack.setCurrentIndex(self.stack.currentIndex() + 1)
         self._update_nav()
 

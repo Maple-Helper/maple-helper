@@ -547,7 +547,7 @@ class MapleHelperApp:
         self.brain.provider = self.settings["provider"]
         ai = providers.get(self.settings["provider"])
         self.brain.api_key = ai.load_api_key() if self.settings.api_key_mode(ai.name) else None
-        self.brain.ui_lang = self.settings["language"]
+        self.brain.ui_lang = self.settings["language"] or "he"     # (None before a first save: the UI is Hebrew)
         self.apply_saver_mode()
 
     def on_account_changed(self):
@@ -621,6 +621,8 @@ class MapleHelperApp:
         terms.hide()
         self.overlay.apply_capture_mode()
         self.apply_saver_mode()
+        # the answers' language for a name-only question: the new one now, not after a restart
+        self.brain.ui_lang = self.settings["language"] or "he"
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.voice.set_key(self.settings["hotkey_voice"])

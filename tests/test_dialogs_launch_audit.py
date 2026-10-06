@@ -96,3 +96,31 @@ def test_a_key_the_keychain_refuses_says_so(env, monkeypatch):
     assert not s.api_key_mode("claude") and not dlg._ai_ok
     assert "Couldn't save the key" in dlg.key_hint.text() and not dlg.key_hint.isHidden()
     dlg.close()
+
+
+# --- DLG-2 / DLG-3: the AI's language follows the app's ----------------------------------------------------------
+
+def test_the_preselected_language_is_stored_without_a_click(env):
+    from maplehelper.ui.dialogs import Onboarding
+    s, profiles, kb, _ = env
+    s["language"] = None                                 # a first run: nothing stored yet, the page shows Hebrew
+    dlg = Onboarding(s, profiles, kb, lambda *_: "")
+    assert dlg.lang_group.checkedButton().property("lang") == "he"
+    dlg._go_next()
+    assert s["language"] == "he" and dlg.stack.currentIndex() == 1
+    dlg.close()
+
+
+def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from maplehelper import app
+    fake = MagicMock()
+    fake.settings = {"language": "en", "telemetry": False, "saver_mode": False, "hotkey_voice": "F10"}
+    fake.brain = SimpleNamespace(ui_lang="he", prewarm=lambda: None)
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.brain.ui_lang == "en"
+    fake.settings["language"] = None
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.brain.ui_lang == "he"
