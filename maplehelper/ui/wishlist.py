@@ -1,4 +1,5 @@
-"""The wishlist window: each wished item, who drops it (lowest level first) and where they live."""
+"""The wishlist window: each wished item, who drops it (community-reported droppers first, then the reference
+list, each lowest level first) and where they live."""
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal, Slot
