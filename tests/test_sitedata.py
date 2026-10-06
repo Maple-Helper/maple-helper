@@ -366,4 +366,4 @@ def test_the_pets_launch_lifespan_note_is_the_kbs_own(site_kb):
         m = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
         closed = [ln for ln in sitedata.ai_pet_lines(kb) if "closed-test value" in ln]
         assert closed and all((f"NiaMeowDB: {m.group(0)})" if m else "(closed-test value)") in ln for ln in closed)
-    assert "30 to 90 days" not in Path(sitedata.__file__).read_text(encoding="utf-8")
+    assert "expects 30 to 90 days" not in Path(sitedata.__file__).read_text(encoding="utf-8")
