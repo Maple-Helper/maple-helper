@@ -496,7 +496,9 @@ def test_share_card_ellipsizes_a_long_name_and_wraps_a_long_map(isolated_store, 
     finally:
         app.setStyleSheet("")
     names = [t for o, t, _ in labels if o == "ShareName"]
-    assert "Kiwi" in names and any(t.endswith("…") and t.startswith("ElipazTheVery") for t in names)
+    # cut where the font's widths say, ending in "…": how many letters fit moved with the font engine's state in a
+    # full run ("ElipazThe…" once), so the cut is checked, not its exact place
+    assert "Kiwi" in names and any(t.endswith("…") and len(t) > 6 and long.name.startswith(t[:-1]) for t in names)
     assert a.width() == b.width() and b.height() >= a.height()        # the long map took a second line
 
 
