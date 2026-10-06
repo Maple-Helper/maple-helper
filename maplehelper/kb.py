@@ -102,6 +102,8 @@ PLAYER_HEBREW = (
     "ותשווה ותתחיל לבל לבלים לבלינג הלבלינג שלבלי שלבלים גרינד בגרינד מגרינדים הושלם מתוכנן")
 # the words after "Max" that make it a stat, not the NPC ("Max HP", "max level")
 _STAT_WORDS = {"hp", "mp", "level", "lv", "lvl", "stat", "stats", "damage", "dmg", "exp", "str", "dex", "int", "luk"}
+# the words after a sentence-start "Anvil" or a "the Anvil" that ask for the NPC itself ("Anvil location")
+_NPC_ASK = {"location", "locations", "where", "npc", "map", "quest", "quests", "shop", "sells", "in", "at", "on"}
 NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant form ("פיה" -> "פי" is no name)
 # the part of a name that marks one variant of an entity: "Nella (KPQ 1st Stage)", "Forgotten Hollow Instance 080003500"
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
@@ -758,9 +760,22 @@ class KnowledgeBase:
         # and "Max HP" / "Max level" is no NPC; "where is Max", "talk to Max" still are
         for m in found:
             before, after = text[:m.start()].rstrip(), text[m.end():].split(None, 1)
-            if before and before[-1] not in ".!?:;\n\"(" and before.split()[-1].lower() not in ("the", "a", "an") \
-                    and not (after and after[0].lower().strip(".,!?") in _STAT_WORDS):
-                return True
+            nxt = after[0].lower().strip(".,!?") if after else ""
+            prev = before.split()[-1].lower() if before else ""
+            if key.startswith("item/"):
+                # an equip type's word: "a Sword" is the family; "Sword stats", "the Spear cost" name the item
+                if prev not in ("a", "an"):
+                    return True
+                continue
+            if nxt in _STAT_WORDS:
+                continue
+            if not before or before[-1] in ".!?:;\n\"(" or prev in ("the", "a", "an"):
+                # "The Oak tree", "the Chef there": only the name alone, at its clause's end or asked about
+                # ("Max", "where is the Anvil", "Anvil location"; review CORE-2)
+                if not nxt or after[0][0] in ".,!?;:)" or nxt in _NPC_ASK:
+                    return True
+                continue
+            return True
         return False
 
     def find_mentions(self, text: str, max_results: int = 5, answer: bool = False) -> list[str]:

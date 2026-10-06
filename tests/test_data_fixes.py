@@ -886,6 +886,19 @@ def test_a_common_word_npc_written_as_a_name_still_counts(real):
     assert real.npc_key("Rain") in real.find_mentions("Where is Rain?")
 
 
+@needs_kb
+@pytest.mark.parametrize("text, name", [
+    ("where is the Anvil", "Anvil"), ("Anvil location", "Anvil"), ("where is the Anvil in Perion?", "Anvil"),
+    ("Max", "Max"), ("Exit", "Exit"), ("Max?", "Max"),
+    ("Sword stats", "Sword"), ("how much does the Spear cost", "Spear"), ("Spear vs Fork on a Stick", "Spear"),
+])
+def test_a_plain_question_about_a_common_word_npc_or_item_still_finds_it(real, text, name):
+    """KB-8/KB-31's rule (a sentence start or "the <Name>" is no name) dropped "where is the Anvil", "Max" asked
+    alone and "Sword stats" (review CORE-2). The everyday sentences above still find nothing."""
+    keys = real.find_mentions(text)
+    assert any((real.get(k) or {}).get("name") == name for k in keys), keys
+
+
 def test_a_hebrew_plural_of_a_name_ending_in_a_final_letter(tmp_path):
     """"גדם" + "ים" is written "גדמים": the final mem turns plain, and the plural still names Stump."""
     kb = small_kb(tmp_path, [ent("monster/1", "Stump", Level=4)], {"monster/1": ["גדם"]})
