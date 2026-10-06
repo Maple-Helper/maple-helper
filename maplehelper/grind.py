@@ -250,11 +250,35 @@ def _per_hour(value: float, seconds: float) -> int | None:
     return round(value * 3600 / seconds) if seconds >= 60 else None     # under a minute a rate means nothing
 
 
+def _level_fits(a: Reading, b: Reading) -> bool:
+    """b can follow a: the level never goes down, and goes up by at most one, plus one per 5 minutes between them
+    (35 read as 53 ten minutes later gave 48 million EXP/h, audit SCR-6)."""
+    return 0 <= b.level - a.level <= 1 + int(max(0.0, b.t - a.t) / 300)
+
+
+def _mesos_fit(a: Reading, b: Reading) -> bool:
+    """A digit too many or too few is a 10x jump: 1,234,567 read as 11,234,567 (audit SCR-6). Small sums move
+    freely (a few hundred mesos can triple with one drop)."""
+    lo, hi = sorted((a.mesos, b.mesos))
+    return lo * 5 >= hi or hi < 10_000
+
+
+def _agreeing(reads: list[Reading], fits) -> list[Reading]:
+    """The reads that agree with the one kept before them: one misread at either end of a session doesn't become
+    the session's gain. The first kept read is the first that agrees with the read after it."""
+    start = next((i for i in range(len(reads) - 1) if fits(reads[i], reads[i + 1])), 0)
+    kept = reads[start:start + 1]
+    for r in reads[start + 1:]:
+        if fits(kept[-1], r):
+            kept.append(r)
+    return kept
+
+
 def summarize(kb, s: Session, now: float | None = None) -> Summary:
     now = now or time.time()
     end = s.ended or now
     out = Summary(max(0.0, end - s.start), s.map, s.monster)
-    exp_reads = [r for r in s.reads if r.level and r.exp_pct is not None]
+    exp_reads = _agreeing([r for r in s.reads if r.level and r.exp_pct is not None], _level_fits)
     if exp_reads:
         a, b = exp_reads[0], exp_reads[-1]
         out.level_from, out.level_to, out.exp_level = a.level, b.level, b.level
@@ -273,7 +297,7 @@ def summarize(kb, s: Session, now: float | None = None) -> Summary:
                 out.exp_h, out.pct_h, out.to_level = rate["per_hour"], rate.get("pct_hour"), rate.get("to_level")
     else:
         out.exp_note = "no_exp"
-    mesos_reads = [r for r in s.reads if r.mesos is not None]
+    mesos_reads = _agreeing([r for r in s.reads if r.mesos is not None], _mesos_fit)
     if len(mesos_reads) >= 2:
         a, b = mesos_reads[0], mesos_reads[-1]
         out.mesos = b.mesos - a.mesos

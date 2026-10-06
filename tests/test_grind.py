@@ -68,6 +68,22 @@ def test_one_read_no_gain_and_past_the_table(math):
     assert sm.exp is None and sm.exp_note == "no_exp" and sm.mesos == 300 and sm.mesos_h == 600
 
 
+def test_one_misread_at_either_end_is_not_the_sessions_gain(math):
+    """A level or a mesos sum misread at the first or last read (audit SCR-6)."""
+    ok = (read(0, 21, 10.0, mesos=1_234_567), read(10, 21, 30.0, mesos=1_300_000), read(20, 21, 60.0, mesos=1_350_000))
+    sm = grind.summarize(math, session(*ok))
+    assert sm.exp == 600 and sm.mesos == 115_433
+    # Lv. 12 dropped (600); the second's 70% is a fine read (720), only its mesos are off
+    for bad_end, exp in ((read(30, 12, 70.0, mesos=11_350_000), 600), (read(30, 21, 70.0, mesos=135_000), 720)):
+        sm = grind.summarize(math, session(*ok, bad_end))
+        assert sm.exp == exp and sm.mesos == 115_433 and sm.level_to == 21
+    sm = grind.summarize(math, session(read(0, 23, 10.0, mesos=12_345_670), *ok[1:]))     # the first read misread
+    assert sm.exp == 360 and sm.mesos == 50_000 and sm.level_from == 21
+    # a real level up still counts, two of them in half an hour too
+    sm = grind.summarize(math, session(read(0, 20, 90.0), read(30, 22, 10.0)))
+    assert sm.level_to == 22 and sm.exp
+
+
 def test_a_read_that_missed_the_exp_bar_keeps_the_last_one_that_had_it(math):
     s = session(read(0, 21, 10.0), read(30, 21, 60.0), read(40, None, None, mesos=5))
     sm = grind.summarize(math, s, now=1_000_000 + 40 * 60)
