@@ -387,6 +387,14 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
                           text-align: left; font-weight: 500; }}
     QPushButton#Select:hover {{ background: {c['fill3']}; }}
     QPushButton#Select:pressed {{ background: {c['pressed']}; }}
+    /* a button that can't be pressed now (a chat choice row already answered, "Check key" while it checks, the
+       character menu while busy) looked exactly like a live one: greyed text on a flatter fill */
+    QPushButton#Chip:disabled, QPushButton#Secondary:disabled, QPushButton#NowChip:disabled,
+    QPushButton#Quick:disabled, QPushButton#TagChip:disabled, QPushButton#Select:disabled,
+    #ProfilePill:disabled {{ color: {c['faint']}; background: {c['fill1']}; border: 1px solid {c['hair']}; }}
+    QPushButton#Chip:checked:disabled, QPushButton#Quick:checked:disabled {{ border: 1px solid rgba(255,149,51,0.45); }}
+    QPushButton#Danger:disabled {{ background: rgba(255,59,48,0.35); color: rgba(255,255,255,0.75); }}
+    QToolButton#Icon:disabled, QToolButton#IconClose:disabled {{ color: {c['faint']}; background: transparent; }}
     QComboBox {{ background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 10px; min-height: 26px;
                  padding: 0 10px; color: {c['text']}; }}
     QComboBox::drop-down {{ border: none; width: 22px; }}

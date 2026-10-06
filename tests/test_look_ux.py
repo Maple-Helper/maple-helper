@@ -80,3 +80,32 @@ def test_light_chips_keep_their_colors():
     css = theme.stylesheet("Rubik", 14)
     assert _prop(_rule(css, "#TagWarn"), "color") == "#C9620A"
     assert _prop(_rule(css, "#TagGood"), "color") == theme.GOOD_TEXT_LIGHT
+
+
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_disabled_buttons_and_controls_look_disabled(app, mode):
+    """VIS-4: only Primary / Send / StepBtn / Link had a :disabled rule; an answered chat choice row, "Check key"
+    while it checks and the busy character menu were pixel-identical to live buttons."""
+    from PySide6.QtWidgets import QPushButton, QToolButton
+
+    from maplehelper.ui.controls import Select, Switch
+    theme.set_mode(mode)
+    app.setStyleSheet(theme.stylesheet("Rubik", 14))
+    makers = {name: (lambda name=name: QPushButton("Grind", objectName=name))
+              for name in ("Chip", "Secondary", "Danger", "NowChip", "Quick", "TagChip", "ProfilePill")}
+    makers.update({name: (lambda name=name: QToolButton(objectName=name, text=theme.ICON["settings"]))
+                   for name in ("Icon", "IconClose")})
+    makers["Select"] = lambda: Select(["F9"])
+    makers["Switch"] = lambda: Switch(True)
+    try:
+        for name, make in makers.items():
+            shots = []
+            for enabled in (True, False):
+                w = make()
+                w.setEnabled(enabled)
+                w.resize(90, 32)
+                shots.append(w.grab().toImage())
+                w.deleteLater()
+            assert shots[0] != shots[1], f"{name} looks the same disabled ({mode})"
+    finally:
+        app.setStyleSheet("")

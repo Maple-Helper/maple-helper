@@ -9,6 +9,8 @@ from PySide6.QtWidgets import (QAbstractButton, QButtonGroup, QFrame, QHBoxLayou
 from .. import bidi
 from . import theme
 
+DISABLED_OPACITY = 0.45      # a Switch / Select that can't be used now
+
 
 class Switch(QAbstractButton):
     """iOS switch: the knob slides with a critically damped ease; mirrors in RTL."""
@@ -45,6 +47,8 @@ class Switch(QAbstractButton):
     def paintEvent(self, e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # greyed, as iOS does (it looked live while it did nothing)
         w, h = 46, 28
         track = QRectF(0, (self.height() - h) / 2, w, h)
         off = QColor(120, 120, 128, 90) if theme.MODE == "dark" else QColor(120, 120, 128, 60)
@@ -420,6 +424,8 @@ class Select(QPushButton):
         cx = 14 if rtl else self.width() - 14          # chevrons on the trailing side
         cy = self.height() / 2
         col = QColor(235, 235, 245, 160) if theme.MODE == "dark" else QColor(60, 60, 67, 160)
+        if not self.isEnabled():
+            p.setOpacity(DISABLED_OPACITY)              # the chevrons grey out with the value (theme.py)
         p.setPen(QPen(col, 1.6, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin))
         up, down = QPainterPath(), QPainterPath()
         up.moveTo(QPointF(cx - 3.5, cy - 2))
