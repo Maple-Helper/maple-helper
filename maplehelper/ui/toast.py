@@ -5,7 +5,7 @@ from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, Qt, 
 from PySide6.QtGui import QGuiApplication, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
 
-from .. import bidi
+from .. import bidi, osapi
 from ..store import ASSETS
 from . import theme
 from .glass import SHADOW, paint_glass
@@ -109,6 +109,7 @@ class Toast(QWidget):
         self.setWindowOpacity(0.0)
         self.move(QPoint(x, y + 12))
         self.show()
+        osapi.float_over_fullscreen(int(self.winId()))   # macOS: over a fullscreen game's Space too
         self._anim(1.0, QPoint(x, y))
         self._timer.start()
 
