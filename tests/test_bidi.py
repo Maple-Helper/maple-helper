@@ -237,3 +237,37 @@ def test_an_old_to_new_arrow_reads_left_to_right(sentence, old, new):
     x = glyph_x(shown)
     arrow = shown.index("→" if "→" in shown else "->")
     assert x[shown.index(old)] < x[arrow] < x[shown.index(new)]
+
+
+@pytest.mark.parametrize("sentence,order", [("הרמות 10 → 20 → 30 בסדר", "10→20→30"),
+                                            ("עלייה Lv. 30 → Lv. 35 היום", "Lv.30→Lv.35"),
+                                            ("טווח 1-5 → 2-8 נזק", "1-5→2-8"),
+                                            ("הנזק (COT2 → Launch) השתנה", "COT2→Launch")])
+def test_an_arrow_chain_of_values_is_one_block(sentence, order):
+    """"10 → 20 → 30" paired only "10 → 20" and threw "30" to the other end; "Lv. 30 → Lv. 35" paired "30 → Lv"
+    (the review, UI-1)."""
+    shown = bidi.isolate_ltr_runs(sentence)
+    assert shown.count(bidi.LRI) == 1
+    assert order in _reading_order(shown)
+
+
+@pytest.mark.parametrize("names", [[], ["Blue Snail", "Red Snail", "Orange Mushroom", "Victoria Road",
+                                        "Ant Tunnel I", "Ant Tunnel II", "Henesys", "Ellinia", "Perion"]])
+@pytest.mark.parametrize("sentence,whole", [
+    ("Blue Snail → Red Snail → Orange Mushroom לפי הסדר", ["BlueSnail→RedSnail→OrangeMushroom"]),
+    ("לכו מ-Henesys → Victoria Road ברגל", ["Henesys→VictoriaRoad"]),
+    ("Ant Tunnel I → Ant Tunnel II: מפה אחת", ["AntTunnelI→AntTunnelII"]),
+    ("Henesys -> Ellinia -> Perion זה המסלול", ["Henesys->Ellinia->Perion"]),
+])
+def test_an_arrow_between_names_keeps_the_route_in_order(names, sentence, whole):
+    """The arrow's sides were "any letters": "Blue Snail → Red Snail" came out as "Blue", "Snail → Red", "Snail"
+    (the review, UI-1). A name is never cut at the arrow, and a route reads in its order (as three runs,
+    "A → B → C" showed "C → B → A" in a Hebrew line), with or without KB names registered."""
+    bidi.set_names(names)
+    try:
+        shown = bidi.isolate_ltr_runs(sentence)
+    finally:
+        bidi.set_names([])
+    order = _reading_order(shown)
+    for name in whole:
+        assert name in order, f"{name!r} cut in {sentence!r}: {order}"

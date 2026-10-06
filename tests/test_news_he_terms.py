@@ -62,3 +62,19 @@ def test_a_hand_made_news_translation_is_put_in_the_apps_terms(tmp_path, monkeyp
     assert translate_news.import_("he", src) == 1
     row = json.loads((tmp_path / "he.json").read_text(encoding="utf-8"))["fa"]
     assert "לבל" not in json.dumps(row, ensure_ascii=False) and row["summary"] == "אפשר להגיע עד רמה 100."
+
+
+def test_the_next_night_cleans_hebrew_news_already_published(tmp_path):
+    """A KB published before the pipeline cleaned the news still said "תקרת לבל 100" and failed kb_release validate:
+    the next night's update rewrites what news.json has, even when the news page can't be fetched, and counts it
+    as a change so the clean KB is published (the review, UI-5)."""
+    i = {**_item(), "title_he": BAD["title"], "summary_he": BAD["summary"], "highlights_he": BAD["highlights"],
+         "commentary_he": BAD["commentary"]}
+    ok = {**_item(), "id": "ok", "title_he": "אל תתנו לזה לבלבל אתכם"}
+    (tmp_path / "news.json").write_text(json.dumps({"items": [i, ok]}, ensure_ascii=False), encoding="utf-8")
+    assert kb_release._news_hebrew_problems([i])
+    assert scrape_news.update(tmp_path, lambda url: None) == 1          # the site down tonight: still cleaned
+    items = json.loads((tmp_path / "news.json").read_text(encoding="utf-8"))["items"]
+    assert kb_release._news_hebrew_problems(items) == []
+    assert items[0]["title_he"] == "פרטי Founder's Access: תקרת רמה 100" and items[1] == ok
+    assert scrape_news.clean_hebrew(tmp_path) == 0                    # once clean, no change a night

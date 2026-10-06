@@ -36,9 +36,22 @@ def overlay(isolated_store, kb, monkeypatch):
     ov.show()
     ov.app = app
     yield ov
+    from PySide6.QtCore import QThread
+    for th in ov.findChildren(QThread):      # an answer still on its thread ends before the window does
+        th.quit()
+        th.wait(2000)
     ov.hide()
     ov.bubble.hide()
     ov.deleteLater()
+    flush(app)
+
+
+def flush(app):
+    """deleteLater() outside a running event loop: delete now (as tests/test_chat_audit.py's pump does), so no
+    window of this file is left for the next file's first event pump (the review, UI-6)."""
+    app.processEvents()
+    app.sendPostedEvents(None, QEvent.DeferredDelete)
+    app.processEvents()
 
 
 def pump(app, ms):

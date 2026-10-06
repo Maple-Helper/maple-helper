@@ -71,3 +71,15 @@ def test_votes_and_a_mesos_loss_read_right():
     t = I18n("he")
     assert "1 שחקנים" not in t("votes_tip", up=1, down=2)
     assert "ב--" not in t("grind_tip_mesos_down", n="1,250") and "ירד" in t("grind_tip_mesos_down", n="1,250")
+
+
+def test_hebrew_mac_settings_paths_match_the_english():
+    """The macOS 15 permission name and the full Function Keys path were added to the English only; a Hebrew Mac
+    player on macOS 15 didn't find the setting (the review, UI-4)."""
+    from maplehelper.i18n import I18n
+    he = lambda key: I18n("he")(key).replace(" ", " ")      # (whole names: i18n.WHOLE_NAMES)
+    en = I18n("en")
+    assert "macOS 15" in en("perm_screen_body") and "macOS 15: הקלטת מסך ושמע מערכת" in he("perm_screen_body")
+    for key in ("ob_done_hint_mac", "hotkey_fn_mac"):
+        assert "Keyboard Shortcuts > Function Keys" in en(key)
+        assert "הגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה" in he(key)

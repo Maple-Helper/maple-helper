@@ -1151,6 +1151,9 @@ class SettingsDialog(GlassDialog):
         self.finished.connect(lambda *_: stop_login())
         self._login_timer = QTimer(self, interval=3000)
         self._login_timer.timeout.connect(self._login_tick)
+        # closed while a sign-in waited, the timer went on: its timeout put the closed window back on screen
+        # (_set_on_top shows it), and its checks ran on for 3 minutes (it also crashed a later test, the review UI-6)
+        self.finished.connect(lambda *_: self._login_timer.stop())
         self._refresh_account()
 
         # usage of the plan above (Claude reports it with each answer, ChatGPT when asked) and saver mode

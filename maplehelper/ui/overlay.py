@@ -1086,7 +1086,8 @@ class Overlay(QWidget):
         # no question running: a screen read holds the chat ("still answering" was false during a grind session)
         key = "busy_wait" if self.busy else "busy_reading"
         line = getattr(self, "_busy_line", None)
-        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2                 and getattr(self, "_busy_key", None) == key:
+        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2 \
+                and getattr(self, "_busy_key", None) == key:
             return
         self._busy_key = key
         self._busy_line = self.add_system(lambda t: t(key))

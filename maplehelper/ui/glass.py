@@ -72,7 +72,7 @@ def paint_glass(widget, backdrop=None, strength: float = 0.6, radius: float = No
 class _DragBar(QWidget):
     def __init__(self):
         super().__init__()
-        self._grab = None          # (its window is self.window(), not kept: see GlassBackdrop.widget)
+        self._grab = None          # (its window is self.window(), not kept)
 
     def mousePressEvent(self, e):
         if e.button() == Qt.LeftButton:

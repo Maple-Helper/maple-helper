@@ -1,5 +1,6 @@
 """Choosing Claude or Codex in onboarding and settings (offscreen Qt, no real CLI calls)."""
 import os
+import threading
 
 import pytest
 
@@ -22,7 +23,21 @@ def env(qapp, isolated_store, kb, monkeypatch):
                         lambda self: {"status": "logged_out", "email": None, "method": None})
     s = isolated_store.Settings()
     s["language"] = "en"
-    return s, isolated_store.Profiles(), kb
+    from PySide6.QtWidgets import QApplication
+    windows = set(QApplication.topLevelWidgets())
+    before = set(threading.enumerate())
+    yield s, isolated_store.Profiles(), kb
+    # the dialogs' account checks run on threads: they end before their dialog is freed (an emit into a deleted
+    # dialog crashed the next file's first event pump, test_overlay_audit's, the review UI-6)
+    for th in set(threading.enumerate()) - before:
+        th.join(timeout=10)
+    # a dialog a test left open kept its sign-in timer: it fired in the next file's first event pump, with this
+    # file's fakes gone, and the run died of an access violation (test_overlay_audit after these, the review UI-6)
+    from PySide6.QtCore import QTimer
+    for w in set(QApplication.topLevelWidgets()) - windows:
+        for timer in w.findChildren(QTimer):
+            timer.stop()
+        w.close()
 
 
 def test_onboarding_relabels_the_connect_page_for_codex(env):
@@ -433,3 +448,28 @@ def test_a_second_sign_in_click_does_not_open_a_second_browser(env, monkeypatch)
     dlg._switch_account()                    # a second click while the first waits for the browser
     assert starts == [1] and logouts == []
     base._login = None
+
+
+def test_closing_settings_during_a_sign_in_stops_its_timer(env, monkeypatch):
+    """Settings closed while a sign-in waited kept its 3-second timer: at its timeout it showed the closed window
+    again (_set_on_top), and its account checks ran on (the review, UI-6)."""
+    from maplehelper import providers
+    from maplehelper.ui.dialogs import SettingsDialog
+    s, profiles, kb = env
+    s["provider"] = "codex"
+
+    class Waiting:
+        returncode = None
+
+        def poll(self):
+            return None
+
+        def kill(self):
+            pass
+    monkeypatch.setattr(type(providers.get("codex")), "login", lambda self: Waiting())
+    dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
+    dlg._on_account({"status": "logged_out", "email": None, "provider": "codex"})
+    dlg._start_login()
+    assert dlg._login_timer.isActive() and dlg.isVisible()
+    dlg.close()
+    assert not dlg._login_timer.isActive()

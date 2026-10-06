@@ -148,7 +148,8 @@ class WishlistDialog(GlassDialog):
         title.setAlignment(self._align)
         # this row's own drop list when the droppers mix them, the players' votes when players reported it ("16 ✓"),
         # and a KB update this week that changed the monster
-        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else [])             + [c for c in [updated_tag(t, kb, m)] if c]
+        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else []) \
+            + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
             # a flow, not one row: name + Lv, "Community", "Single report" and "Updated" in one row were 570 px
             # and pushed the whole window wider than its 434 px view, clipping every row (the site's shot)
