@@ -212,7 +212,9 @@ LENGTH_LINES = {"short": 6, "detailed": 15}
 HUD_RULE = ("The screenshot's HUD (bottom left: level, job, character name) is the truth for this moment: read it before "
             "<player_profile>. When its name (even one letter apart), level or job differs from the profile, answer from "
             "the HUD and put the HUD's facts, with its exact \"name\", in profile_update.")
-NOT_OUT = "NOT in the game: the knowledge base doesn't confirm it is out. Never recommend it; if asked, say it isn't out yet."
+# "if asked" let a stats question through: "how much EXP does Crimson Balrog give" got its EXP as a live boss's
+NOT_OUT = ("NOT in the game: the knowledge base doesn't confirm it is out. Never recommend it. Any answer about it (its "
+           "stats, EXP, drops or place) says first that it isn't in the game yet.")
 
 
 _SECTION_END = ("Associated Quests", "Map Locations", "Respawn Timer", "Change history", "Similar monsters",

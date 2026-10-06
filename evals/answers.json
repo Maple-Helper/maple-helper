@@ -1569,13 +1569,19 @@
    "question": "ג'וב שני לגנב באיזה רמה?",
    "lang": "he",
    "kind": "job",
-   "why": "audit AI-4: the class named with 2nd job got the 1st-job lead (level 10)",
+   "why": "audit AI-4: the class named with 2nd job got the 1st-job lead (level 10). A Thief before the 2nd job, so both branches are the right answer (an Assassin profile got only its own)",
    "checks": {
     "must_mention": [
      "30",
      "Assassin",
      "Bandit"
     ]
+   },
+   "profile": {
+    "name": "EvalThief",
+    "base_class": "Thief",
+    "job": "Thief",
+    "level": 27
    }
   },
   {
