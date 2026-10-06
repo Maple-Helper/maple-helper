@@ -158,6 +158,28 @@ def test_every_guide_link_opens_a_guide():
     assert not dead
 
 
+# Guides already swept for the owner's Hebrew rules (launch audit HEB-1/2/3); the rest join once their pass lands
+HEB_CLEAN = ("fp-wizard-class-guide hp-mp-gain-explained hunter-class-guide il-wizard-class-guide "
+             "kerning-city-party-quest-kpq-guide magician-class-guide maplestory-classic-glossary "
+             "maplestory-classic-worlds-release-date page-class-guide spawn-engine-respawn-and-map-capacity "
+             "spearman-class-guide speed-jump-and-movement thief-class-guide warrior-class-guide weapon-reach "
+             "what-is-maplestory-classic-worlds").split()
+
+
+@pytest.mark.parametrize("stem", HEB_CLEAN)
+def test_hebrew_guide_keeps_the_owners_terms(stem):
+    """רמה (never לבל; לבלבל "to confuse" is a real word), גריינד without ל-, plural address, mesos in English."""
+    import json
+    import re
+    he = json.loads((guides.TRANSLATIONS / "he" / f"{stem}.json").read_text(encoding="utf-8"))
+    text = json.dumps({k: v for k, v in he.items() if k != "source_hash"}, ensure_ascii=False)
+    bad = re.findall(r"\S*(?:(?<!ל)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|בבערך)\S*", text)
+    bad += re.findall(r"(?<![א-ת])(?:אתה|שלך|ממך|אותך|בשבילך|עליך|לפניך|בינך)(?![א-ת])", text)
+    bad += re.findall(r"(?<![א-ת])[לב]?(?:כל )?מסו(?![א-ת])", text)
+    bad += re.findall(r"ברמה (?:גבוה|נמוך|מקסימלי|הבא)(?![א-ת])", text)
+    assert not bad, bad
+
+
 def test_translation_round_trip_keeps_blocks():
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
