@@ -81,9 +81,15 @@ def test_login_item_refused_on_a_disk_image_tells_the_player(monkeypatch):
     toasts = []
     me = SimpleNamespace(settings={"start_with_windows": True, "language": "en"},
                          toast=lambda title, body="", timeout_ms=0: toasts.append(body))
+    monkeypatch.setattr(osapi, "IS_MAC", True)
     monkeypatch.setattr(osapi, "set_autostart", lambda on, args: False)
     app.MapleHelperApp.apply_autostart(me)
     assert toasts == [I18n("en")("start_at_login_move")]
     monkeypatch.setattr(osapi, "set_autostart", lambda on, args: None)      # Windows: nothing to say
+    app.MapleHelperApp.apply_autostart(me)
+    assert len(toasts) == 1
+    # Windows' Run key not written: logged there, never the macOS "move it to Applications" (audit SCR-17)
+    monkeypatch.setattr(osapi, "IS_MAC", False)
+    monkeypatch.setattr(osapi, "set_autostart", lambda on, args: False)
     app.MapleHelperApp.apply_autostart(me)
     assert len(toasts) == 1

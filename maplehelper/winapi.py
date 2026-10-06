@@ -174,19 +174,6 @@ def capture_game(hwnd: int | None = None) -> bytes | None:
     return None if hidden else grab_jpeg(rect)
 
 
-def is_exclusive_fullscreen(hwnd: int | None) -> bool:
-    """Best-effort: a window covering its monitor with no Borderless flag set by the game.
-
-    True exclusive fullscreen can't be detected reliably from outside; the overlay
-    shows a hint only when it failed to appear over a covering window.
-    """
-    return False
-
-
-def foreground_window() -> int:
-    return user32.GetForegroundWindow()
-
-
 def focus_window(hwnd: int) -> None:
     if hwnd and user32.IsWindow(hwnd):
         user32.SetForegroundWindow(hwnd)
@@ -258,8 +245,9 @@ class Hotkeys(QObject):
             self.unregister(hid)
 
 
-def set_autostart(enabled: bool, args: list[str]) -> None:
-    """Start at sign-in (HKCU Run key) with `args` appended to the app's command line."""
+def set_autostart(enabled: bool, args: list[str]) -> bool:
+    """Start at sign-in (HKCU Run key) with `args` appended to the app's command line. False (and logged) when the
+    Run key couldn't be written: the setting looked on but wasn't (audit SCR-17)."""
     import winreg
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
@@ -271,79 +259,11 @@ def set_autostart(enabled: bool, args: list[str]) -> None:
                     winreg.DeleteValue(k, APP_NAME)
                 except FileNotFoundError:
                     pass
-    except OSError:
-        pass
-
-
-# ---------------------------------------------------------------- glass material
-
-class _ACCENT(ctypes.Structure):
-    _fields_ = [("AccentState", ctypes.c_int), ("AccentFlags", ctypes.c_int),
-                ("GradientColor", ctypes.c_uint), ("AnimationId", ctypes.c_int)]
-
-
-class _WCAD(ctypes.Structure):
-    _fields_ = [("Attribute", ctypes.c_int), ("Data", ctypes.c_void_p), ("SizeOfData", ctypes.c_size_t)]
-
-
-ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
-WCA_ACCENT_POLICY = 19
-
-
-def transparency_enabled() -> bool:
-    """Windows 'Transparency effects' setting (the reduced-transparency preference)."""
-    import winreg
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
-                            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as k:
-            return bool(winreg.QueryValueEx(k, "EnableTransparency")[0])
-    except OSError:
-        return True
-
-
-def enable_acrylic(hwnd: int, tint_rgba: tuple[int, int, int, int] = (18, 14, 12, 80)) -> bool:
-    """Blur what is behind the window (the game) — the glass material. Returns False if unsupported."""
-    try:
-        r, g, b, a = tint_rgba
-        accent = _ACCENT(ACCENT_ENABLE_ACRYLICBLURBEHIND, 0x20 | 0x40 | 0x80 | 0x100, (a << 24) | (b << 16) | (g << 8) | r, 0)
-        data = _WCAD(WCA_ACCENT_POLICY, ctypes.cast(ctypes.pointer(accent), ctypes.c_void_p), ctypes.sizeof(accent))
-        return bool(user32.SetWindowCompositionAttribute(wt.HWND(hwnd), ctypes.byref(data)))
-    except (AttributeError, OSError):
+    except OSError as e:
+        import logging
+        logging.getLogger("maplehelper").warning("start with Windows could not be set: %s", e)
         return False
-
-
-def round_window(hwnd: int, w: int, h: int, radius: int) -> None:
-    """Clip the window (and its blur) to a rounded rectangle."""
-    gdi32 = ctypes.windll.gdi32
-    rgn = gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1, radius * 2, radius * 2)
-    user32.SetWindowRgn(wt.HWND(hwnd), rgn, True)
-
-
-class _BLURBEHIND(ctypes.Structure):
-    _fields_ = [("dwFlags", wt.DWORD), ("fEnable", wt.BOOL), ("hRgnBlur", wt.HRGN),
-                ("fTransitionOnMaximized", wt.BOOL)]
-
-
-class _MARGINS(ctypes.Structure):
-    _fields_ = [("l", ctypes.c_int), ("r", ctypes.c_int), ("t", ctypes.c_int), ("b", ctypes.c_int)]
-
-
-def glass_window(hwnd: int, tint_rgba=(18, 14, 12, 70), shadow: bool = True) -> bool:
-    """Acrylic material for a normal (non-layered) frameless window, the way DWM expects it:
-    blur-behind on the client area + acrylic accent + rounded corners and a system shadow."""
-    ok = False
-    try:
-        bb = _BLURBEHIND(1, True, None, False)
-        dwmapi.DwmEnableBlurBehindWindow(wt.HWND(hwnd), ctypes.byref(bb))
-        ok = enable_acrylic(hwnd, tint_rgba)
-        pref = ctypes.c_int(2)  # DWMWCP_ROUND
-        dwmapi.DwmSetWindowAttribute(wt.HWND(hwnd), 33, ctypes.byref(pref), ctypes.sizeof(pref))
-        if shadow:
-            m = _MARGINS(-1, -1, -1, -1)
-            dwmapi.DwmExtendFrameIntoClientArea(wt.HWND(hwnd), ctypes.byref(m))
-    except (AttributeError, OSError):
-        return False
-    return ok
+    return True
 
 
 # mss on Windows takes physical pixels: callers scale Qt's logical coordinates by the device pixel ratio
