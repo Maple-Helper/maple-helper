@@ -323,10 +323,12 @@ def test_profiles_default_case_and_override():
 
 @needs_real_kb
 def test_list_names_are_real_kb_names(real_kb):
-    """Every name a list check expects (or forbids) is part of a real KB name: a typo would fail every run."""
+    """Every name a list check expects (or forbids) is part of a real KB name: a typo would fail every run. Each
+    alternative of an "a|b" needle on its own."""
     names = [eval_answers._norm(e["name"]) for e in real_kb.entities.values()]
-    unknown = [(c["id"], n) for c in eval_answers.load_cases() for k in ("must_list", "must_not_list")
-               for n in c["checks"].get(k, []) if not any(eval_answers._norm(n) in m for m in names)]
+    unknown = [(c["id"], v) for c in eval_answers.load_cases() for k in ("must_list", "must_not_list")
+               for n in c["checks"].get(k, []) for v in n.split("|")
+               if not any(eval_answers._norm(v) in m for m in names)]
     assert unknown == []
 
 
@@ -592,3 +594,21 @@ def test_gemini_counts_overlapping_tool_steps_by_their_id():
     stats: dict = {}
     gemini.parse_events(lines, None, stats)
     assert stats == {"tool_calls": 2}          # the second began before the first was done
+
+
+def test_a_needle_can_name_the_longer_name_that_rightly_says_it():
+    """The whole-word rule failed right answers: the Deep Ant Tunnel's monster is "Jr. Boogie 2", a Hunter's skill is
+    "Soul Arrow: Bow". "a|b" takes either; a plain needle still isn't said by a longer name."""
+    class KB:
+        entities = {"monster/1": {"name": "Jr. Boogie 2"}, "monster/2": {"name": "Jr. Boogie"}}
+
+        def get(self, key):
+            return self.entities.get(key)
+    kb = KB()
+
+    def ans(text):
+        return type("A", (), {"text": text, "entities": [], "drop_groups": []})()
+    assert eval_answers.score({"must_list": ["Jr. Boogie|Jr. Boogie 2"]}, ans("Evil Eye and Jr. Boogie 2"), kb) == []
+    assert eval_answers.score({"must_list": ["Jr. Boogie|Jr. Boogie 2"]}, ans("Evil Eye and Jr. Boogie"), kb) == []
+    assert eval_answers.score({"must_list": ["Jr. Boogie"]}, ans("Evil Eye and Jr. Boogie 2"), kb) == [
+        "list misses 1/1: 'Jr. Boogie'"]

@@ -213,7 +213,10 @@ def _longer(kb, value: str) -> list[str]:
 def _found(hay: str, value: str, kb) -> bool:
     """value is in what the player sees as itself: whole words or a whole number, and not only inside a longer KB
     name ("Garnet" is not said by "Garnet Ore", "Henesys" not by a "Return Scroll to Henesys" card). Plain
-    substrings passed wrong answers and failed right ones."""
+    substrings passed wrong answers and failed right ones. "a|b" is found when either is: the name a longer KB name
+    rightly says too ("Jr. Boogie|Jr. Boogie 2", "Soul Arrow|Soul Arrow: Bow")."""
+    if "|" in value:
+        return any(_found(hay, v, kb) for v in value.split("|"))
     value = _norm(value)
     covered = [m.span() for n in _longer(kb, value) if n in hay
                for m in re.finditer(rf"(?<![{_EDGE}]){re.escape(n)}(?![{_EDGE}])", hay)] if kb is not None else []

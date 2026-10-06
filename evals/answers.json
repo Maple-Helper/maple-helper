@@ -720,7 +720,13 @@
    "kind": "training",
    "checks": {
     "must_mention_any": [
-     "Ant Tunnel"
+     "Ant Tunnel I",
+     "Ant Tunnel II",
+     "Ant Tunnel III",
+     "Ant Tunnel IV",
+     "Ant Tunnel Park",
+     "Deep Ant Tunnel I",
+     "Deep Ant Tunnel II"
     ]
    }
   },
@@ -1121,8 +1127,8 @@
     ],
     "must_list": [
      "Raymond",
-     "Henesys",
-     "Kerning City"
+     "Henesys|Henesys Town Hall",
+     "Kerning City|Kerning City Civic Center"
     ]
    }
   },
@@ -1154,13 +1160,13 @@
     "list",
     "monsters"
    ],
-   "why": "Deep Ant Tunnel I (map/010005066) monster table: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27, Jr. Boogie 2 35 (2 spawns, 3 min respawn). 'Jr. Boogie' matches the name with or without the 2.",
+   "why": "Deep Ant Tunnel I (map/010005066) monster table: Horny Mushroom 22, Zombie Mushroom 24, Evil Eye 27, Jr. Boogie 2 35 (2 spawns, 3 min respawn). 'Jr. Boogie|Jr. Boogie 2': either name.",
    "checks": {
     "must_list": [
      "Horny Mushroom",
      "Zombie Mushroom",
      "Evil Eye",
-     "Jr. Boogie"
+     "Jr. Boogie|Jr. Boogie 2"
     ]
    }
   },
@@ -1365,10 +1371,10 @@
     "must_list": [
      "Bow Mastery",
      "Amazon's Judgement",
-     "Final Attack",
+     "Final Attack|Final Attack: Bow",
      "Bow Booster",
-     "Soul Arrow",
-     "Arrow Bomb"
+     "Soul Arrow|Soul Arrow: Bow",
+     "Arrow Bomb|Arrow Bomb: Bow"
     ]
    }
   },
@@ -1424,7 +1430,7 @@
    "why": "Maya (npc/207) page: Location 'Henesys Townstreet, Victoria Road'; 'Quests Given (5)': Maya of Henesys, Maya's First, Second, Third and Last Collection (all in game).",
    "checks": {
     "must_mention": [
-     "Henesys"
+     "Henesys|Henesys Townstreet"
     ],
     "must_list": [
      "Maya of Henesys",
