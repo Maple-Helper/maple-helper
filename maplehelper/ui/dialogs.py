@@ -35,6 +35,31 @@ def set_hint(lb: QLabel, text: str, rtl: bool) -> None:
         lb.setText(bidi.plain(text, False))
 
 
+# the account checks and sign-outs run on threads: an unexpected error there emitted nothing, and the window said
+# "Checking…" forever with Next or "Switch account" disabled. Logged, and the window settles on "offline"
+def _safe_status(ai) -> str:
+    try:
+        return ai.status()
+    except Exception:  # noqa: BLE001
+        log.exception("%s: the account check failed", ai.name)
+        return "offline"
+
+
+def _safe_account(ai) -> dict:
+    try:
+        return {**ai.account(), "provider": ai.name}
+    except Exception:  # noqa: BLE001
+        log.exception("%s: the account check failed", ai.name)
+        return {"status": "offline", "email": None, "provider": ai.name}
+
+
+def _safe_logout(ai) -> None:
+    try:
+        ai.logout()
+    except Exception:  # noqa: BLE001
+        log.exception("%s: signing out failed", ai.name)
+
+
 CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוסם", "Bowman": "קשת", "Thief": "גנב"}
 # Only the level field's bound, not the game's level cap: the KB says no launch cap is published (testers reached
 # at least 100). It matches the bound the saved profile keeps (store._repair), so nothing typed here is
@@ -720,7 +745,7 @@ class Onboarding(GlassDialog):
         if not self._signing_in:
             self.status_label.setText(bidi.plain(self.t("ob_checking"), self.t.rtl))
         ai = self._ai()
-        threading.Thread(target=lambda: self._bridge.status.emit(ai.name, ai.status()), daemon=True).start()
+        threading.Thread(target=lambda: self._bridge.status.emit(ai.name, _safe_status(ai)), daemon=True).start()
 
     def _poll_status(self, seconds: int):
         """One timer for the dialog: a second sign-in click used to start another, and the first kept running."""
@@ -1311,8 +1336,7 @@ class SettingsDialog(GlassDialog):
 
     def _refresh_account(self):
         ai = self._ai()
-        threading.Thread(target=lambda: self._account_bridge.account.emit({**ai.account(), "provider": ai.name}),
-                         daemon=True).start()
+        threading.Thread(target=lambda: self._account_bridge.account.emit(_safe_account(ai)), daemon=True).start()
 
     def _set_account_text(self, text: str):
         self.account_label.setText(bidi.plain(text, self.t.rtl))
@@ -1398,7 +1422,7 @@ class SettingsDialog(GlassDialog):
         self._logout_for = ai.name
 
         def work():
-            ai.logout()
+            _safe_logout(ai)
             self._account_bridge.logged_out.emit()
         threading.Thread(target=work, daemon=True).start()
 
@@ -1509,8 +1533,8 @@ class SettingsDialog(GlassDialog):
             return
 
         def work():
-            ai.logout()
-            self._account_bridge.account.emit({**ai.account(), "provider": ai.name})
+            _safe_logout(ai)
+            self._account_bridge.account.emit(_safe_account(ai))
         threading.Thread(target=work, daemon=True).start()
 
     def _clear_history(self):
