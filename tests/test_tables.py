@@ -585,3 +585,9 @@ def test_real_tables_audit_fixes(real):
     assert min(r["exp_rank"] for r in t["maps"] if r["exp_rank"]) == 1
     assert not [r for r in t["scrolls"] if "Forgotten Hollow" in (r.get("seller") or "")]
     assert not [r for r in t["shops"] if "Forgotten Hollow" in r["place"]]
+
+
+def test_the_background_build_warms_the_first_questions_caches(tiny):
+    """The name indexes, droppers and route graph were built on the first question's answer path (~1 s)."""
+    tables.ensure_async(tiny).join(timeout=60)
+    assert {"_question_names", "_hebrew_words", "droppers"} <= set(vars(tiny)) and getattr(tiny, "_routes", None)

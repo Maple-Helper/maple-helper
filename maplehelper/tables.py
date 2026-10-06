@@ -199,6 +199,15 @@ def ensure_async(kb) -> threading.Thread:
             ensure(kb, wait=600)
         except Exception:          # noqa: BLE001 - a background build never takes the app down
             log.warning("knowledge-base tables not built", exc_info=True)
+        try:
+            # the name indexes, the droppers and the route graph are built on first use: here, not on the first
+            # question's answer path (~1 s cold)
+            from . import routes
+            for name in ("_question_names", "_hebrew_words", "droppers"):
+                getattr(kb, name, None)
+            routes.of(kb)
+        except Exception:          # noqa: BLE001 - warming is a nicety: the question builds them itself
+            log.warning("knowledge-base caches not warmed", exc_info=True)
     th = threading.Thread(target=work, daemon=True, name="kb-tables")
     th.start()
     return th
