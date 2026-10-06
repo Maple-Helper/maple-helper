@@ -1,68 +1,12 @@
-"""A liquid-glass backdrop that works even with the system's transparency effects off.
-
-The overlay excludes itself from screen capture, samples what is behind it
-(the game), and repaints that as a frosted, color-saturated material a few
-times a second. Sampling happens at quarter resolution, so it stays cheap.
+"""The app's glass material: every window (the chat, dialogs, toasts) is painted with paint_glass, an opaque
+neutral tint with a soft shadow, sheen and rim, the same with the system's transparency effects on or off. The
+windows show in screenshots and recordings like any app.
 """
 from __future__ import annotations
 
-from PIL import ImageEnhance, ImageFilter
-from PySide6.QtCore import QEvent, QObject, QTimer, Signal
-from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtCore import QEvent, QObject, QTimer
 
-from .. import osapi
 from ..i18n import I18n
-
-SCALE = 0.25          # sample at quarter resolution
-BLUR = 7              # at quarter scale ≈ 28px of real blur
-SATURATION = 1.7      # iOS-style vibrancy: blurred colors get richer, not muddier
-BRIGHTNESS = 0.78
-INTERVAL_MS = 120
-
-
-class GlassBackdrop(QObject):
-    updated = Signal()
-
-    def __init__(self, widget):
-        super().__init__(widget)
-        self.pixmap: QPixmap | None = None
-        self.timer = QTimer(self, interval=INTERVAL_MS, timeout=self.refresh)
-
-    def start(self):
-        self.refresh()
-        self.timer.start()
-
-    def stop(self):
-        self.timer.stop()
-
-    @property
-    def widget(self):
-        # the window it's the backdrop of, asked from Qt, not kept: a reference here and the window's to this made a
-        # cycle, so a closed dialog was freed only when Python's garbage collector next ran, on whichever thread
-        # that was, deleting its widgets under whatever used them then (seen as "Internal C++ object already
-        # deleted" in a test)
-        return self.parent()
-
-    def refresh(self):
-        w = self.widget
-        if not w.isVisible():
-            return
-        dpr = w.devicePixelRatioF() if osapi.SCREEN_COORDS_ARE_PHYSICAL else 1.0
-        g = w.geometry()
-        try:
-            img = osapi.grab_screen(round(g.x() * dpr), round(g.y() * dpr), round(g.width() * dpr),
-                                     round(g.height() * dpr))
-        except Exception:
-            return
-        small = img.resize((max(1, int(img.width * SCALE)), max(1, int(img.height * SCALE))))
-        small = small.filter(ImageFilter.GaussianBlur(BLUR))
-        small = ImageEnhance.Color(small).enhance(SATURATION)
-        small = ImageEnhance.Brightness(small).enhance(BRIGHTNESS)
-        data = small.tobytes("raw", "RGB")
-        qimg = QImage(data, small.width, small.height, small.width * 3, QImage.Format_RGB888).copy()
-        self.pixmap = QPixmap.fromImage(qimg)
-        self.updated.emit()
-        w.update()
 
 
 # ---------------------------------------------------------------- shared painting
@@ -84,7 +28,7 @@ def glass_path(widget, radius: float = None) -> QPainterPath:
     return path
 
 
-def paint_glass(widget, backdrop: "GlassBackdrop | None", strength: float = 0.6, radius: float = None) -> None:
+def paint_glass(widget, backdrop=None, strength: float = 0.6, radius: float = None) -> None:
     """The one material every window uses: soft shadow, blurred backdrop, neutral tint, sheen, rim.
     strength (0.4–1.0) scales the tint: higher = more opaque, easier to read over busy scenes."""
     c = theme.P()
@@ -202,17 +146,13 @@ class GlassDialog(QDialog):
     esc_closes = True          # False: Esc does nothing (it must not quit onboarding or drop unsaved settings)
     enter_button = None        # the button Enter clicks when no text field handles it (None: Enter does nothing)
 
-    def __init__(self, title: str, rtl: bool, show_in_captures: bool = False, closable: bool = True,
-                 strength: float = 0.6):
+    def __init__(self, title: str, rtl: bool, closable: bool = True):
         # on top like the chat and Settings, or a confirmation opened from Settings hides behind it
         super().__init__(None, Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_AlwaysShowToolTips)      # tooltips while the game is the active window too
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setWindowTitle(title)
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        self._show_in_captures = show_in_captures
-        self._strength = strength
-        self.backdrop = GlassBackdrop(self)
         root = QVBoxLayout(self)
         root.setContentsMargins(SHADOW + 18, SHADOW + 10, SHADOW + 18, SHADOW + 16)
         root.setSpacing(8)

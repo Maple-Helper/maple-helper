@@ -1,4 +1,4 @@
-"""The game-server dot beside BETA in the chat's header: green up, orange maintenance (or players reporting
+"""The game-server dot in the chat's footer: green up, orange maintenance (or players reporting
 trouble), grey not open yet / unknown. Its tooltip says what it means and when it was checked; a tap opens
 NiaMeowDB's server-status page.
 
