@@ -74,7 +74,13 @@ ALIAS_DROP = {
     "נהר", "הנהר", "פסל", "סדן", "צור", "הצור", "השף", "שף", "רוח רפאים", "טוויטר", "טיק טוק", "שוער", "ליצן",
     "תיבת אוצר",
     "מיין",        # Myen's alias is the verb "to sort" ("למיין את האינבנטורי" made a Myen card, and voice "ל-Myen")
+    # everyday words: "איפה אפשר להרוג פיה" (a fairy) gave Pia, "טיק" (a tick) Tick, "פול HP" Paul, "לוק" (a look)
+    # Luke, "ברי לי" Bari, "אורה" (light) Aura, "יונה" (a dove) Yoona, "לין" (to sleep over) Lyn
+    "פיה", "טיק", "פול", "לוק", "ברי", "אורה", "יונה", "לין",
 }
+# aliases that are also Israeli first names ("אלון חבר שלי" is a friend, not Oak): a question asking for the NPC
+# ("איפה מאיה") still finds it, an AI answer and a dictated question never turn the name into the NPC
+FIRST_NAME_ALIASES = {"אלון", "מאיה", "אלכס", "רנה"}
 # alias -> entity key, over aliases.json (keys and names as in the KB's index.json)
 ALIAS_SET = {
     "פטרייה רקובה": "monster/62",        # Rotten Mushroom (aliases.json gave this spelling to Rotten Mushmom)
@@ -87,6 +93,8 @@ ALIAS_SET = {
 # NPCs of the KB named like an everyday English word: an answer saying "Max HP" or "River" at a sentence start
 # names no NPC (the AI lists the NPCs it means in its META entities, those still get a card)
 COMMON_WORD_NPCS = {"Max", "River", "Anvil", "Oak", "Jack", "Pan", "Chef", "Statue", "Flint", "Rain", "Exit", "Silver"}
+# the words after "Max" that make it a stat, not the NPC ("Max HP", "max level")
+_STAT_WORDS = {"hp", "mp", "level", "lv", "lvl", "stat", "stats", "damage", "dmg", "exp", "str", "dex", "int", "luk"}
 NO_LOOSE_UNDER = 5    # Hebrew letters an alias needs for its spelling-tolerant form ("פיה" -> "פי" is no name)
 # the part of a name that marks one variant of an entity: "Nella (KPQ 1st Stage)", "Forgotten Hollow Instance 080003500"
 _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
@@ -585,6 +593,8 @@ class KnowledgeBase:
         names = self._names if answer else self._question_names
         blocks = {} if answer else self._family_cats
         for name, key, is_loose in names:
+            if answer and name in FIRST_NAME_ALIASES:
+                continue
             here = taken + [(a, b) for a, b, cats in family if key.partition("/")[0] not in cats]
             for hay, loose_copy in copies:
                 if loose_copy != is_loose:
@@ -593,7 +603,7 @@ class KnowledgeBase:
                 if span and not key and name in blocks:
                     family.append((*span, blocks[name]))
                     break
-                if span and not HEBREW.search(name) and (answer or key in self._common_npcs) \
+                if span and not HEBREW.search(name) and (answer or key in self._common_words) \
                         and not self._written(text, key, name, answer):
                     span = None       # a question's "max level" is no Max either; "where is Max" is
                 if span:
@@ -700,6 +710,15 @@ class KnowledgeBase:
     def _common_npcs(self) -> set[str]:
         return {k for k, e in self.entities.items() if e.get("category") == "npc" and e.get("name") in COMMON_WORD_NPCS}
 
+    @cached_property
+    def _common_words(self) -> set[str]:
+        """The NPCs named like an everyday word, and the items named for a whole kind of gear ("Sword", "Spear": a
+        word of an equip type): a question names them only when written as a name (_written)."""
+        kinds = {w.lower() for e in self.entities.values() if e.get("category") == "item"
+                 and str(e.get("type") or "").startswith("Equip") for w in re.findall(r"[A-Za-z]+", str(e["type"]))}
+        return self._common_npcs | {k for k, e in self.entities.items() if e.get("category") == "item"
+                                    and str(e.get("name") or "").strip().lower() in kinds}
+
     def _written(self, text: str, key: str, name: str, answer: bool = True) -> bool:
         """An English entity name written as the game writes it (its own case). In an answer an NPC named like an
         everyday word never counts (the AI lists the ones it means)."""
@@ -708,7 +727,18 @@ class KnowledgeBase:
             return False          # an English alias, or an everyday word
         words = re.escape(fold_quotes(e["name"])).replace(r"\ ", r"\s+")
         plural = "(?:e?s)?" if key.startswith("monster/") else ""
-        return re.search(rf"(?<![\w]){words}{plural}(?![\w])", fold_quotes(text)) is not None
+        text = fold_quotes(text)
+        found = list(re.finditer(rf"(?<![\w]){words}{plural}(?![\w])", text))
+        if answer or key not in self._common_words:
+            return bool(found)
+        # a question: any sentence starts with a capital ("Max HP is important", "Rain or shine", "Exit the map"),
+        # and "Max HP" / "Max level" is no NPC; "where is Max", "talk to Max" still are
+        for m in found:
+            before, after = text[:m.start()].rstrip(), text[m.end():].split(None, 1)
+            if before and before[-1] not in ".!?:;\n\"(" and before.split()[-1].lower() not in ("the", "a", "an") \
+                    and not (after and after[0].lower().strip(".,!?") in _STAT_WORDS):
+                return True
+        return False
 
     def find_mentions(self, text: str, max_results: int = 5, answer: bool = False) -> list[str]:
         """Entities named in free text (English names, Hebrew aliases, transliterations); answer=True for an AI
@@ -738,6 +768,12 @@ class KnowledgeBase:
         def name(m: re.Match) -> str:
             if m.group("name") not in self.aliases:
                 return m.group(0)      # a dropped alias (in the pattern so no shorter alias inside it matches)
+            alias = m.group("name")
+            # a short alias that is an everyday word or a first name: the player's own words stay as said
+            # ("אלון חבר שלי משחק איתי" became "Oak חבר שלי")
+            if alias in FIRST_NAME_ALIASES or _heb_letters(alias) <= 4 and not m.groupdict().get("pre") \
+                    and alias.translate(_FINALS) in self._hebrew_words:
+                return m.group(0)
             # keep a glued Hebrew prefix: "ובלו סנייל" → "ו-Blue Snail"
             en = self.get(self.aliases[m.group("name")])["name"]
             pre = m.groupdict().get("pre")

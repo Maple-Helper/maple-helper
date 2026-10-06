@@ -539,11 +539,13 @@ def test_a_dropped_alias_hides_the_shorter_alias_inside_it(tmp_path):
     """"טיק טוק" is dropped (TikTok): its "טיק" answered with Tick's stats. "למיין" (to sort) is no Myen."""
     kb = small_kb(tmp_path, [ent("monster/1", "Tick", Level=34), ent("npc/1", "Myen")],
                   {"monster/1": ["טיק"], "npc/1": ["מיין"]})
-    assert kb.find_mentions("מה הלבל של טיק-טוק") == [] and kb.find_mentions("מה הלבל של טיק") == ["monster/1"]
+    # "טיק" alone is an everyday word too now ("זה היה טיק קטן", "כל טיק שרת"): Tick goes by its English name
+    assert kb.find_mentions("מה הלבל של טיק-טוק") == [] and kb.find_mentions("מה הלבל של טיק") == []
+    assert kb.find_mentions("what level is Tick") == ["monster/1"]
     assert quick.answer("מה הלבל של טיק-טוק", kb, t) is None
     assert kb.find_mentions("איך למיין את האינבנטורי?") == []
     assert kb.resolve_names("כדאי למיין את הפריטים") == "כדאי למיין את הפריטים"
-    assert kb.resolve_names("ראיתי טיק טוק") == "ראיתי טיק טוק" and kb.resolve_names("ראיתי טיק") == "ראיתי Tick"
+    assert kb.resolve_names("ראיתי טיק טוק") == "ראיתי טיק טוק" and kb.resolve_names("ראיתי טיק") == "ראיתי טיק"
 
 
 def test_a_drop_line_picks_the_item_its_level_and_page_name(tmp_path):
@@ -731,3 +733,39 @@ def test_scope_note_says_nothing_without_the_release_guide(tmp_path):
     from maplehelper import availability
     kb = small_kb(tmp_path, [ent("map/1", "Henesys")], {}, {"map/1": "Location Victoria Road / Victoria Island\n"})
     assert availability.of(kb).scope_note() == ""
+
+
+@needs_kb
+@pytest.mark.parametrize("text", [
+    "איפה אפשר להרוג פיה", "מה מפילה פיה", "זה היה טיק קטן", "יש לי פול HP", "יש לו לוק חדש לדמות",
+    "ברי לי שזה לא שווה", "אורה גדולה", "יונה עפה מעל הבית", "אני לין אצל חבר",
+])
+def test_everyday_hebrew_words_name_no_npc_or_monster(real, text):
+    assert real.find_mentions(text) == [] and real.find_mentions(text, answer=True) == []
+    assert real.resolve_names(text) == text
+
+
+@needs_kb
+def test_first_name_aliases_count_only_when_the_player_asks_for_the_npc(real):
+    """"אלון חבר שלי" is a friend: an AI answer and dictated text keep the name, a question asking for Oak finds it."""
+    for text in ("אלון חבר שלי משחק איתי", "החבר שלי מאיה עזרה לי", "אני ואלכס משחקים ביחד", "מאיה אמרה לי לבוא"):
+        assert real.find_mentions(text, answer=True) == [] and real.resolve_names(text) == text
+    assert real.find_mentions("איפה מאיה") == [real.npc_key("Maya")]
+
+
+@needs_kb
+@pytest.mark.parametrize("text", [
+    "Max HP is important for warriors.", "Rain or shine, you should grind at Ant Tunnel.",
+    "Jack of all trades builds are weak.", "Exit the map and talk to the cab.", "The Oak tree near the river looks nice.",
+    "Silver is a good color for armor.", "Pan your camera to the left.", "Go to Henesys and talk to the Chef there.",
+    "which is better for me, a sword or an axe", "I want max level fast. Max HP or Max MP?",
+])
+def test_a_sentence_start_or_a_generic_word_is_no_npc_or_item(real, text):
+    assert not {k for k in real.find_mentions(text) if k.startswith(("npc/", "item/"))}
+
+
+@needs_kb
+def test_a_common_word_npc_written_as_a_name_still_counts(real):
+    assert real.find_mentions("where is Max") == [real.npc_key("Max")]
+    assert real.npc_key("Max") in real.find_mentions("talk to Max in Henesys")
+    assert real.npc_key("Rain") in real.find_mentions("Where is Rain?")
