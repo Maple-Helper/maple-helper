@@ -194,7 +194,8 @@ def test_a_kb_update_reopens_the_open_kb_windows_but_not_the_one_in_use(qapp, mo
     tools, guides, settings = Win(), Win(active=True), Win()
     reopened = []
     fake = SimpleNamespace(brain=SimpleNamespace(), grind=SimpleNamespace(),
-                           overlay=SimpleNamespace(show_scope=lambda: None, show_news=lambda: None),
+                           overlay=SimpleNamespace(show_scope=lambda: None, show_news=lambda: None, focus_keys=[],
+                                                   set_tags=lambda keys: None),
                            _windows={"tools": tools, "guides": guides, "settings": settings},
                            _reopen_call=lambda kind, dlg: lambda: reopened.append(kind))
     app.MapleHelperApp.reload_kb(fake)
