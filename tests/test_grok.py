@@ -436,6 +436,22 @@ def test_offline_is_not_signed_out(home, monkeypatch):
     assert providers.get("grok").models() == [(None, "")]
 
 
+def test_the_offline_log_line_has_no_email_or_link(home, monkeypatch, caplog):
+    """`grok models` output is where the account email is read from, and the log ships in a report (review PLT-10)."""
+    import logging
+    monkeypatch.setattr(grok, "_models_cache", [])
+    monkeypatch.setattr(grok, "find_grok", lambda: "grok.exe")
+    monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
+        "Logged in as player@x.com\nError: error sending request for url (https://api.x.ai/v1/models): dns error", 1))
+    with caplog.at_level(logging.WARNING, logger="maplehelper"):
+        assert providers.get("grok").account()["status"] == "offline"
+    assert "no connection" in caplog.text and "player@x.com" not in caplog.text and "api.x.ai" not in caplog.text
+    import inspect
+
+    from maplehelper.providers import codex                # Codex's stall line, the same way
+    assert 'STALL_TIMEOUT_S, base.scrub(stderr[-1000:]))' in inspect.getsource(codex)
+
+
 def test_each_run_s_saved_session_is_removed(home, tmp_path):
     """Grok saves every run under GROK_HOME/sessions (no flag turns it off): the run's own one goes when it ends,
     and old ones a crash left at the next start (audit PRV-3)."""

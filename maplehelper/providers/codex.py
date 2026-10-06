@@ -419,7 +419,7 @@ class CodexBackend:
             reader.join(timeout=5)        # its words say what went wrong (an answer doesn't wait for them)
         stderr = b"".join(err).decode("utf-8", errors="replace")
         if out.stalled:
-            log.warning("Codex stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
+            log.warning("Codex stalled for %ss, stopped: %s", STALL_TIMEOUT_S, base.scrub(stderr[-1000:]))
             return RawResult(error="timeout"), stderr
         return parse_events(lines, stderr), stderr
 

@@ -549,7 +549,7 @@ def read_models(max_age: float = 10.0) -> tuple[list[tuple[str, str]], str | Non
     found = parse_models(out)
     if not found and r.returncode != 0 and classify(out) == "offline":
         # no list because there's no connection: offering a sign-in would fail too
-        log.warning("grok models: no connection: %s", out.strip()[-300:])
+        log.warning("grok models: no connection: %s", base.scrub(out.strip()[-300:]))
         raise Offline()
     email = EMAIL.search(out)
     if found:
