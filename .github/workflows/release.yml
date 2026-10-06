@@ -271,7 +271,7 @@ jobs:
           Already installed? Maple Helper updates itself: the new version downloads in the background and installs when you close the app.
           Windows may show "Windows protected your PC" because the app is not code-signed yet: click **More info → Run anyway**.
 
-          **macOS 12 or later, Apple Silicon (M1 or newer)**
+          **macOS 14 or later, Apple Silicon (M1 or newer)**
           - **[MapleHelper-macOS.dmg](https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/MapleHelper-macOS.dmg)**: open it and drag **Maple Helper** into Applications (over the old version when updating)
 
           The app is not notarized yet, so macOS blocks the first launch: open **System Settings → Privacy & Security** and click **Open Anyway**.

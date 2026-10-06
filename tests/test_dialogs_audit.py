@@ -224,6 +224,8 @@ def test_f12_is_not_offered_on_windows_and_a_saved_f12_falls_back(env, monkeypat
     dlg.close()
     monkeypatch.setattr(sys, "platform", "darwin")
     assert dialogs.hotkey_choices()[-1] == "F12"               # macOS has it
+    assert "F11" not in dialogs.hotkey_choices()               # macOS shows the desktop on F11
+    assert "F11" in dialogs.hotkey_choices(("F11", "F10"))     # a saved F11 is still shown
 
 
 def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
@@ -238,7 +240,7 @@ def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
         dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
         shown = [lb.text() for lb in dlg.findChildren(QLabel) if "fn+F9" in lb.text()]
         assert shown == ([hint] if mac else [])
-        assert ("F11" in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
+        assert ("F11" not in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
         dlg.close()
 
 

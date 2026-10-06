@@ -5,6 +5,7 @@ from PySide6.QtCore import QPoint, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
+from .. import osapi
 from ..store import ASSETS
 from . import theme
 
@@ -31,6 +32,10 @@ class MiniBubble(QWidget):
         self._grab: QPoint | None = None
         self._dragging = False
         self._pressed = False
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        osapi.float_over_fullscreen(int(self.winId()))   # macOS: stays over a fullscreen game's Space, as the chat does
 
     def paintEvent(self, e):
         c = theme.P()

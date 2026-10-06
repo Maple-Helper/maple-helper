@@ -124,6 +124,9 @@ checks the app.
 
 - GitHub's `macos-latest` runner is Apple Silicon, so the DMG is `arm64` only. Intel Macs are not supported:
   `numpy` and `ctranslate2` have no universal2 wheels to build a universal app from.
+- Minimum macOS is **14** (`LSMinimumSystemVersion` in `packaging/maplehelper.spec`): the build installs the
+  newest wheels, and onnxruntime (the voice VAD) ships only `macosx_14_0` wheels, PySide6 `macosx_13_0`. When a
+  dependency raises its wheel tag, raise the plist, the README, the release notes in `release.yml` and the site.
 - The app is a menu bar app (`LSUIElement`, no Dock icon). Hotkeys are Carbon `RegisterEventHotKey`, the Mac
   counterpart of `RegisterHotKey`: no key-state polling, no event tap, no Input Monitoring grant. The only grant
   is **Screen Recording** (game window title + screenshot).

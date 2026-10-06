@@ -93,8 +93,12 @@ STARTUP_NEWER_TEXT = {
 RELEASES_URL = "https://github.com/Maple-Helper/maple-helper/releases/latest"
 MAC_TEXT = {
     "startup": {"he": STARTUP_TEXT["he"].replace("המחשב", "ה-Mac"), "en": STARTUP_TEXT["en"].replace("the PC", "the Mac")},
-    "broken": {"he": BROKEN_TEXT["he"].replace("להתקין מחדש?", "להוריד מחדש? (גררו את האפליקציה שוב לתיקיית Applications.)"),
-               "en": BROKEN_TEXT["en"].replace("Reinstall now?", "Download it again? (Drag the app into Applications again.)")},
+    # written whole: an interrupted update or an antivirus (the Windows causes) don't fit a drag-installed Mac app
+    "broken": {"he": "חלק מהקבצים של Maple Helper חסרים או פגומים (למשל, האפליקציה נפתחה מתוך קובץ ההתקנה אחרי שנסגר).\n\n"
+                     "להוריד מחדש? (גררו את האפליקציה שוב לתיקיית Applications.) ההגדרות והדמויות שלכם יישמרו.",
+               "en": "Some Maple Helper files are missing or damaged (for example, the app was opened from the disk "
+                     "image after it was ejected).\n\nDownload it again? (Drag the app into Applications again.) "
+                     "Your settings and characters are kept."},
     "download": {"he": "להורדה", "en": "Download"},
     "close": {"he": "סגירה", "en": "Close"},
 }

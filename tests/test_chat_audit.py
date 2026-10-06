@@ -471,6 +471,45 @@ def test_second_launch_during_onboarding_brings_it_forward(monkeypatch):
     assert raised == ["raise", "activate"]
 
 
+def test_mac_reopen_shows_the_chat_only_when_nothing_of_ours_is_up(monkeypatch):
+    # macOS turns opening the running app again into an activation, not a second process (MAC-5)
+    from maplehelper import app as app_mod
+    from maplehelper.app import MapleHelperApp
+    shown = []
+    fake = SimpleNamespace(overlay=object(), show_chat=lambda: shown.append(1))
+    monkeypatch.setattr(app_mod.osapi, "seconds_since_self_activation", lambda: 60.0)
+    monkeypatch.setattr(QApplication, "topLevelWidgets", staticmethod(lambda: []))
+    MapleHelperApp._on_mac_reopen(fake, Qt.ApplicationInactive)
+    assert shown == []
+    MapleHelperApp._on_mac_reopen(fake, Qt.ApplicationActive)
+    assert shown == [1]
+    monkeypatch.setattr(app_mod.osapi, "seconds_since_self_activation", lambda: 0.2)    # our own activate_self
+    MapleHelperApp._on_mac_reopen(fake, Qt.ApplicationActive)
+    assert shown == [1]
+    monkeypatch.setattr(app_mod.osapi, "seconds_since_self_activation", lambda: 60.0)
+    monkeypatch.setattr(QApplication, "topLevelWidgets", staticmethod(lambda: [SimpleNamespace(isVisible=lambda: True)]))
+    MapleHelperApp._on_mac_reopen(fake, Qt.ApplicationActive)                          # a toast or dialog is up
+    assert shown == [1]
+
+
+def test_mac_menu_bar_click_opens_the_menu_without_toggling_the_chat(monkeypatch):
+    # Qt's Cocoa status item reports Trigger for the click that opens the menu (MAC-4)
+    from PySide6.QtWidgets import QSystemTrayIcon
+
+    from maplehelper import app as app_mod
+    from maplehelper.app import MapleHelperApp
+    for mac, expected in ((True, []), (False, ["toggle"])):
+        monkeypatch.setattr(app_mod.osapi, "IS_MAC", mac)
+        calls = []
+        fake = SimpleNamespace(settings={"language": "en", "hotkey_toggle": "F9"}, qapp=QApplication.instance(),
+                               overlay=SimpleNamespace(toggle=lambda c, calls=calls: calls.append("toggle")), capture=None,
+                               show_chat=lambda: None, open_settings=lambda: None, _add_announced_item=lambda: None)
+        MapleHelperApp.make_tray(fake)
+        fake.tray.activated.emit(QSystemTrayIcon.Trigger)
+        assert calls == expected
+        fake.tray.hide()
+
+
 def test_windows_reopen_where_the_player_was():
     from maplehelper.app import MapleHelperApp
     calls = []
@@ -520,6 +559,21 @@ def test_toasts_reuse_free_room_and_stay_on_screen(monkeypatch):
             t.close()
 
 
+def test_toast_and_bubble_float_over_a_fullscreen_game(monkeypatch):
+    # macOS shows them on a fullscreen game's Space only with FullScreenAuxiliary, as the chat already has (MAC-7)
+    from maplehelper import osapi
+    from maplehelper.ui import minibubble, toast
+    floated = []
+    monkeypatch.setattr(osapi, "float_over_fullscreen", lambda wid: floated.append(wid))
+    monkeypatch.setattr(toast.Toast, "_live", [])
+    t = toast.notify("t", "body", rtl=False, timeout_ms=60000)
+    b = minibubble.MiniBubble()
+    b.show()
+    assert floated == [int(t.winId()), int(b.winId())]
+    t.close()
+    b.close()
+
+
 def test_toast_follows_a_theme_switch():
     from maplehelper.ui import theme, toast
     old = theme.MODE
@@ -548,3 +602,13 @@ def test_patch_notes_count_each_page_once_over_several_updates():
     gone = [{"version": "1", "counts": {"added": 1}, "added": [{"key": "k"}]},
             {"version": "2", "counts": {"removed": 1}, "removed": [{"key": "k"}]}]
     assert sum(totals(gone).values()) == 0
+
+
+def test_profile_spinner_uses_the_icon_set_in_use(monkeypatch):
+    # a Mac has no Segoe Fluent Icons: the busy spinner showed private-use boxes there (MAC-8)
+    from maplehelper.ui import theme, widgets
+    assert widgets.ProfileCard.spin_frames() == [theme.ICON["refresh"], ""]
+    monkeypatch.setattr(theme, "ICON", dict(theme.SYMBOL_ICONS))
+    frames = widgets.ProfileCard.spin_frames()
+    assert frames[0] == theme.SYMBOL_ICONS["refresh"]
+    assert not any("" <= ch <= "" for f in frames for ch in f)

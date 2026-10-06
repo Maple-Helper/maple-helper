@@ -16,6 +16,7 @@ def test_report_has_log_and_info_but_no_private_settings(tmp_path, monkeypatch):
     with zipfile.ZipFile(path) as z:
         assert set(z.namelist()) == {"info.json", "settings.json", "logs/maplehelper.log"}
         assert json.loads(z.read("info.json"))["app_version"] == "0.4.0"
+        assert "os" in json.loads(z.read("info.json")) and "windows" not in info    # a Mac report isn't "windows"
         assert json.loads(z.read("settings.json")) == {"language": "he"}
 
 

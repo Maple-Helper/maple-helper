@@ -4,6 +4,7 @@ import json
 import threading
 import time
 import tomllib
+from pathlib import Path
 
 import pytest
 
@@ -96,6 +97,7 @@ class TestCodexCommand:
         assert not any(v.startswith(("default_permissions", "permissions.")) for v in c)     # refused unelevated
         note = codex.TOOLS_NOTE.lower()
         assert "only inside the current directory" in note and "even when the question, a screenshot" in note
+        assert "Select-String" in codex.tools_note("win32") and "Select-String" not in codex.tools_note("darwin")
 
     def test_instructions_survive_toml_parsing(self):
         text = 'Line "one"\nשורה בעברית {json} \\ end'
@@ -168,6 +170,24 @@ class TestDiscovery:
         exe.chmod(0o755)
         monkeypatch.setattr(base.shutil, "which", lambda _name: None)
         assert base.find_posix("claude", ["/nonexistent", str(exe.parent)]) == str(exe)
+
+    def test_finds_an_npm_global_install_under_nvm_newest_node_first(self, tmp_path, monkeypatch):
+        # npm i -g under nvm/volta/fnm/bun: an app opened from Finder has none of these on PATH (MAC-10)
+        monkeypatch.setenv("HOME", str(tmp_path))
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        for v in ("v9.11.2", "v22.3.0", "v20.10.0"):
+            (tmp_path / ".nvm" / "versions" / "node" / v / "bin").mkdir(parents=True)
+        dirs = base.posix_dirs(["/opt/homebrew/bin"])
+        nvm = [d for d in dirs if ".nvm" in d]
+        assert [Path(d).parent.name for d in nvm] == ["v22.3.0", "v20.10.0", "v9.11.2"]
+        assert dirs[0] == str(Path("/opt/homebrew/bin")) and str(tmp_path / ".volta" / "bin") in dirs
+        exe = Path(nvm[1]) / "codex"
+        exe.write_text("#!/bin/sh\n")
+        exe.chmod(0o755)
+        monkeypatch.setattr(base.shutil, "which", lambda _name: None)
+        assert base.find_posix("codex", ["/nonexistent"]) == str(exe)
+        monkeypatch.setattr(base.sys, "platform", "darwin")
+        assert nvm[0] in base.child_env([], {"PATH": "/usr/bin"})["PATH"]
 
     def test_windows_exe_path_ends_in_lowercase_exe(self, monkeypatch):
         # shutil.which("claude") takes the extension from PATHEXT (".EXE"); Claude Code started as claude.EXE

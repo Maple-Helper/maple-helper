@@ -915,7 +915,6 @@ class ProfileCard(QFrame):
         self.now_btn = QPushButton(objectName="NowChip")      # "What now?": the text comes from the chat (language)
         self.now_btn.setCursor(Qt.PointingHandCursor)
         row.addWidget(self.now_btn, 0, Qt.AlignVCenter)
-        self._spin_frames = ["\ue72c", "\ue895"]      # refresh / sync glyphs alternate while busy
         from PySide6.QtCore import QTimer
         self._spin = QTimer(self, interval=260, timeout=self._tick)
         self._frame = 0
@@ -935,9 +934,18 @@ class ProfileCard(QFrame):
         self.status.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
         self.status.setVisible(bool(busy and status))
 
+    @staticmethod
+    def spin_frames() -> list[str]:
+        """Refresh / sync glyphs alternating while busy, from the icon set in use: a Mac has no Segoe Fluent
+        Icons (theme.load_fonts switches to plain symbols), where the hard-coded code points showed as boxes."""
+        from . import theme
+        refresh = theme.ICON["refresh"]
+        return [refresh, "" if refresh == "" else "⟳"]
+
     def _tick(self):
-        self._frame = (self._frame + 1) % len(self._spin_frames)
-        self.refresh.setText(self._spin_frames[self._frame])
+        frames = self.spin_frames()
+        self._frame = (self._frame + 1) % len(frames)
+        self.refresh.setText(frames[self._frame])
 
     def show_character(self, c, avatar_path, kb, rtl: bool) -> None:
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter

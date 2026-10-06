@@ -52,6 +52,32 @@ def kb_dir() -> Path:
     return BUNDLED_KB if (BUNDLED_KB / "index.json").exists() or not (USER_KB / "index.json").exists() else USER_KB
 
 
+def adopt_bundled_kb() -> None:
+    """macOS app: copy the bundled KB to the data folder once, while it is the one in use. The grep tables are
+    built into the KB's own folder (the AI works there), and the bundled one sits inside the signed .app: a write
+    there breaks the code seal (or fails, read-only, and every question goes without tables). Windows installs
+    per user into a folder of its own, so it keeps using the bundled copy."""
+    if not (getattr(sys, "frozen", False) and sys.platform == "darwin") or kb_dir() != BUNDLED_KB:
+        return
+    import shutil
+    tmp, old = USER_KB.with_name("kb.new"), USER_KB.with_name("kb.old")
+    try:
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.copytree(BUNDLED_KB, tmp)
+        shutil.rmtree(old, ignore_errors=True)
+        if USER_KB.exists():
+            os.replace(USER_KB, old)        # an older download: the bundled KB is newer (kb_dir chose it)
+        os.replace(tmp, USER_KB)
+        shutil.rmtree(old, ignore_errors=True)
+    except OSError:
+        shutil.rmtree(tmp, ignore_errors=True)
+        if old.exists() and not USER_KB.exists():
+            try:
+                os.replace(old, USER_KB)
+            except OSError:
+                pass                       # kb_dir falls back to the bundled copy
+
+
 def _kb_version(root: Path) -> str:
     try:
         return str(json.loads((root / "meta.json").read_text(encoding="utf-8")).get("version", ""))
