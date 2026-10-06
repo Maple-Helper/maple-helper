@@ -594,6 +594,24 @@ class History:
     def __init__(self, character_id: str):
         self.log = HISTORY_DIR / f"{character_id}.jsonl"
         self.summaries_path = HISTORY_DIR / f"{character_id}.summaries.json"
+        self.fresh_path = HISTORY_DIR / f"{character_id}.fresh"
+
+    def start_fresh(self) -> None:
+        """The chat's "clear" button: the AI's next question starts a new conversation (what was said before stays in
+        the History window and its summaries, but is no longer sent as the recent conversation)."""
+        try:
+            HISTORY_DIR.mkdir(parents=True, exist_ok=True)
+            self.fresh_path.write_text(repr(time.time()), encoding="utf-8")
+        except OSError as e:
+            log.warning(f"chat not cleared for the AI: {e}")
+
+    def conversation(self, n: int = 20) -> list[dict]:
+        """The recent conversation the AI sees: recent(n) since the chat was last cleared."""
+        try:
+            since = float(self.fresh_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            since = 0.0
+        return [r for r in self.recent(n) if not isinstance(r.get("t"), (int, float)) or r["t"] > since]
 
     def append(self, role: str, text: str, entities: list[str] | None = None) -> None:
         rec = {"t": time.time(), "role": role, "text": text, "entities": entities or []}
@@ -686,5 +704,5 @@ class History:
             log.warning(f"session summary not saved: {e}")
 
     def clear(self) -> None:
-        for p in (self.log, self.summaries_path, self.summaries_path.with_suffix(".json.bak")):
+        for p in (self.log, self.summaries_path, self.summaries_path.with_suffix(".json.bak"), self.fresh_path):
             p.unlink(missing_ok=True)       # the backup copy too, or cleared summaries would come back

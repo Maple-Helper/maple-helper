@@ -359,7 +359,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
             # older than the profile: a summary's "level 25 Thief" never outranks it (audit AI-20)
             parts.append("<earlier_sessions> (older than <player_profile>: the profile wins)\n" + "\n".join(summ[-3:])
                          + "\n</earlier_sessions>")
-        recent = history.recent()
+        recent = history.conversation()        # since the chat's clear button, when it was pressed
         # the chat writes the question to the history before the AI runs: it goes once, in <question>
         if recent and recent[-1].get("role") == "user" and _FOCUS_TAG.sub("", recent[-1]["text"]).strip() == question.strip():
             recent = recent[:-1]

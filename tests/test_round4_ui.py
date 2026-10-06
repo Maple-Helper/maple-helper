@@ -124,16 +124,17 @@ def test_tab_order_follows_the_screen(overlay):
     order = overlay.tab_order()
     pos = {w: i for i, w in enumerate(order)}
     must = [overlay.history_btn, overlay.close_btn, overlay.profile_card.refresh, overlay.profile_card.now_btn,
-            overlay.clear_tags_btn, overlay.recapture_btn, overlay.input, overlay.mic_btn]
+            overlay.clear_tags_btn, overlay.recapture_btn, overlay.input, overlay.clear_btn, overlay.mic_btn]
     assert all(w in pos for w in must)
-    # header, then the character card, then the tagged cards, then the input row (camera, field, mic)
+    # header, then the character card, then the tagged cards, then the input row (camera, field, clear, mic)
     assert pos[overlay.history_btn] < pos[overlay.profile_card.now_btn] < pos[overlay.clear_tags_btn] \
-        < pos[overlay.recapture_btn] < pos[overlay.input] < pos[overlay.mic_btn]
+        < pos[overlay.recapture_btn] < pos[overlay.input] < pos[overlay.clear_btn] < pos[overlay.mic_btn]
     overlay.activateWindow()
     overlay.input.setFocus()
     pump(50)
     if app.focusWidget() is not overlay.input:
         pytest.skip("the window didn't get keyboard focus (another window is active during the full run)")
+    assert overlay.focusNextPrevChild(True) and app.focusWidget() is overlay.clear_btn
     assert overlay.focusNextPrevChild(True) and app.focusWidget() is overlay.mic_btn
     overlay.focusNextPrevChild(True)
     assert app.focusWidget() is order[0]                 # round to the header

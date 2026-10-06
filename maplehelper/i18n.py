@@ -121,6 +121,9 @@ STRINGS = {
     "cancel": {"he": "ביטול", "en": "Cancel"},
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
     "recapture": {"he": "צילום מחדש של מסך המשחק", "en": "Retake the game screenshot"},
+    # the input row's clear button (left of the mic): an empty chat, and a new conversation for the AI
+    "clear_chat": {"he": "ניקוי הצ'אט (השאלה הבאה מתחילה שיחה חדשה)",
+                   "en": "Clear the chat (your next question starts a new conversation)"},
     "send_question": {"he": "שליחת השאלה", "en": "Send the question"},
     # the send button while an answer runs (audit OVL-2), and the line it leaves
     "stop_answer": {"he": "עצירת התשובה", "en": "Stop the answer"},

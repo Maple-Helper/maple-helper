@@ -692,6 +692,10 @@ class Overlay(QWidget):
         self.input.textChanged.connect(self._on_text)
         self.input.focus_changed.connect(self.capsule.set_focus_look)
         row.addWidget(self.input, 1)
+        # left of the mic: an empty chat, and the next question starts a new conversation (the History window keeps it)
+        self.clear_btn = self._icon_button(theme.ICON["delete"])
+        self.clear_btn.clicked.connect(self.clear_chat)
+        row.addWidget(self.clear_btn)
         self.mic_btn = self._icon_button(theme.ICON["mic"])
         self.mic_btn.clicked.connect(self.mic_clicked.emit)   # click to talk; holding the voice key works too
         row.addWidget(self.mic_btn)
@@ -901,6 +905,7 @@ class Overlay(QWidget):
         set_tip(self.update_close, self.t("notice_close"))
         set_tip(self.close_btn, self.t("close_chat").replace("F9", self.settings["hotkey_toggle"]))
         set_tip(self.mic_btn, self.t("mic_tip", key=hk_voice))
+        set_tip(self.clear_btn, self.t("clear_chat"))
         self._on_text(self.input.text())
         self.refresh_profile_chip()
         self._update_shot_hint()
@@ -1687,6 +1692,17 @@ class Overlay(QWidget):
             w.deleteLater()
             if not self._follow and self._anchor is None:
                 bar.setValue(max(0, bar.value() - gone))      # what the player is reading stays put
+
+    def clear_chat(self):
+        """The clear button: the chat empties, an answer still coming is stopped, and the AI's next question starts a
+        new conversation (History.start_fresh; the History window still has everything)."""
+        if self.busy:
+            self.stop_answer()
+        c = self.profiles.active
+        if c:
+            History(c.id).start_fresh()
+        self.set_tags([])
+        self.clear_feed()
 
     def clear_feed(self):
         self._hidden_context = self._detail_tiles = None      # a cleared chat leaves nothing for the next question
@@ -2656,7 +2672,7 @@ class Overlay(QWidget):
         gb = f"{size / 1e9:.1f} GB"
         self._voice_offer = self.add_choices(lambda t: t("voice_dl_ask", size=gb),
                                              [("voice_dl_yes", self.voice_download_requested.emit),
-                                              ("voice_dl_no", None)])
+                                              ("voice_dl_no", self._decline_voice_offer)])
 
     def offer_voice_gpu_download(self, size: int):
         """The model is on disk, but an NVIDIA PC lacks its cuBLAS part: asked too, with its size (review3 UX12-a);
@@ -2667,7 +2683,23 @@ class Overlay(QWidget):
         mb = f"{size / 1e6:.0f} MB"
         self._voice_offer = self.add_choices(lambda t: t("voice_gpu_ask", size=mb),
                                              [("voice_dl_yes", self.voice_download_requested.emit),
-                                              ("voice_dl_no", self.voice_gpu_declined.emit)])
+                                              ("voice_dl_no", self._decline_voice_gpu)])
+
+    def _decline_voice_gpu(self):
+        self.voice_gpu_declined.emit()           # voice runs on the processor
+        return self._decline_voice_offer()
+
+    def _decline_voice_offer(self):
+        """"Not now": the question leaves the chat (it stayed there, greyed out, and looked like it did nothing); the
+        mic asks again next time. Returns False: the row is gone, nothing is left to disable."""
+        row = getattr(self, "_voice_offer", None)
+        self._voice_offer = None
+        if row is not None and _alive(row):
+            self.feed_lay.removeWidget(row)
+            row.hide()
+            row.deleteLater()
+        self._show_placeholder()
+        return False
 
     def voice_download_progress(self, pct: int):
         """The download's line, its percent, and Cancel."""
