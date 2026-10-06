@@ -769,3 +769,15 @@ def test_a_common_word_npc_written_as_a_name_still_counts(real):
     assert real.find_mentions("where is Max") == [real.npc_key("Max")]
     assert real.npc_key("Max") in real.find_mentions("talk to Max in Henesys")
     assert real.npc_key("Rain") in real.find_mentions("Where is Rain?")
+
+
+def test_a_hebrew_plural_of_a_name_ending_in_a_final_letter(tmp_path):
+    """"גדם" + "ים" is written "גדמים": the final mem turns plain, and the plural still names Stump."""
+    kb = small_kb(tmp_path, [ent("monster/1", "Stump", Level=4)], {"monster/1": ["גדם"]})
+    assert kb.find_mentions("איפה יש גדמים") == ["monster/1"] and kb.find_mentions("איפה יש גדם") == ["monster/1"]
+
+
+def test_a_damaged_or_missing_page_reads_without_failing(tmp_path):
+    kb = small_kb(tmp_path, [ent("monster/1", "Stump"), ent("monster/2", "Slime")], {}, {"monster/1": "# Stump\n"})
+    (tmp_path / "pages" / "monster" / "1.md").write_bytes(b"# Stump\n\xff\xfe broken")
+    assert kb.page("monster/1").startswith("# Stump") and kb.page("monster/2") == ""

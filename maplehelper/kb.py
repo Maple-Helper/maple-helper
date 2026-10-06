@@ -342,7 +342,10 @@ class KnowledgeBase:
             return ""
         cat, _, slug = key.partition("/")
         p = self.root / "pages" / cat / f"{slug}.md"
-        return p.read_text(encoding="utf-8") if p.exists() else ""
+        try:          # a page damaged on disk (an antivirus, a disk error) reads as what's left, never fails a question
+            return p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return ""
 
     def page_body(self, key: str, limit: int = 2500) -> str:
         text = self.page(key)
@@ -551,16 +554,20 @@ class KnowledgeBase:
         """The first place `name` stands in `hay` (" word word ... ") outside the spans already taken, as a
         (first word, last word + 1) range. Hebrew prefixes glue on to a long enough name ("לחילזון", "בהנסיס"),
         and a monster's name may be plural ("fire boars", "תמנונים"), an item's English name too ("red potions")."""
-        if name not in hay:
-            return None          # cheap: most names aren't in the question at all
         heb = bool(HEBREW.search(name))
+        # a monster's Hebrew plural turns its final letter plain: "גדם" -> "גדמים" (Stumps)
+        stem = name[:-1] + name[-1].translate(_FINALS) if heb and key.startswith("monster/") \
+            and name[-1] in "ךםןףץ" else ""
+        if name not in hay and not (stem and stem in hay):
+            return None          # cheap: most names aren't in the question at all
         pre = f"(?:{_PREFIX})?" if heb and _heb_letters(name) >= PREFIX_FROM else ""
         plural = ""
         if key.startswith("monster/"):
             plural = "(?:ימ|ות|ים)?" if heb else "(?:e?s)?"
         elif key.startswith("item/") and not heb and " " in name:
             plural = "(?:e?s)?"      # "red potions", "red snail shells" ("swords" is any sword, not the Sword)
-        for m in re.finditer(f"(?<= ){pre}{re.escape(name)}{plural}(?= )", hay):
+        body = f"(?:{re.escape(name)}{plural}|{re.escape(stem)}(?:ים|ות))" if stem else f"{re.escape(name)}{plural}"
+        for m in re.finditer(f"(?<= ){pre}{body}(?= )", hay):
             w0 = hay.count(" ", 0, m.start()) - 1
             span = (w0, w0 + name.count(" ") + 1)
             if not any(a < span[1] and span[0] < b for a, b in taken):
