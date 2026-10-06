@@ -530,6 +530,23 @@ class History:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
         self._trim()
 
+    def drop_last_if_user(self, text: str) -> bool:
+        """Take back the last record when it is this question with no answer (the answer failed): the History
+        window showed questions without answers, and a retry put the question in the conversation twice."""
+        try:
+            data = self.log.read_bytes()
+            body = data.rstrip(b"\n")
+            start = body.rfind(b"\n") + 1
+            rec = json.loads(body[start:].decode("utf-8"))
+            if not (isinstance(rec, dict) and rec.get("role") == "user" and rec.get("text") == text):
+                return False
+            tmp = self.log.with_suffix(".tmp")
+            tmp.write_bytes(data[:start])
+            tmp.replace(self.log)
+            return True
+        except (OSError, ValueError):
+            return False
+
     MAX_BYTES = 4_000_000       # ~8,000 questions: every question reads the file, it mustn't grow forever
     # a trim cuts well under the cap, by size: a fixed line count left long Hebrew answers over it, and then every
     # question rewrote the whole 8 MB file twice

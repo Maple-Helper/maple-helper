@@ -313,6 +313,7 @@ STRINGS = {
     "err_no_credit": {"he": "למפתח ה-API אין יתרה. הוסיפו קרדיט בחשבון של המפתח, או התחברו עם החשבון במקום.",
                       "en": "Your API key has no credit left. Add credit to the key's account, or sign in with your account instead."},
     "err_generic": {"he": "משהו השתבש. נסו שוב.", "en": "Something went wrong. Try again."},
+    "err_timeout": {"he": "ה-AI לקח יותר מדי זמן לענות. נסו שוב.", "en": "The AI took too long to answer. Try again."},
     # tray / settings
     "tray_open": {"he": "פתיחת הצ'אט", "en": "Open chat"},
     "tray_settings": {"he": "הגדרות", "en": "Settings"},
@@ -1160,6 +1161,9 @@ STRINGS = {
                      "en": "{key} is taken by another program. Pick another key in settings."},
     "busy_wait": {"he": "רגע, עוד עונה על השאלה הקודמת. אפשר לשאול שוב כשהתשובה מסתיימת.",
                   "en": "One moment, still answering the previous question. Ask again when it's done."},
+    # the grind tracker's minute read or an inventory check holds the chat, not a question
+    "busy_reading": {"he": "רגע, קורא את מסך המשחק. אפשר לשאול שוב בעוד רגע.",
+                     "en": "One moment, reading the game screen. Ask again in a moment."},
     "card_ask_tip": {"he": "לחצו כדי לשאול על זה", "en": "Click to ask about it"},
     "card_level": {"he": "רמה", "en": "Level"},
     "card_req_level": {"he": "רמה נדרשת", "en": "Required level"},

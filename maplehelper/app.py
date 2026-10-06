@@ -984,6 +984,8 @@ class MapleHelperApp:
         threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start()   # the new KB's icons
         self.brain.kb = self.kb
         self.overlay.kb = self.kb
+        # a tagged card the new KB dropped would crash the next question (set_tags keeps only cards it has)
+        self.overlay.set_tags(self.overlay.focus_keys)
         self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
@@ -997,12 +999,16 @@ class MapleHelperApp:
             pass
         try:
             self.brain.cancel()                  # an answer in progress ends now...
-            for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None)):
+        except Exception:
+            pass
+        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None)):
+            # each on its own: a finished answer's thread already deleted must not skip a running read's
+            try:
                 if th is not None and th.isRunning():
                     th.quit()
                     th.wait(2000)               # ...and its thread with it (a running QThread at exit crashes)
-        except Exception:
-            pass
+            except RuntimeError:
+                pass
         try:
             self.brain.shutdown()
         except Exception:
