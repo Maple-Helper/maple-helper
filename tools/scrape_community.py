@@ -38,6 +38,7 @@ FILE = kb_release.COMMUNITY
 DROPS_API = f"{BASE}/msclassic/api/drops?monsterId={{id}}"
 MESOS_API = f"{BASE}/msclassic/api/mesos-reports?monsterId={{id}}"
 MAX_FAILED = 0.1      # more monsters than this unanswered (site down, API moved): keep the previous file
+MIN_KEPT = 0.8        # fewer monsters with reports than this share of the previous file: keep that file
 
 
 class BadPayload(ValueError):
@@ -158,6 +159,11 @@ def scrape(kb: Path = KB, limit: int | None = None, get=None, log=print) -> dict
         log(f"[{n}/{len(monsters)}] {e.get('name')}: {len(drops)} drops" + (", mesos" if mesos else ""))
     if monsters and failed > len(monsters) * MAX_FAILED:
         raise kb_release.InvalidKB(f"community: {failed} of {len(monsters)} monsters unanswered; previous file kept")
+    # answers that parse but come back empty (a back-end glitch, a renamed field) would wipe every monster's
+    # reports and tell players 171 drops were removed: a read this much smaller than the last one is refused
+    if not limit and len(out) < len(previous) * MIN_KEPT:
+        raise kb_release.InvalidKB(f"community: only {len(out)} monsters with reports, down from {len(previous)}; "
+                                   "previous file kept")
     data = {"source": "NiaMeowDB community reports (meowdb.com)", "fetched": today, "monsters": out}
     kb_release.validate_community(data, {e["key"] for e in index if "key" in e})
     changed = kb_release.community_changes(previous, out)
