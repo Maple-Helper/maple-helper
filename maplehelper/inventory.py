@@ -30,6 +30,8 @@ RATIO, MARGIN = 1.08, 0.5   # the best match must beat every other item's pictur
 UNKNOWN = 25.0         # a best match this far off is no item the KB has a picture of
 UNKNOWN_ALIKE = 28.0   # the same for a picture several items share (a scroll's is distinctive, its count covers it)
 REFINE = 40            # the nearest pictures compared again with the icon moved by a pixel
+CLEAR = 12.0           # a plain reading named this close is the item: a reading without the stack count is skipped
+COVERED = 0.4          # this much of a slot's side under one flat colour: something covers the slot (_whole)
 
 
 def _slot_mask(rgb: np.ndarray) -> np.ndarray:
@@ -216,14 +218,9 @@ def _shifts(v: np.ndarray) -> list[np.ndarray]:
 @dataclass
 class Index:
     keys: list[str]
-    vecs: np.ndarray                 # N x SIZE x SIZE x 3, the pictures without their shadow
-    shaded: np.ndarray               # the same with it
-    soft: np.ndarray = None          # both softened (_soft), as compared
-    soft_shaded: np.ndarray = None
-
-    def __post_init__(self):
-        if self.soft is None:
-            self.soft, self.soft_shaded = _soft(self.vecs), _soft(self.shaded)
+    vecs: np.ndarray                 # N x SIZE x SIZE x 3, the pictures without their shadow (to find twins)
+    soft: np.ndarray                 # the same softened (_soft), as compared
+    soft_shaded: np.ndarray          # the pictures with their shadow, softened (the shaded ones aren't kept: 19 MB)
 
 
 _INDEX: dict[str, Index] = {}
@@ -254,7 +251,11 @@ def _build_index(kb, root: str) -> Index:
             vecs.append(v[0])
             shaded.append(v[1])
     empty = np.zeros((0, SIZE, SIZE, 3), np.float32)
-    _INDEX[root] = Index(keys, np.stack(vecs) if vecs else empty, np.stack(shaded) if shaded else empty)
+    plain = np.stack(vecs) if vecs else empty
+    vecs.clear()                                    # (the lists and the softening's sums peaked at 155 MB)
+    soft_shaded = _soft(np.stack(shaded)) if shaded else empty
+    shaded.clear()
+    _INDEX[root] = Index(keys, plain, _soft(plain), soft_shaded)
     return _INDEX[root]
 
 
@@ -269,7 +270,8 @@ class Slot:
 
 
 def warm(kb) -> None:
-    """Build the icon index ahead of time (1,400 pictures, ~1 s): the first inventory check doesn't wait."""
+    """Build the icon index ahead of time (~2,700 pictures, a few seconds on a background thread): the first
+    inventory check doesn't wait."""
     _index(kb)
 
 
@@ -278,7 +280,24 @@ def _whole(c: np.ndarray) -> bool:
     corners; a window, a tooltip or the screen's edge over the slot covers more)."""
     k = max(2, c.shape[0] // 16)
     corners = (c[:k, :k], c[:k, -k:], c[-k:, :k], c[-k:, -k:])
-    return sum((~_icon_mask(q)).mean() >= 0.6 for q in corners) >= 2
+    if sum((~_icon_mask(q)).mean() >= 0.6 for q in corners) < 2:
+        return False
+    # a box over one side (a tooltip, a white window) leaves the two other corners beige, and the rest of the icon
+    # was named for certain as another item (Blue Snail Shell as Blue Ghetto Beanie, an empty slot as Letter I).
+    # Such a box is one flat colour reaching a fifth of the slot in along much of that side, or a thin bar along all
+    # of it; an icon that touches the side never is (the KB's pictures at 32-85 px: at most a quarter of a side a
+    # fifth in, 0.8 of it a few pixels in)
+    n = c.shape[0]
+    for depth, part in ((max(3, round(n * 0.2)), COVERED), (max(2, round(n * 0.08)), 0.95)):
+        for side in (c[:depth].transpose(1, 0, 2), c[-depth:].transpose(1, 0, 2), c[:, :depth], c[:, -depth:]):
+            a = side.astype(np.int16)                  # along the side x into the slot x 3
+            off = ~_slot_like(a)
+            if not off.any():
+                continue
+            fill = np.median(a[off], axis=0)
+            if (off & (np.abs(a - fill).max(axis=2) <= 12)).all(axis=1).mean() >= part:
+                return False
+    return True
 
 
 def _count_box(c: np.ndarray) -> tuple[int, int] | None:
@@ -294,7 +313,14 @@ def _count_box(c: np.ndarray) -> tuple[int, int] | None:
     blue = (band[..., 2] - band[..., 0] >= 30) & (band[..., 2] >= 90)
     white = (band.min(axis=2) >= 235) & (band.max(axis=2) - band.min(axis=2) <= 12)
     outline = black.sum(axis=0) >= 2
-    texty = outline & ((blue | white).sum(axis=0) >= 1)
+    # a digit's fill touches its outline above or below; an icon's own white or blue doesn't, or the box ran on
+    # under it ("150" over a big icon hid most of it and the slot went unnamed, audit P83-4)
+    r = max(2, size // 30)
+    edge = np.zeros_like(black)
+    for i in range(1, r + 1):
+        edge[:-i] |= black[i:]
+        edge[i:] |= black[:-i]
+    texty = outline & ((blue | white) & edge).any(axis=0)
     if not texty.any():
         return None
     start = end = int(np.argmax(texty))
@@ -346,7 +372,10 @@ def _distances(vecs: list[tuple[np.ndarray, np.ndarray | None, bool]], index: In
         ref = index.soft_shaded if shaded else index.soft
         sv = _soft(v)
         sw = np.ones((SIZE, SIZE, 1), np.float32) if w is None else w[..., None]
-        d = (np.abs(ref - sv).mean(axis=3) * sw[..., 0]).sum(axis=(1, 2)) / sw.sum()
+        # the weighted mean as one matrix product over the flat pictures: a pass over the whole index is most of
+        # a read's time (a 12-item tab took 1.3 s)
+        flat_w = np.broadcast_to(sw, (SIZE, SIZE, 3)).reshape(-1) / (3 * sw.sum())
+        d = np.abs(ref.reshape(len(ref), -1) - sv.reshape(-1)) @ flat_w
         near = np.argsort(d, kind="stable")[:REFINE]
         for mv, mw in zip(_shifts(sv)[1:], _shifts(sw)[1:]):
             if mw.sum() <= 0:
@@ -357,24 +386,54 @@ def _distances(vecs: list[tuple[np.ndarray, np.ndarray | None, bool]], index: In
     return np.min(out, axis=0)
 
 
-def _match(vecs: list, index: Index, kb, top: int) -> tuple[str, list[tuple[str, float]]]:
-    """(status, matches) for a slot: see Slot."""
-    d = _distances(vecs, index)
+def _refined(vecs: list, index: Index, j: int) -> float:
+    """One KB picture's distance with every reading moved by up to a pixel, as _distances does for the nearest."""
+    best = np.inf
+    for v, w, shaded in vecs:
+        ref = (index.soft_shaded if shaded else index.soft)[j]
+        sw = np.ones((SIZE, SIZE, 1), np.float32) if w is None else w[..., None]
+        for mv, mw in zip(_shifts(_soft(v)), _shifts(sw)):
+            if mw.sum() > 0:
+                best = min(best, float((np.abs(ref - mv).mean(axis=2) * mw[..., 0]).sum() / mw.sum()))
+    return best
+
+
+def _match(d: np.ndarray, index: Index, kb, top: int, vecs: list | None = None) -> tuple[str, list[tuple[str, float]]]:
+    """(status, matches) for a slot from its distances (_distances over vecs, its readings): see Slot."""
     order = np.argsort(d, kind="stable")
     b = order[0]
     nearest = [(index.keys[j], float(d[j])) for j in order[:top]]
     # the KB pictures that are the best one's twins: the game draws them alike
-    twin = np.abs(index.vecs - index.vecs[b]).mean(axis=(1, 2, 3)) <= TWIN
+    flat = index.vecs.reshape(len(index.vecs), -1)
+    twin = np.abs(flat - flat[b]).mean(axis=1) <= TWIN
     twins = [j for j in order if twin[j]]
-    alike = len({(kb.get(index.keys[j]) or {}).get("name") for j in twins}) > 1
+
+    def name(j):
+        return (kb.get(index.keys[j]) or {}).get("name")
+    alike = len({name(j) for j in twins}) > 1
     if d[b] > (UNKNOWN_ALIKE if alike else UNKNOWN):
         return "unknown", nearest
     # the nearest other item (one of the same name drawn apart, like a quest's copy of an item, is no rival)
-    name = (kb.get(index.keys[b]) or {}).get("name")
-    rival = next((j for j in order if not twin[j] and (kb.get(index.keys[j]) or {}).get("name") != name), None)
+    rival = next((j for j in order if not twin[j] and name(j) != name(b)), None)
+    if rival is not None and vecs:
+        # compared moved by a pixel too: past a group of REFINE twins (a scroll tier has 53) the rival wasn't,
+        # and kept a larger distance than the best's
+        d[rival] = min(d[rival], _refined(vecs, index, rival))
     if rival is not None and d[rival] < d[b] * RATIO + MARGIN:
         return "unknown", nearest          # another picture fits as well: no telling which
     if alike:
+        # a picture shared with items the KB has no source for in the game is the one in the game: a new player's
+        # Apple and Long Sword went "one of 2 look-alikes" (Roger's Apple, Beginner's Long Sword), unpriced and
+        # dropped from the grind read. The tutorial's Roger's Apple is then named Apple (a trade-off for the owner
+        # to confirm, audit P83-1); the AI still sees it among the close pictures. Several in the game: the slot
+        # stays ambiguous, those listed first
+        from . import availability
+        open_ = availability.of(kb)
+        playable = [j for j in twins if open_.item_open(index.keys[j])]
+        if len({name(j) for j in playable}) == 1:
+            b = playable[0]
+            return "certain", [(index.keys[b], float(d[b]))] + [p for p in nearest if p[0] != index.keys[b]][:top - 1]
+        twins = playable + [j for j in twins if j not in playable]
         return "ambiguous", [(index.keys[j], float(d[j])) for j in twins]
     return "certain", nearest
 
@@ -404,7 +463,14 @@ def read(img: Image.Image, kb, top: int = 3, cursor: tuple[int, int] | None = No
         Image.fromarray(c).save(buf, "PNG")
         slot = Slot(i, buf.getvalue())
         if len(index.keys):
-            slot.status, slot.matches = _match(vecs, index, kb, top)
+            # a plain reading named clearly needs no second one without a stack count: a third of the icons with
+            # no count look like they have one (an Attack Scroll's outline), and each reading is a pass over the
+            # whole index
+            d = _distances(vecs[:1], index)
+            slot.status, slot.matches = _match(d, index, kb, top, vecs[:1])
+            if len(vecs) > 1 and not (slot.status == "certain" and slot.matches[0][1] <= CLEAR):
+                d = np.minimum(d, _distances(vecs[1:], index))
+                slot.status, slot.matches = _match(d, index, kb, top, vecs)
         else:
             slot.status = "unknown"
         out.append(slot)
@@ -437,7 +503,11 @@ def describe(slots: list[Slot], kb) -> str:
             lines.append(f"Slot {s.index}: not recognised (no single KB picture matches it; nearest: "
                          f"{', '.join(names) or 'none'}). Don't name it from these.")
         else:
-            alt = f" (other close pictures: {', '.join(names[1:])})" if len(names) > 1 else ""
+            # a copy of the same item under another key is no other picture ("Jr. Sentinel Shellpiece [item/347]
+            # (other close pictures: Jr. Sentinel Shellpiece [item/2584]") confused the prompt)
+            same = names[0].rsplit(" [", 1)[0] + " [" if names else ""
+            others = [n for n in names[1:] if not n.startswith(same)]
+            alt = f" (other close pictures: {', '.join(others)})" if others else ""
             lines.append(f"Slot {s.index}: {names[0] if names else 'unknown'}{alt}")
     return "\n".join(lines)
 

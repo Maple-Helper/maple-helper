@@ -118,8 +118,10 @@ def test_items_sharing_one_picture_are_ambiguous_not_a_guess(tmp_path):
     assert "almost always right" not in text and "tooltip" in text and "F5" in text
 
 
-def test_a_stack_count_does_not_hide_the_item(tmp_path):
-    """The game prints the count (light digits outlined in black) over the icon's bottom left."""
+@pytest.mark.parametrize("count", ["92", "150", "1000"])
+def test_a_stack_count_does_not_hide_the_item(tmp_path, count):
+    """The game prints the count (light digits outlined in black) over the icon's bottom left. "150" ran on under
+    this big icon's own white and outline, hid most of it and the slot went unnamed (audit P83-4)."""
     kb = _KB(tmp_path)
     icon = Image.open(kb.image_path("item/1")).convert("RGBA").resize((76, 74), Image.NEAREST)
     img = _grid()
@@ -127,7 +129,7 @@ def test_a_stack_count_does_not_hide_the_item(tmp_path):
     font = ImageFont.truetype("arialbd.ttf", 20) if Path("C:/Windows/Fonts/arialbd.ttf").exists() else None
     if font is None:
         pytest.skip("no bold font to draw the count with")
-    ImageDraw.Draw(img).text((50 + 3, 40 + 83 - 22), "92", font=font, fill=(235, 235, 240),
+    ImageDraw.Draw(img).text((50 + 3, 40 + 83 - 22), count, font=font, fill=(235, 235, 240),
                              stroke_width=2, stroke_fill=(0, 0, 0))
     (slot,) = inventory.read(img, kb)
     assert slot.status == "certain" and slot.matches[0][0] == "item/1"
@@ -181,17 +183,50 @@ def test_a_scroll_is_one_of_its_look_alikes_on_the_real_kb():
     names = {kb.get(k)["name"] for k, _ in slot.matches}
     assert "Gloves Attack Scroll: Lesser" in names and len(names) >= 20
     assert all(n.endswith(": Lesser") for n in names)
+    # the ones in the game first: the AI's list of 8 showed scrolls no one can hold
+    from maplehelper import availability
+    open_ = [availability.of(kb).item_open(k) for k, _ in slot.matches]
+    assert open_ == sorted(open_, reverse=True) and open_[0]
 
 
 @needs_kb
 @pytest.mark.skipif(not Path("C:/Windows/Fonts/arialbd.ttf").exists(), reason="no bold font for the count")
-def test_small_items_with_a_count_are_named_on_the_real_kb():
-    """Ores and shells were read as ingots and hats: the slot's speckle stretched the in-game crop."""
+@pytest.mark.parametrize("count", ["1", "10", "37", "100", "1000"])
+def test_small_items_with_a_count_are_named_on_the_real_kb(count):
+    """Ores and shells were read as ingots and hats: the slot's speckle stretched the in-game crop. Stacks of a
+    hundred and more are common (Etc drops, arrows): 3 and 4 digits too (audit P83-4)."""
     from maplehelper.kb import KnowledgeBase
     kb = KnowledgeBase(REAL_KB)
     for key in ("item/348", "item/413", "item/270"):                    # Snail Shell, Bronze Ore, Red Potion
-        slot = inventory.read(_on_real_slot(kb, key, "37"), kb)[3]
+        slot = inventory.read(_on_real_slot(kb, key, count), kb)[3]
         assert (slot.status, slot.matches[0][0]) == ("certain", key)
+
+
+@needs_kb
+def test_an_item_in_the_game_is_named_over_its_no_source_twin():
+    """Apple and Long Sword share their very picture with Roger's Apple and Beginner's Long Sword, which the KB has
+    no source for in the game: a new player's Apple was "one of 2 look-alikes", unpriced (audit P83-1). The one in
+    the game is named; the other stays in the AI's list of close pictures."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    for key, twin in (("item/236", "item/235"), ("item/543", "item/2509")):
+        (slot,) = [s for s in inventory.read(_on_real_slot(kb, key), kb) if s.index == 4]
+        assert (slot.status, slot.matches[0][0]) == ("certain", key)
+        assert f"[{twin}]" in inventory.describe([slot], kb)
+    # the owner's trade-off: the tutorial's Roger's Apple, drawn alike, is named Apple too
+    (slot,) = [s for s in inventory.read(_on_real_slot(kb, "item/235"), kb) if s.index == 4]
+    assert (slot.status, slot.matches[0][0]) == ("certain", "item/236")
+
+
+@needs_kb
+def test_a_copy_of_the_same_item_is_no_other_close_picture():
+    """describe() listed "Jr. Sentinel Shellpiece [item/347] (other close pictures: Jr. Sentinel Shellpiece
+    [item/2584], ...)" (audit P83-5)."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    slot = inventory.Slot(1, b"", [("item/347", 5.0), ("item/2584", 5.1), ("item/348", 20.0)])
+    text = inventory.describe([slot], kb)
+    assert "item/2584" not in text and "other close pictures: Snail Shell [item/348]" in text
 
 
 @needs_kb
@@ -227,3 +262,39 @@ def test_a_count_is_hidden_whole():
     x, y, n = inventory.find_slots(c)[0]                     # "16" over a Jr. Sentinel Shellpiece
     top, right = inventory._count_box(c[y:y + n, x:x + n])
     assert n * 0.6 <= top < n * 0.7 and right >= n * 0.4
+
+
+@needs_kb
+@pytest.mark.parametrize("colour", [(255, 255, 255), (20, 40, 90)])
+@pytest.mark.parametrize("part", [0.25, 0.5])
+def test_a_slot_partly_covered_is_not_read(colour, part):
+    """A white window or the game's dark-blue tooltip over one side of a slot left two corners beige: the rest of
+    the icon was named for certain as another item (Blue Snail Shell as Blue Ghetto Beanie, Tree Branch as Zard),
+    an empty slot as Letter I, and a wrong name reached sell-or-keep and the farm's loot (audit P83-3)."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    base = np.asarray(Image.open(ETC).convert("RGB"))
+    slots = inventory.find_slots(base)
+    covered = (1, 3, 4, 14)                         # Jr. Sentinel Shellpiece, Tree Branch, Blue Snail Shell, empty
+    for side in ("bottom", "top", "left", "right"):
+        a = base.copy()
+        for i in covered:
+            x, y, n = slots[i - 1]
+            m = int(n * part)
+            box = {"bottom": (slice(y + n - m, y + n), slice(x, x + n)), "top": (slice(y, y + m), slice(x, x + n)),
+                   "left": (slice(y, y + n), slice(x, x + m)), "right": (slice(y, y + n), slice(x + n - m, x + n))}
+            a[box[side]] = colour
+        read = {s.index: s for s in inventory.read(Image.fromarray(a), kb)}
+        assert not set(covered) & set(read), side
+        assert read[2].status == "certain" and kb.get(read[2].matches[0][0])["name"] == "Snail Shell"
+
+
+@needs_kb
+def test_a_thin_bar_over_an_empty_slot_is_no_item():
+    """A tooltip's edge along an empty slot was read as a certain "Letter I" (a thin bar's picture)."""
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(REAL_KB)
+    a = np.asarray(Image.open(ETC).convert("RGB")).copy()
+    x, y, n = inventory.find_slots(a)[13]                  # slot 14: empty
+    a[y:y + n, x + n - n // 10:x + n] = (30, 30, 40)
+    assert 14 not in {s.index for s in inventory.read(Image.fromarray(a), kb)}
