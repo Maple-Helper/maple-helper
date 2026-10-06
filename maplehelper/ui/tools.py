@@ -2232,6 +2232,10 @@ class ToolsDialog(GlassDialog):
         self._set(self.town_head, t("town_head", n=len(rows), town=town))
         clear(self.town_grades)
         self.town_grades_box.hide()
+        # under Lv. 12 only "Citizenship opens at Lv. 12": "0 Henesys quests you can do now, best first" above it
+        # and an empty search said the opposite (TL2-12)
+        self.town_head.setVisible(c.level >= 12)
+        self.town_search.setVisible(c.level >= 12)
         if c.level < 12:
             self.town_list.addWidget(self._label(t("town_too_low"), "RowHint"))
             return

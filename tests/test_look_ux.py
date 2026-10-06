@@ -287,3 +287,54 @@ def test_the_updated_chip_on_combat_cards_needs_a_change_to_their_numbers(app, m
     assert updated_tag(t, kb, "monster/1", stats_only=True) is None
     assert updated_tag(t, kb, "monster/2", stats_only=True) is not None
     assert updated_tag(t, kb, "monster/3") is None
+
+
+REAL_KB = __import__("pathlib").Path(__file__).resolve().parent.parent / "data" / "kb"
+
+
+@pytest.fixture(scope="module")
+def real_kb():
+    if not (REAL_KB / "index.json").exists():
+        pytest.skip("no real knowledge base")
+    from maplehelper.kb import KnowledgeBase
+    return KnowledgeBase(REAL_KB)
+
+
+@pytest.fixture
+def tools(app, isolated_store, real_kb):
+    from maplehelper.ui.tools import ToolsDialog
+    made = []
+
+    def make(base, job, level, page, lang="he"):
+        p = isolated_store.Profiles()
+        c = p.add("Kiwi", base, job, level)
+        d = ToolsDialog(real_kb, p, isolated_store.Settings(), lang, "", {}, page)
+        made.append(d)
+        return d, c
+    yield make
+    for d in made:
+        d.close()
+
+
+def _texts(layout) -> list[str]:
+    from PySide6.QtWidgets import QLabel
+    out = []
+    for i in range(layout.count()):
+        w = layout.itemAt(i).widget()
+        if w is not None:
+            out += [lb.text() for lb in [w, *w.findChildren(QLabel)] if isinstance(lb, QLabel)]
+    return out
+
+
+def test_citizenship_under_level_12_says_only_that_it_opens_at_12(tools):
+    """TL2-12: "0 Henesys quests you can do now, best first" stood above "Citizenship opens at Lv. 12."."""
+    from maplehelper.i18n import I18n
+    t = I18n("he")
+    d, c = tools("Beginner", "Beginner", 1, "town")
+    d._fill_town()
+    assert d.town_head.isHidden() and d.town_search.isHidden()
+    shown = _texts(d.town_list)
+    assert len(shown) == 1 and "12" in shown[0] and t("town_too_low")[:6] in shown[0]
+    d.c.level = 20
+    d._fill_town()
+    assert not d.town_head.isHidden() and not d.town_search.isHidden()
