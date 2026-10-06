@@ -909,3 +909,17 @@ def test_a_damaged_or_missing_page_reads_without_failing(tmp_path):
     kb = small_kb(tmp_path, [ent("monster/1", "Stump"), ent("monster/2", "Slime")], {}, {"monster/1": "# Stump\n"})
     (tmp_path / "pages" / "monster" / "1.md").write_bytes(b"# Stump\n\xff\xfe broken")
     assert kb.page("monster/1").startswith("# Stump") and kb.page("monster/2") == ""
+
+
+@needs_kb
+def test_scope_note_names_hidden_street_maps_the_kb_has(real):
+    """The note named "Monkey Forest", a map the KB doesn't have ("Monkey Forest I/II"): its examples are now
+    the KB's own open maps on that street (review CORE-10)."""
+    import re as re_
+    from maplehelper import availability
+    o = availability.of(real)
+    m = re_.search(r"in the game \(e\.g\. (.+?) and (.+?) on (.+?)\)", o.scope_note())
+    assert m, o.scope_note()
+    for name in m.group(1, 2):
+        assert o.map_place.get(f"{name} Hidden Street", ("",))[0] == m.group(3) and o.map_open(f"{name} Hidden Street")
+    assert m.group(3) in o.confirmed

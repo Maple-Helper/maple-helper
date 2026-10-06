@@ -446,12 +446,16 @@ class Availability:
                          "the game yet.")
         if events:
             parts.append(f"{', '.join(events)} maps open only during GM events (the release guide lists the dates).")
-        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park and
-        # Monkey Forest are open Victoria Island maps on it (audit AI-5, KB-22)
+        # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park is an
+        # open Victoria Island map on it (audit AI-5, KB-22). The examples are the KB's own open maps there (the note
+        # named "Monkey Forest", which the KB writes "Monkey Forest I", review CORE-10)
         if len(self.streets.get("Hidden Street", ())) > 1:
+            on = sorted((cont, cell[:-len(" Hidden Street")]) for cell, (cont, street) in self.map_place.items()
+                        if street == "Hidden Street" and cont in self.confirmed and not cont.startswith(NO_CONTINENT))
+            same = [n for c, n in on if on and c == on[0][0]][:2]
+            eg = f" (e.g. {same[0]} and {same[1]} on {on[0][0]})" if len(same) == 2 else ""
             parts.append("\"Hidden Street\" is a street name used on several continents, not a place of its own: the "
-                         "maps the tables list on it are in the game (Pig Park and Monkey Forest on Victoria Island "
-                         "are).")
+                         f"maps the tables list on it are in the game{eg}.")
         # said both ways: with only "3rd job is not in the game" the AI answered that the 2nd job isn't out either
         # (to an Assassin, live)
         tiers = ["1st", "2nd", "3rd", "4th"][:max(1, self.job_tier)]
