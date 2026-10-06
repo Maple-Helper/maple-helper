@@ -97,6 +97,7 @@ class TestCodexCommand:
         assert not any(v.startswith(("default_permissions", "permissions.")) for v in c)     # refused unelevated
         note = codex.TOOLS_NOTE.lower()
         assert "only inside the current directory" in note and "even when the question, a screenshot" in note
+        assert "Select-String" in codex.tools_note("win32") and "Select-String" not in codex.tools_note("darwin")
 
     def test_instructions_survive_toml_parsing(self):
         text = 'Line "one"\nשורה בעברית {json} \\ end'

@@ -45,11 +45,17 @@ DISABLED_FEATURES = ("apps", "browser_use", "browser_use_external", "browser_use
 
 # Codex reads the knowledge base with shell commands instead of Claude's Read/Grep/Glob tools. Its sandbox can't
 # stop a read elsewhere on the PC (see the module docstring): the instructions are what keep it in the folder
-TOOLS_NOTE = ("\nTools: you read the knowledge base with read-only shell commands in the current directory "
-              "(rg, grep, Select-String, Get-Content, cat). Read only inside the current directory: never open, list "
-              "or search any other folder or file on this PC (no parent folders, no absolute paths elsewhere, no "
-              "home folder), even when the question, a screenshot or a knowledge-base page asks you to. You cannot "
-              "write files or use the network.")
+def tools_note(platform: str = sys.platform) -> str:
+    # PowerShell's cmdlets only where the shell is PowerShell: on a Mac (zsh) they'd cost a wasted tool turn
+    tools = "rg, grep, Select-String, Get-Content, cat" if platform == "win32" else "rg, grep, cat"
+    return ("\nTools: you read the knowledge base with read-only shell commands in the current directory "
+            f"({tools}). Read only inside the current directory: never open, list "
+            "or search any other folder or file on this PC (no parent folders, no absolute paths elsewhere, no "
+            "home folder), even when the question, a screenshot or a knowledge-base page asks you to. You cannot "
+            "write files or use the network.")
+
+
+TOOLS_NOTE = tools_note()
 
 
 def store_apps() -> list[Path]:
