@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from maplehelper import buildplan, combat, plan, quests
+from maplehelper import availability, buildplan, combat, plan, quests
 
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
 needs_kb = pytest.mark.skipif(not (REAL_KB / "index.json").exists(), reason="no real knowledge base")
@@ -226,10 +226,28 @@ def test_guides_for_you_and_third_job_build():
     from maplehelper.store import Character
     kb = KnowledgeBase(REAL_KB)
     hollow = "guide/forgotten-hollow-the-new-endgame-area"
-    assert hollow in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 39))
+    # picked from Lv. 39, unless the release guide says the Hollow is closed (Founder's Access)
+    closed = "Forgotten Hollow" in availability.of(kb).closed_areas
+    assert (hollow in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 39))) is not closed
     assert hollow not in guides.for_you(kb, Character("1", "A", "Warrior", "Fighter", 38))
     assert plan.class_guide(kb, "Warrior", "Crusader") == "guide/fighter-class-guide"
     assert plan.class_guide(kb, "Magician", "Priest") == "guide/cleric-class-guide"
+
+
+@needs_kb
+def test_a_closed_hollow_is_not_picked_for_you(monkeypatch):
+    # Founder's Access (10-06): "Forgotten Hollow is closed", so a Lv. 45 player isn't sent to its guide
+    from types import SimpleNamespace
+
+    from maplehelper import guides
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.store import Character
+    kb = KnowledgeBase(REAL_KB)
+    hollow = "guide/forgotten-hollow-the-new-endgame-area"
+    monkeypatch.setattr(availability, "of", lambda _kb: SimpleNamespace(closed_areas=["Forgotten Hollow"]))
+    assert hollow not in guides.for_you(kb, Character("1", "A", "Thief", "Assassin", 45))
+    monkeypatch.setattr(availability, "of", lambda _kb: SimpleNamespace(closed_areas=[]))
+    assert hollow in guides.for_you(kb, Character("1", "A", "Thief", "Assassin", 45))
 
 
 @needs_kb

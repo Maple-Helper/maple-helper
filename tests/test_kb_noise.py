@@ -28,7 +28,7 @@ def test_the_page_keeps_its_own_url_when_a_picture_is_fetched(tmp_path, monkeypa
     (tmp_path / "img" / "monster").mkdir(parents=True)
     page_url = "https://meowdb.com/msclassic/monsters/1"
     monkeypatch.setattr(scrape_meowdb, "fetch", lambda url, binary=False, retries=3: b"png" if binary else PAGE)
-    monkeypatch.setattr(scrape_meowdb, "save_image", lambda data, path: path.write_bytes(data) or True)
+    monkeypatch.setattr(scrape_meowdb, "save_image", lambda data, path, max_w=None: path.write_bytes(data) or True)
     row = scrape_meowdb.scrape_one("monster", "1", page_url, refresh=True)
     assert row["url"] == page_url
     md = (tmp_path / "pages" / "monster" / "1.md").read_text(encoding="utf-8")
@@ -50,3 +50,19 @@ def test_a_page_whose_text_alone_changed_never_affects_the_player(monkeypatch):
     mine, rest = recent.split(entries, SimpleNamespace(), SimpleNamespace(level=31), ())
     assert [r["name"] for _, _, r in mine] == ["Fire Boar"]
     assert [r["name"] for r in rest[0]["updated"]] == ["Blue Snail", "Brown Snail"] and rest[0]["counts"]["updated"] == 2
+
+
+def test_guide_cards_are_stored_at_cover_width(tmp_path):
+    # the site's 1200x630 social card was kept whole for a 44 px icon and a 480 px hover (6.1 MB for 32 guides)
+    import io
+
+    from PIL import Image
+
+    from maplehelper.ui.guides import COVER_W
+    buf = io.BytesIO()
+    Image.new("RGB", (1200, 630), (200, 120, 40)).save(buf, "PNG")
+    assert scrape_meowdb.GUIDE_IMG_W == COVER_W
+    assert scrape_meowdb.save_image(buf.getvalue(), tmp_path / "g.png", scrape_meowdb.GUIDE_IMG_W)
+    assert Image.open(tmp_path / "g.png").size == (480, 252)
+    assert scrape_meowdb.save_image(buf.getvalue(), tmp_path / "m.png")         # other pictures keep their size
+    assert Image.open(tmp_path / "m.png").size == (1200, 630)

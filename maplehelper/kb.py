@@ -249,6 +249,8 @@ class KnowledgeBase:
             raw = idx.read_bytes()
             self.index_hash = hashlib.sha1(raw).hexdigest()
             for e in json.loads(raw.decode("utf-8")):
+                if isinstance(e.get("name"), str):
+                    e["name"] = e["name"].strip()     # "Asking After Chun Ji " (the site's own spacing) missed exact lookups
                 self.entities[e["key"]] = e
         self.aliases: dict[str, str] = {}   # normalized alias -> key
         alias_file = self.root / "aliases.json"

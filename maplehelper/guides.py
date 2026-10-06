@@ -73,8 +73,34 @@ def own_minutes(page: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# the mechanics pages' tab row, flattened onto the article's next line ("... Shop Item Efficiency Contents",
+# "... Shop Item Efficiency Every EXP requirement ...")
+_MECH_TABS = "Damage Formula Atk Speed Attack Styles HP/MP Gain EXP Table Spawn Rate Shop Item Efficiency "
+
+
+def _unlabeled_toc(lines: list[str], start: int) -> tuple[int, int] | None:
+    """A contents list the page doesn't title "Contents" (forgotten-hollow): a run of short heading-like
+    lines, then the first of them again where its section starts. (first, end) of the run."""
+    def short(ln: str) -> bool:
+        return 0 < len(ln) <= 60 and not ln.endswith((".", ":", "!", "?")) and " | " not in ln
+    for i in range(start, len(lines)):
+        if not short(lines[i]):
+            continue
+        j = i + 1
+        while j < len(lines) and short(lines[j]) and lines[j] != lines[i]:
+            j += 1
+        if j - i >= 3 and j < len(lines) and lines[j] == lines[i]:
+            return i, j
+    return None
+
+
 def parse(key: str, page: str) -> Guide:
-    lines = [ln.strip() for ln in page.split("\n---", 2)[-1].splitlines()]
+    lines = []
+    for ln in (x.strip() for x in page.split("\n---", 2)[-1].splitlines()):
+        if ln.startswith(_MECH_TABS):
+            lines += ["", ln[len(_MECH_TABS):].strip()]     # the tabs are junk, the rest of the line is the article
+        else:
+            lines.append(ln)
     title = next((ln[2:] for ln in lines if ln.startswith("# ")), key)
     g = Guide(key, title)
     body_start = next((i for i, ln in enumerate(lines) if ln.startswith("# ")), 0) + 1
@@ -91,6 +117,9 @@ def parse(key: str, page: str) -> Guide:
             toc.append(_norm(lines[i]))
             i += 1
         pre, body = lines[body_start:lines.index("Contents")], lines[i:]
+    elif run := _unlabeled_toc(lines, body_start):
+        toc = [_norm(ln) for ln in lines[run[0]:run[1]]]
+        pre, body = lines[body_start:run[0]], lines[run[1]:]
     else:
         pre, body = [], lines[body_start + 1:]
 
@@ -120,6 +149,10 @@ def parse(key: str, page: str) -> Guide:
             current[1].append(ln)
     if not g.sections and body:
         g.sections.append(("", [ln for ln in body if ln and not _junk(ln)]))
+    # the article's own opening paragraph sits before the contents (exp-table: "Every EXP requirement in ...")
+    lead = [ln for ln in pre if len(ln) > 60 and ln.endswith((".", "!", "?")) and not _junk(ln) and ln != g.intro]
+    if lead and not (g.pros or g.cons) and g.sections and g.sections[0][0]:
+        g.sections.insert(0, ("", lead))
     return g
 
 
@@ -399,7 +432,10 @@ def for_you(kb, c) -> list[str]:
         if c.level >= 21:
             picks.append("guide/kerning-city-party-quest-kpq-guide")
         picks.append("guide/exp-table-level-1-to-100")
-        if c.level >= 39:                  # the Hollow opens at Lv. 39 (its guide), not 60
+        # the Hollow opens at Lv. 39 (its guide), not 60; while the release guide calls it closed (Founder's Access,
+        # 10-06) it's no pick for a player who can't get in
+        from . import availability
+        if c.level >= 39 and "Forgotten Hollow" not in availability.of(kb).closed_areas:
             picks.append("guide/forgotten-hollow-the-new-endgame-area")
     else:
         picks += ["guide/beginners-guide-first-steps-in-maple-world", "guide/best-grind-maps-every-level"]

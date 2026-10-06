@@ -48,7 +48,7 @@
    "h2": "New areas and crafting"
   },
   {
-   "p": "Classic World adds content that old MapleStory never had. Forgotten Hollow is a new cave for levels 39 to 60 with ten new regular monsters, Rotten Mushmom, new NPCs, and its own questline. The Forgotten Hollow guide has the full breakdown."
+   "p": "Classic World adds content that old MapleStory never had. Forgotten Hollow is a new cave for levels 39 to 60 with ten new regular monsters, Rotten Mushmom, new NPCs, and its own questline. It is closed during Founder's Access, and Nexon plans to add it at a later date. The Forgotten Hollow guide has the full breakdown."
   },
   {
    "p": "Crafting adds six professions: Smithing, Weaponcrafting, Tailoring, Woodcrafting, Leatherworking, and Arcforge. Each has its own NPC on Victoria Island."
@@ -90,7 +90,7 @@
    "h3": "What is the launch level cap?"
   },
   {
-   "p": "Nexon has not published the launch cap. The first closed test stopped at level 50, and COT2 let testers reach at least level 100. Those were test settings. Nexon's August 21 report confirms that third job is outside the initial launch."
+   "p": "Level 100. Nexon set the maximum character level at Lv. 100 in its Founder's Access release notes. Third job is outside the initial launch, so you play levels 30 to 100 on your second job."
   },
   {
    "h3": "Is Classic World the same as MapleLegends or MapleRoyals?"
@@ -106,5 +106,5 @@
   }
  ],
  "source": "https://meowdb.com/msclassic/guides/what-is-maplestory-classic-worlds",
- "hash": "20a44a6014e4"
+ "hash": "a1e6808e97b5"
 }

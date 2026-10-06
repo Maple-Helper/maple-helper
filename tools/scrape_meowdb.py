@@ -203,13 +203,21 @@ def image_candidates(entity: dict, category: str, slug: str, name: str) -> list[
     return out
 
 
-def save_image(data: bytes, path: Path) -> bool:
-    """Store as PNG (the site serves some pictures as WebP). No Pillow is an error, not a bad picture: the nightly ran
-    without it and threw every new picture away in silence ("pictures added: 0/11")."""
+# a guide's picture is the site's 1200x630 social card: the app shows it as a 44 px list icon and, on hover, at
+# 480 px (ui/guides.py COVER_W). Stored at that width the 32 cards take 2.4 MB, not 6.1.
+GUIDE_IMG_W = 480
+
+
+def save_image(data: bytes, path: Path, max_w: int | None = None) -> bool:
+    """Store as PNG (the site serves some pictures as WebP), no wider than max_w. No Pillow is an error, not a bad
+    picture: the nightly ran without it and threw every new picture away in silence ("pictures added: 0/11")."""
     import io
     from PIL import Image
     try:
-        Image.open(io.BytesIO(data)).save(path, "PNG")
+        img = Image.open(io.BytesIO(data))
+        if max_w and img.width > max_w:
+            img = img.resize((max_w, round(img.height * max_w / img.width)), Image.LANCZOS)
+        img.save(path, "PNG")
         return True
     except Exception:
         return False
@@ -245,7 +253,7 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str
     entity = next((d for d in lds if d.get("@type") not in ("BreadcrumbList", "WebSite", "Organization")), {})
     title = re.search(r"<title>(.*?)</title>", page, re.S)
     title_name = title.group(1).split(" | ")[0].split(" - MapleStory Classic")[0].strip() if title else ""
-    name = html.unescape(str(entity.get("name") or entity.get("headline") or title_name or slug))
+    name = html.unescape(str(entity.get("name") or entity.get("headline") or title_name or slug)).strip()
     text = main_text(page, name)
     props = props_of(entity)
     img_file = None
@@ -257,7 +265,7 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str
         for img_url in image_candidates(entity, category, slug, name):
             data = fetch(img_url, binary=True)
             time.sleep(DELAY_SECONDS / 2)
-            if data and save_image(data, img_path):
+            if data and save_image(data, img_path, GUIDE_IMG_W if category == "guide" else None):
                 break
     had_picture = img_path.exists()
     if not had_picture:

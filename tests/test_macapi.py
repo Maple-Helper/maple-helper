@@ -169,3 +169,15 @@ def test_autostart_refuses_a_disk_image_or_translocated_copy(tmp_path, monkeypat
     monkeypatch.setattr(macapi.sys, "executable", "/Applications/Maple Helper.app/Contents/MacOS/Maple Helper")
     assert macapi.set_autostart(True, ["--background"], agent) is True
     assert plistlib.loads(agent.read_bytes())["ProgramArguments"][0].startswith("/Applications/")
+
+
+def test_mac_icon_has_transparent_corners():
+    # the .app/.dmg icon is built from icon-source.png: an opaque white square showed around the rounded tile
+    from pathlib import Path
+
+    from PySide6.QtGui import QImage
+    img = QImage(str(Path(__file__).resolve().parent.parent / "assets" / "brand" / "icon-source.png"))
+    assert img.hasAlphaChannel()
+    w, h = img.width(), img.height()
+    assert all(img.pixelColor(x, y).alpha() == 0 for x, y in ((2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3)))
+    assert img.pixelColor(w // 2, h // 2).alpha() == 255

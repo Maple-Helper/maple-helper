@@ -44,6 +44,60 @@ def test_parse_keeps_only_the_article():
     assert "Explore the database" not in html and "catnip" not in html
 
 
+MECH_PAGE = """---
+{"name": "EXP Table", "category": "guide"}
+---
+
+# MapleStory Classic EXP Table: Levels 1-100
+
+EXP requirements for levels 1-100.
+
+Explore the database
+Mechanics 5 min read · By Nia Meow
+Damage Formula Atk Speed Attack Styles HP/MP Gain EXP Table Spawn Rate Shop Item Efficiency Every EXP requirement in MapleStory Classic World, level by level, with the formula behind it.
+Contents
+Per-level EXP requirement
+The EXP Formula
+Per-level EXP requirement
+Level | EXP to next
+1 | 15
+The EXP Formula
+EXP grows with level.
+"""
+
+HOLLOW_PAGE = """---
+{"name": "Forgotten Hollow Guide", "category": "guide"}
+---
+
+# Forgotten Hollow Guide
+
+Forgotten Hollow exists nowhere else in MapleStory.
+
+Forgotten Hollow is a brand-new area that exists nowhere else in MapleStory, with its own fairy town.
+Getting into the Hollow
+The lore
+Level range
+Getting into the Hollow
+The front door is The Tree Tunnel.
+The lore
+Grendel the Really Old
+Level range
+Levels 39 to 60.
+"""
+
+
+def test_parse_fallback_keeps_the_opening_and_finds_unlabeled_contents():
+    # the reader's fallback for a guide the nightly KB adds before it has a book: the mechanics tabs glued onto
+    # the first paragraph dropped it, and a contents list without "Contents" made one untitled section
+    g = guides.parse("guide/exp-table-level-1-to-100", MECH_PAGE)
+    assert [h for h, _ in g.sections] == ["", "Per-level EXP requirement", "The EXP Formula"]
+    assert g.sections[0][1][0].startswith("Every EXP requirement in MapleStory Classic World")
+    assert "Atk Speed" not in guides.to_html(g, {"pros": "Pros", "cons": "Cons"})
+    g = guides.parse("guide/forgotten-hollow-the-new-endgame-area", HOLLOW_PAGE)
+    assert [h for h, _ in g.sections] == ["", "Getting into the Hollow", "The lore", "Level range"]
+    assert g.sections[2][1] == ["Grendel the Really Old"]
+
+
 @pytest.mark.parametrize("key,cat", [("guide/fighter-class-guide", "classes"),
                                      ("guide/best-grind-maps-every-level", "leveling"),
                                      ("guide/weapon-reach", "mechanics"),
