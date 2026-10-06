@@ -222,16 +222,14 @@ def test_the_tour_link_asks_about_unsaved_settings(env, monkeypatch, choice):
 
 # --- DLG-11: an unexpected error in an account check still settles the window ----------------------------------------
 
-def test_a_failing_account_check_settles_on_offline(env, monkeypatch):
-    from maplehelper import providers
+def test_a_failing_account_check_settles_on_offline(env):
+    from types import SimpleNamespace
+
     from maplehelper.ui import dialogs
 
-    def boom(self):
+    def boom():
         raise ValueError("unexpected")
-    claude = providers.get("claude")
-    monkeypatch.setattr(type(claude), "account", boom)
-    monkeypatch.setattr(type(claude), "status", lambda self: type(self).account(self)["status"])
-    monkeypatch.setattr(type(claude), "logout", boom)
+    claude = SimpleNamespace(name="claude", account=boom, status=boom, logout=boom)
     assert dialogs._safe_status(claude) == "offline"
     assert dialogs._safe_account(claude) == {"status": "offline", "email": None, "provider": "claude"}
     dialogs._safe_logout(claude)                          # logged, not raised
