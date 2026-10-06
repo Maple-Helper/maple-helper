@@ -249,7 +249,6 @@ Download the latest release from the [Releases page](https://github.com/Maple-He
 
 - **`MapleHelper-Setup.exe`**: the installer. This is the recommended option and doesn't need admin rights.
 - **`MapleHelper-<version>-portable.zip`**: unzip it anywhere and run `Maple Helper.exe`.
-
 - **`MapleHelper-macOS.dmg`**: for Macs with Apple Silicon. Open it and drag **Maple Helper** into Applications.
 
 All of them include the knowledge base. The installed Windows app updates itself; the portable zip and the Mac app tell you when a new version is out.
