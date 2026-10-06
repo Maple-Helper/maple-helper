@@ -603,7 +603,7 @@
     [
      "10-29",
      "הרול החזק של 3.5× קורה ב-60% מהמתקפות, וה-Polearm ברשימה בדרך כלל עם יותר W.ATK.",
-     "ה-Spear בטווח הרמות הזה בדרך כלל מהירים יותר. Fish Spear נותן גם +1 ACC."
+     "ה-Spears בטווח הרמות הזה בדרך כלל מהירים יותר. Fish Spear נותן גם +1 ACC."
     ],
     [
      "30-69",
@@ -789,7 +789,7 @@
    "p": "במקסימום, שני ה-Mastery מעלים את רמת ה-Mastery של הנשק ל-10. זה מעלה את רכיב ה-STR שמשמש את רול הדמג' הכי חלש, אז המכה המינימלית עולה הרבה יותר מהמקסימלית. זה בדיוק מה שבילד של הריגה מובטחת במכה אחת או שתיים רוצה."
   },
   {
-   "p": "Booster מזיז את הנשק התואם בשני שלבי Attack Speed כבר מרמת סקיל 1. רמות סקיל גבוהות יותר מאריכות את המשך ומורידים את עלות ה-HP וה-MP."
+   "p": "Booster מזיז את הנשק התואם בשני שלבי Attack Speed כבר מרמת סקיל 1. רמות סקיל גבוהות יותר מאריכות את המשך ומורידות את עלות ה-HP וה-MP."
   },
   {
    "note": "**דוגמה ל-Booster ברמה 70:** בילד ה-Redemption של Grummash עושה 70.4 Power Strike לדקה בלי Booster ו-81.0 עם Booster. זה 15.1 % יותר מתקפות. הדמג' הממוצע להטלה נשאר 2,691, והדמג' לדקה עולה מכ-189,439 לכ-217,852."
@@ -979,10 +979,10 @@
    "h": 147
   },
   {
-   "p": "**הכי שווה לקנות** הכי הרבה HP או MP לכל meso"
+   "p": "**הכי שווה לקנות** הכי הרבה HP או MP לכל mesos"
   },
   {
-   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP ל-meso [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP ל-meso [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP ל-meso [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP ל-meso [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP ל-meso"
+   "p": "[[img:be80aa4791c684.png]] **Red Potion** 50 mesos · 100 HP 2 HP לכל mesos [[img:39a28ad40190a6.png]] **Fried Chicken** 60 mesos · 120 HP 2 HP לכל mesos [[img:51e2250795d8f6.png]] **Meat** 80 mesos · 160 HP 2 HP לכל mesos [[img:da1e5c881a1df6.png]] **Orange** 50 mesos · 50 MP 1 MP לכל mesos [[img:d59bc967011b87.png]] **Lemon** 150 mesos · 150 MP 1 MP לכל mesos"
   },
   {
    "p": "**לפי מצב** קנו כשהבאף מגיע לנקודת שבירה שימושית"
@@ -991,13 +991,13 @@
    "p": "[[img:4e15182d2a8a6e.png]] **Sniper Potion** 500 mesos · +5 ACC ל-10 דק' לביטול פספוסים [[img:e18fe0a27cd32a.png]] **Supreme Sniper Potion** 600 mesos · +7 ACC ל-15 דק' באף ה-ACC הכי טוב בחנות [[img:8d7b05272e3e8b.png]] **Warrior Potion** 500 mesos · +10 Attack Power ל-10 דק' לנקודת שבירה של דמג'"
   },
   {
-   "p": "**לא לקנות** פחות החזר לכל meso מהאפשרויות למעלה"
+   "p": "**לא לקנות** פחות החזר לכל mesos מהאפשרויות למעלה"
   },
   {
-   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP ל-meso [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP ל-meso"
+   "p": "[[img:a699b6aea354d7.png]] **White Potion** 350 mesos · 500 HP 1.43 HP לכל mesos [[img:d19cbf8225851d.png]] **Blue Potion** 220 mesos · 200 MP 0.91 MP לכל mesos"
   },
   {
-   "p": "Lemon היה האייטם הכי נקנה גם ב-CoT1 וגם ב-CoT2, ובצדק. הוא משתווה ל-Orange עם 1 MP ל-meso, מחזיר פי שלושה MP בכל שימוש ונמכר בכל אזור אימון מרכזי."
+   "p": "Lemon היה האייטם הכי נקנה גם ב-CoT1 וגם ב-CoT2, ובצדק. הוא משתווה ל-Orange עם 1 MP לכל mesos, מחזיר פי שלושה MP בכל שימוש ונמכר בכל אזור אימון מרכזי."
   },
   {
    "note": "**דוגמת עלות ברמה 70:** בילד ה-Redemption של Grummash עושה בערך 81 Power Strike לדקה. ב-12 MP כל אחד, זה בערך 972 MP, או 6.5 Lemon ו-972 mesos לדקה, לפני Booster, Iron Will, Rush, אוכל HP או פספוסים."

@@ -224,15 +224,16 @@ def test_the_hebrew_terms_check_covers_every_guide():
 @pytest.mark.parametrize("stem", HEB_CLEAN)
 def test_hebrew_guide_keeps_the_owners_terms(stem):
     """רמה (never לבל; לבלבל "to confuse" and מבולבל are real words), גריינד without ל-, plural address, mesos in
-    English."""
+    English and plural ("לכל mesos", never "לכל meso", the review UI-8)."""
     import json
     import re
     he = json.loads((guides.TRANSLATIONS / "he" / f"{stem}.json").read_text(encoding="utf-8"))
     text = json.dumps({k: v for k, v in he.items() if k != "source_hash"}, ensure_ascii=False)
-    bad = re.findall(r"\S*(?:(?<!ל)(?<!לב)(?<!בו)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|בבערך)\S*", text)
+    bad = re.findall(r"\S*(?:(?<!ל)(?<!לב)(?<!בו)לבל(?!בל)|גרינד|גרנד|(?<![א-ת])לגריינד|[בלמ]בערך)\S*", text)
     bad += re.findall(r"(?<![א-ת])(?:אתה|שלך|ממך|אותך|בשבילך|עליך|לפניך|בינך)(?![א-ת])", text)
     bad += re.findall(r"(?<![א-ת])[לב]?(?:כל )?מסו(?![א-ת])", text)
     bad += re.findall(r"ברמה (?:גבוה|נמוך|מקסימלי|הבא)(?![א-ת])", text)
+    bad += re.findall(r"\bmeso\b", text)
     assert not bad, bad
 
 
