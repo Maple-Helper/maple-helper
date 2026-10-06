@@ -521,6 +521,24 @@ def test_class_change_in_chat_asks_and_advancement_does_not(overlay):
     # a lower level asks
     overlay._apply_profile_update({"level": 20})
     assert c.level == 30
+    # back to Beginner, to the 1st job, or sideways to the other 2nd job: asked, not applied (audit AI-2)
+    c.base_class, c.job, c.level = "Thief", "Assassin", 31
+    for update in ({"job": "Beginner"}, {"job": "Beginner", "level": 31}, {"job": "Thief", "level": 31},
+                   {"job": "Bandit", "level": 31}, {"base_class": "Beginner"}):
+        overlay._apply_profile_update(update)
+        assert (c.base_class, c.job, c.level) == ("Thief", "Assassin", 31), update
+    overlay._apply_profile_update({"job": "Hermit", "level": 70})
+    assert (c.job, c.level) == ("Hermit", 70)
+
+
+def test_job_advances_only_along_its_line():
+    from maplehelper.jobs import advances
+    assert advances("Beginner", "Thief") and advances("Thief", "Assassin") and advances("Thief", "Chief Bandit")
+    assert advances("Assassin", "Hermit") and advances("Fighter", "Crusader") and advances("Assassin", "Assassin")
+    assert not advances("Assassin", "Chief Bandit") and not advances("Fighter", "White Knight")
+    assert not advances("Assassin", "Beginner") and not advances("Thief", "Beginner")
+    assert not advances("Assassin", "Thief") and not advances("Assassin", "Bandit")
+    assert not advances("Hermit", "Assassin")
 
 
 def test_reply_rules_keep_profile_update_to_the_active_character():
