@@ -144,6 +144,15 @@ def test_read_guard_checks_every_key_that_names_a_path(home, tmp_path, guard_kin
                {"path": "pages", "include_hidden": True, "max_depth": 2}):
         assert decide(ti) == "allow", ti
     assert decide({"pattern": "x", "glob": "*.md"}, cwd="C:\\") == "deny"        # a glob runs where Grok runs
+    # a wildcard in a grep path is a glob too, and an empty list_dir is the folder it runs in (review PLT-12)
+    for ti in ({"pattern": "x", "path": "pages/*.md"}, {"pattern": "x", "path": "pages/**/*.md"},
+               {"pattern": "x", "path": "x?.md"}, {}):
+        assert decide(ti) == "allow", ti
+    for ti in ({"pattern": "x", "path": "../*.md"}, {"pattern": "x", "path": "C:\\*.md"},
+               {"pattern": "x", "path": "C:/Users/*"}, {"pattern": "x", "path": "/Users/*"},
+               {"pattern": "x", "path": "pages/../../*"}, {"pattern": "x", "path": "\\\\?\\C:\\*"}):
+        assert decide(ti) == "deny", ti
+    assert decide({"pattern": "x", "path": "pages/*.md"}, cwd="C:\\") == "deny" and decide({}, cwd="C:\\") == "deny"
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")
@@ -415,6 +424,11 @@ def test_the_account_email_comes_from_grok_s_sign_in_file(home, monkeypatch):
     ("request id 7a3429fe failed: internal server error", None),
     ("HTTP 401 Unauthorized", "not_logged_in"),
     ("status: 429 Too Many Requests", "usage_limit"),
+    ("Error: xAI API returned status 429.", "usage_limit"),                       # at the end of a sentence
+    ("HTTP 401.", "not_logged_in"),
+    ("took 429.5 s, then failed", None),
+    ("id 429-ab failed", None),
+    ("waited 1429 ms", None),
 ])
 def test_status_codes_count_only_on_their_own(text, kind):
     """"401" / "429" anywhere in stderr made an unrelated failure a sign-out or a limit (audit PRV-5)."""
@@ -429,6 +443,22 @@ def test_offline_is_not_signed_out(home, monkeypatch):
         "Error: error sending request for url (https://api.x.ai/v1/models): dns error: no such host", 1))
     assert providers.get("grok").account() == {"status": "offline", "email": None}
     assert providers.get("grok").models() == [(None, "")]
+
+
+def test_the_offline_log_line_has_no_email_or_link(home, monkeypatch, caplog):
+    """`grok models` output is where the account email is read from, and the log ships in a report (review PLT-10)."""
+    import logging
+    monkeypatch.setattr(grok, "_models_cache", [])
+    monkeypatch.setattr(grok, "find_grok", lambda: "grok.exe")
+    monkeypatch.setattr(grok, "_run", lambda args, timeout=30: Done(
+        "Logged in as player@x.com\nError: error sending request for url (https://api.x.ai/v1/models): dns error", 1))
+    with caplog.at_level(logging.WARNING, logger="maplehelper"):
+        assert providers.get("grok").account()["status"] == "offline"
+    assert "no connection" in caplog.text and "player@x.com" not in caplog.text and "api.x.ai" not in caplog.text
+    import inspect
+
+    from maplehelper.providers import codex                # Codex's stall line, the same way
+    assert 'STALL_TIMEOUT_S, base.scrub(stderr[-1000:]))' in inspect.getsource(codex)
 
 
 def test_each_run_s_saved_session_is_removed(home, tmp_path):
@@ -455,6 +485,30 @@ def test_each_run_s_saved_session_is_removed(home, tmp_path):
     assert not mine.exists() and other.exists() and old.exists()
     grok.sweep_sessions()
     assert other.exists() and not old.exists()
+
+
+def test_grok_s_prompt_history_goes_with_the_sessions(home):
+    """Grok also writes every run's whole prompt to sessions/<folder>/prompt_history.jsonl, next to the sessions
+    (review PLT-1): the run's cleanup and the startup sweep both remove it."""
+    import time
+    group = grok.grok_home() / "sessions" / "C%3A%5Ckb"
+    run = group / "01a10d99-127d-7c42"
+    run.mkdir(parents=True)
+    history = group / "prompt_history.jsonl"
+    history.write_text('{"prompt":"the whole question"}\n', encoding="utf-8")
+
+    class Ended:
+        def wait(self, timeout=None):
+            return 0
+    grok.drop_session(Ended(), "01a10d99-127d-7c42")
+    for _ in range(100):
+        if not history.exists():
+            break
+        time.sleep(0.05)
+    assert not history.exists() and not run.exists()
+    history.write_text("{}\n", encoding="utf-8")
+    grok.sweep_sessions()
+    assert not history.exists()
 
 
 def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
@@ -484,3 +538,14 @@ def test_startup_sweeps_every_per_run_leftover(home, tmp_path, monkeypatch):
         os.utime(p, (old, old))
     app._remove_stray_screenshots()
     assert not any(p.exists() for p in left) and fresh.exists()
+
+
+def test_the_startup_sweep_runs_off_the_ui_thread():
+    """Old versions kept every Grok session: the first sweep after the update froze the UI ~1.7 s per thousand
+    (review PLT-8). It only touches files, so it runs on a thread."""
+    import inspect
+
+    from maplehelper import app
+    src = inspect.getsource(app)
+    assert "threading.Thread(target=_remove_stray_screenshots, daemon=True).start()" in src
+    assert "singleShot(9000, _remove_stray_screenshots)" not in src

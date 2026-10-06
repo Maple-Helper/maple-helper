@@ -84,6 +84,22 @@ def test_one_misread_at_either_end_is_not_the_sessions_gain(math):
     assert sm.level_to == 22 and sm.exp
 
 
+def test_a_real_big_change_mid_session_does_not_freeze_the_session(math):
+    """A shop trip with most of the mesos, or two level-ups between reads, broke with the read before it and every
+    later read was dropped: the session's gain froze (review PLT-3). The run after it counts; the trip doesn't."""
+    sm = grind.summarize(math, session(*(read(m, mesos=v) for m, v in enumerate(
+        (1_000_000, 1_010_000, 1_020_000, 150_000, 160_000, 170_000, 180_000)))))
+    assert sm.mesos == 20_000 + 30_000
+    # one misread in the middle still counts for nothing
+    sm = grind.summarize(math, session(read(0, mesos=1_000_000), read(1, mesos=11_010_000), read(2, mesos=1_020_000)))
+    assert sm.mesos == 20_000
+    # Lv. 20 -> 22 a minute apart, then 22 -> 23: the levels after the jump are kept
+    sm = grind.summarize(math, session(read(0, 20, 10.0), read(1, 20, 20.0), read(2, 22, 10.0), read(3, 22, 60.0),
+                                       read(4, 23, 0.0)))
+    assert sm.level_to == 23 and sm.exp == 100 + 1350       # 10% of Lv. 20, then Lv. 22 from 10% to Lv. 23
+    assert sm.exp_h == round(sm.exp * 15)
+
+
 def test_a_read_that_missed_the_exp_bar_keeps_the_last_one_that_had_it(math):
     s = session(read(0, 21, 10.0), read(30, 21, 60.0), read(40, None, None, mesos=5))
     sm = grind.summarize(math, s, now=1_000_000 + 40 * 60)
