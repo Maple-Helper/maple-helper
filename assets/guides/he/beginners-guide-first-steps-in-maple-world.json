@@ -1,6 +1,6 @@
 {
  "title": "מדריך למתחילים: MapleStory Classic World",
- "intro": "השעות הראשונות שלכם ב-MapleStory Classic World, מ-Maple Island ועד רמה 10. בחירת ג'וב, כללים לחלוקת AP, ומה לגרנד בדרך.",
+ "intro": "השעות הראשונות שלכם ב-MapleStory Classic World, מ-Maple Island ועד רמה 10. בחירת ג'וב, כללים לחלוקת AP, ואיפה לעשות גריינד בדרך.",
  "blocks": [
   {
    "p": "[[img:d6e564683a59cd.png]]"
@@ -185,7 +185,7 @@
   {
    "ul": [
     "**Nimble Feet**: תשתמשו בבוסט המהירות הקצר כדי לעבור בין מפות או להגיע למפלצות. יש לו קולדאון של 3 דקות.",
-    "**Three Snails**: נזק קבוע מרחוק. עלות הקונכייה וה-MP תלויה ברמה הסקיל; במקסימום הוא משתמש ב-Red Snail Shell וב-5 MP בשביל 40 נזק.",
+    "**Three Snails**: נזק קבוע מרחוק. עלות הקונכייה וה-MP תלויה ברמת הסקיל; במקסימום הוא משתמש ב-Red Snail Shell וב-5 MP בשביל 40 נזק.",
     "**Recovery**: תפעילו אותו כדי לשחזר HP במשך 30 שניות. במקסימום הוא מחזיר 72 HP תמורת 15 MP, עם קולדאון של 2 דקות."
    ]
   },
@@ -231,19 +231,19 @@
   },
   {
    "guide": "warrior-class-guide",
-   "text": "MapleStory Classic: מדריך בילד ולבלינג ל-Warrior: רמה 1-30"
+   "text": "MapleStory Classic: מדריך בילד ועליית רמות ל-Warrior: רמה 1-30"
   },
   {
    "guide": "magician-class-guide",
-   "text": "MapleStory Classic: מדריך בילד ולבלינג ל-Magician: רמה 1-30"
+   "text": "MapleStory Classic: מדריך בילד ועליית רמות ל-Magician: רמה 1-30"
   },
   {
    "guide": "bowman-class-guide",
-   "text": "MapleStory Classic: מדריך בילד ולבלינג ל-Bowman: רמה 1-30"
+   "text": "MapleStory Classic: מדריך בילד ועליית רמות ל-Bowman: רמה 1-30"
   },
   {
    "guide": "thief-class-guide",
-   "text": "MapleStory Classic: מדריך בילד ולבלינג ל-Thief: רמה 1-30"
+   "text": "MapleStory Classic: מדריך בילד ועליית רמות ל-Thief: רמה 1-30"
   },
   {
    "p": "רמה 30 זה הג'וב השני. אותה עיר, אותו מדריך, ואתם בוחרים ענף:\n• **Warrior**: Fighter, Page, Spearman\n• **Magician**: Cleric, Ice/Lightning, Fire/Poison\n• **Bowman**: Hunter, Crossbowman\n• **Thief**: Assassin, Bandit\nה-tier list של הקלאסים מפרק כל ענף."
