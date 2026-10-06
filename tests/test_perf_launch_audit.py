@@ -45,3 +45,26 @@ def test_a_map_lookup_by_text_is_remembered(kb, monkeypatch):
     n = len(calls)
     assert g.find("somewhere not a map name") == first and len(calls) == n       # the mention matcher ran once
     assert n == 1 and g.find("  ") is None
+
+
+# --- PRF-7: the first question's caches are built in the background ---------------------------------------------------
+
+def test_the_tables_thread_then_warms_what_the_first_question_builds(kb_copy):
+    from maplehelper import tables
+    from maplehelper.kb import KnowledgeBase
+    kb = KnowledgeBase(kb_copy)
+    assert "_hebrew_words" not in kb.__dict__
+    tables.ensure_async(kb, then=kb.warm).join(timeout=120)
+    assert tables.current(kb_copy)
+    assert {"_question_names", "_hebrew_words"} <= set(kb.__dict__)      # the mention matcher's lazy name lists
+
+
+def test_a_failing_warm_up_never_takes_the_app_down(kb_copy):
+    from maplehelper import tables
+    from maplehelper.kb import KnowledgeBase
+
+    def boom():
+        raise RuntimeError("x")
+    th = tables.ensure_async(KnowledgeBase(kb_copy), then=boom)
+    th.join(timeout=120)
+    assert not th.is_alive()

@@ -193,13 +193,19 @@ def ensure(kb, wait: float = ASK_WAIT) -> bool:
         _lock.release()
 
 
-def ensure_async(kb) -> threading.Thread:
-    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait."""
+def ensure_async(kb, then=None) -> threading.Thread:
+    """ensure() on a background thread: at start-up and after a KB update, so the first question doesn't wait.
+    then(): more warm-up on the same thread once the tables are done."""
     def work():
         try:
             ensure(kb, wait=600)
         except Exception:          # noqa: BLE001 - a background build never takes the app down
             log.warning("knowledge-base tables not built", exc_info=True)
+        if then is not None:
+            try:
+                then()
+            except Exception:      # noqa: BLE001 - only a warm-up: the question builds it if this didn't
+                log.warning("knowledge-base warm-up failed", exc_info=True)
     th = threading.Thread(target=work, daemon=True, name="kb-tables")
     th.start()
     return th
