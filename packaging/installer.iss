@@ -64,8 +64,9 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Languages]
-Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
+; English first: a Windows whose language matches neither gets the first entry (a Spanish PC got the Hebrew wizard)
 Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
@@ -76,6 +77,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; (see KbNeedsInstall). Only the KB: removing all of _internal would leave nothing that can even start if a silent
 ; update stopped halfway
 Type: filesandordirs; Name: "{app}\_internal\data\kb"; Check: KbNeedsInstall
+; package metadata of the previous build: an upgraded package left its old version's folder beside the new one.
+; Small, and [Files] writes the new ones right after
+Type: filesandordirs; Name: "{app}\_internal\*.dist-info"
 
 [Files]
 Source: "..\dist\Maple Helper\*"; Excludes: "\_internal\data\kb"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -114,6 +118,13 @@ hebrew.FinishedLabel=בכניסה הראשונה נחבר את ה-AI שלכם (C
 ; the player is addressed in plural, like everywhere in the app (the stock Hebrew texts use the singular)
 hebrew.ClickNext=לחצו 'הבא' כדי להמשיך, או 'ביטול' כדי לצאת.
 hebrew.ClickFinish=לחצו 'סיום' כדי לסגור.
+; the stock button says 'סיים': the text above names it 'סיום', like the other noun buttons ('הבא', 'הקודם', 'עיון')
+hebrew.ButtonFinish=&סיום
+hebrew.ExitSetupMessage=ההתקנה עוד לא הסתיימה. אם תצאו עכשיו, Maple Helper לא יותקן.%n%nאפשר להריץ את ההתקנה שוב בפעם אחרת.%n%nלצאת בכל זאת?
+hebrew.ApplicationsFound=התוכנות הבאות משתמשות בקבצים שההתקנה צריכה לעדכן. מומלץ לאפשר להתקנה לסגור אותן אוטומטית.
+hebrew.ApplicationsFound2=התוכנות הבאות משתמשות בקבצים שההתקנה צריכה לעדכן. מומלץ לאפשר להתקנה לסגור אותן אוטומטית. בסוף ההתקנה היא תנסה לפתוח אותן מחדש.
+hebrew.PrepareToInstallNeedsRestart=כדי לסיים את ההתקנה צריך להפעיל מחדש את המחשב. אחרי ההפעלה מחדש, הריצו שוב את ההתקנה כדי לסיים את ההתקנה של [name].%n%nלהפעיל מחדש עכשיו?
+hebrew.ConfirmUninstall=להסיר את %1 ואת כל הרכיבים שלו?
 hebrew.WizardSelectDir=איפה להתקין?
 hebrew.SelectDirDesc=בחרו את התיקייה של [name]
 hebrew.SelectDirLabel3=[name] יותקן בתיקייה הזו. אפשר להשאיר אותה כמו שהיא.

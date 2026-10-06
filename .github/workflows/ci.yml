@@ -12,7 +12,8 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # only a PR's older pushes: two quick merges cancelled the first merge's run, leaving a main commit with no CI
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read

@@ -252,7 +252,9 @@ Download the latest release from the [Releases page](https://github.com/Maple-He
 
 - **`MapleHelper-macOS.dmg`**: for Macs with Apple Silicon. Open it and drag **Maple Helper** into Applications.
 
-All of them include the knowledge base. The app tells you when a new version is available.
+All of them include the knowledge base. The installed Windows app updates itself; the portable zip and the Mac app tell you when a new version is out.
+
+Windows may show **Windows protected your PC** the first time, because the app is not code-signed yet: click **More info → Run anyway**.
 
 ### First launch on macOS
 
