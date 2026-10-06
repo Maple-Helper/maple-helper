@@ -277,6 +277,9 @@ def test_the_updated_chip_on_combat_cards_needs_a_change_to_their_numbers(app, m
     hp = recent.Recent("monster/2", "Blue Snail", "2026-10-04", props={"HP": [50, 51]})
     words = recent.Recent("monster/3", "Red Snail", "2026-10-04", props={"EXP": ["1,200", "1200"]})
     assert recent.same("1,200", "1200") and recent.same("Victoria  Road", "victoria road") and not recent.same(50, 51)
+    # only thousands commas (review3 TL1-7-a)
+    assert recent.same("1,200,000", "1200000") and not recent.same("1,5", "15")
+    assert not recent.same("Henesys, Ellinia", "Henesys Ellinia")
     assert not recent.stats_changed(drops) and recent.stats_changed(hp) and not recent.stats_changed(words)
     found = {r.key: r for r in (drops, hp, words)}
     monkeypatch.setattr(recent, "of", lambda kb, key, today=None: found.get(key))

@@ -137,9 +137,11 @@ def lines(t, kb, r: Recent) -> list[str]:
 
 
 def same(old, new) -> bool:
-    """The same value in other words: case, spacing or thousands commas ("1,200" / "1200") is no change to the game."""
+    """The same value in other words: case, spacing or thousands commas ("1,200" / "1200") is no change to the game.
+    Only a thousands comma goes: "1,5" isn't "15", nor "Henesys, Ellinia" "Henesys Ellinia" (review3 TL1-7-a)."""
     def norm(v):
-        return re.sub(r"\s+", " ", str(v if v is not None else "").replace(",", "")).strip().casefold()
+        v = re.sub(r"(?<=\d),(?=\d{3}\b)", "", str(v if v is not None else ""))
+        return re.sub(r"\s+", " ", v).strip().casefold()
     return old == new or norm(old) == norm(new)
 
 
