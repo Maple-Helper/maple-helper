@@ -376,7 +376,8 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         key = ("voice_mic_failed" if error.startswith("mic:") else
-               "voice_download_failed" if error.startswith("download:") else "voice_failed")
+               "voice_download_failed" if error.startswith("download:") else
+               "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
 
     def on_voice_text(self, text: str):

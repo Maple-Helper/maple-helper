@@ -128,6 +128,8 @@ STRINGS = {
                      "en": "Speech recognition failed (the speech model may not have finished downloading). Try again in a moment."},
     "voice_download_failed": {"he": "כדי להוריד את מודל הדיבור (פעם אחת, כ-1.6GB) צריך חיבור לאינטרנט. התחברו ונסו שוב.",
                               "en": "The speech model (one time, about 1.6GB) needs an internet connection to download. Connect and try again."},
+    "voice_no_space": {"he": "אין מספיק מקום בדיסק להורדת מודל הדיבור (צריך כ-2GB). פנו מקום ונסו שוב.",
+                       "en": "There isn't enough disk space to download the speech model (about 2GB needed). Free up some space and try again."},
     "report_preparing": {"he": "מכינים את הדוח…", "en": "Preparing the report…"},
     "mic_tip": {"he": "לחצו (או {key}) כדי להתחיל להקליט, ושוב כשסיימתם לדבר כדי לשלוח",
                 "en": "Click (or {key}) to start recording, and again when you're done to send"},
