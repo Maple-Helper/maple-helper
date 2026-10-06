@@ -46,6 +46,9 @@ def test_item_families(question, fams):
     ("where should I train at 20", (20, None, None)),
     ("איפה לעשות גריינד ב-45", (45, None, None)),
     ("מרמה 10 עד 20", (None, 10, 20)),
+    ("מפלצות מ-20 עד 30", (None, 20, 30)),
+    ("where to train for 2 hours", (None, None, None)),     # a time, a count: no level
+    ("a party for 3 people", (None, None, None)), ("לגריינד ב-2 שעות", (None, None, None)),
     ("it costs 500 mesos at 20% off", (None, None, None)),
     ("what drops 50 mesos", (None, None, None)),
 ])
@@ -58,6 +61,10 @@ def test_levels(question, want):
     ("כובעים לגנב", "Thief"), ("נעליים לקוסם", "Magician"), ("gloves for archers", "Bowman"),
     ("F/P Wizard skills", "F/P Wizard"), ("Page skills", "Page"), ("which page shows drops", None),
     ("ספירמן", "Spearman"), ("what can I wear", None),
+    # names that start with a prefix letter themselves (stripped first they were "חם", "נדיט", "נטר")
+    ("לוחם", "Warrior"), ("ללוחם", "Warrior"), ("לוחמים", "Warrior"), ("בנדיט", "Bandit"), ("לבנדיט", "Bandit"),
+    ("מה הסקילים של הנטר", "Hunter"), ("האנטר", "Hunter"), ("הרמיט", "Hermit"), ("ביגינר", "Beginner"),
+    ("מייג'", "Magician"), ("וייט נייט", "White Knight"), ("מתחיל", "Beginner"), ("שלום", None),
 ])
 def test_jobs(question, job):
     assert planner.job_named(question) == job
@@ -399,6 +406,17 @@ def ask(real, question, character=THIEF):
     # the 2nd job with no job named: the player's class (the AI said "level 20" and "not out yet", live)
     ("באיזה לבל עושים ג'וב שני", "job_advance"), ("at what level is the 2nd job?", "job_advance"),
     ("מה צריך בשביל ה-job advancement השני?", "job_advance"),
+    # a skill named with an item family's word is no list of claws / arrows / swords / shields
+    ("what is Magic Claw?", None), ("what does Claw Mastery do?", None), ("מה עושה Claw Mastery?", None),
+    ("what is Arrow Blow?", None), ("how good is Sword Booster?", None), ("what does Shield Mastery do", None),
+    ("מה הסקילים של הנטר", "skills"),
+    ("which recipes need Screw?", "ingredient_of"), ("איזה מתכונים צריכים Screw?", "ingredient_of"),
+    ("where do I turn in Sam's Suggestion quest", None),       # that quest's page answers it
+    # training: the profile's level when none is named, and more ways to say it
+    ("איפה הכי טוב לגריינד?", "training_maps"), ("where to level at 25", "training_maps"),
+    ("best map for exp at level 40", "training_maps"), ("מה המפה הכי טובה לאקספי ברמה 40?", "training_maps"),
+    ("איפה לעלות רמות ב-30", "training_maps"), ("best place to farm at 40", "training_maps"),
+    ("מפלצות מ-20 עד 30", "monsters_by_level"),
 ])
 def test_real_intents(real, question, intent):
     p = ask(real, question)
@@ -496,3 +514,45 @@ def test_real_timing(real):
     for q in qs * 4:
         ask(real, q)
     assert (time.perf_counter() - t0) / (len(qs) * 4) < 0.05      # ~5 ms measured; generous for a slow CI
+
+
+@needs_kb
+def test_real_equips_follow_the_profiles_level_and_2nd_job(real):
+    # "best wand" from a Lv 45 Cleric was the Lv 50 Cromi, said as "the best the player can wear"
+    cleric = Character(id="c", name="C", base_class="Magician", job="Cleric", level=45)
+    p = ask(real, "best wand", cleric)
+    assert p.blocks[0].rows and all(r["req_lv"] <= 45 for r in p.blocks[0].rows)
+    assert "the best the player can wear" in p.blocks[0].lead
+    assert all(r["req_lv"] <= 31 for r in ask(real, "5 best claws").blocks[0].rows)
+    # an Assassin's weapon is a claw (a dagger has more W.ATK), a Fighter's no polearm
+    for q in ("what's the best weapon for me?", "איזה נשק הכי טוב בשבילי?"):
+        assert {r["slot"] for r in ask(real, q).blocks[0].rows} == {"Claw"}
+    slots = {r["slot"] for r in ask(real, "best weapon for a fighter at level 30", None).blocks[0].rows}
+    assert slots and slots <= planner.JOB_WEAPONS["Fighter"]
+    # nothing fits a Lv 8 Beginner: every claw, and the lead doesn't say they can wear row 1
+    beginner = Character(id="b", name="B", base_class="Beginner", job="Beginner", level=8)
+    lead = ask(real, "best claws", beginner).blocks[0].lead
+    assert "the highest W.ATK in the game" in lead and "can wear" not in lead
+
+
+@needs_kb
+def test_real_ammo_and_training_maps_and_greps(real):
+    rows = ask(real, "who sells crossbow arrows").blocks[0].rows
+    assert rows and all("Arrow" in r["item"] for r in rows)          # not the crossbows themselves
+    p = ask(real, "where should I train?")
+    assert "Sleepy Dungeon V" not in {r["map"] for r in p.blocks[0].rows}     # 19 Lv 58 golems for a Lv 31
+    assert "grep 'item/273' rewards.tsv" in ask(real, "which quests give Blue Potion?").render()
+    assert ask(real, "where to train for 2 hours").level == 31
+
+
+@needs_kb
+def test_real_a_maps_roman_numeral_is_no_i(real):
+    assert "level <=" not in ask(real, "what quests in Henesys Hunting Ground I").blocks[0].what
+    assert planner._personal("what can I wear") and planner._personal("should I?")
+    assert not planner._personal("monsters in Ant Tunnel I and Ant Tunnel II")
+
+
+@needs_kb
+def test_real_an_npc_with_no_quests_says_so(real):
+    text = ask(real, "what quests does Robin give?").render()
+    assert text.count('rows="0" complete="yes"') == 2 and "(no rows: there are none)" in text
