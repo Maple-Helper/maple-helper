@@ -97,3 +97,12 @@ def test_install_buttons_name_the_tool(provider, tool):
     he = I18n("he").p("ob_install", provider)
     i, j = he.index("("), he.index(")")
     assert "֐" <= he[i + 1] <= "׿" and j == len(he) - 1
+
+
+# --- DLG-20: one "not installed" wording for every AI ---------------------------------------------------------------
+
+@pytest.mark.parametrize("provider", ["claude", "codex", "gemini", "grok"])
+def test_not_installed_reads_the_same_for_every_ai(provider):
+    from maplehelper.i18n import I18n
+    assert I18n("en").p("ob_not_installed", provider).endswith(" isn't installed on this computer")
+    assert I18n("he").p("ob_not_installed", provider).endswith(" לא מותקן במחשב")
