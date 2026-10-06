@@ -546,7 +546,10 @@ def test_real_tables_known_facts(real):
     assert all(r["level"] >= 1 and r["hp"] > 0 for r in t["monsters"])
     assert sum(1 for r in t["skills"] if r["mp"] and f"MP -{r['mp']}" in r["effect"]) > 0.9 * sum(1 for r in t["skills"] if r["mp"])
     assert all(r["lv_min"] <= r["lv_max"] for r in t["maps"] if r["lv_min"] and r["lv_max"])
-    assert all(r["region"] for r in t["maps"]) and any(r["lv_min"] for r in t["maps"])
+    # a region on every map but those whose page names no continent (the Free Market, KPQ's stages, KB-3)
+    o = availability.of(kb)
+    nowhere = {k for k, c in o.map_cell.items() if o.map_place[c][0] == availability.NO_CONTINENT}
+    assert all(r["region"] or r["key"] in nowhere for r in t["maps"]) and any(r["lv_min"] for r in t["maps"])
     priced = [r["price"] for r in t["shops"] if r["price"] is not None]
     assert len(priced) > 0.9 * len(t["shops"]) and all(isinstance(p, int) and p > 0 for p in priced)
     assert {r["kind"].split(" ")[0] for r in t["rewards"]} <= {"sure", "random", "pick", "gender"}
