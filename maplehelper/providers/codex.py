@@ -10,26 +10,33 @@ Its read-only sandbox limits writes and network only, and the setting that limit
 profile with readable roots or "deny") needs Codex's elevated Windows sandbox, which a player would have to
 set up as administrator: with the unelevated one Maple Helper uses, Codex 0.159 refuses to start a run
 ("Restricted read-only access requires the elevated Windows sandbox backend"). What is done instead:
-the run starts in the knowledge base, the instructions confine it there, the shell gets only the core
-environment variables (no tokens or keys from the player's environment), and with no network a file it
-reads can only reach the answer, never anywhere else.
+the run starts in the knowledge base, the instructions confine it there (every run's instructions, the quick
+ones too), the shell gets only the core environment variables (no tokens or keys from the player's environment),
+and the runs that need no knowledge base (the quick screenshot read, summaries) get no shell at all. With no
+network a command can't send a file anywhere itself, but whatever it reads becomes part of the conversation on
+OpenAI's servers and can show up in the answer.
 """
 from __future__ import annotations
 
 import json
 import logging
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import threading
 from pathlib import Path
 
+from . import base
 from .base import CREATE_NO_WINDOW, Installer, Lines, Provider, RawResult, classify_error, child_env, find_posix, \
     find_windows_exe, http_ok, line_kind, open_login, run_installer, scrub
 
 log = logging.getLogger(__name__)
 ANSWER_TIMEOUT_S = 300
+# no output for this long = stuck (as Claude, Gemini and Grok): not the whole 5 minutes of "thinking". Not lower:
+# one long reasoning step can stay silent for a while
+STALL_TIMEOUT_S = 150
 
 INSTALL_CMD = "irm https://chatgpt.com/codex/install.ps1 | iex"
 INSTALL_CMD_MAC = "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
@@ -42,6 +49,12 @@ DISABLED_FEATURES = ("apps", "browser_use", "browser_use_external", "browser_use
                      "image_generation", "in_app_browser", "multi_agent", "plugins", "remote_plugin", "hooks",
                      "goals", "skill_search", "skill_mcp_dependency_install", "tool_suggest", "worktrees",
                      "in_app_local_automation")
+# A run that needs no knowledge base (the quick screenshot read, a summary): no shell either, so it can read nothing
+NO_SHELL = ("shell_tool", "unified_exec")
+# Codex refuses to start on a feature name it doesn't know ("Unknown feature flag: x", "unknown feature key in
+# config: x"): an older Codex, or a newer one that renamed or dropped one. Such a name is left out from then on
+UNKNOWN_FEATURE = re.compile(r"unknown feature (?:flag|key in config):\s*['\"`]?([\w.-]+)", re.I)
+_unknown_features: set[str] = set()
 
 # Codex reads the knowledge base with shell commands instead of Claude's Read/Grep/Glob tools. Its sandbox can't
 # stop a read elsewhere on the PC (see the module docstring): the instructions are what keep it in the folder
@@ -56,6 +69,8 @@ def tools_note(platform: str = sys.platform) -> str:
 
 
 TOOLS_NOTE = tools_note()
+# the runs with no shell (NO_SHELL): said too, in case a Codex still offers one
+NO_TOOLS_NOTE = "\nYou need no commands for this: do not run any, and never read files."
 
 
 def store_apps() -> list[Path]:
@@ -118,6 +133,7 @@ def env(api_key: str | None = None) -> dict:
         # uses Windows PowerShell from System32, which works, so the answer can read the knowledge base.
         e["PATH"] = os.pathsep.join(d for d in e.get("PATH", "").split(os.pathsep)
                                     if not d.rstrip("\\/").lower().endswith(r"\microsoft\windowsapps"))
+    e.pop("OPENAI_BASE_URL", None)     # a gateway of the player's own: the answers go to OpenAI, on their account
     if api_key:
         e["CODEX_API_KEY"] = api_key
     else:
@@ -126,7 +142,8 @@ def env(api_key: str | None = None) -> dict:
 
 
 def codex_command(exe: str, workdir, instructions: str, model: str | None = None, image=None,
-                  platform: str = sys.platform, extra: tuple = ()) -> list[str]:
+                  platform: str = sys.platform, extra: tuple = (), shell: bool = True) -> list[str]:
+    """shell=False: a run that needs no knowledge base gets no shell (NO_SHELL)."""
     cmd = [exe, "exec"]
     if image:
         # --image takes several values (comma-separated): anywhere later it would swallow the "-" stdin marker
@@ -138,8 +155,9 @@ def codex_command(exe: str, workdir, instructions: str, model: str | None = None
             # the shell gets only the core variables (PATH, SYSTEMROOT, USERPROFILE...): no API keys or tokens from
             # the player's environment for a command to print (tried: PowerShell and Select-String still run)
             "-c", 'shell_environment_policy.inherit="core"']
-    for feature in DISABLED_FEATURES:
-        cmd += ["--disable", feature]
+    for feature in DISABLED_FEATURES + (() if shell else NO_SHELL):
+        if feature not in _unknown_features:
+            cmd += ["--disable", feature]
     if platform == "win32":
         # without it, the read-only sandbox on Windows blocks even reading files
         cmd += ["-c", 'windows.sandbox="unelevated"']
@@ -339,20 +357,34 @@ class CodexBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, cmd: list[str], stdin_text: str, cwd: str, api_key: str | None,
               timeout: int | None = None, answer: bool = True) -> RawResult:
-        """answer=False (a summary): not tracked as the answer cancel() stops (it killed the summary instead)."""
+        """answer=False (a summary): not tracked as the answer cancel() stops (it killed the summary instead).
+        A feature this Codex doesn't know (UNKNOWN_FEATURE) is dropped and the run started again."""
+        for _ in range(3):
+            r, stderr = self._exec_once(cmd, stdin_text, cwd, api_key, timeout, answer)
+            bad = None if r.text else UNKNOWN_FEATURE.search(stderr)
+            pairs = [i for i in range(len(cmd) - 1) if bad and cmd[i] == "--disable" and cmd[i + 1] == bad.group(1)]
+            if not pairs:
+                return r
+            log.warning("Codex doesn't know the feature %s: left out", bad.group(1))
+            _unknown_features.add(bad.group(1))
+            cmd = cmd[:pairs[0]] + cmd[pairs[0] + 2:]
+        return r
+
+    def _exec_once(self, cmd: list[str], stdin_text: str, cwd: str, api_key: str | None,
+                   timeout: int | None, answer: bool) -> tuple[RawResult, str]:
         try:
             p = subprocess.Popen(cmd, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE, env=env(api_key), creationflags=CREATE_NO_WINDOW)
         except OSError as e:
-            return RawResult(error=f"launch_failed: {e}")
+            return RawResult(error=f"launch_failed: {e}"), ""
         if answer:
             self._proc = p
         self._running.add(p)
@@ -360,7 +392,7 @@ class CodexBackend:
         err: list[bytes] = []
         reader = threading.Thread(target=lambda: err.append(p.stderr.read()), daemon=True)
         reader.start()
-        killer = threading.Timer(timeout, p.kill) if timeout else None
+        killer = threading.Timer(timeout, base.kill, args=(p,)) if timeout else None
         if killer:
             killer.start()
         try:
@@ -368,10 +400,13 @@ class CodexBackend:
             p.stdin.close()
         except OSError:        # it exited at once (e.g. an older CLI rejecting a flag): stderr says why
             pass
-        # read until the turn ends, not until the process exits (see base.Lines)
-        out, lines, done = Lines(p, None, "Codex"), [], False
+        # read until the turn ends, not until the process exits (see base.Lines); its JSON events are signs of
+        # life, plain log lines aren't
+        out, lines, done = Lines(p, STALL_TIMEOUT_S, "Codex"), [], False
         for line in out:
             if line is not None:
+                if line_kind(line) not in ("text", "json"):
+                    out.touch()
                 lines.append(line)
                 if line_kind(line) in ("turn.completed", "turn.failed"):
                     done = line_kind(line) == "turn.completed"
@@ -382,7 +417,11 @@ class CodexBackend:
             killer.cancel()
         if not done:
             reader.join(timeout=5)        # its words say what went wrong (an answer doesn't wait for them)
-        return parse_events(lines, b"".join(err).decode("utf-8", errors="replace"))
+        stderr = b"".join(err).decode("utf-8", errors="replace")
+        if out.stalled:
+            log.warning("Codex stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
+            return RawResult(error="timeout"), stderr
+        return parse_events(lines, stderr), stderr
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
@@ -405,8 +444,8 @@ class CodexBackend:
                 # a quick read (the profile sync, 60 s in the chat): nothing to look up, so no knowledge base
                 # to dig through and low effort
                 with tempfile.TemporaryDirectory(prefix="maplehelper-quick-") as empty:
-                    cmd = codex_command(self.exe, empty, b.system_prompt(), model or b.model, image,
-                                        extra=("-c", 'model_reasoning_effort="low"'))
+                    cmd = codex_command(self.exe, empty, b.system_prompt() + NO_TOOLS_NOTE, model or b.model, image,
+                                        extra=("-c", 'model_reasoning_effort="low"'), shell=False)
                     r = self._exec(cmd, prompt, empty, b.api_key, timeout=ANSWER_TIMEOUT_S)
         finally:
             for path in images:
@@ -423,7 +462,7 @@ class CodexBackend:
         if not self.exe:
             return None
         with tempfile.TemporaryDirectory(prefix="maplehelper-summary-") as empty:
-            cmd = codex_command(self.exe, empty, instructions, self.brain.model,
-                                extra=("-c", 'model_reasoning_effort="low"'))
+            cmd = codex_command(self.exe, empty, instructions + NO_TOOLS_NOTE, self.brain.model,
+                                extra=("-c", 'model_reasoning_effort="low"'), shell=False)
             r = self._exec(cmd, text, empty, self.brain.api_key, timeout=timeout, answer=False)
         return r.text.strip() or None

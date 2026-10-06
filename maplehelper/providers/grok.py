@@ -117,16 +117,42 @@ try {
   $in = [Text.Encoding]::UTF8.GetString($buf.ToArray()).TrimStart([char]0xFEFF) | ConvertFrom-Json
   $cfg = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'maplehelper-guard-roots.json'), [Text.Encoding]::UTF8) | ConvertFrom-Json
   $ti = $in.tool_input
-  if (-not $ti) { throw 'no tool call' }
-  $p = '.'                                     # no path (a grep with none): the folder it runs in
-  foreach ($k in 'target_file', 'target_directory', 'path') { if ($ti.$k) { $p = [string]$ti.$k; break } }
-  $base = if ($in.cwd) { [string]$in.cwd } else { (Get-Location).Path }
-  $full = [IO.Path]::GetFullPath([IO.Path]::Combine($base, $p))
-  foreach ($root in $cfg.roots) {
-    $root = [string]$root
-    if (-not $root) { continue }
-    if ($full -ieq $root -or $full.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) { exit 0 }
+  if (-not $ti -or $ti -isnot [Management.Automation.PSCustomObject]) { throw 'no tool call' }
+  # every path in the call, under any key that names one (file_path, filePath, paths, glob...), not only the three
+  # Grok uses today: a key the guard didn't know was let through
+  $paths = New-Object Collections.ArrayList
+  function Collect($v, [bool]$pathy, [bool]$glob) {
+    if ($v -is [Management.Automation.PSCustomObject]) {
+      foreach ($pr in $v.PSObject.Properties) {
+        $l = $pr.Name.ToLowerInvariant()
+        $isPath = $pathy -or [bool]($l -match 'path|file|dir|glob|folder|root|cwd|target|location')
+        Collect $pr.Value $isPath ($glob -or $l.Contains('glob'))
+      }
+    } elseif ($v -is [string]) {
+      if ($pathy -and $v.Length -gt 0) { [void]$paths.Add(@($v, $glob)) }
+    } elseif ($v -is [Collections.IEnumerable]) {
+      foreach ($x in $v) { Collect $x $pathy $glob }
+    }
   }
+  Collect $ti $false $false
+  if ($paths.Count -eq 0) { [void]$paths.Add(@('.', $false)) }   # no path (a grep with none): the folder it runs in
+  $base = if ($in.cwd) { [string]$in.cwd } else { (Get-Location).Path }
+  $ok = $true
+  foreach ($p in $paths) {
+    $s, $isGlob = $p[0], $p[1]
+    if ($s.StartsWith('~')) { $ok = $false; break }     # a home folder Grok may expand
+    # a glob is matched under the folder it runs in: never one that starts elsewhere or climbs out
+    if ($isGlob -and ([IO.Path]::IsPathRooted($s) -or $s.Contains(':') -or $s.Contains('..'))) { $ok = $false; break }
+    $full = [IO.Path]::GetFullPath([IO.Path]::Combine($base, $(if ($isGlob) { '.' } else { $s })))
+    $in_root = $false
+    foreach ($root in $cfg.roots) {
+      $root = [string]$root
+      if (-not $root) { continue }
+      if ($full -ieq $root -or $full.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) { $in_root = $true; break }
+    }
+    if (-not $in_root) { $ok = $false; break }
+  }
+  if ($ok) { exit 0 }
 } catch { }
 [Console]::Out.Write($deny)
 exit 2
@@ -175,22 +201,52 @@ static class Guard {
         if (input == null || cfg == null || !input.TryGetValue("tool_input", out ti)) return false;
         Dictionary<string, object> tool = ti as Dictionary<string, object>;
         if (tool == null || tool.Count == 0) return false;
-        string p = ".";                                    // no path (a grep with none): the folder it runs in
-        foreach (string k in new string[] { "target_file", "target_directory", "path" }) {
-            object v;
-            if (tool.TryGetValue(k, out v) && v != null) {
-                string s = v as string;
-                if (s == null) return false;
-                if (s.Length > 0) { p = s; break; }
-            }
-        }
+        // every path in the call, under any key that names one (file_path, filePath, paths, glob...), not only the
+        // three Grok uses today: a key the guard didn't know was let through
+        List<string[]> paths = new List<string[]>();
+        Collect(tool, false, false, paths);
+        if (paths.Count == 0) paths.Add(new string[] { ".", "" });   // no path (a grep with none): the folder it runs in
         object cwd;
         string at = input.TryGetValue("cwd", out cwd) && cwd is string && ((string)cwd).Length > 0
             ? (string)cwd : Environment.CurrentDirectory;
-        string full = Path.GetFullPath(Path.Combine(at, p));
         object list;
         if (!cfg.TryGetValue("roots", out list) || list is string || !(list is IEnumerable)) return false;
-        foreach (object r in (IEnumerable)list) {
+        foreach (string[] p in paths) {
+            if (p[0].StartsWith("~")) return false;               // a home folder Grok may expand
+            // a glob is matched under the folder it runs in: never one that starts elsewhere or climbs out
+            if (p[1] == "glob" && (Path.IsPathRooted(p[0]) || p[0].Contains(":") || p[0].Contains(".."))) return false;
+            if (!Inside(Path.GetFullPath(Path.Combine(at, p[1] == "glob" ? "." : p[0])), (IEnumerable)list)) return false;
+        }
+        return true;
+    }
+
+    static readonly string[] PathWords = { "path", "file", "dir", "glob", "folder", "root", "cwd", "target", "location" };
+
+    static bool PathKey(string k) {
+        string l = k.ToLowerInvariant();
+        foreach (string w in PathWords) if (l.Contains(w)) return true;
+        return false;
+    }
+
+    // the strings under a path key, in arrays and objects too; a number or true/false names no file
+    static void Collect(object v, bool pathy, bool glob, List<string[]> into) {
+        Dictionary<string, object> d = v as Dictionary<string, object>;
+        if (d != null) {
+            foreach (KeyValuePair<string, object> kv in d)
+                Collect(kv.Value, pathy || PathKey(kv.Key), glob || kv.Key.ToLowerInvariant().Contains("glob"), into);
+            return;
+        }
+        string s = v as string;
+        if (s != null) {
+            if (pathy && s.Length > 0) into.Add(new string[] { s, glob ? "glob" : "" });
+            return;
+        }
+        IEnumerable e = v as IEnumerable;
+        if (e != null) foreach (object x in e) Collect(x, pathy, glob, into);
+    }
+
+    static bool Inside(string full, IEnumerable roots) {
+        foreach (object r in roots) {
             string root = r as string;
             if (string.IsNullOrEmpty(root)) continue;
             if (string.Equals(full, root, StringComparison.OrdinalIgnoreCase)
@@ -205,6 +261,9 @@ GUARD_EXE = "maplehelper-guard.exe"
 # 1.0.46 with a mock of the xAI API). A path with a space went to the shell unquoted, the hook failed and the read
 # went through: such a path never becomes the command (its 8.3 name does, else the PowerShell guard)
 BARE_PATH = re.compile(r"[A-Za-z]:\\[\w.~\\-]+")
+# a user name with $ ` % or " in it: inside the PowerShell guard's quoted command line, Grok's shell (pwsh or cmd)
+# would expand it, the hook would fail, and Grok lets a read through when its hook fails
+SHELL_EXPANDS = re.compile(r'[$`%"]')
 _guard_ok: dict[tuple, bool] = {}       # (exe, its mtime, the knowledge base) -> passed its check in this session
 _guard_lock = threading.Lock()
 
@@ -276,14 +335,15 @@ def guard_exe(kb_root) -> str | None:
     return path if BARE_PATH.fullmatch(path) else None
 
 
-def write_guard(kb_root) -> None:
+def write_guard(kb_root) -> bool:
     """Windows: the read guard (a hook in our Grok home). Written when the knowledge base path changes.
     The folders go in a JSON file of their own, not into the script: Windows PowerShell 5.1 read the script in the
     ANSI code page, a Hebrew user name in a pasted path turned into stray quote marks (ב/ג: a parse error, so the
     hook failed and Grok read anything; other letters: garbled folders, so it read nothing).
-    The hook is the compiled guard where it builds and passes its check (guard_exe), else the PowerShell script."""
+    The hook is the compiled guard where it builds and passes its check (guard_exe), else the PowerShell script.
+    False when the hook can't be trusted to run (see SHELL_EXPANDS): the run then gets no file tools."""
     if sys.platform != "win32":
-        return
+        return True
     roots = [str(Path(p).resolve()) for p in (kb_root, shots_dir())]
     # ASCII JSON (\u escapes) read as UTF-8: the same text whatever the PC's code pages
     _write(grok_home() / GUARD_ROOTS, json.dumps({"roots": roots}, indent=1))
@@ -297,6 +357,10 @@ def write_guard(kb_root) -> None:
     _write(grok_home() / "hooks" / "maplehelper.json",
            json.dumps({"hooks": {"PreToolUse": [{"hooks": [{"type": "command", "command": cmd, "timeout": 10}]}]}},
                       indent=1))
+    if not exe and SHELL_EXPANDS.search(str(script)):
+        log.warning("Grok read guard: no compiled guard and a script path its shell would change: no file tools")
+        return False
+    return True
 
 
 def _write(path: Path, text: str, encoding: str = "utf-8") -> None:
@@ -336,28 +400,30 @@ def grok_command(exe: str, prompt_file, instructions: str, model: str | None = N
     return cmd
 
 
-def tools_note(kb_root, shots: list[Path]) -> str:
-    note = (f"\n\nTools: the knowledge base is the current folder ({Path(kb_root).resolve()}): read it with "
+def tools_note(kb_root) -> str:
+    return (f"\n\nTools: the knowledge base is the current folder ({Path(kb_root).resolve()}): read it with "
             "read_file, grep and list_dir. Nothing outside it (and the screenshot) can be read. You cannot write "
             "files, run commands or use the web.")
-    if shots:
-        note += ("\nThe player's game screenshot is " + ", ".join(str(s) for s in shots) +
-                 ": open it with read_file first, before answering.")
-    return note
 
 
-def shot_note(shots: list[Path]) -> str:
-    """A quick screenshot read: the knowledge base isn't open, so the model doesn't go looking for it."""
-    return ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
-            "list or open any folder. Your only tool is read_file, for the player's game screenshot: "
-            + ", ".join(str(s) for s in shots) + ". Open it first, then answer from it and the player's profile.")
+# A quick screenshot read: the knowledge base isn't open, so the model doesn't go looking for it
+SHOT_NOTE = ("\n\nThis is a quick screenshot read. The knowledge base is not open to you this time: do not search, "
+             "list or open any folder. Your only tool is read_file, for the player's game screenshot (its path comes "
+             "with the question). Open it first, then answer from it and the player's profile.")
+
+
+def shots_line(shots: list[Path]) -> str:
+    """The screenshot's path, with the question (as Gemini's): each run has a folder of its own, so in the
+    instructions it changed them on every screenshot question."""
+    return ("\n\nThe player's game screenshot is " + ", ".join(str(s) for s in shots) +
+            ": open it with read_file first, before answering.") if shots else ""
 
 
 def classify(text: str) -> str | None:
     t = text.lower()
-    if "not signed in" in t or "not authenticated" in t or "sign in again" in t or "401" in t:
+    if "not signed in" in t or "not authenticated" in t or "sign in again" in t or base.http_status(t, 401):
         return "not_logged_in"
-    if "rate limit" in t or "rate_limit" in t or "usage limit" in t or "quota" in t or "429" in t:
+    if "rate limit" in t or "rate_limit" in t or "usage limit" in t or "quota" in t or base.http_status(t, 429):
         return "usage_limit"
     return classify_error(text)
 
@@ -447,6 +513,10 @@ class CheckFailed(Exception):
     """grok was found but didn't answer in time: neither "not installed" nor "signed out"."""
 
 
+class Offline(CheckFailed):
+    """grok couldn't reach xAI: the sign-in may be fine, so not "signed out" (as Gemini's)."""
+
+
 def _run(args: list[str], timeout: float = CHECK_TIMEOUT_S) -> subprocess.CompletedProcess | None:
     exe = find_grok()
     if not exe:
@@ -477,6 +547,10 @@ def read_models(max_age: float = 10.0) -> tuple[list[tuple[str, str]], str | Non
     if "not authenticated" in out.lower() or "not signed in" in out.lower():
         return [], None
     found = parse_models(out)
+    if not found and r.returncode != 0 and classify(out) == "offline":
+        # no list because there's no connection: offering a sign-in would fail too
+        log.warning("grok models: no connection: %s", out.strip()[-300:])
+        raise Offline()
     email = EMAIL.search(out)
     if found:
         _models_cache, _models_at, _models_email = found, time.monotonic(), email.group(0) if email else None
@@ -491,6 +565,38 @@ def resolve_model(model: str | None) -> str | None:
     except CheckFailed:
         return None
     return lightest(got)
+
+
+SESSION_ID = re.compile(r"[\w-]{8,100}")
+SESSION_MAX_AGE_S = 24 * 3600
+
+
+def drop_session(proc, session_id) -> None:
+    """Grok saves every run as a session (the whole question, the ~12 KB instructions, every file it read) under
+    GROK_HOME/sessions/<folder>/<id>, and no flag turns that off: each one is removed once its process has ended.
+    One a crash left behind goes at the next start (sweep_sessions)."""
+    if not isinstance(session_id, str) or not SESSION_ID.fullmatch(session_id):
+        return
+
+    def drop():
+        try:
+            proc.wait(timeout=30)
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        for d in (grok_home() / "sessions").glob(f"*/{session_id}"):
+            shutil.rmtree(d, ignore_errors=True)
+    threading.Thread(target=drop, daemon=True).start()
+
+
+def sweep_sessions(max_age: float = SESSION_MAX_AGE_S) -> None:
+    """Sessions older than a day (a quit or crash before drop_session ran)."""
+    now = time.time()
+    for d in (grok_home() / "sessions").glob("*/*"):
+        try:
+            if d.is_dir() and now - d.stat().st_mtime > max_age:
+                shutil.rmtree(d, ignore_errors=True)
+        except OSError:
+            pass
 
 
 class Grok(Provider):
@@ -519,6 +625,8 @@ class Grok(Provider):
             return {"status": "not_installed", "email": None}
         try:
             got = read_models(max_age=0)
+        except Offline:
+            return {"status": "offline", "email": None}
         except CheckFailed:
             return {"status": "logged_out", "email": None}
         if got is None:
@@ -581,19 +689,24 @@ class GrokBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, instructions: str, prompt: str, model: str | None, tools: bool | list[str] = True,
-              on_delta=None, answer: bool = True, timeout: float | None = None) -> RawResult:
-        b = self.brain
-        write_guard(b.kb.root)
-        fd, prompt_file = tempfile.mkstemp(prefix="maplehelper-grok-", suffix=".txt")
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(prompt)
+              on_delta=None, answer: bool = True, timeout: float | None = None,
+              folder: Path | None = None) -> RawResult:
+        """folder: the run's own folder in shots_dir() (one is made when None). The question goes in a file there,
+        not in %TEMP%: macOS's strict sandbox reads only GROK_HOME and the knowledge base, and a folder a quit left
+        behind is removed at the next start (app._remove_stray_screenshots)."""
+        own = folder is None
+        if own:
+            shots_dir().mkdir(parents=True, exist_ok=True)
+            folder = Path(tempfile.mkdtemp(prefix="run-", dir=shots_dir()))
+        prompt_file = folder / "question.txt"
+        prompt_file.write_text(prompt, encoding="utf-8")
         try:
             r = self._once(instructions, prompt_file, model, tools, on_delta, answer, timeout)
             if model and r.error == "bad_model":
@@ -601,10 +714,13 @@ class GrokBackend:
                 r = self._once(instructions, prompt_file, None, tools, on_delta, answer, timeout)
             return RawResult(error="api_error") if r.error == "bad_model" else r
         finally:
-            try:
-                os.remove(prompt_file)
-            except OSError:
-                pass
+            if own:
+                shutil.rmtree(folder, ignore_errors=True)
+            else:
+                try:
+                    prompt_file.unlink()
+                except OSError:
+                    pass
 
     def _once(self, instructions, prompt_file, model, tools, on_delta, answer, timeout) -> RawResult:
         cmd = grok_command(self.exe, prompt_file, instructions, model, tools)
@@ -636,6 +752,7 @@ class GrokBackend:
             stderr = b"".join(err).decode("utf-8", errors="replace")
         finally:
             self._running.discard(p)
+        drop_session(p, (result or {}).get("session_id"))
         if out.stalled:
             log.warning("Grok stalled, stopped: %s", base.scrub(stderr[-1000:]))
             return RawResult(error="timeout")
@@ -657,15 +774,19 @@ class GrokBackend:
                 if jpeg:
                     shots.append(folder / f"screenshot-{i}.jpg")
                     shots[-1].write_bytes(jpeg)
+            if (tools or shots) and self.exe and not write_guard(b.kb.root):
+                tools, shots = False, []        # no hook to trust: no file tools (Grok reads anything unguarded)
             if tools:
-                reads, note = True, tools_note(b.kb.root, shots)
+                reads, note = True, tools_note(b.kb.root)
             elif shots:
                 # the ⟳ sync: the screenshot only (opened with read_file). With grep and list_dir too, a model goes
                 # digging in the knowledge base and the sync gives up at 60 s (seen with Gemini: over two minutes)
-                reads, note = ["read_file"], shot_note(shots)
+                reads, note = ["read_file"], SHOT_NOTE
             else:
                 reads, note = False, ""
-            return self._exec(b.system_prompt() + note, prompt, resolve_model(model or b.model), reads, on_raw_delta)
+            # the instructions stay the same from question to question: the screenshot's per-run path goes with it
+            return self._exec(b.system_prompt() + note, prompt + shots_line(shots), resolve_model(model or b.model),
+                              reads, on_raw_delta, folder=folder)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
 

@@ -4,6 +4,7 @@ the game. The window is non-modal, so it can stay open beside the chat."""
 from __future__ import annotations
 
 import html
+import logging
 import math
 import re
 import time
@@ -2406,7 +2407,11 @@ class ToolsDialog(GlassDialog):
         def lookup(n=name, i=item_id):
             # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
             # without one. Up to 3 requests of up to 8 s each on a slow connection
-            found = market.item_market(i) if i else market.free_market(n)
+            try:
+                found = market.item_market(i) if i else market.free_market(n)
+            except Exception:      # noqa: BLE001 - an answer the parser didn't expect: "no price" rather than none
+                logging.getLogger(__name__).warning("market lookup failed", exc_info=True)
+                found = None
             try:
                 self.market_ready.emit((n, found))
             except RuntimeError:
@@ -3820,7 +3825,11 @@ class ToolsDialog(GlassDialog):
                     break
                 slug = k.split("/", 1)[1]
                 if slug.isdigit():
-                    m = market.item_market(int(slug))
+                    try:
+                        m = market.item_market(int(slug))
+                    except Exception:      # noqa: BLE001 - one item's odd answer: the others still show
+                        logging.getLogger(__name__).warning("market lookup failed", exc_info=True)
+                        m = None
                     if m is not None and m.usual:
                         usual[k] = m.usual
             try:

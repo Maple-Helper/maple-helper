@@ -34,7 +34,7 @@ from pathlib import Path
 
 from . import base
 from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, http_ok, \
-    run_installer
+    http_status, run_installer
 
 log = logging.getLogger(__name__)
 STALL_TIMEOUT_S = 150    # no output for this long = stuck (tool steps and streaming print all along)
@@ -195,10 +195,11 @@ def agy_command(exe: str, agent: str, model: str | None = None) -> list[str]:
 
 def classify(text: str) -> str | None:
     t = text.lower()
-    if ("authentication" in t or "not logged in" in t or "not authenticated" in t or "sign in" in t
+    # whole words and a bare status code only: "design in", a request id or "1429 ms" in stderr aren't a sign-out
+    if ("authentication" in t or "not logged in" in t or "not authenticated" in t or re.search(r"\bsign in\b", t)
             or "api key not valid" in t):
         return "not_logged_in"
-    if "quota" in t or "limit remaining" in t or "resource_exhausted" in t or "rate limit" in t or "429" in t:
+    if "quota" in t or "limit remaining" in t or "resource_exhausted" in t or "rate limit" in t or http_status(t, 429):
         return "usage_limit"
     return classify_error(text)
 
@@ -517,11 +518,11 @@ class GeminiBackend:
         self.cancel()
         for p in list(self._running):
             if p.poll() is None:
-                p.kill()
+                base.kill(p)
 
     def cancel(self) -> None:
         if self._proc and self._proc.poll() is None:
-            self._proc.kill()
+            base.kill(self._proc)
 
     def _exec(self, agent: str, instructions: str, tools: list[str], stdin_text: str, model: str | None,
               on_delta=None, answer: bool = True, timeout: float | None = None) -> RawResult:

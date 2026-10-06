@@ -159,6 +159,18 @@ def test_free_market_summary_keeps_the_exact_item():
     assert market.summarize([], "Work Gloves").count == 0
 
 
+def test_an_odd_market_answer_still_parses():
+    """int() on what the site sent ("n/a", a list) raised in the lookup thread, and the price card never got an
+    answer (audit SEC-7)."""
+    from maplehelper import market
+    m = market.parse_item_market({"priceChecks": "n/a", "forSale": [1], "windowDays": None, "usual": True,
+                                  "finishedTrades": 3},
+                                 {"points": [{"day": "2026-10-01", "median": 10, "count": "x"}]},
+                                 {"listings": [{"priceEach": 5, "quantity": "lots"}], "summary": {"activeCount": {}}})
+    assert (m.checks, m.trades, m.for_sale, m.window, m.usual) == (0, 3, 0, 14, None)
+    assert m.listings[0].quantity == 1 and m.volume == 0
+
+
 def test_damage_range_typed_by_hand():
     assert combat.damage_range(200, 10) == (10, 200)          # min above max: swapped
     assert combat.damage_range(50, 0) == (50, 50)             # no max: the min

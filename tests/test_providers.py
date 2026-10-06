@@ -50,6 +50,15 @@ class TestRegistry:
     ("failed to refresh available models: Connection failed: error sending request for url "
      "(https://chatgpt.com/backend-api/codex/models)", "offline"),
     ("error sending request: client error (Connect): dns error: No such host is known. (os error 11001)", "offline"),
+    # Claude Code 2.1.280's own words (from claude.exe), "Something went wrong" before (audit PRV-4)
+    ("API Error: Unable to connect to API. Check your internet connection", "offline"),
+    ("API Error: Connection error.", "offline"),
+    ("API Error: Unable to connect to API (ECONNRESET)", "offline"),
+    ("Connection dropped", "offline"),
+    ("API Error: Request timed out.", "offline"),
+    ("You're out of extra usage", "usage_limit"),
+    ("You've hit your team's shared budget. Ask an admin to raise it.", "usage_limit"),
+    ("Context limit reached · /compact or /clear to continue", None),
 ])
 def test_classify_error(text, kind):
     assert base.classify_error(text) == kind
@@ -332,6 +341,60 @@ class TestCodexBackend:
         monkeypatch.setattr(type(providers.get("codex")), "find_exe", lambda self: None)   # none on this PC
         assert b.ask("hi", None, None, None).error == "not_installed"
         assert not b.available()
+
+    def test_runs_that_need_no_knowledge_base_get_no_shell(self, kb, monkeypatch):
+        """The quick screenshot read and summaries had the shell and no confining note (audit SEC-3)."""
+        b = self.make(kb, monkeypatch)
+        b.backend.run("sync", b"JPEGDATA", tools=False)
+        b.backend.summarize("Summarize.", "long text")
+        b.ask("hi", None, None, None)
+        quick, summary, full = (c for c, _ in FakePopen.calls)
+        for c in (quick, summary):
+            assert all(c[c.index(f) - 1] == "--disable" for f in codex.NO_SHELL)
+            assert codex.NO_TOOLS_NOTE.strip() in next(v for v in c if v.startswith("developer_instructions="))
+        assert "shell_tool" not in full and "unified_exec" not in full       # the answer reads the KB with it
+        assert "only inside the current directory" in next(v for v in full if v.startswith("developer_instructions="))
+
+    def test_a_feature_this_codex_doesnt_know_is_dropped(self, kb, monkeypatch):
+        """Codex refuses to start on an unknown --disable name (an old Codex, or a newer one that dropped it): every
+        answer was "Something went wrong" (audit PRV-7)."""
+        monkeypatch.setattr(codex, "_unknown_features", set())
+        b = self.make(kb, monkeypatch)
+        ok = FakePopen.stdout_lines
+        stderrs = [b"ERROR: Unknown feature flag: goals\n", b""]
+        outs = [[], ok]
+
+        class Picky(FakePopen):
+            def __init__(self, cmd, **kw):
+                super().__init__(cmd, **kw)
+                self.stdout = iter(line.encode() for line in outs.pop(0))
+                self.stderr = io.BytesIO(stderrs.pop(0))
+        monkeypatch.setattr(codex.subprocess, "Popen", Picky)
+        assert b.ask("hi", None, None, None).text == "Hunt **Red Snail**."
+        first, second = (c for c, _ in FakePopen.calls)
+        assert "goals" in first and "goals" not in second
+        assert "goals" not in codex.codex_command("codex", "C:/kb", "x")       # left out from then on
+
+    def test_an_old_cli_says_to_update(self):
+        assert base.classify_error("error: unexpected argument '--ignore-rules' found") == "cli_outdated"
+        assert base.classify_error("error: unknown option '--restricted'") == "cli_outdated"
+
+    def test_a_silent_run_is_stopped_before_the_whole_timeout(self, kb, monkeypatch):
+        """Codex had no stall check: a hung run kept "thinking" for the full 5 minutes (audit PRV-15)."""
+        seen = {}
+
+        class Lines(base.Lines):
+            def __init__(self, proc, stall_s, label="CLI", deadline_s=None):
+                seen["stall"] = stall_s
+                super().__init__(proc, stall_s, label, deadline_s)
+        monkeypatch.setattr(codex, "Lines", Lines)
+        b = self.make(kb, monkeypatch)
+        b.ask("hi", None, None, None)
+        assert seen["stall"] == codex.STALL_TIMEOUT_S == 150
+
+    def test_the_players_own_gateway_is_left_out(self, monkeypatch):
+        monkeypatch.setenv("OPENAI_BASE_URL", "http://localhost:9999")
+        assert "OPENAI_BASE_URL" not in codex.env()
 
 
 class TestClaudeBackend:
@@ -1061,3 +1124,46 @@ def test_cli_output_in_the_log_carries_no_email_or_link():
     from maplehelper.providers.base import scrub
     out = scrub("Not logged in as player.one+x@gmail.com, see https://claude.ai/login?code=abc then retry")
     assert "gmail" not in out and "code=abc" not in out and "<email>" in out and "<link>" in out
+
+
+def test_the_warm_claude_process_is_replaced_when_its_instructions_change(kb_copy):
+    """The warm process was kept while its instructions had gone stale (no model name before the first answer, an
+    older official facts note): the instructions are part of what it must match now (audit PRV-17)."""
+    from maplehelper.brain import Brain
+    from maplehelper.kb import KnowledgeBase
+    b = Brain(KnowledgeBase(kb_copy), provider="claude")
+    before = b.backend._config()
+    assert b.backend._config() == before
+    b.last_model = "claude-sonnet-5"
+    assert b.backend._config() != before
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="the tree kill is Windows'")
+def test_stopping_a_cli_stops_what_it_started():
+    """kill() ended the CLI only: its rg / PowerShell children ran on, and one holding the output open kept a reader
+    waiting (audit PRV-8)."""
+    import ctypes
+    import subprocess
+    import sys
+    child = "import time; time.sleep(60)"
+    parent = (f"import subprocess, sys; p = subprocess.Popen([sys.executable, '-c', {child!r}]); "
+              "print(p.pid, flush=True); p.wait()")
+    p = subprocess.Popen([sys.executable, "-c", parent], stdout=subprocess.PIPE)
+    pid = int(p.stdout.readline())
+
+    def alive(pid):
+        h = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)          # PROCESS_QUERY_LIMITED_INFORMATION
+        if not h:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(h, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(h)
+        return code.value == 259                                             # STILL_ACTIVE
+    assert alive(pid)
+    base.kill(p)
+    p.wait(timeout=10)
+    for _ in range(50):
+        if not alive(pid):
+            break
+        time.sleep(0.1)
+    assert not alive(pid)

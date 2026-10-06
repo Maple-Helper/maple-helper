@@ -69,11 +69,23 @@ HEDGE_AFTER_S = 25.0
 
 
 def _kill(proc) -> None:
+    """Stop a CLI and, on Windows, what it started (rg, PowerShell, a hook): kill() alone left those running, and
+    one that held the CLI's output open kept a reader thread waiting until it ended."""
     try:
         if proc.poll() is None:
+            pid = getattr(proc, "pid", None)
+            if sys.platform == "win32" and isinstance(pid, int):
+                try:
+                    subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True, timeout=5,
+                                   creationflags=CREATE_NO_WINDOW)
+                except (OSError, subprocess.SubprocessError):
+                    pass
             proc.kill()
     except OSError:
         pass
+
+
+kill = _kill
 
 
 class Attempt:
@@ -617,12 +629,29 @@ def http_ok(url: str, headers: dict) -> bool:
 SIGNED_OUT = ("not logged in", "please run /login", "invalid api key", "invalid_api_key", "401 unauthorized",
               "authentication", "sign in again", "log out and sign in", "access token could not be refreshed",
               "re-authenticate", "token is invalid or expired")
-# No connection: Node's words (Claude Code) and the Go (Antigravity: "dial tcp: lookup ...: no such host",
-# "proxyconnect tcp", "connectex") and Rust (Codex: "Connection failed: error sending request ... dns error")
-# ones. Checked after sign-in and limits: those messages can carry a URL or a "request" too.
+# No connection: Node's words (Claude Code: "API Error: Connection error.", "Unable to connect to API. Check your
+# internet connection", "... (ECONNRESET)", "Request timed out.") and the Go (Antigravity: "dial tcp: lookup ...: no
+# such host", "proxyconnect tcp", "connectex") and Rust (Codex: "Connection failed: error sending request ... dns
+# error") ones. Checked after sign-in and limits: those messages can carry a URL or a "request" too.
 OFFLINE = ("enotfound", "econnrefused", "network", "fetch failed", "no such host", "dial tcp", "connectex",
            "proxyconnect", "dns error", "error sending request", "connection failed", "getaddrinfo",
-           "workspace routing discovery failed")
+           "workspace routing discovery failed", "unable to connect to api", "connection error", "connection dropped",
+           "econnreset", "etimedout", "request timed out")
+# The plan's limit in Claude Code's other words ("You're out of extra usage", "You've hit your team's shared budget")
+LIMIT = ("usage limit", "rate limit", "limit reached", "resets", "out of extra usage", "out of usage credits",
+         "shared budget")
+
+
+# A CLI too old for a flag Maple Helper passes, in its own words: Claude Code (commander) "error: unknown option
+# '--restricted'", Codex (clap) "error: unexpected argument '--ignore-rules' found". Every answer failed with
+# "Something went wrong" and no hint to update.
+OUTDATED = ("error: unknown option", "error: unexpected argument")
+
+
+def http_status(text: str, code: int) -> bool:
+    """An HTTP status code standing on its own ("(429)", "status 401"): not part of a request id, a session id or a
+    duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit."""
+    return re.search(rf"(?<![\w.-]){code}(?![\w.-])", text) is not None
 
 
 def classify_error(text: str) -> str | None:
@@ -631,10 +660,13 @@ def classify_error(text: str) -> str | None:
         return "no_credit"          # an API key with no money on it (its check passed: the key itself is valid)
     if any(s in t for s in SIGNED_OUT):
         return "not_logged_in"
-    if "usage limit" in t or "rate limit" in t or "limit reached" in t or "resets" in t:
+    # (the context window filling up, "Context limit reached", is no plan limit)
+    if any(s in t.replace("context limit reached", "") for s in LIMIT):
         return "usage_limit"
     if any(s in t for s in OFFLINE):
         return "offline"
+    if any(s in t for s in OUTDATED):
+        return "cli_outdated"
     return None
 
 

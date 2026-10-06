@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import threading
 import time
-import webbrowser
 from datetime import datetime
 
 from PySide6.QtCore import QObject, QRectF, QSize, Qt, QTimer, Signal
@@ -18,6 +17,7 @@ from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QWidget
 
 from .. import serverstatus
+from ..osapi import open_url
 from . import theme
 
 POLL_MINUTES = 5
@@ -139,5 +139,5 @@ class ServerDot(QWidget):
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton:
-            webbrowser.open(serverstatus.PAGE)
+            open_url(serverstatus.PAGE)
         super().mouseReleaseEvent(e)

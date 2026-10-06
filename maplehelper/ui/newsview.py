@@ -7,12 +7,12 @@ is a translation of its current text, else the English one under a Hebrew note t
 from __future__ import annotations
 
 import re
-import webbrowser
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi, news
+from ..osapi import open_url
 from . import theme
 
 SHOWN = 30          # cards per section; the rest are a link away on MeowDB
@@ -180,14 +180,14 @@ class NewsCard(QFrame):
             read.clicked.connect(lambda _=False, item=i: on_open(item))
         else:
             read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
-            read.clicked.connect(lambda _=False, u=i.get("url"): webbrowser.open(u))
+            read.clicked.connect(lambda _=False, u=i.get("url"): open_url(u))
         read.setCursor(Qt.PointingHandCursor)
         links.addWidget(read)
         src = i.get("source_url") or ""
         if src.startswith("https://") and i.get("publisher"):
             orig = QPushButton(bidi.plain(t("news_read_source", who=i["publisher"]), rtl), objectName="Link")
             orig.setCursor(Qt.PointingHandCursor)
-            orig.clicked.connect(lambda _=False, u=src: webbrowser.open(u))
+            orig.clicked.connect(lambda _=False, u=src: open_url(u))
             links.addWidget(orig)
         links.addStretch(1)
         col.addLayout(links)
@@ -223,7 +223,7 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
         if len(rows) > SHOWN:
             more = QPushButton(bidi.plain(t("news_more_site", n=len(rows) - SHOWN), rtl), objectName="Link")
             more.setCursor(Qt.PointingHandCursor)
-            more.clicked.connect(lambda: webbrowser.open(news.NEWS_PAGE))
+            more.clicked.connect(lambda: open_url(news.NEWS_PAGE))
             lay.addWidget(more, 0, _align(rtl))
     return page
 
@@ -274,7 +274,7 @@ def article(t, i: dict) -> QWidget:
         if url.startswith("https://") and i.get("publisher"):
             b = QPushButton(bidi.plain(label, rtl), objectName="Link")
             b.setCursor(Qt.PointingHandCursor)
-            b.clicked.connect(lambda _=False, u=url: webbrowser.open(u))
+            b.clicked.connect(lambda _=False, u=url: open_url(u))
             links.addWidget(b)
     links.addStretch(1)
     lay.addLayout(links)

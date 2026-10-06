@@ -175,7 +175,13 @@ class ItemMarket:
 
 
 def _num(v) -> int | None:
-    return int(v) if isinstance(v, (int, float)) and v > 0 else None
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else None
+
+
+def _count(v, default: int = 0) -> int:
+    """A count from the site's API, or default for anything else ("n/a", a list, null): int() on what the site
+    sent raised, and the market card waited forever."""
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else default
 
 
 def _when(v) -> float | None:
@@ -198,7 +204,7 @@ def trend(points: list[dict]) -> tuple[int | None, int, int]:
     from datetime import date
     pts = [p for p in points if isinstance(p, dict) and _num(p.get("median")) and isinstance(p.get("day"), str)]
     pts.sort(key=lambda p: p["day"])
-    volume = sum(int(p["count"]) for p in pts if isinstance(p.get("count"), (int, float)))
+    volume = sum(_count(p.get("count")) for p in pts)
     if len(pts) < 2:
         return None, 0, volume
     first, last = pts[0], pts[-1]
@@ -218,7 +224,7 @@ def listings(rows) -> list[Listing]:
         price = _num(r.get("priceEach") or r.get("price"))
         if price is None:
             continue
-        out.append(Listing(price, int(r.get("quantity") or 1), "buy" if r.get("side") == "buy" else "sell",
+        out.append(Listing(price, _count(r.get("quantity"), 1) or 1, "buy" if r.get("side") == "buy" else "sell",
                            r.get("channel") if isinstance(r.get("channel"), int) else None,
                            r.get("fmRoom") if isinstance(r.get("fmRoom"), int) else None, _when(r.get("createdAt"))))
     out.sort(key=lambda x: x.created or 0, reverse=True)
@@ -232,8 +238,8 @@ def parse_item_market(summary, history, listed) -> ItemMarket:
     if isinstance(summary, dict):
         m.usual, m.cheapest_sell, m.best_buy = (_num(summary.get("usual")), _num(summary.get("cheapestSell")),
                                                 _num(summary.get("bestBuy")))
-        m.checks, m.trades = int(summary.get("priceChecks") or 0), int(summary.get("finishedTrades") or 0)
-        m.for_sale, m.window = int(summary.get("forSale") or 0), int(summary.get("windowDays") or 14)
+        m.checks, m.trades = _count(summary.get("priceChecks")), _count(summary.get("finishedTrades"))
+        m.for_sale, m.window = _count(summary.get("forSale")), _count(summary.get("windowDays"), 14) or 14
     if isinstance(history, dict):
         m.trend_pct, m.trend_days, m.volume = trend(history.get("points") or [])
     if isinstance(listed, dict):
@@ -241,7 +247,7 @@ def parse_item_market(summary, history, listed) -> ItemMarket:
         brief = listed.get("summary") if isinstance(listed.get("summary"), dict) else {}
         m.cheapest_sell = m.cheapest_sell or _num(brief.get("lowestSell"))
         m.best_buy = m.best_buy or _num(brief.get("highestBuy"))
-        m.for_sale = m.for_sale or int(brief.get("activeCount") or 0)
+        m.for_sale = m.for_sale or _count(brief.get("activeCount"))
     return m
 
 

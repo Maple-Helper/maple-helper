@@ -2337,7 +2337,7 @@ class Overlay(QWidget):
     def _error_key(error: str) -> str:
         """The text for an answer's error: the kinds the player can act on have their own, the rest are generic."""
         return f"err_{error}" if error in ("offline", "not_logged_in", "usage_limit", "not_installed", "no_credit",
-                                           "timeout") else "err_generic"
+                                           "timeout", "cli_outdated") else "err_generic"
 
     def _on_done_main(self, ans: Answer):
         self._on_done(ans, self._pending_history)
@@ -2356,7 +2356,12 @@ class Overlay(QWidget):
         if ans.error:
             import logging
             logging.getLogger(__name__).warning("answer failed: %s", ans.error)
-            self._pending_bubble.set_text(self.t.p(self._error_key(ans.error), self.settings["provider"]))
+            key, provider = self._error_key(ans.error), self.settings["provider"]
+            if ans.error in ("not_logged_in", "usage_limit") and self.settings.api_key_mode(provider):
+                # an API key: no sign-in or plan to point at (it said "sign in to Claude again")
+                self._pending_bubble.set_text(self.t(key + "_key"))
+            else:
+                self._pending_bubble.set_text(self.t.p(key, provider))
             self._remember_model(ans)
             if history and getattr(self, "_pending_stored", None):
                 history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too

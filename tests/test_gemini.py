@@ -475,3 +475,15 @@ def test_usage_is_read_only_when_signed_in(home, monkeypatch):
     monkeypatch.setattr(gemini, "read_models", lambda max_age=10: [])
     monkeypatch.setattr(gemini, "_run", lambda args, timeout=30: calls.append(args))
     assert providers.get("gemini").read_limits() is None and calls == []
+
+
+@pytest.mark.parametrize("text,kind", [
+    ("step took 1429 ms; tool view_file refused", None),
+    ("design in progress", None),
+    ("Please sign in to continue", "not_logged_in"),
+    ("RESOURCE_EXHAUSTED", "usage_limit"),
+    ("got status 429 from the server", "usage_limit"),
+])
+def test_classify_matches_whole_words_and_bare_codes(text, kind):
+    """"429" inside a duration and "sign in" inside "design in" were a limit / a sign-out (audit PRV-5)."""
+    assert gemini.classify(text) == kind

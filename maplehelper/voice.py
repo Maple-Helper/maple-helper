@@ -25,6 +25,9 @@ from .store import DATA_DIR
 log = logging.getLogger("maplehelper")
 
 MODEL_ID = "ivrit-ai/whisper-large-v3-turbo-ct2"
+# the model's exact snapshot (its commit on Hugging Face, unchanged since 2025-10-27, so the copy players already have):
+# "main" would load whatever the repo holds tomorrow
+MODEL_REVISION = "72ad623a37947395efcc3933132353790e5a12f5"
 SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.4
 MAX_SECONDS = 60          # a talk key pressed by mistake recorded forever (~230 MB an hour, audit SCR-11)
@@ -168,7 +171,7 @@ class Transcriber:
     def downloaded() -> bool:
         """The model is on disk already (it stays in the data folder across app updates)."""
         snaps = DATA_DIR / "models" / ("models--" + MODEL_ID.replace("/", "--")) / "snapshots"
-        return any(snaps.glob("*/model.bin"))
+        return (snaps / MODEL_REVISION / "model.bin").exists()
 
     @classmethod
     def ready(cls) -> bool:
@@ -193,7 +196,8 @@ class Transcriber:
                     # (it went to the CPU after the cuBLAS download, audit SCR-9)
                     for compute in ("float16", "int8_float32"):
                         try:
-                            model = WhisperModel(MODEL_ID, device="cuda", compute_type=compute, download_root=root)
+                            model = WhisperModel(MODEL_ID, device="cuda", compute_type=compute, download_root=root,
+                                                 revision=MODEL_REVISION)
                             # a tiny decode proves the GPU runtime actually works (segments are lazy: list() runs it)
                             list(model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32), language="en")[0])
                             self._model = model
@@ -201,7 +205,8 @@ class Transcriber:
                         except Exception as e:      # noqa: BLE001
                             log.warning("voice: GPU (%s) failed: %s", compute, e)
                     log.warning("voice: using the CPU")
-            self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root)
+            self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root,
+                                       revision=MODEL_REVISION)
 
     def transcribe(self, audio: np.ndarray, language: str | None = None) -> str:
         """language: "he" / "en", or None to let the model guess (an extra pass over the clip: about twice as slow)."""

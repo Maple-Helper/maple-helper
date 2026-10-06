@@ -55,10 +55,12 @@ def find_claude() -> str | None:
     return None
 
 
-# credentials in the player's environment that would override the account (or the stored key) Maple Helper
-# chose: Claude Code takes them over the sign-in
+# credentials, providers and endpoints in the player's environment that would override the account (or the stored
+# key) Maple Helper chose: Claude Code takes them over the sign-in (a gateway or Foundry of a developer's own
+# routed the answers there, or made them fail). Not CLAUDE_CONFIG_DIR: it locates the player's own sign-in
 FOREIGN_AUTH = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
-                "CLAUDE_CODE_OAUTH_TOKEN")
+                "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_BASE_URL", "ANTHROPIC_CUSTOM_HEADERS",
+                "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL")
 
 
 def env(api_key: str | None = None) -> dict:
@@ -159,7 +161,8 @@ class ClaudeBackend:
 
     def _config(self) -> tuple:
         b = self.brain
-        return (self.exe, b.model, b.length, b.api_key, str(b.kb.root))
+        # the instructions too: they name the model only after the first answer, and carry the official facts
+        return (self.exe, b.model, b.length, b.api_key, str(b.kb.root), hash(b.system_prompt()))
 
     def _spawn(self, model: str | None = None, tools: bool = True) -> subprocess.Popen:
         """model / tools: a one-off call's own (the ⟳ sync: Haiku, no file tools); the warm process uses the

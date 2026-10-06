@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import re
-import webbrowser
 
 from PySide6.QtCore import QObject, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
@@ -11,6 +10,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, 
 
 from .. import bidi
 from ..kb import KnowledgeBase
+from ..osapi import open_url
 
 
 def _label(text: str = "", name: str | None = None, rich: bool = False, wrap: bool = True) -> QLabel:
@@ -736,7 +736,7 @@ class EntityCard(Selectable, QFrame):
             link.setCursor(Qt.PointingHandCursor)
             link.setToolTip("NiaMeowDB")
             link.setAccessibleName("NiaMeowDB")
-            link.clicked.connect(lambda: webbrowser.open(self.url))
+            link.clicked.connect(lambda: open_url(self.url))
             bl.addWidget(link)
         if key.startswith("item/"):
             self._star = QToolButton(objectName="Icon")

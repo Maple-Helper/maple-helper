@@ -318,6 +318,16 @@ STRINGS = {
                       "en": "Your API key has no credit left. Add credit to the key's account, or sign in with your account instead."},
     "err_generic": {"he": "משהו השתבש. נסו שוב.", "en": "Something went wrong. Try again."},
     "err_timeout": {"he": "ה-AI לקח יותר מדי זמן לענות. נסו שוב.", "en": "The AI took too long to answer. Try again."},
+    # on an API key there is no sign-in or plan: the key itself is what to fix
+    "err_not_logged_in_key": {"he": "מפתח ה-API לא תקין. החליפו אותו בהגדרות.",
+                              "en": "Your API key isn't valid. Replace it in Settings."},
+    "err_usage_limit_key": {"he": "הגעתם למגבלת השימוש של מפתח ה-API. נסו שוב מאוחר יותר.",
+                            "en": "You've reached your API key's usage limit. Try again later."},
+    # the installed CLI doesn't know a flag Maple Helper passes (an old install that doesn't update itself)
+    "err_cli_outdated": {"he": "הגרסה של Claude Code במחשב ישנה מדי. עדכנו אותה (או התקינו מחדש מההגדרות) ונסו שוב.",
+                         "en": "The Claude Code on this PC is too old. Update it (or reinstall it from Settings) and try again."},
+    "err_cli_outdated_codex": {"he": "הגרסה של ChatGPT (Codex) במחשב ישנה מדי. עדכנו אותה (או התקינו מחדש מההגדרות) ונסו שוב.",
+                               "en": "The ChatGPT (Codex) app on this PC is too old. Update it (or reinstall it from Settings) and try again."},
     # tray / settings
     "tray_open": {"he": "פתיחת הצ'אט", "en": "Open chat"},
     "tray_settings": {"he": "הגדרות", "en": "Settings"},
