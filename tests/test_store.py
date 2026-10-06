@@ -119,6 +119,25 @@ def test_launch_waits_for_a_running_update(monkeypatch):
     assert setupwait.wait_for_setup(limit_s=5, step_s=0) is False
 
 
+def test_the_waiting_note_closes_when_the_wait_ends(monkeypatch):
+    """"It opens by itself when that's done" stayed on screen after the app had opened (audit PRV-21)."""
+    from maplehelper import setupwait
+    events = []
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(setupwait.time, "monotonic", lambda: next(clock))
+    states = iter([True, True, True, False])
+    monkeypatch.setattr(setupwait, "setup_running", lambda: next(states))
+    monkeypatch.setattr(setupwait, "_tell_waiting", lambda: events.append("shown"))
+    monkeypatch.setattr(setupwait, "_close_note", lambda: events.append("closed"))
+    assert setupwait.wait_for_setup(limit_s=900, step_s=0) is True
+    assert events == ["shown", "closed"]
+
+
+def test_closing_the_note_finds_none_and_does_nothing():
+    from maplehelper import setupwait
+    setupwait._close_note()          # no such window in this process: nothing happens, nothing raises
+
+
 def test_damaged_install_is_explained_not_a_traceback(tmp_path, monkeypatch):
     """A missing file of the install (e.g. shiboken6.Shiboken) shows a reinstall prompt and logs the error."""
     import ctypes

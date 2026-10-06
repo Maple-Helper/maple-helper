@@ -37,6 +37,8 @@ def wait_for_setup(limit_s: float = 900, step_s: float = 0.5) -> bool:
             told = True
             _tell_waiting()      # an installer window left open would otherwise mean a silent, long wait
         time.sleep(step_s)
+    if told:
+        _close_note()            # "it opens by itself" stayed on screen after the app had opened
     return waited
 
 
@@ -56,6 +58,29 @@ def _tell_waiting() -> None:
     flags = 0x40 | 0x10000 | (0x80000 | 0x100000 if lang == "he" else 0)   # info, foreground, RTL in Hebrew
     threading.Thread(target=lambda: ctypes.windll.user32.MessageBoxW(None, WAITING_TEXT.get(lang, WAITING_TEXT["en"]),
                                                                      "Maple Helper", flags), daemon=True).start()
+
+
+def _close_note() -> None:
+    """Close the note _tell_waiting showed: a dialog of this process titled "Maple Helper"."""
+    if sys.platform != "win32":
+        return
+    import ctypes
+    from ctypes import wintypes
+    u32 = ctypes.WinDLL("user32")          # its own instance: argtypes here don't change anyone else's calls
+    u32.FindWindowExW.restype = wintypes.HWND
+    u32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+    u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+    u32.PostMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    me = ctypes.windll.kernel32.GetCurrentProcessId()
+    h = None
+    for _ in range(50):
+        h = u32.FindWindowExW(None, h, "#32770", "Maple Helper")
+        if not h:
+            break
+        pid = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(h, ctypes.byref(pid))
+        if pid.value == me:
+            u32.PostMessageW(h, 0x0010, 0, 0)           # WM_CLOSE: the box ends as if OK was clicked
 
 
 DOWNLOAD_URL = "https://github.com/Maple-Helper/maple-helper/releases/latest/download/MapleHelper-Setup.exe"
