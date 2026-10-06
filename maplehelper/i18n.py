@@ -501,7 +501,7 @@ STRINGS = {
     "start_at_login_move": {"he": "כדי שהאפליקציה תיפתח בכניסה למחשב, גררו את Maple Helper לתיקיית Applications ופתחו אותה משם.",
                             "en": "To start at login, drag Maple Helper into the Applications folder and open it from there."},
     "perm_title": {"he": "צריך הרשאה של macOS", "en": "macOS permission needed"},
-    "perm_screen_body": {"he": "כדי לראות את המשחק, אפשרו את Maple Helper תחת הגדרות המערכת ← פרטיות ואבטחה ← הקלטת מסך, ואז הפעילו את האפליקציה מחדש. "
+    "perm_screen_body": {"he": "כדי לראות את המשחק, אפשרו את Maple Helper תחת הגדרות המערכת ← פרטיות ואבטחה ← הקלטת מסך (ב-macOS 15: הקלטת מסך ושמע מערכת), ואז הפעילו את האפליקציה מחדש. "
                                 "אם Maple Helper כבר מופיע שם ומופעל (למשל אחרי עדכון), הסירו אותו עם − והוסיפו אותו שוב (או כבו והדליקו את המתג), ואז הפעילו מחדש.",
                          # an ad-hoc signed update no longer matches the old grant, though its switch still shows on (TCC)
                          "en": "To see the game, allow Maple Helper in System Settings → Privacy & Security → Screen Recording (on macOS 15: "
@@ -1197,9 +1197,9 @@ STRINGS = {
                       "en": "Tip: run the game in Borderless / Windowed Fullscreen so the chat can appear on top."},
     "ob_done_hint": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט.",
                      "en": "Press F9 in game to open and close the chat."},
-    "ob_done_hint_mac": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט (בלי fn אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת).",
+    "ob_done_hint_mac": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט (בלי fn אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה).",
                          "en": "Press F9 in game to open and close the chat (without fn if you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys)."},
-    "hotkey_fn_mac": {"he": "ב-Mac לוחצים עם fn (למשל fn+F9), אלא אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת.",
+    "hotkey_fn_mac": {"he": "ב-Mac לוחצים עם fn (למשל fn+F9), אלא אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה.",
                       "en": "On a Mac, hold fn with the key (fn+F9, say) unless you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys."},
     "hotkey_same": {"he": "אותו מקש לא יכול גם לפתוח את הצ'אט וגם להתחיל דיבור. בחרו מקש אחר לאחד מהם.",
                     "en": "One key can't both open the chat and start talking. Pick a different key for one of them."},
