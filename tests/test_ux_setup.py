@@ -171,3 +171,35 @@ def test_switching_back_before_save_is_no_change(env):
     dlg._on_provider("codex")
     dlg._on_provider("claude")
     assert not dlg.unsaved()
+
+
+# --- UX-10: the connect step says what each AI needs, and lets a player on without one ------------------------------
+
+def test_plan_texts_say_what_each_ai_costs():
+    from maplehelper.i18n import I18n
+    en = I18n("en")
+    assert "free Claude plan doesn't include" in en.p("ob_need_plan", "claude")
+    assert "check what your plan includes" in en.p("ob_need_plan", "codex")
+    assert "free" in en.p("ob_need_plan", "gemini") and "free" in en.p("ob_need_plan", "grok")
+    he = I18n("he")
+    for p in ("claude", "codex", "gemini", "grok"):
+        assert he.p("ob_need_plan", p) != en.p("ob_need_plan", p)          # translated, not the English fallback
+    assert "Gemini" in he("ob_plans_overview") and "ו-Grok" in he("ob_plans_overview")
+
+
+def test_connect_step_explains_and_offers_a_way_on_without_an_ai(env):
+    from maplehelper.ui.dialogs import Onboarding
+    s, profiles, kb = env
+    dlg = Onboarding(s, profiles, kb, lambda *_: "")
+    dlg._go_next()
+    assert dlg.stack.currentIndex() == 1 and not dlg.next.isEnabled()
+    assert not dlg.no_ai_note.isHidden() and "Play tools" in dlg.no_ai_note.text()
+    assert not dlg.skip_ai_btn.isHidden()
+    tips = {b.property("value"): b.toolTip() for b in dlg.provider_pick.group.buttons()}
+    assert "Claude Code" in tips["claude"] and "free" in tips["grok"]
+    dlg._on_status("claude", "ok")                       # connected: Next is the way on, no skip offered
+    assert dlg.next.isEnabled() and dlg.no_ai_note.isHidden() and dlg.skip_ai_btn.isHidden()
+    dlg._on_status("claude", "not_installed")
+    dlg.skip_ai_btn.click()
+    assert dlg.pages[dlg.stack.currentIndex()] is dlg.pages[2]          # the character step
+    dlg.close()

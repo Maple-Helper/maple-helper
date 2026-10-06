@@ -513,10 +513,16 @@ class Onboarding(GlassDialog):
         self.provider_pick = Segmented([(p.label, p.name) for p in providers.PROVIDERS.values()], self.provider, rtl)
         self.provider_pick.set_label(self.t("ai_provider"))
         self.provider_pick.changed.connect(self._on_provider)
+        for b in self.provider_pick.group.buttons():       # each AI's cost, on hover too (UX-10)
+            b.setToolTip(bidi.plain(self.t.p("ob_need_plan", b.property("value")), rtl))
         prow = QHBoxLayout()
         prow.addWidget(self.provider_pick)
         prow.addStretch(1)
         lay.addLayout(prow)
+        # which AI a player without a paid plan can start with, before they click through all four
+        overview = QLabel(bidi.plain(self.t("ob_plans_overview"), rtl), objectName="RowHint")
+        overview.setWordWrap(True)
+        lay.addWidget(overview)
         self.ai_body = _body("")
         lay.addWidget(self.ai_body)
         lay.addSpacing(6)
@@ -575,6 +581,14 @@ class Onboarding(GlassDialog):
         self.key_hint.hide()
         sec.add_widget(self.key_hint)
         lay.addWidget(sec)
+        # not connected: why Next waits, and a way on without any AI (the Play tools need none, UX-10)
+        self.no_ai_note = QLabel(bidi.plain(self.t("ob_no_ai_note"), rtl), objectName="RowHint")
+        self.no_ai_note.setWordWrap(True)
+        lay.addWidget(self.no_ai_note)
+        self.skip_ai_btn = QPushButton(self.t("ob_skip_ai"), objectName="Link")
+        self.skip_ai_btn.setCursor(Qt.PointingHandCursor)
+        self.skip_ai_btn.clicked.connect(self._skip_ai)
+        lay.addWidget(self.skip_ai_btn, 0, Qt.AlignLeading)
         lay.addStretch(1)
         report_btn = QPushButton(self.t("report_problem"), objectName="Link")
         report_btn.setCursor(Qt.PointingHandCursor)
@@ -921,6 +935,15 @@ class Onboarding(GlassDialog):
         finish = self.t("save_changes") if self.edit_id else self.t("ob_finish")
         self.next.setText(bidi.plain(finish if last else self.t("ob_next"), self.t.rtl))
         self.next.setEnabled(self._current_ok())
+        if hasattr(self, "skip_ai_btn"):
+            for w in (self.no_ai_note, self.skip_ai_btn):
+                w.setVisible(not self._ai_ok)
+
+    def _skip_ai(self):
+        """On to the character without an AI: the Play tools work without one, and Settings connects one later."""
+        if not self.only_character and self.stack.currentIndex() == 1:
+            self.stack.setCurrentIndex(2)
+            self._update_nav()
 
     def _go_back(self):
         self.stack.setCurrentIndex(max(0, self.stack.currentIndex() - 1))

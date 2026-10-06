@@ -1112,13 +1112,31 @@ STRINGS = {
                            "en": "Grok is installed but not signed in"},
     "ob_offline": {"he": "אין חיבור ל-{name}. בדקו את החיבור לאינטרנט.",
                    "en": "Couldn't reach {name}. Check your internet connection."},
-    "ob_need_plan": {"he": "נדרש מנוי Claude Pro או Max.", "en": "A Claude Pro or Max plan is required."},
-    "ob_need_plan_codex": {"he": "נדרש מנוי ChatGPT בתשלום (Plus, Pro, Business ועוד).",
-                           "en": "A paid ChatGPT plan is required (Plus, Pro, Business…)."},
-    "ob_need_plan_gemini": {"he": "צריך חשבון Google אישי. גודל המכסה תלוי במנוי שלכם ב-Google (למשל Google AI Pro או Ultra).",
-                            "en": "A personal Google account is required. How much you can ask depends on your Google plan (such as Google AI Pro or Ultra)."},
+    # what each AI costs, as each maker's own pages said in October 2026 (UX-10): Claude Code is on Pro and Max,
+    # not on the free Claude plan (claude.com/pricing); Codex comes with paid ChatGPT plans, and OpenAI's Free/Go
+    # access is limited and not promised in the CLI (learn.chatgpt.com/docs/pricing); Antigravity's own plan is $0
+    # with a weekly limit (antigravity.google/pricing); Grok Build is on every Grok plan, free too (x.ai, Aug 2026)
+    "ob_need_plan": {"he": "צריך מנוי Claude בתשלום (Pro או Max): התוכנית החינמית של Claude לא כוללת את Claude Code.",
+                     "en": "Needs a paid Claude plan (Pro or Max): the free Claude plan doesn't include Claude Code."},
+    "ob_need_plan_codex": {"he": "מנוי ChatGPT בתשלום (Plus, Pro, Business ועוד) כולל את זה. בחשבון חינמי או Go "
+                                 "אולי יש מכסה קטנה ומוגבלת: בדקו מה כלול בתוכנית שלכם.",
+                           "en": "A paid ChatGPT plan (Plus, Pro, Business…) includes it. A free or Go account may get "
+                                 "a small, limited quota: check what your plan includes."},
+    "ob_need_plan_gemini": {"he": "מספיק חשבון Google אישי: Antigravity חינמי, עם מכסה שבועית. Google AI Pro או Ultra נותנים יותר.",
+                            "en": "A personal Google account is enough: Antigravity is free, with a weekly limit. Google AI Pro or Ultra gives you more."},
     "ob_need_plan_grok": {"he": "מספיק חשבון Grok, גם בחינם (עם מכסה מוגבלת). מנוי SuperGrok או X Premium Plus נותן יותר.",
                           "en": "A Grok account is enough, even a free one (with a limited quota). SuperGrok or X Premium+ gives you more."},
+    # the four side by side, under the picker: which one a player without a paid plan can start with
+    "ob_plans_overview": {"he": "בחינם: Gemini ו-Grok (עם מכסה מוגבלת). ChatGPT: מנוי בתשלום, או בדקו אם יש לכם מכסה "
+                                "חינמית. Claude: מנוי בתשלום בלבד.",
+                          "en": "Free: Gemini and Grok (with a limited quota). ChatGPT: a paid plan, or check whether "
+                                "yours has a free quota. Claude: paid plans only."},
+    # why Next waits, and the way on without any AI (the Play tools need none)
+    "ob_no_ai_note": {"he": "\"הבא\" ייפתח אחרי שה-AI יתחבר. עוד אין לכם AI? כלי המשחק עובדים גם בלי: אפשר להמשיך "
+                            "בלי AI ולחבר אחד אחר כך בהגדרות.",
+                      "en": "Next opens once your AI is connected. No AI yet? The Play tools work without one: you can "
+                            "go on without an AI and connect one later in Settings."},
+    "ob_skip_ai": {"he": "להמשיך בינתיים בלי AI", "en": "Continue without an AI for now"},
     "ob_use_api_key": {"he": "או: שימוש במפתח API", "en": "Or: use an API key"},
     "ob_api_key_hint": {"he": "הדביקו מפתח Anthropic API (מתחיל ב-sk-ant-)", "en": "Paste an Anthropic API key (starts with sk-ant-)"},
     "ob_api_key_hint_codex": {"he": "הדביקו מפתח OpenAI API (מתחיל ב-sk-)", "en": "Paste an OpenAI API key (starts with sk-)"},
