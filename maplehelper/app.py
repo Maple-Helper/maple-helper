@@ -156,7 +156,8 @@ class MapleHelperApp:
                         provider=self.settings["provider"], language=self.settings["language"])
         self.brain = Brain(self.kb, provider=self.settings["provider"], length=self.settings["answer_length"])
         self.apply_ai_settings()
-        threading.Thread(target=self.brain.prewarm, daemon=True).start()   # first answer without startup delay
+        # no AI process is started here: it is warmed when the chat opens (Overlay.open_overlay), so a start in the
+        # tray at login keeps none waiting all day (audit PRF-1); typing the first question outlasts its start
         self.overlay = Overlay(self.settings, self.profiles, self.kb, self.brain)
         self.overlay.setStyleSheet(self.style())
         self.overlay.setWindowOpacity(1.0)
@@ -203,14 +204,22 @@ class MapleHelperApp:
         self.voice.text.connect(self.on_voice_text)
         self.voice.failed.connect(self.on_voice_failed)
         self.voice.text.connect(lambda _: telemetry.track("voice_used"))
+        self.voice.text.connect(self._stamp_voice_use)
         self.overlay.mic_clicked.connect(self.voice.toggle)
+        # the first voice question asks before the speech model downloads, then shows its progress (UX-12)
+        self.voice.need_download.connect(self.on_voice_need_download)
+        self.overlay.voice_download_requested.connect(self.voice.download)
+        self.overlay.voice_download_cancel.connect(self.voice.cancel_download)
+        self.voice.download_progress.connect(self.overlay.voice_download_progress)
+        self.voice.download_done.connect(self.overlay.voice_download_finished)
 
         self.make_tray()
         self.apply_autostart()
         self.pending_installer = None
         self._reopen_after_update = False
         QTimer.singleShot(4000, self.check_kb_update_silently)
-        QTimer.singleShot(6000, self.voice.preload)    # voice answers right away after a start or an update
+        # voice answers right away after a start or an update, for a player who used it lately (PRF-2)
+        QTimer.singleShot(6000, lambda: self.voice.preload(self.settings["voice_last_used"]))
         QTimer.singleShot(8000, updater.remove_old_installers)
         # only files: off the UI thread (the first sweep after the update removed ~1.7 s of old Grok sessions per
         # thousand, review PLT-8)
@@ -409,6 +418,16 @@ class MapleHelperApp:
                "voice_download_failed" if error.startswith("download:") else
                "voice_no_space" if error.startswith("nospace:") else "voice_failed")
         self.overlay.add_system(t(key))
+
+    def on_voice_need_download(self, size: int):
+        # the talk key in game: the question about the download shows in the chat
+        if not self.overlay.is_open():
+            self.overlay.toggle(self.capture)
+        self.overlay.offer_voice_download(size)
+
+    def _stamp_voice_use(self, _text: str):
+        import time
+        self.settings["voice_last_used"] = int(time.time())
 
     def on_voice_text(self, text: str):
         if not text.strip():          # silence (or only noise): say so, instead of nothing happening
@@ -1055,7 +1074,8 @@ class MapleHelperApp:
             self.brain.cancel()                  # an answer in progress ends now...
         except Exception:
             pass
-        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None)):
+        for th in (getattr(self.overlay, "_thread", None), getattr(self.overlay, "_sync_thread", None),
+                   *getattr(self.overlay, "_stopped_threads", [])):      # (an answer stopped just before, ending)
             # each on its own: a finished answer's thread already deleted must not skip a running read's
             try:
                 if th is not None and th.isRunning():

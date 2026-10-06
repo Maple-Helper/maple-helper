@@ -292,9 +292,12 @@ class HistoryDialog(GlassDialog):
         q = self.search.text().strip()
         self._hits = pins.search(self.pairs, q)
         self._last_day = None
+        # nothing asked yet (a new character): its own line, not a failed search's "0 results / Nothing found" (VIS-6)
+        self.count.setVisible(bool(self.pairs))
         if not self._hits:
             self.count.setText(bidi.plain(t("history_count", n=0), rtl))
-            self.rows.addWidget(QLabel(bidi.plain(t("history_none"), rtl), objectName="RowHint"))
+            self.rows.addWidget(QLabel(bidi.plain(t("history_none" if self.pairs else "history_empty"), rtl),
+                                       objectName="RowHint"))
             self.rows.addStretch(1)
             return
         self._add_cards(0)

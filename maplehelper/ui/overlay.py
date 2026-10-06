@@ -134,17 +134,20 @@ class Capsule(QFrame):
 
 class FocusLineEdit(QLineEdit):
     focus_changed = Signal(bool)
-    _hint = ""
+    _hint = _short = ""
 
-    def set_hint(self, text: str) -> None:
+    def set_hint(self, text: str, short: str = "") -> None:
         """The placeholder, cut with "…" at the end of its reading direction when the field is too narrow (at
-        470 px with the large font the English hint was cut mid-letter at the edge)."""
-        self._hint = text
+        470 px with the large font the English hint was cut mid-letter at the edge). short: the hint for a narrow
+        field, used when the whole one doesn't fit (it lost the talk key: "…(Enter to send, F10 t…", VIS-18)."""
+        self._hint, self._short = text, short
         self._fit_hint()
 
     def _fit_hint(self):
-        room = self.contentsRect().width() - 14          # the text margins and the cursor
-        self.setPlaceholderText(self.fontMetrics().elidedText(self._hint, Qt.ElideRight, max(40, room)))
+        room = max(40, self.contentsRect().width() - 14)          # the text margins and the cursor
+        fm = self.fontMetrics()
+        hint = self._short if self._short and fm.horizontalAdvance(self._hint) > room else self._hint
+        self.setPlaceholderText(fm.elidedText(hint, Qt.ElideRight, room))
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -407,6 +410,8 @@ class Overlay(QWidget):
     profile_requested = Signal()
     add_character_requested = Signal()
     mic_clicked = Signal()
+    voice_download_requested = Signal()     # yes to the speech model's first download (UX-12)
+    voice_download_cancel = Signal()
     limits_read = Signal(object)
     profile_changed = Signal()        # level / EXP / stats changed (a screenshot read or the chat)
     sync_finished = Signal(bool)      # a screenshot read ended (True = it read the game)
@@ -691,7 +696,7 @@ class Overlay(QWidget):
         row.addWidget(self.mic_btn)
         self.send_btn = QToolButton(objectName="Send", text=theme.ICON["send"])     # (named in apply_language)
         self.send_btn.setCursor(Qt.PointingHandCursor)
-        self.send_btn.clicked.connect(self._send_typed)
+        self.send_btn.clicked.connect(self._send_clicked)     # while an answer runs it is the Stop button
         self.send_btn.setEnabled(False)
         row.addWidget(self.send_btn)
         # what the next question sends: the F9 screenshot goes with the first question only
@@ -867,7 +872,7 @@ class Overlay(QWidget):
             self._render_tags()
         hk_voice = self.settings["hotkey_voice"]
         self._placeholder = self.t("input_placeholder").replace("F10", hk_voice)
-        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl))
+        self._show_placeholder()
         # its name for a screen reader: the placeholder changes (listening, transcribing) and isn't read as one
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
@@ -881,7 +886,7 @@ class Overlay(QWidget):
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
-        self.send_btn.setAccessibleName(self.t("send_question"))
+        self._show_send_or_stop()
         self.profile_card.now_btn.setText(self.t("plan_what_now"))
         self.profile_card.now_btn.setToolTip(self.t("what_now_tip"))
         if getattr(self, "_update_version", None):
@@ -1306,7 +1311,16 @@ class Overlay(QWidget):
         self.input.setLayoutDirection(Qt.RightToLeft if d == "rtl" else Qt.LeftToRight)
         # absolute: in an RTL widget a plain AlignRight means "trailing" = left
         self.input.setAlignment((Qt.AlignRight if d == "rtl" else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
-        self.send_btn.setEnabled(bool(text.strip()) and not self.busy)
+        self._show_send_or_stop()
+
+    def _show_send_or_stop(self):
+        """Send, or Stop while an answer is running (a stalled AI held the chat for minutes with no way out, audit
+        OVL-2); Stop is always clickable, send only with something to send."""
+        stop = self.busy
+        self.send_btn.setText(theme.ICON["stop" if stop else "send"])
+        self.send_btn.setToolTip(self.t("stop_answer") if stop else "")
+        self.send_btn.setAccessibleName(self.t("stop_answer" if stop else "send_question"))
+        self.send_btn.setEnabled(stop or bool(self.input.text().strip()))
 
     # ------------------------------------------------------------------ geometry
 
@@ -1388,6 +1402,7 @@ class Overlay(QWidget):
 
     def open_overlay(self, shot: bytes | None, game_hwnd: int | None):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
+        self._tell_brain_shown(True)          # the first answer's AI process starts now, while the player types
         self._update_shot_hint()
         self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
@@ -1411,6 +1426,18 @@ class Overlay(QWidget):
             # the first time the chat shows, however it opens (a start in the tray, autostart or a silent update,
             # never ran the tour: only a foreground start did); once it is up and laid out
             QTimer.singleShot(700, self.start_tour)
+
+    def _tell_brain_shown(self, shown: bool):
+        """Brain keeps a process warm only while the chat is in use (audit PRF-1): opening warms one."""
+        if self.brain is None:
+            return
+        try:
+            self.brain.chat_shown(shown)
+            if shown:
+                import threading
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        except Exception:      # noqa: BLE001 - the chat opens whatever the AI's state
+            pass
 
     def _show_last_session(self):
         """A new session starts: first, what happened in the previous one, one block per character."""
@@ -1461,6 +1488,7 @@ class Overlay(QWidget):
         self.bubble.hide()
         if not self.isVisible():
             return
+        self._tell_brain_shown(False)
         self.closed.emit()
         def done():
             self.hide()
@@ -1849,6 +1877,47 @@ class Overlay(QWidget):
 
     # ------------------------------------------------------------------ asking
 
+    def _send_clicked(self):
+        """The send button: Stop while an answer runs (Enter in the field never stops one: it says "one moment")."""
+        if self.busy:
+            self.stop_answer()
+        else:
+            self._send_typed()
+
+    def stop_answer(self):
+        """Stop the answer being written: its AI run is ended (every provider's process, through Brain.cancel), the
+        chat takes questions again at once, and a short line says it stopped. What already streamed stays."""
+        if not self.busy:
+            return
+        import threading
+        worker, thread = getattr(self, "_worker", None), getattr(self, "_thread", None)
+        self._dropped_workers = [*getattr(self, "_dropped_workers", []), worker]
+        if thread is not None and _alive(thread):
+            # still ending in the background: App.shutdown waits for it too (a running QThread at exit crashes)
+            self._stopped_threads = [th for th in getattr(self, "_stopped_threads", []) if _alive(th)] + [thread]
+        if self.brain is not None:
+            # off the GUI thread: stopping a CLI on Windows runs taskkill, which can take a moment
+            threading.Thread(target=self._cancel_brain, daemon=True).start()
+        self.busy = False
+        self._stop_deltas()
+        b = self._pending_bubble
+        if b is not None and _alive(b) and b._text in STRINGS["thinking"].values():
+            b.set_text(self.t("answer_stopped"))         # no word of it yet: the bubble itself says so
+            self._remember_render(b, lambda t, b=b: b.set_text(t("answer_stopped")))
+        else:
+            self.add_system(lambda t: t("answer_stopped"))
+        history = getattr(self, "_pending_history", None)
+        if history and getattr(self, "_pending_stored", None):
+            history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too, as on an error
+        self._pending_bubble = None
+        self._show_send_or_stop()
+
+    def _cancel_brain(self):
+        try:
+            self.brain.cancel()
+        except Exception:      # noqa: BLE001 - stopping must never break the chat
+            pass
+
     def _send_typed(self):
         q = self.input.text().strip()
         if q and self._is_busy():
@@ -1920,7 +1989,7 @@ class Overlay(QWidget):
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
         self._start_reading(self._pending_bubble)
         self.busy = True
-        self.send_btn.setEnabled(False)
+        self._show_send_or_stop()        # Stop, for as long as the answer runs
 
         self._thread = QThread(self)
         self._worker = AskWorker(self.brain, question, c, history, [shot, *tiles] if shot and tiles else shot, focus,
@@ -2086,6 +2155,8 @@ class Overlay(QWidget):
         every row): only the latest text is drawn, about ten times a second."""
         if not (self._pending_bubble and text):
             return
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            return             # a stopped answer's last words never land in the next question's bubble
         self._delta_text = text
         if not hasattr(self, "_delta_timer"):
             self._delta_timer = QTimer(self, singleShot=True, interval=self.DELTA_MS, timeout=self._draw_delta)
@@ -2343,6 +2414,9 @@ class Overlay(QWidget):
                                            "timeout", "cli_outdated") else "err_generic"
 
     def _on_done_main(self, ans: Answer):
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            self._dropped_workers.remove(self.sender())
+            return             # stopped by the player: its late end (an error, a half answer) goes nowhere
         self._on_done(ans, self._pending_history)
 
     def _on_done(self, ans: Answer, history: History | None):
@@ -2544,8 +2618,46 @@ class Overlay(QWidget):
         text = {"listening": self.t("listening", key=self.settings["hotkey_voice"]),
                 "transcribing": self.t("transcribing"),
                 "loading": self.t("voice_loading"),
-                "downloading": self.t("voice_downloading")}.get(state, self._placeholder)
-        self.input.set_hint(bidi.plain(text, self.t.rtl))
+                "downloading": self.t("voice_downloading")}.get(state)
+        if text is None:
+            self._show_placeholder()
+        else:
+            self.input.set_hint(bidi.plain(text, self.t.rtl))
+
+    def _show_placeholder(self):
+        """The field's own hint, and its shorter form for a narrow chat (no "Enter to send": the talk key stays)."""
+        short = self.t("input_placeholder_short").replace("F10", self.settings["hotkey_voice"])
+        self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl), bidi.plain(short, self.t.rtl))
+
+    def offer_voice_download(self, size: int):
+        """The first voice question: the speech model isn't on disk. Ask before downloading it, with its size (it
+        started silently after the player spoke, audit UX-12); a question still unanswered isn't asked twice."""
+        row = getattr(self, "_voice_offer", None)
+        if row is not None and _alive(row) and row.isEnabled():
+            return
+        gb = f"{size / 1e9:.1f} GB"
+        self._voice_offer = self.add_choices(lambda t: t("voice_dl_ask", size=gb),
+                                             [("voice_dl_yes", self.voice_download_requested.emit),
+                                              ("voice_dl_no", None)])
+
+    def voice_download_progress(self, pct: int):
+        """The download's line, its percent, and Cancel."""
+        self._voice_pct = pct
+        row = getattr(self, "_voice_dl_row", None)
+        if row is None or not _alive(row) or (pct == 0 and not row.isEnabled()):     # (0: a new download)
+            self._voice_dl_row = self.add_choices(lambda t: t("voice_dl_progress", pct=self._voice_pct),
+                                                  [("voice_dl_cancel", self.voice_download_cancel.emit)])
+        else:
+            row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=pct))
+
+    def voice_download_finished(self, how: str):
+        """done: ready to talk; cancelled: said so (a failure is said by App.on_voice_failed)."""
+        row = getattr(self, "_voice_dl_row", None)
+        if row is not None and _alive(row):
+            row.setDisabled(True)
+        key = {"done": "voice_dl_done", "cancelled": "voice_dl_stopped"}.get(how)
+        if key:
+            self.add_system(lambda t: t(key, key=self.settings["hotkey_voice"]))
 
     def voice_text(self, text: str, send: bool):
         text = text.strip()

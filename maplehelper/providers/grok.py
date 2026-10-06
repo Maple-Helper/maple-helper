@@ -693,6 +693,7 @@ class GrokBackend:
         self.brain = brain
         self.exe = find_grok()
         self._proc: subprocess.Popen | None = None
+        self._stopped = False      # the answer was stopped (the chat's Stop): a run starting after that ends at once
         self._running: set[subprocess.Popen] = set()
 
     def prewarm(self) -> None:
@@ -708,6 +709,7 @@ class GrokBackend:
                 base.kill(p)
 
     def cancel(self) -> None:
+        self._stopped = True
         if self._proc and self._proc.poll() is None:
             base.kill(self._proc)
 
@@ -747,6 +749,8 @@ class GrokBackend:
             return RawResult(error=f"launch_failed: {e}")
         if answer:
             self._proc = p
+            if self._stopped:          # a retry (or the run itself) began after Stop: it goes no further
+                base.kill(p)
         self._running.add(p)
         err: list[bytes] = []
         reader = threading.Thread(target=lambda: err.extend(iter(lambda: p.stderr.read(4096), b"")), daemon=True)
@@ -781,6 +785,7 @@ class GrokBackend:
 
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
+        self._stopped = False      # a new question (Brain.ask skips one stopped before it got here)
         b = self.brain
         shots_dir().mkdir(parents=True, exist_ok=True)
         folder = Path(tempfile.mkdtemp(prefix="run-", dir=shots_dir()))

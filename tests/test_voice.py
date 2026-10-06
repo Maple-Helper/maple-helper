@@ -79,15 +79,40 @@ def test_first_question_says_loading_not_downloading_when_on_disk(on_disk, state
 
 
 def test_preload_only_when_the_model_is_on_disk(monkeypatch):
+    import time
     vc = voice.VoiceController()
     started = []
     monkeypatch.setattr(voice.threading, "Thread", lambda target, daemon: type("T", (), {"start": lambda s: started.append(target)})())
     monkeypatch.setattr(voice.Transcriber, "ready", classmethod(lambda cls: False))
-    vc.preload()
+    vc.preload(time.time())
     assert started == []                                # never a 1.6GB download nobody asked for
     monkeypatch.setattr(voice.Transcriber, "ready", classmethod(lambda cls: True))
-    vc.preload()
+    vc.preload(time.time())
     assert len(started) == 1
+
+
+def test_preload_only_when_voice_was_used_in_the_last_14_days(monkeypatch):
+    """Voice tried once loaded the model into RAM/VRAM at every start forever (audit PRF-2)."""
+    import time
+    vc = voice.VoiceController()
+    started = []
+    monkeypatch.setattr(voice.threading, "Thread", lambda target, daemon: type("T", (), {"start": lambda s: started.append(target)})())
+    monkeypatch.setattr(voice.Transcriber, "ready", classmethod(lambda cls: True))
+    vc.preload(None)                                    # never used (or before the stamp existed)
+    vc.preload(time.time() - 15 * 86400)
+    assert started == []
+    vc.preload(time.time() - 13 * 86400)
+    assert len(started) == 1
+
+
+def test_a_voice_question_stamps_its_day(isolated_store):
+    from types import SimpleNamespace
+
+    from maplehelper.app import MapleHelperApp
+    fake = SimpleNamespace(settings=isolated_store.Settings())
+    MapleHelperApp._stamp_voice_use(fake, "hi")
+    import time
+    assert abs(fake.settings["voice_last_used"] - time.time()) < 5
 
 
 class _Stream:
@@ -114,6 +139,7 @@ def test_mac_denied_microphone_is_reported_before_recording(monkeypatch):
     from maplehelper import macapi
     vc = voice.VoiceController()
     monkeypatch.setattr(voice.sys, "platform", "darwin")
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setattr(macapi, "microphone_denied", lambda: True)
     failed = []
     vc.failed.connect(failed.append)
@@ -200,6 +226,7 @@ def test_recording_uses_the_chosen_microphone(monkeypatch):
             pass
     sd = type("SD", (_SD,), {"InputStream": Stream})
     monkeypatch.setitem(sys.modules, "sounddevice", sd)
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setattr(voice.sys, "platform", "win32")
     vc = voice.VoiceController()
     vc.microphone = "Microphone (Logitech PRO X Wireless Gaming Headset)"
@@ -312,6 +339,7 @@ def test_recording_stops_by_itself_after_a_minute(monkeypatch):
 
         def close(self):
             pass
+    monkeypatch.setattr(voice.Transcriber, "downloaded", staticmethod(lambda: True))   # (else: asked first, UX-12)
     monkeypatch.setitem(sys.modules, "sounddevice", type("SD", (_SD,), {"InputStream": Stream}))
     monkeypatch.setattr(voice.sys, "platform", "win32")
     from PySide6.QtWidgets import QApplication

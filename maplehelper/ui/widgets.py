@@ -76,7 +76,11 @@ class Bubble(QFrame):
         lay.setContentsMargins(13, 8, 13, 9)
         self.tag_label = None
         if tag:
-            self.tag_label = QLabel("↩ " + tag, objectName="BubbleTag")
+            # on the question's side, its arrow mirrored: a Hebrew question's "↩ Orange Mushroom, Blue Snail" was laid
+            # out left to right (it starts with an English name), on the left with the arrow the wrong way (VIS-11)
+            rtl = (direction or bidi.direction(text)) == "rtl" if text else ui_rtl
+            self.tag_label = QLabel(bidi.plain(("↪ " if rtl else "↩ ") + tag, rtl), objectName="BubbleTag")
+            self.tag_label.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
             self.tag_label.setWordWrap(True)    # five tagged names must not stretch the bubble past the chat
             lay.addWidget(self.tag_label)
         self.label = _label(rich=True)

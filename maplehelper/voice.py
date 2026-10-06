@@ -32,12 +32,23 @@ MODEL_REVISION = "72ad623a37947395efcc3933132353790e5a12f5"
 SAMPLE_RATE = 16_000
 MIN_SECONDS = 0.4
 MAX_SECONDS = 60          # a talk key pressed by mistake recorded forever (~230 MB an hour, audit SCR-11)
+RECENT_DAYS = 14          # the model is loaded at start only when voice was used this recently (audit PRF-2)
 
 # NVIDIA's own wheel on PyPI; only its two DLLs are kept. CUDA 12 matches CTranslate2 4.x.
 CUBLAS_URL = ("https://files.pythonhosted.org/packages/20/e2/fc9a0e985249d873150276d5afb02e39a66817fedbf1a385724393e505ed/"
               "nvidia_cublas_cu12-12.9.2.10-py3-none-win_amd64.whl")
 CUBLAS_SHA256 = "623f43027d40d44ceadf0043f002bd25cf353e8f13ce90b9a87057019f560661"
 CUBLAS_DLLS = ("cublas64_12.dll", "cublasLt64_12.dll")
+# what the first voice question downloads, asked before anything is fetched (audit UX-12): the model's files at
+# MODEL_REVISION (model.bin is 1,617,884,968 bytes) and, on an NVIDIA PC, the cuBLAS wheel
+MODEL_FILES = ["config.json", "preprocessor_config.json", "model.bin", "tokenizer.json", "vocabulary.*"]
+MODEL_BYTES = 1_621_700_000
+CUBLAS_BYTES = 553_162_896
+
+
+class DownloadCancelled(Exception):
+    """The player pressed Cancel on the download line."""
+
 
 # words the model should expect: game names, and the players' own Hebrew for "level" and "job"
 PROMPTS = {"he": "MapleStory Classic, Henesys, Ellinia, Perion, Kerning City, Red Snail, Orange Mushroom, לבל, ג'וב",
@@ -63,8 +74,9 @@ def gpu_libs_ready() -> bool:
     return all((cuda_dir() / name).is_file() for name in CUBLAS_DLLS)
 
 
-def download_gpu_libs():
-    """Fetch NVIDIA's cuBLAS wheel, check its hash, keep the two DLLs. Raises on any failure."""
+def download_gpu_libs(progress=None):
+    """Fetch NVIDIA's cuBLAS wheel, check its hash, keep the two DLLs. Raises on any failure.
+    progress(n): called with each chunk's size; it may raise (DownloadCancelled) to stop."""
     import urllib.request
     folder = cuda_dir()
     folder.mkdir(parents=True, exist_ok=True)
@@ -76,6 +88,8 @@ def download_gpu_libs():
             while chunk := r.read(1 << 20):
                 digest.update(chunk)
                 f.write(chunk)
+                if progress:
+                    progress(len(chunk))
         if digest.hexdigest() != CUBLAS_SHA256:
             raise ValueError("cuBLAS download is corrupt (hash mismatch)")
         with zipfile.ZipFile(part) as z:
@@ -178,6 +192,63 @@ class Transcriber:
         return (cls.snapshot() / "model.bin").exists()
 
     @classmethod
+    def download_size(cls) -> int:
+        """Bytes the first voice question still needs to download (0: nothing)."""
+        return (0 if cls.downloaded() else MODEL_BYTES) + (CUBLAS_BYTES if has_nvidia() and not gpu_libs_ready() else 0)
+
+    @classmethod
+    def bytes_on_disk(cls) -> int:
+        """How much of the model is on disk so far (its finished files and the ones being written)."""
+        if cls.downloaded():
+            return MODEL_BYTES
+        # a file is written in blobs\ (".incomplete"); a finished one stays there behind a symlink, or (Windows
+        # without symlinks) is moved into the snapshot folder itself
+        total = 0
+        for folder in (cls.snapshot().parent.parent / "blobs", cls.snapshot()):
+            try:
+                total += sum(f.stat().st_size for f in folder.iterdir() if f.is_file() and not f.is_symlink())
+            except OSError:
+                pass
+        return total
+
+    def download(self, cancel: threading.Event, on_bytes=None) -> None:
+        """Fetch the model (and on an NVIDIA PC its cuBLAS) now, after the player said yes. cancel set: stops with
+        DownloadCancelled at the next chunk. on_bytes(n): the cuBLAS download's progress (the model's is read off
+        the disk, bytes_on_disk, whatever huggingface_hub reports)."""
+        if not self.downloaded():
+            from huggingface_hub import constants, snapshot_download
+            from tqdm.auto import tqdm
+
+            class Watch(tqdm):
+                """huggingface_hub's progress bars, never drawn: every chunk passes here, so Cancel stops it."""
+                def __init__(self, *a, **kw):
+                    kw["disable"] = True
+                    super().__init__(*a, **kw)
+
+                def update(self, n=1):
+                    if cancel.is_set():
+                        raise DownloadCancelled()
+                    return super().update(n)
+            # plain HTTP, not Xet: Xet writes from its own native threads, where Cancel couldn't stop it
+            constants.HF_HUB_DISABLE_XET = True
+            snapshot_download(MODEL_ID, revision=MODEL_REVISION, cache_dir=str(DATA_DIR / "models"),
+                              allow_patterns=MODEL_FILES, tqdm_class=Watch)
+        if cancel.is_set():
+            raise DownloadCancelled()
+        if has_nvidia() and not gpu_libs_ready():
+            def chunk(n):
+                if cancel.is_set():
+                    raise DownloadCancelled()
+                if on_bytes:
+                    on_bytes(n)
+            try:
+                download_gpu_libs(chunk)
+            except DownloadCancelled:
+                raise
+            except Exception as e:      # noqa: BLE001 - the CPU still works, only slower (load() tries again)
+                log.warning("voice: cuBLAS download failed, using the CPU: %s", e)
+
+    @classmethod
     def ready(cls) -> bool:
         """Nothing left to download: the model, and on an NVIDIA PC its cuBLAS too."""
         return cls.downloaded() and (gpu_libs_ready() or not has_nvidia())
@@ -232,6 +303,11 @@ class VoiceController(QObject):
     state = Signal(str)          # listening | transcribing | loading | downloading | idle
     text = Signal(str)
     failed = Signal(str)
+    # the first voice question: the model isn't on disk. Nothing is recorded or fetched until the player agrees to
+    # the download (its size in bytes); then its percent, and how it ended: "done" | "cancelled" | "" (failed says why)
+    need_download = Signal(object)     # (bytes: over a C int)
+    download_progress = Signal(int)
+    download_done = Signal(str)
 
     def __init__(self, key_name: str = "F10"):
         super().__init__()
@@ -241,12 +317,67 @@ class VoiceController(QObject):
         self.transcriber = Transcriber()
         self._chunks: list[np.ndarray] = []
         self._stream = None
+        self._downloading = False
+        self._cancel = threading.Event()
+        self._dl_total = self._gpu_done = 0
 
-    def preload(self):
-        """Load the model in the background when it's on disk already (the player has used voice before),
-        so the first question after a start or an update doesn't wait for it. Never downloads."""
+    def preload(self, last_used: float | None = None):
+        """Load the model in the background when it's on disk already and voice was used in the last RECENT_DAYS
+        days (last_used: the settings' voice_last_used, epoch seconds), so the first question after a start or an
+        update doesn't wait for it. Someone who tried voice once no longer holds the model in RAM or VRAM at every
+        start (audit PRF-2). Never downloads."""
+        import time
+        if not last_used or time.time() - last_used > RECENT_DAYS * 86400:
+            return
         if not self.transcriber.loaded() and self.transcriber.ready():
             threading.Thread(target=self._preload, daemon=True).start()
+
+    def downloading(self) -> bool:
+        return self._downloading
+
+    def download(self):
+        """The player said yes to the download: fetch it in the background, with its percent and a way to cancel."""
+        if self._downloading:
+            return
+        self._downloading = True
+        self._cancel = threading.Event()
+        self._dl_total, self._gpu_done = max(1, self.transcriber.download_size()), 0
+        if not hasattr(self, "_progress_timer"):
+            self._progress_timer = QTimer(self, interval=500, timeout=self._report_progress)
+            self.download_done.connect(self._progress_timer.stop)
+        self._progress_timer.start()
+        self.state.emit("downloading")
+        self.download_progress.emit(0)
+        threading.Thread(target=self._download, daemon=True).start()
+
+    def cancel_download(self):
+        self._cancel.set()
+
+    def _add_gpu_bytes(self, n: int):
+        self._gpu_done += n
+
+    def _report_progress(self):
+        if self._cancel.is_set():
+            return
+        model = self.transcriber.bytes_on_disk() if self._dl_total > CUBLAS_BYTES else 0
+        self.download_progress.emit(min(99, int((model + self._gpu_done) * 100 / self._dl_total)))
+
+    def _download(self):
+        ended = ""
+        try:
+            self.transcriber.download(self._cancel, self._add_gpu_bytes)
+            ended = "done"
+        except DownloadCancelled:
+            log.info("voice: model download cancelled")
+            ended = "cancelled"
+        except Exception as e:      # noqa: BLE001
+            kind = download_problem(e)
+            log.warning("voice: model download failed: %s", e)
+            self.failed.emit((f"{kind}: " if kind else "") + str(e))
+        finally:
+            self._downloading = False
+            self.state.emit("idle")
+            self.download_done.emit(ended)
 
     def _preload(self):
         try:
@@ -265,6 +396,13 @@ class VoiceController(QObject):
             self._start()
 
     def _start(self):
+        if self._downloading:
+            self.state.emit("downloading")      # the talk key during the download: its line already shows progress
+            return
+        if not self.transcriber.downloaded():
+            # never a silent 1.6 GB download after the player spoke (audit UX-12): asked first, with its size
+            self.need_download.emit(self.transcriber.download_size())
+            return
         if sys.platform == "darwin":
             from . import macapi
             if macapi.microphone_denied():      # macOS would record silence: "I didn't hear anything"

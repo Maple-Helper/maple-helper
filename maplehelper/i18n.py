@@ -110,11 +110,16 @@ STRINGS = {
     "price_fm_ago_d_one": {"he": "אתמול", "en": "1 day ago"},
     "input_placeholder": {"he": "שאלו אותי משהו… (Enter לשליחה, F10 לדיבור)",
                           "en": "Ask anything… (Enter to send, F10 to talk)"},
+    # a narrow chat (470 px, the large font): the whole hint was cut before the talk key (VIS-18)
+    "input_placeholder_short": {"he": "שאלו אותי משהו… (F10 לדיבור)", "en": "Ask anything… (F10 to talk)"},
     "thinking": {"he": "חושב…", "en": "Thinking…"},
     "cancel": {"he": "ביטול", "en": "Cancel"},
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
     "recapture": {"he": "צילום מחדש של מסך המשחק", "en": "Retake the game screenshot"},
     "send_question": {"he": "שליחת השאלה", "en": "Send the question"},
+    # the send button while an answer runs (audit OVL-2), and the line it leaves
+    "stop_answer": {"he": "עצירת התשובה", "en": "Stop the answer"},
+    "answer_stopped": {"he": "התשובה נעצרה.", "en": "Answer stopped."},
     "voice_mic_failed": {"he": "לא הצלחתי להפעיל את המיקרופון. בדקו שהוא מחובר ושיש ל-Maple Helper הרשאה אליו (הגדרות Windows > פרטיות > מיקרופון).",
                          "en": "Couldn't start the microphone. Check that it's connected and that Maple Helper may use it (Windows Settings > Privacy > Microphone)."},
     "voice_mic_failed_mac": {"he": "לא הצלחתי להפעיל את המיקרופון. בדקו שהוא מחובר ושיש ל-Maple Helper הרשאה אליו (הגדרות המערכת > פרטיות ואבטחה > מיקרופון).",
@@ -142,6 +147,17 @@ STRINGS = {
     "transcribing": {"he": "מתמלל…", "en": "Transcribing…"},
     "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the voice model…"},
     "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the voice model (once)…"},
+    # the first voice question asks before the model's download, then shows its progress (audit UX-12)
+    "voice_dl_ask": {"he": "שאלות בקול עובדות עם מודל דיבור שרץ אצלכם במחשב. צריך להוריד אותו פעם אחת ({size}). להוריד עכשיו?",
+                     "en": "Voice questions use a speech model that runs on your PC. It needs a one-time download ({size}). Download it now?"},
+    "voice_dl_yes": {"he": "להוריד", "en": "Download"},
+    "voice_dl_no": {"he": "לא עכשיו", "en": "Not now"},
+    "voice_dl_progress": {"he": "מוריד את מודל הדיבור: {pct}%", "en": "Downloading the speech model: {pct}%"},
+    "voice_dl_cancel": {"he": "ביטול", "en": "Cancel"},
+    "voice_dl_done": {"he": "מודל הדיבור מוכן. לחצו על המיקרופון (או {key}), דברו, ולחצו שוב כשסיימתם.",
+                      "en": "The speech model is ready. Press the mic (or {key}), speak, then press it again when done."},
+    "voice_dl_stopped": {"he": "ההורדה בוטלה. אפשר להוריד את המודל בפעם הבאה שתלחצו על המיקרופון.",
+                         "en": "Download cancelled. You can get the model the next time you press the mic."},
     "no_game": {"he": "חלון המשחק לא נמצא, שולח בלי צילום מסך.", "en": "Game window not found, sending without a screenshot."},
     "asking_about_short": {"he": "שואלים על:", "en": "Asking about:"},
     "tiles_drops": {"he": "מה {name} מפיל", "en": "{name} drops"},
@@ -241,6 +257,8 @@ STRINGS = {
     "day_today": {"he": "היום", "en": "Today"},
     "day_yesterday": {"he": "אתמול", "en": "Yesterday"},
     "history_none": {"he": "לא נמצא כלום.", "en": "Nothing found."},
+    "history_empty": {"he": "עוד אין שיחות. שאלה ששואלים בצ'אט נשמרת כאן.",
+                      "en": "No conversations yet. Questions you ask in the chat are saved here."},
     "share_character": {"he": "העתקת כרטיס הדמות כתמונה", "en": "Copy the character card as a picture"},
     "sess_title": {"he": "הסשן הקודם · {minutes} דק'", "en": "Last session · {minutes} min"},
     "sess_level": {"he": "{name}: רמה {a} ← {b}", "en": "{name}: level {a} → {b}"},
@@ -456,6 +474,7 @@ STRINGS = {
     "whats_new": {"he": "מה חדש באפליקציה", "en": "What's new in Maple Helper"},
     "whats_new_notice": {"he": "Maple Helper עודכן לגרסה {version}", "en": "Maple Helper was updated to {version}"},
     "whats_new_show": {"he": "מה חדש?", "en": "What's new?"},
+    "whats_new_empty": {"he": "אין חידושים להציג בגרסה הזו.", "en": "Nothing new to show in this version."},
     "version_title": {"he": "גרסה {version}", "en": "Version {version}"},
     "patch_notes": {"he": "מה חדש במאגר", "en": "What's new in the database"},
     "patch_notes_show": {"he": "מה השתנה?", "en": "What changed?"},
@@ -1194,6 +1213,10 @@ STRINGS = {
                         "en": "Play tools"},
     "tour_tools_body": {"he": "גריינד, מעקב גריינד, פארם, קווסטים לפי הרמה שלכם, קראפטינג, אזרחות, בילד, פגיעה ונזק, מחיר פריט, למכור או לשמור, איך מגיעים וחיות מחמד.",
                        "en": "Grind spots, grind tracker, farming, quests for your level, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, and pets."},
+    "tour_news_title": {"he": "חדשות",
+                       "en": "News"},
+    "tour_news_body": {"he": "החדשות של MapleStory Classic, בעברית כשיש תרגום. הכפתור נצבע בכתום כשיש חדשות שעוד לא קראתם.",
+                      "en": "MapleStory Classic news. The button turns orange when there's news you haven't read."},
     "tour_guides_title": {"he": "מדריכים",
                          "en": "Guides"},
     "tour_guides_body": {"he": "מדריכים מסודרים למשחק: ג'ובים, מקומות, מערכות ועוד, עם תמונות.",
@@ -1530,7 +1553,7 @@ MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
 # strings that teach a hotkey: on a Mac keyboard F9/F10 are media keys unless fn is held, so a Mac shows
 # "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+")
 FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
-                "shot_hint_ready", "ob_done_hint"}
+                "shot_hint_ready", "ob_done_hint", "voice_dl_done", "input_placeholder_short"}
 _FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
 
 
