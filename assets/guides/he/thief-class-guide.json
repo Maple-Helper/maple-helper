@@ -499,7 +499,7 @@
    "note": "**דמג' פיזי לפני הגנה**\nMAX = (1.0 + (LUK x W + STR + DEX) / 100 + Attack Power / 50) x Total W.ATK x Skill %\nMIN = (0.8 + (LUK x W x Mastery + STR + DEX) / 100 + Attack Power / 50) x Total W.ATK x Skill %\nLucky Seven מכריח W = 3.0 ו-Mastery = 0.5. Double Stab משתמש במכפיל הדקירה של dagger, W = 2.0. Total W.ATK כולל את ה-claw ואת כוכב הזריקה ב-Lucky Seven."
   },
   {
-   "p": "ב-Lucky Seven, LUK אחד מוסיף 125% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד, לפני הגנה. ב-Double Stab בלי Dagger Mastery, LUK אחד מוסיף בערך 8% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד. Dagger Mastery מקסימלי מרחיב את היתרון הזה לבערך 88%."
+   "p": "ב-Lucky Seven, LUK אחד מוסיף 125% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד, לפני הגנה. ב-Double Stab בלי Dagger Mastery, LUK אחד מוסיף בערך 8% יותר דמג' סטטים גולמי ממוצע מאשר STR או DEX אחד. Dagger Mastery מקסימלי מרחיב את היתרון הזה לכ-88%."
   },
   {
    "note": "**אל תוסיפו STR בשביל dagger של STR, אלא אם שדרוג הנשק שווה את ה-LUK שאתם מפסידים.** תבדקו את הדרישה המדויקת של ה-dagger ב-Character Builder. Reef Claw הוא ה-dagger הנקי הכי חזק ברמה 30. הוא משתמש ב-DEX ואין לו דרישת STR."
