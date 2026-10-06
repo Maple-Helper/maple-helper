@@ -339,5 +339,6 @@ def test_a_long_microphone_name_never_widens_settings(env, monkeypatch):
     assert dlg.mic.currentIndex() == 2 and dlg._mic_value() == s.data["microphone"]
     assert "Microphone (" not in dlg.mic.text()
     dlg.mic.addItems(["Microphone Array (Realtek(R) High Definition Audio with a very long driver name)"])
-    assert dlg.mic.sizeHint().width() <= dlg.mic.text_width + 48
+    from maplehelper.ui.controls import SELECT_PAD
+    assert dlg.mic.sizeHint().width() <= dlg.mic.text_width + SELECT_PAD     # (the padding around the value)
     dlg.close()

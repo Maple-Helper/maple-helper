@@ -233,6 +233,11 @@ class MapleHelperApp:
 
     def replay_tour(self, settings_dialog) -> None:
         """Settings → "Take the app tour": the settings window steps away and the chat shows the tour."""
+        if settings_dialog.unsaved():
+            # changes not saved yet: ask, as the X does (closing it threw them away); the question closed: no tour
+            settings_dialog._close_clicked()
+            if settings_dialog.isVisible():
+                return
         settings_dialog.close()
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
@@ -571,7 +576,7 @@ class MapleHelperApp:
         self.brain.provider = self.settings["provider"]
         ai = providers.get(self.settings["provider"])
         self.brain.api_key = ai.load_api_key() if self.settings.api_key_mode(ai.name) else None
-        self.brain.ui_lang = self.settings["language"]
+        self.brain.ui_lang = self.settings["language"] or "he"     # (None before a first save: the UI is Hebrew)
         self.apply_saver_mode()
 
     def on_account_changed(self):
@@ -626,6 +631,8 @@ class MapleHelperApp:
         settings_win = self.__dict__.get("_windows", {}).get("settings")
         if settings_win is not None and hasattr(settings_win, "saver"):
             settings_win.saver.setChecked(True)     # its Save must not switch it off again
+            if hasattr(settings_win, "_initial"):
+                settings_win._initial["saver_mode"] = True      # already saved: its X asked "Save your changes?"
         self.apply_saver_mode()
         self.overlay.show_saver_badge(True)
         self.overlay.add_system(I18n(self.settings["language"])("saver_turned_on"))
@@ -645,6 +652,8 @@ class MapleHelperApp:
         terms.hide()
         self.overlay.apply_capture_mode()
         self.apply_saver_mode()
+        # the answers' language for a name-only question: the new one now, not after a restart
+        self.brain.ui_lang = self.settings["language"] or "he"
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.voice.set_key(self.settings["hotkey_voice"])

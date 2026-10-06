@@ -38,7 +38,8 @@ RULES = """You translate short MapleStory Classic texts from English to Hebrew f
 - Natural, fluent Hebrew as an Israeli gamer writes it. Address the reader in the plural ("אתם").
 - Keep every proper noun in English letters exactly as given: NPC, monster, item, map, town, skill, job and game
   names (Arthur, Henesys, Blue Snail, Founder's Access). A Hebrew prefix on one takes a hyphen: "ל-Arthur", "ב-Henesys".
-- A level is "רמה" (never "לבל"); money is "mesos" in English letters; numbers stay as they are.
+- A level is "רמה" (never "לבל", in any form: "ברמה 10", "מרמה 10", "תקרת הרמות", "הרמה"); levelling is "עליית
+  רמות"; money is "mesos" in English letters; numbers stay as they are.
 - Translate the meaning completely; add nothing, drop nothing.
 Answer with a JSON array of strings only: the translations, in the order given, one per input."""
 
@@ -60,7 +61,9 @@ def translate(key: str, texts: list[str]) -> list[str]:
     out = json.loads(text[start:end + 1]) if start >= 0 and end > start else None
     if not isinstance(out, list) or len(out) != len(texts) or not all(isinstance(x, str) and x.strip() for x in out):
         raise ValueError(f"the answer isn't {len(texts)} translations")
-    return [x.strip() for x in out]
+    import scrape_news
+    # the prompt's rule alone let "תקרת לבל 100" through into the news: the app's own Hebrew rules, applied
+    return [scrape_news.he_text(x) for x in out]
 
 
 def check(key: str) -> bool:

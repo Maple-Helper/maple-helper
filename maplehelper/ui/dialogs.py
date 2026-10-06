@@ -1,6 +1,7 @@
 """Onboarding (mandatory, no skipping), character editor and settings."""
 from __future__ import annotations
 
+import logging
 import re
 import sys
 import threading
@@ -21,6 +22,43 @@ from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class 
 from ..kb import KnowledgeBase
 from ..store import ASSETS, History, Profiles, Settings
 from . import theme
+
+log = logging.getLogger(__name__)
+
+def set_hint(lb: QLabel, text: str, rtl: bool) -> None:
+    """A word-wrapped hint under a row. In Hebrew as right-to-left rich text: as plain text a nearly full line kept
+    its trailing space and lost the edge of its last word (Gemini's "...יש לזה דקה אחת" was cut at the card's edge)."""
+    if rtl:
+        lb.setTextFormat(Qt.RichText)
+        lb.setText(bidi.to_html(text, "rtl"))
+    else:
+        lb.setText(bidi.plain(text, False))
+
+
+# the account checks and sign-outs run on threads: an unexpected error there emitted nothing, and the window said
+# "Checking…" forever with Next or "Switch account" disabled. Logged, and the window settles on "offline"
+def _safe_status(ai) -> str:
+    try:
+        return ai.status()
+    except Exception:  # noqa: BLE001
+        log.exception("%s: the account check failed", ai.name)
+        return "offline"
+
+
+def _safe_account(ai) -> dict:
+    try:
+        return {**ai.account(), "provider": ai.name}
+    except Exception:  # noqa: BLE001
+        log.exception("%s: the account check failed", ai.name)
+        return {"status": "offline", "email": None, "provider": ai.name}
+
+
+def _safe_logout(ai) -> None:
+    try:
+        ai.logout()
+    except Exception:  # noqa: BLE001
+        log.exception("%s: signing out failed", ai.name)
+
 
 CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוסם", "Bowman": "קשת", "Thief": "גנב"}
 # Only the level field's bound, not the game's level cap: the KB says no launch cap is published (testers reached
@@ -203,8 +241,14 @@ class CharacterForm(QWidget):
         self.name = QLineEdit()
         self.name.setAccessibleName(t("ob_char_name"))     # its label above is a separate QLabel
         self.name.setMaxLength(24)
-        self.name.textChanged.connect(lambda *_: self.changed.emit())
+        self.name.textChanged.connect(lambda *_: (self._check_name(), self.changed.emit()))
         lay.addWidget(self.name)
+        # the player's other characters' names (case-folded): a second "Amit" made two identical chips
+        self.taken: set[str] = set()
+        self.name_hint = QLabel(bidi.plain(t("ob_name_taken"), t.rtl), objectName="JobHint")
+        self.name_hint.setWordWrap(True)
+        self.name_hint.hide()
+        lay.addWidget(self.name_hint)
 
         lay.addWidget(_field(t("ob_class")))
         grid = QGridLayout()
@@ -335,8 +379,15 @@ class CharacterForm(QWidget):
         values = getattr(self, "_job_values", [])
         return values[i] if 0 <= i < len(values) else ""
 
+    def _name_taken(self) -> bool:
+        return self.name.text().strip().casefold() in self.taken
+
+    def _check_name(self) -> None:
+        self.name_hint.setVisible(self._name_taken())
+
     def valid(self) -> bool:
-        return bool(self.name.text().strip()) and bool(self.base_class()) and bool(self.current_job())
+        return (bool(self.name.text().strip()) and not self._name_taken() and bool(self.base_class())
+                and bool(self.current_job()))
 
     def values(self) -> tuple[str, str, str, int]:
         return self.name.text().strip(), self.base_class(), self.current_job(), self.level.value()
@@ -544,7 +595,7 @@ class Onboarding(GlassDialog):
         # ("sk-ant-", "AIza") stays one block in it, not "ב--sk-ant" (ltr_block inside the Hebrew sentence)
         hint = t.p("ob_api_key_hint", p)
         if t.rtl:
-            prefix = next((x for x in ("sk-ant-", "sk-", "AIza") if x in hint), "")
+            prefix = next((x for x in ("sk-ant-", "sk-", "AIza", "xai-") if x in hint), "")   # (Grok's read "-xai")
             if prefix:
                 hint = hint.replace(prefix, bidi.ltr_block(prefix, True))
             hint = bidi.plain(hint, True)
@@ -577,6 +628,7 @@ class Onboarding(GlassDialog):
                    self.t("add_character") if self.only_character else self.t("ob_welcome"))
         lay.addWidget(_title(heading))
         self.form = CharacterForm(self.t, self.kb)
+        self.form.taken = {c.name.strip().casefold() for c in self.profiles.characters if c.id != self.edit_id}
         if self.edit_id:
             c = next((c for c in self.profiles.characters if c.id == self.edit_id), None)
             if c:
@@ -640,11 +692,11 @@ class Onboarding(GlassDialog):
         if self._login_proc is None:
             # the sign-in couldn't even start: say so, and offer the official installer instead
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
             self.login_hint.show()
             self.install_btn.show()
             return
-        self.login_hint.setText(bidi.plain(self.t.p("ob_login_wait", self.provider), self.t.rtl))
+        set_hint(self.login_hint, self.t.p("ob_login_wait", self.provider), self.t.rtl)
         self.login_hint.show()
         self.install_btn.show()     # the way out when no sign-in window shows up
         if self._ai().login_code:
@@ -658,10 +710,10 @@ class Onboarding(GlassDialog):
             return
         if self._ai().submit_login_code(code):
             self.code_row.hide()
-            self.login_hint.setText(bidi.plain(self.t("ob_code_sent"), self.t.rtl))
+            set_hint(self.login_hint, self.t("ob_code_sent"), self.t.rtl)
         else:                       # the sign-in already gave up (it waits one minute)
             self.code_row.hide()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
 
     def _on_closed(self, *_):
         """Closed (or restarted in another language): its timers stop, so it never shows itself again."""
@@ -710,7 +762,7 @@ class Onboarding(GlassDialog):
         if not self._signing_in:
             self.status_label.setText(bidi.plain(self.t("ob_checking"), self.t.rtl))
         ai = self._ai()
-        threading.Thread(target=lambda: self._bridge.status.emit(ai.name, ai.status()), daemon=True).start()
+        threading.Thread(target=lambda: self._bridge.status.emit(ai.name, _safe_status(ai)), daemon=True).start()
 
     def _poll_status(self, seconds: int):
         """One timer for the dialog: a second sign-in click used to start another, and the first kept running."""
@@ -732,14 +784,14 @@ class Onboarding(GlassDialog):
             stop_login()
             self._login_proc = None
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t("sign_in_timeout"), self.t.rtl))
+            set_hint(self.login_hint, self.t("sign_in_timeout"), self.t.rtl)
             self.login_hint.show()
             self._check_status()
             return
         if login_failed(getattr(self, "_login_proc", None)):
             self._login_proc = None
             self._end_sign_in()
-            self.login_hint.setText(bidi.plain(self.t.p("ob_login_failed", self.provider), self.t.rtl))
+            set_hint(self.login_hint, self.t.p("ob_login_failed", self.provider), self.t.rtl)
             self.install_btn.setVisible(not self._ai().login_code)    # Gemini: sign in again, see _login_failed
             return
         self._check_status()
@@ -750,8 +802,9 @@ class Onboarding(GlassDialog):
             return            # a check that started before the player switched provider
         t = self.t
         signed_in = st == "ok"
-        # a key that checked out counts as connected, whatever the account check says (it reads the sign-in)
-        self._ai_ok = signed_in or self.settings.api_key_mode(provider)
+        # a key that checked out counts as connected, whatever the account check says (it reads the sign-in);
+        # but only with the CLI there: a key alone answered every question with "not installed"
+        self._ai_ok = signed_in or (self.settings.api_key_mode(provider) and st != "not_installed")
         if self._ai_ok:
             st = "ok"
         text = {"ok": t("ob_connected"), "logged_out": t.p("ob_not_logged", provider),
@@ -808,17 +861,30 @@ class Onboarding(GlassDialog):
             return            # the player switched provider while the key was checked
         if ok:
             ai = providers.get(provider)
-            ai.save_api_key(key)
+            try:
+                ai.save_api_key(key)
+            except Exception:  # noqa: BLE001 - a locked or refusing keychain: say so, the key isn't kept
+                log.exception("saving the API key failed")
+                self._key_message(self.t("ob_key_not_saved"))
+                self._update_nav()
+                return
             self.settings.set_api_key_mode(provider, True)
-            self._ai_ok = True
             self.key_hint.hide()
-            self.status_label.setText(bidi.plain(self.t("ob_connected"), self.t.rtl))
+            if ai.find_exe():
+                self._ai_ok = True
+                self.status_label.setText(bidi.plain(self.t("ob_connected"), self.t.rtl))
+            else:
+                # the key runs through the AI's CLI: without it every answer failed "not installed"
+                self.status_label.setText(bidi.plain(self.t.p("ob_not_installed", provider), self.t.rtl))
+                self._key_message(self.t.p("ob_key_saved_install", provider))
+                if not self._signing_in:
+                    self.install_btn.show()
         else:
             self._key_message(self.t("ob_key_failed"))
         self._update_nav()
 
     def _key_message(self, text: str):
-        self.key_hint.setText(bidi.plain(text, self.t.rtl))
+        set_hint(self.key_hint, text, self.t.rtl)
         self.key_hint.show()
 
     def showEvent(self, e):
@@ -863,6 +929,10 @@ class Onboarding(GlassDialog):
                 self.settings["onboarding_done"] = True
             self.accept()
             return
+        if not self.only_character and self.stack.currentIndex() == 0:
+            # the pre-selected language, kept without a click: it was stored only on a click, so the AI got None
+            # and answered a Hebrew player's "Mano" in English
+            self.settings["language"] = self.lang_group.checkedButton().property("lang")
         self.stack.setCurrentIndex(self.stack.currentIndex() + 1)
         self._update_nav()
 
@@ -1283,8 +1353,7 @@ class SettingsDialog(GlassDialog):
 
     def _refresh_account(self):
         ai = self._ai()
-        threading.Thread(target=lambda: self._account_bridge.account.emit({**ai.account(), "provider": ai.name}),
-                         daemon=True).start()
+        threading.Thread(target=lambda: self._account_bridge.account.emit(_safe_account(ai)), daemon=True).start()
 
     def _set_account_text(self, text: str):
         self.account_label.setText(bidi.plain(text, self.t.rtl))
@@ -1303,6 +1372,10 @@ class SettingsDialog(GlassDialog):
                 self.install_panel.fail()
             else:
                 self.install_panel.stop()
+        key_saved = api_key
+        if st == "not_installed":
+            # the key runs through the AI's CLI: "connected" with no CLI hid the installer it needs
+            api_key = False
         if api_key:
             self._set_account_text(t("account_api_key"))
         elif st == "ok":
@@ -1315,7 +1388,7 @@ class SettingsDialog(GlassDialog):
         connected = api_key or st == "ok"
         self.switch_btn.setText(t("account_switch") if connected else t.p("ob_login", p))
         self.switch_btn.setVisible(st not in ("not_installed", "offline"))
-        self.logout_btn.setVisible(connected)
+        self.logout_btn.setVisible(connected or key_saved)      # (a saved key can be dropped, CLI or not)
         # not installed, or a sign-in that broke ("reinstalling should fix this"): offer the installer
         self.install_btn.setVisible(not connected and (st == "not_installed" or self._login_broken))
         if connected:
@@ -1328,7 +1401,7 @@ class SettingsDialog(GlassDialog):
             # just installed or signed in: the model list and plan usage read before that came back empty
             self._fill_models()
             self._label_usage()
-        if was is not None and was != st and not api_key:
+        if was is not None and was != st and not key_saved:
             self.account_changed.emit()
 
     def _drop_api_key(self) -> bool:
@@ -1366,7 +1439,7 @@ class SettingsDialog(GlassDialog):
         self._logout_for = ai.name
 
         def work():
-            ai.logout()
+            _safe_logout(ai)
             self._account_bridge.logged_out.emit()
         threading.Thread(target=work, daemon=True).start()
 
@@ -1459,7 +1532,7 @@ class SettingsDialog(GlassDialog):
             stop_login()
             self._login_proc = None
             self._set_on_top(True)
-            self.account_hint.setText(bidi.plain(self.t("sign_in_timeout"), self.t.rtl))
+            set_hint(self.account_hint, self.t("sign_in_timeout"), self.t.rtl)
             self.account_hint.show()
         self._refresh_account()
 
@@ -1477,8 +1550,8 @@ class SettingsDialog(GlassDialog):
             return
 
         def work():
-            ai.logout()
-            self._account_bridge.account.emit({**ai.account(), "provider": ai.name})
+            _safe_logout(ai)
+            self._account_bridge.account.emit(_safe_account(ai))
         threading.Thread(target=work, daemon=True).start()
 
     def _clear_history(self):
@@ -1497,7 +1570,7 @@ class SettingsDialog(GlassDialog):
         return self.mics[i - 1] if i > 0 else None
 
     def _test_mic(self):
-        """Record 2.5 s from the chosen microphone and say whether it hears the player."""
+        """Record 2 s from the chosen microphone (what "Listening for 2 seconds" says) and say whether it hears the player."""
         from .. import voice
         self.mic_test.setEnabled(False)
         self.mic_result.setText(bidi.plain(self.t("mic_testing"), self.t.rtl))
@@ -1508,13 +1581,16 @@ class SettingsDialog(GlassDialog):
             try:
                 import numpy as np
                 import sounddevice as sd
-                audio = sd.rec(int(2.5 * voice.SAMPLE_RATE), samplerate=voice.SAMPLE_RATE, channels=1,
+                audio = sd.rec(int(2 * voice.SAMPLE_RATE), samplerate=voice.SAMPLE_RATE, channels=1,
                                dtype="float32", device=device)
                 sd.wait()
                 level = float(np.sqrt(np.mean(np.square(audio))))
             except Exception:      # noqa: BLE001
                 level = -1.0
-            self._mic_heard.emit(level)
+            try:
+                self._mic_heard.emit(level)
+            except RuntimeError:
+                pass                # Settings closed meanwhile (it was logged as a crash)
         threading.Thread(target=run, daemon=True).start()
 
     def _mic_tested(self, level: float):

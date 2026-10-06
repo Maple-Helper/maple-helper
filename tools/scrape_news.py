@@ -138,6 +138,16 @@ def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
     return sorted(items, key=lambda i: (i["date"], i["id"]), reverse=True)
 
 
+def he_text(text: str) -> str:
+    """A Hebrew translation in the app's terms: "רמה", never the gamer's "לבל" (in any form: "בלבל 10", "הלבל"),
+    "גריינד", a level named as one. The same rules the AI's answers go through (brain.drop_keys): the machine
+    translation wrote "תקרת לבל 100" into the news past its prompt's rule, and the news are shown as they are."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from maplehelper.brain import drop_keys
+    return drop_keys(text).strip()
+
+
 def _with_he(i: dict, he: dict) -> None:
     """An item's Hebrew, from a translation made from its current English (its title and summary hash, its body's)."""
     for f in ("summary_he", "title_he", "highlights_he", "commentary_he"):
@@ -147,15 +157,15 @@ def _with_he(i: dict, he: dict) -> None:
             str(tr.get("summary") or "").strip() or str(tr.get("title") or "").strip()):
         # (an item with no English summary has no Hebrew one either, but its title is still translated)
         if str(tr.get("summary") or "").strip() and str(i.get("summary") or "").strip():
-            i["summary_he"] = tr["summary"].strip()
+            i["summary_he"] = he_text(tr["summary"])
         if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
-            i["title_he"] = tr["title"].strip()
+            i["title_he"] = he_text(tr["title"])
         # the article's body: its highlights and NiaMeowDB's note, when translated from the current English
         if tr.get("body_hash") == _body_hash(i):
             if isinstance(tr.get("highlights"), list) and len(tr["highlights"]) == len(i.get("highlights") or []):
-                i["highlights_he"] = [str(x).strip() for x in tr["highlights"]]
+                i["highlights_he"] = [he_text(str(x)) for x in tr["highlights"]]
             if str(tr.get("commentary") or "").strip() and i.get("commentary"):
-                i["commentary_he"] = tr["commentary"].strip()
+                i["commentary_he"] = he_text(tr["commentary"])
 
 
 def apply_translations(kb: Path) -> None:
