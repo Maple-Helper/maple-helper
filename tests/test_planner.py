@@ -699,3 +699,13 @@ def test_real_job_test_rooms_and_kpq_stages_are_no_hunting_ground(real):
     assert not [r for r in rows("monsters") if near(str(r.get("maps")))]
     for lv in (25, 30, 35):
         assert not near(kb.level_digest(lv)), lv
+
+
+@needs_kb
+def test_real_equips_for_another_named_class_skip_the_profiles_level(real):
+    """A Lv 31 Assassin asking "best weapon for a fighter": the Warrior's weapons in the game, not "req_lv <= 31"
+    said as "the best the player can wear" (review CORE-4)."""
+    b = ask(real, "best weapon for a fighter").blocks[0]
+    assert "req_lv <=" not in b.what and "can wear" not in b.lead and "the highest W.ATK in the game" in b.lead
+    assert b.rows and {r["slot"] for r in b.rows} <= planner.JOB_WEAPONS["Fighter"]
+    assert "req_lv <= 31" in ask(real, "best claw for an assassin").blocks[0].what       # their own line: still theirs
