@@ -1,6 +1,7 @@
 """Onboarding (mandatory, no skipping), character editor and settings."""
 from __future__ import annotations
 
+import logging
 import re
 import sys
 import threading
@@ -21,6 +22,8 @@ from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class 
 from ..kb import KnowledgeBase
 from ..store import ASSETS, History, Profiles, Settings
 from . import theme
+
+log = logging.getLogger(__name__)
 
 CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוסם", "Bowman": "קשת", "Thief": "גנב"}
 # Only the level field's bound, not the game's level cap: the KB says no launch cap is published (testers reached
@@ -747,8 +750,9 @@ class Onboarding(GlassDialog):
             return            # a check that started before the player switched provider
         t = self.t
         signed_in = st == "ok"
-        # a key that checked out counts as connected, whatever the account check says (it reads the sign-in)
-        self._ai_ok = signed_in or self.settings.api_key_mode(provider)
+        # a key that checked out counts as connected, whatever the account check says (it reads the sign-in);
+        # but only with the CLI there: a key alone answered every question with "not installed"
+        self._ai_ok = signed_in or (self.settings.api_key_mode(provider) and st != "not_installed")
         if self._ai_ok:
             st = "ok"
         text = {"ok": t("ob_connected"), "logged_out": t.p("ob_not_logged", provider),
@@ -805,11 +809,24 @@ class Onboarding(GlassDialog):
             return            # the player switched provider while the key was checked
         if ok:
             ai = providers.get(provider)
-            ai.save_api_key(key)
+            try:
+                ai.save_api_key(key)
+            except Exception:  # noqa: BLE001 - a locked or refusing keychain: say so, the key isn't kept
+                log.exception("saving the API key failed")
+                self._key_message(self.t("ob_key_not_saved"))
+                self._update_nav()
+                return
             self.settings.set_api_key_mode(provider, True)
-            self._ai_ok = True
             self.key_hint.hide()
-            self.status_label.setText(bidi.plain(self.t("ob_connected"), self.t.rtl))
+            if ai.find_exe():
+                self._ai_ok = True
+                self.status_label.setText(bidi.plain(self.t("ob_connected"), self.t.rtl))
+            else:
+                # the key runs through the AI's CLI: without it every answer failed "not installed"
+                self.status_label.setText(bidi.plain(self.t.p("ob_not_installed", provider), self.t.rtl))
+                self._key_message(self.t.p("ob_key_saved_install", provider))
+                if not self._signing_in:
+                    self.install_btn.show()
         else:
             self._key_message(self.t("ob_key_failed"))
         self._update_nav()
@@ -1300,6 +1317,10 @@ class SettingsDialog(GlassDialog):
                 self.install_panel.fail()
             else:
                 self.install_panel.stop()
+        key_saved = api_key
+        if st == "not_installed":
+            # the key runs through the AI's CLI: "connected" with no CLI hid the installer it needs
+            api_key = False
         if api_key:
             self._set_account_text(t("account_api_key"))
         elif st == "ok":
@@ -1312,7 +1333,7 @@ class SettingsDialog(GlassDialog):
         connected = api_key or st == "ok"
         self.switch_btn.setText(t("account_switch") if connected else t.p("ob_login", p))
         self.switch_btn.setVisible(st not in ("not_installed", "offline"))
-        self.logout_btn.setVisible(connected)
+        self.logout_btn.setVisible(connected or key_saved)      # (a saved key can be dropped, CLI or not)
         # not installed, or a sign-in that broke ("reinstalling should fix this"): offer the installer
         self.install_btn.setVisible(not connected and (st == "not_installed" or self._login_broken))
         if connected:
@@ -1325,7 +1346,7 @@ class SettingsDialog(GlassDialog):
             # just installed or signed in: the model list and plan usage read before that came back empty
             self._fill_models()
             self._label_usage()
-        if was is not None and was != st and not api_key:
+        if was is not None and was != st and not key_saved:
             self.account_changed.emit()
 
     def _drop_api_key(self) -> bool:
