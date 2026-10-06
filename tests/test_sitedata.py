@@ -3,6 +3,7 @@
 import copy
 import json
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -355,3 +356,14 @@ def test_a_first_jobs_table_of_both_paths_splits_into_one_a_path():
     assert all(head[0].startswith("Level") for _, head in ap)
     _, tables = buildplan.tables(kb, "Thief", "Thief", 20, "en")
     assert all(path == "" for tb in tables for path, _ in buildplan.split_paths(kb, tb))
+
+
+def test_the_pets_launch_lifespan_note_is_the_kbs_own(site_kb):
+    """The note came from a string in code; the pets page says it, and says it again when it changes."""
+    real = Path(__file__).resolve().parent.parent / "data" / "kb"
+    for kb in (KnowledgeBase(site_kb), *([KnowledgeBase(real)] if (real / "index.json").exists() else [])):
+        page = kb.page("formula/pets") if kb.get("formula/pets") else ""
+        m = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
+        closed = [ln for ln in sitedata.ai_pet_lines(kb) if "closed-test value" in ln]
+        assert closed and all((f"NiaMeowDB: {m.group(0)})" if m else "(closed-test value)") in ln for ln in closed)
+    assert "30 to 90 days" not in Path(sitedata.__file__).read_text(encoding="utf-8")
