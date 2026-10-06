@@ -472,7 +472,7 @@ def test_yesterday_follows_the_calendar_across_a_clock_change(monkeypatch):
     monkeypatch.setattr(pinsview.time, "time", lambda: now)
     d = pinsview.HistoryDialog([], "Elipaz", "en", "")
     assert d._day(local_ts(2026, 3, 27, 10, 0)) == "Yesterday"
-    assert d._day(local_ts(2026, 3, 26, 23, 45)) == "26.03.2026"
+    assert d._day(local_ts(2026, 3, 26, 23, 45)) == "Mar 26"            # never day.month in English (HEB-16)
     assert d._day(local_ts(2026, 3, 28, 0, 10)) == "Today"
     d.close()
 

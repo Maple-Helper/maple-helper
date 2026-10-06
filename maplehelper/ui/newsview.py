@@ -109,7 +109,7 @@ class NewsStrip(QFrame):
             return
         i, rtl = self._item, t.rtl
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        head = t("news_strip_head", date=news.short_date(i))
+        head = t("news_strip_head", date=news.short_date(i, rtl))
         if len(unread) > 1:
             head += " · " + t("news_strip_more", n=len(unread) - 1)
         self.head.setText(bidi.plain(head, rtl))
@@ -154,7 +154,7 @@ class NewsCard(QFrame):
         chips.addWidget(source_chip(t, i))
         if i.get("region") in ("cms", "tms"):
             chips.addWidget(chip(t(f"news_region_{i['region']}"), rtl))
-        date = QLabel(bidi.plain(news.short_date(i), rtl), objectName="CardSub")
+        date = QLabel(bidi.plain(news.short_date(i, rtl), rtl), objectName="CardSub")
         chips.addWidget(date)
         chips.addStretch(1)
         col.addLayout(chips)
@@ -240,7 +240,7 @@ def article(t, i: dict) -> QWidget:
     chips = QHBoxLayout()
     chips.setSpacing(6)
     chips.addWidget(source_chip(t, i))
-    chips.addWidget(QLabel(bidi.plain(news.short_date(i), rtl), objectName="CardSub"))
+    chips.addWidget(QLabel(bidi.plain(news.short_date(i, rtl), rtl), objectName="CardSub"))
     chips.addStretch(1)
     lay.addLayout(chips)
     lay.addWidget(title_label(i, rtl, "ProfileName"))

@@ -1,12 +1,14 @@
 """Patch notes for knowledge-base updates: exactly what changed, so players know what's new."""
 from __future__ import annotations
 
+from datetime import date
+
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
                                QWidget)
 
-from .. import bidi, recent
+from .. import bidi, dates, recent
 from ..i18n import NBSP, STRINGS, I18n
 from ..kb import KnowledgeBase
 from . import newsview
@@ -74,11 +76,10 @@ def _category(t: I18n, cat: str) -> str:
     return t(f"cat_{cat}") if f"cat_{cat}" in STRINGS else cat
 
 
-def _date(e: dict) -> str:
-    """2026-10-02 -> 2.10.2026 (reads the same in both directions)."""
+def _date(e: dict, rtl: bool) -> str:
+    """2026-10-02 -> 2.10 / Oct 2 (dates.day); the version when there's no date."""
     try:
-        y, m, d = (int(x) for x in str(e.get("date") or "").split("-"))
-        return f"{d}.{m}.{y}"
+        return dates.day(date.fromisoformat(str(e.get("date") or "")), rtl)
     except ValueError:
         return str(e.get("version", ""))
 
@@ -282,7 +283,7 @@ class PatchNotesDialog(GlassDialog):
         counts = e.get("counts") or {}
         if not any(counts.get(k, len(e.get(k) or [])) for k in KINDS):
             return            # every change of this update is among the player's own, above
-        title = QLabel(bidi.plain(t("pn_update", date=_date(e)), rtl), objectName="ProfileName")
+        title = QLabel(bidi.plain(t("pn_update", date=_date(e, rtl)), rtl), objectName="ProfileName")
         lay.addWidget(title)
 
         def section(kind: str, rows: list[dict], card_fn):

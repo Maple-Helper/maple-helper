@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
-from . import availability, bidi, sources
+from . import availability, bidi, dates, sources
 
 DAYS = 7              # how long a change keeps its "Updated" chip
 GEAR_LEVELS = 10      # equipment within this many levels of the player's is "gear for you"
@@ -144,16 +144,8 @@ def _value(v) -> str:
     return "—" if v is None or v == "" else str(v)
 
 
-def _date(d: str) -> str:
-    try:
-        y, m, dd = (int(x) for x in d.split("-"))
-        return f"{dd}.{m}.{y}"
-    except ValueError:
-        return d
-
-
 def tip(t, kb, r: Recent) -> str:
-    return "\n".join([t("updated_tip_head", date=_date(r.date)), *lines(t, kb, r)])
+    return "\n".join([t("updated_tip_head", date=dates.iso(r.date, t.rtl)), *lines(t, kb, r)])
 
 
 def ai_lines(kb, keys, today: date | None = None, limit: int = 8) -> list[str]:

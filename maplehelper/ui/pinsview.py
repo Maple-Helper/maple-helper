@@ -9,7 +9,7 @@ from PySide6.QtGui import QFontMetrics, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton, QScrollArea,
                                QToolButton, QVBoxLayout, QWidget)
 
-from .. import bidi, pins
+from .. import bidi, dates, pins
 from ..i18n import I18n
 from . import theme
 from .controls import follow_typing, rtl_buttons
@@ -260,7 +260,7 @@ class HistoryDialog(GlassDialog):
             return self.t("day_today")
         if day == today - dt.timedelta(days=1):
             return self.t("day_yesterday")
-        return day.strftime("%d.%m.%Y")
+        return dates.day(day, self.t.rtl, day.year != today.year)
 
     PAGE = 80              # cards built at a time; "Show more" adds the next PAGE
     DEBOUNCE_MS = 150

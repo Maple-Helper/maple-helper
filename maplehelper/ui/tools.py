@@ -15,8 +15,8 @@ from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem,
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import (availability, bidi, buildplan, combat, crafting, farm, glossary, grind, guides, market, plan, quests, quick,
-               routes, sitedata, sources)
+from .. import (availability, bidi, buildplan, combat, crafting, dates, farm, glossary, grind, guides, market, plan, quests,
+               quick, routes, sitedata, sources)
 from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
@@ -1674,7 +1674,7 @@ class ToolsDialog(GlassDialog):
             # marked done: when it's back, right under its name (a line at the bottom was missed: the owner)
             from datetime import datetime
             back = datetime.fromtimestamp(quests.back_at(q.cycle, when))
-            col.addLayout(chip_row([tag(self._p(t("q_back_at", when=f"{back.day}.{back.month}")), "TagAccent")],
+            col.addLayout(chip_row([tag(self._p(t("q_back_at", when=dates.day(back, t.rtl))), "TagAccent")],
                                    lead=True))
         # the town, under its heading, with the way there (the NPC's name said nothing: the owner)
         npc_key = self.kb._npc_by_name.get(re.sub(r"\s*\(.*\)$", "", q.npc or "").lower())
@@ -2921,7 +2921,7 @@ class ToolsDialog(GlassDialog):
             return self.t("grind_today")
         if d == today - datetime.timedelta(days=1):
             return self.t("grind_yesterday")
-        return f"{d.day}.{d.month}" if self.t.rtl else f"{d:%b} {d.day}"        # 2.10 / Oct 2
+        return dates.day(d, self.t.rtl)                 # 2.10 / Oct 2
 
     def _grind_ask(self):
         """"Which spot paid more?": the saved sessions as the question's lines, so the chat compares real numbers."""

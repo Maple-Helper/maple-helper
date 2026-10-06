@@ -486,6 +486,8 @@ def test_the_server_tip_says_when_it_was_checked_with_a_comma_before_another_day
     st = serverstatus.Status(state="prelaunch", opens_at=other_day, checked=time.time() - 600)
     tip = serverdot.tip(I18n("he"), st)
     assert "נבדק ב-" + serverdot.when(st.checked) in tip and "עכשיו" not in tip and "6.10, 21:00" in tip
+    assert serverdot.when(other_day, rtl=False) == "Oct 6, 21:00"     # never day.month in English (HEB-16)
+    assert "Oct 6, 21:00" in serverdot.tip(I18n("en"), st)
 
 
 @pytest.mark.parametrize("q,asks", [

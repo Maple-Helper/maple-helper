@@ -46,3 +46,22 @@ def test_hebrew_droppers_say_the_level_in_hebrew(isolated_store):
         if lang == "he":
             assert "Lv" not in text
         d.close()
+
+
+def test_dates_read_oct_6_in_english_and_6_10_in_hebrew():
+    """English never writes day.month ("3.10" reads as March 10 in the US); Hebrew keeps "6.10" (HEB-16)."""
+    from datetime import date
+
+    from maplehelper import dates, news, recent
+    from maplehelper.i18n import I18n
+    from maplehelper.ui import patchnotes
+    this = date.today().year
+    assert dates.day(date(this, 10, 6), False) == "Oct 6" and dates.day(date(this, 10, 6), True) == "6.10"
+    assert dates.day(date(2025, 10, 6), False, None if this != 2025 else True) == "Oct 6, 2025"
+    assert dates.day(date(2025, 10, 6), True, True) == "6.10.2025"
+    assert dates.iso("2025-01-02", False, True) == "Jan 2, 2025" and dates.iso("soon", True) == "soon"
+    item = {"date": f"{this}-10-03"}
+    assert news.short_date(item, False) == "Oct 3" and news.short_date(item, True) == "3.10"
+    assert patchnotes._date(item, False) == "Oct 3" and patchnotes._date({"version": "0.9"}, True) == "0.9"
+    r = recent.Recent("item/1", "Snail Shell", f"{this}-10-03")
+    assert "Oct 3" in recent.tip(I18n("en"), None, r) and "3.10" in recent.tip(I18n("he"), None, r)

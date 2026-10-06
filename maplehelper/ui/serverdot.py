@@ -16,7 +16,7 @@ from PySide6.QtCore import QObject, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter
 from PySide6.QtWidgets import QWidget
 
-from .. import serverstatus
+from .. import dates, serverstatus
 from ..osapi import open_url
 from . import theme
 
@@ -76,12 +76,12 @@ class StatusPoller(QObject):
         self.status.emit(found)
 
 
-def when(ts: float | None) -> str:
-    """A local time a player reads at a glance: "21:00" today, "6.10, 21:00" another day."""
+def when(ts: float | None, rtl: bool = True) -> str:
+    """A local time a player reads at a glance: "21:00" today, "6.10, 21:00" / "Oct 6, 21:00" another day."""
     if not ts:
         return ""
     d = datetime.fromtimestamp(ts)
-    return d.strftime("%H:%M") if d.date() == datetime.now().date() else f"{d.day}.{d.month}, {d:%H:%M}"
+    return d.strftime("%H:%M") if d.date() == datetime.now().date() else f"{dates.day(d.date(), rtl, False)}, {d:%H:%M}"
 
 
 def tip(t, st: serverstatus.Status | None, now: float | None = None, asked: bool = True) -> str:
@@ -92,18 +92,18 @@ def tip(t, st: serverstatus.Status | None, now: float | None = None, asked: bool
     if st is None:
         head = t("server_unknown")
     elif st.state == "up":
-        head = t("server_scheduled", time=when(st.notice_start)) if st.scheduled else t("server_up")
+        head = t("server_scheduled", time=when(st.notice_start, t.rtl)) if st.scheduled else t("server_up")
     elif st.state == "maintenance":
-        head = t("server_maintenance_until", time=when(st.notice_end)) if st.notice_end and not st.notice_done \
+        head = t("server_maintenance_until", time=when(st.notice_end, t.rtl)) if st.notice_end and not st.notice_done \
             and st.notice_end > (now or time.time()) else t("server_maintenance")
     elif st.state == "issues":
         head = t("server_issues")
     elif st.state == "prelaunch":
-        head = t("server_prelaunch_at", time=when(st.opens_at)) if st.opens_at else t("server_prelaunch")
+        head = t("server_prelaunch_at", time=when(st.opens_at, t.rtl)) if st.opens_at else t("server_prelaunch")
     else:
         head = t("server_unknown")
     # the time of the check, not "just now": the tooltip is set when the answer comes and stays until the next one
-    src = t("server_source", time=when(st.checked)) if st else t("server_source_offline")
+    src = t("server_source", time=when(st.checked, t.rtl)) if st else t("server_source_offline")
     return f"{head}\n{src}"
 
 

@@ -15,6 +15,8 @@ import json
 import re
 from datetime import date, timedelta
 
+from . import dates
+
 NEWS_PAGE = "https://meowdb.com/msclassic/news"
 SETTING = "news_read"   # the ids the player dismissed or read (store.Settings), newest kept
 KEEP = 300
@@ -105,12 +107,12 @@ def title(i: dict, lang: str) -> str:
     return str(i.get("title") or "")
 
 
-def short_date(i: dict) -> str:
-    """2026-10-03 -> 3.10 (this year) or 3.10.2025 (the same in both directions)."""
+def short_date(i: dict, rtl: bool = True) -> str:
+    """2026-10-03 -> 3.10 / Oct 3 (this year) or 3.10.2025 / Oct 3, 2025 (dates.day)."""
     d = _day(i)
     if not d:
         return str(i.get("date") or "")
-    return f"{d.day}.{d.month}" if d.year == date.today().year else f"{d.day}.{d.month}.{d.year}"
+    return dates.day(d, rtl)
 
 
 # ---------------------------------------------------------------- for the AI
