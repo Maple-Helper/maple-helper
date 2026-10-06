@@ -49,7 +49,7 @@ def setup_logging() -> None:
 def system_info(version: str, kb_version: str, ai_status: str) -> dict:
     """ai_status: the active AI provider and its sign-in state, e.g. "Codex: ok"."""
     return {"app_version": version, "kb_version": kb_version, "ai": ai_status,
-            "windows": platform.platform(), "python": sys.version.split()[0],
+            "os": platform.platform(), "python": sys.version.split()[0],
             "frozen": bool(getattr(sys, "frozen", False)), "created": time.strftime("%Y-%m-%d %H:%M:%S")}
 
 
