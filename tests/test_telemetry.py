@@ -111,6 +111,16 @@ def test_post_failure_is_swallowed(monkeypatch):
     assert telemetry._post([{"event": "x"}]) is False
 
 
+def test_a_broken_http_answer_never_kills_the_worker(monkeypatch):
+    # LIF-11: BadStatusLine isn't an OSError: it killed the worker thread and the stats stopped for the session
+    import http.client
+
+    def garbled(*a, **kw):
+        raise http.client.BadStatusLine("garbage")
+    monkeypatch.setattr(telemetry.urllib.request, "urlopen", garbled)
+    assert telemetry._post([{"event": "x"}]) is False
+
+
 def test_post_body(monkeypatch):
     seen = {}
 

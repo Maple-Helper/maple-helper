@@ -634,6 +634,8 @@ class MapleHelperApp:
         self.make_tray()
 
     def apply_autostart(self):
+        if sys.platform == "win32" and not getattr(sys, "frozen", False):
+            return      # a run from source would replace the installed app's Run value with "python -m maplehelper"
         # the setting means "start at login" on macOS (named before macOS support)
         if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False:
             t = I18n(self.settings["language"])     # macOS, run from the disk image: the login item would break
@@ -667,7 +669,7 @@ class MapleHelperApp:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
         player is waiting on an answer or the KB's tables are being built (then _retry_kb_update tries again in a
         few minutes)."""
-        if self.overlay.busy or getattr(self.overlay, "_syncing", False):
+        if self.overlay._is_busy():        # an inventory read too: it works from the KB's icons
             return False
         if tables.building():
             return False            # the KB's tables are being written into the folder that would be swapped
@@ -676,8 +678,12 @@ class MapleHelperApp:
 
     def _update_kb_in_background(self, interactive: bool):
         if getattr(self, "_kb_updating", False):
+            # "Update knowledge base" clicked while the start-up/hourly check runs: that check's result is toasted,
+            # or the click did nothing at all
+            self._kb_interactive = getattr(self, "_kb_interactive", False) or interactive
             return
         self._kb_updating = True
+        self._kb_interactive = interactive
 
         def work():
             before = updater.local_version()
@@ -687,9 +693,10 @@ class MapleHelperApp:
                 report.log.exception("knowledge base update failed")
                 status = "failed"
             self._kb_updating = False
+            shown = self._kb_interactive
             if status == "updated":
                 report.log.info("knowledge base updated to %s", updater.local_version())
-            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, interactive))
+            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, shown))
         threading.Thread(target=work, daemon=True).start()
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):
@@ -987,6 +994,15 @@ class MapleHelperApp:
         self.grind.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
+        # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
+        # they are, except the one the player is using (and Settings, which may hold unsaved changes)
+        for kind, dlg in list(self.__dict__.get("_windows", {}).items()):
+            if dlg is None or kind in ("settings", "whats_new") or dlg.isActiveWindow() or not dlg.isVisible():
+                continue
+            again = self._reopen_call(kind, dlg)
+            if again:                       # none: no way to bring it back as it is, leave it open
+                dlg.close()
+                QTimer.singleShot(0, again)
 
     def shutdown(self):
         telemetry.flush()
@@ -1052,7 +1068,6 @@ def main():
         return selftest.main(sys.argv[1:])
     osapi.prepare_process()
     report.setup_logging()
-    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, " ".join(sys.argv[1:]) or "no args")
     qapp = QApplication(sys.argv)
     # Fusion: the native Windows 11 style ignores rounded corners on buttons. AppStyle adds the hand cursor and
     # the focus ring as Qt styles each widget (no app-wide event filter)
@@ -1060,14 +1075,18 @@ def main():
     qapp.setApplicationName(APP_NAME)
     qapp.setApplicationDisplayName(APP_NAME)
     lock = QLockFile(str(DATA_DIR / "app.lock"))
+    args = " ".join(sys.argv[1:]) or "no args"
     if not lock.tryLock(100):
         # already running (often in the tray): ask it to show the chat, unless this start is itself a background one
+        # (logged as such: a "starting" line here read as "the app restarted twice" in a report)
+        report.log.info("Maple Helper %s already running: showing it (%s)", __version__, args)
         if BACKGROUND_ARG not in sys.argv[1:]:
             sock = QLocalSocket()
             sock.connectToServer(INSTANCE_SERVER)
             sock.waitForConnected(1000)
             sock.disconnectFromServer()
         return 0
+    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, args)
     _hold_running_mutex()
     app = MapleHelperApp(qapp)
     if not app.start():

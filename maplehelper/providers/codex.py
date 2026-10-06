@@ -26,7 +26,7 @@ import threading
 from pathlib import Path
 
 from .base import CREATE_NO_WINDOW, Installer, Lines, Provider, RawResult, classify_error, child_env, find_posix, \
-    find_windows_exe, http_ok, line_kind, open_login, run_installer
+    find_windows_exe, http_ok, line_kind, open_login, run_installer, scrub
 
 log = logging.getLogger(__name__)
 ANSWER_TIMEOUT_S = 300
@@ -171,10 +171,10 @@ def parse_events(lines, stderr: str = "") -> RawResult:
     detail = "\n".join(errors) + "\n" + stderr
     if answer is not None and not completed and not failed:
         # stopped (timeout, cancel, quit) after a lead-in ("I'll grep drops.tsv…"): that is no answer
-        log.warning("Codex stopped before finishing: %s", detail.strip()[-500:])
+        log.warning("Codex stopped before finishing: %s", scrub(detail.strip()[-500:]))
         return RawResult(error="no_result")
     if failed or answer is None:
-        log.warning("Codex gave no answer: %s", detail.strip()[-1500:])   # the cause, for "Report a problem"
+        log.warning("Codex gave no answer: %s", scrub(detail.strip()[-1500:]))   # the cause, for "Report a problem"
         return RawResult(error=classify_error(detail) or ("api_error" if failed else "no_result"))
     return RawResult(text=answer, tool_calls=len(tools))
 

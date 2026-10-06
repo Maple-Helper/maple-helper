@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import re
@@ -10,6 +11,8 @@ import time
 import uuid
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
+
+log = logging.getLogger("maplehelper")
 
 
 def _app_root() -> Path:
@@ -36,10 +39,9 @@ def _data_root() -> Path:
 DATA_DIR = _data_root() / "MapleHelper"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 USER_KB = DATA_DIR / "kb"            # knowledge base updates downloaded at runtime
-SHOTS_DIR = DATA_DIR / "shots"       # screenshots live only until the answer arrives
 HISTORY_DIR = DATA_DIR / "history"
 AVATAR_DIR = DATA_DIR / "avatars"
-for d in (SHOTS_DIR, HISTORY_DIR, AVATAR_DIR):
+for d in (HISTORY_DIR, AVATAR_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 
@@ -71,24 +73,32 @@ def _read_json(path: Path, default):
 
 def _write_json(path: Path, data) -> None:
     tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        f.write(json.dumps(data, ensure_ascii=False, indent=1))
-        f.flush()
-        os.fsync(f.fileno())                # on disk before the rename: a power cut can't leave it empty
-    if path.exists():
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(json.dumps(data, ensure_ascii=False, indent=1))
+            f.flush()
+            os.fsync(f.fileno())                # on disk before the rename: a power cut can't leave it empty
+        if path.exists():
+            try:
+                import shutil
+                shutil.copyfile(path, path.with_suffix(path.suffix + ".bak"))    # the last good copy
+            except OSError:
+                pass
+        # antivirus / the search indexer holds the file for a moment: a hold of 0.4 s outlasted 5 x 0.1 s
+        for attempt in range(10):
+            try:
+                tmp.replace(path)
+                return
+            except PermissionError:
+                if attempt == 9:
+                    raise
+                time.sleep(0.2)
+    except OSError:
         try:
-            import shutil
-            shutil.copyfile(path, path.with_suffix(path.suffix + ".bak"))    # the last good copy
+            tmp.unlink(missing_ok=True)         # no stray .tmp left behind by a failed write
         except OSError:
             pass
-    for attempt in range(5):
-        try:
-            tmp.replace(path)
-            return
-        except PermissionError:     # antivirus / the search indexer holds the file for a moment
-            if attempt == 4:
-                raise
-            time.sleep(0.1)
+        raise
 
 
 # ---------------------------------------------------------------- settings
@@ -121,7 +131,7 @@ DEFAULT_SETTINGS = {
     "tips_dismissed": {},         # character id -> {tip kind: level it was hidden at}
     "usage": None,                # last known Claude plan usage (see usage.py)
     "saver_mode": False,          # short answers on a lighter model, so the plan lasts longer
-    "usage_warned": 0,            # reset time of the 5-hour window we already warned about
+    "usage_warned": 0,            # [reset time, level] of the plan-usage warning already shown
     "wishlist": {},               # character id -> item keys the player is hunting for
     "farm_target": {},            # character id -> the item key the Farm tab shows the droppers of (farm.py)
     "seen_version": "",           # the app version whose "what's new" the player has seen
@@ -139,7 +149,27 @@ class Settings:
 
     def __init__(self):
         self.data = {**DEFAULT_SETTINGS, **_read_json(self.path, {})}
+        self._sane_types()
         self._windows_keys()
+
+    # stored in another shape than the default on purpose: a single bool from older versions, [reset, level]
+    _ANY_TYPE = ("api_key_fallback", "usage_warned")
+
+    def _sane_types(self) -> None:
+        """A known setting of the wrong type (a hand edit: "font_size": "big") loads as its default: it crashed
+        every start in the stylesheet. Settings whose default is None, and unknown ones, are kept as they are."""
+        for key, default in DEFAULT_SETTINGS.items():
+            v = self.data.get(key)
+            if default is None or key in self._ANY_TYPE:
+                continue
+            if isinstance(default, bool):
+                ok = isinstance(v, bool)
+            elif isinstance(default, (int, float)):
+                ok = isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+            else:
+                ok = isinstance(v, type(default))
+            if not ok:
+                self.data[key] = default
 
     def _windows_keys(self) -> None:
         """Windows keeps F12 for the debugger and never lets a program register it: a hotkey saved as F12 (older
@@ -163,7 +193,12 @@ class Settings:
         self.save()
 
     def save(self):
-        _write_json(self.path, self.data)
+        # a write that fails (file held by a scanner, read-only, disk full) keeps the value in memory: raising here
+        # left an answer on "thinking…" (the slot died before set_text) or stopped the app at start
+        try:
+            _write_json(self.path, self.data)
+        except OSError as e:
+            log.warning(f"settings not saved: {e}")
 
     def _api_key_flags(self) -> dict:
         v = self["api_key_fallback"]
@@ -526,8 +561,19 @@ class History:
 
     def append(self, role: str, text: str, entities: list[str] | None = None) -> None:
         rec = {"t": time.time(), "role": role, "text": text, "entities": entities or []}
-        with self.log.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        line = (json.dumps(rec, ensure_ascii=False) + "\n").encode("utf-8")
+        try:
+            with self.log.open("ab+") as f:
+                # a crash mid-write leaves a torn last line: without a newline first, this record would be glued to
+                # it and lost too
+                if f.seek(0, os.SEEK_END) > 0:
+                    f.seek(-1, os.SEEK_END)
+                    if f.read(1) != b"\n":
+                        line = b"\n" + line
+                f.write(line)
+        except OSError as e:        # history is a convenience: a failed write must not stop the question
+            log.warning(f"history not saved: {e}")
+            return
         self._trim()
 
     MAX_BYTES = 4_000_000       # ~8,000 questions: every question reads the file, it mustn't grow forever
@@ -581,7 +627,10 @@ class History:
     def add_summary(self, text: str) -> None:
         s = self.summaries()
         s.append(text)
-        _write_json(self.summaries_path, s[-10:])
+        try:
+            _write_json(self.summaries_path, s[-10:])
+        except OSError as e:
+            log.warning(f"session summary not saved: {e}")
 
     def clear(self) -> None:
         for p in (self.log, self.summaries_path, self.summaries_path.with_suffix(".json.bak")):

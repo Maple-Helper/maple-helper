@@ -129,3 +129,76 @@ def test_an_open_app_checks_every_hour_and_retries_within_it(qapp, monkeypatch):
     for _ in range(10):
         app.MapleHelperApp._retry_kb_update(fake, "failed")
     assert shots == [5 * 60 * 1000, 10 * 60 * 1000, 20 * 60 * 1000, 40 * 60 * 1000]
+
+
+def test_a_click_during_a_running_check_gets_its_result(monkeypatch):
+    # LIF-7: "Update knowledge base" while the start-up check ran did nothing, not even a toast
+    import threading
+    gate, done = threading.Event(), []
+    monkeypatch.setattr(updater, "local_version", lambda: "1")
+    monkeypatch.setattr(updater, "fetch_kb", lambda before_swap=None: gate.wait(5) and "uptodate")
+    fake = SimpleNamespace(main_thread=SimpleNamespace(call=SimpleNamespace(emit=lambda fn: fn())),
+                           _stop_ai_for_kb_swap=lambda: True,
+                           _kb_update_done=lambda status, before, interactive: done.append((status, interactive)))
+    app.MapleHelperApp._update_kb_in_background(fake, interactive=False)
+    app.MapleHelperApp._update_kb_in_background(fake, interactive=True)     # the click
+    gate.set()
+    for _ in range(100):
+        if done:
+            break
+        threading.Event().wait(0.05)
+    assert done == [("uptodate", True)]
+
+
+def test_an_inventory_read_postpones_the_swap():
+    # LIF-3: the swap guard missed the inventory read working from the KB's icons
+    fake = SimpleNamespace(overlay=SimpleNamespace(_is_busy=lambda: True), brain=None)
+    assert app.MapleHelperApp._stop_ai_for_kb_swap(fake) is False
+
+
+def test_a_run_from_source_never_rewrites_the_windows_run_value(monkeypatch):
+    # LIF-14: a preview run replaced the installed app's "start with Windows" entry with "python -m maplehelper"
+    calls = []
+    monkeypatch.setattr(app.sys, "platform", "win32")
+    monkeypatch.delattr(app.sys, "frozen", raising=False)
+    monkeypatch.setattr(app.osapi, "set_autostart", lambda *a: calls.append(a))
+    fake = SimpleNamespace(settings={"start_with_windows": True, "language": "en"})
+    app.MapleHelperApp.apply_autostart(fake)
+    assert calls == []
+    monkeypatch.setattr(app.sys, "frozen", True, raising=False)
+    app.MapleHelperApp.apply_autostart(fake)
+    assert len(calls) == 1
+
+
+def test_a_kb_update_reopens_the_open_kb_windows_but_not_the_one_in_use(qapp, monkeypatch):
+    # LIF-13: Tools/Guides/... kept the old KnowledgeBase after an update, listing pages the swap removed
+    from maplehelper import inventory
+    monkeypatch.setattr(app, "load_kb", lambda: "new kb")
+    monkeypatch.setattr(app.tables, "ensure_async", lambda kb: None)
+    monkeypatch.setattr(inventory, "warm", lambda kb: None)
+    shots = []
+    monkeypatch.setattr(app.QTimer, "singleShot", lambda ms, fn: shots.append(fn))
+
+    class Win:
+        def __init__(self, active=False):
+            self.active, self.closed = active, False
+
+        def isActiveWindow(self):
+            return self.active
+
+        def isVisible(self):
+            return True
+
+        def close(self):
+            self.closed = True
+    tools, guides, settings = Win(), Win(active=True), Win()
+    reopened = []
+    fake = SimpleNamespace(brain=SimpleNamespace(), grind=SimpleNamespace(),
+                           overlay=SimpleNamespace(show_scope=lambda: None, show_news=lambda: None),
+                           _windows={"tools": tools, "guides": guides, "settings": settings},
+                           _reopen_call=lambda kind, dlg: lambda: reopened.append(kind))
+    app.MapleHelperApp.reload_kb(fake)
+    assert fake.overlay.kb == "new kb" and tools.closed and not guides.closed and not settings.closed
+    for fn in shots:
+        fn()
+    assert reopened == ["tools"]

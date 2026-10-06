@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .. import usage
 from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Lines, Provider, Race, RawResult, StreamText, \
-    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer
+    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer, scrub
 
 log = logging.getLogger(__name__)
 
@@ -372,14 +372,14 @@ class ClaudeBackend:
         if not result and ended and META_MARK in text.text and not stalled:
             result = {"result": text.text}      # the answer ended its turn; Claude Code never said "result"
         if stalled:
-            log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, stderr[-1000:])
+            log.warning("Claude Code stalled for %ss, stopped: %s", STALL_TIMEOUT_S, scrub(stderr[-1000:]))
             return RawResult(error="timeout", limits=limits)
         if not result:
             if not limits and not a.lost:
-                log.warning("no result from Claude Code (exit %s): %s", proc.poll(), stderr[-1500:])
+                log.warning("no result from Claude Code (exit %s): %s", proc.poll(), scrub(stderr[-1500:]))
             return RawResult(error=classify_error(stderr) or "no_result", limits=limits)
         if result.get("is_error"):
-            log.warning("Claude Code error: %s | %s", str(result.get("result", ""))[:500], stderr[-1000:])
+            log.warning("Claude Code error: %s | %s", scrub(str(result.get("result", ""))[:500]), scrub(stderr[-1000:]))
             # with the plan usage: hitting the limit is exactly when the meter and its warning matter
             return RawResult(error=classify_error(str(result.get("result", "")) + stderr) or "api_error",
                              limits=limits)

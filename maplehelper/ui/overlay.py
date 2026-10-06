@@ -2243,8 +2243,6 @@ class Overlay(QWidget):
         self._on_text(self.input.text())
         self._note_usage(ans.limits)
         self._read_limits_after_answer()
-        if ans.model:
-            self.settings["last_model"] = {**(self.settings["last_model"] or {}), self.settings["provider"]: ans.model}
         if not ans.error and not ans.text.strip():
             ans.error = "no_result"            # only META came back: an error line, not an empty bubble
         if ans.error:
@@ -2253,8 +2251,10 @@ class Overlay(QWidget):
             key = f"err_{ans.error}" if ans.error in ("offline", "not_logged_in", "usage_limit",
                                                       "not_installed", "no_credit") else "err_generic"
             self._pending_bubble.set_text(self.t.p(key, self.settings["provider"]))
+            self._remember_model(ans)
             return
         self._pending_bubble.set_text(ans.text)
+        self._remember_model(ans)
         q = getattr(self, "_last_question", "")
         self._pending_bubble.add_pin(lambda q=q, a=ans.text: self.pin_answer(q, a), self.t("pin"))
         QTimer.singleShot(0, self._keep_answer_readable)
@@ -2272,6 +2272,12 @@ class Overlay(QWidget):
             # treetop), so replacing a good portrait is left to the explicit ⟳ sync
             if ans.avatar_box and getattr(self, "_question_shot", None) and not self.profiles.avatar_path():
                 self._update_avatar(self._question_shot, ans.avatar_box)
+
+    def _remember_model(self, ans: Answer) -> None:
+        """The model that answered, for Settings: stored after the answer is on screen, so a settings write can
+        never leave the bubble on "thinking…"."""
+        if ans.model:
+            self.settings["last_model"] = {**(self.settings["last_model"] or {}), self.settings["provider"]: ans.model}
 
     def _offer_other_character(self, ans: Answer, shot: bytes | None, full) -> bool:
         """The screenshot shows another character than the active one (a new one, or another saved one):

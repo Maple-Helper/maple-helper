@@ -389,3 +389,73 @@ def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch)
     assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("F9", "F10")
     monkeypatch.setattr(isolated_store.sys, "platform", "darwin")
     assert isolated_store.Settings()["hotkey_toggle"] == "F12"
+
+
+def test_a_failed_settings_write_keeps_the_value_and_leaves_no_tmp(isolated_store, monkeypatch):
+    # LIF-1: a file held by a scanner / a full disk raised into the caller (an answer stuck on "thinking…")
+    s = isolated_store.Settings()
+    monkeypatch.setattr(isolated_store.time, "sleep", lambda _s: None)
+
+    def held(self, target):
+        raise PermissionError(13, "Access is denied")
+    monkeypatch.setattr(isolated_store.Path, "replace", held)
+    s["language"] = "en"
+    assert s["language"] == "en"
+    assert not isolated_store.Settings.path.with_suffix(".tmp").exists()
+
+
+def test_a_failed_history_write_never_raises(isolated_store, monkeypatch):
+    h = isolated_store.History("x")
+
+    def full(*a, **k):
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(isolated_store.Path, "open", full)
+    h.append("user", "hi")              # logged, not raised
+    monkeypatch.setattr(isolated_store, "_write_json", full)
+    h.add_summary("s")
+
+
+def test_history_record_after_a_torn_line_is_kept(isolated_store):
+    # LIF-10: a crash mid-write left no newline, and the next record was glued to the torn one
+    h = isolated_store.History("x")
+    h.append("user", "a")
+    with h.log.open("a", encoding="utf-8") as f:
+        f.write('{"t": 1, "role": "assist')
+    h.append("assistant", "x")
+    assert [r["text"] for r in h.recent()] == ["a", "x"]
+
+
+def test_settings_of_the_wrong_type_load_as_the_default(isolated_store):
+    # LIF-9: "font_size": "big" crashed every start in the stylesheet
+    isolated_store.Settings.path.write_text(json.dumps({
+        "font_size": "big", "start_with_windows": 1, "language": "he", "pins": [], "hotkey_toggle": None,
+        "usage_warned": [123, "high"], "api_key_fallback": True, "window": {"x": 1}, "future_key": 5}),
+        encoding="utf-8")
+    s = isolated_store.Settings()
+    assert s["font_size"] == 14 and s["start_with_windows"] is False and s["pins"] == {}
+    assert s["hotkey_toggle"] == "F9" and s["language"] == "he"
+    # shapes kept on purpose, None-default settings and unknown keys are untouched
+    assert s["usage_warned"] == [123, "high"] and s.api_key_mode("claude") and s["window"] == {"x": 1}
+    assert s.data["future_key"] == 5
+
+
+def test_a_startup_bug_offers_the_latest_version(tmp_path, monkeypatch):
+    # LIF-2: a release that fails at start never runs its own update check: the box offers the newest installer
+    import ctypes
+    import sys
+    import webbrowser
+
+    import pytest
+
+    from maplehelper import setupwait, store
+    if sys.platform != "win32":
+        pytest.skip("the Windows message box")
+    monkeypatch.setattr(store, "DATA_DIR", tmp_path)
+    shown, opened = [], []
+    monkeypatch.setattr(ctypes.windll.user32, "MessageBoxW", lambda *a: shown.append(a) or 6)
+    monkeypatch.setattr(webbrowser, "open", opened.append)
+    setupwait.report_broken_install(RuntimeError("boom in start()"))
+    assert "startup-error.log" in shown[0][1] and shown[0][3] & 0x4      # Yes/No
+    assert opened == [setupwait.DOWNLOAD_URL]
+    for lang in ("he", "en"):
+        assert setupwait.STARTUP_NEWER_TEXT[lang]

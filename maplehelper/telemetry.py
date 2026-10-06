@@ -116,7 +116,8 @@ def _post(batch: list[dict]) -> bool:
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
             return 200 <= r.status < 300
-    except (urllib.error.URLError, TimeoutError, OSError) as e:
+    except Exception as e:      # noqa: BLE001 - http.client's BadStatusLine/IncompleteRead aren't OSError: they
+        # killed the worker thread and the stats stopped for the session. Stats must never fail anything
         report.log.info("telemetry post failed: %s", e)
         return False
 
