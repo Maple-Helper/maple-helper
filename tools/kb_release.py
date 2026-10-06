@@ -27,6 +27,7 @@ CATEGORIES = ["monster", "item", "map", "quest", "npc", "skill", "class", "guide
 MIN_KEEP_RATIO = 0.9   # an update may not lose more than 10% of the previous entities
 MAX_REMOVED = 25       # ...nor more than this many at once (a refresh drops only what left the sitemap)
 MIN_PROPS_RATIO = 0.9  # ...nor the stats (JSON-LD properties) of more than 10% of a category's entries
+MIN_PROPS_LOST = 5     # ...counted only from this many entries: one of class's 5 pages losing its stats is no layout break
 CHANGELOG = "changelog.json"
 NEWS = "news.json"           # MapleStory Classic news (tools/scrape_news.py); optional, but never broken
 CHANGELOG_KEEP = 30    # updates kept, so a player who skipped a few still sees everything they missed
@@ -157,7 +158,8 @@ def _lost_from(before: list[dict], index: list) -> list[str]:
             continue
         was = sum(1 for e in had if e.get("props")) / len(had)
         share = sum(1 for e in has if e.get("props")) / len(has)
-        if was and share < was * MIN_PROPS_RATIO:
+        lost = sum(1 for e in had if e.get("props") and not (now.get(e.get("key")) or {}).get("props"))
+        if was and share < was * MIN_PROPS_RATIO and lost >= MIN_PROPS_LOST:
             problems.append(f"{cat}: {share:.0%} of entries have stats, down from {was:.0%}")
     return problems
 

@@ -219,6 +219,17 @@ def test_rejects_a_scrape_that_lost_a_categorys_stats(kb_copy, tmp_path):
         kb_release.validate(kb_copy, previous_index=prev)
 
 
+def test_one_small_category_page_losing_its_stats_is_not_a_layout_break():
+    """class has 5 pages with stats out of 25: one losing them dropped the share under 90% and rejected the whole
+    night's KB, every night (review PLT-4). Five lost still is a break."""
+    before = [{"key": f"class/{i}", "category": "class", "props": {"HP": 1} if i < 5 else {}} for i in range(25)]
+    one = [{**e, "props": {}} if e["key"] == "class/0" else e for e in before]
+    assert kb_release._lost_from(before, one) == []
+    before = [{"key": f"monster/{i}", "category": "monster", "props": {"HP": 1}} for i in range(40)]
+    five = [{**e, "props": {}} if int(e["key"].split("/")[1]) < 5 else e for e in before]
+    assert kb_release._lost_from(before, five) == ["monster: 88% of entries have stats, down from 100%"]
+
+
 def test_rejects_a_page_left_behind_by_a_removed_entity(kb_copy):
     (kb_copy / "pages" / "item" / "gone.md").write_text("old item", encoding="utf-8")
     with pytest.raises(kb_release.InvalidKB, match="pages without an entry, e.g. item/gone"):
