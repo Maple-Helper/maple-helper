@@ -33,7 +33,7 @@ MAX_QUEUE = 500          # offline for hours: drop new events rather than grow w
 MAX_VALUE_LEN = 64
 
 _queue: queue.Queue = queue.Queue(maxsize=MAX_QUEUE)
-_state = {"key": "", "enabled": False, "id": "", "base": {}, "thread": None}
+_state = {"key": "", "enabled": False, "id": "", "base": {}, "thread": None, "settings": None}
 
 
 def _key() -> str:
@@ -50,7 +50,8 @@ def install_id(settings) -> str:
 def init(settings, version: str) -> None:
     """Call once at startup. Nothing is sent unless the player turned stats on and a key is set."""
     _state["key"] = _key()
-    _state["id"] = install_id(settings)
+    # the id is made only when stats are turned on: a player who never opts in never gets one
+    _state["settings"], _state["id"] = settings, settings["install_id"] or ""
     _state["base"] = {
         "app_version": version,
         "$os": {"win32": "Windows", "darwin": "Mac OS X"}.get(sys.platform, sys.platform),
@@ -63,6 +64,8 @@ def init(settings, version: str) -> None:
 def set_enabled(on: bool) -> None:
     """Follows the Settings switch. Turning it off drops whatever is still queued."""
     _state["enabled"] = bool(on and _state["key"] and not os.environ.get("MAPLEHELPER_NO_TELEMETRY"))
+    if _state["enabled"] and not _state["id"] and _state["settings"] is not None:
+        _state["id"] = install_id(_state["settings"])
     if not _state["enabled"]:
         _drain()
     elif _state["thread"] is None:
