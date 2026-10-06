@@ -493,6 +493,51 @@ def fit_picture(pm: QPixmap, w: int, h: int, widget: QWidget | None = None, trim
     return out
 
 
+class WidePicture(QWidget):
+    """A wide picture (a map's minimap: Henesys is 431x74) across the card's text column, as large as the column
+    allows: in the 56 px square it was a 56x9 sliver that showed nothing (VIS-9). Starts at the reading side."""
+
+    MAX_H, MAX_GROW = 96, 2.0
+
+    def __init__(self, pm: QPixmap):
+        super().__init__()
+        self._pm = pm
+        self._cache: tuple | None = None
+        sp = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        sp.setHeightForWidth(True)
+        self.setSizePolicy(sp)
+
+    @staticmethod
+    def wide(pm: QPixmap) -> bool:
+        return not pm.isNull() and pm.width() >= 2 * pm.height()
+
+    def _fit(self, w: int) -> QSize:
+        pw, ph = max(1, self._pm.width()), max(1, self._pm.height())
+        k = min(max(1, w) / pw, self.MAX_H / ph, self.MAX_GROW)
+        return QSize(max(1, round(pw * k)), max(1, round(ph * k)))
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, w: int) -> int:
+        return self._fit(w).height()
+
+    def sizeHint(self) -> QSize:
+        return self._fit(min(self._pm.width(), 320))
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(60, self.heightForWidth(60))
+
+    def paintEvent(self, e):
+        from PySide6.QtGui import QPainter
+        s = self._fit(self.width())
+        key = (s.width(), s.height(), self.devicePixelRatioF())
+        if not self._cache or self._cache[0] != key:
+            self._cache = (key, fit_picture(self._pm, s.width(), s.height(), self))
+        x = self.width() - s.width() if self.layoutDirection() == Qt.RightToLeft else 0
+        QPainter(self).drawPixmap(x, 0, self._cache[1])
+
+
 def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
     """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
     lb = QLabel(bidi.plain(text, t.rtl), objectName=kind)
@@ -675,16 +720,21 @@ class EntityCard(Selectable, QFrame):
         row.setContentsMargins(10, 8, 10, 8)
         row.setSpacing(10)
 
-        pic = QLabel()
-        pic.setFixedSize(56, 56)
-        pic.setAlignment(Qt.AlignCenter)
         img = kb.picture(key)          # never empty: own picture, related one, or category icon
-        if img:
-            pm = QPixmap(str(img))
+        pm = QPixmap(str(img)) if img else QPixmap()
+        # a map's wide minimap goes under its name, across the column (the square showed a thin sliver)
+        strip = None
+        if key.startswith("map/") and WidePicture.wide(pm):
+            strip = WidePicture(pm)
+            zoom_on_hover(strip, img, height=min(160, 2 * pm.height()))
+        else:
+            pic = QLabel()
+            pic.setFixedSize(56, 56)
+            pic.setAlignment(Qt.AlignCenter)
             if not pm.isNull():
                 pic.setPixmap(fit_picture(pm, 56, 56, pic))
                 zoom_on_hover(pic, img)
-        row.addWidget(pic, 0, Qt.AlignTop)
+            row.addWidget(pic, 0, Qt.AlignTop)
 
         col = QVBoxLayout()
         col.setSpacing(2)
@@ -699,6 +749,9 @@ class EntityCard(Selectable, QFrame):
         sub_label = _label(bidi.plain(sub, he), "CardSub")
         sub_label.setAlignment(side)
         col.addWidget(sub_label)
+        if strip is not None:
+            col.addSpacing(2)
+            col.addWidget(strip)
 
         stats = self._stats(e, t)
         main, bonuses = stat_parts(e)

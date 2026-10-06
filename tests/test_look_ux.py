@@ -134,3 +134,49 @@ def test_pictures_are_made_at_the_screens_pixels_and_sprites_grow_pixel_for_pixe
     # 8 -> 112 is exactly 14x: nearest neighbour keeps only the sprite's own two colors (smoothing made greys)
     colors = {out.pixelColor(x, y).name() for x in range(0, 112, 3) for y in range(0, 112, 3)}
     assert colors <= {"#000000", "#ffffff"}, colors
+
+
+def test_a_wide_minimap_spans_the_card_column(app):
+    """VIS-9: Henesys' 431x74 minimap in the 56 px square was a 56x9 sliver. A wide picture now takes the column's
+    width (up to 2x, at most 96 px high) and keeps its shape."""
+    from PySide6.QtGui import QPixmap
+
+    from maplehelper.ui.widgets import WidePicture
+    pm = QPixmap(431, 74)
+    assert WidePicture.wide(pm) and not WidePicture.wide(QPixmap(60, 50))
+    w = WidePicture(pm)
+    assert w.hasHeightForWidth()
+    assert 60 <= w.heightForWidth(380) <= 70                 # 380 x 65: the map's own size, nearly
+    assert w.heightForWidth(2000) == 96                       # never taller than 96 px
+    assert w.heightForWidth(200) == round(74 * 200 / 431)
+
+
+def test_a_map_card_shows_its_minimap_under_the_name(app, tmp_path, monkeypatch):
+    from PySide6.QtGui import QColor, QPixmap
+
+    from maplehelper.ui import widgets
+    img = tmp_path / "map.png"
+    pm = QPixmap(431, 74)
+    pm.fill(QColor("#3A7"))
+    pm.save(str(img))
+
+    class KB:
+        def get(self, key):
+            return {"key": key, "name": "Henesys", "category": "map", "props": {}}
+
+        def picture(self, key):
+            return img
+
+        def community_mesos(self, key):
+            return None
+
+    from maplehelper import recent, routes, sources
+    monkeypatch.setattr(sources, "stat_source", lambda kb, key: None)
+    monkeypatch.setattr(recent, "of", lambda kb, key: None)
+    monkeypatch.setattr(routes, "of", lambda kb: type("G", (), {"of_key": lambda self, k: None})())
+    card = widgets.EntityCard(KB(), "map/100000000", "he")
+    card.resize(440, 200)
+    card.show()
+    strips = card.findChildren(widgets.WidePicture)
+    assert len(strips) == 1 and strips[0].heightForWidth(strips[0].width()) >= 40
+    card.close()
