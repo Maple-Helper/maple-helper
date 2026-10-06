@@ -1,6 +1,9 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# a test still running after 2 minutes prints every thread's stack (the slowest take ~20 s): a hang shows where it
+# hangs instead of only the CI job's 20-minute timeout
+faulthandler_timeout = 120
 
 [tool.ruff]
 line-length = 130
