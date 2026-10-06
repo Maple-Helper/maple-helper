@@ -650,8 +650,9 @@ OUTDATED = ("error: unknown option", "error: unexpected argument")
 
 def http_status(text: str, code: int) -> bool:
     """An HTTP status code standing on its own ("(429)", "status 401"): not part of a request id, a session id or a
-    duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit."""
-    return re.search(rf"(?<![\w.-]){code}(?![\w.-])", text) is not None
+    duration ("7a3429fe", "0194a401-7f", "1429 ms"), which made unrelated failures a sign-out or a limit. A period
+    after it ends a sentence ("status 429."), unless a digit follows ("429.5 s", review PLT-7)."""
+    return re.search(rf"(?<![\w.-]){code}(?![\w-]|\.\d)", text) is not None
 
 
 def classify_error(text: str) -> str | None:

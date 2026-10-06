@@ -415,6 +415,11 @@ def test_the_account_email_comes_from_grok_s_sign_in_file(home, monkeypatch):
     ("request id 7a3429fe failed: internal server error", None),
     ("HTTP 401 Unauthorized", "not_logged_in"),
     ("status: 429 Too Many Requests", "usage_limit"),
+    ("Error: xAI API returned status 429.", "usage_limit"),                       # at the end of a sentence
+    ("HTTP 401.", "not_logged_in"),
+    ("took 429.5 s, then failed", None),
+    ("id 429-ab failed", None),
+    ("waited 1429 ms", None),
 ])
 def test_status_codes_count_only_on_their_own(text, kind):
     """"401" / "429" anywhere in stderr made an unrelated failure a sign-out or a limit (audit PRV-5)."""
