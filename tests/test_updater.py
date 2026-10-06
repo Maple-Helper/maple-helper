@@ -367,3 +367,37 @@ def test_a_manifest_naming_the_repository_before_it_moved_is_accepted():
     assert updater.release_url_ok("https://github.com/Maple-Helper/maple-helper/releases/latest/download/kb.zip")
     assert updater.release_url_ok("https://github.com/Amitaflalo1995/maple-helper/releases/latest/download/kb.zip")
     assert not updater.release_url_ok("https://github.com/someone-else/maple-helper/releases/latest/download/kb.zip")
+
+
+@pytest.mark.parametrize("meta", ["{not json", "[1, 2]"])
+def test_unusable_meta_json_fails_cleanly(env, meta):
+    # LIF-5: a bad meta.json raised out of fetch_kb and left ~46 MB of kb.new behind
+    user_kb, _, publish = env
+    publish(data=make_zip({"index.json": NEW_INDEX, "meta.json": meta}))
+    assert updater.fetch_kb() == "failed" and still_old(user_kb)
+    assert not user_kb.with_name("kb.new").exists()
+
+
+def test_a_cut_installer_write_leaves_no_part_file(app_env, monkeypatch):
+    # LIF-6: a full disk left MapleHelper-Setup-vX.part (~100 MB) that nothing ever removed
+    tmp, _, publish = app_env
+    publish()
+    import pathlib
+    real = pathlib.Path.write_bytes
+
+    def full(self, data):
+        real(self, data[:10])
+        raise OSError(28, "No space left on device")
+    monkeypatch.setattr(pathlib.Path, "write_bytes", full)
+    with pytest.raises(OSError):
+        updater.download_app_update("0.1.0")
+    assert not list((tmp / "updates").glob("*.part"))
+
+
+def test_old_part_files_are_swept(app_env):
+    tmp, _, _ = app_env
+    (tmp / "updates").mkdir()
+    (tmp / "updates" / "MapleHelper-Setup-v99.0.0.part").write_bytes(b"x")
+    (tmp / "updates" / "MapleHelper-Setup-v99.0.0.exe").write_bytes(b"x")
+    updater.remove_old_installers()
+    assert [f.name for f in (tmp / "updates").iterdir()] == ["MapleHelper-Setup-v99.0.0.exe"]
