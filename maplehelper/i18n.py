@@ -1041,6 +1041,7 @@ STRINGS = {
     "ob_key_saved_install_grok": {"he": "המפתח נשמר. כדי להשתמש בו, התקינו את Grok.",
                                   "en": "Key saved. To use it, install Grok."},
     "ob_pick_job": {"he": "בחרו ג'וב", "en": "Pick a job"},
+    "ob_name_taken": {"he": "כבר יש לכם דמות בשם הזה", "en": "You already have a character with this name"},
     "ob_connected": {"he": "✓ מחובר", "en": "✓ Connected"},
     "ob_not_installed": {"he": "Claude Code לא מותקן", "en": "Claude Code is not installed"},
     "ob_not_installed_codex": {"he": "ChatGPT לא מותקן במחשב", "en": "ChatGPT isn't installed on this PC"},

@@ -257,3 +257,23 @@ def test_saver_turned_on_from_the_chat_is_no_unsaved_change(env):
     app.MapleHelperApp.turn_on_saver(fake)
     assert s["saver_mode"] and sd.saver.isChecked() and not sd.unsaved()
     sd.close()
+
+
+# --- DLG-17: a second character with the same name -------------------------------------------------------------------
+
+def test_a_name_another_character_has_is_refused(env):
+    from maplehelper.ui.dialogs import Onboarding
+    s, profiles, kb, _ = env
+    profiles.add("Amit", "Warrior", "Fighter", 30)
+    dlg = Onboarding(s, profiles, kb, lambda *_: "", only_character=True)
+    f = dlg.form
+    next(b for b in f.class_group.buttons() if b.property("cls") == "Beginner").setChecked(True)
+    f.name.setText(" amit ")
+    assert not f.valid() and not f.name_hint.isHidden() and not dlg.next.isEnabled()
+    f.name.setText("Amit2")
+    assert f.valid() and f.name_hint.isHidden() and dlg.next.isEnabled()
+    dlg.close()
+    me = profiles.characters[0]
+    edit = Onboarding(s, profiles, kb, lambda *_: "", only_character=True, edit_id=me.id)
+    assert edit.form.name.text() == "Amit" and edit.form.valid()          # its own name is no clash
+    edit.close()

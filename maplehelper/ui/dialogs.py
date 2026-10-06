@@ -238,8 +238,14 @@ class CharacterForm(QWidget):
         self.name = QLineEdit()
         self.name.setAccessibleName(t("ob_char_name"))     # its label above is a separate QLabel
         self.name.setMaxLength(24)
-        self.name.textChanged.connect(lambda *_: self.changed.emit())
+        self.name.textChanged.connect(lambda *_: (self._check_name(), self.changed.emit()))
         lay.addWidget(self.name)
+        # the player's other characters' names (case-folded): a second "Amit" made two identical chips
+        self.taken: set[str] = set()
+        self.name_hint = QLabel(bidi.plain(t("ob_name_taken"), t.rtl), objectName="JobHint")
+        self.name_hint.setWordWrap(True)
+        self.name_hint.hide()
+        lay.addWidget(self.name_hint)
 
         lay.addWidget(_field(t("ob_class")))
         grid = QGridLayout()
@@ -370,8 +376,15 @@ class CharacterForm(QWidget):
         values = getattr(self, "_job_values", [])
         return values[i] if 0 <= i < len(values) else ""
 
+    def _name_taken(self) -> bool:
+        return self.name.text().strip().casefold() in self.taken
+
+    def _check_name(self) -> None:
+        self.name_hint.setVisible(self._name_taken())
+
     def valid(self) -> bool:
-        return bool(self.name.text().strip()) and bool(self.base_class()) and bool(self.current_job())
+        return (bool(self.name.text().strip()) and not self._name_taken() and bool(self.base_class())
+                and bool(self.current_job()))
 
     def values(self) -> tuple[str, str, str, int]:
         return self.name.text().strip(), self.base_class(), self.current_job(), self.level.value()
@@ -612,6 +625,7 @@ class Onboarding(GlassDialog):
                    self.t("add_character") if self.only_character else self.t("ob_welcome"))
         lay.addWidget(_title(heading))
         self.form = CharacterForm(self.t, self.kb)
+        self.form.taken = {c.name.strip().casefold() for c in self.profiles.characters if c.id != self.edit_id}
         if self.edit_id:
             c = next((c for c in self.profiles.characters if c.id == self.edit_id), None)
             if c:
