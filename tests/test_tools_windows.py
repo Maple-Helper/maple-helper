@@ -465,19 +465,20 @@ def test_share_card_ellipsizes_a_long_name_and_wraps_a_long_map(isolated_store, 
     long = p.add("ElipazTheVeryLongNameXY", "Thief", "Assassin", 34)
     long.map = "Physical Fitness Test <Normal Waiting Room>"
     from maplehelper.ui import theme
-    app.setStyleSheet(theme.stylesheet(theme.load_fonts(), 14))      # the card's real fonts (bold, 22 px name)
     labels = []
     orig = QLabel.setText
 
     def spy(self, text):
-        labels.append((self.objectName(), text, self.wordWrap()))
+        if self.objectName() == "ShareName":           # only the card's own name label, not every QLabel alive
+            labels.append((self.objectName(), text, self.wordWrap()))
         orig(self, text)
-    QLabel.setText = spy
+    app.setStyleSheet(theme.stylesheet(theme.load_fonts(), 14))      # the card's real fonts (bold, 22 px name)
     try:
-        a = character_card_image(short, None, real_kb, None, I18n("en"))
-        b = character_card_image(long, None, real_kb, None, I18n("en"))
+        with pytest.MonkeyPatch.context() as mp:        # undone even when the card raises
+            mp.setattr(QLabel, "setText", spy)
+            a = character_card_image(short, None, real_kb, None, I18n("en"))
+            b = character_card_image(long, None, real_kb, None, I18n("en"))
     finally:
-        QLabel.setText = orig
         app.setStyleSheet("")
     names = [t for o, t, _ in labels if o == "ShareName"]
     assert "Kiwi" in names and any(t.endswith("…") and t.startswith("ElipazTheVery") for t in names)

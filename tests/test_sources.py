@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 REAL_KB = ROOT / "data" / "kb"
 needs_kb = pytest.mark.skipif(not (REAL_KB / "index.json").exists(), reason="no real knowledge base")
 en, he = I18n("en"), I18n("he")
+# one "today" for the change log the fixture writes and what the tests expect of it: a run crossing midnight between
+# the two no longer fails
+TODAY = date.today()
 
 
 @pytest.fixture
@@ -93,7 +96,7 @@ Loading…
 
 @pytest.fixture
 def tiny(tmp_path):
-    today = date.today()
+    today = TODAY
     log = [{"version": "2", "date": today.isoformat(), "counts": {"changed": 3, "added": 0, "removed": 0, "updated": 0},
             "changed": [{"key": "item/10", "name": "Scimitar", "category": "item", "props": [["Weapon Attack", 50, 53]]},
                         {"key": "monster/1", "name": "Snail", "category": "monster", "props": [["HP", 10, 8]]},
@@ -250,7 +253,7 @@ def test_ai_gets_the_sources(tiny):
 def test_recent_changes_last_a_week_from_the_updates_own_date(tiny):
     found = recent.recent(tiny)
     assert set(found) == {"item/10", "monster/1", "item/12"}            # the 9-day-old Red Potion change is gone
-    assert recent.recent(tiny, today=date.today() + timedelta(days=8)) == {}
+    assert recent.recent(tiny, today=TODAY + timedelta(days=8)) == {}
     r = found["item/10"]
     # the page's change history shows that very change (Launch table WATK 50 -> 53): the line names the builds
     assert recent.lines(en, tiny, r) == [sources.change_line("Weapon Attack", "50", "53", "COT2", "Launch")]
@@ -261,7 +264,7 @@ def test_recent_changes_last_a_week_from_the_updates_own_date(tiny):
 
 def test_ai_hears_about_recent_changes(tiny):
     assert recent.ai_lines(tiny, ["item/10"]) == \
-        [f"Recent KB change ({date.today().isoformat()}): Scimitar: Weapon Attack 50 -> 53 (COT2 -> Launch)"]
+        [f"Recent KB change ({TODAY.isoformat()}): Scimitar: Weapon Attack 50 -> 53 (COT2 -> Launch)"]
     prompt = brain.build_prompt("is Scimitar good?", None, None, tiny, False)
     assert "Recent KB change (" in prompt and "Scimitar: Weapon Attack 50 -> 53 (COT2 -> Launch)" in prompt
     assert "Recent KB change" in brain.SYSTEM_PROMPT
@@ -409,6 +412,10 @@ def test_every_stat_card_and_instant_answer_is_tagged(real, qapp):
             card = EntityCard(real, key, "he")
             assert card.source_chip.text().strip("‏‪‬") == sources.tag(he, sources.source_of(real, key))
             card.deleteLater()
+    # deleteLater needs an event loop this test never runs: without this ~290 cards stayed alive for the rest of the
+    # session, and every later app-wide setStyleSheet repolished them all (the share-card test took 6-17 s, not 0.1)
+    from PySide6.QtCore import QEvent
+    qapp.sendPostedEvents(None, QEvent.DeferredDelete)
 
 
 @needs_kb
