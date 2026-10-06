@@ -1072,7 +1072,14 @@ class KnowledgeBase:
             return ""
         lines = ["Monsters near the player's level (name | level | HP | EXP | mesos per drop by community reports, "
                  "- = no community data | top maps | key):"]
-        for r in rows[:40]:
-            lines.append(f"{r['name']} | {r['level']} | {r['hp']} | {r['exp']} | {r['mesos']} | "
-                         f"{', '.join(r['maps'])} | {r['key']}")
-        return "\n".join(lines)
+        # one row for twins ("Jr. Boogie 1" and "2": the same stats and maps, both keys), none for a monster on no map
+        # (a PQ copy of King Slime is no monster near the player; audit AI-26)
+        merged: dict[tuple, list[dict]] = {}
+        for r in rows:
+            if r["maps"]:
+                merged.setdefault((r["level"], r["hp"], r["exp"], r["mesos"], tuple(r["maps"])), []).append(r)
+        for same in list(merged.values())[:40]:
+            r = same[0]
+            lines.append(f"{' / '.join(dict.fromkeys(x['name'] for x in same))} | {r['level']} | {r['hp']} | "
+                         f"{r['exp']} | {r['mesos']} | {', '.join(r['maps'])} | {', '.join(x['key'] for x in same)}")
+        return "\n".join(lines) if len(lines) > 1 else ""
