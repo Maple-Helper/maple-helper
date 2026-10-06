@@ -49,6 +49,15 @@ def pytest_runtest_makereport(item, call):
     return rep
 
 
+def _is_address(name: str) -> bool:
+    import ipaddress
+    try:
+        ipaddress.ip_address(name.split("%")[0])
+        return True
+    except ValueError:
+        return False
+
+
 AI_CLIS = {"codex", "claude", "agy", "grok"}
 LOOPBACK = ("127.", "::1", "localhost")
 
@@ -86,8 +95,26 @@ def no_real_world():
         return connect(sock, address)
 
     mp.setattr(socket.socket, "connect", local_only)
+    # name lookups too: a test that reached for meowdb.com still sent the DNS query before connect refused it
+    getaddrinfo = socket.getaddrinfo
+
+    def local_names(host, *a, **k):
+        name = host.decode() if isinstance(host, bytes) else str(host or "")
+        if name and not name.startswith(LOOPBACK) and not _is_address(name):     # an address is no lookup
+            raise socket.gaierror(f"tests must not reach the network ({name})")
+        return getaddrinfo(host, *a, **k)
+
+    mp.setattr(socket, "getaddrinfo", local_names)
     yield
     mp.undo()
+
+
+@pytest.fixture(autouse=True)
+def no_high_contrast(monkeypatch):
+    """theme.set_mode() follows Windows high contrast on every call: on a PC with a Contrast theme on, "light" came
+    out dark and the light-theme tests failed. Off for every test; the ones about it patch it themselves."""
+    from maplehelper.ui import theme
+    monkeypatch.setattr(theme, "high_contrast", lambda: None)
 
 
 @pytest.fixture

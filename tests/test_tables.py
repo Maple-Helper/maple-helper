@@ -528,25 +528,49 @@ def test_real_tables_counts(real):
 
 @needs_kb
 def test_real_tables_known_facts(real):
+    """Each row says what its own page says, on every row: a balance patch changes a number in both places, a
+    broken parser or a shifted column only in one. (The exact parses, War Bow 30 WATK, Henesys Hunting Ground I
+    2-14, Double Shot 16 MP / 120 %, are pinned on the frozen page copies above.)"""
+    from maplehelper import availability
     kb, t = real
-    assert one(t["rewards"], quest="Stranger's Identity", item="Old Raggedy Cape")["kind"] == "sure"
-    bow = one(t["equips"], item="War Bow")
-    assert (bow["job"], bow["req_lv"], bow["watk"], bow["attack_speed"]) == ("Bowman", 10, 30, "Normal (6)")
-    red = [r for r in t["shops"] if r["item"] == "Red Potion"]
-    assert red and all(r["price"] == 50 for r in red)
-    assert not [r for r in red if "El Nath" in r["place"] or "Orbis" in r["place"]]       # not in the game yet
-    ingot = [r for r in t["recipes"] if r["product"] == "Bronze Ingot"]
-    assert [(r["ingredient"], r["qty"], r["discipline"]) for r in ingot] == [("Bronze Ore", 5, "Smithing")]
-    assert one(t["monsters"], monster="Snail")["level"] == 1
-    assert one(t["spawns"], monster="Snail", map="Snail Hunting Ground I")["count"] > 0
-    hhg = one(t["maps"], map="Henesys Hunting Ground I")
-    assert (hhg["lv_min"], hhg["lv_max"], hhg["region"]) == (2, 14, "Victoria Island") and "Blue Snail" in hhg["monsters"]
-    ds = one(t["skills"], skill="Double Shot")
-    assert (ds["mp"], ds["damage"], ds["max_lv"]) == (16, 120, 20)
-    assert one(t["skills"], skill="Steal")["damage"] == 180                # "apply 180% in damage"
-    assert not [r for r in t["skills"] if r["rank"] == "3rd Job"]          # 3rd job isn't out
-    # the cheapest seller's citizen rank (Raymond sells these for 2 mesos to a Helpful Stranger only)
-    assert "citizen rank Helpful Stranger" in one(t["consumables"], item="Bronze Arrows for Bows")["seller"]
+
+    def props(r):
+        return kb.get(r["key"])["props"]
+    for name, cols in (("equips", (("req_lv", "Level Requirement"), ("watk", "Weapon Attack"), ("slots", "Upgrade Slots"))),
+                       ("monsters", (("level", "Level"), ("hp", "HP"), ("exp", "EXP"))),
+                       ("skills", (("max_lv", "Max Level"), ("job", "Job"), ("rank", "Job Rank")))):
+        wrong = [(r["key"], c) for r in t[name] for c, prop in cols if prop in props(r) and r.get(c) != props(r)[prop]]
+        assert wrong == [], name
+        assert all(any(prop in props(r) for _, prop in cols) for r in t[name][:50]), name     # the props are there
+    assert sum(1 for r in t["equips"] if r.get("watk")) > 100 and all(r["watk"] > 0 for r in t["equips"] if r.get("watk"))
+    assert all(r["level"] >= 1 and r["hp"] > 0 for r in t["monsters"])
+    assert sum(1 for r in t["skills"] if r["mp"] and f"MP -{r['mp']}" in r["effect"]) > 0.9 * sum(1 for r in t["skills"] if r["mp"])
+    assert all(r["lv_min"] <= r["lv_max"] for r in t["maps"] if r["lv_min"] and r["lv_max"])
+    assert all(r["region"] for r in t["maps"]) and any(r["lv_min"] for r in t["maps"])
+    priced = [r["price"] for r in t["shops"] if r["price"] is not None]
+    assert len(priced) > 0.9 * len(t["shops"]) and all(isinstance(p, int) and p > 0 for p in priced)
+    assert {r["kind"].split(" ")[0] for r in t["rewards"]} <= {"sure", "random", "pick", "gender"}
+    assert all(r["qty"] > 0 and r["discipline"] for r in t["recipes"])
+    assert all(r["count"] > 0 for r in t["spawns"] if r.get("count") is not None)
+    # only the jobs the release guide has opened: 3rd job skills appear the night the guide confirms it
+    ranks = {"Beginner", "1st Job", "2nd Job"} | ({"3rd Job"} if availability.of(kb).job_tier >= 3 else set())
+    assert {r["rank"] for r in t["skills"]} <= ranks
+    assert {"Beginner", "1st Job", "2nd Job"} <= {r["rank"] for r in t["skills"]}
+    # a shop in a town the guide hasn't opened never shows (Red Potion was sold in El Nath and Orbis too)
+    a = availability.of(kb)
+    assert all(a.place_open(r["place"].rsplit(" · ", 1)[-1]) for r in t["shops"] if " · " in r["place"])
+    # a damage written "apply 180% in damage" (Steal) is read as the page says it, at the max level (P84A-21)
+    import re
+    steal = one(t["skills"], skill="Steal")
+    said = [int(n) for n in re.findall(r"(\d+)% in damage", kb.page(steal["key"]))]    # per skill level: the max
+    assert said and steal["damage"] == max(said)
+    # the cheapest seller's citizen rank (Raymond sells Bronze Arrows for Bows for 2 mesos to a Helpful Stranger
+    # only): whatever shop is cheapest tonight, its rank is in the cell (P84A-19)
+    for r in t["consumables"]:
+        offers = [o for o in t["shops"] if o["item_key"] == r["key"] and o["price"] == r["buy"] and o["rank"]]
+        if r.get("seller") and offers and len({o["rank"] for o in offers}) == 1 \
+                and len([o for o in t["shops"] if o["item_key"] == r["key"] and o["price"] == r["buy"]]) == 1:
+            assert f"citizen rank {offers[0]['rank']}" in r["seller"], r["item"]
     assert not [r for r in t["monsters"] if "spawns.tsv" in str(r["maps"])]     # answers never name files
 
 

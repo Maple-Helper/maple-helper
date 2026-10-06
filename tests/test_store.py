@@ -524,3 +524,34 @@ def test_only_web_links_are_opened(monkeypatch):
         assert osapi.open_url(bad) is False
     assert osapi.open_url("https://meowdb.com/x") and osapi.open_url("HTTP://example.com")
     assert opened == ["https://meowdb.com/x", "HTTP://example.com"]
+
+
+def test_editing_a_character_keeps_it_and_resets_what_the_hud_confirmed(isolated_store):
+    # the character card's edit: a hand-picked job drops the game's own job name, a rename waits for the HUD again
+    p = isolated_store.Profiles()
+    c = p.add("Kiwi", "Thief", "Assassin", 30)
+    c.job_shown, c.name_seen = "Assassin", True
+    p.edit(c.id, "Kiwi", "Thief", "Assassin", 31)                   # only the level: nothing else forgotten
+    assert (c.level, c.job_shown, c.name_seen) == (31, "Assassin", True)
+    p.edit(c.id, "Kiwo", "Thief", "Bandit", 32)
+    again = isolated_store.Profiles().characters[0]                  # saved
+    assert (again.id, again.name, again.job, again.level) == (c.id, "Kiwo", "Bandit", 32)
+    assert again.job_shown == "" and again.name_seen is False
+    p.edit("no-such-id", "X", "Thief", "Thief", 1)                  # a deleted character: nothing happens
+    assert [ch.name for ch in isolated_store.Profiles().characters] == ["Kiwo"]
+
+
+def test_a_new_portrait_replaces_the_old_file(isolated_store, tmp_path, monkeypatch):
+    monkeypatch.setattr(isolated_store, "AVATAR_DIR", tmp_path / "avatars")
+    (tmp_path / "avatars").mkdir()
+    p = isolated_store.Profiles()
+    assert p.set_avatar(b"png") is None and p.avatar_path() is None      # no character yet: nothing written
+    c = p.add("Kiwi", "Thief", "Assassin", 30)
+    p.set_active(c.id)
+    clock = iter([1000, 2000])
+    monkeypatch.setattr(isolated_store.time, "time", lambda: next(clock))
+    p.set_avatar(b"first")
+    first = p.avatar_path()
+    p.set_avatar(b"second")
+    assert p.avatar_path().read_bytes() == b"second" and not first.exists()     # the old file doesn't pile up
+    assert isolated_store.Profiles().avatar_path().read_bytes() == b"second"     # saved with the character

@@ -401,3 +401,20 @@ def test_old_part_files_are_swept(app_env):
     (tmp / "updates" / "MapleHelper-Setup-v99.0.0.exe").write_bytes(b"x")
     updater.remove_old_installers()
     assert [f.name for f in (tmp / "updates").iterdir()] == ["MapleHelper-Setup-v99.0.0.exe"]
+
+
+def test_downloaded_installers_up_to_this_version_are_removed(tmp_path, monkeypatch):
+    from maplehelper import __version__
+    monkeypatch.setattr(updater, "USER_KB", tmp_path / "kb")
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    major, minor, patch = (int(x) for x in __version__.split(".")[:3])
+    names = {"old": "MapleHelper-Setup-v0.0.1.exe", "this": f"MapleHelper-Setup-v{__version__}.exe",
+             "newer": f"MapleHelper-Setup-v{major}.{minor}.{patch + 1}.exe", "other": "notes.txt"}
+    for n in names.values():
+        (folder / n).write_bytes(b"x")
+    updater.remove_old_installers()
+    assert sorted(f.name for f in folder.iterdir()) == sorted([names["newer"], names["other"]])
+    updater.remove_old_installers()                                  # nothing left to remove: no error
+    monkeypatch.setattr(updater, "USER_KB", tmp_path / "none" / "kb")
+    updater.remove_old_installers()                                  # no updates folder at all

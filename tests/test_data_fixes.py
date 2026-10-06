@@ -1,8 +1,12 @@
 """Game-data fixes: job tree, quest parsing, Hebrew name matching, instant answers, bosses, prices, guides.
 
-Values the app keeps as constants are checked against the real knowledge base when it is present."""
+Values the app keeps as constants are checked against the real knowledge base when it is present. The nightly runs
+these on the KB it is about to publish: a legitimate game change (a balance patch, a reworded guide, an area opening)
+must not hold it back, so the real KB is checked for what holds whatever the numbers are, exact parses are pinned on
+frozen page copies, and a guide sentence an app constant was taken from is reported (a warning) when it changes."""
 import json
 import re
+import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -37,6 +41,12 @@ def small_kb(tmp_path, entities: list[dict], aliases: dict, pages: dict | None =
 
 def ent(key, name, **props):
     return {"key": key, "name": name, "category": key.split("/")[0], "props": props}
+
+
+def kb_says(page: str, pattern: str, what: str) -> None:
+    """An app constant taken from a guide sentence: a rewritten guide is reported, not a failed night."""
+    if not re.search(pattern, page, re.I):
+        warnings.warn(f"the knowledge base no longer says {pattern!r}: check {what}", stacklevel=2)
 
 
 # ------------------------------------------------------------------ 1, 7, 17: the job tree
@@ -74,16 +84,31 @@ def test_canonical_job_names(raw, job):
 def test_job_tree_matches_the_knowledge_base(real):
     classes = {e["name"].removesuffix(" skills") for e in real.entities.values() if e["category"] == "class"}
     assert {j for js in jobs.JOBS.values() for j, _ in js} <= classes
-    glossary_page = real.page("guide/maplestory-classic-glossary")
-    assert "The first real job you pick at level 10: Warrior, Magician, Bowman, Thief" in glossary_page
+    kb_says(real.page("guide/maplestory-classic-glossary"), r"first real job you pick at level 10", "jobs.JOBS")
     for cls in ("warrior", "magician", "bowman", "thief"):
-        assert "at level 30" in real.page(f"class/{cls}")
-    assert "advance again at level 70" in real.page("class/bowman")
+        assert real.page(f"class/{cls}")
+        kb_says(real.page(f"class/{cls}"), r"\blevel 30\b", "jobs.JOBS")
+    kb_says(real.page("class/bowman"), r"\blevel 70\b", "jobs.JOBS")
     assert {lv for js in jobs.JOBS.values() for _, lv in js} == {1, 10, 30, 70}
-    # 3rd job stays shut because the KB's release guide says so (availability.py reads it from there)
+    # the job tier is the release guide's (pinned both ways on fixture guides below): 3rd job opens the night the
+    # guide confirms it, and the app follows with no release
     from maplehelper import availability
-    assert "3rd job are not initial-launch content" in real.page("guide/maplestory-classic-worlds-release-date")
-    assert jobs.open_tier(real) == 2 and availability.of(real).job_tier == 2
+    a = availability.of(real)
+    assert a.known and a.not_at_launch_text and jobs.open_tier(real) == a.job_tier in (2, 3)
+
+
+@pytest.mark.parametrize("guide,tier", [
+    ("Confirmed content\nClassic maps on Victoria Island.\nNot at launch\nOssyria and 3rd job are "
+     "not initial-launch content.\n", 2),
+    ("Confirmed content\nClassic maps on Victoria Island. 3rd job advancements are confirmed.\nNot at launch\n"
+     "Ossyria is not initial-launch content.\n", 3),
+    ("Confirmed content\nClassic maps on Victoria Island.\nNot at launch\nOssyria.\n", 2),     # not named: shut
+])
+def test_third_job_opens_only_when_the_guide_confirms_it(tmp_path, guide, tier):
+    from maplehelper import availability
+    kb = small_kb(tmp_path, [ent("guide/maplestory-classic-worlds-release-date", "Release")], {},
+                  {"guide/maplestory-classic-worlds-release-date": "---\n{}\n---\n\n# Release\n\n" + guide})
+    assert availability.of(kb).job_tier == tier and jobs.open_tier(kb) == tier
 
 
 # ------------------------------------------------------------------ 2, 3, 10, 11, 23: quests
@@ -196,22 +221,34 @@ def test_second_job_quests_only_for_the_first_job():
 
 @needs_kb
 def test_real_quest_rewards(real):
+    """Every quest page parses, and what the parser finds holds together on all of them (the exact parse of each
+    kind, pick-one, random with odds, fame, "to complete" level, grade, profession, is pinned on QUEST above)."""
     quests._quest.cache_clear()
-    by_name = {e["name"]: k for k, e in real.entities.items() if e["category"] == "quest"}
-    jane = quests.quest(real, by_name["Jane and the Mushroom"])
-    assert jane.rewards == [] and len(jane.rewards_random("Warrior")) == 14
-    gladius = quests.quest(real, by_name["Hero's Gladius"])
-    assert gladius.rewards == [] and gladius.rewards_pick("Warrior") == ["Hero's Gladius x 1", "Skull Earrings x 1"]
-    dolls = quests.quest(real, by_name["Collecting 200 Cursed Dolls"])
-    assert dolls.fame == 3 and dolls.rewards_random("Magician") == ["Dark Guiltian x 1 (100%)"]
-    stan = quests.quest(real, by_name["First Greeting with Chief Stan"])
-    assert stan.complete_level == 32 and stan.grade == ("Henesys", 5)
-    assert stan not in quests.citizenship(real, "Henesys", 20) and stan in quests.citizenship(real, "Henesys", 32)
-    # its "Asking After" page names no prerequisite, so it stayed "daily" (audit GAM-7)
-    assert quests.quest(real, by_name["First Greeting with Athena Pierce"]).cycle == ""
-    smith = quests.quest(real, by_name["A Blacksmith in My Own Right!"])
-    assert smith.profession == ("Smithing", 5)
-    assert all(quests.quest(real, k) for k in by_name.values())          # every quest page parses (322)
+    keys = [k for k, e in real.entities.items() if e["category"] == "quest"]
+    rows = [quests.quest(real, k) for k in keys]
+    assert len(rows) > 200 and all(rows)                                  # every quest page parses
+    odds = re.compile(r"\((\d+(?:\.\d+)?)%\)$")
+    for q in rows:
+        for cls in q.random_rewards:                                      # one of a set: the odds add up to 100 %
+            got = [odds.search(r) for r in q.rewards_random(cls)]
+            assert all(got) and 95 <= sum(float(m.group(1)) for m in got) <= 105, (q.key, cls)
+        assert not q.complete_level or q.complete_level >= q.level, q.key
+        assert not q.grade or (q.grade[0] in quests.TOWNS and 1 <= q.grade[1] <= 20), q.key
+        assert not q.profession or (q.profession[0].lower() in crafting.PROFESSIONS and q.profession[1] > 0), q.key
+        if q.complete_level > q.level and q.area == "Citizenship" and q.grade:      # taken early, done later
+            town = quests.town_of(real, q)
+            assert q.key not in {x.key for x in quests.citizenship(real, town, q.complete_level - 1)}, q.key
+    # the parsers still find each kind somewhere (a page layout change that hides them all fails here)
+    assert all(any(f(q) for q in rows) for f in (lambda q: q.random_rewards, lambda q: q.class_rewards,
+                                                lambda q: q.fame, lambda q: q.complete_level, lambda q: q.grade,
+                                                lambda q: q.profession))
+    # a "First Greeting with X" that an "Asking After X" follows is a step done once, never daily (audit GAM-7: Athena
+    # Pierce's "Asking After" page names no prerequisite)
+    norm = {q.key: " ".join(q.name.split()).rstrip(".") for q in rows}
+    asked = {n.removeprefix("Asking After ") for n in norm.values() if n.startswith("Asking After ")}
+    greet = [q for q in rows if norm[q.key].startswith("First Greeting with ")
+             and norm[q.key].removeprefix("First Greeting with ") in asked]
+    assert greet and all(q.cycle == "" for q in greet), [q.name for q in greet if q.cycle]
     quests._quest.cache_clear()
 
 
@@ -339,19 +376,29 @@ def test_instant_answers_on_the_real_kb(real):
     assert quick.answer("כמה דיוק צריך בשביל לופין", real, t, c).text == acc.text
     assert quick.answer("lupin avoid", real, t).text == f"Lupin · Avoid: {lupin.avoid}"
     assert "M.DEF" in quick.answer("Lupin magic defense", real, t).text
+    from maplehelper import availability, market
+    a = availability.of(real)
     sells = quick.answer("who sells red potion", real, t)
-    assert sells and sells.text.startswith("Where to buy Red Potion:") and "50 mesos" in sells.text
-    assert "El Nath" not in sells.text and "Orbis" not in sells.text
+    shops = [s for s in market.npc_prices(real, real._item_by_name["red potion"]).shops if a.place_open(s[1].rsplit(" · ", 1)[-1])]
+    assert sells and sells.text.startswith("Where to buy Red Potion:") and f"{min(s[2] for s in shops):,} mesos" in sells.text
+    assert not any(town in sells.text for town in ("El Nath", "Orbis") if not a.place_open(town))   # not out: not sold
     where = quick.answer("where is Red Snail", real, t)
     assert where and " · " in where.text.split("\n")[1]                  # "map · region" (kb.map_label)
-    assert "isn't in the game" in quick.answer("where is Leatty", real, t).text   # Ossyria only: not out
-    assert quick.answer("where is King Slime", real, t) is None          # only its party quest stage
-    assert "עוד לא נמצא במשחק" in quick.answer("כמה חיים לג׳וניור סנטינל", real, I18n("he")).text   # Orbis only
+    # a monster only on a continent that isn't out (Leatty, Jr. Sentinel: Ossyria) is said to be not in the game,
+    # until the guide opens it
+    leatty, sentinel = (next(k for k in real.monster_keys(n)) for n in ("Leatty", "Jr. Sentinel"))
+    assert ("isn't in the game" in quick.answer("where is Leatty", real, t).text) == (not a.monster_key_open(leatty))
+    assert ("עוד לא נמצא במשחק" in quick.answer("כמה חיים לג׳וניור סנטינל", real, I18n("he")).text) == \
+        (not a.monster_key_open(sentinel))
+    king = next(k for k in real.monster_keys("King Slime"))
+    if all("<" in m or "Stage" in m for m in real.all_maps(king)):      # only its party quest stage: no "where"
+        assert quick.answer("where is King Slime", real, t) is None
     assert quick.answer("Jr Boogie hp", real, t).text.startswith("Jr. Boogie 1 · HP:")
     assert quick.answer("Ghost Stump level", real, t) is None
     assert quick.answer("איפה יש תמנונים", real, t).entities == [
         next(k for k, e in real.entities.items() if e["name"] == "Octopus" and e["category"] == "monster")]
-    assert quick.answer("what is the max hp of mano", real, t).text == "Mano · HP: 7420"
+    hp = re.fullmatch(r"Mano · HP: ([\d,]+)", quick.answer("what is the max hp of mano", real, t).text)
+    assert hp and int(hp.group(1).replace(",", "")) in {real.get(k)["props"].get("HP") for k in real.monster_keys("Mano")}
 
 
 # ------------------------------------------------------------------ AI answers: cards, reverse drops, stated level
@@ -383,12 +430,15 @@ def test_respawn_cells_read_as_seconds():
 
 @needs_kb
 def test_bosses_are_no_training_spot(real):
-    bosses = {m.name for m in combat.monsters(real) if m.boss}
-    assert {"Mano", "Jr. Balrog", "Zombie Mushmom"} <= bosses and "Lupin" not in bosses
+    mobs = combat.monsters(real)
+    bosses = {m.name for m in mobs if m.boss}
+    assert len(bosses) >= 3 and len(bosses) < len(mobs) / 3              # the respawn column is read, and sane
     for lv in (20, 45, 55, 80):
         assert not any(s.monster.boss for s in combat.spots(real, lv, n=20))
-    # the respawn column the rule reads (pages/monster/<id>.md "Map Locations")
-    assert any(re.search(r"\| 3h\s*$", real.page(k), re.M) for k, e in real.entities.items() if e["name"] == "Jr. Balrog")
+    # the respawn column the rule reads (pages/monster/<id>.md "Map Locations"): an hours-long one on the page
+    for m in mobs:
+        if m.boss:
+            assert re.search(r"\|\s*~?\d+(?:\.\d+)?h\b", real.page(m.key)), m.key
 
 
 @needs_kb
@@ -400,7 +450,7 @@ def test_below_level_8_the_plan_stays_on_maple_island(real):
         assert any(m.endswith((" Maple Road", " Rainbow Street")) for m in real._top_maps(mob))
     assert plan.progress(real, 7, 50.0)["mob"] == "Orange Mushroom"         # not 280 Snails
     assert plan.progress(real, 9, 50.0)["mob"] == plan.spots_for(real, 9, 1)[0].mob
-    assert "you'll likely be lv 8" in real.page("guide/beginners-guide-first-steps-in-maple-world")
+    kb_says(real.page("guide/beginners-guide-first-steps-in-maple-world"), r"lv 8", "plan's Maple Island levels")
 
 
 # ------------------------------------------------------------------ 18-19: glossary
@@ -413,11 +463,13 @@ def test_glossary_sp_and_acc():
 
 @needs_kb
 def test_glossary_numbers_come_from_the_kb(real):
-    assert "1 per level-up" in real.page("guide/beginners-guide-first-steps-in-maple-world")
-    assert "3 SP per level" in real.page("guide/maplestory-classic-glossary")
+    """The glossary's SP and ACC numbers are the guides': a changed guide is reported for the glossary text."""
+    kb_says(real.page("guide/beginners-guide-first-steps-in-maple-world"), r"1 per level-up", "glossary SP")
+    kb_says(real.page("guide/maplestory-classic-glossary"), r"3 SP per level", "glossary SP")
     # never-miss ACC over Avoid at an equal level, from the class guide's table: a bit over 3x every time
     rows = re.findall(r"^[\w. ]+ \| \d+ \| (\d+) \| (\d+) ACC$", real.page("guide/cleric-class-guide"), re.M)
-    assert rows and all(3 < int(acc) / int(avoid) < 3.5 for avoid, acc in rows)
+    if not rows or not all(3 < int(acc) / int(avoid) < 3.5 for avoid, acc in rows):
+        warnings.warn("the Cleric guide's ACC table no longer reads as ~3x Avoid: check glossary ACC", stacklevel=2)
 
 
 # ------------------------------------------------------------------ 21: crafting
@@ -444,10 +496,15 @@ def test_recipe_counts_match_the_pages(real):
 @needs_kb
 def test_released_filters_unreleased_shops(real):
     from maplehelper import market
+    from maplehelper import availability
+    a = availability.of(real)
     red_cross = market.npc_prices(real, real._item_by_name["red cross shield"])
     open_shops = [s for s in red_cross.shops if combat.released(real, s[1])]
-    assert open_shops and all("Orbis" not in s[1] for s in open_shops)
-    assert not combat.released(real, "El Nath")
+    assert open_shops and all(a.place_open(s[1].rsplit(" · ", 1)[-1]) for s in open_shops)
+    # a town is released exactly when the guide has opened its continent (El Nath: Ossyria)
+    for town in ("El Nath", "Orbis", "Henesys", "Perion"):
+        assert combat.released(real, town) == a.place_open(town)
+    assert combat.released(real, "Henesys")
 
 
 # ------------------------------------------------------------------ items in the game (availability.item_open)
@@ -501,8 +558,9 @@ def test_items_in_the_game_on_the_real_kb(real):
     name = {e["name"]: k for k, e in real.entities.items() if e["category"] == "item"}
     for n in ("Red Potion", "Snail Shell", "Apple", "Gloves Attack Scroll: Lesser", "Elixir", "Green Skullcap"):
         assert a.item_open(name[n]), n
-    for n in ("Return Scroll to Orbis", "Dark Jr. Yeti Skin", "Firebomb Flame", "Cerebes Tooth"):
-        assert not a.item_open(name[n]), n
+    if not a.place_open("Orbis") and not a.place_open("El Nath"):        # Ossyria not out: its items aren't either
+        for n in ("Return Scroll to Orbis", "Dark Jr. Yeti Skin", "Firebomb Flame", "Cerebes Tooth"):
+            assert not a.item_open(name[n]), n
 
 
 # ------------------------------------------------------------------ 26: guide captions
@@ -618,15 +676,21 @@ def test_scraper_writes_one_entity_per_line(tmp_path):
 
 @needs_kb
 def test_real_level_digest_lists_only_monsters_a_player_can_train_on(real):
+    from maplehelper import availability
+    a = availability.of(real)
+    shut = [w for w in ("Orbis", "El Nath") if not a.place_open(w)] + (["Ludibrium"] if not a.place_open("Orbis") else [])
     for lv in range(1, 71):
         rows = [r.split(" | ") for r in real.level_digest(lv).split("\n")[1:]]
         names = [r[0] for r in rows]
         assert not any(combat.special_monster(n) for n in names), lv
         assert len(names) == len(set(names)) or all(r[4] for r in rows if names.count(r[0]) > 1), lv
-        assert not any(w in r[4] for r in rows for w in ("Orbis", "El Nath", "Ludibrium")), lv
-    # the maps as names, not glued to their street ("Drake's Meal Table Dungeon"); the Hollow's boss is out
-    assert "Drake's Meal Table · Dungeon" in real.level_digest(50) and "Meal Table Dungeon" not in real.level_digest(50)
-    assert "Rotten Mushmom" not in real.level_digest(60)
+        assert not any(w in r[4] for r in rows for w in shut), lv
+    # the maps as names, not glued to their street ("Drake's Meal Table Dungeon", KB-21); the Hollow's boss is out
+    # while the guide keeps the Hollow closed (KB-1)
+    d50 = real.level_digest(50)
+    assert "Meal Table Dungeon" not in d50 and ("Drake's Meal Table" not in d50 or "Drake's Meal Table · Dungeon" in d50)
+    if "Forgotten Hollow" in a.closed_areas:
+        assert "Rotten Mushmom" not in real.level_digest(60)
 
 
 @needs_kb
@@ -639,13 +703,35 @@ def test_real_shared_and_dropped_aliases(real):
 
 @needs_kb
 def test_real_drops_of_duplicate_named_items(real):
-    assert "item/1088" in real.monster_drops("monster/24") and "item/911" not in real.monster_drops("monster/24")
+    """Iron Hog's "Blue Moon / Lv 50" is the Lv 50 top (item/1088), not the Lv 40 earring of the same name: on every
+    monster page, a drop line whose name several items share is the item of the level written under it."""
+    shared = {}
+    for k, e in real.entities.items():
+        if e["category"] == "item":
+            shared.setdefault(e["name"], []).append(k)
+    checked = 0
+    for k, e in real.entities.items():
+        if e["category"] != "monster":
+            continue
+        lines = real.page(k).split("\n")
+        lv = {lines[i].strip(): int(m.group(1)) for i in range(len(lines) - 1)
+              if len(shared.get(lines[i].strip(), [])) > 1 and (m := re.match(r"Lv (\d+)\b", lines[i + 1]))}
+        for item in real.monster_drops(k):
+            if real.get(item)["name"] in lv:
+                checked += 1
+                assert real.get(item)["props"].get("Level Requirement") == lv[real.get(item)["name"]], (k, item)
+    assert checked                                     # the KB still has such drops, so the rule is exercised
 
 
 @needs_kb
 def test_real_instant_shop_answer_names_the_citizen_grade(real):
-    a = quick.answer("who sells Gloves Attack Scroll: Lesser", real, t)
-    assert a and "Guardian of the Village" in a.text
+    # "Gloves Attack Scroll: Lesser ... Guardian of the Village +": whichever items a citizen grade sells tonight
+    from maplehelper import tables
+    graded = [r for r in tables.generate(real)["shops"] if r["rank"]][:10]
+    assert graded
+    for r in graded:
+        a = quick.answer(f"who sells {r['item']}", real, t)
+        assert a and r["rank"] in a.text, r["item"]
 
 
 def test_item_page_droppers_not_in_the_game_are_marked(tmp_path):
@@ -683,11 +769,13 @@ def test_an_area_the_guide_calls_closed_is_closed_with_its_streets(real):
     out, while the rest of Victoria Island (whose towns the Hollow's guide also names) stays in."""
     from maplehelper import availability, combat
     o = availability.of(real)
-    if "Forgotten Hollow" not in o.closed_areas:
-        pytest.skip("the release guide no longer calls Forgotten Hollow closed")
-    assert not o.place_open("Forgotten Hollow") and o.place_open("Ellinia") and o.place_open("Henesys")
-    assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
+    # whatever the guide closes tonight is closed (no skip once it opens the Hollow: the nightly must still check
+    # that its towns and monsters stay in)
+    assert all(not o.place_open(area) for area in o.closed_areas)
+    assert o.place_open("Ellinia") and o.place_open("Henesys")
     assert all(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Blue Snail", "Ligator"))
+    if "Forgotten Hollow" in o.closed_areas:
+        assert not any(o.monster_key_open(m.key) for m in combat.monsters(real) if m.name in ("Myewood", "Sporewood"))
 
 
 @needs_kb
