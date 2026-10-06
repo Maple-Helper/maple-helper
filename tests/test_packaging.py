@@ -65,6 +65,15 @@ def test_only_the_publish_jobs_wait_for_each_other():
     assert nightly["concurrency"]["group"] != "release-assets"
 
 
+def test_release_kb_job_retries_while_the_nightly_re_uploads():
+    """The kb job is outside the publish group: a download mid --clobber found no kb.zip (the seed went into the
+    installers) or a mismatched pair (review PLT-5). It retries, and takes the seed only if no manifest was seen."""
+    steps = _workflow("release.yml")["jobs"]["kb"]["steps"]
+    run = next(s for s in steps if s.get("name") == "Get the knowledge base")["run"]
+    assert "for i in 1 2 3 4 5 6" in run and "sha256sum -c --status" in run and "--clobber" in run
+    assert run.index('if [ -z "$seen" ]') < run.index("gh release download kb-seed")
+
+
 def test_release_verifies_downloads_on_a_rerun_too():
     steps = _workflow("release.yml")["jobs"]["publish"]["steps"]
     verify = next(s for s in steps if s.get("name") == "Verify what players will download")

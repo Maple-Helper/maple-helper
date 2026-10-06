@@ -72,12 +72,24 @@ jobs:
       - name: Get the knowledge base
         run: |
           mkdir -p kb-in dist-kb
-          gh release download --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in 2>/dev/null || true
-          if [ ! -f kb-in/kb.zip ]; then
+          # the nightly may be re-uploading both files right now (--clobber deletes each, then uploads it), and this
+          # job is outside its concurrency group: retry until both are there and agree before taking the seed
+          ok() { [ -f kb-in/kb.zip ] && [ -f kb-in/kb-manifest.json ] && echo "$(python -c 'import json; print(json.load(open("kb-in/kb-manifest.json"))["sha256"])' 2>/dev/null)  kb-in/kb.zip" | sha256sum -c --status -; }
+          seen=""
+          for i in 1 2 3 4 5 6; do
+            gh release download --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in --clobber 2>/dev/null || true
+            if [ -f kb-in/kb-manifest.json ]; then seen=1; fi
+            if ok || [ "$i" = 6 ]; then break; fi
+            echo "The published KB is not complete yet (attempt $i), retrying in 20 s"
+            sleep 20
+          done
+          if [ -z "$seen" ]; then
             # no release yet: a hand-curated seed (prerelease "kb-seed") carries what a fresh scrape can't
             # rebuild in CI, e.g. the Hebrew name dictionary (aliases.json) made with Claude
-            gh release download kb-seed --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in 2>/dev/null || true
+            gh release download kb-seed --repo "$GITHUB_REPOSITORY" --pattern kb.zip --pattern kb-manifest.json --dir kb-in --clobber 2>/dev/null || true
             if [ -f kb-in/kb.zip ]; then echo "Using the kb-seed release"; fi
+          elif [ ! -f kb-in/kb.zip ]; then
+            echo "::error::the published kb-manifest.json has no kb.zip next to it"; exit 1
           fi
           if [ -f kb-in/kb.zip ]; then
             # carry the published KB forward unchanged (its manifest already points at latest/download)
