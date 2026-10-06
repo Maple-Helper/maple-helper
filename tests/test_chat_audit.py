@@ -629,3 +629,37 @@ def test_an_api_key_error_names_the_key_not_a_sign_in(overlay):
     assert shown[:3] == [ov.t.p("err_not_logged_in", provider), ov.t.p("err_usage_limit", provider),
                          ov.t.p("err_cli_outdated", provider)]
     assert shown[3:] == [ov.t("err_not_logged_in_key"), ov.t("err_usage_limit_key"), ov.t.p("err_cli_outdated", provider)]
+
+
+def test_a_menu_row_left_by_the_mouse_shows_its_text_again():
+    """Moving the mouse from row to row left the old row's label white on the white panel: its colour came from
+    the row's "active" property, and only the row was re-polished (the owner's report, 0.10.0)."""
+    from PySide6.QtCore import QEvent
+    from PySide6.QtGui import QColor, QEnterEvent
+    from PySide6.QtWidgets import QApplication
+    from maplehelper.ui import theme
+    from maplehelper.ui.widgets import SplitMenu
+    app = QApplication.instance()
+    old = app.styleSheet()
+    theme.set_mode("light")
+    app.setStyleSheet(theme.stylesheet("Rubik", 14))
+    try:
+        menu = SplitMenu()
+        menu.add_row("edit", "Edit character", lambda: None)
+        menu.add_row("delete", "Delete character", lambda: None)
+        a, b = menu.actions()
+        rows = [x.defaultWidget().findChild(QObject, "MenuRow") for x in (a, b)]
+        label = rows[0].findChild(QObject, "MenuRowText")
+        # the mouse's order: the menu's hovered, then the row's Enter; on to the next row: Leave, hovered, Enter
+        menu.hovered.emit(a)
+        app.sendEvent(rows[0], QEnterEvent(rows[0].rect().center(), rows[0].rect().center(),
+                                           rows[0].rect().center()))
+        assert label.palette().color(label.foregroundRole()) == QColor(theme.ON_ORANGE)
+        app.sendEvent(rows[0], QEvent(QEvent.Leave))
+        menu.hovered.emit(b)
+        app.sendEvent(rows[1], QEnterEvent(rows[1].rect().center(), rows[1].rect().center(),
+                                           rows[1].rect().center()))
+        assert label.palette().color(label.foregroundRole()) != QColor(theme.ON_ORANGE)
+        menu.close()
+    finally:
+        app.setStyleSheet(old)
