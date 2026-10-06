@@ -912,16 +912,25 @@ _HYPOTHETICAL = re.compile(r"\b(?:when|once|if|until|after|before)\b|(?:^|\s)(?:
 # another character's level ("im lvl 15 on my other char", "my friend is level 40"): not this profile's (audit AI-15)
 _SOMEONE_ELSE = re.compile(r"\b(?:alts?|other (?:char\w*|toon)|another (?:char\w*|toon)|friends?|second char\w*)\b|"
                            r"דמות (?:אחרת|נוספת|שנייה)|(?<![א-ת])ה?חבר(?:ה|ים|ות)?(?:\s+שלי)?(?![א-ת])", re.I)
+# friends as company ("played with friends", "עם חבר"): the level is still the player's (review CORE-7)
+_WITH_FRIEND = re.compile(r"(?:\bwith|(?<![א-ת])עם)\s+(?:my\s+|a\s+)?(?:friends?\b|ה?חבר(?:ה|ים|ות)?(?:\s+שלי)?"
+                          r"(?![א-ת]))", re.I)
+_CLAUSE_END = ",.;!?\n"
 
 
 def stated_level(text: str) -> int | None:
     """A level the player states about themselves ("עליתי ללבל 16", "I'm level 16"); never a plan ("what should
-    I do once I'm level 30?" once set the profile to 30)."""
-    if _HYPOTHETICAL.search(text) or _SOMEONE_ELSE.search(text):
+    I do once I'm level 30?" once set the profile to 30), nor another character's in the same clause."""
+    if _HYPOTHETICAL.search(text):
         return None
     for pat in _LEVEL_PATTERNS:
         m = re.search(pat, text, re.I)
         if m and 1 <= int(m.group(1)) <= 250:
+            # only the clause that says it: "I'm level 30, played with friends all day" is the player's
+            start = max(text.rfind(c, 0, m.start()) for c in _CLAUSE_END) + 1
+            end = min((i for i in (text.find(c, m.end()) for c in _CLAUSE_END) if i >= 0), default=len(text))
+            if _SOMEONE_ELSE.search(_WITH_FRIEND.sub(" ", text[start:end])):
+                return None
             return int(m.group(1))
     return None
 

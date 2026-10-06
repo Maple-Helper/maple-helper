@@ -286,6 +286,11 @@ def test_profile_levels_out_of_range_and_other_characters():
     assert brain.stated_level("im lvl 15 on my other char") is None
     assert brain.stated_level("I'm level 10 and my friend is level 40") is None
     assert brain.stated_level("I'm level 16") == 16
+    # friends who are only company, or in another sentence, take nothing from the player's own level (review CORE-7)
+    assert brain.stated_level("I'm level 30, played with friends all day") == 30
+    assert brain.stated_level("אני רמה 30 עם חבר") == 30
+    assert brain.stated_level("my friend is level 40. I'm level 10") == 10
+    assert brain.stated_level("אני רמה 30 בדמות אחרת") is None
 
 
 @pytest.mark.parametrize("q", ["who's Grendel", "can't find Mano", "sauna robe stats", "2nd job warrior level?"])
