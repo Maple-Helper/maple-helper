@@ -32,9 +32,10 @@ BUILD_WORDS = re.compile(r"סקיל|בילד|(?<![A-Za-z])SP(?![A-Za-z])|\bskill
 DETAIL_WORDS = re.compile(r"פרטים|מידע|(?<![א-ת])(?:ספר|תספר|תגיד|ספרי)\s+לי|\b(?:details?|info|about|tell me)\b", re.I)
 DROP_WORDS = re.compile(r"דרופ|מפיל|(?<![א-ת])(?:מה|איזה|אילו)\s+(?:\S+\s+){0,2}נופל|שנופל|drops?\b|loot", re.I)
 # a comparison or a list ("Mano, Mushmom, King Slime and Jr. Balrog", "הרמיט או צ'יף בנדיט"): the pages of up to
-# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages
-LIST_WORDS = re.compile(r",|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|בין|השוו\w*|"
-                        r"השוואה|ההבדל|הבדל)(?![א-ת])|(?:^|\s)ו(?=[א-ת]{2})", re.I)
+# LIST_MENTIONS entities are pre-fetched, each cut shorter, so the prompt stays about as long as for MENTIONS pages.
+# A list's commas (two: "hi, where is mano" is none) and a glued "and" after a word ("ויזארד אש" is no list)
+LIST_WORDS = re.compile(r",[^,]*,|\b(?:vs|versus|or|and|compar\w*|between|differences?)\b|(?<![א-ת])(?:או|לעומת|מול|"
+                        r"בין|השוו\w*|השוואה|ההבדל|הבדל)(?![א-ת])|(?<=\S\s)ו(?=[א-ת]{2})", re.I)
 MENTIONS, LIST_MENTIONS = 4, 8
 PAGE_CHARS = 2500          # a pre-fetched page, MENTIONS of them at most at full length
 MIN_PAGE_CHARS = 800       # a page cut for a long list still keeps its head: level, HP, EXP, where

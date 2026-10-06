@@ -161,6 +161,9 @@ def test_a_comparison_may_name_more_entities_each_page_shorter():
     assert brain.mention_cap("compare mano, mushmom, king slime, jr balrog and crimson balrog") == brain.LIST_MENTIONS
     assert brain.mention_cap("Ilbi vs Subi") == brain.mention_cap("הרמיט או צ'יף בנדיט") == brain.LIST_MENTIONS
     assert brain.mention_cap("how much hp does mano have") == brain.mention_cap("כמה חיים יש למאנו") == brain.MENTIONS
+    # one comma, a word that starts with vav: no list
+    assert brain.mention_cap("hi, where is mano") == brain.mention_cap("ויזארד אש") == brain.MENTIONS
+    assert brain.mention_cap("מאנו ומושמום") == brain.LIST_MENTIONS
     assert brain.page_chars(1) == brain.page_chars(brain.MENTIONS) == brain.PAGE_CHARS
     assert brain.page_chars(8) * 8 <= brain.PAGE_CHARS * brain.MENTIONS
 
