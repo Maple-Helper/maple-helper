@@ -328,7 +328,8 @@ def quest(kb, key: str) -> Quest | None:
         q.cycle = ""
     # "Asking After Athena Pierce" is the one whose page names no prerequisite: its First Greeting stayed daily
     # (audit GAM-7)
-    if q is not None and q.cycle and name.startswith("First Greeting with ") and             name.removeprefix("First Greeting with ") in _asked_after(kb):
+    if q is not None and q.cycle and (name.startswith("First Greeting with ")
+                                      and name.removeprefix("First Greeting with ") in _asked_after(kb)):
         q.cycle = ""
     return q
 
