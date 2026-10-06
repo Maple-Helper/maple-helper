@@ -1553,7 +1553,7 @@ class SettingsDialog(GlassDialog):
         return self.mics[i - 1] if i > 0 else None
 
     def _test_mic(self):
-        """Record 2.5 s from the chosen microphone and say whether it hears the player."""
+        """Record 2 s from the chosen microphone (what "Listening for 2 seconds" says) and say whether it hears the player."""
         from .. import voice
         self.mic_test.setEnabled(False)
         self.mic_result.setText(bidi.plain(self.t("mic_testing"), self.t.rtl))
@@ -1564,7 +1564,7 @@ class SettingsDialog(GlassDialog):
             try:
                 import numpy as np
                 import sounddevice as sd
-                audio = sd.rec(int(2.5 * voice.SAMPLE_RATE), samplerate=voice.SAMPLE_RATE, channels=1,
+                audio = sd.rec(int(2 * voice.SAMPLE_RATE), samplerate=voice.SAMPLE_RATE, channels=1,
                                dtype="float32", device=device)
                 sd.wait()
                 level = float(np.sqrt(np.mean(np.square(audio))))
