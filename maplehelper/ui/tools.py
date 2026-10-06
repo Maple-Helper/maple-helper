@@ -2815,7 +2815,8 @@ class ToolsDialog(GlassDialog):
         self._cell("exp_h", self._num(sm.exp_h), "" if sm.exp_h else exp_tip)
         no_mesos = t("grind_tip_no_mesos")
         self._cell("mesos", self._num(sm.mesos, sign=True),
-                   t("grind_tip_mesos", n=f"{sm.mesos:,}") if sm.mesos is not None else no_mesos)
+                   t("grind_tip_mesos_down" if sm.mesos < 0 else "grind_tip_mesos", n=f"{abs(sm.mesos):,}")
+                   if sm.mesos is not None else no_mesos)      # (a loss read "ב--1,250")
         self._cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else
                    (wait if sm.mesos is not None else no_mesos))
         self._cell("net", self._num(sm.net, sign=True), t("grind_tip_net") if sm.net is not None else

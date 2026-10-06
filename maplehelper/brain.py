@@ -178,8 +178,8 @@ REPLY_RULES = """<reply_rules>
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
-    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin ברמה 31."
-  * Jobs and classes in English, always ("Warrior", "Mage", "Assassin"), never "וריור" or "מג'".
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Magician. לא מתאים לכם: אתם Assassin ברמה 31."
+  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'".
   * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
@@ -317,7 +317,7 @@ ENGLISH_WORDS = {"which", "what", "where", "who", "how", "why", "when", "whats",
 def reply_language(question: str, ui_lang: str = "he") -> str:
     """The answer's language: the question's (Hebrew letters: Hebrew, Latin ones: English), else the app's.
     Hebrew in the context (earlier session summaries, profile notes) made an English player's answer Hebrew."""
-    if re.search(r"[֐-׿]", question):
+    if re.search(r"[\u0590-\u05FF]", question):
         return "Hebrew"
     bare = _FOCUS_TAG.sub("", question)
     # a name alone ("SAUNA ROB") is no English sentence: the app's language (it answered a Hebrew player in English);
@@ -528,9 +528,19 @@ _BARE_LEVEL = re.compile(r"(?<![\u0590-\u05FF])(אתם|אתן|אתה|את|אני
                          r"(?![\d%.,:]\d|\d|%)(?!\s*(?!ו|עכשיו|כרגע|אז(?![\u0590-\u05FF]))[\u0590-\u05FF])")
 # "STR/DEX/INT/LUK +1": one bonus per stat, as the cards write them (a slashed run broke across lines, mirrored)
 _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\d+)")
-# the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner)
-_LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])(?:בלבלים|לבלים|בלבל|ללבל|הלבל|מלבל|לבל)(?![\u0590-\u05FF])")
+# the AI's "לבל" (gamer slang) in a Hebrew answer: the app says "רמה" (the owner). Any prefix ("ולבל", "מהלבל",
+# "כשהלבל"); a bare "בלבל" only before a number, since it is also the verb "confused" ("זה בלבל אותי")
+_LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])((?:ו|ש|כש|וכש)?(?:ה|מה|לה|בה|מ|ל)?|(?:ו|ש|כש|וכש)?ב(?=לבל\s*-?\d|"
+                         r"לבלים|לבלינג))(לבלים|לבלינג|לבל)([- ]?אפ)?(?![\u0590-\u05FF])")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+
+
+def _level_word(m: re.Match) -> str:
+    pre, word, up = m.groups()
+    if up or word == "לבלינג":                          # "לבל אפ" / "לבלינג": the climb, not one level
+        rest = "רמה" if up else "רמות"
+        return (pre[:-1] + "עליית ה" + rest) if pre.endswith("ה") else pre + "עליית " + rest
+    return pre + ("רמות" if word == "לבלים" else "רמה")
 
 
 def drop_keys(text: str) -> str:
@@ -538,13 +548,12 @@ def drop_keys(text: str) -> str:
     named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
     text = _KEY_IN_TEXT.sub("", text)
     text = _BARE_LEVEL.sub(r"\1 ברמה \2", text)
-    text = _LEVEL_WORD.sub(lambda m: {"לבל": "רמה", "בלבל": "ברמה", "ללבל": "לרמה", "הלבל": "הרמה", "מלבל": "מרמה",
-                                      "לבלים": "רמות", "בלבלים": "ברמות"}[m.group(0)], text)
+    text = _LEVEL_WORD.sub(_level_word, text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
-_HEBREW = re.compile(r"[֐-׿]")
+_HEBREW = re.compile(r"[\u0590-\u05FF]")
 # the model talking to itself after its tool calls, seen live at the start of a Hebrew answer: "This quest is in Kerning
 # City (Victoria Island) - good, in game. Now for answer, I'll mention Stranger's Identity as doable now, ..."
 _NARRATION = re.compile(r"\b(?:I'll|I will|I'm going to|I am going to|I need to|I should|I can see|Let me|Let's|"
