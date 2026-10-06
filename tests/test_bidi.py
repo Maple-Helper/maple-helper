@@ -225,3 +225,15 @@ def test_a_hebrew_prefix_hyphen_never_ends_a_line():
     out = bidi.isolate_ltr_runs("רק מחיר החנות עלה מ-7,000 ל-10,500 mesos")
     assert "מ-\u2060" in out and "ל-\u2060" in out
     assert "\u2060" not in bidi.isolate_ltr_runs("Lv. 20 - Warrior")          # a dash, not a prefix
+
+
+@pytest.mark.parametrize("sentence,old,new", [("הסיכוי עלה מ-10% → 25%.", "10%", "25%"),
+                                              ("הנזק השתנה COT1 -> COT2 בבילד", "COT1", "COT2"),
+                                              ("ה-DEX עלה (30 → 33) ברמה הזו", "30", "33")])
+def test_an_old_to_new_arrow_reads_left_to_right(sentence, old, new):
+    """"מ-10% → 25%" as two runs showed "25% → 10%": the arrow pointed at the old value (the audit, HEB-7)."""
+    shown = bidi.isolate_ltr_runs(sentence)
+    assert shown.count(bidi.LRI) == 1
+    x = glyph_x(shown)
+    arrow = shown.index("→" if "→" in shown else "->")
+    assert x[shown.index(old)] < x[arrow] < x[shown.index(new)]

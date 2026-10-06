@@ -103,10 +103,25 @@ def direction(text: str) -> str:
     return "rtl" if words and rtl_words / len(words) >= 0.4 else "ltr"
 
 
+# "מ-10% → 25%", "COT1 -> COT2": the two values and the arrow as one left-to-right block, as sitedata.change_text
+# writes them. As two runs in a Hebrew line the arrow pointed at the old value ("25% → 10%", read backwards)
+_ARROW_SIDE = rf"(?:[A-Za-z0-9$#]|(?<![{RTL_CHARS}])[+\-])(?:[A-Za-z0-9.,%+\-:$#×/]*[A-Za-z0-9%])?"
+_ARROW = re.compile(rf"(?<![A-Za-z0-9.,%])({_ARROW_SIDE})[ \u00a0]?(→|->)[ \u00a0]?({_ARROW_SIDE})(?![A-Za-z0-9%])")
+
+
+def _arrow_block(m: re.Match) -> str:
+    return f"{LRI}{m.group(1)}\u00a0{m.group(2)}\u00a0{m.group(3)}{PDI}"
+
+
+def _block_arrows(text: str) -> str:
+    return _ARROW.sub(_arrow_block, text) if "→" in text or "->" in text else text
+
+
 def isolate_ltr_runs(text: str) -> str:
     """Wrap English/number runs in LRE…PDF. Only for RTL paragraphs.
     A name already isolated as one block (ltr_block), or a KB name the runs would split (set_names), is kept
-    as one block."""
+    as one block, and so is an "old → new" pair."""
+    text = "".join(part if part.startswith(LRI) else _block_arrows(part) for part in _ISOLATED.split(text))
     if _NAMES is not None:
         text = "".join(part if part.startswith(LRI) else _block_names(part) for part in _ISOLATED.split(text))
     if LRI in text:
