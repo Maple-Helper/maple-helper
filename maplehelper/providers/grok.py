@@ -486,7 +486,7 @@ def parse_models(output: str) -> list[tuple[str, str]]:
     for line in output.splitlines():
         m = re.match(r"\s*[*-]\s+([\w.:-]+)", line)
         if m:
-            out.append((m.group(1), m.group(1)))
+            out.append((m.group(1), base.model_name(m.group(1))))    # shown as "Grok 4.6", like the others
     return out
 
 

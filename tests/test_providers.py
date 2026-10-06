@@ -1149,7 +1149,7 @@ def test_the_ai_is_told_what_it_runs_on(kb):
     b = Brain(kb, provider="grok")
     assert b.system_prompt().endswith("You run on Grok.")
     b.last_model = "grok-4.7"
-    assert b.system_prompt().endswith("You run on Grok, model grok-4.7.")
+    assert b.system_prompt().endswith("You run on Grok, model Grok 4.7.")   # PRV-19: readable
     b.provider = "claude"
     b.model = "sonnet"
     assert b.system_prompt().endswith("You run on Claude, model sonnet.")
