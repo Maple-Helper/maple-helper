@@ -538,18 +538,6 @@
    "p": "The table below tracks what players report getting from Companion's Magic Box; add your own items to it on the item page."
   },
   {
-   "h2": "Possible Contents"
-  },
-  {
-   "p": "Community sourced"
-  },
-  {
-   "p": "Items players have received from opening this. Record the count range you've seen; others can vote on it."
-  },
-  {
-   "p": "Loading…"
-  },
-  {
    "p": "[[img:3d13264659dfce.png]]\nCompanion's Magic Box"
   },
   {
@@ -632,5 +620,5 @@
   }
  ],
  "source": "https://meowdb.com/msclassic/guides/kerning-city-party-quest-kpq-guide",
- "hash": "8b21d29077a3"
+ "hash": "823e6a9fe384"
 }

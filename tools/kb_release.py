@@ -25,6 +25,8 @@ from pathlib import Path
 REPO = "Maple-Helper/maple-helper"
 CATEGORIES = ["monster", "item", "map", "quest", "npc", "skill", "class", "guide", "shop", "crafting", "formula"]
 MIN_KEEP_RATIO = 0.9   # an update may not lose more than 10% of the previous entities
+MAX_REMOVED = 25       # ...nor more than this many at once (a refresh drops only what left the sitemap)
+MIN_PROPS_RATIO = 0.9  # ...nor the stats (JSON-LD properties) of more than 10% of a category's entries
 CHANGELOG = "changelog.json"
 NEWS = "news.json"           # MapleStory Classic news (tools/scrape_news.py); optional, but never broken
 CHANGELOG_KEEP = 30    # updates kept, so a player who skipped a few still sees everything they missed
@@ -69,9 +71,11 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
     if count < min_entities:
         problems.append(f"only {count} entities (minimum {min_entities})")
     if previous_index and previous_index.exists():
-        prev = len(json.loads(previous_index.read_text(encoding="utf-8")))
+        before = [e for e in json.loads(previous_index.read_text(encoding="utf-8")) if isinstance(e, dict)]
+        prev = len(before)
         if count < prev * MIN_KEEP_RATIO:
             problems.append(f"{count} entities, down from {prev} (more than {100 - MIN_KEEP_RATIO * 100:.0f}% lost)")
+        problems += _lost_from(before, index)
 
     seen = {e.get("category") for e in index if isinstance(e, dict)}
     missing_cats = [c for c in categories if c not in seen]
@@ -89,6 +93,12 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
             missing_pages.append(key)
     if missing_pages:
         problems.append(f"{len(missing_pages)} entries without a page, e.g. {', '.join(missing_pages[:5])}")
+    # a page with no entry is something the site removed: the AI's grep would still find it
+    keys = {e.get("key") for e in index if isinstance(e, dict)}
+    orphans = sorted(f"{p.parent.name}/{p.stem}" for p in (kb / "pages").glob("*/*.md")
+                     if f"{p.parent.name}/{p.stem}" not in keys)
+    if orphans:
+        problems.append(f"{len(orphans)} pages without an entry, e.g. {', '.join(orphans[:5])}")
 
     guide = kb / "pages" / f"{RELEASE_GUIDE}.md"
     if RELEASE_GUIDE not in {e.get("key") for e in index if isinstance(e, dict)} or not guide.exists():
@@ -108,7 +118,6 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
         except InvalidKB as e:
             problems.append(str(e))
 
-    keys = {e.get("key") for e in index if isinstance(e, dict)}
     for name in SECTIONS:
         problems += _section_problems(kb, name, keys)
 
@@ -127,6 +136,28 @@ def validate(kb: Path, previous_index: Path | None = None, min_entities: int = 1
     if problems:
         raise InvalidKB("; ".join(problems))
     return {"count": count, "categories": sorted(seen)}
+
+
+def _lost_from(before: list[dict], index: list) -> list[str]:
+    """What a broken scrape loses that the counts don't show: more than a few entities gone at once (a night of site
+    hiccups dropped 80 quests and NPCs within the 10% allowance), or the stats of a whole category (a layout change
+    that empties every JSON-LD property still leaves every entity in place)."""
+    problems = []
+    now = {e.get("key"): e for e in index if isinstance(e, dict)}
+    gone = sorted(str(e.get("key")) for e in before if e.get("key") not in now)
+    if len(gone) > MAX_REMOVED:
+        problems.append(f"{len(gone)} entities removed at once (at most {MAX_REMOVED}), e.g. {', '.join(gone[:5])}; "
+                        "if the site really removed them, publish this KB by hand")
+    for cat in CATEGORIES:
+        had = [e for e in before if e.get("category") == cat]
+        has = [e for e in now.values() if e.get("category") == cat]
+        if not had or not has:
+            continue
+        was = sum(1 for e in had if e.get("props")) / len(had)
+        share = sum(1 for e in has if e.get("props")) / len(has)
+        if was and share < was * MIN_PROPS_RATIO:
+            problems.append(f"{cat}: {share:.0%} of entries have stats, down from {was:.0%}")
+    return problems
 
 
 def validate_community(data, keys: set[str]) -> None:
@@ -314,7 +345,8 @@ def diff_kb(old: Path, new: Path) -> dict:
             if mesos:
                 c["mesos"] = mesos
             changed.append(c)
-        elif a[k].get("hash") != b[k].get("hash"):
+        elif a[k].get("hash") != b[k].get("hash") and a[k].get("parser", 1) == b[k].get("parser", 1):
+            # (a page re-parsed by a newer scraper changed only in our own output: not news for the player)
             updated.append(_brief(b[k]))
     # the list pages' changes (a skill's COT change, a pet's lifespan, a class's tier) land on their entries, so the
     # patch notes and the "Updated" chips show them like any stat change
@@ -370,12 +402,15 @@ def _graded(cell: dict) -> str | None:
 
 def section_changes(old: Path, new: Path) -> list[dict]:
     """Changed rows ({key, name, category, props: [[field, old, new]]}) from the list pages' files. A file the old
-    KB didn't have yet is where the list starts, not news: its first publish lists nothing."""
+    KB didn't have yet is where the list starts, not news: its first publish lists nothing. A row the new file no
+    longer has lists its old values with no new one (a removed pet, skill change or tier row used to vanish
+    without a note)."""
     out: list[dict] = []
     a, b = _section(old, "skill_changes.json"), _section(new, "skill_changes.json")
     if a is not None and b is not None:
         ra, rb = _rows(a, "skills"), _rows(b, "skills")
-        for k, r in rb.items():
+        for k in sorted(ra.keys() | rb.keys()):
+            r = rb.get(k) or {}
             was = {c.get("field"): c for c in (ra.get(k) or {}).get("changes") or []}
             props = []
             for c in r.get("changes") or []:
@@ -384,33 +419,38 @@ def section_changes(old: Path, new: Path) -> list[dict]:
                     props.append([c.get("field"), c.get("before"), c.get("after")])      # a new change record
                 elif old_c.get("after") != c.get("after"):
                     props.append([c.get("field"), old_c.get("after"), c.get("after")])  # its new value moved
+            now = {c.get("field") for c in r.get("changes") or []}
+            props += [[f, c.get("after"), None] for f, c in was.items() if f not in now]   # a record taken back
             if props:          # (a change told only in words, a skill that moved job, has no value to list)
-                out.append({"key": k, "name": r.get("name") or k, "category": "skill", "props": props})
+                out.append({"key": k, "name": r.get("name") or (ra.get(k) or {}).get("name") or k,
+                            "category": "skill", "props": props})
     a, b = _section(old, "pets.json"), _section(new, "pets.json")
     if a is not None and b is not None:
         ra, rb = _rows(a, "pets"), _rows(b, "pets")
         fields = (("lifespan", "Lifespan"), ("hunger", "Hunger"), ("commands_text", "Commands to Lv 30"),
                   ("availability", "Cash Shop"))
-        for k, r in rb.items():
-            was = ra.get(k) or {}
+        for k in sorted(ra.keys() | rb.keys()):
+            r, was = rb.get(k) or {}, ra.get(k) or {}
             props = [[label, was.get(f), r.get(f)] for f, label in fields if was.get(f) != r.get(f)]
             if props:
-                out.append({"key": k, "name": r.get("name") or k, "category": "item", "props": props})
+                out.append({"key": k, "name": r.get("name") or was.get("name") or k, "category": "item",
+                            "props": props})
     a, b = _section(old, "tiers.json"), _section(new, "tiers.json")
     if a is not None and b is not None:
         base = lambda r: r.get("key") if not r.get("variant") else None  # noqa: E731  (the class's own row)
         ra, rb = _rows(a, "rows", base), _rows(b, "rows", base)
-        for k, r in rb.items():
-            if k is None:
-                continue
+        for k in sorted((ra.keys() | rb.keys()) - {None}):
+            r = rb.get(k) or {}
             was = (ra.get(k) or {}).get("cells") or {}
+            cells = r.get("cells") or {}
             props = []
-            for col, cell in (r.get("cells") or {}).items():
-                old_c = was.get(col) or {}
+            for col in list(cells) + [c for c in was if c not in cells]:
+                old_c, cell = was.get(col) or {}, cells.get(col) or {}
                 if (old_c.get("grade"), old_c.get("value")) != (cell.get("grade"), cell.get("value")):
                     props.append([f"{col} (community tier list)", _graded(old_c), _graded(cell)])
             if props:
-                out.append({"key": k, "name": r.get("name") or k, "category": "class", "props": props})
+                out.append({"key": k, "name": r.get("name") or (ra.get(k) or {}).get("name") or k,
+                            "category": "class", "props": props})
     return out
 
 

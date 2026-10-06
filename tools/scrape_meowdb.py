@@ -1,8 +1,8 @@
 """Download the MapleStory Classic knowledge base from NiaMeowDB (meowdb.com).
 
-Used with permission from the NiaMeowDB team. Polite by design: a single
-worker, a fixed delay between requests, and resume support so a re-run only
-fetches what is missing.
+Used with permission from the NiaMeowDB team. Polite by design: three workers,
+each pausing 1 s between requests, the site's Retry-After honored, and resume
+support so a re-run only fetches what is missing.
 
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import html
+import http.client
 import json
 import re
 import sys
@@ -39,6 +40,9 @@ SITEMAP = f"{BASE}/msclassic/sitemap.xml"
 USER_AGENT = "MapleHelper-KB/0.1 (MapleStory Classic companion app; used with NiaMeowDB permission)"
 DELAY_SECONDS = 1.0
 WORKERS = 3
+# how a page is turned into text: bump it with every change to main_text/scrape_one's output, so the patch notes
+# don't call every re-parsed page "updated" (the SITE_TOOLS change did: 186 monsters "updated", nothing new)
+PARSER_VERSION = 2
 
 # sitemap path prefix -> (category name, path depth that marks an entity page)
 CATEGORIES = {
@@ -72,12 +76,22 @@ def fetch(url: str, binary: bool = False, retries: int = 3):
             if e.code == 404:
                 return None
             if e.code == 429 or e.code >= 500:
-                time.sleep(10 * (attempt + 1))
+                time.sleep(retry_after(e) or 10 * (attempt + 1))
                 continue
             raise
-        except (urllib.error.URLError, TimeoutError):
+        except (http.client.HTTPException, OSError):
+            # a dropped connection, a reset or a cut-off answer is a hiccup like a timeout: urllib wraps only the
+            # request's errors in URLError, so one RemoteDisconnected used to abort the whole night
             time.sleep(5 * (attempt + 1))
     return None
+
+
+def retry_after(e: urllib.error.HTTPError) -> int | None:
+    """The wait the site asked for (seconds, at most 2 minutes); None when it didn't say."""
+    try:
+        return min(120, max(1, int((e.headers or {}).get("Retry-After") or "")))
+    except (TypeError, ValueError):
+        return None
 
 
 LASTMOD: dict[str, str] = {}
@@ -117,12 +131,21 @@ def json_ld(page: str) -> list[dict]:
 
 
 # rows of the site's own tools, not game data: the monster page's "Check your build against <monster>" panel
-SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for ")
+SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for "
+                        r"|Ad blocked\? |Buy us a coffee|Upvote what you've seen|Items players have personally seen drop")
+# the site's own controls and placeholders, whole lines ("Next →" on 3,917 pages, "Log in to sell or buy" on 2,577)
+SITE_LINES = {"Loading...", "Loading…", "Calculate", "Add to watchlist", "Next →", "🐾", "Log in to sell or buy",
+              "Loading leaderboard...", "Loading drops", "Loading community builds...", "Loading community guides..."}
+# ...and at the end of a value line: "Mesos per kill Loading...", "Base 1 Calculate", "no rolls yet Log in to submit"
+SITE_TAILS = re.compile(r" (?:Loading\.\.\.|Loading…|Calculate|Log in to submit)$")
+# the site-wide notice banner ("[ Notice ] Beginner's guide refreshed..."): one text change re-hashed 29 pages
+NOTICE = re.compile(r'<section[^>]*aria-label="Notice".*?</section>', re.S)
 
 
 def main_text(page: str, name: str) -> str:
     """Readable text of the entity's own content, without site navigation and footer."""
     body = re.sub(r"<script.*?</script>|<style.*?</style>|<svg.*?</svg>|<noscript.*?</noscript>", "", page, flags=re.S)
+    body = NOTICE.sub("", body)
     body = re.sub(r"</(div|p|li|tr|h\d|section|table|ul|ol)>|<br\s*/?>", "\n", body)
     body = re.sub(r"</t[dh]>", " | ", body)
     text = html.unescape(re.sub(r"<[^>]+>", " ", body))
@@ -140,6 +163,12 @@ def main_text(page: str, name: str) -> str:
         start = m.end()
     elif name in text:
         start = text.find(name)
+    else:
+        # a guide's name (its headline) is neither its breadcrumb nor its h1: start after the breadcrumb line
+        # ("Home / MS Classic / Guides / Assassin 30-70"), or the whole site menu stays in the page
+        m = re.search(r"^[ \t]*Home / [^\n]*\n", text, re.M)
+        if m:
+            start = m.end()
     if start > 0:
         text = text[start:]
     # Cut the site footer.
@@ -147,9 +176,8 @@ def main_text(page: str, name: str) -> str:
         i = text.find(marker)
         if i > 200:
             text = text[:i]
-    lines = [ln.strip() for ln in text.split("\n")]
-    lines = [ln for ln in lines if ln and ln not in {"Loading...", "Calculate", "Add to watchlist"}
-             and not SITE_TOOLS.match(ln)]
+    lines = [SITE_TAILS.sub("", ln.strip()) for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln and ln not in SITE_LINES and not SITE_TOOLS.match(ln)]
     return "\n".join(lines).strip()
 
 
@@ -176,10 +204,11 @@ def image_candidates(entity: dict, category: str, slug: str, name: str) -> list[
 
 
 def save_image(data: bytes, path: Path) -> bool:
-    """Store as PNG (the site serves some pictures as WebP)."""
+    """Store as PNG (the site serves some pictures as WebP). No Pillow is an error, not a bad picture: the nightly ran
+    without it and threw every new picture away in silence ("pictures added: 0/11")."""
+    import io
+    from PIL import Image
     try:
-        import io
-        from PIL import Image
         Image.open(io.BytesIO(data)).save(path, "PNG")
         return True
     except Exception:
@@ -207,7 +236,7 @@ def props_of(entity: dict) -> dict:
     return props
 
 
-def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None:
+def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str | None = None) -> dict | None:
     page = fetch(url)
     time.sleep(DELAY_SECONDS)
     if not page:
@@ -221,7 +250,8 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
     props = props_of(entity)
     img_file = None
     img_path = KB / "img" / category / f"{slug}.png"
-    if not img_path.exists() or refresh:
+
+    def get_picture():
         # not "url": that is the page's, written below (a loop over "url" put the picture's address in every page a
         # picture was fetched for, and back the next night: ~3,800 pages "updated" twice a week for nothing)
         for img_url in image_candidates(entity, category, slug, name):
@@ -229,6 +259,9 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
             time.sleep(DELAY_SECONDS / 2)
             if data and save_image(data, img_path):
                 break
+    had_picture = img_path.exists()
+    if not had_picture:
+        get_picture()
     if img_path.exists():
         img_file = f"img/{category}/{slug}.png"
     front = {"name": name, "category": category, "url": url, "image": img_file, "props": props,
@@ -238,9 +271,12 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
         md += html.unescape(entity["description"]) + "\n\n"
     md += text + "\n"
     (KB / "pages" / category / f"{slug}.md").write_text(md, encoding="utf-8")
+    digest = hashlib.sha1(md.encode("utf-8")).hexdigest()[:16]
+    if had_picture and refresh and digest != prev_hash:
+        get_picture()       # a refresh renews the picture of a page that changed, not all ~3,800 every Sunday
     return {"key": f"{category}/{slug}", "id": slug, "name": name, "category": category, "url": url,
             "image": img_file, "props": props, "type": entity.get("category"),
-            "lastmod": LASTMOD.get(url, ""), "hash": hashlib.sha1(md.encode("utf-8")).hexdigest()[:16]}
+            "lastmod": LASTMOD.get(url, ""), "hash": digest, "parser": PARSER_VERSION}
 
 
 def write_index(path: Path, entries: list[dict]) -> None:
@@ -252,9 +288,12 @@ def write_index(path: Path, entries: list[dict]) -> None:
 def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None:
     urls = entity_urls()
     index_path = KB / "index.json"
-    index: dict[str, dict] = {}
-    if index_path.exists() and not refresh:
-        index = {e["key"]: e for e in json.loads(index_path.read_text(encoding="utf-8"))}
+    # the copy we have: what a change is measured against, also on a refresh (which counted all 4,161 pages
+    # "changed" and published a new 21 MB KB every Sunday), and what a failed fetch keeps
+    prev: dict[str, dict] = {}
+    if index_path.exists():
+        prev = {e["key"]: e for e in json.loads(index_path.read_text(encoding="utf-8"))}
+    index: dict[str, dict] = {} if refresh else dict(prev)
 
     jobs = []
     for prefix, locs in urls.items():
@@ -280,16 +319,20 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
 
     def work(job):
         category, slug, key, url = job
-        entry = scrape_one(category, slug, url, refresh)
+        entry = scrape_one(category, slug, url, refresh, prev.get(key, {}).get("hash"))
         with lock:
             counter[0] += 1
             if entry:
-                if index.get(key, {}).get("hash") != entry["hash"]:
+                if prev.get(key, {}).get("hash") != entry["hash"]:
                     changes[0] += 1
                 index[key] = entry
                 print(f"[{counter[0]}/{total}] {category}: {entry['name']}", flush=True)
             else:
-                print(f"[{counter[0]}/{total}] skip (not found) {url}", flush=True)
+                # still in the sitemap, so a site hiccup (5xx, 429, a timeout): keep our copy, or the patch notes
+                # say "removed" tonight and "added" tomorrow
+                if key in prev:
+                    index[key] = prev[key]
+                print(f"[{counter[0]}/{total}] skip (not fetched) {url}", flush=True)
             if counter[0] % 25 == 0:
                 write_index(index_path, list(index.values()))
 
@@ -297,6 +340,8 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
         list(pool.map(work, jobs))
 
     write_index(index_path, list(index.values()))
+    if refresh and not limit:
+        changes[0] += drop_removed(prev, index)
     # the list pages (skill changes, pets, tier list): one at a time after the entity pages, counted as changes
     # so a night that only moves a pet's lifespan still publishes
     import meowdb_sections
@@ -315,6 +360,18 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     (KB / "last_run.json").write_text(json.dumps({"checked": len(jobs), "changed": changes[0]}), encoding="utf-8")
     print(f"Done. {len(index)} entities, {len(jobs)} checked, {changes[0]} changed.")
 
+
+def drop_removed(prev: dict[str, dict], index: dict[str, dict]) -> int:
+    """After a full refresh: delete the page and picture of every entity the sitemap no longer lists, so the AI's
+    grep can't find what the site removed. Failed fetches were kept above, so only real removals are left."""
+    gone = prev.keys() - index.keys()
+    for key in gone:
+        cat, _, slug = key.partition("/")
+        for f in (KB / "pages" / cat / f"{slug}.md", KB / "img" / cat / f"{slug}.png"):
+            f.unlink(missing_ok=True)
+    if gone:
+        print(f"removed from the site: {len(gone)}, e.g. {', '.join(sorted(gone)[:5])}")
+    return len(gone)
 
 
 def fill_images() -> None:

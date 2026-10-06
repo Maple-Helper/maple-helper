@@ -26,6 +26,7 @@ TIERS = "tiers.json"
 FILES = (SKILL_CHANGES, PETS, TIERS)
 # below these a page read went wrong (37 skills, 12 pets and 10 classes on 2026-10-04)
 MIN_ROWS = {SKILL_CHANGES: 10, PETS: 5, TIERS: 5}
+MIN_KEPT = 0.8      # ...and a read with fewer than this share of the previous file's rows went wrong too
 _RANK = re.compile(r"(\d)(?:st|nd|rd|th) Job", re.I)
 
 
@@ -213,10 +214,17 @@ def scrape(kb: Path, fetch, delay: float = 1.0) -> int:
         page = fetch(f"{BASE}/{path}")
         time.sleep(delay)
         data = parse(page) if page else {}
-        if len(rows_of(name, data)) < MIN_ROWS[name]:
-            print(f"::warning::{path}: {len(rows_of(name, data))} rows read, the previous {name} stays", flush=True)
-            continue
         target = kb / name
+        try:
+            before = len(rows_of(name, json.loads(target.read_text(encoding="utf-8")))) if target.exists() else 0
+        except (OSError, ValueError, AttributeError):
+            before = 0
+        # a half-broken layout (6 of 12 pets read) passed MIN_ROWS and the rest vanished: much less than last
+        # time keeps the previous file too
+        if len(rows_of(name, data)) < max(MIN_ROWS[name], int(before * MIN_KEPT)):
+            print(f"::warning::{path}: {len(rows_of(name, data))} rows read (last time {before}), the previous {name}"
+                  " stays", flush=True)
+            continue
         text = json.dumps(data, ensure_ascii=False, indent=1) + "\n"
         old = target.read_text(encoding="utf-8") if target.exists() else ""
         if text != old:

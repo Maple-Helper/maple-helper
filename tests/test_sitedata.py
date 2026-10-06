@@ -355,3 +355,28 @@ def test_a_first_jobs_table_of_both_paths_splits_into_one_a_path():
     assert all(head[0].startswith("Level") for _, head in ap)
     _, tables = buildplan.tables(kb, "Thief", "Thief", 20, "en")
     assert all(path == "" for tb in tables for path, _ in buildplan.split_paths(kb, tb))
+
+
+def test_a_half_read_list_page_keeps_the_previous_file(tmp_path, monkeypatch):
+    pages = {"skill-changes": page("skill-changes"), "pets": page("pets"), "tier-list": page("tier-list")}
+    fetch = lambda url: pages[url.rsplit("/", 1)[1]]  # noqa: E731
+    ms.scrape(tmp_path, fetch, delay=0)
+    before = (tmp_path / ms.PETS).read_text(encoding="utf-8")
+    full = json.loads(before)
+    half = {**full, "pets": full["pets"][:len(full["pets"]) // 2]}
+    assert len(half["pets"]) >= ms.MIN_ROWS[ms.PETS]          # enough for MIN_ROWS alone (SCP-18)
+    monkeypatch.setattr(ms, "PAGES", tuple((n, p, (lambda html: half) if n == ms.PETS else f, fld)
+                                           for n, p, f, fld in ms.PAGES))
+    assert ms.scrape(tmp_path, fetch, delay=0) == 0
+    assert (tmp_path / ms.PETS).read_text(encoding="utf-8") == before
+
+
+def test_a_row_gone_from_a_list_page_is_in_the_patch_notes(tmp_path, site_kb, parsed):
+    import shutil
+    old = tmp_path / "old"
+    shutil.copytree(site_kb, old)
+    new = copy.deepcopy(parsed)
+    new[ms.PETS]["pets"] = [p for p in new[ms.PETS]["pets"] if p["key"] != "item/1524"]
+    write(site_kb, new)
+    rows = {r["key"]: r for r in kb_release.section_changes(old, site_kb)}
+    assert rows["item/1524"]["props"][0] == ["Lifespan", "7 days", None]

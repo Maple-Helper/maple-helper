@@ -334,12 +334,18 @@ def book_html(b: dict, mode: str = "light", rtl_ui: bool = False) -> str:
             out.append(f"<{tag} {side} style='margin: 2px 0 8px 0;'>{items}</{tag}>")
         elif "table" in blk:
             rows = blk["table"]
+            width = max((len(r) for r in rows), default=0)
             cells = []
             for n, row in enumerate(rows):
                 tag, bg = ("th", f" bgcolor='{col['head']}'") if n == 0 else ("td", "")
+                # a short row is the site's full-width sub-heading (colspan): its last cell spans the rest
+                # ("Longer Booster earlier." sat in the first of 3 columns)
+                spans = [""] * len(row)
+                if 0 < len(row) < width:
+                    spans[-1] = f" colspan='{width - len(row) + 1}'"
                 cells.append("<tr>" + "".join(
-                    f"<{tag}{bg}><p {'dir=rtl align=right' if rtl_of(c) else ''} style='margin:0'>{_rich(c, rtl_of(c), 18)}</p></{tag}>"
-                    for c in row) + "</tr>")
+                    f"<{tag}{bg}{s}><p {'dir=rtl align=right' if rtl_of(c) else ''} style='margin:0'>{_rich(c, rtl_of(c), 18)}</p></{tag}>"
+                    for c, s in zip(row, spans)) + "</tr>")
             out.append(f"<table {side} width='100%' cellspacing='0' cellpadding='5' border='1' style='border-color: {col['line']};"
                        f" border-style: solid; margin: 4px 0 10px 0;'>{''.join(cells)}</table>")
         elif "img" in blk:

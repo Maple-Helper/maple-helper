@@ -118,7 +118,11 @@ def translations(lang: str = "he", kb: Path | None = None) -> dict[str, dict]:
         except (OSError, json.JSONDecodeError, AttributeError):
             made = {}
         if isinstance(made, dict):
-            data = {**data, **made}       # the night's, made from the newest English, over the app's older ones
+            # the night's, made from the newest English, over the app's older ones; made from the same English (title,
+            # summary and body), the app's (the owner's curated Hebrew) stays
+            data = {**data, **{k: v for k, v in made.items() if not (
+                isinstance(data.get(k), dict) and isinstance(v, dict)
+                and (data[k].get("source_hash"), data[k].get("body_hash")) == (v.get("source_hash"), v.get("body_hash")))}}
     return data
 
 
@@ -139,8 +143,11 @@ def _with_he(i: dict, he: dict) -> None:
     for f in ("summary_he", "title_he", "highlights_he", "commentary_he"):
         i.pop(f, None)
     tr = he.get(i["id"])
-    if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and str(tr.get("summary") or "").strip():
-        i["summary_he"] = tr["summary"].strip()
+    if isinstance(tr, dict) and tr.get("source_hash") == i["hash"] and (
+            str(tr.get("summary") or "").strip() or str(tr.get("title") or "").strip()):
+        # (an item with no English summary has no Hebrew one either, but its title is still translated)
+        if str(tr.get("summary") or "").strip() and str(i.get("summary") or "").strip():
+            i["summary_he"] = tr["summary"].strip()
         if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
             i["title_he"] = tr["title"].strip()
         # the article's body: its highlights and NiaMeowDB's note, when translated from the current English

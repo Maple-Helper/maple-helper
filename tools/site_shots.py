@@ -1,15 +1,20 @@
 """Render real Maple Helper windows to PNG for the website and README (step 1 of 2).
 
-  set APPDATA to an empty temp folder (never the player's real settings), then for each language/mode:
+  The script points APPDATA at a fresh temp folder itself (never the player's real settings). For each language/mode:
   SHOT_LANG=he|en QT_SCALE_FACTOR=2.5 QT_QPA_PLATFORM=offscreen PYTHONPATH=.       python tools/site_shots.py <raw_dir> light|dark all item/298,item/379
   Step 2: python tools/site_shots_webp.py <raw_dir>  (crops, rounds the corners, writes the site repo's assets/shots)
 """
 import os
 import sys
+import tempfile
 import time
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+# always a fresh, empty APPDATA, set here and not left to the operator: the script writes the language, the theme
+# and the active character's stats and crafts, and run from a normal shell it overwrote the owner's real ones
+os.environ["APPDATA"] = tempfile.mkdtemp(prefix="mh-site-shots-")
+
+from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtWidgets import QApplication  # noqa: E402
 
 OUT = sys.argv[1]
 MODE = sys.argv[2] if len(sys.argv) > 2 else "light"

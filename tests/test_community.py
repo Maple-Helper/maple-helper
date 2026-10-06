@@ -440,3 +440,14 @@ def test_a_star_taken_off_leaves_the_open_wishlist_at_once(ckb, app, isolated_st
     finally:
         dlg.close()
         WISHLIST.bind(None, None)
+
+
+def test_answers_that_all_come_back_empty_never_wipe_the_reports(kb_copy):
+    _add_items(kb_copy)
+    _community(kb_copy, {SNAIL: {"drops": [_drop("item/413", 3)], "mesos": None, "fetched": "2026-10-01"}})
+    before = (kb_copy / "community.json").read_text(encoding="utf-8")
+    empty = {mid: {"drops": {"drops": []}, "mesos": _recorded("mesos_none.json")}
+             for mid in ("100100", "100101", "130101", "1210100", "5130104")}
+    with pytest.raises(kb_release.InvalidKB, match="down from 1"):
+        scrape_community.scrape(kb_copy, get=_fake_site(empty), log=lambda *_: None)
+    assert (kb_copy / "community.json").read_text(encoding="utf-8") == before
