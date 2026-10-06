@@ -144,6 +144,15 @@ def test_read_guard_checks_every_key_that_names_a_path(home, tmp_path, guard_kin
                {"path": "pages", "include_hidden": True, "max_depth": 2}):
         assert decide(ti) == "allow", ti
     assert decide({"pattern": "x", "glob": "*.md"}, cwd="C:\\") == "deny"        # a glob runs where Grok runs
+    # a wildcard in a grep path is a glob too, and an empty list_dir is the folder it runs in (review PLT-12)
+    for ti in ({"pattern": "x", "path": "pages/*.md"}, {"pattern": "x", "path": "pages/**/*.md"},
+               {"pattern": "x", "path": "x?.md"}, {}):
+        assert decide(ti) == "allow", ti
+    for ti in ({"pattern": "x", "path": "../*.md"}, {"pattern": "x", "path": "C:\\*.md"},
+               {"pattern": "x", "path": "C:/Users/*"}, {"pattern": "x", "path": "/Users/*"},
+               {"pattern": "x", "path": "pages/../../*"}, {"pattern": "x", "path": "\\\\?\\C:\\*"}):
+        assert decide(ti) == "deny", ti
+    assert decide({"pattern": "x", "path": "pages/*.md"}, cwd="C:\\") == "deny" and decide({}, cwd="C:\\") == "deny"
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="the read guard is a Windows hook")

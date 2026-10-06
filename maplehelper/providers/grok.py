@@ -139,7 +139,9 @@ try {
   $base = if ($in.cwd) { [string]$in.cwd } else { (Get-Location).Path }
   $ok = $true
   foreach ($p in $paths) {
-    $s, $isGlob = $p[0], $p[1]
+    $s = $p[0]
+    # a wildcard in a path ("pages/*.md" as a grep path) is a glob too: it was a deny (review PLT-12)
+    $isGlob = $p[1] -or ($s.IndexOfAny([char[]]'*?') -ge 0)
     if ($s.StartsWith('~')) { $ok = $false; break }     # a home folder Grok may expand
     # a glob is matched under the folder it runs in: never one that starts elsewhere or climbs out
     if ($isGlob -and ([IO.Path]::IsPathRooted($s) -or $s.Contains(':') -or $s.Contains('..'))) { $ok = $false; break }
@@ -200,7 +202,7 @@ static class Guard {
         object ti;
         if (input == null || cfg == null || !input.TryGetValue("tool_input", out ti)) return false;
         Dictionary<string, object> tool = ti as Dictionary<string, object>;
-        if (tool == null || tool.Count == 0) return false;
+        if (tool == null) return false;      // an empty one ({} from a list_dir) is the folder it runs in, as in GUARD_PS1
         // every path in the call, under any key that names one (file_path, filePath, paths, glob...), not only the
         // three Grok uses today: a key the guard didn't know was let through
         List<string[]> paths = new List<string[]>();
@@ -213,9 +215,11 @@ static class Guard {
         if (!cfg.TryGetValue("roots", out list) || list is string || !(list is IEnumerable)) return false;
         foreach (string[] p in paths) {
             if (p[0].StartsWith("~")) return false;               // a home folder Grok may expand
+            // a wildcard in a path ("pages/*.md" as a grep path) is a glob too: it was a deny (review PLT-12)
+            bool glob = p[1] == "glob" || p[0].IndexOfAny(new char[] { '*', '?' }) >= 0;
             // a glob is matched under the folder it runs in: never one that starts elsewhere or climbs out
-            if (p[1] == "glob" && (Path.IsPathRooted(p[0]) || p[0].Contains(":") || p[0].Contains(".."))) return false;
-            if (!Inside(Path.GetFullPath(Path.Combine(at, p[1] == "glob" ? "." : p[0])), (IEnumerable)list)) return false;
+            if (glob && (Path.IsPathRooted(p[0]) || p[0].Contains(":") || p[0].Contains(".."))) return false;
+            if (!Inside(Path.GetFullPath(Path.Combine(at, glob ? "." : p[0])), (IEnumerable)list)) return false;
         }
         return true;
     }
