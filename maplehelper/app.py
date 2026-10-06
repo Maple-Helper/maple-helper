@@ -667,7 +667,7 @@ class MapleHelperApp:
         """Right before the KB folders swap: the warm AI process runs inside the KB, so stop it, unless the
         player is waiting on an answer or the KB's tables are being built (then _retry_kb_update tries again in a
         few minutes)."""
-        if self.overlay.busy or getattr(self.overlay, "_syncing", False):
+        if self.overlay._is_busy():        # an inventory read too: it works from the KB's icons
             return False
         if tables.building():
             return False            # the KB's tables are being written into the folder that would be swapped
@@ -676,8 +676,12 @@ class MapleHelperApp:
 
     def _update_kb_in_background(self, interactive: bool):
         if getattr(self, "_kb_updating", False):
+            # "Update knowledge base" clicked while the start-up/hourly check runs: that check's result is toasted,
+            # or the click did nothing at all
+            self._kb_interactive = getattr(self, "_kb_interactive", False) or interactive
             return
         self._kb_updating = True
+        self._kb_interactive = interactive
 
         def work():
             before = updater.local_version()
@@ -687,9 +691,10 @@ class MapleHelperApp:
                 report.log.exception("knowledge base update failed")
                 status = "failed"
             self._kb_updating = False
+            shown = self._kb_interactive
             if status == "updated":
                 report.log.info("knowledge base updated to %s", updater.local_version())
-            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, interactive))
+            self.main_thread.call.emit(lambda: self._kb_update_done(status, before, shown))
         threading.Thread(target=work, daemon=True).start()
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):

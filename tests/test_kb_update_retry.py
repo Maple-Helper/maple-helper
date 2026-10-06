@@ -129,3 +129,28 @@ def test_an_open_app_checks_every_hour_and_retries_within_it(qapp, monkeypatch):
     for _ in range(10):
         app.MapleHelperApp._retry_kb_update(fake, "failed")
     assert shots == [5 * 60 * 1000, 10 * 60 * 1000, 20 * 60 * 1000, 40 * 60 * 1000]
+
+
+def test_a_click_during_a_running_check_gets_its_result(monkeypatch):
+    # LIF-7: "Update knowledge base" while the start-up check ran did nothing, not even a toast
+    import threading
+    gate, done = threading.Event(), []
+    monkeypatch.setattr(updater, "local_version", lambda: "1")
+    monkeypatch.setattr(updater, "fetch_kb", lambda before_swap=None: gate.wait(5) and "uptodate")
+    fake = SimpleNamespace(main_thread=SimpleNamespace(call=SimpleNamespace(emit=lambda fn: fn())),
+                           _stop_ai_for_kb_swap=lambda: True,
+                           _kb_update_done=lambda status, before, interactive: done.append((status, interactive)))
+    app.MapleHelperApp._update_kb_in_background(fake, interactive=False)
+    app.MapleHelperApp._update_kb_in_background(fake, interactive=True)     # the click
+    gate.set()
+    for _ in range(100):
+        if done:
+            break
+        threading.Event().wait(0.05)
+    assert done == [("uptodate", True)]
+
+
+def test_an_inventory_read_postpones_the_swap():
+    # LIF-3: the swap guard missed the inventory read working from the KB's icons
+    fake = SimpleNamespace(overlay=SimpleNamespace(_is_busy=lambda: True), brain=None)
+    assert app.MapleHelperApp._stop_ai_for_kb_swap(fake) is False
