@@ -148,3 +148,20 @@ def test_a_429_waits_as_long_as_the_site_asks():
     assert scrape_meowdb.retry_after(e) == 45
     assert scrape_meowdb.retry_after(urllib.error.HTTPError("u", 429, "", {"Retry-After": "9999"}, None)) == 120
     assert scrape_meowdb.retry_after(urllib.error.HTTPError("u", 503, "", {}, None)) is None
+
+
+def test_make_aliases_cleans_shared_aliases_even_with_nothing_to_ask(tmp_path, monkeypatch):
+    import json
+
+    import make_aliases
+    index = [{"key": "npc/112", "name": "Pison", "category": "npc"}, {"key": "npc/801", "name": "Pason", "category": "npc"}]
+    (tmp_path / "index.json").write_text(json.dumps(index), encoding="utf-8")
+    out = tmp_path / "aliases.json"
+    out.write_text(json.dumps({"npc/112": ["פייסון", "פיסון"], "npc/801": ["פייסון", "פאסון"]}, ensure_ascii=False),
+                   encoding="utf-8")
+    monkeypatch.setattr(make_aliases, "KB", tmp_path)
+    monkeypatch.setattr(make_aliases, "OUT", out)
+    monkeypatch.setattr(make_aliases, "claude_exe", lambda: "claude")
+    monkeypatch.setattr(make_aliases, "ask", lambda exe, rows: pytest.fail("nothing to ask"))
+    make_aliases.main(["npc"])
+    assert json.loads(out.read_text(encoding="utf-8")) == {"npc/112": ["פיסון"], "npc/801": ["פאסון"]}

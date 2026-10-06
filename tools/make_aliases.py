@@ -67,6 +67,12 @@ def main(categories: list[str]):
     index = json.loads((KB / "index.json").read_text(encoding="utf-8"))
     aliases = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
     names = {e["key"]: e["name"] for e in index}
+    # the file's own rule on every run, not only after a newly asked batch: the shipped file still had "פייסון"
+    # for both Pison and Pason
+    aliases, dropped = drop_ambiguous(aliases, names)
+    if dropped:
+        print("dropped (names several things):", ", ".join(sorted(dropped)))
+        OUT.write_text(json.dumps(aliases, ensure_ascii=False, indent=0), encoding="utf-8")
     exe = claude_exe()
     from maplehelper.kb import _VARIANT
     # one entry per base name, the plain entity first: "Zelya (Free Market)" and "Forgotten Hollow Instance 080003500"
