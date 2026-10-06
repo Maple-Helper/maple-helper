@@ -257,6 +257,10 @@ class Section(QFrame):
             # left" isn't mirrored, and in Hebrew every link sat at the far end from its section's header
             self.rows.addWidget(w, 0, Qt.AlignLeading | Qt.AlignVCenter)
         else:
+            if isinstance(w, QLabel) and w.contentsMargins().isNull():
+                # a plain text row gets the rows' own top and bottom room (add_row's 8 px): the pets' intro sat
+                # 4 px from the card's edge
+                w.setContentsMargins(0, 8, 0, 8)
             self.rows.addWidget(w)
         self._items.append((sep, w))
         # a row that is hidden for now (a sign-in hint, the installer's progress) left its divider behind, an

@@ -180,3 +180,19 @@ def test_a_map_card_shows_its_minimap_under_the_name(app, tmp_path, monkeypatch)
     strips = card.findChildren(widgets.WidePicture)
     assert len(strips) == 1 and strips[0].heightForWidth(strips[0].width()) >= 40
     card.close()
+
+
+def test_a_plain_text_row_in_a_section_gets_the_rows_padding(app):
+    """VIS-13: add_row rows have 8 px above and below, a bare label added with add_widget had none (the pets' intro
+    sat 4 px from the card's top edge). A label with its own margins keeps them."""
+    from PySide6.QtCore import QMargins
+    from PySide6.QtWidgets import QLabel
+
+    from maplehelper.ui.controls import Section
+    sec = Section("Pets", True)
+    intro, own = QLabel("intro"), QLabel("own")
+    own.setContentsMargins(0, 2, 0, 2)
+    sec.add_widget(intro)
+    sec.add_widget(own)
+    assert intro.contentsMargins() == QMargins(0, 8, 0, 8)
+    assert own.contentsMargins() == QMargins(0, 2, 0, 2)
