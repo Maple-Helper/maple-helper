@@ -8,7 +8,7 @@ import time
 from PySide6.QtCore import (QEasingCurve, QEvent, QObject, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF,
                             Qt, QThread, QTimer, Signal)
 from PySide6.QtGui import QGuiApplication, QIcon, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import (QApplication, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
 from .. import __version__, bidi, osapi, quick, sources, telemetry
@@ -355,10 +355,18 @@ def windows_over(rect: tuple[int, int, int, int]) -> list[QWidget]:
         try:
             if not win.isVisible() or win.windowOpacity() == 0 or win.isMinimized():
                 continue
+            if isinstance(win, QDialog) and win.isModal():
+                continue       # hiding it would end its exec() as cancelled (audit OVL-1)
             g = win.frameGeometry()
-            ratio = win.devicePixelRatioF() if osapi.SCREEN_COORDS_ARE_PHYSICAL else 1.0
-            left, top = g.x() * ratio, g.y() * ratio
-            right, bottom = left + g.width() * ratio, top + g.height() * ratio
+            left, top, width, height = g.x(), g.y(), g.width(), g.height()
+            screen = win.screen() if osapi.SCREEN_COORDS_ARE_PHYSICAL else None
+            if screen is not None:
+                # Qt maps each screen from its own native origin: native = origin + (logical - origin) * ratio.
+                # logical * ratio was right only for a screen at (0, 0), not a scaled second monitor (audit SCR-4)
+                o, ratio = screen.geometry().topLeft(), screen.devicePixelRatio()
+                left, top = o.x() + (left - o.x()) * ratio, o.y() + (top - o.y()) * ratio
+                width, height = width * ratio, height * ratio
+            right, bottom = left + width, top + height
         except RuntimeError:       # deleted meanwhile
             continue
         # a few pixels of slack: a mixed-DPI desktop rounds the two coordinate systems apart
@@ -2098,6 +2106,11 @@ class Overlay(QWidget):
         The capture is a screen grab, so only our windows that are over the game step aside, and only for the
         grab: beside the game (the usual place while playing) nothing moves at all."""
         if getattr(self, "_syncing", False) or self._is_busy():
+            self.grind_skipped.emit("busy")
+            return
+        if QApplication.activeModalWidget() or QApplication.activePopupWidget():
+            # hiding a dialog in exec() ends it as cancelled (Edit character lost its edits) and closes a menu
+            # under the cursor: this minute is skipped, the next one reads (audit OVL-1)
             self.grind_skipped.emit("busy")
             return
         try:

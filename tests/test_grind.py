@@ -474,7 +474,7 @@ def test_a_session_left_idle_does_not_start_reading_by_itself(runner):
     assert r.timer.isActive()
 
 
-@pytest.mark.parametrize("case", ["busy", "no_game", "covered", "read"])
+@pytest.mark.parametrize("case", ["busy", "modal", "no_game", "covered", "read"])
 def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypatch, case):
     from unittest.mock import Mock
 
@@ -506,6 +506,12 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
     win.setWindowOpacity(1.0)
     if case == "busy":
         win.busy = True
+    dialog = None
+    if case == "modal":            # Edit character open: hiding it would cancel its exec() (audit OVL-1)
+        from PySide6.QtWidgets import QDialog
+        dialog = QDialog()
+        dialog.setModal(True)
+        dialog.show()
     try:
         win.auto_grind_read()
         deadline = time.monotonic() + 5
@@ -519,14 +525,35 @@ def test_the_chat_auto_read_skips_or_reads_quietly(isolated_store, kb, monkeypat
             assert skipped == [] and finished == [True] and got[0][1] == {"exp_percent": 40.0}
             assert brain.ask.call_args.kwargs.get("model") is None and brain.ask.call_args.kwargs["light"]
         else:
-            assert skipped == [case] and finished == [] and not brain.ask.called
+            assert skipped == ["busy" if case == "modal" else case] and finished == [] and not brain.ask.called
+        if dialog is not None:
+            assert dialog.isVisible()
     finally:
+        if dialog is not None:
+            dialog.close()
         from shiboken6 import isValid
         thread = getattr(win, "_sync_thread", None)
         if thread is not None and isValid(thread):
             thread.quit()
             thread.wait(2000)
         win.deleteLater()
+
+
+def test_windows_over_maps_each_screen_from_its_own_origin(monkeypatch):
+    """A window on a scaled second monitor: native = origin + (logical - origin) * ratio (audit SCR-4)."""
+    from types import SimpleNamespace
+
+    from PySide6.QtCore import QPoint, QRect
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui import overlay
+    monkeypatch.setattr(overlay.osapi, "SCREEN_COORDS_ARE_PHYSICAL", True)
+    screen = SimpleNamespace(geometry=lambda: QRect(2560, 0, 1707, 960), devicePixelRatio=lambda: 1.5)
+    win = SimpleNamespace(isVisible=lambda: True, windowOpacity=lambda: 1.0, isMinimized=lambda: False,
+                          frameGeometry=lambda: QRect(QPoint(2627, 100), QPoint(2627 + 299, 299)), screen=lambda: screen)
+    monkeypatch.setattr(QApplication, "topLevelWidgets", staticmethod(lambda: [win]))
+    assert overlay.windows_over((2600, 0, 400, 400)) == [win]        # native x 2660: over the game there
+    assert overlay.windows_over((3900, 0, 400, 400)) == []           # not where logical * 1.5 put it
 
 
 def test_windows_over_the_game_step_aside(monkeypatch):
