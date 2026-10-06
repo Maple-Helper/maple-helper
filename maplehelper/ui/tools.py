@@ -3489,6 +3489,8 @@ class ToolsDialog(GlassDialog):
             bits = [bidi.ltr_block(f"{r.monster}: {r.item} ×{r.got}", t.rtl)]
             if r.every:
                 bits.append(t("farm_every", n=f"{r.every:,}"))
+            elif r.per_kill:
+                bits.append(t("farm_per_kill", n=f"{r.per_kill:.1f}"))
             bits.append(t("farm_sessions", n=r.sessions))
             self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
         self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))

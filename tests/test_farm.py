@@ -155,6 +155,13 @@ def test_records_count_every_session_on_the_monster():
         ("Cap", 4, 200, 2, 50), ("Leather", 1, 200, 2, 200)]
 
 
+def test_a_drop_rate_at_or_above_one_a_kill_is_per_kill():
+    """3 drops in 1 kill said nothing, 3 in 2 "once every 2 kills" (audit GAM-10)."""
+    assert (farm.Record("x", "y", 3, 1, 1).every, farm.Record("x", "y", 3, 1, 1).per_kill) == (None, 3.0)
+    assert (farm.Record("x", "y", 3, 2, 1).every, farm.Record("x", "y", 3, 2, 1).per_kill) == (None, 1.5)
+    assert (farm.Record("x", "y", 2, 3, 1).every, farm.Record("x", "y", 2, 3, 1).per_kill) == (2, None)
+
+
 def test_inventory_hint_names_etc_and_equip_slots(monkeypatch):
     items = {"item/1": {"name": "Red Potion", "type": "Use / Potion"},
              "item/2": {"name": "Leather", "type": "Etc / Monster Drop"},

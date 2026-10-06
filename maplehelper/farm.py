@@ -223,8 +223,14 @@ class Record:
 
     @property
     def every(self) -> int | None:
-        """~ one drop every this many kills, or None without kills."""
-        return round(self.kills / self.got) if self.got and self.kills else None
+        """~ one drop every this many kills, or None without kills or at a drop or more a kill (per_kill then):
+        3 drops in 1 kill said nothing, 3 in 2 said "once every 2 kills" (audit GAM-10)."""
+        return max(1, round(self.kills / self.got)) if self.got and self.kills and self.got < self.kills else None
+
+    @property
+    def per_kill(self) -> float | None:
+        """~ drops a kill when there's one or more a kill (a stack of them per monster), else None."""
+        return self.got / self.kills if self.kills and self.got >= self.kills else None
 
 
 def records(rows: list[dict]) -> list[Record]:

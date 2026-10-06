@@ -1411,6 +1411,7 @@ STRINGS = {
     "farm_loot_none": {"he": "עוד לא נוסף שום פריט לתיק.", "en": "Nothing new in the bag yet."},
     "farm_loot_value": {"he": "{n} mesos ב-NPC", "en": "{n} mesos at an NPC"},
     "farm_every": {"he": "בערך פעם ב-{n} הריגות", "en": "about once every {n} kills"},
+    "farm_per_kill": {"he": "בערך {n} בכל הריגה", "en": "about {n} per kill"},
     "farm_unpriced": {"he": "אין במאגר מחיר NPC ל: {names}", "en": "No NPC price in the database for: {names}"},
     "farm_records": {"he": "הדרופים שלכם", "en": "Your drops"},
     "farm_records_none": {"he": "כשתסיימו סשן פארם עם מפלצת וספירת שלל, יופיע כאן כל כמה הריגות נפל לכם כל פריט.",
