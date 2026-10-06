@@ -15,6 +15,12 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+
+def scrub(text: str) -> str:
+    """CLI output on its way into the log, which ships in "Report a problem": no account email, no one-time link."""
+    return re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", re.sub(r"https?://\S+", "<link>", text))
+
+
 # no console window flashing up on Windows; elsewhere creationflags must stay 0
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
 
@@ -408,8 +414,7 @@ def open_login(exe: str, args: list[str], env: dict | None = None, cwd: str | No
                 except Exception:      # noqa: BLE001 - the sign-in goes on; the log says why it didn't open
                     log.warning("sign-in line handler failed", exc_info=True)
             if text:   # the one-time sign-in links stay out of the log
-                text = re.sub(r"https?://\S+", "<link>", text)
-                log.info("sign-in: %s", re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text))   # no email in reports
+                log.info("sign-in: %s", scrub(text))   # no email in reports
         if p.wait():
             log.warning("sign-in ended with code %s", p.returncode)
     threading.Thread(target=drain, daemon=True).start()
@@ -550,7 +555,7 @@ class Installer:
             text = ANSI.sub("", raw.decode("utf-8", errors="replace")).strip()
             if text:
                 self.lines.append(text)
-                log.info("installer: %s", re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text))
+                log.info("installer: %s", scrub(text))
         self.code = self.proc.wait()
         log.info("installer ended with code %s", self.code)
         self.done.set()

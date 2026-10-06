@@ -248,11 +248,11 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
 def to_result(text: str, result: dict | None, stderr: str, model: str | None) -> RawResult:
     if not result or result.get("status") != "SUCCESS":
         detail = str((result or {}).get("error", "")) + "\n" + stderr
-        log.warning("Gemini gave no answer: %s", detail.strip()[-1500:])   # the cause, for "Report a problem"
+        log.warning("Gemini gave no answer: %s", base.scrub(detail.strip()[-1500:]))   # the cause, for "Report a problem"
         return RawResult(error=classify(detail) or ("api_error" if result else "no_result"))
     answer = text or str(result.get("response") or "")
     if not answer.strip():
-        log.warning("Gemini answered nothing: %s | %s", result.get("denied_actions"), stderr[-500:])
+        log.warning("Gemini answered nothing: %s | %s", result.get("denied_actions"), base.scrub(stderr[-500:]))
         # it reached for something blocked and stopped there (agy doesn't work around a refusal)
         return RawResult(error="denied" if result.get("denied_actions") else "no_result")
     return RawResult(text=answer, model=model)
@@ -388,7 +388,7 @@ def read_models(max_age: float = 10.0) -> list[tuple[str, str]] | None:
         # out (it said "not signed in" to a signed-in player)
         detail = (r.stdout + r.stderr).decode("utf-8", errors="replace")
         if classify(detail) == "offline":
-            log.warning("agy models: no connection: %s", detail.strip()[-300:])
+            log.warning("agy models: no connection: %s", base.scrub(detail.strip()[-300:]))
             raise Offline()
     found = parse_models(r.stdout.decode("utf-8", errors="replace"))
     if found:
@@ -611,7 +611,7 @@ class GeminiBackend:
             log.warning("Gemini is signed out: the question stopped before agy opened a sign-in")
             return RawResult(error="not_logged_in")
         if out.stalled:
-            log.warning("Gemini stalled, stopped: %s", stderr[-1000:])
+            log.warning("Gemini stalled, stopped: %s", base.scrub(stderr[-1000:]))
             return RawResult(error="timeout")
         if "invalid model selection" in str((result or {}).get("error", "")):
             return RawResult(error="bad_model")

@@ -402,7 +402,7 @@ def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
 def to_result(text: str, result: dict | None, stderr: str, model: str | None) -> RawResult:
     if not result or result.get("is_error") or result.get("subtype") != "success":
         detail = " ".join(str(e) for e in ((result or {}).get("errors") or [])) + "\n" + stderr
-        log.warning("Grok gave no answer: %s", detail.strip()[-1500:])
+        log.warning("Grok gave no answer: %s", base.scrub(detail.strip()[-1500:]))
         return RawResult(error=classify(detail) or ("api_error" if result else "no_result"))
     answer = text or str(result.get("result") or "")
     if not answer.strip():
@@ -637,7 +637,7 @@ class GrokBackend:
         finally:
             self._running.discard(p)
         if out.stalled:
-            log.warning("Grok stalled, stopped: %s", stderr[-1000:])
+            log.warning("Grok stalled, stopped: %s", base.scrub(stderr[-1000:]))
             return RawResult(error="timeout")
         errors = " ".join(str(e) for e in ((result or {}).get("errors") or [])) + stderr
         if model and re.search(r"model.{0,40}(not found|unknown|invalid|not available)", errors, re.I):

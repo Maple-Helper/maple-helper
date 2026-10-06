@@ -1034,3 +1034,10 @@ def test_the_ai_is_told_what_it_runs_on(kb):
     b.provider = "claude"
     b.model = "sonnet"
     assert b.system_prompt().endswith("You run on Claude, model sonnet.")
+
+
+def test_cli_output_in_the_log_carries_no_email_or_link():
+    # LIF-12: CLI stderr went into the log unmasked, and the log ships in "Report a problem"
+    from maplehelper.providers.base import scrub
+    out = scrub("Not logged in as player.one+x@gmail.com, see https://claude.ai/login?code=abc then retry")
+    assert "gmail" not in out and "code=abc" not in out and "<email>" in out and "<link>" in out
