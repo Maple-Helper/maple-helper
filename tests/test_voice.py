@@ -39,6 +39,25 @@ def test_the_model_is_pinned_to_one_snapshot(tmp_path, monkeypatch):
     assert seen["model_id"] == voice.MODEL_ID and seen["revision"] == voice.MODEL_REVISION
 
 
+def test_the_pinned_snapshot_on_disk_loads_by_path(tmp_path, monkeypatch):
+    """By commit, huggingface_hub lists the repo online unless a newer hub cached that list: a model downloaded by an
+    older version failed offline or with Hugging Face down (review PLT-6). On disk, it's loaded by its folder."""
+    monkeypatch.setattr(voice, "DATA_DIR", tmp_path)
+    snap = voice.Transcriber.snapshot()
+    snap.mkdir(parents=True)
+    (snap / "model.bin").write_bytes(b"x")
+    seen = {}
+
+    class Model:
+        def __init__(self, model_id, **kw):
+            seen.update(kw, model_id=model_id)
+    import faster_whisper
+    monkeypatch.setattr(faster_whisper, "WhisperModel", Model)
+    monkeypatch.setattr(voice, "has_nvidia", lambda: False)
+    voice.Transcriber().load()
+    assert seen["model_id"] == str(snap) and seen["revision"] == voice.MODEL_REVISION
+
+
 @pytest.mark.parametrize("on_disk,state", [(True, "loading"), (False, "downloading")])
 def test_first_question_says_loading_not_downloading_when_on_disk(on_disk, state, monkeypatch):
     import numpy as np

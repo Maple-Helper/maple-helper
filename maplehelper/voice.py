@@ -16,6 +16,7 @@ import re
 import sys
 import threading
 import zipfile
+from pathlib import Path
 
 import numpy as np
 from PySide6.QtCore import QObject, QTimer, Signal
@@ -168,10 +169,13 @@ class Transcriber:
         return self._model is not None
 
     @staticmethod
-    def downloaded() -> bool:
+    def snapshot() -> Path:
+        return DATA_DIR / "models" / ("models--" + MODEL_ID.replace("/", "--")) / "snapshots" / MODEL_REVISION
+
+    @classmethod
+    def downloaded(cls) -> bool:
         """The model is on disk already (it stays in the data folder across app updates)."""
-        snaps = DATA_DIR / "models" / ("models--" + MODEL_ID.replace("/", "--")) / "snapshots"
-        return (snaps / MODEL_REVISION / "model.bin").exists()
+        return (cls.snapshot() / "model.bin").exists()
 
     @classmethod
     def ready(cls) -> bool:
@@ -184,6 +188,9 @@ class Transcriber:
                 return
             from faster_whisper import WhisperModel
             root = str(DATA_DIR / "models")
+            # the pinned snapshot on disk is loaded by its path: by commit, huggingface_hub asks huggingface.co for
+            # the file list unless a newer hub cached it, so offline or with HF down voice failed (review PLT-6)
+            src = str(self.snapshot()) if self.downloaded() else MODEL_ID
             if has_nvidia():
                 if not gpu_libs_ready():
                     try:
@@ -196,7 +203,7 @@ class Transcriber:
                     # (it went to the CPU after the cuBLAS download, audit SCR-9)
                     for compute in ("float16", "int8_float32"):
                         try:
-                            model = WhisperModel(MODEL_ID, device="cuda", compute_type=compute, download_root=root,
+                            model = WhisperModel(src, device="cuda", compute_type=compute, download_root=root,
                                                  revision=MODEL_REVISION)
                             # a tiny decode proves the GPU runtime actually works (segments are lazy: list() runs it)
                             list(model.transcribe(np.zeros(SAMPLE_RATE // 2, dtype=np.float32), language="en")[0])
@@ -205,7 +212,7 @@ class Transcriber:
                         except Exception as e:      # noqa: BLE001
                             log.warning("voice: GPU (%s) failed: %s", compute, e)
                     log.warning("voice: using the CPU")
-            self._model = WhisperModel(MODEL_ID, device="cpu", compute_type="int8", download_root=root,
+            self._model = WhisperModel(src, device="cpu", compute_type="int8", download_root=root,
                                        revision=MODEL_REVISION)
 
     def transcribe(self, audio: np.ndarray, language: str | None = None) -> str:
