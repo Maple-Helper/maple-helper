@@ -143,6 +143,15 @@ def test_a_translation_in_english_or_with_the_wrong_term_is_not_stored(tmp_path,
     assert count == 0 and not made.get("quest_tasks")
 
 
+@pytest.mark.parametrize("he", ["קו המשימות החדש קצת מבלבל בהתחלה", "אל תבלבלו בין שתי מפות ה-Mushroom"])
+def test_the_verb_to_confuse_is_no_level_word(he):
+    """"לבלבל" (to confuse) held "לבל": every such text was refused and sent again each night (review PLT-2)."""
+    import scrape_news
+    import translate_kb
+    assert translate_kb.refused("The new quest line is a bit confusing at first", scrape_news.he_text(he)) is None
+    assert translate_kb.refused("Reach level 10 and talk to Arthur.", "עלו לבל 10 ודברו עם Arthur.")
+
+
 def test_an_icon_token_has_to_survive(tmp_path, monkeypatch):
     import translate_kb
     assert translate_kb.refused("Use [[img:item/2000000]] Red Potion now please.", "השתמשו ב-Red Potion עכשיו.")

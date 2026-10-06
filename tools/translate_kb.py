@@ -123,7 +123,8 @@ def refused(en: str, he: str) -> str | None:
     """Why a translation can't be stored (it waits for the next night instead); None when it can."""
     if not HEBREW.search(he) and len(en.split()) >= 4:
         return "no Hebrew in it"             # (a short title that is all names may rightly stay in English letters)
-    if "לבל" in he:
+    from maplehelper.brain import _LEVEL_WORD
+    if _LEVEL_WORD.search(he):              # the app's rule: the verb "לבלבל" (to confuse) is no level word
         return 'it says "לבל"'
     if sorted(ICON.findall(en)) != sorted(ICON.findall(he)):
         return "an icon token was lost"
