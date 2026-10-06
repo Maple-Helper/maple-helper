@@ -367,3 +367,20 @@ def test_a_manifest_naming_the_repository_before_it_moved_is_accepted():
     assert updater.release_url_ok("https://github.com/Maple-Helper/maple-helper/releases/latest/download/kb.zip")
     assert updater.release_url_ok("https://github.com/Amitaflalo1995/maple-helper/releases/latest/download/kb.zip")
     assert not updater.release_url_ok("https://github.com/someone-else/maple-helper/releases/latest/download/kb.zip")
+
+
+def test_downloaded_installers_up_to_this_version_are_removed(tmp_path, monkeypatch):
+    from maplehelper import __version__
+    monkeypatch.setattr(updater, "USER_KB", tmp_path / "kb")
+    folder = tmp_path / "updates"
+    folder.mkdir()
+    major, minor, patch = (int(x) for x in __version__.split(".")[:3])
+    names = {"old": "MapleHelper-Setup-v0.0.1.exe", "this": f"MapleHelper-Setup-v{__version__}.exe",
+             "newer": f"MapleHelper-Setup-v{major}.{minor}.{patch + 1}.exe", "other": "notes.txt"}
+    for n in names.values():
+        (folder / n).write_bytes(b"x")
+    updater.remove_old_installers()
+    assert sorted(f.name for f in folder.iterdir()) == sorted([names["newer"], names["other"]])
+    updater.remove_old_installers()                                  # nothing left to remove: no error
+    monkeypatch.setattr(updater, "USER_KB", tmp_path / "none" / "kb")
+    updater.remove_old_installers()                                  # no updates folder at all
