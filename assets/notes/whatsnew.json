@@ -1,5 +1,14 @@
 [
  {
+  "version": "0.10.2",
+  "he": [
+   "בכלי המשחק, \"בילד\" נקרא עכשיו \"בילד וסקילים\". בלשונית החדשה \"סקילים\" יש לשונית לכל מקצוע ולכל ג'וב (ראשון ושני), ולכל סקיל: תמונה, שם, הסבר בעברית, רמת מקסימום, מה צריך כדי ללמוד אותו, ומה הוא עושה ברמה 1 וברמת המקסימום."
+  ],
+  "en": [
+   "In the Play tools, \"Build\" is now \"Build & Skills\". The new Skills tab has a tab per class and job (1st and 2nd), and each skill shows its picture, name, description, max level, what it requires, and what it does at level 1 and at max."
+  ]
+ },
+ {
   "version": "0.10.1",
   "he": [
    "חדשות עם תמונות: כל כתבה מציגה את התמונה שלה, ובכתבות הרשמיות של Nexon גם את התמונות של הפריטים שהכתבה מזכירה, עם השם של כל אחד.",
