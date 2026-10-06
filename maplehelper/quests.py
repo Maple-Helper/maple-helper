@@ -346,6 +346,24 @@ def for_level(kb, level: int, base_class: str = "", job: str = "", done: list[st
 
     A quest finished only from a higher level ("Level 52+ to complete") counts at that level; one that asks a
     profession level the character doesn't have (crafts given) is left out."""
+    # worked out once per character state and KB object: the quests page, its search and a click to a quest each
+    # asked for the same lists again (~1 s on a cold open, TL1-4); fresh lists each time, so a caller can't spoil them
+    state = (level, base_class, job, frozenset(done or []), tuple(sorted((crafts or {}).items())) if crafts else None)
+    cache = getattr(kb, "_quests_for_level", None)
+    if cache is None:
+        cache = {}
+        try:
+            kb._quests_for_level = cache
+        except AttributeError:     # a KB stand-in that takes no attributes: worked out each time
+            pass
+    if state not in cache:
+        if len(cache) >= 16:
+            cache.pop(next(iter(cache)))
+        cache[state] = _for_level(kb, level, base_class, job, done, crafts)
+    return {k: list(v) if isinstance(v, list) else v for k, v in cache[state].items()}
+
+
+def _for_level(kb, level: int, base_class: str, job: str, done: list[str] | None, crafts: dict | None) -> dict:
     done_set = set(done or [])
     now, future, town = [], [], []
     open_ = availability.of(kb)
