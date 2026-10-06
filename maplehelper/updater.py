@@ -179,24 +179,30 @@ def fetch_kb(before_swap=None) -> str:
     meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
     # swap by renames: on Windows a folder another process works in (the AI runs inside the KB)
     # can't be removed or renamed; then keep the current KB intact and try again next time
-    if before_swap is not None and before_swap() is False:
+    from . import tables
+    # the table build's lock is held across the renames: a question's build that started right after before_swap
+    # would write the old KB's tables into the new folder, whose own shipped mark then calls them current
+    if before_swap is not None and before_swap() is False or not tables._lock.acquire(blocking=False):
         shutil.rmtree(tmp, ignore_errors=True)
         log.info("knowledge base %s waits: an answer is running", manifest["version"])
         return "postponed"            # an answer is running: the app tries again in a few minutes
     old = USER_KB.with_name("kb.old")
-    shutil.rmtree(old, ignore_errors=True)
     try:
-        if USER_KB.exists():
-            _rename(USER_KB, old)
-        _rename(tmp, USER_KB)
-    except OSError as e:
-        if old.exists() and not USER_KB.exists():
-            try:
-                _rename(old, USER_KB)
-            except OSError:
-                pass        # the app falls back to the bundled KB (kb_dir) on its next reload
-        shutil.rmtree(tmp, ignore_errors=True)
-        return _failed(f"the KB folder can't be swapped ({e})")    # mostly a process still working inside it
+        shutil.rmtree(old, ignore_errors=True)
+        try:
+            if USER_KB.exists():
+                _rename(USER_KB, old)
+            _rename(tmp, USER_KB)
+        except OSError as e:
+            if old.exists() and not USER_KB.exists():
+                try:
+                    _rename(old, USER_KB)
+                except OSError:
+                    pass        # the app falls back to the bundled KB (kb_dir) on its next reload
+            shutil.rmtree(tmp, ignore_errors=True)
+            return _failed(f"the KB folder can't be swapped ({e})")    # mostly a process still working inside it
+    finally:
+        tables._lock.release()
     shutil.rmtree(old, ignore_errors=True)
     return "updated"
 

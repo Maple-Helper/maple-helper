@@ -46,6 +46,38 @@ def test_a_failed_swap_says_why_in_the_log(tmp_path, monkeypatch, caplog):
     assert "can't be swapped" in caplog.text and "in use by another process" in caplog.text
 
 
+def test_a_table_build_holds_off_the_swap_and_none_starts_during_it(tmp_path, monkeypatch):
+    """A question's table build that starts right after before_swap would write the old KB's tables into the new
+    folder: the renames run under the build lock, and a build already running postpones the update."""
+    import hashlib
+    import io
+    import zipfile
+
+    from maplehelper import tables
+    user_kb = tmp_path / "kb"
+    user_kb.mkdir()
+    (user_kb / "meta.json").write_text('{"version": "2026.01.01.0000"}', encoding="utf-8")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("index.json", '[{"key": "monster/1", "category": "monster"}]')
+    data = buf.getvalue()
+    url = "https://github.com/Maple-Helper/maple-helper/releases/download/v1/kb.zip"
+    manifest = f'{{"version": "2026.02.01.0000", "url": "{url}", "sha256": "{hashlib.sha256(data).hexdigest()}"}}'
+    net = {"m": manifest.encode(), url: data}
+    monkeypatch.setattr(updater, "USER_KB", user_kb)
+    monkeypatch.setattr(updater, "kb_dir", lambda: user_kb)
+    monkeypatch.setattr(updater, "MANIFEST_URL", "m")
+    monkeypatch.setattr(updater, "_get", lambda u, timeout=30: net.get(u))
+    with tables._lock:
+        assert updater.fetch_kb(lambda: True) == "postponed"
+    assert "2026.01" in (user_kb / "meta.json").read_text(encoding="utf-8")
+    held = []
+    real_rename = updater._rename
+    monkeypatch.setattr(updater, "_rename", lambda a, b: (held.append(tables.building()), real_rename(a, b)))
+    assert updater.fetch_kb(lambda: True) == "updated"
+    assert held and all(held) and not tables.building()
+
+
 def test_an_offline_check_is_logged_too(monkeypatch, caplog):
     monkeypatch.setattr(updater, "MANIFEST_URL", "m")
     monkeypatch.setattr(updater, "_get", lambda u, timeout=30: None)
