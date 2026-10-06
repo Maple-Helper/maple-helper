@@ -154,3 +154,17 @@ def test_an_inventory_read_postpones_the_swap():
     # LIF-3: the swap guard missed the inventory read working from the KB's icons
     fake = SimpleNamespace(overlay=SimpleNamespace(_is_busy=lambda: True), brain=None)
     assert app.MapleHelperApp._stop_ai_for_kb_swap(fake) is False
+
+
+def test_a_run_from_source_never_rewrites_the_windows_run_value(monkeypatch):
+    # LIF-14: a preview run replaced the installed app's "start with Windows" entry with "python -m maplehelper"
+    calls = []
+    monkeypatch.setattr(app.sys, "platform", "win32")
+    monkeypatch.delattr(app.sys, "frozen", raising=False)
+    monkeypatch.setattr(app.osapi, "set_autostart", lambda *a: calls.append(a))
+    fake = SimpleNamespace(settings={"start_with_windows": True, "language": "en"})
+    app.MapleHelperApp.apply_autostart(fake)
+    assert calls == []
+    monkeypatch.setattr(app.sys, "frozen", True, raising=False)
+    app.MapleHelperApp.apply_autostart(fake)
+    assert len(calls) == 1

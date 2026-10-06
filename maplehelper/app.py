@@ -634,6 +634,8 @@ class MapleHelperApp:
         self.make_tray()
 
     def apply_autostart(self):
+        if sys.platform == "win32" and not getattr(sys, "frozen", False):
+            return      # a run from source would replace the installed app's Run value with "python -m maplehelper"
         # the setting means "start at login" on macOS (named before macOS support)
         if osapi.set_autostart(self.settings["start_with_windows"], [BACKGROUND_ARG]) is False:
             t = I18n(self.settings["language"])     # macOS, run from the disk image: the login item would break
@@ -1057,7 +1059,6 @@ def main():
         return selftest.main(sys.argv[1:])
     osapi.prepare_process()
     report.setup_logging()
-    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, " ".join(sys.argv[1:]) or "no args")
     qapp = QApplication(sys.argv)
     # Fusion: the native Windows 11 style ignores rounded corners on buttons. AppStyle adds the hand cursor and
     # the focus ring as Qt styles each widget (no app-wide event filter)
@@ -1065,14 +1066,18 @@ def main():
     qapp.setApplicationName(APP_NAME)
     qapp.setApplicationDisplayName(APP_NAME)
     lock = QLockFile(str(DATA_DIR / "app.lock"))
+    args = " ".join(sys.argv[1:]) or "no args"
     if not lock.tryLock(100):
         # already running (often in the tray): ask it to show the chat, unless this start is itself a background one
+        # (logged as such: a "starting" line here read as "the app restarted twice" in a report)
+        report.log.info("Maple Helper %s already running: showing it (%s)", __version__, args)
         if BACKGROUND_ARG not in sys.argv[1:]:
             sock = QLocalSocket()
             sock.connectToServer(INSTANCE_SERVER)
             sock.waitForConnected(1000)
             sock.disconnectFromServer()
         return 0
+    report.log.info("Maple Helper %s starting on %s (%s)", __version__, sys.platform, args)
     _hold_running_mutex()
     app = MapleHelperApp(qapp)
     if not app.start():
