@@ -2112,7 +2112,12 @@ class ToolsDialog(GlassDialog):
         why = FlowLayout(spacing=5)               # the tags wrap at a narrow width
         if best:
             why.addWidget(tag(self._p(t("craft_best")), "TagAccent"))
-        why.addWidget(tag(self._p(t("craft_lv_tag", n=r.level)), "Tag"))     # the list spans several levels
+        lv = t("craft_lv_tag", n=r.level)
+        if t.rtl:
+            # "רמה 1": the digit 1's ink sits at the right of its width, against the Hebrew word, and with a plain
+            # space the chip read "רמה1" (TL2-16); a no-break space plus a sixth of an em keeps the gap seen
+            lv = lv.replace(" ", "  ", 1)
+        why.addWidget(tag(self._p(lv), "Tag"))     # the list spans several levels
         why.addWidget(tag(f"+{r.exp} EXP", "TagGood"))
         why.addWidget(tag(self._p(t("craft_cost", n=f"{r.catalyst:,}")), "Tag"))
         col.addLayout(why)

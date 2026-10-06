@@ -338,3 +338,15 @@ def test_citizenship_under_level_12_says_only_that_it_opens_at_12(tools):
     d.c.level = 20
     d._fill_town()
     assert not d.town_head.isHidden() and not d.town_search.isHidden()
+
+
+def test_the_recipe_level_chip_keeps_a_visible_gap_in_hebrew(tools):
+    """TL2-16: the digit 1's ink sits against the Hebrew word: with a plain space the chip read "רמה1"."""
+    from PySide6.QtWidgets import QLabel
+    d, c = tools("Warrior", "Fighter", 35, "crafting")
+    d.craft_mode.set_value("recipes")
+    d._fill_crafting()
+    chips = [lb.text() for lb in d.pages["crafting"].widget().findChildren(QLabel)
+             if lb.objectName() == "Tag" and "רמה" in lb.text()]
+    one = [x for x in chips if "‪1‬" in x]           # the level-1 recipes' chips
+    assert one and all("רמה  " in x for x in one), one[:3]
