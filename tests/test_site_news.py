@@ -277,7 +277,7 @@ def test_the_news_strip_shows_the_newest_unread_and_dismisses_per_item(chat):
     assert chat.news_strip.isVisible()
     # the Hebrew title (assets/news/he.json), its English names kept whole
     assert "תקרת רמה" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
-    assert "ועוד אחת שלא קראתם" in chat.news_strip.head.text() and "חדשה מ-" in chat.news_strip.head.text()
+    assert "ועוד כתבה אחת שלא קראתם" in chat.news_strip.head.text() and "כתבה מ-" in chat.news_strip.head.text()
     chat.news_strip.close_btn.click()
     assert chat.settings["news_read"] == ["founders-access-release-notes"]
     assert "Classic World opens" in chat.news_strip.title.text()
@@ -336,8 +336,8 @@ def test_the_news_tab_lists_news_and_reports_what_was_seen(news_kb):
 def test_patch_notes_summary_counts_news():
     from maplehelper.ui.patchnotes import summary
     entries = [{"version": "1", "counts": {"added": 0, "changed": 0, "updated": 0, "removed": 0, "news": 2}}]
-    assert summary(I18n("en"), entries) == "2 news items"
-    assert summary(I18n("he"), [{"version": "1", "counts": {"news": 1}}]) == "ידיעה חדשה אחת"
+    assert summary(I18n("en"), entries) == "2 new articles"
+    assert summary(I18n("he"), [{"version": "1", "counts": {"news": 1}}]) == "כתבה חדשה אחת"
 
 
 # ------------------------------------------------------------------ one item's Free Market (market.py)
