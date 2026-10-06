@@ -174,8 +174,8 @@ REPLY_RULES = """<reply_rules>
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
-    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Mage. לא מתאים לכם: אתם Assassin ברמה 31."
-  * Jobs and classes in English, always ("Warrior", "Mage", "Assassin"), never "וריור" or "מג'".
+    Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Magician. לא מתאים לכם: אתם Assassin ברמה 31."
+  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'".
   * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.

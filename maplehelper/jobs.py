@@ -17,7 +17,8 @@ JOBS = {
     "Thief": [("Beginner", 1), ("Thief", 10), ("Assassin", 30), ("Bandit", 30), ("Hermit", 70), ("Chief Bandit", 70)],
 }
 # Hebrew names, as Israeli players say them (the 1st jobs as the class cards translate them, the rest spelled
-# out: "פייטר", "קלריק"). Shown beside the English name the game uses; the profile always keeps the English one.
+# out: "פייטר", "קלריק"). Only read, in a question (kb aliases, planner): the app shows and keeps the English
+# name the game uses (the owner: job names in English).
 JOB_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קוסם", "Bowman": "קשת", "Thief": "גנב",
           "Fighter": "פייטר", "Page": "פייג'", "Spearman": "ספירמן", "Crusader": "קרוסיידר",
           "White Knight": "וייט נייט", "Dragon Knight": "דרגון נייט", "F/P Wizard": "ויזארד אש ורעל",
