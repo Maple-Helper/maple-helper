@@ -1932,7 +1932,7 @@ class ToolsDialog(GlassDialog):
             self._no_character(self.craft_list)
             return
         every = self.craft_recipe_mode.value() == "all"
-        _, nxt = crafting.for_level(self.kb, prof, min(lv, top))
+        nxt = crafting.next_level(self.kb, prof, lv) if lv < top else None
         # everything you can craft so far (newest level first), or every recipe (first level first)
         recipes = crafting.up_to(self.kb, prof, top if every else min(lv, top))
         if every:
@@ -1940,9 +1940,8 @@ class ToolsDialog(GlassDialog):
         self.craft_search.set_rows([(f"{r.name}  ·  {t('craft_level_group', n=r.level)}", r.name,
                                      self._picture_path("item", r.name)) for r in recipes])
         head = t("craft_head_all" if every else "craft_head", prof=crafting.NAMES[prof], lv=lv, n=len(recipes))
-        if nxt and nxt.needs_exp:
-            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt.level, exp=f"{nxt.needs_exp:,}",
-                              char=nxt.char_level or "?")
+        if nxt:
+            head += "\n" + t("craft_next", prof=crafting.NAMES[prof], lv=nxt[0], exp=f"{nxt[1]:,}", char=nxt[2] or "?")
         self._set(self.craft_head, head)
         # a chip a level ("רמה 4"), as on the quests page: a tap shows that level's recipes
         levels: dict[int, int] = {}

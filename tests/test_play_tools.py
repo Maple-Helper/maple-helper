@@ -120,6 +120,11 @@ def test_crafting_recipes_by_profession_level():
     assert now.recipes == sorted(now.recipes, key=lambda r: (-r.exp_per_meso, -r.exp))
     assert nxt.level == 3 and nxt.needs_exp == 199
     assert all(crafting.levels(kb, p) for p in crafting.PROFESSIONS)
+    # the EXP to the next level is the current level's (pages/formula/leveling.md "1 | 50 | 0 | 10"), and
+    # Smithing 8 still has a next level though the efficiency page has no "Lv. 9" block (audit GAM-1)
+    assert crafting.next_level(kb, "smithing", 1) == (2, 50, 10)
+    assert crafting.next_level(kb, "smithing", 8) == (9, 1187, 45)
+    assert crafting.next_level(kb, "smithing", 10) is None
 
 
 @needs_kb
