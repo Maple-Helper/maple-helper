@@ -82,6 +82,7 @@ def test_login_item_refused_on_a_disk_image_tells_the_player(monkeypatch):
     me = SimpleNamespace(settings={"start_with_windows": True, "language": "en"},
                          toast=lambda title, body="", timeout_ms=0: toasts.append(body))
     monkeypatch.setattr(osapi, "set_autostart", lambda on, args: False)
+    monkeypatch.setattr(app.sys, "frozen", True, raising=False)     # a source run leaves the Run value alone
     app.MapleHelperApp.apply_autostart(me)
     assert toasts == [I18n("en")("start_at_login_move")]
     monkeypatch.setattr(osapi, "set_autostart", lambda on, args: None)      # Windows: nothing to say
