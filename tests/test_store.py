@@ -391,3 +391,33 @@ def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch)
     assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("F9", "F10")
     monkeypatch.setattr(isolated_store.sys, "platform", "darwin")
     assert isolated_store.Settings()["hotkey_toggle"] == "F12"
+
+
+def test_mac_app_moves_the_bundled_kb_out_of_the_signed_bundle(tmp_path, monkeypatch):
+    # the grep tables are built into the KB folder: inside the .app that broke its code seal (MAC-3)
+    import json
+    import sys
+
+    from maplehelper import store
+    bundled, user = tmp_path / "app" / "data" / "kb", tmp_path / "data" / "kb"
+    bundled.mkdir(parents=True)
+    (bundled / "index.json").write_text("[]", encoding="utf-8")
+    (bundled / "meta.json").write_text(json.dumps({"version": "2026.10.05.1525"}), encoding="utf-8")
+    monkeypatch.setattr(store, "BUNDLED_KB", bundled)
+    monkeypatch.setattr(store, "USER_KB", user)
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    store.adopt_bundled_kb()
+    assert not user.exists() and store.kb_dir() == bundled          # Windows keeps its per-user install folder
+    monkeypatch.setattr(sys, "platform", "darwin")
+    store.adopt_bundled_kb()
+    assert store.kb_dir() == user and (user / "index.json").exists()
+    store.adopt_bundled_kb()                                         # once: a downloaded KB is never overwritten
+    (user / "meta.json").write_text(json.dumps({"version": "2026.10.06.0300"}), encoding="utf-8")
+    store.adopt_bundled_kb()
+    assert json.loads((user / "meta.json").read_text(encoding="utf-8"))["version"] == "2026.10.06.0300"
+    # an app update that bundles a newer KB than the download replaces the older copy
+    (bundled / "meta.json").write_text(json.dumps({"version": "2026.10.07.0300"}), encoding="utf-8")
+    store.adopt_bundled_kb()
+    assert json.loads((user / "meta.json").read_text(encoding="utf-8"))["version"] == "2026.10.07.0300"
+    assert not (tmp_path / "data" / "kb.old").exists() and not (tmp_path / "data" / "kb.new").exists()

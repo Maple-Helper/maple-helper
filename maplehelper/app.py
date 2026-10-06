@@ -62,7 +62,8 @@ def _remove_stray_screenshots() -> None:
 def load_kb() -> KnowledgeBase:
     """The newest KB; the bundled one when the downloaded copy can't be read (one bad release mustn't stop
     every start)."""
-    from .store import BUNDLED_KB
+    from .store import BUNDLED_KB, adopt_bundled_kb
+    adopt_bundled_kb()          # macOS: tables are never written inside the signed .app
     try:
         return KnowledgeBase()
     except Exception:      # noqa: BLE001
