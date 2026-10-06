@@ -3,6 +3,7 @@ CLI, no sign-in, no AI call)."""
 import gc
 import os
 import sys
+import threading
 import weakref
 
 import pytest
@@ -28,7 +29,20 @@ def env(qapp, isolated_store, kb, monkeypatch):
     s = isolated_store.Settings()
     s["language"] = "en"
     s["provider"] = "claude"
-    return s, isolated_store.Profiles(), kb
+    from PySide6.QtWidgets import QApplication
+    windows = set(QApplication.topLevelWidgets())
+    before = set(threading.enumerate())
+    yield s, isolated_store.Profiles(), kb
+    # the dialogs' account checks run on threads: they end before their dialog is freed (the review UI-6)
+    for th in set(threading.enumerate()) - before:
+        th.join(timeout=10)
+    # a dialog a test left open kept its sign-in timer: it fired in the next file's first event pump, with this
+    # file's fakes gone, and the run died of an access violation (test_overlay_audit after these, the review UI-6)
+    from PySide6.QtCore import QTimer
+    for w in set(QApplication.topLevelWidgets()) - windows:
+        for timer in w.findChildren(QTimer):
+            timer.stop()
+        w.close()
 
 
 class WaitingLogin:
