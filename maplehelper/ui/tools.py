@@ -21,8 +21,8 @@ from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import (chip_row, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html, updated_tag,
-                      vote_tag, zoom_on_hover)
+from .widgets import (chip_row, fit_picture, info_tag, mesos_text, mesos_tip, source_tag, source_tags, tip_html,
+                      updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
 PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
@@ -116,7 +116,7 @@ class _LazyIcons(QStandardItemModel):
                 return None
             if path not in self._icons:
                 pm = QPixmap(path)
-                self._icons[path] = QIcon(pm.scaled(self._size, self._size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                self._icons[path] = QIcon(fit_picture(pm, self._size, self._size))
             return self._icons[path]
         return super().data(index, role)
 
@@ -787,7 +787,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(52, 52, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 52, 52, pic))
                 zoom_on_hover(pic, path)
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -916,7 +916,7 @@ class ToolsDialog(GlassDialog):
             pic = QLabel()
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
-            pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 56, 56, pic))
             zoom_on_hover(pic, path)
             nums.addWidget(pic, 0, Qt.AlignVCenter)
         # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
@@ -1646,7 +1646,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                npc.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                npc.setPixmap(fit_picture(pm, 52, 60, npc))
                 zoom_on_hover(npc, path)
         outer.addWidget(npc, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2068,7 +2068,7 @@ class ToolsDialog(GlassDialog):
         if uri:
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(52, 60, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 52, 60, pic))
                 zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2102,7 +2102,7 @@ class ToolsDialog(GlassDialog):
         if uri:
             pm = QPixmap(QUrl(uri).toLocalFile())
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 44, 44, pic))
                 zoom_on_hover(pic, QUrl(uri).toLocalFile())
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -2340,7 +2340,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(48, 48, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 48, 48, pic))
                 zoom_on_hover(pic, path)
         outer.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -3219,7 +3219,7 @@ class ToolsDialog(GlassDialog):
         if path:
             pm = QPixmap(str(path))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, size, size, pic))
                 zoom_on_hover(pic, path)
         return pic
 
@@ -3697,7 +3697,7 @@ class ToolsDialog(GlassDialog):
         path = self.kb.picture(p.key)
         pm = QPixmap(str(path)) if path else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 40, 40, pic))
             zoom_on_hover(pic, path)
         lay.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
@@ -3873,7 +3873,7 @@ class ToolsDialog(GlassDialog):
             pic = QLabel()
             pm = QPixmap()
             pm.loadFromData(v.picture)
-            pic.setPixmap(pm.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 36, 36, pic))
             row.addWidget(pic, 0, Qt.AlignVCenter)
         col = QVBoxLayout()
         col.setSpacing(2)

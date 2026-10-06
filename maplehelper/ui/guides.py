@@ -13,6 +13,7 @@ from ..osapi import open_url
 from .controls import FlowLayout, follow_typing, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
+from .widgets import fit_picture
 
 
 ZOOM = 3            # pictures are pixel art: a whole-number zoom keeps them sharp
@@ -245,7 +246,7 @@ class GuideRow(QFrame):
         pic.setAlignment(Qt.AlignCenter)
         pm = QPixmap(str(img)) if img else QPixmap()
         if not pm.isNull():
-            pic.setPixmap(pm.scaled(44, 44, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pic.setPixmap(fit_picture(pm, 44, 44, pic))
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)

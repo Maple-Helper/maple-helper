@@ -109,3 +109,28 @@ def test_disabled_buttons_and_controls_look_disabled(app, mode):
             assert shots[0] != shots[1], f"{name} looks the same disabled ({mode})"
     finally:
         app.setStyleSheet("")
+
+
+class _Screen2x:
+    def devicePixelRatioF(self):
+        return 2.0
+
+
+def test_pictures_are_made_at_the_screens_pixels_and_sprites_grow_pixel_for_pixel(app):
+    """VIS-8: card pictures were scaled to 56 logical px and stretched by Qt to 112 at 200% (blurred), and small
+    sprites were smoothed up. Now: device pixels with the screen's ratio, and a sprite grows in whole steps."""
+    from PySide6.QtGui import QColor, QImage, QPixmap
+
+    from maplehelper.ui.widgets import fit_picture
+    img = QImage(8, 8, QImage.Format_ARGB32)
+    for x in range(8):
+        for y in range(8):
+            img.setPixelColor(x, y, QColor("#000000") if (x + y) % 2 else QColor("#FFFFFF"))
+    pm = fit_picture(QPixmap.fromImage(img), 56, 56, _Screen2x())
+    assert pm.devicePixelRatio() == 2.0
+    assert (pm.width(), pm.height()) == (112, 112)
+    assert pm.deviceIndependentSize().toSize().width() == 56
+    out = pm.toImage()
+    # 8 -> 112 is exactly 14x: nearest neighbour keeps only the sprite's own two colors (smoothing made greys)
+    colors = {out.pixelColor(x, y).name() for x in range(0, 112, 3) for y in range(0, 112, 3)}
+    assert colors <= {"#000000", "#ffffff"}, colors

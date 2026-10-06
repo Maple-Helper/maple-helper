@@ -461,6 +461,38 @@ def zoom_on_hover(label, path, caption: str = "", height: int = 96) -> None:
     cap = f"<br>{escape(caption)}" if caption else ""
     label.setToolTip(f"<div align='center'><img src='{uri}' height='{height}'>{cap}</div>")
 
+def trimmed(pm: QPixmap) -> QPixmap:
+    """The picture without its transparent margins: a sprite drawn small in a big empty canvas (Trixter, 67x81 for a
+    ~25 px bug) came out half the size of the next card's (VIS-22)."""
+    from PySide6.QtGui import QRegion
+    if pm.isNull() or not pm.hasAlphaChannel():
+        return pm
+    box = QRegion(pm.mask()).boundingRect()
+    return pm.copy(box) if box.isValid() and box.size() != pm.size() else pm
+
+
+def fit_picture(pm: QPixmap, w: int, h: int, widget: QWidget | None = None, trim: bool = False) -> QPixmap:
+    """The picture fitted into w x h (logical px), sharp on HiDPI: made at the screen's own pixels, as Avatar does (a
+    56 px pixmap was stretched to 112 at 200% and looked out of focus), and a small sprite enlarged pixel for pixel
+    in whole steps, then smoothed down to the box (smoothing it up blurred the MapleStory sprites, VIS-8)."""
+    import math
+
+    from PySide6.QtWidgets import QApplication
+    if pm.isNull():
+        return pm
+    if trim:
+        pm = trimmed(pm)
+    dpr = (widget.devicePixelRatioF() if widget is not None else QApplication.instance().devicePixelRatio()) or 1.0
+    tw, th = max(1, round(w * dpr)), max(1, round(h * dpr))
+    k = min(tw / pm.width(), th / pm.height())
+    if k >= 1.5:
+        n = math.ceil(k)
+        pm = pm.scaled(pm.width() * n, pm.height() * n, Qt.KeepAspectRatio, Qt.FastTransformation)
+    out = pm.scaled(tw, th, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+    out.setDevicePixelRatio(dpr)
+    return out
+
+
 def info_tag(t, text: str, tip: str, kind: str = "Tag") -> QLabel:
     """A small chip with its own explanation (a pet's "In Cash Shop", a tier grade)."""
     lb = QLabel(bidi.plain(text, t.rtl), objectName=kind)
@@ -650,7 +682,7 @@ class EntityCard(Selectable, QFrame):
         if img:
             pm = QPixmap(str(img))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(56, 56, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 56, 56, pic))
                 zoom_on_hover(pic, img)
         row.addWidget(pic, 0, Qt.AlignTop)
 
@@ -1200,7 +1232,7 @@ class EntityTile(Selectable, QFrame):
         if img:
             pm = QPixmap(str(img))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 32, 32, pic))
                 zoom_on_hover(pic, img, e.get("name", ""))
         row.addWidget(pic)
         col = QVBoxLayout()
@@ -1341,7 +1373,7 @@ class DropGroupCard(QFrame):
         if img:
             pm = QPixmap(str(img))
             if not pm.isNull():
-                pic.setPixmap(pm.scaled(40, 40, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setPixmap(fit_picture(pm, 40, 40, pic))
                 zoom_on_hover(pic, img)
         head.addWidget(pic)
         align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
