@@ -121,6 +121,7 @@ class Bubble(QFrame):
         b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
+        b.setAccessibleName(tip)        # its text is an icon-font glyph: a screen reader read nothing (UX-15)
         b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
         row.addWidget(b)
         self.layout().addLayout(row)

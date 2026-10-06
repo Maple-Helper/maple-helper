@@ -122,6 +122,14 @@ class GrindRunner(QObject):
         got, self.pending, self.got = self.got, None, None
         c = self.profiles.active
         if not c or c.id != cid:
+            # another character since the press: the screen may show them, so the read isn't added; an End still
+            # ends the session it was pressed for, without a reading, and a Start / Update says it didn't take
+            # (it was dropped without a word, TL1-10)
+            if what == "end":
+                rec = self.store.end(cid, self.kb)
+                self.note = ["grind_end_no_read", "grind_saved" if rec else "grind_not_saved"]
+            elif what != "auto":
+                self.note = ["exp_failed"]
             return
         now = time.time()
         if ok and got and got[0] == cid:
