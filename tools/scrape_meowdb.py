@@ -216,7 +216,7 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool) -> dict | None
     entity = next((d for d in lds if d.get("@type") not in ("BreadcrumbList", "WebSite", "Organization")), {})
     title = re.search(r"<title>(.*?)</title>", page, re.S)
     title_name = title.group(1).split(" | ")[0].split(" - MapleStory Classic")[0].strip() if title else ""
-    name = html.unescape(str(entity.get("name") or entity.get("headline") or title_name or slug))
+    name = html.unescape(str(entity.get("name") or entity.get("headline") or title_name or slug)).strip()
     text = main_text(page, name)
     props = props_of(entity)
     img_file = None
