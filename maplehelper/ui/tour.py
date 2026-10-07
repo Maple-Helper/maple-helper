@@ -53,9 +53,9 @@ def _resolve(root, path: str | None):
 class Tour(QWidget):
     finished = Signal()          # skipped or done: either way it doesn't come back by itself
 
-    def __init__(self, overlay, t, hotkeys: dict):
+    def __init__(self, overlay, t):
         super().__init__(overlay)
-        self.overlay, self.t, self.keys = overlay, t, hotkeys
+        self.overlay, self.t = overlay, t
         _TabKeys.watch()                 # which button the player Tabbed to (Enter on it)
         self.setAttribute(Qt.WA_NoSystemBackground)
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
@@ -128,7 +128,7 @@ class Tour(QWidget):
         self.count.setText(f"{self.i} / {len(self.steps) - 2}" if 0 < self.i < len(self.steps) - 1 else "")
         self.count.setVisible(bool(self.count.text()))
         self.title.setText(bidi.plain(t(f"{key}_title"), rtl))
-        self.body.setText(bidi.plain(t(f"{key}_body", toggle=self.keys["toggle"], voice=self.keys["voice"]), rtl))
+        self.body.setText(bidi.plain(t(f"{key}_body"), rtl))
         self.back_btn.setVisible(0 < self.i)
         self.skip_btn.setVisible(not last)
         self.next_btn.setText(bidi.plain(t("tour_start") if self.i == 0 else t("tour_finish") if last

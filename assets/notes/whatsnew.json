@@ -1,5 +1,20 @@
 [
  {
+  "version": "0.11.0",
+  "he": [
+   "בלי מקשי קיצור: המשחק הרשמי חוסם לחיצות מקלדת ועכבר לתוכנות אחרות כשהוא בקדמת המסך, ולכן F9 ו-F10 לא עבדו מתוך המשחק. פותחים את הצ'אט מהסמל של Maple Helper ליד השעון (במסך מלא, מקש Windows מציג אותו), מקיצור הדרך או משורת המשימות, ומדברים בכפתור המיקרופון.",
+   "מזעור שולח את הצ'אט לשורת המשימות ומחזיר את המשחק לקדמת המסך. כשהצ'אט נפתח הוא מקבל מיד את המקלדת, ונפתח בתוך התמונה של המשחק ולא על הפסים השחורים בצדדים.",
+   "אפשר להעתיק תשובות: מסמנים בעכבר ומעתיקים, או לוחצים על כפתור ההעתקה שמתחת לתשובה.",
+   "תמונת הדמות: הדמות שלך נמצאת לפי האותיות של השם שלה, גם בין הרבה שחקנים ובגרסה הרשמית של המשחק, ושחקן אחר כבר לא נבחר בטעות. הרקע מוסר גם מול קירות לבנים, וריחוף על התמונה מגדיל אותה."
+  ],
+  "en": [
+   "No keyboard shortcuts: the official game blocks keys and clicks from other programs while it's in front, so F9 and F10 didn't work in game. Open the chat from the Maple Helper icon by the clock (in full screen, the Windows key shows it), the shortcut or the taskbar, and talk with the mic button.",
+   "Minimize sends the chat to the taskbar and brings the game back to the front. When the chat opens it takes the keyboard right away, and it opens inside the game's picture, not on the black side bars.",
+   "Answers can be copied: select them with the mouse, or click the copy button under an answer.",
+   "Your character's picture: your character is found by the letters of its name, even in a crowd and in the official game, and another player is no longer picked by mistake. The background is removed against brick walls too, and hovering the picture shows it large."
+  ]
+ },
+ {
   "version": "0.10.2",
   "he": [
    "בכלי המשחק, \"בילד\" נקרא עכשיו \"בילד וסקילים\". בלשונית החדשה \"סקילים\" יש לשונית לכל מקצוע ולכל ג'וב (ראשון ושני), ולכל סקיל: תמונה, שם, הסבר בעברית, רמת מקסימום, מה צריך כדי ללמוד אותו, ומה הוא עושה ברמה 1 וברמת המקסימום."

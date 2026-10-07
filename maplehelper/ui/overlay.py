@@ -1,4 +1,4 @@
-"""The in-game chat window: a liquid-glass panel over the game, draggable across monitors, F9 only to close."""
+"""The in-game chat window: a liquid-glass panel over the game, draggable across monitors."""
 from __future__ import annotations
 
 import html
@@ -19,7 +19,6 @@ from ..session import SessionStats, blocks as session_blocks, records as session
 from ..store import ASSETS, History, Profiles, Settings
 from . import theme
 from .glass import paint_glass
-from .minibubble import MiniBubble
 from .widgets import (SELECTION, WISHLIST, Bubble, BubbleRow, DropGroupCard, EntityCard, NoticeCard, ProfileCard,
                       CharacterChoice, SessionCard, SplitMenu, SystemLine, TileGrid, source_tags,
                       character_image)
@@ -139,7 +138,7 @@ class FocusLineEdit(QLineEdit):
     def set_hint(self, text: str, short: str = "") -> None:
         """The placeholder, cut with "…" at the end of its reading direction when the field is too narrow (at
         470 px with the large font the English hint was cut mid-letter at the edge). short: the hint for a narrow
-        field, used when the whole one doesn't fit (it lost the talk key: "…(Enter to send, F10 t…", VIS-18)."""
+        field, used when the whole one doesn't fit (it lost its end: "…(Enter to send, F10 t…", VIS-18)."""
         self._hint, self._short = text, short
         self._fit_hint()
 
@@ -247,6 +246,20 @@ def visible_rect(rect: QRect, screens: list[QRect]) -> QRect | None:
     return QRect(x, y, rect.width(), rect.height())
 
 
+def to_logical(rect: tuple[int, int, int, int]) -> QRect:
+    """Screen pixels (osapi.window_rect, a grab) as Qt's logical coordinates; the inverse of windows_over's mapping."""
+    x, y, w, h = rect
+    if not osapi.SCREEN_COORDS_ARE_PHYSICAL:
+        return QRect(x, y, w, h)
+    cx, cy = x + w / 2, y + h / 2
+    for s in QGuiApplication.screens():
+        o, ratio, g = s.geometry().topLeft(), s.devicePixelRatio(), s.geometry()
+        if o.x() <= cx < o.x() + g.width() * ratio and o.y() <= cy < o.y() + g.height() * ratio:
+            return QRect(round(o.x() + (x - o.x()) / ratio), round(o.y() + (y - o.y()) / ratio),
+                         round(w / ratio), round(h / ratio))
+    return QRect(x, y, w, h)
+
+
 def update_job(update: dict) -> str | None:
     """The job a profile update names, as the app names it ("Cleric"), or None."""
     from ..jobs import canonical_job
@@ -308,10 +321,12 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     return tiles, slots, described
 
 
-def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool) -> bytes | None:
-    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels, near the AI's rough
-    box). None: no change (no tag found; have_portrait is kept for the callers).
-    Pure (no Qt), so it runs in a worker thread."""
+def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool,
+                  letters_dir=None) -> bytes | None:
+    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels by the name's
+    letters). None: no change (no tag found; have_portrait is kept for the callers).
+    letters_dir keeps each name's letters as the game draws them, learned on the first find: they find the tag
+    again in a crowd. No Qt, so it runs in a worker thread."""
     import io
 
     import numpy as np
@@ -323,7 +338,20 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
         # the full-resolution grab when it is the same picture (same shape): small name tags survive there
         same = full is not None and abs(full.width / full.height - img.width / img.height) < 0.01
         src = full.convert("RGB") if same else img
-        rect = portrait_rect(np.asarray(src), box, name)
+        learned, path = None, None
+        if letters_dir is not None and name:
+            import re
+            path = letters_dir / f"{re.sub(r'[^0-9A-Za-z]', '_', name).lower()}.png"
+            if path.exists():
+                learned = (np.asarray(Image.open(path).convert("L")) > 127).astype(np.float32)
+        found: dict = {}
+        rect = portrait_rect(np.asarray(src), box, name, learned, found)
+        if path is not None and "letters" in found:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                Image.fromarray((found["letters"] * 255).astype(np.uint8)).save(path)
+            except OSError:
+                pass             # not learned this time: the drawn name still finds the tag
         if rect:
             crop = src.crop(rect)
             mask = sprite_mask(np.asarray(crop))
@@ -453,9 +481,6 @@ class Overlay(QWidget):
         self._anim: QParallelAnimationGroup | None = None
         self._growing = False                   # the open animation is scaling the window up
         self._target_geometry = QRect()
-        self.bubble = MiniBubble()
-        self.bubble.clicked.connect(self.restore_from_bubble)
-        self.bubble.moved.connect(lambda pt: self.settings.__setitem__("bubble_pos", {"x": pt.x(), "y": pt.y()}))
         self.shot_provider = None
         self._build()
         WISHLIST.bind(settings, profiles)
@@ -700,7 +725,7 @@ class Overlay(QWidget):
         self.send_btn.clicked.connect(self._send_clicked)     # while an answer runs it is the Stop button
         self.send_btn.setEnabled(False)
         row.addWidget(self.send_btn)
-        # what the next question sends: the F9 screenshot goes with the first question only
+        # what the next question sends: the screenshot taken on opening goes with the first question only
         self.shot_hint = QLabel(objectName="ShotHint")
         self.shot_hint.setTextFormat(Qt.RichText)
         self.shot_hint.setWordWrap(True)
@@ -735,8 +760,7 @@ class Overlay(QWidget):
         from .tour import Tour
         if getattr(self, "_tour", None) is not None or not self.isVisible():
             return
-        keys = {"toggle": self.settings["hotkey_toggle"], "voice": self.settings["hotkey_voice"]}
-        self._tour = Tour(self, self.t, keys)
+        self._tour = Tour(self, self.t)
 
         def done():
             self._tour = None
@@ -873,8 +897,7 @@ class Overlay(QWidget):
         set_tip(self.clear_tags_btn, self.t("untag_all"))
         if self.focus_keys:
             self._render_tags()
-        hk_voice = self.settings["hotkey_voice"]
-        self._placeholder = self.t("input_placeholder").replace("F10", hk_voice)
+        self._placeholder = self.t("input_placeholder")
         self._show_placeholder()
         # its name for a screen reader: the placeholder changes (listening, transcribing) and isn't read as one
         self.input.setAccessibleName(self.t("input_a11y"))
@@ -899,8 +922,8 @@ class Overlay(QWidget):
         set_tip(self.profile_card, self.t("switch_character"))
         set_tip(self.min_btn, self.t("minimize"))
         set_tip(self.update_close, self.t("notice_close"))
-        set_tip(self.close_btn, self.t("close_chat").replace("F9", self.settings["hotkey_toggle"]))
-        set_tip(self.mic_btn, self.t("mic_tip", key=hk_voice))
+        set_tip(self.close_btn, self.t("close_chat"))
+        set_tip(self.mic_btn, self.t("mic_tip"))
         self._on_text(self.input.text())
         self.refresh_profile_chip()
         self._update_shot_hint()
@@ -1361,8 +1384,29 @@ class Overlay(QWidget):
         spot.setSize(spot.size().boundedTo(home.size()))
         return visible_rect(spot, [home])
 
+    def play_area(self) -> QRect | None:
+        """The game's picture on screen, without its black bars (from the screenshot taken as the chat opened), or
+        None with no game: the game in front keeps its mouse pointer there, so the chat goes there too."""
+        from .. import capture
+        if not self.game_hwnd or not capture.PLAY_AREA:
+            return None
+        area = to_logical(capture.PLAY_AREA)
+        return area if area.width() > 200 and area.height() > 200 else None
+
+    def _keep_in_play_area(self) -> None:
+        """A chat (saved or placed) partly on the game's black bars: moved fully into its picture, shrunk to fit."""
+        area = self.play_area()
+        if area is None or area.contains(self.geometry()):
+            return
+        g = self.geometry()
+        w, h = min(g.width(), area.width() - 16), min(g.height(), area.height() - 16)
+        x = min(max(g.x(), area.left() + 8), area.right() - w - 8)
+        y = min(max(g.y(), area.top() + 8), area.bottom() - h - 8)
+        self.setGeometry(x, y, w, h)
+
     def place_default(self, near_hwnd: int | None = None):
-        """Top-right corner of the game's screen (or the primary screen)."""
+        """Top-right corner of the game's screen (or the primary screen); inside the game's picture when it has
+        black bars beside it (the mouse can't reach them while the game is in front)."""
         screen = QGuiApplication.primaryScreen()
         rect = osapi.window_rect(near_hwnd) if near_hwnd else None
         if rect:
@@ -1387,7 +1431,7 @@ class Overlay(QWidget):
             self._anim.deleteLater()
             self._anim = None
         if self._growing:
-            # stopped mid-grow (a quick F9 double-tap): the real size first, or the shrunken one sticks
+            # stopped mid-grow (a quick close and reopen): the real size first, or the shrunken one sticks
             self._growing = False
             self.setGeometry(self._target_geometry)
         g = self.geometry()
@@ -1423,13 +1467,14 @@ class Overlay(QWidget):
         self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
             self.place_default(game_hwnd)
+        self._keep_in_play_area()
         if self._session_started is None:
             self._session_started = time.time()
             self.stats = SessionStats()
             self.stats.touch(self.profiles.active)
             self._show_last_session()
         self.setWindowOpacity(0.0)
-        # Win+D or "Show desktop" can minimize it now that it is a normal window: F9 brings it back
+        # Win+D, "Show desktop" or its own minimize button left it minimized: opening it again brings it back
         self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
         self.show()
         self.raise_()
@@ -1501,7 +1546,6 @@ class Overlay(QWidget):
         self.input.setFocus()
 
     def close_overlay(self):
-        self.bubble.hide()
         if not self.isVisible():
             return
         self._tell_brain_shown(False)
@@ -1514,20 +1558,16 @@ class Overlay(QWidget):
             osapi.focus_window(self.game_hwnd)
 
     def minimize(self):
-        """Shrink to the bubble, which appears where the chat's header was."""
-        pos = self.settings["bubble_pos"]
-        # a saved spot on a monitor that is gone (or half off one) would hide the only way back
-        spot = visible_rect(QRect(pos["x"], pos["y"], self.bubble.width(), self.bubble.height()),
-                            [s.availableGeometry() for s in QGuiApplication.screens()]) if pos else None
-        if spot:
-            self.bubble.move(spot.topLeft())
-        else:
-            g = self.geometry()
-            x = g.left() + self.SHADOW if self.t.rtl else g.right() - self.bubble.width() - self.SHADOW
-            self.bubble.move(x, g.top() + self.SHADOW)
-        self.close_overlay()
-        self.bubble.show()
-        self.bubble.raise_()
+        """Into the taskbar like any window, the game back in front (the bubble that stood in for it over the game
+        couldn't be clicked: the official client in front takes every click). macOS: a tool window has no Dock tile,
+        so it closes; the menu bar icon opens it again."""
+        if sys.platform == "darwin":
+            self.close_overlay()
+            return
+        self._tell_brain_shown(False)
+        self.showMinimized()
+        if self.game_hwnd:
+            osapi.focus_window(self.game_hwnd)
 
     def _safe_shot(self, hwnd):
         """A failed capture opens the chat without a screenshot rather than not at all."""
@@ -1538,11 +1578,6 @@ class Overlay(QWidget):
             logging.getLogger(__name__).warning("screenshot failed", exc_info=True)
             return None
 
-    def restore_from_bubble(self):
-        self.bubble.hide()
-        hwnd = osapi.find_game_window()
-        self.open_overlay(self._safe_shot(hwnd), hwnd)
-
     def _step_aside(self, on: bool) -> None:
         """See-through for a moment while a screenshot is taken (the chat is part of the screen), then back."""
         self._stepping_aside = on
@@ -1550,7 +1585,7 @@ class Overlay(QWidget):
 
     def is_open(self) -> bool:
         """On screen: shown, not fading out, not minimized (a minimized chat is "visible" to Qt). A chat stepping
-        aside for a screenshot is still open (F9 in those 120 ms opened it again instead of closing it)."""
+        aside for a screenshot is still open (a second open in those 120 ms opened it again)."""
         if getattr(self, "_stepping_aside", False):
             return self.isVisible() and not self.isMinimized()
         return self.isVisible() and self.windowOpacity() > 0.5 and not self.isMinimized()
@@ -1560,12 +1595,23 @@ class Overlay(QWidget):
         if self.is_open():
             self.close_overlay()
         else:
-            self.bubble.hide()
+            self._take_front()
             hwnd = osapi.find_game_window()
             self.open_overlay(self._safe_shot(hwnd), hwnd)
 
+    def _take_front(self):
+        """Windows lets this app come to the front only right after the player's own action (the tray icon, the
+        desktop shortcut): taken after the screenshot, that right could be gone, and the game kept the keyboard. The
+        chat takes the front first, still see-through, so the screenshot shows only the game."""
+        if self.isVisible():
+            return
+        self.setWindowOpacity(0.0)
+        self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
+        self.show()
+        osapi.activate_self(int(self.winId()))
+
     def keyPressEvent(self, e):
-        # Esc deliberately does nothing: F9 or the window buttons close the chat.
+        # Esc deliberately does nothing: the window buttons close the chat.
         if e.key() == Qt.Key_Escape:
             return
         if e.key() == Qt.Key_F5:
@@ -1611,15 +1657,14 @@ class Overlay(QWidget):
     def _update_shot_hint(self):
         """Fresh screenshot: it goes with the next question. Used: say so, with a one-click retake.
         No game open: explain how screenshots work, so the player knows before it matters."""
-        hk = self.settings["hotkey_toggle"]
         from ..capture import problem_key
         problem = None if self.shot else problem_key()     # the game covered, or no Screen Recording grant
         if problem:
-            text = self.t(problem).replace("F9", hk)
+            text = self.t(problem)
         elif not self.game_hwnd and not self.shot:
-            text = self.t("shot_hint_no_game").replace("F9", hk)
+            text = self.t("shot_hint_no_game")
         elif self.shot and not self.shot_used:
-            text = self.t("shot_hint_ready").replace("F9", hk)
+            text = self.t("shot_hint_ready")
         else:
             # the retake link never splits over two lines (at 470 px "לצלם / מחדש" did)
             retake = self.t("shot_hint_retake").replace(" ", "&nbsp;")
@@ -2097,7 +2142,8 @@ class Overlay(QWidget):
         b = self.add_bubble(qa.text, "assistant", direction="rtl" if self.t.rtl else "ltr")
         self._start_reading(b)
         # the character it was asked for (pinned after a switch, it went to the other one)
-        b.add_pin(lambda cid=getattr(self, "_asked_cid", None): self.pin_answer(question, qa.text, cid), self.t("pin"))
+        b.add_pin(lambda cid=getattr(self, "_asked_cid", None): self.pin_answer(question, qa.text, cid), self.t("pin"),
+                  self.t("copy_answer"), self.t("copied_text"))
         row = QWidget()
         from .controls import FlowLayout
         rl = FlowLayout(row, spacing=8, line_spacing=0)       # the link goes under the badge when the chat is narrow
@@ -2465,7 +2511,8 @@ class Overlay(QWidget):
         self._remember_model(ans)
         q = getattr(self, "_last_question", "")
         self._pending_bubble.add_pin(lambda q=q, a=ans.text, cid=getattr(self, "_asked_cid", None):
-                                     self.pin_answer(q, a, cid), self.t("pin"))
+                                     self.pin_answer(q, a, cid), self.t("pin"), self.t("copy_answer"),
+                                     self.t("copied_text"))
         QTimer.singleShot(0, self._keep_answer_readable)
         QTimer.singleShot(250, self._keep_answer_readable)   # after the cards' layout settles
         if history:
@@ -2591,13 +2638,16 @@ class Overlay(QWidget):
         and the sprite's outline in a full-resolution grab held the chat still for a moment. on_done(changed) runs
         on the GUI thread once the portrait is set (or wasn't)."""
         import threading
+
+        from .. import store
         c = self.profiles.active
         cid, name, have = (c.id if c else None), (c.name if c else ""), bool(self.profiles.avatar_path())
+        letters_dir = store.AVATAR_DIR / "names"
         if not getattr(self, "_avatar_wired", False):
             self.avatar_cropped.connect(self._on_avatar_cropped)
             self._avatar_wired = True
         threading.Thread(target=lambda: self.avatar_cropped.emit(
-            (cid, crop_portrait(shot_jpeg, box, full, name, have), on_done)), daemon=True).start()
+            (cid, crop_portrait(shot_jpeg, box, full, name, have, letters_dir), on_done)), daemon=True).start()
 
     def _on_avatar_cropped(self, r: tuple):
         cid, png, on_done = r
@@ -2633,7 +2683,7 @@ class Overlay(QWidget):
         self.mic_btn.setProperty("active", "true" if state.startswith("listening") else "false")
         self.mic_btn.style().unpolish(self.mic_btn)
         self.mic_btn.style().polish(self.mic_btn)
-        text = {"listening": self.t("listening", key=self.settings["hotkey_voice"]),
+        text = {"listening": self.t("listening"),
                 "transcribing": self.t("transcribing"),
                 "loading": self.t("voice_loading"),
                 "downloading": self.t("voice_downloading")}.get(state)
@@ -2643,8 +2693,8 @@ class Overlay(QWidget):
             self.input.set_hint(bidi.plain(text, self.t.rtl))
 
     def _show_placeholder(self):
-        """The field's own hint, and its shorter form for a narrow chat (no "Enter to send": the talk key stays)."""
-        short = self.t("input_placeholder_short").replace("F10", self.settings["hotkey_voice"])
+        """The field's own hint, and its shorter form for a narrow chat."""
+        short = self.t("input_placeholder_short")
         self.input.set_hint(bidi.plain(self._placeholder, self.t.rtl), bidi.plain(short, self.t.rtl))
 
     def offer_voice_download(self, size: int):
@@ -2691,7 +2741,7 @@ class Overlay(QWidget):
                 row.findChild(SystemLine).set_text(self.t("voice_dl_progress", pct=100))
         key = {"done": "voice_dl_done", "cancelled": "voice_dl_stopped"}.get(how)
         if key:
-            self.add_system(lambda t: t(key, key=self.settings["hotkey_voice"]))
+            self.add_system(lambda t: t(key))
 
     def voice_text(self, text: str, send: bool):
         text = text.strip()

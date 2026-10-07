@@ -338,7 +338,7 @@ FAMILIES = {
     "fm_reports": re.compile(r"^(Community price check|Player reported|Saw it in a shop[?] Add a price)$"),
     "official": re.compile(r"^Source ?: .*\bNexon\b|^Official sources:"),
     ("shop_list", "source"): re.compile(r"^Source ?: (?!.*\bNexon\b)"),
-    "guide_data": re.compile(r"\buse current [A-Z0-9]\S* data\b"),
+    "guide_data": re.compile(r"\buse current [A-Z0-9]\S*(?: [A-Z]\S*)* data\b"),
     "exp_table": re.compile(r"reproduce a historical reference"),
     "party_exp": re.compile(r"^Party EXP\. \S+ grants"),
     "mob_rate": re.compile(r"from closed-beta play"),

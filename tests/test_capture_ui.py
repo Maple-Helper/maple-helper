@@ -39,7 +39,6 @@ def overlay(isolated_store, kb, monkeypatch):
     yield ov
     capture.LAST_PROBLEM = None
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
 
 
