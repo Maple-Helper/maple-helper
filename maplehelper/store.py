@@ -131,13 +131,10 @@ def _write_json(path: Path, data) -> None:
 
 DEFAULT_SETTINGS = {
     "language": None,             # "he" | "en"; None until onboarding
-    "hotkey_toggle": "F9",
-    "hotkey_voice": "F10",
     "appearance": "light",         # dark | light (opaque surfaces)
     "font_size": 14,
     "answer_length": "short",     # short | detailed
-    "window": None,
-    "bubble_pos": None,           # where the minimized bubble sits               # {"x","y","w","h","screen"} saved on move/resize
+    "window": None,               # {"x","y","w","h","screen"} saved on move/resize
     "start_with_windows": False,
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
@@ -179,7 +176,6 @@ class Settings:
     def __init__(self):
         self.data = {**DEFAULT_SETTINGS, **_read_json(self.path, {})}
         self._sane_types()
-        self._windows_keys()
         self._stored_language()
 
     # stored in another shape than the default on purpose: a single bool from older versions, [reset, level]
@@ -200,20 +196,6 @@ class Settings:
                 ok = isinstance(v, type(default))
             if not ok:
                 self.data[key] = default
-
-    def _windows_keys(self) -> None:
-        """Windows keeps F12 for the debugger and never lets a program register it: a hotkey saved as F12 (older
-        versions offered it) never worked there, so it loads as the default key, or the other default when that
-        one is the other hotkey's, never two hotkeys on one key."""
-        if sys.platform != "win32":
-            return
-        keys = ("hotkey_toggle", "hotkey_voice")
-        for key in keys:
-            if self.data.get(key) != "F12":
-                continue
-            other = self.data.get(next(k for k in keys if k != key))
-            self.data[key] = next(k for k in (DEFAULT_SETTINGS[key], *(DEFAULT_SETTINGS[k] for k in keys),
-                                              *(f"F{i}" for i in range(1, 12))) if k != other)
 
     def _stored_language(self) -> None:
         """v0.9.x stored the language only when it was clicked (Hebrew was preselected): a player who set up the app

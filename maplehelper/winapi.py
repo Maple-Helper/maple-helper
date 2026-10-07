@@ -1,8 +1,8 @@
-"""Small Windows helpers: find the game window, capture it, focus handling, hotkeys, autostart.
+"""Small Windows helpers: find the game window, capture it, focus handling, autostart.
 
 Deliberately non-invasive: no keyboard hooks, no key-state polling, no process access, nothing hidden
 from screen capture. The game window is found by its title and captured from the screen like any
-screenshot tool; keys are ordinary Windows hotkeys (RegisterHotKey).
+screenshot tool. No keyboard shortcuts: the official client in front takes every key from other programs.
 Same interface as macapi.py; the app picks one through osapi.py.
 """
 from __future__ import annotations
@@ -13,8 +13,6 @@ import os
 import re
 import sys
 
-from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Signal
-from PySide6.QtWidgets import QApplication, QWidget
 
 from . import APP_NAME, capture
 from .capture import grab_image, grab_jpeg
@@ -36,7 +34,7 @@ def prepare_process() -> None:
 
 
 def missing_permissions(request: bool = False) -> list[str]:
-    return []   # Windows needs no extra grant for screen capture or hotkeys
+    return []   # Windows needs no extra grant for screen capture
 
 
 def _title(hwnd) -> str:
@@ -191,63 +189,6 @@ def seconds_since_self_activation() -> float:
 
 def float_over_fullscreen(win_id: int) -> None:
     """Nothing to do: on Windows a topmost window already floats over a borderless game."""
-
-
-MOD_NOREPEAT = 0x4000
-WM_HOTKEY = 0x0312
-
-
-def register_hotkey(hwnd: int, hotkey_id: int, key_name: str) -> bool:
-    vk = VK.get(key_name)
-    return bool(vk and user32.RegisterHotKey(wt.HWND(hwnd), hotkey_id, MOD_NOREPEAT, vk))
-
-
-def unregister_hotkey(hwnd: int, hotkey_id: int) -> None:
-    user32.UnregisterHotKey(wt.HWND(hwnd), hotkey_id)
-
-
-class _HotkeyFilter(QAbstractNativeEventFilter):
-    def __init__(self, on_hotkey):
-        super().__init__()
-        self.on_hotkey = on_hotkey
-
-    def nativeEventFilter(self, event_type, message):
-        if event_type == b"windows_generic_MSG":
-            msg = wt.MSG.from_address(int(message))
-            if msg.message == WM_HOTKEY:
-                self.on_hotkey(int(msg.wParam))
-                return True, 0
-        return False, 0
-
-
-class Hotkeys(QObject):
-    """System-wide hotkeys (RegisterHotKey on a hidden native window). Emits pressed(hotkey_id)."""
-
-    pressed = Signal(int)
-
-    def __init__(self):
-        super().__init__()
-        self._host = QWidget()        # hotkeys live on a hidden native window
-        self._host.winId()
-        self._ids: set[int] = set()
-        self._filter = _HotkeyFilter(self.pressed.emit)
-        QApplication.instance().installNativeEventFilter(self._filter)
-
-    def register(self, hotkey_id: int, key_name: str) -> bool:
-        """(Re)binds hotkey_id to key_name. False when another app already owns the key."""
-        self.unregister(hotkey_id)
-        ok = register_hotkey(int(self._host.winId()), hotkey_id, key_name)
-        if ok:
-            self._ids.add(hotkey_id)
-        return ok
-
-    def unregister(self, hotkey_id: int) -> None:
-        unregister_hotkey(int(self._host.winId()), hotkey_id)
-        self._ids.discard(hotkey_id)
-
-    def close(self) -> None:
-        for hid in list(self._ids):
-            self.unregister(hid)
 
 
 def set_autostart(enabled: bool, args: list[str]) -> bool:

@@ -1,4 +1,4 @@
-"""Maple Helper entry point: tray icon, global hotkeys, overlay, voice, onboarding."""
+"""Maple Helper entry point: tray icon, overlay, voice, onboarding."""
 from __future__ import annotations
 
 import os
@@ -23,8 +23,6 @@ from .ui.patchnotes import PatchNotesDialog, WhatsNewDialog, update_notice
 from .ui.toast import notify
 from .voice import VoiceController
 
-HOTKEY_TOGGLE = 1
-HOTKEY_VOICE = 2
 INSTANCE_SERVER = "MapleHelper-" + (os.environ.get("USERNAME") or os.environ.get("USER") or "app")
 BACKGROUND_ARG = "--background"   # start in the tray only (autostart at login, silent updates)
 UPDATED_ARG = "--updated"         # the installer reopens the app with it after "Update now": show what's new
@@ -193,13 +191,11 @@ class MapleHelperApp:
         self.overlay.profile_changed.connect(self.on_profile_changed)
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
-        self.hotkeys = osapi.Hotkeys()
-        self.hotkeys.pressed.connect(self.on_hotkey)
-        self.register_hotkeys()
-
-        self.voice = VoiceController(self.settings["hotkey_voice"])
+        # no keyboard shortcuts: the official client in front takes every key from other programs (live test,
+        # 2026-10-07), so the chat opens from the tray icon, the desktop shortcut or the taskbar, and talking from
+        # the mic button
+        self.voice = VoiceController()
         self.apply_voice_settings()
-        self.register_voice_hotkey()
         self.voice.started.connect(self.on_voice_start)
         self.voice.state.connect(lambda s: self.overlay.voice_state(s))
         self.voice.text.connect(self.on_voice_text)
@@ -238,7 +234,7 @@ class MapleHelperApp:
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
             t = I18n(self.settings["language"])
-            self.toast(t("app_tagline"), t("ob_done_hint").replace("F9", self.settings["hotkey_toggle"]))
+            self.toast(t("app_tagline"), t("ob_done_hint"))
         else:
             # the first-run tour starts with the chat itself (Overlay.open_overlay), whenever it first opens
             QTimer.singleShot(0, lambda: self.overlay.toggle(self.capture))
@@ -282,7 +278,7 @@ class MapleHelperApp:
     def _on_mac_reopen(self, state) -> None:
         """Maple Helper opened again from Finder, Launchpad or Spotlight while it runs (menu bar only, no Dock icon):
         the chat shows, as a second launch does on Windows. Only when nothing of ours is on screen and the app didn't
-        just activate itself (a hotkey opening the chat, a dialog brought forward)."""
+        just activate itself (the tray icon opening the chat, a dialog brought forward)."""
         if state != Qt.ApplicationActive or getattr(self, "overlay", None) is None:
             return
         if osapi.seconds_since_self_activation() < 1.5:
@@ -347,19 +343,6 @@ class MapleHelperApp:
         self.open_window("whats_new", lambda: WhatsNewDialog(
             notes if notes is not None else whatsnew.load()[:6], self.settings["language"], self.style()))
 
-    def register_hotkeys(self):
-        key = self.settings["hotkey_toggle"]
-        if not self.hotkeys.register(HOTKEY_TOGGLE, key):
-            t = I18n(self.settings["language"])
-            self.toast(t("settings"), t("hotkey_taken", key=key), timeout_ms=9000)
-
-    def register_voice_hotkey(self):
-        self.hotkeys.unregister(HOTKEY_VOICE)
-        key = self.settings["hotkey_voice"]
-        if key != self.settings["hotkey_toggle"] and not self.hotkeys.register(HOTKEY_VOICE, key):
-            t = I18n(self.settings["language"])
-            self.toast(t("settings"), t("hotkey_taken", key=key), timeout_ms=9000)
-
     def check_permissions(self):
         """macOS: ask once for Screen Recording (the screenshot), and say how to grant it when missing."""
         if osapi.missing_permissions(request=True):
@@ -391,15 +374,6 @@ class MapleHelperApp:
 
     def capture(self, hwnd):
         return osapi.capture_game(hwnd)
-
-    def on_hotkey(self, hotkey_id: int):
-        if hotkey_id == HOTKEY_TOGGLE:
-            if self.overlay.is_open():
-                self.overlay.close_overlay()
-            else:
-                self.overlay.toggle(self.capture)   # also restores from the minimized bubble
-        elif hotkey_id == HOTKEY_VOICE:
-            self.voice.toggle()
 
     def apply_voice_settings(self):
         self.voice.microphone = self.settings["microphone"]
@@ -439,8 +413,7 @@ class MapleHelperApp:
 
     def on_voice_text(self, text: str):
         if not text.strip():          # silence (or only noise): say so, instead of nothing happening
-            self.overlay.add_system(I18n(self.settings["language"])("voice_nothing")
-                                    .replace("F10", self.settings["hotkey_voice"]))
+            self.overlay.add_system(I18n(self.settings["language"])("voice_nothing"))
             return
         fixed = self.kb.resolve_names(text)
         self.overlay.voice_text(fixed, send=self.settings["voice_send_immediately"])
@@ -481,10 +454,8 @@ class MapleHelperApp:
         header.setEnabled(False)
         menu.addAction(header)
         menu.addSeparator()
-        key = self.settings["hotkey_toggle"]
-        # the key in the label itself: the menu's shortcut column glued it to the text in Hebrew ("הצ'אטF9", seen live)
         from . import bidi
-        a_show = QAction(bidi.plain(f"{t('tray_open')}  ·  {key}", t.rtl), menu, triggered=self.show_chat)
+        a_show = QAction(bidi.plain(t("tray_open"), t.rtl), menu, triggered=self.show_chat)
         a_set = QAction(t("tray_settings"), menu, triggered=self.open_settings)
         a_quit = QAction(t("tray_quit"), menu, triggered=self.qapp.quit)
         menu.addAction(a_show)
@@ -690,12 +661,7 @@ class MapleHelperApp:
         self.brain.ui_lang = self.settings["language"] or "he"
         self.overlay.show_saver_badge(self.settings["saver_mode"])
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
-        self.voice.set_key(self.settings["hotkey_voice"])
         self.apply_voice_settings()
-        self.hotkeys.unregister(HOTKEY_TOGGLE)      # free both first: a swap would otherwise collide
-        self.hotkeys.unregister(HOTKEY_VOICE)
-        self.register_hotkeys()
-        self.register_voice_hotkey()
         self.apply_autostart()
         self.tray.hide()
         self.make_tray()
@@ -1101,10 +1067,6 @@ class MapleHelperApp:
         try:
             from .providers.base import stop_login
             stop_login()                         # a sign-in still waiting (Codex's holds a port the next one needs)
-        except Exception:
-            pass
-        try:
-            self.hotkeys.close()
         except Exception:
             pass
         if getattr(self, "pending_installer", None):

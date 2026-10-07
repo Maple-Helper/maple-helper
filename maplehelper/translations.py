@@ -1,5 +1,5 @@
 """Hebrew for texts the knowledge base brings in English: a quest's journal line, a pet skill's description, a skill
-change's note. tools/translate_kb.py makes them every night into the KB's own he.json, so a new quest or note reads in
+change's note, a skill's description and effects (the Skills tab). tools/translate_kb.py makes them every night into the KB's own he.json, so a new quest or note reads in
 Hebrew from the next night on, with no app release; the files the app ships (assets/<kind>/he.json) are the owner's
 own and win whenever they were made from the same English.
 
@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 
 FILE = "he.json"                    # in the KB: {kind: {key: {"en", "he"}}, "news": {...}}
-KINDS = ("quest_tasks", "pet_skills", "skill_changes")
+KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc")
+ASSET_DIRS = {"skill_desc": "skills"}     # a kind whose shipped file isn't assets/<kind>/he.json
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 _cache: dict[str, tuple[float, dict]] = {}
@@ -48,7 +49,7 @@ def he(root: Path | None, kind: str, key: str, en: str) -> str | None:
     en = (en or "").strip()
     if not en:
         return None
-    for table in (_load(ASSETS / kind / "he.json"), kb_table(root, kind)):
+    for table in (_load(ASSETS / ASSET_DIRS.get(kind, kind) / "he.json"), kb_table(root, kind)):
         row = table.get(key)
         if isinstance(row, dict) and str(row.get("en") or "").strip() == en and str(row.get("he") or "").strip():
             return str(row["he"]).strip()

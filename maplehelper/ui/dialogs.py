@@ -93,16 +93,6 @@ def _field(text: str) -> QLabel:
     return QLabel(text, objectName="FieldLabel")
 
 
-def hotkey_choices(saved: tuple[str, ...] = ()) -> list[str]:
-    """The F-keys a hotkey can be. Windows keeps F12 for the debugger and never lets a program register it
-    (RegisterHotKey fails, and the app then said "F12 is taken by another program" on every start); macOS has it.
-    macOS shows the desktop on F11 and still reports the hotkey registered, so it is not offered there, unless it is
-    already a saved choice (shown, not silently changed)."""
-    if sys.platform == "win32":
-        return [f"F{i}" for i in range(1, 12)]
-    return [f"F{i}" for i in range(1, 13) if i != 11 or "F11" in saved]
-
-
 def _while_open(slot):
     """A slot fed from a background check: the answer can arrive after the dialog closed and Qt deleted its
     widgets ("Internal C++ object already deleted"), which then crashed the app. Too late is simply dropped."""
@@ -1077,37 +1067,13 @@ class SettingsDialog(GlassDialog):
         sec.add_row(t("language"), self.lang)
         lay.addWidget(sec)
 
-        # keys
-        sec = Section(t("sec_keys"), rtl)
-        fkeys = hotkey_choices((settings["hotkey_toggle"], settings["hotkey_voice"]))
-        from ..store import DEFAULT_SETTINGS
-        self.hk_toggle = Select()
-        self.hk_toggle.addItems(fkeys)
-        self.hk_voice = Select()
-        self.hk_voice.addItems(fkeys)
-        for pick, key in ((self.hk_toggle, "hotkey_toggle"), (self.hk_voice, "hotkey_voice")):
-            # a key that can't be offered here (F12 saved on Windows, where it never worked): the default instead,
-            # not whichever key happened to be first in the list
-            pick.setCurrentText(settings[key] if settings[key] in fkeys else DEFAULT_SETTINGS[key])
-        sec.add_row(t("hotkey_toggle"), self.hk_toggle)
-        # a Mac's F-keys are media keys unless fn is held (the texts teach "fn+F9"):
-        # said once under the two keys, not on every choice
-        sec.add_row(t("hotkey_voice"), self.hk_voice, hint=t("hotkey_fn_mac") if t.mac else "",
-                    hint_below=t.mac)
-        self.keys_error = QLabel(bidi.plain(t("hotkey_same"), rtl), objectName="WarnHint")   # a warning, not a hint
-        self.keys_error.setWordWrap(True)
-        self.keys_error.setContentsMargins(0, 4, 0, 4)
-        self.keys_error.hide()
-        sec.add_widget(self.keys_error)
-        self.voice_send = Switch(settings["voice_send_immediately"])
-        sec.add_row(t("voice_send"), self.voice_send)
-        lay.addWidget(sec)
-
         # audio
         sec = Section(t("sec_audio"), rtl)
         # the microphone: the system default was a far webcam/USB mic on a PC whose player talks into a headset,
         # and the model then "heard" sentences nobody said
         from .. import voice
+        self.voice_send = Switch(settings["voice_send_immediately"])
+        sec.add_row(t("voice_send"), self.voice_send)
         self.mics = voice.input_devices()
         self.mic = Select()
         self.mic.text_width = 190         # "Microphone (Logitech PRO X Wireless Gaming Headset)" widened the window
@@ -1300,21 +1266,9 @@ class SettingsDialog(GlassDialog):
         outer.addLayout(brow)
         rtl_buttons(self, rtl)
         no_default_buttons(self)
-        for pick in (self.hk_toggle, self.hk_voice):
-            pick.currentIndexChanged.connect(self._check_keys)
-        self._check_keys()
         self._initial = self._values()          # the X asks before dropping changes from here on
         self.close_btn.clicked.disconnect()
         self.close_btn.clicked.connect(self._close_clicked)
-
-    def _keys_clash(self) -> bool:
-        return self.hk_toggle.currentText() == self.hk_voice.currentText()
-
-    def _check_keys(self, *_):
-        """One F-key can't both open the chat and start talking: say so, and don't save it like that."""
-        clash = self._keys_clash()
-        self.keys_error.setVisible(clash)
-        self.save_btn.setEnabled(not clash)
 
     # AI account ----------------------------------------------------------
 
@@ -1765,8 +1719,6 @@ class SettingsDialog(GlassDialog):
             "language": self.lang.value(),
             "appearance": self.appearance.value(),
             "font_size": self.font.value(),
-            "hotkey_toggle": self.hk_toggle.currentText(),
-            "hotkey_voice": self.hk_voice.currentText(),
             "voice_send_immediately": self.voice_send.isChecked(),
             "microphone": self._mic_value(),
             "voice_language": self.voice_lang.value(),
@@ -1796,9 +1748,6 @@ class SettingsDialog(GlassDialog):
         self.reject()
 
     def _save(self):
-        if self._keys_clash():
-            self._check_keys()
-            return
         s = self.settings
         ai_keys = ["provider", *(p.model_setting for p in providers.PROVIDERS.values())]
         ai_before = [s[k] for k in ai_keys]

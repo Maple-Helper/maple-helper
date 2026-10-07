@@ -292,9 +292,9 @@ class Transcriber:
 
 
 class VoiceController(QObject):
-    """Talk key (a plain system hotkey, handled in app.py) or mic button: press to start, again to send.
+    """The mic button: press to start, again to send.
 
-    No key-state polling and no keyboard hook: nothing that looks like a macro tool to anti-cheat."""
+    No keyboard shortcut, key-state polling or keyboard hook: nothing that looks like a macro tool to anti-cheat."""
 
     started = Signal()
     state = Signal(str)          # listening | transcribing | loading | downloading | idle
@@ -309,9 +309,8 @@ class VoiceController(QObject):
     download_progress = Signal(int)
     download_done = Signal(str)
 
-    def __init__(self, key_name: str = "F10"):
+    def __init__(self):
         super().__init__()
-        self.key_name = key_name
         self.microphone = None       # a name from input_devices(); None = the system's default microphone
         self.language = None         # "he" / "en" for the model, None = it guesses
         self.transcriber = Transcriber()
@@ -392,11 +391,8 @@ class VoiceController(QObject):
         except Exception:
             pass     # the first question tries again, and reports the error
 
-    def set_key(self, key_name: str):
-        self.key_name = key_name
-
     def toggle(self):
-        """Start recording, or stop and transcribe (mic button and talk key alike)."""
+        """Start recording, or stop and transcribe (the mic button)."""
         if self._stream:
             self._stop()
         else:

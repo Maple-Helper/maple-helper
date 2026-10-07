@@ -408,6 +408,11 @@ def _guard(rows: list, what: str, key: str, fn, *args) -> None:
 _TOWN_NOTE = re.compile(r"\s*\([^()]*\)$")       # a shop line's note on its town: "Warning Street (Forgotten Hollow)"
 
 
+def page_lines(kb, key: str) -> list[str]:
+    """A page's lines under its front matter, stripped."""
+    return [ln.strip() for ln in kb.page(key).split("\n---", 2)[-1].splitlines()]
+
+
 class _Ctx:
     """One build's shared lookups: page lines read once, the maps by their "name street" cell, the shops."""
 
@@ -441,7 +446,7 @@ class _Ctx:
 
     def lines(self, key: str) -> list[str]:
         if key not in self._lines:
-            self._lines[key] = [ln.strip() for ln in self.kb.page(key).split("\n---", 2)[-1].splitlines()]
+            self._lines[key] = page_lines(self.kb, key)
         return self._lines[key]
 
     def map_key(self, cell: str) -> str:
@@ -1091,12 +1096,24 @@ def _skill(ctx, key: str, e: dict) -> dict | None:
     element = next((m.group(1) for ln in lines if (m := re.match(r"^Element ((?:\w+)(?: and \w+)?) The skill", ln))),
                    "")
     weapon = next((m.group(1) for ln in lines if (m := re.match(r"^Weapon requirement (.+?) The skill", ln))), "")
+    # beyond the table's columns (tsv() writes only those), for the Skills tab (skillbook.py): the page's
+    # description, the paragraph under its "# Name" up to the "Assassin : 2nd Job : Thief line" line, and the
+    # effect at level 1
+    head = lines.index("# " + e["name"]) if "# " + e["name"] in lines else None
+    desc = []
+    for ln in lines[head + 1:] if head is not None else []:
+        if re.match(r"^[\w/' ]+ : ", ln) or ln == e["name"]:
+            break
+        if ln:
+            desc.append(ln)
+    one = next((n for n, ln in enumerate(lines) if re.fullmatch(r"Level 1(?: \(MAX\))?", ln)), None)
     return {"skill": e["name"], "key": key, "job": p.get("Job", ""), "rank": rank, "max_lv": p.get("Max Level"),
             "kind": " ".join(kind.group(0).split(" Cast:")[0].lower().split()) if kind else "",
             "mp": int(mp.group(1)) if mp else None, "damage": int(dmg.group(1) or dmg.group(2)) if dmg else None,
             "targets": p.get("Target Cap"), "cooldown": p.get("Cooldown") or "",
             "element": "" if element == "None" else element, "weapon": weapon,
-            "prerequisite": p.get("Prerequisite") or "", "effect": effect}
+            "prerequisite": p.get("Prerequisite") or "", "effect": effect,
+            "desc": " ".join(desc), "effect_lv1": lines[one + 1] if one is not None and one + 1 < len(lines) else ""}
 
 
 def _skills(ctx) -> list[dict]:

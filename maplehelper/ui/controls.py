@@ -242,7 +242,7 @@ class Section(QFrame):
             control.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
             lay.addWidget(control, 0, Qt.AlignVCenter)
             # the label is a separate QLabel beside it: without this a screen reader said only "check box"
-            # or "button F9", never what the switch or the pick is for
+            # or "button", never what the switch or the pick is for
             if hasattr(control, "set_label"):
                 control.set_label(label)
             else:
@@ -359,7 +359,7 @@ class Select(QPushButton):
         self._name()
 
     def set_label(self, label: str) -> None:
-        """What the pick is for ("Open/close key"): a screen reader heard only the value ("F9")."""
+        """What the pick is for ("Open/close key"): a screen reader heard only the value."""
         self._label = label
         self._name()
 
