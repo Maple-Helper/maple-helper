@@ -204,6 +204,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **Character profiles:** Track your level, job, map, and active quests, with updates based on your conversations and screenshots. Edit, delete or switch characters from the character card's menu.
 - **Conversation memory:** Keep separate chat history and session summaries for each character.
 - **Visual reference cards:** See images of relevant monsters, items, maps, NPCs, and quests alongside answers, grouped under titles (for example, what a monster drops).
+- **Where it is on the map:** A map's ◎ (on its card, or its tile under "Maps") opens a window with the map next door and an orange dot on the portal that leads in, as NiaMeowDB marks it ("Leads back here").
 - **Tag cards:** Tap one or more cards to ask follow-up questions about them, such as "where is it?" or "which one is easier for me?".
 - **Who drops it:** Ask which monsters drop an item and get the answer grouped by monster, with pictures.
 - **Guides library:** 32 full guides (every class, grind maps, the EXP table, the damage formula and more) with skill and item icons, character art, tables and tips, in English and Hebrew. The ones that fit your character come first.

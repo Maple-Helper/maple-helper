@@ -1048,6 +1048,10 @@ STRINGS = {
     "route_no_data": {"he": "נתוני הדרכים יגיעו בעדכון הבא של המאגר.", "en": "Route data comes with the next database update."},
     "route_q": {"he": "איך מגיעים מ-{a} ל-{b}?", "en": "How do I get from {a} to {b}?"},
     "card_route": {"he": "איך מגיעים לכאן מהמפה שלי", "en": "How to get here from my map"},
+    "card_map_where": {"he": "איפה זה במפה", "en": "Where it is on the map"},
+    "map_where_title": {"he": "הדרך אל {name}", "en": "The way into {name}"},
+    "map_where_says": {"he": "הנקודה הכתומה היא הפורטל שמוביל אל {name}.",
+                       "en": "The orange dot is the portal that leads to {name}."},
     "inv_check": {"he": "בדיקת האינבנטורי", "en": "Inventory check"},
     "telemetry": {"he": "שליחת נתוני שימוש אנונימיים", "en": "Share anonymous usage stats"},
     "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: באילו אפשרויות משתמשים, גרסת האפליקציה ומערכת "

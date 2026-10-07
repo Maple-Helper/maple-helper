@@ -220,6 +220,25 @@ def real():
     return kb, routes.of(kb)
 
 
+@needs_routes
+def test_a_maps_way_in_is_where_niameowdb_draws_leads_back_here(real):
+    """The map window's dot: Lith Harbor Department Store's way in is on Lith Harbor's minimap where NiaMeowDB's
+    page draws its "Leads back here" dot (left 81.2%, top 80.2%); every way in is a portal into that map, on a
+    picture the KB has, the town first."""
+    kb, g = real
+    store, harbor = "010000002", "010000000"
+    if store not in g.maps or harbor not in g.maps:
+        pytest.skip("Lith Harbor isn't in the game by this knowledge base")
+    (way, *_) = g.entrances(store)
+    assert way.frm == harbor and way.to == store and way.kind == "portal"
+    assert way.spot == pytest.approx((0.812, 0.802), abs=0.001)
+    for mid in list(g.maps)[:80]:
+        legs = g.entrances(mid)
+        assert all(leg.to == mid and leg.frm != mid and leg.spot and g.minimap(leg.frm) for leg in legs)
+        towns = [g.maps[leg.frm].town for leg in legs]
+        assert towns == sorted(towns, reverse=True)
+
+
 def _sound(kb, g, r, a, b):
     """A route as it must be whatever the game adds: from a to b, every step a real edge of the graph (a portal one
     of routes.json's own), every map open and on a continent the release guide confirms."""

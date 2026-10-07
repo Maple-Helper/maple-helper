@@ -301,6 +301,15 @@ class Graph:
     def minimap(self, mid: str) -> Path | None:
         return self.kb.image_path(f"map/{mid}")
 
+    def entrances(self, mid: str) -> list[Leg]:
+        """The portals that lead into this map, each on its own map's minimap (Leg.spot), the town first, then the
+        map with the most ways out: where a player stands to walk in (NiaMeowDB's "Leads back here" dot, at the
+        same place on the same picture). Only portals with a spot on a minimap the KB has."""
+        legs = [leg for frm, out in self.edges.items() if frm != mid for leg in out
+                if leg.to == mid and leg.kind == "portal" and leg.spot and self.minimap(frm)]
+        legs.sort(key=lambda leg: (not self.maps[leg.frm].town, -len(self.edges[leg.frm]), leg.frm))
+        return legs
+
 
 def side(spot: tuple[float, float] | None) -> str:
     """'left', 'right' or 'middle' of the map, for a step's words."""

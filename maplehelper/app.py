@@ -185,8 +185,9 @@ class MapleHelperApp:
         self.overlay.sync_finished.connect(self.grind.sync_done)     # before the tools window redraws (below)
         self.grind.sync()          # a session running when the app last closed goes on (unless it was left idle)
         self.overlay.tools_requested.connect(lambda: self.show_tools())
-        from .ui.widgets import ROUTE_REQUESTS
+        from .ui.widgets import MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
+        MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
 
         self.overlay.news_requested.connect(self.show_news_page)
         self.overlay.profile_changed.connect(self.on_profile_changed)
@@ -938,6 +939,12 @@ class MapleHelperApp:
     def show_route(self, key: str):
         """Play tools on the way to a map, from the character's map."""
         self.show_tools("route").route_to_map(key)
+
+    def show_map_location(self, key: str):
+        """The map window on this map's way in (the open one shows it, rather than a second window)."""
+        from .ui.mapview import MapLocationDialog
+        dlg = self.open_window("map", lambda: MapLocationDialog(self.kb, self.settings["language"], self.style()))
+        dlg.show_map(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
         if not self.overlay.is_open():
