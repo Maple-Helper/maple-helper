@@ -941,9 +941,12 @@ class MapleHelperApp:
         self.show_tools("route").route_to_map(key)
 
     def show_map_location(self, key: str):
-        """The map window on this map's way in (the open one shows it, rather than a second window)."""
+        """The map window on this map's way in (the open one shows it, rather than a second window): beside the chat
+        the first time, then where the player left it."""
         from .ui.mapview import MapLocationDialog
-        dlg = self.open_window("map", lambda: MapLocationDialog(self.kb, self.settings["language"], self.style()))
+        chat = self.overlay.frameGeometry() if self.overlay.isVisible() else None
+        dlg = self.open_window("map", lambda: MapLocationDialog(self.kb, self.settings["language"], self.style(),
+                                                                self.settings, chat))
         dlg.show_map(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):

@@ -3,20 +3,44 @@ door, with an orange dot on the portal that leads to this one. Opened from a map
 tile under "Maps")."""
 from __future__ import annotations
 
-from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
+from PySide6.QtCore import QPoint, QPointF, QRect, Qt
+from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from .. import bidi, routes
 from ..i18n import I18n
 from . import theme
 from .controls import rtl_buttons
-from .glass import GlassDialog
+from .glass import SHADOW, GlassDialog
 from .patchnotes import gutter
 
 PICTURE_W, PICTURE_H = 480, 260      # the most a map takes (a small minimap grows, pixel for pixel, up to 3x)
 MAX_ENTRANCES = 3                    # a map with many ways in: the first ones (the town first, see Graph.entrances)
 DOT = 7                              # the dot's radius in pixels, as NiaMeowDB's 11 px one on its smaller render
+# the frames' gap: the two windows' see-through shadow margins overlap, so the panels show 8 px apart
+GAP = 8 - 2 * SHADOW
+POS_SETTING = "map_window_pos"       # where the player last left the window: {"x", "y"}
+
+
+def beside(chat: QRect, size, screens: list[QRect]) -> QPoint:
+    """Where the window opens next to the chat: on the side of it with more room (the chat starts at the screen's
+    top-right, so usually its left), top edges lined up, kept on the chat's screen."""
+    screen = max(screens, key=lambda s: s.intersected(chat).width() * s.intersected(chat).height(), default=chat)
+    room_left, room_right = chat.left() - screen.left(), screen.right() - chat.right()
+    x = chat.left() - GAP - size.width() if room_left >= room_right else chat.right() + 1 + GAP
+    # never off the screen: no room either side (a chat as wide as the monitor) leaves it overlapping, on screen
+    x = min(max(x, screen.left()), screen.right() - size.width() + 1)
+    y = min(max(chat.top(), screen.top()), screen.bottom() - size.height() + 1)
+    return QPoint(x, y)
+
+
+def saved_spot(saved, size, screens: list[QRect]) -> QPoint | None:
+    """Where the player left the window, when it is still on a screen (a monitor since unplugged: None)."""
+    if not isinstance(saved, dict) or not isinstance(saved.get("x"), int) or not isinstance(saved.get("y"), int):
+        return None
+    from .overlay import visible_rect
+    spot = visible_rect(QRect(QPoint(saved["x"], saved["y"]), size), screens)
+    return spot.topLeft() if spot is not None else None
 
 
 def has_location(kb, key: str) -> bool:
@@ -52,7 +76,9 @@ def marked_picture(path, spot: tuple[float, float]) -> QPixmap:
 
 
 class MapLocationDialog(GlassDialog):
-    def __init__(self, kb, lang: str, stylesheet: str):
+    def __init__(self, kb, lang: str, stylesheet: str, settings=None, chat: QRect | None = None):
+        """settings: where the window's position is kept; chat: the chat's frame, which it opens beside the
+        first time (afterwards where the player left it)."""
         self.t = t = I18n(lang or "he")
         super().__init__(t("card_map_where"), t.rtl)
         self.setStyleSheet(stylesheet)
@@ -81,6 +107,24 @@ class MapLocationDialog(GlassDialog):
         row.addStretch(1)
         outer.addLayout(row)
         rtl_buttons(self, t.rtl)
+        self.settings = settings
+        self._place(chat)
+        self.finished.connect(lambda *_: self._remember())
+
+    def _place(self, chat: QRect | None) -> None:
+        screens = [s.availableGeometry() for s in QGuiApplication.screens()]
+        size = self.frameGeometry().size()
+        spot = saved_spot(self.settings[POS_SETTING], size, screens) if self.settings is not None else None
+        if spot is None and chat is not None and chat.isValid():
+            spot = beside(chat, size, screens)
+        if spot is not None:
+            self.move(spot)
+
+    def _remember(self) -> None:
+        """Closed (its button, the X, Esc): it opens there next time."""
+        if self.settings is not None:
+            p = self.pos()
+            self.settings[POS_SETTING] = {"x": p.x(), "y": p.y()}
 
     def show_map(self, key: str) -> None:
         """This map's ways in (one window: a second ◎ shows its map here instead of opening another)."""

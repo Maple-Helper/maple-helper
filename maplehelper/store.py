@@ -138,6 +138,7 @@ DEFAULT_SETTINGS = {
     "answer_length": "short",     # short | detailed
     "window": None,
     "bubble_pos": None,           # where the minimized bubble sits               # {"x","y","w","h","screen"} saved on move/resize
+    "map_window_pos": None,       # where the player left the map window ({"x","y"}); None: it opens beside the chat
     "start_with_windows": False,
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
