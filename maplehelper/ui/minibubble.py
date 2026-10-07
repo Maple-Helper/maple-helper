@@ -1,7 +1,9 @@
 """The minimized chat: a small round glass bubble with the app mark. Drag to move, click to reopen."""
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRectF, Qt, Signal
+import sys
+
+from PySide6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QWidget
 
@@ -12,14 +14,21 @@ from . import theme
 SIZE = 56
 MARGIN = 8          # room for the shadow
 DRAG_SLOP = 6       # px of movement before a press becomes a drag (a click stays a click)
+# Windows: a normal window, so it is in Alt+Tab. A game in front takes every key and click from other programs
+# (the official client did), but Alt+Tab is Windows' own: picking "Maple Helper" there opens the chat
+WINDOW_KIND = Qt.Tool if sys.platform == "darwin" else Qt.Window
 
 
 class MiniBubble(QWidget):
     clicked = Signal()
     moved = Signal(QPoint)
+    activated = Signal()       # brought to the front by the keyboard (Alt+Tab), not by a click or a drag
 
     def __init__(self):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
+        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | WINDOW_KIND)
+        self.setWindowTitle("Maple Helper")
+        # appearing never takes the front (that would read as Alt+Tab and reopen the chat it just replaced)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_AlwaysShowToolTips)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)   # macOS hides tool windows of inactive apps
@@ -36,6 +45,17 @@ class MiniBubble(QWidget):
     def showEvent(self, e):
         super().showEvent(e)
         osapi.float_over_fullscreen(int(self.winId()))   # macOS: stays over a fullscreen game's Space, as the chat does
+
+    def changeEvent(self, e):
+        super().changeEvent(e)
+        if e.type() == QEvent.ActivationChange and self.isActiveWindow():
+            QTimer.singleShot(120, self._keyboard_activation)
+
+    def _keyboard_activation(self):
+        """Activated with no mouse button down: Alt+Tab (a press opens the chat on release, a drag doesn't)."""
+        from PySide6.QtGui import QGuiApplication
+        if self.isVisible() and self._press is None and QGuiApplication.mouseButtons() == Qt.NoButton:
+            self.activated.emit()
 
     def paintEvent(self, e):
         c = theme.P()

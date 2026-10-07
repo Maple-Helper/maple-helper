@@ -469,13 +469,13 @@ class Overlay(QWidget):
         self._target_geometry = QRect()
         self.bubble = MiniBubble()
         self.bubble.clicked.connect(self.restore_from_bubble)
+        self.bubble.activated.connect(self.restore_from_bubble)
         self.bubble.moved.connect(lambda pt: self.settings.__setitem__("bubble_pos", {"x": pt.x(), "y": pt.y()}))
         self._watched_game: int | None = None
         self._clip_area: QRect | None = None
         # a game in front takes every key from other programs, hotkeys too (live test, the official client): while
         # it runs, the bubble stays on screen whenever the chat is closed, as the way back in
-        self._game_watch = QTimer(self, interval=2000, timeout=self._watch_game)
-        self._game_watch.start()
+        self._game_watch = QTimer(self, interval=2000, timeout=self._watch_game)     # started by the app
         self.shot_provider = None
         self._build()
         WISHLIST.bind(settings, profiles)
@@ -1620,6 +1620,8 @@ class Overlay(QWidget):
             return None
 
     def restore_from_bubble(self):
+        if self.is_open():
+            return
         self.bubble.hide()
         hwnd = osapi.find_game_window()
         self.open_overlay(self._safe_shot(hwnd), hwnd)

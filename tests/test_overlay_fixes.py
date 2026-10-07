@@ -383,3 +383,25 @@ def test_a_chat_on_the_black_bars_moves_into_the_picture(overlay, monkeypatch):
     overlay.setGeometry(QRect(2700, 60, 600, 640))                 # its right part over the bar
     overlay._keep_in_play_area()
     assert QRect(440, 0, 2560, 1440).contains(overlay.geometry()) and overlay.width() == 600
+
+
+def test_alt_tab_to_the_bubble_opens_the_chat(overlay, monkeypatch):
+    # a game in front takes every key and click from other programs, but not Alt+Tab: picking the bubble there
+    # (a normal window on Windows, shown without taking the front) opens the chat; a press or drag doesn't
+    import sys
+
+    from PySide6.QtCore import Qt
+
+    from maplehelper.ui import minibubble
+    assert overlay.bubble.testAttribute(Qt.WA_ShowWithoutActivating)
+    if sys.platform == "win32":
+        assert minibubble.WINDOW_KIND == Qt.Window
+    overlay.hide()
+    overlay.bubble.show()
+    overlay.bubble._keyboard_activation()
+    assert overlay.isVisible() and not overlay.bubble.isVisible()
+    pump(overlay.app, 400)                         # the open animation done
+    opened = []
+    monkeypatch.setattr(overlay, "open_overlay", lambda *a: opened.append(a))
+    overlay.restore_from_bubble()                  # already open: nothing again
+    assert opened == []
