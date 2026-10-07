@@ -104,7 +104,7 @@ class ItemDetailsDialog(GlassDialog):
         self.title_label.setText(bidi.plain(name, rtl))
         self.setWindowTitle(name)
         d = itemdetails.details(kb, key)
-        self.lay.addWidget(EntityCard(kb, key, t.lang))
+        self.lay.addWidget(EntityCard(kb, key, t.lang, details=False))
         if d.description:
             self._text(d.description, "DialogBody")
         if d.stats:

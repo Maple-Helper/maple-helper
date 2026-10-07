@@ -782,7 +782,7 @@ class Selectable:
 class EntityCard(Selectable, QFrame):
     """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaMeowDB page."""
 
-    def __init__(self, kb: KnowledgeBase, key: str, lang: str):
+    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True):
         super().__init__()
         from ..i18n import I18n
         self.setObjectName("Card")
@@ -911,7 +911,8 @@ class EntityCard(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             bl.addWidget(self._star)
-            bl.addWidget(item_details_button(key, t))
+            if details:          # not on the card inside the item's own details window: it would only reopen it
+                bl.addWidget(item_details_button(key, t))
         if key.startswith("map/"):
             from .. import routes
             if routes.of(kb).of_key(key):          # a map in the game the route graph has

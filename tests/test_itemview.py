@@ -126,3 +126,15 @@ def test_the_pan_lids_window_shows_its_stats_dropper_and_notes():
     assert "W.DEF +44" in texts and "Meow Notes" in texts and "Shield Guard" in texts
     assert all(kb.get(m)["name"] in texts for m in kb.droppers.get("item/917", []))
     dlg.close()
+
+
+def test_the_card_in_the_details_window_has_no_details_button(kb):
+    from PySide6.QtWidgets import QToolButton
+
+    from maplehelper.ui.widgets import EntityCard
+    from maplehelper.i18n import I18n
+    key = next(k for k in kb.entities if k.startswith("item/"))
+    tip = I18n("en")("card_item_details")
+    tips = lambda c: [b.toolTip() for b in c.findChildren(QToolButton)]
+    assert tip in tips(EntityCard(kb, key, "en"))
+    assert tip not in tips(EntityCard(kb, key, "en", details=False))
