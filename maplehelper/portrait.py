@@ -85,19 +85,170 @@ def tag_fits_name(tag: tuple[int, int, int, int], name: str) -> bool:
     return abs(w / h - want) <= 0.22 * want
 
 
-def portrait_rect(rgb: np.ndarray, box: list[float] | None, name: str = "") -> tuple[int, int, int, int] | None:
+# ---------------------------------------------------------------- whose tag is it: the name's letters
+
+# the name drawn in a common sans font: the game's own font is close enough to tell the player's tag from others
+# (65 live frames: the player's tag 0.42-0.63, any other <= 0.31). Once found that way, the tag's own letters are
+# kept (learned) and match far more sharply (0.6-0.8 against <= 0.26)
+_FONTS = ("C:/Windows/Fonts/arial.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf",
+          "/Library/Fonts/Arial.ttf", "C:/Windows/Fonts/tahoma.ttf")
+DRAWN_MIN, DRAWN_LEAD = 0.40, 0.12        # a drawn name: this score, and this far ahead of the next tag
+LEARNED_MIN = 0.55                         # the tag's own letters, learned from an earlier find (live: 0.62-0.85)
+
+
+def _luma(a: np.ndarray) -> np.ndarray:
+    f = a.astype(np.float32)
+    return f[..., 0] * 0.3 + f[..., 1] * 0.59 + f[..., 2] * 0.11
+
+
+def tag_letters(rgb: np.ndarray, tag: tuple[int, int, int, int]) -> np.ndarray | None:
+    """The letters on a plate as a 0/1 array cut to their bounding box: brighter than the plate by half the way to
+    its brightest (the letters' grey depends on the client's scaling, the plate's darkness on the scenery)."""
+    x, y, w, h = tag
+    lum = _luma(rgb[y:y + h, x:x + w])
+    if lum.size == 0:
+        return None
+    bg = float(np.median(lum))
+    m = (lum > bg + 0.5 * (float(lum.max()) - bg)).astype(np.float32)
+    ys, xs = np.nonzero(m)
+    if len(xs) < 10:
+        return None
+    return m[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+
+
+def drawn_name(name: str) -> np.ndarray | None:
+    """The name drawn in a sans font, as tag_letters cuts a plate's letters; None without a font."""
+    from PIL import Image, ImageDraw, ImageFont
+    for path in _FONTS:
+        try:
+            font = ImageFont.truetype(path, 48)
+            break
+        except OSError:
+            continue
+    else:
+        return None
+    img = Image.new("L", (48 * len(name) + 40, 80), 0)
+    ImageDraw.Draw(img).text((10, 5), name, fill=255, font=font)
+    m = (np.asarray(img) > 128).astype(np.float32)
+    ys, xs = np.nonzero(m)
+    return m[ys.min():ys.max() + 1, xs.min():xs.max() + 1] if len(xs) else None
+
+
+def letters_match(m: np.ndarray, template: np.ndarray) -> float:
+    """How alike two letter shapes are (normalized correlation, -1..1), the template stretched to m's size."""
+    from PIL import Image
+    t = np.asarray(Image.fromarray((template * 255).astype(np.uint8)).resize((m.shape[1], m.shape[0]),
+                                                                              Image.BILINEAR), np.float32) / 255
+    a, b = m - m.mean(), t - t.mean()
+    d = float(np.sqrt((a * a).sum() * (b * b).sum()))
+    return float((a * b).sum()) / d if d else -1.0
+
+
+def own_tag(rgb: np.ndarray, tags: list, name: str):
+    """The player's own tag among `tags`, by the drawn name's letters: (tag, letters) or None when no tag is clearly
+    theirs (the player hidden behind a shop window: the old width check took another player's tag)."""
+    scored = [(t, tag_letters(rgb, t)) for t in tags]
+    scored = [(t, m) for t, m in scored if m is not None and m.shape[0] >= 6]
+    for template, need, lead in ((drawn_name(name), DRAWN_MIN, DRAWN_LEAD),):
+        if template is None or not scored:
+            continue
+        ranked = sorted(((letters_match(m, template), t, m) for t, m in scored), key=lambda r: -r[0])
+        best = ranked[0]
+        # the same plate found twice (a row apart) is not a rival
+        rivals = [r[0] for r in ranked[1:] if abs(r[1][0] - best[1][0]) > 4 or abs(r[1][1] - best[1][1]) > 4]
+        if best[0] >= need and best[0] - max(rivals, default=-1.0) >= lead:
+            return best[1], best[2]
+    return None
+
+
+def _whiteness(rgb: np.ndarray) -> np.ndarray:
+    f = rgb.astype(np.float32)
+    lo = f.min(axis=2)
+    return ((lo >= 170) & (f.max(axis=2) - lo < 45)).astype(np.float32)
+
+
+def _ncc_map(img: np.ndarray, t: np.ndarray) -> np.ndarray:
+    """Normalized correlation of template t at every spot of a 0/1 image (FFT; [y, x] = t's top-left there)."""
+    th, tw = t.shape
+    H, W = img.shape
+    z = t - t.mean()
+    shape = (H + th, W + tw)
+    corr = np.fft.irfft2(np.fft.rfft2(img, shape) * np.fft.rfft2(z[::-1, ::-1], shape), shape)[th - 1:H, tw - 1:W]
+    s = np.pad(img, ((1, 0), (1, 0))).cumsum(0).cumsum(1)
+    win = s[th:, tw:] - s[:-th, tw:] - s[th:, :-tw] + s[:-th, :-tw]
+    var = np.maximum(win - win * win / (th * tw), 1e-6)            # a 0/1 image: the sum of squares is the sum
+    return corr / (np.sqrt(var) * np.sqrt(float((z * z).sum())) + 1e-9)
+
+
+def _plate_around(lum: np.ndarray, x: int, y: int, tw: int, th: int) -> tuple[int, int] | None:
+    """(top, height) of the dark plate behind letters at (x, y, tw, th): its top edge darkens what is behind by the
+    plate's factor along most of the letters' width. None without one: the same name in the game's own UI (the
+    status bar at the bottom, a shop window) is no name tag."""
+    xs = slice(x, x + tw)
+    top = None
+    for yy in range(y - 2, max(1, y - 11), -1):
+        r = lum[yy, xs] / lum[yy - 1, xs]
+        if ((r > 0.22) & (r < 0.65)).mean() >= 0.75:
+            top = yy
+            break
+    if top is None:
+        return None
+    height = int(round(th * 1.7))           # the plate's bottom edge, when the chat box doesn't cover it
+    for yy in range(y + th, min(lum.shape[0] - 1, y + th + 11)):
+        r = lum[yy + 1, xs] / lum[yy, xs]
+        if ((r > 1.5) & (r < 4.5)).mean() >= 0.5:
+            height = yy - top + 1
+            break
+    return top, height
+
+
+def find_learned(rgb: np.ndarray, learned: np.ndarray) -> tuple[tuple[int, int, int, int], np.ndarray] | None:
+    """The player's tag by the learned letters, searched across the whole screen: tags that overlap or merge in a
+    crowd ("Oldcc Kalimero") break plate finding, not this. (tag, letters) or None."""
+    th, tw = learned.shape
+    if rgb.shape[0] <= th or rgb.shape[1] <= tw:
+        return None
+    score = _ncc_map(_whiteness(rgb), learned)
+    lum = _luma(rgb) + 1.0
+    for _ in range(4):
+        y, x = np.unravel_index(int(np.argmax(score)), score.shape)
+        if score[y, x] < LEARNED_MIN:
+            return None
+        plate = _plate_around(lum, int(x), int(y), tw, th)
+        if plate:
+            top, height = plate
+            pad = max(2, th // 3)
+            return (int(x) - pad, top, tw + 2 * pad, height), learned
+        score[max(0, y - th):y + th, max(0, x - tw):x + tw] = -1      # not a tag: the next best spot
+    return None
+
+
+def portrait_rect(rgb: np.ndarray, box: list[float] | None, name: str = "", learned: np.ndarray | None = None,
+                  found: dict | None = None) -> tuple[int, int, int, int] | None:
     """Pixel rect (left, top, right, bottom) of the player's sprite, from the AI's rough box (fractions).
-    With the character's name, only tags that can hold it count (other players stand around). Without a box,
-    only when exactly one tag is left."""
+    With the character's name, the tag whose letters spell it (own_tag); `found["letters"]` then holds them, to be
+    learned. Without a name: the tag nearest the box, or the only one without a box."""
     H, W = rgb.shape[:2]
+    if name:
+        hit = (find_learned(rgb, learned) if learned is not None else None) or own_tag(rgb, find_name_tags(rgb), name)
+        if hit:
+            (tx, ty, tw, th), letters = hit
+            if found is not None and letters is not learned:
+                found["letters"] = letters              # found by the drawn name: learn its own letters
+            side = int(th * 5.4)
+            mid = tx + tw / 2
+            rect = (int(mid - side / 2), ty - side, int(mid + side / 2), ty + int(th * 0.2))
+            return None if rect[0] < 0 or rect[1] < 0 or rect[2] > W else rect
+        if box is None:
+            return None
 
     def fitting(tags, region=None):
         if not name:
             return tags
-        fit = [t for t in tags if tag_fits_name(t, name)]
-        # none whole: one cut off by the chat box (its top edge and letters still show), only near the AI's box:
-        # across the whole screen a top edge alone matches scenery too
-        return fit or (find_cut_tags(region, name) if region is not None else [])
+        # whole tags were judged by their letters (own_tag) and none spelled the name: only one cut off by the chat
+        # box (its top edge and letters still show) is left, and only near the AI's box: across the whole screen a
+        # top edge alone matches scenery too
+        return find_cut_tags(region, name) if region is not None else []
 
     if box is None:
         tags = fitting(find_name_tags(rgb), rgb)
@@ -178,7 +329,40 @@ def sprite_mask(rgb: np.ndarray) -> np.ndarray | None:
     sizes = np.bincount(lab.ravel())[1:]
     fg = lab == 1 + int(sizes.argmax())                 # the character; stray dark grass at the edges goes
     fg = _without_scenery(a, fg)
-    return fg if 0.12 <= fg.mean() <= 0.8 else None
+    return fg if 0.12 <= fg.mean() <= 0.8 else _soft_outline_mask(a)
+
+
+def _dilate(m: np.ndarray) -> np.ndarray:
+    g = m.copy()
+    g[1:] |= m[:-1]
+    g[:-1] |= m[1:]
+    g[:, 1:] |= m[:, :-1]
+    g[:, :-1] |= m[:, 1:]
+    return g
+
+
+def _soft_outline_mask(a: np.ndarray) -> np.ndarray | None:
+    """The official client scales its picture up, which softens a sprite's dark outline: the flood from the edges
+    leaked in through it and took the hat and face with the background (live, 2026-10-07, against bricks). The
+    outline thickened by two pixels holds the flood; what peeling then cuts off (a brick line touching the hat)
+    goes. None unless it is a whole standing figure (a dark sprite on a dark scene gives only a piece)."""
+    wall = (a[..., 0] * 0.3 + a[..., 1] * 0.59 + a[..., 2] * 0.11) < 70
+    for _ in range(2):
+        wall = _dilate(wall)
+    border = np.zeros(wall.shape, bool)
+    border[0, :] = border[-1, :] = border[:, 0] = border[:, -1] = True
+    bg = _grow(border, ~wall)
+    lab, n = _components(~bg)
+    if not n:
+        return None
+    sizes = np.bincount(lab.ravel())[1:]
+    fg = lab == 1 + int(sizes.argmax())
+    fg = _dilate(_dilate(fg)) & ~bg | fg                  # the outline the thickening took
+    fg = _core(fg, 3)
+    rows = np.flatnonzero(fg.any(axis=1))
+    if not len(rows) or rows[-1] - rows[0] < 0.7 * fg.shape[0] or not 0.2 <= fg.mean() <= 0.6:
+        return None
+    return fg
 
 
 def _erode(m: np.ndarray) -> np.ndarray:

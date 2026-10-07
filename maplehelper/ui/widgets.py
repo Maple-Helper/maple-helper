@@ -945,6 +945,11 @@ class Avatar(QLabel):
     def set_image(self, path) -> None:
         pm = QPixmap(str(path)) if path else QPixmap()
         self._pm = None if pm.isNull() else pm
+        # the portrait shows large on hover, as every other small picture does (the owner looked for it)
+        if self._pm:
+            zoom_on_hover(self, path, height=160)
+        else:
+            self.setToolTip("")
         self.update()
 
     def paintEvent(self, e):

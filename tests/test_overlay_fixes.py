@@ -405,3 +405,16 @@ def test_alt_tab_to_the_bubble_opens_the_chat(overlay, monkeypatch):
     monkeypatch.setattr(overlay, "open_overlay", lambda *a: opened.append(a))
     overlay.restore_from_bubble()                  # already open: nothing again
     assert opened == []
+
+
+def test_the_character_portrait_shows_large_on_hover(overlay, tmp_path):
+    from PIL import Image
+
+    from maplehelper.ui.widgets import Avatar
+    png = tmp_path / "me.png"
+    Image.new("RGBA", (128, 128), (200, 120, 60, 255)).save(png)
+    a = Avatar(46)
+    a.set_image(png)
+    assert "<img" in a.toolTip() and "height='160'" in a.toolTip()
+    a.set_image(None)
+    assert a.toolTip() == ""

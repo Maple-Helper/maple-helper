@@ -322,10 +322,12 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     return tiles, slots, described
 
 
-def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool) -> bytes | None:
-    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels, near the AI's rough
-    box). None: no change (no tag found; have_portrait is kept for the callers).
-    Pure (no Qt), so it runs in a worker thread."""
+def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool,
+                  letters_dir=None) -> bytes | None:
+    """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels by the name's
+    letters). None: no change (no tag found; have_portrait is kept for the callers).
+    letters_dir keeps each name's letters as the game draws them, learned on the first find: they find the tag
+    again in a crowd. No Qt, so it runs in a worker thread."""
     import io
 
     import numpy as np
@@ -337,7 +339,20 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
         # the full-resolution grab when it is the same picture (same shape): small name tags survive there
         same = full is not None and abs(full.width / full.height - img.width / img.height) < 0.01
         src = full.convert("RGB") if same else img
-        rect = portrait_rect(np.asarray(src), box, name)
+        learned, path = None, None
+        if letters_dir is not None and name:
+            import re
+            path = letters_dir / f"{re.sub(r'[^0-9A-Za-z]', '_', name).lower()}.png"
+            if path.exists():
+                learned = (np.asarray(Image.open(path).convert("L")) > 127).astype(np.float32)
+        found: dict = {}
+        rect = portrait_rect(np.asarray(src), box, name, learned, found)
+        if path is not None and "letters" in found:
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                Image.fromarray((found["letters"] * 255).astype(np.uint8)).save(path)
+            except OSError:
+                pass             # not learned this time: the drawn name still finds the tag
         if rect:
             crop = src.crop(rect)
             mask = sprite_mask(np.asarray(crop))
@@ -2687,13 +2702,16 @@ class Overlay(QWidget):
         and the sprite's outline in a full-resolution grab held the chat still for a moment. on_done(changed) runs
         on the GUI thread once the portrait is set (or wasn't)."""
         import threading
+
+        from .. import store
         c = self.profiles.active
         cid, name, have = (c.id if c else None), (c.name if c else ""), bool(self.profiles.avatar_path())
+        letters_dir = store.AVATAR_DIR / "names"
         if not getattr(self, "_avatar_wired", False):
             self.avatar_cropped.connect(self._on_avatar_cropped)
             self._avatar_wired = True
         threading.Thread(target=lambda: self.avatar_cropped.emit(
-            (cid, crop_portrait(shot_jpeg, box, full, name, have), on_done)), daemon=True).start()
+            (cid, crop_portrait(shot_jpeg, box, full, name, have, letters_dir), on_done)), daemon=True).start()
 
     def _on_avatar_cropped(self, r: tuple):
         cid, png, on_done = r
