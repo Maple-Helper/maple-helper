@@ -130,13 +130,10 @@ def test_mac_gets_mac_paths_and_shortcuts(mac):
         t = I18n(lang)
         assert "⌘V" in t("copied") and "Ctrl" not in t("copied")
         assert "Windows" not in t("voice_mic_failed")
-        assert "fn+F9" in t("close_chat") and "fn+F10" in t("input_placeholder") and "fn+F10" in t("voice_nothing")
-        assert "fn+F10" in t("mic_tip", key="F10") and "fn+F9" in t("shot_hint_ready")
-        assert "fn+F9" in t("ob_done_hint")
-        assert "fn+" not in t("hotkey_taken", key="F9")          # naming the key, not teaching a press
+        # no keys to press: the chat opens from the menu bar icon (the tray on Windows)
+        for key in ("close_chat", "ob_done_hint", "tour_close_body", "tour_done_body", "tour_min_body"):
+            assert "F9" not in t(key) and "fn+" not in t(key) and "Windows" not in t(key), key
         assert t("update_available", version="1") != t("update_available_mac")   # its own Mac line, not swapped
-    # the callers swap in the chosen key and keep the "fn+"
-    assert "fn+F7" in I18n("en")("close_chat").replace("F9", "F7")
 
 
 def test_windows_wording_is_unchanged(monkeypatch):

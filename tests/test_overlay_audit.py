@@ -41,7 +41,6 @@ def overlay(isolated_store, kb, monkeypatch):
         th.quit()
         th.wait(2000)
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
     flush(app)
 
@@ -231,27 +230,6 @@ def test_a_drag_resize_saves_the_geometry_once(overlay, monkeypatch):
 
 
 # ------------------------------------------------------------------ OVL-20: the mini bubble and a right-click
-
-def test_the_mini_bubble_ignores_a_right_click():
-    from PySide6.QtWidgets import QApplication
-
-    from maplehelper.ui.minibubble import MiniBubble
-    QApplication.instance() or QApplication([])
-    b = MiniBubble()
-    got = []
-    b.clicked.connect(lambda: got.append(1))
-
-    def ev(kind, button):
-        p = QPointF(20, 20)
-        return QMouseEvent(kind, p, p, button, button, Qt.NoModifier)
-    b.mousePressEvent(ev(QEvent.MouseButtonPress, Qt.RightButton))
-    b.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, Qt.RightButton))
-    assert got == []
-    b.mousePressEvent(ev(QEvent.MouseButtonPress, Qt.LeftButton))
-    b.mouseReleaseEvent(ev(QEvent.MouseButtonRelease, Qt.LeftButton))
-    assert got == [1]
-    assert b._icon.width() >= 256                       # OVL-26: the sharp source, not the 64 px one
-
 
 # ------------------------------------------------------------------ OVL-21: redrawn on a language / AI switch
 

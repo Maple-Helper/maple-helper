@@ -41,7 +41,6 @@ def overlay(isolated_store, kb, monkeypatch):
         th.quit()
         th.wait(2000)
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
     app.processEvents()
     app.sendPostedEvents(None, QEvent.DeferredDelete)
@@ -490,7 +489,7 @@ def test_a_bubbles_tag_line_sits_on_its_questions_side(question, ui_rtl, rtl):
 
 # ------------------------------------------------------------------ VIS-18: a narrow chat's input hint keeps the talk key
 
-def test_a_narrow_field_shows_the_short_hint_with_the_talk_key(overlay):
+def test_a_narrow_field_shows_the_short_hint(overlay):
     from maplehelper.i18n import I18n
     overlay.settings["language"] = "en"
     overlay.t = I18n("en")
@@ -498,15 +497,16 @@ def test_a_narrow_field_shows_the_short_hint_with_the_talk_key(overlay):
     field = overlay.input
     field.resize(900, field.height())
     pump(overlay.app, 20)
-    assert shown(field.placeholderText()) == overlay.t("input_placeholder")
-    full = field.fontMetrics().horizontalAdvance(overlay.t("input_placeholder"))
+    long_hint, short_hint = overlay.t("input_placeholder"), overlay.t("input_placeholder_short")
+    assert shown(field.placeholderText()) == long_hint
+    full = field.fontMetrics().horizontalAdvance(long_hint)
     field.resize(full - 20, field.height())                # (470 px at the large font)
     pump(overlay.app, 20)
-    assert shown(field.placeholderText()) == overlay.t("input_placeholder_short") and "F10" in shown(field.placeholderText())
+    assert shown(field.placeholderText()) == short_hint
     overlay.voice_state("listening")
-    assert shown(field.placeholderText()) != overlay.t("input_placeholder_short")
+    assert shown(field.placeholderText()) != short_hint
     overlay.voice_state("idle")                            # back to the field's own hint, short as before
-    assert shown(field.placeholderText()) == overlay.t("input_placeholder_short")
+    assert shown(field.placeholderText()) == short_hint
 
 
 # ------------------------------------------------------------------ VIS-6 / VIS-7: empty windows say why

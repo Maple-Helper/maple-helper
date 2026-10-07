@@ -1,5 +1,4 @@
-"""macOS layer logic that needs no Mac: window matching, hotkey codes, the login item (pyobjc/Carbon load lazily)."""
-import ctypes
+"""macOS layer logic that needs no Mac: window matching, the login item (pyobjc loads lazily)."""
 import plistlib
 
 from maplehelper import macapi
@@ -41,19 +40,6 @@ def test_skips_own_windows_menu_bar_and_tiny_windows():
 
 def test_no_game_running():
     assert macapi.pick_game_window([win(1, "Finder", "Finder")], OWN_PID) is None
-
-
-def test_every_hotkey_choice_has_a_mac_key_code():
-    assert set(macapi.KEYCODES) == {f"F{i}" for i in range(1, 13)}
-    assert len(set(macapi.KEYCODES.values())) == 12
-
-
-def test_carbon_constants_and_struct_layout():
-    # Carbon reads these by value/pointer: the layouts must match HIToolbox exactly
-    assert macapi.fourcc("keyb") == 0x6B657962
-    assert macapi.kEventParamDirectObject == 0x2D2D2D2D
-    assert ctypes.sizeof(macapi.EventHotKeyID) == 8
-    assert ctypes.sizeof(macapi.EventTypeSpec) == 8
 
 
 def test_autostart_writes_and_removes_a_launch_agent(tmp_path, monkeypatch):

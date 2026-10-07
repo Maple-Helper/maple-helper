@@ -49,7 +49,6 @@ def overlay(isolated_store, kb, monkeypatch):
         th.quit()
         th.wait(2000)
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
 
 
@@ -581,19 +580,16 @@ def test_toasts_reuse_free_room_and_stay_on_screen(monkeypatch):
             t.close()
 
 
-def test_toast_and_bubble_float_over_a_fullscreen_game(monkeypatch):
-    # macOS shows them on a fullscreen game's Space only with FullScreenAuxiliary, as the chat already has (MAC-7)
+def test_toast_floats_over_a_fullscreen_game(monkeypatch):
+    # macOS shows it on a fullscreen game's Space only with FullScreenAuxiliary, as the chat already has (MAC-7)
     from maplehelper import osapi
-    from maplehelper.ui import minibubble, toast
+    from maplehelper.ui import toast
     floated = []
     monkeypatch.setattr(osapi, "float_over_fullscreen", lambda wid: floated.append(wid))
     monkeypatch.setattr(toast.Toast, "_live", [])
     t = toast.notify("t", "body", rtl=False, timeout_ms=60000)
-    b = minibubble.MiniBubble()
-    b.show()
-    assert floated == [int(t.winId()), int(b.winId())]
+    assert floated == [int(t.winId())]
     t.close()
-    b.close()
 
 
 def test_toast_follows_a_theme_switch():

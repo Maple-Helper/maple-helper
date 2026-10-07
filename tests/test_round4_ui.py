@@ -51,7 +51,6 @@ def overlay(isolated_store, kb, monkeypatch):
     ov.show()
     yield ov
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
 
 

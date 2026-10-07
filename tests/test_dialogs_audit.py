@@ -2,7 +2,6 @@
 CLI, no sign-in, no AI call)."""
 import gc
 import os
-import sys
 import threading
 import weakref
 
@@ -226,38 +225,6 @@ def test_stepper_steps_with_the_arrow_keys(qapp):
 
 # --- settings -------------------------------------------------------------------------------------------------
 
-def test_f12_is_not_offered_on_windows_and_a_saved_f12_falls_back(env, monkeypatch):
-    from maplehelper.ui import dialogs
-    s, profiles, kb = env
-    monkeypatch.setattr(sys, "platform", "win32")
-    assert dialogs.hotkey_choices()[-1] == "F11"
-    s["hotkey_toggle"] = "F12"
-    dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
-    assert "F12" not in dlg.hk_toggle._items
-    assert dlg.hk_toggle.currentText() == "F9"                 # the default, not the list's first (F1)
-    dlg.close()
-    monkeypatch.setattr(sys, "platform", "darwin")
-    assert dialogs.hotkey_choices()[-1] == "F12"               # macOS has it
-    assert "F11" not in dialogs.hotkey_choices()               # macOS shows the desktop on F11
-    assert "F11" in dialogs.hotkey_choices(("F11", "F10"))     # a saved F11 is still shown
-
-
-def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
-    from PySide6.QtWidgets import QLabel
-
-    from maplehelper.i18n import I18n
-    from maplehelper.ui import dialogs
-    s, profiles, kb = env
-    hint = I18n("en")("hotkey_fn_mac")
-    for mac in (True, False):
-        monkeypatch.setattr(I18n, "mac", mac)
-        dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
-        shown = [lb.text() for lb in dlg.findChildren(QLabel) if "fn+F9" in lb.text()]
-        assert shown == ([hint] if mac else [])
-        assert ("F11" not in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
-        dlg.close()
-
-
 def test_settings_controls_have_screen_reader_names(env):
     from maplehelper.ui.controls import Switch
     from maplehelper.ui.dialogs import SettingsDialog
@@ -265,7 +232,6 @@ def test_settings_controls_have_screen_reader_names(env):
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     assert all(sw.accessibleName() for sw in dlg.findChildren(Switch))
     assert dlg.telemetry.accessibleDescription()                # its hint comes along
-    assert dlg.hk_toggle.accessibleName() == "Open/close key: F9"
     assert dlg.appearance.accessibleName() == "Appearance"
     assert [b.accessibleName() for b in dlg.font.group.buttons()] == ["Small text", "Medium text", "Large text"]
     dlg.close()

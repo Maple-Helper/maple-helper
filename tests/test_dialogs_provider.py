@@ -307,7 +307,7 @@ def test_settings_offers_install_and_says_when_a_sign_in_timed_out(env, monkeypa
     dlg.close()
 
 
-def test_settings_esc_keeps_unsaved_changes_and_keys_must_differ(env):
+def test_settings_esc_keeps_unsaved_changes_and_has_no_keys(env):
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
     from maplehelper.ui.dialogs import SettingsDialog
@@ -317,16 +317,8 @@ def test_settings_esc_keeps_unsaved_changes_and_keys_must_differ(env):
     dlg.rejected.connect(lambda: closed.append(True))
     QTest.keyClick(dlg, Qt.Key_Escape)
     assert not closed
-    dlg.hk_voice.setCurrentText(dlg.hk_toggle.currentText())
-    assert not dlg.save_btn.isEnabled() and not dlg.keys_error.isHidden()
-    dlg._save()
-    assert s["hotkey_voice"] != s["hotkey_toggle"]           # not saved like that
-    # any other key the list offers (F12 is not offered on Windows: it never registers; macOS's toggle is F11)
-    from maplehelper.ui.dialogs import hotkey_choices
-    other = next(k for k in hotkey_choices((s["hotkey_toggle"], s["hotkey_voice"]))
-                 if k not in (dlg.hk_toggle.currentText(), ""))
-    dlg.hk_voice.setCurrentText(other)
-    assert dlg.save_btn.isEnabled() and dlg.keys_error.isHidden()
+    # no keyboard shortcuts any more: the official client in front takes every key from other programs
+    assert not hasattr(dlg, "hk_toggle") and not hasattr(dlg, "hk_voice") and dlg.save_btn.isEnabled()
     dlg.close()
 
 

@@ -1,4 +1,6 @@
 """The portrait comes from the player's name tag found in the pixels, not from the AI's rough box alone."""
+from pathlib import Path
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -94,3 +96,57 @@ def test_a_bush_beside_the_sprite_is_not_part_of_it():
     assert not m[95:125, :30].any()                      # the bush at the crop's left edge
     assert m[20:60, 50:90].mean() > 0.9                  # the head
     assert m[125:140, 45:75].any()                       # the feet stay
+
+
+def test_official_client_tag_with_soft_letters_and_an_overlapped_pair():
+    # MapleStory Classic World scales its picture up, so the letters are light grey (at 225 the tag went unseen and
+    # a "Hm" quick-slot box became the portrait); two overlapping tags make a short piece that must not count
+    import numpy as np
+    from PIL import Image
+
+    from maplehelper import portrait
+    a = np.asarray(Image.open(Path(__file__).parent / "fixtures" / "classic_world_tags.png").convert("RGB"))
+    assert all(abs(t[3] - 29) <= 3 for t in portrait.find_name_tags(a))
+    left, top, right, bottom = portrait.portrait_rect(a, None, "Kalimero")
+    assert 470 <= (left + right) / 2 <= 610 and 590 <= bottom <= 620       # standing on the tag at (525, 608)
+
+
+def _fixture(name):
+    return np.asarray(Image.open(Path(__file__).parent / "fixtures" / name).convert("RGB"))
+
+
+def _learned():
+    return (np.asarray(Image.open(Path(__file__).parent / "fixtures" / "classic_letters_kalimero.png").convert("L"))
+            > 127).astype(np.float32)
+
+
+def test_the_learned_letters_find_the_tag_in_a_crowd():
+    # "Oldcc Kalimero": two tags merged into one plate, which plate finding misses; the letters search finds it
+    from maplehelper.portrait import find_learned
+    hit = find_learned(_fixture("classic_crowd.png"), _learned())
+    assert hit is not None and abs(hit[0][0] - 310) <= 4 and abs(hit[0][1] - 273) <= 3
+    left, top, right, bottom = portrait_rect(_fixture("classic_crowd.png"), None, "Kalimero", _learned())
+    assert abs((left + right) / 2 - 360) <= 6 and abs(bottom - 278) <= 4
+
+
+def test_the_name_in_the_games_own_ui_is_no_tag():
+    # the same letters in the status bar and over a shop window's portrait: no plate edge above them
+    for name in ("classic_status_bar.png", "classic_shop_label.png"):
+        assert portrait_rect(_fixture(name), None, "Kalimero", _learned()) is None, name
+
+
+def test_a_tag_found_by_the_drawn_name_hands_its_letters_over_to_learn():
+    found = {}
+    assert portrait_rect(_fixture("classic_world_tags.png"), None, "Kalimero", None, found) is not None
+    letters = found["letters"]
+    assert letters.shape[0] >= 10 and letters.shape[1] > 3 * letters.shape[0]
+
+
+def test_a_soft_outlined_sprite_against_bricks_comes_out_whole():
+    # the scaled-up official client softens the outline: the flood took the hat and face along with the bricks
+    from maplehelper.portrait import sprite_mask
+    m = sprite_mask(_fixture("classic_sprite_bricks.png"))
+    assert m is not None and 0.3 <= m.mean() <= 0.55
+    rows = np.flatnonzero(m.any(axis=1))
+    assert rows[0] <= 30 and rows[-1] >= 140                    # the hat's top down to the feet
+    assert not m[:12].any()                                    # the bricks above the hat are gone
