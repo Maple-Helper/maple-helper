@@ -372,7 +372,7 @@ def test_minimize_goes_to_the_taskbar_and_gives_the_game_back(overlay, monkeypat
     monkeypatch.setattr(osapi, "focus_window", lambda h: focused.append(h))
     overlay.game_hwnd = 4321
     overlay.minimize()
-    pump(overlay.app, 50)
+    pump(overlay.app, 400)                  # macOS closes it with a 150 ms fade
     if sys.platform == "darwin":
         assert not overlay.is_open()
     else:
