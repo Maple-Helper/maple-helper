@@ -59,5 +59,4 @@ def test_refresh_releases_busy_state(result, isolated_store, kb, monkeypatch):
         if thread is not None and isValid(thread):    # a finished refresh deletes its thread
             thread.quit()
             thread.wait(3000)
-        win.bubble.close()
         win.close()

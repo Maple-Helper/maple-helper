@@ -199,7 +199,7 @@ class ClaudeBackend:
         if self._warm is proc and proc.poll() is None:
             wants = getattr(self.brain, "wants_warm", None)
             if wants is not None and not wants():
-                # the chat closed, or no question, for long: let it go; the next F9, typing or question warms one
+                # the chat closed, or no question, for long: let it go; the next opening, typing or question warms one
                 # again (audit PRF-1)
                 log.info("chat not in use for a while: the warm Claude Code process is stopped, not renewed")
                 self.drop_warm()

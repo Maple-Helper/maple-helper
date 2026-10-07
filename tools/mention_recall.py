@@ -119,13 +119,15 @@ CASES: list[tuple[str, list[str]]] = [
     ("איפה גרנדל", ["Grendel the Really Old"]),
     ("השוואה: סליים, חזיר, תמנון, פטריה כתומה, גדם", ["Slime", "Pig", "Octopus", "Orange Mushroom", "Stump"]),
     ("כמה עולה מאנה אליקסיר", ["Mana Elixir"]),
+    # the Anvil is the game's Smithing station (an NPC since the official launch): the player means it
+    ("i need an anvil to craft", ["Anvil"]),
 ]
 
 # questions that name no entity: everyday words that are (or start) entity names, and partial names that more than
 # one entity share (a guess is a wrong page in the prompt and a wrong card)
 NEGATIVES: list[str] = [
     "what is the max level", "is my max hp too low", "how do i get more mesos", "the river looks nice from here",
-    "is it going to rain in game", "should i use silver or gold", "how do i exit the game", "i need an anvil to craft",
+    "is it going to rain in game", "should i use silver or gold", "how do i exit the game", "i need a break from crafting",
     "where can i sell my stuff", "is this the right map", "which skill should i max first",
     "what's a good training spot", "lucky me, i got a rare drop", "dark is my favorite theme",
     "i keep spinning in circles", "how do i return to town", "magic is so cool", "steel or wood for the house",

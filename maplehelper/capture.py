@@ -14,6 +14,9 @@ LAST_FULL: Image.Image | None = None
 # where the mouse was in that grab (image pixels): the game draws its own hand cursor, and over an inventory
 # slot it looked like an item (live test)
 LAST_CURSOR: tuple[int, int] | None = None
+# the game's picture in that grab, in screen pixels (x, y, w, h), without its pillarbox / letterbox bars: a game in
+# front keeps its mouse pointer inside it, so the chat sits there
+PLAY_AREA: tuple[int, int, int, int] | None = None
 # why the latest look for the game gave no screenshot although the game may be open: "covered" (another window is
 # over it: its pixels are never sent as the game), "screen_permission" (macOS Screen Recording is off: the grab would
 # be the wallpaper), None otherwise. Reset by every find_game_window; the chat says it instead of "no game".
@@ -85,14 +88,19 @@ def content_box(img: Image.Image) -> tuple[int, int, int, int] | None:
 
 def grab_jpeg(rect: tuple[int, int, int, int]) -> bytes:
     """JPEG of a screen rectangle (x, y, w, h), longest side MAX_SIDE, without pillarbox / letterbox bars."""
-    global LAST_FULL, LAST_CURSOR
+    global LAST_FULL, LAST_CURSOR, PLAY_AREA
     img = grab_image(*rect)
+    PLAY_AREA = rect
     try:
         cursor = _cursor_in(*rect)
     except Exception:      # noqa: BLE001
         cursor = None
     box = content_box(img)
     if box:
+        # the grab may be scaled from the screen rectangle (macOS takes points, a Retina grab has more pixels)
+        sx, sy = rect[2] / img.width, rect[3] / img.height
+        PLAY_AREA = (rect[0] + round(box[0] * sx), rect[1] + round(box[1] * sy),
+                     round((box[2] - box[0]) * sx), round((box[3] - box[1]) * sy))
         img = img.crop(box)     # the screenshot, LAST_FULL and the cursor all in the same (trimmed) coordinates
         if cursor:
             cx, cy = cursor[0] - box[0], cursor[1] - box[1]

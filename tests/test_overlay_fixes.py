@@ -6,7 +6,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 from PySide6.QtCore import QRect  # noqa: E402
-from PySide6.QtGui import QTextDocumentFragment  # noqa: E402
 
 from maplehelper.brain import META, streamed_text  # noqa: E402
 from maplehelper.i18n import STRINGS, I18n  # noqa: E402
@@ -79,7 +78,6 @@ def overlay(isolated_store, kb, monkeypatch):
     ov.app = app
     yield ov
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
 
 
@@ -118,9 +116,9 @@ def test_the_chat_is_a_normal_window_so_discord_can_share_it(overlay):
     assert kind == (Qt.Tool if sys.platform == "darwin" else Qt.Window)
 
 
-def test_f9_brings_a_minimized_chat_back(overlay):
+def test_opening_brings_a_minimized_chat_back(overlay):
     overlay.save_geometry()
-    overlay.showMinimized()                 # Win+D / "Show desktop" minimizes a normal window
+    overlay.showMinimized()                 # its minimize button, Win+D or "Show desktop"
     pump(overlay.app, 50)
     assert overlay.isVisible() and not overlay.is_open()
     overlay.toggle(lambda _hwnd: None)
@@ -147,15 +145,6 @@ def test_what_now_while_busy_says_so_without_hiding_the_chat(overlay):
     overlay.what_now()
     assert overlay.windowOpacity() == 1.0
     assert overlay.feed_lay.count() - before == 1         # one notice, not one per click
-
-
-def test_screenshot_hint_names_the_players_hotkey(overlay):
-    overlay.settings["hotkey_toggle"] = "F8"
-    overlay.game_hwnd, overlay.shot = None, None
-    overlay._update_shot_hint()
-    # the words the player reads: the label's HTML also carries the badge PNG as base64, which can spell "F9"
-    shown = QTextDocumentFragment.fromHtml(overlay.shot_hint.text()).toPlainText()
-    assert "F8" in shown and "F9" not in shown
 
 
 def test_language_switch_updates_tooltips_and_term_language(overlay):
@@ -322,3 +311,69 @@ def test_the_instant_answer_picks_its_language_with_the_kb_like_the_ai(overlay, 
     except Exception:
         pass                # no AI provider here: only the instant path's language matters
     assert seen and seen[0] is overlay.kb
+
+
+def test_opening_takes_the_front_before_the_screenshot(overlay, monkeypatch):
+    # the right to come to the front (the player's click on the tray icon) can be gone by the time the game is
+    # captured: the chat takes the front at once, still see-through, and only then is the game captured
+    from maplehelper import osapi
+    seen = []
+    monkeypatch.setattr(osapi, "activate_self", lambda wid: seen.append(("front", overlay.isVisible(),
+                                                                          overlay.windowOpacity())))
+    overlay.hide()
+    overlay.toggle(lambda hwnd: seen.append(("shot",)) or None)
+    assert seen[0] == ("front", True, 0.0) and ("shot",) in seen
+    assert seen.index(("shot",)) > 0
+    assert overlay.isVisible()
+
+
+def test_a_chat_on_the_black_bars_moves_into_the_picture(overlay, monkeypatch):
+    from maplehelper import osapi
+    monkeypatch.setattr(osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
+    from maplehelper import capture
+    monkeypatch.setattr(capture, "PLAY_AREA", (440, 0, 2560, 1440))
+    overlay.game_hwnd = 1234
+    overlay.setGeometry(QRect(2700, 60, 600, 640))                 # its right part over the bar
+    overlay._keep_in_play_area()
+    assert QRect(440, 0, 2560, 1440).contains(overlay.geometry()) and overlay.width() == 600
+
+
+def test_the_character_portrait_shows_large_on_hover(overlay, tmp_path):
+    from PIL import Image
+
+    from maplehelper.ui.widgets import Avatar
+    png = tmp_path / "me.png"
+    Image.new("RGBA", (128, 128), (200, 120, 60, 255)).save(png)
+    a = Avatar(46)
+    a.set_image(png)
+    assert "<img" in a.toolTip() and "height='160'" in a.toolTip()
+    a.set_image(None)
+    assert a.toolTip() == ""
+
+
+def test_answers_can_be_selected_and_copied(overlay):
+    # the glossary's "?" links had made an answer's text unselectable: no way to copy it
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QToolButton
+    b = overlay.add_bubble("**Mano** drops a Snail Shell.", "assistant")
+    assert b.label.textInteractionFlags() & Qt.TextSelectableByMouse
+    b.add_pin(lambda: None, "pin", "copy", "copied")
+    copy = next(w for w in b.findChildren(QToolButton) if w.toolTip() == "copy")
+    copy.click()
+    assert QApplication.clipboard().text() == "Mano drops a Snail Shell."
+
+
+def test_minimize_goes_to_the_taskbar_and_gives_the_game_back(overlay, monkeypatch):
+    # the bubble over the game is gone: the official client in front takes every click, so it couldn't be used
+    import sys
+
+    from maplehelper import osapi
+    focused = []
+    monkeypatch.setattr(osapi, "focus_window", lambda h: focused.append(h))
+    overlay.game_hwnd = 4321
+    overlay.minimize()
+    pump(overlay.app, 400)                  # macOS closes it with a 150 ms fade
+    if sys.platform == "darwin":
+        assert not overlay.is_open()
+    else:
+        assert overlay.isMinimized() and focused == [4321]

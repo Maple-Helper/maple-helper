@@ -56,3 +56,11 @@ def test_problem_keys():
     assert capture.problem_key() == "perm_screen_body"
     capture.LAST_PROBLEM = None
     assert capture.problem_key() is None
+
+
+def test_the_play_area_is_the_picture_without_its_bars(monkeypatch):
+    # a game in front keeps the mouse inside its picture: the chat and its bubble go there, never onto the bars
+    grab(monkeypatch, game_shot())
+    assert capture.PLAY_AREA == (440, 0, 2560, 1440)
+    grab(monkeypatch, game_shot(bars=0))
+    assert capture.PLAY_AREA == (0, 0, 3440, 1440)
