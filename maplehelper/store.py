@@ -131,13 +131,10 @@ def _write_json(path: Path, data) -> None:
 
 DEFAULT_SETTINGS = {
     "language": None,             # "he" | "en"; None until onboarding
-    "hotkey_toggle": "Shift+F9",    # with Shift: the game uses the plain F-keys
-    "hotkey_voice": "Shift+F10",
     "appearance": "light",         # dark | light (opaque surfaces)
     "font_size": 14,
     "answer_length": "short",     # short | detailed
-    "window": None,
-    "bubble_pos": None,           # where the minimized bubble sits               # {"x","y","w","h","screen"} saved on move/resize
+    "window": None,               # {"x","y","w","h","screen"} saved on move/resize
     "start_with_windows": False,
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone
@@ -153,7 +150,6 @@ DEFAULT_SETTINGS = {
     # Older files hold a single bool here, which meant the Anthropic key.
     "api_key_fallback": {},
     "onboarding_done": False,
-    "shift_keys": False,           # the saved keys were moved to their Shift versions (0.11)
     "tour_done": False,           # the first-run tour of the chat window was shown (skipped counts too)
     "pins": {},                   # character id -> pinned answers [{q, a, t}]
     "tips_dismissed": {},         # character id -> {tip kind: level it was hidden at}
@@ -178,8 +174,6 @@ class Settings:
     def __init__(self):
         self.data = {**DEFAULT_SETTINGS, **_read_json(self.path, {})}
         self._sane_types()
-        self._shift_keys()
-        self._windows_keys()
         self._stored_language()
 
     # stored in another shape than the default on purpose: a single bool from older versions, [reset, level]
@@ -200,33 +194,6 @@ class Settings:
                 ok = isinstance(v, type(default))
             if not ok:
                 self.data[key] = default
-
-    def _shift_keys(self) -> None:
-        """Before 0.11 the keys were plain F-keys (F9/F10 by default), which the game binds to skills and items:
-        a saved plain key moves to its Shift version once, so a player keeps the key they chose."""
-        if self.data.get("shift_keys"):
-            return
-        from .keys import with_shift
-        for key in ("hotkey_toggle", "hotkey_voice"):
-            self.data[key] = with_shift(self.data.get(key) or DEFAULT_SETTINGS[key])
-        self.data["shift_keys"] = True
-        if self.path.exists():
-            self.save()
-
-    def _windows_keys(self) -> None:
-        """Windows keeps F12 for the debugger and never lets a program register it: a hotkey saved as F12 (older
-        versions offered it) never worked there, so it loads as the default key, or the other default when that
-        one is the other hotkey's, never two hotkeys on one key."""
-        if sys.platform != "win32":
-            return
-        from .keys import split_key
-        keys = ("hotkey_toggle", "hotkey_voice")
-        for key in keys:
-            if split_key(self.data.get(key))[1] != "F12":
-                continue
-            other = self.data.get(next(k for k in keys if k != key))
-            self.data[key] = next(k for k in (DEFAULT_SETTINGS[key], *(DEFAULT_SETTINGS[k] for k in keys),
-                                              *(f"Shift+F{i}" for i in range(1, 12))) if k != other)
 
     def _stored_language(self) -> None:
         """v0.9.x stored the language only when it was clicked (Hebrew was preselected): a player who set up the app

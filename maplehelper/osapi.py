@@ -2,13 +2,11 @@
 import sys
 
 if sys.platform == "darwin":
-    from .macapi import (SCREEN_COORDS_ARE_PHYSICAL, Hotkeys, activate_self, capture_game, cursor_clip,
-                         find_game_window,
+    from .macapi import (SCREEN_COORDS_ARE_PHYSICAL, activate_self, capture_game, find_game_window,
                          float_over_fullscreen, focus_window, grab_screen, missing_permissions, prepare_process,
                          seconds_since_self_activation, set_autostart, window_rect)
 else:
-    from .winapi import (SCREEN_COORDS_ARE_PHYSICAL, Hotkeys, activate_self, capture_game, cursor_clip,
-                         find_game_window,
+    from .winapi import (SCREEN_COORDS_ARE_PHYSICAL, activate_self, capture_game, find_game_window,
                          float_over_fullscreen, focus_window, grab_screen, missing_permissions, prepare_process,
                          seconds_since_self_activation, set_autostart, window_rect)
 
@@ -23,7 +21,6 @@ def open_url(url) -> bool:
         return False
     return webbrowser.open(url)
 
-__all__ = ["IS_MAC", "SCREEN_COORDS_ARE_PHYSICAL", "Hotkeys", "activate_self", "capture_game", "cursor_clip",
-           "find_game_window",
+__all__ = ["IS_MAC", "SCREEN_COORDS_ARE_PHYSICAL", "activate_self", "capture_game", "find_game_window",
            "float_over_fullscreen", "focus_window", "grab_screen", "missing_permissions", "open_url", "prepare_process",
            "seconds_since_self_activation", "set_autostart", "window_rect"]

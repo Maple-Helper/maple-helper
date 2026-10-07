@@ -6,7 +6,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 from PySide6.QtCore import QRect  # noqa: E402
-from PySide6.QtGui import QTextDocumentFragment  # noqa: E402
 
 from maplehelper.brain import META, streamed_text  # noqa: E402
 from maplehelper.i18n import STRINGS, I18n  # noqa: E402
@@ -79,7 +78,6 @@ def overlay(isolated_store, kb, monkeypatch):
     ov.app = app
     yield ov
     ov.hide()
-    ov.bubble.hide()
     ov.deleteLater()
 
 
@@ -118,9 +116,9 @@ def test_the_chat_is_a_normal_window_so_discord_can_share_it(overlay):
     assert kind == (Qt.Tool if sys.platform == "darwin" else Qt.Window)
 
 
-def test_f9_brings_a_minimized_chat_back(overlay):
+def test_opening_brings_a_minimized_chat_back(overlay):
     overlay.save_geometry()
-    overlay.showMinimized()                 # Win+D / "Show desktop" minimizes a normal window
+    overlay.showMinimized()                 # its minimize button, Win+D or "Show desktop"
     pump(overlay.app, 50)
     assert overlay.isVisible() and not overlay.is_open()
     overlay.toggle(lambda _hwnd: None)
@@ -147,15 +145,6 @@ def test_what_now_while_busy_says_so_without_hiding_the_chat(overlay):
     overlay.what_now()
     assert overlay.windowOpacity() == 1.0
     assert overlay.feed_lay.count() - before == 1         # one notice, not one per click
-
-
-def test_screenshot_hint_names_the_players_hotkey(overlay):
-    overlay.settings["hotkey_toggle"] = "F8"
-    overlay.game_hwnd, overlay.shot = None, None
-    overlay._update_shot_hint()
-    # the words the player reads: the label's HTML also carries the badge PNG as base64, which can spell "F9"
-    shown = QTextDocumentFragment.fromHtml(overlay.shot_hint.text()).toPlainText()
-    assert "F8" in shown and "F9" not in shown
 
 
 def test_language_switch_updates_tooltips_and_term_language(overlay):
@@ -324,9 +313,9 @@ def test_the_instant_answer_picks_its_language_with_the_kb_like_the_ai(overlay, 
     assert seen and seen[0] is overlay.kb
 
 
-def test_the_hotkey_takes_the_front_before_the_screenshot(overlay, monkeypatch):
-    # the hotkey's right to come to the front ends with the key's release (it goes to the game): the chat takes the
-    # front at once, still see-through, and only then is the game captured
+def test_opening_takes_the_front_before_the_screenshot(overlay, monkeypatch):
+    # the right to come to the front (the player's click on the tray icon) can be gone by the time the game is
+    # captured: the chat takes the front at once, still see-through, and only then is the game captured
     from maplehelper import osapi
     seen = []
     monkeypatch.setattr(osapi, "activate_self", lambda wid: seen.append(("front", overlay.isVisible(),
@@ -338,73 +327,15 @@ def test_the_hotkey_takes_the_front_before_the_screenshot(overlay, monkeypatch):
     assert overlay.isVisible()
 
 
-def test_minimize_puts_the_bubble_in_a_bottom_corner_of_the_screen(overlay):
-    # bottom-right in Hebrew, bottom-left in English (a fullscreen game hides the taskbar)
-    from PySide6.QtGui import QGuiApplication
-
-    from maplehelper.i18n import I18n
-    for lang in ("he", "en"):
-        overlay.t = I18n(lang)
-        overlay.settings["bubble_pos"] = None
-        overlay.setGeometry(QRect(100, 100, 460, 640))
-        overlay.show()
-        overlay.setWindowOpacity(1.0)
-        overlay.minimize()
-        area = (overlay.screen() or QGuiApplication.primaryScreen()).availableGeometry()
-        b = overlay.bubble.geometry()
-        x = area.right() - b.width() - 16 if lang == "he" else area.left() + 16
-        assert (b.x(), b.y()) == (x, area.bottom() - b.height() - 16)
-        assert overlay.bubble.isVisible()
-
-
-def test_while_the_game_runs_the_bubble_waits_inside_its_picture(overlay, monkeypatch):
-    # a game in front takes every key from other programs: the bubble is the way back in, where the mouse can go
-    from maplehelper import osapi
-    monkeypatch.setattr(osapi, "find_game_window", lambda: 1234)
-    monkeypatch.setattr(osapi, "cursor_clip", lambda: (440, 0, 2560, 1440))
-    monkeypatch.setattr(osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
-    overlay.settings["bubble_pos"] = {"x": 3300, "y": 1300}       # dragged onto the black bar some other day
-    overlay.hide()
-    overlay._watch_game()
-    b = overlay.bubble.geometry()
-    assert overlay.bubble.isVisible() and QRect(440, 0, 2560, 1440).contains(b)
-    area = QRect(440, 0, 2560, 1440)
-    assert (b.x(), b.y()) == (area.right() - b.width() - 16, area.bottom() - b.height() - 16)   # bottom-right in Hebrew
-    monkeypatch.setattr(osapi, "find_game_window", lambda: None)
-    overlay._watch_game()
-    assert not overlay.bubble.isVisible()                          # the game closed: so does its bubble
-
-
 def test_a_chat_on_the_black_bars_moves_into_the_picture(overlay, monkeypatch):
     from maplehelper import osapi
     monkeypatch.setattr(osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
+    from maplehelper import capture
+    monkeypatch.setattr(capture, "PLAY_AREA", (440, 0, 2560, 1440))
     overlay.game_hwnd = 1234
-    overlay._clip_area = QRect(440, 0, 2560, 1440)
     overlay.setGeometry(QRect(2700, 60, 600, 640))                 # its right part over the bar
     overlay._keep_in_play_area()
     assert QRect(440, 0, 2560, 1440).contains(overlay.geometry()) and overlay.width() == 600
-
-
-def test_alt_tab_to_the_bubble_opens_the_chat(overlay, monkeypatch):
-    # a game in front takes every key and click from other programs, but not Alt+Tab: picking the bubble there
-    # (a normal window on Windows, shown without taking the front) opens the chat; a press or drag doesn't
-    import sys
-
-    from PySide6.QtCore import Qt
-
-    from maplehelper.ui import minibubble
-    assert overlay.bubble.testAttribute(Qt.WA_ShowWithoutActivating)
-    if sys.platform == "win32":
-        assert minibubble.WINDOW_KIND == Qt.Window
-    overlay.hide()
-    overlay.bubble.show()
-    overlay.bubble._keyboard_activation()
-    assert overlay.isVisible() and not overlay.bubble.isVisible()
-    pump(overlay.app, 400)                         # the open animation done
-    opened = []
-    monkeypatch.setattr(overlay, "open_overlay", lambda *a: opened.append(a))
-    overlay.restore_from_bubble()                  # already open: nothing again
-    assert opened == []
 
 
 def test_the_character_portrait_shows_large_on_hover(overlay, tmp_path):
@@ -418,3 +349,31 @@ def test_the_character_portrait_shows_large_on_hover(overlay, tmp_path):
     assert "<img" in a.toolTip() and "height='160'" in a.toolTip()
     a.set_image(None)
     assert a.toolTip() == ""
+
+
+def test_answers_can_be_selected_and_copied(overlay):
+    # the glossary's "?" links had made an answer's text unselectable: no way to copy it
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QApplication, QToolButton
+    b = overlay.add_bubble("**Mano** drops a Snail Shell.", "assistant")
+    assert b.label.textInteractionFlags() & Qt.TextSelectableByMouse
+    b.add_pin(lambda: None, "pin", "copy", "copied")
+    copy = next(w for w in b.findChildren(QToolButton) if w.toolTip() == "copy")
+    copy.click()
+    assert QApplication.clipboard().text() == "Mano drops a Snail Shell."
+
+
+def test_minimize_goes_to_the_taskbar_and_gives_the_game_back(overlay, monkeypatch):
+    # the bubble over the game is gone: the official client in front takes every click, so it couldn't be used
+    import sys
+
+    from maplehelper import osapi
+    focused = []
+    monkeypatch.setattr(osapi, "focus_window", lambda h: focused.append(h))
+    overlay.game_hwnd = 4321
+    overlay.minimize()
+    pump(overlay.app, 50)
+    if sys.platform == "darwin":
+        assert not overlay.is_open()
+    else:
+        assert overlay.isMinimized() and focused == [4321]

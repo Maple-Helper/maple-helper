@@ -114,7 +114,7 @@ Type: dirifempty; Name: "{app}"
 hebrew.WelcomeLabel1=ברוכים הבאים ל-Maple Helper
 hebrew.WelcomeLabel2=העוזר האישי שלכם ב-MapleStory Classic, ישר מעל המשחק.%n%nההתקנה לוקחת פחות מדקה ולא דורשת הרשאות מנהל.
 hebrew.FinishedHeadingLabel=Maple Helper מוכן!
-hebrew.FinishedLabel=בכניסה הראשונה נחבר את ה-AI שלכם (Claude, ChatGPT, Gemini או Grok) וניצור את הדמות שלכם.%n%nבתוך המשחק, לחצו Shift+F9 כדי לפתוח ולסגור את הצ'אט.
+hebrew.FinishedLabel=בכניסה הראשונה נחבר את ה-AI שלכם (Claude, ChatGPT, Gemini או Grok) וניצור את הדמות שלכם.%n%nכדי לפתוח את הצ'אט מתוך המשחק, לוחצים על הסמל של Maple Helper ליד השעון.
 ; the player is addressed in plural, like everywhere in the app (the stock Hebrew texts use the singular)
 hebrew.ClickNext=לחצו 'הבא' כדי להמשיך, או 'ביטול' כדי לצאת.
 hebrew.ClickFinish=לחצו 'סיום' כדי לסגור.
@@ -141,7 +141,7 @@ hebrew.ReadyMemoTasks=אפשרויות נוספות:
 hebrew.WizardInstalling=מתקינים...
 hebrew.InstallingLabel=רק רגע, [name] מותקן על המחשב.
 english.WelcomeLabel2=Your personal MapleStory Classic assistant, right over the game.%n%nSetup takes under a minute and needs no admin rights.
-english.FinishedLabel=On first launch we'll connect your AI (Claude, ChatGPT, Gemini or Grok) and set up your character.%n%nIn game, press Shift+F9 to open and close the chat.
+english.FinishedLabel=On first launch we'll connect your AI (Claude, ChatGPT, Gemini or Grok) and set up your character.%n%nTo open the chat while playing, click the Maple Helper icon by the clock.
 english.WizardSelectDir=Where to install?
 english.SelectDirLabel3=[name] will be installed in this folder. You can leave it as it is.
 english.WelcomeLabel1=Welcome to Maple Helper

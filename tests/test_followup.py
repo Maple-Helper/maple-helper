@@ -259,5 +259,4 @@ def test_chat_input_has_a_name_in_both_languages(isolated_store, kb, monkeypatch
         ov.apply_language()
         assert ov.input.accessibleName() == "Your question"
     finally:
-        ov.bubble.hide()
         ov.deleteLater()

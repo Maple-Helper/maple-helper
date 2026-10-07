@@ -33,7 +33,7 @@ def test_provider_lookup():
 
 
 def test_lookup_and_fallbacks():
-    assert I18n("en")("hotkey_taken", key="F9").startswith("F9 is taken")
+    assert I18n("en")("copied_text").endswith("Answer copied")
     assert I18n("xx").lang == "he" and I18n("he").rtl and not I18n("en").rtl
     assert I18n("en")("no_such_key") == "no_such_key"
 
@@ -80,6 +80,4 @@ def test_hebrew_mac_settings_paths_match_the_english():
     he = lambda key: I18n("he")(key).replace(" ", " ")      # (whole names: i18n.WHOLE_NAMES)
     en = I18n("en")
     assert "macOS 15" in en("perm_screen_body") and "macOS 15: הקלטת מסך ושמע מערכת" in he("perm_screen_body")
-    for key in ("ob_done_hint_mac", "hotkey_fn_mac"):
-        assert "Keyboard Shortcuts > Function Keys" in en(key)
-        assert "הגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה" in he(key)
+    assert "menu bar" in en("ob_done_hint_mac") and "שורת התפריטים" in he("ob_done_hint_mac")

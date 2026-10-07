@@ -29,7 +29,7 @@
 
 ## About
 
-Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Press **Shift+F9** to open it, then type a question or press **Shift+F10** to speak (press again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
+Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Open it from the Maple Helper icon by the clock (the menu bar on macOS), then type a question or click the microphone to speak (click again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
 
 Use it to look up drops, find quest NPCs, or ask where to train without switching away from the game. The **play tools** window adds calculators and planners that read the same database: where to train, hit and damage, your build, quests for your level, crafting, citizenship and prices.
 
@@ -44,7 +44,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   </picture>
 </p>
 <h3 align="center">Ask about anything in the game</h3>
-<p align="center">Press <b>Shift+F9</b> in game and ask. Instant answers come straight from the game database, with a card for the monster and pictures of everything it drops.</p>
+<p align="center">Open the chat in game and ask. Instant answers come straight from the game database, with a card for the monster and pictures of everything it drops.</p>
 
 <br>
 
@@ -187,7 +187,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   </picture>
 </p>
 <h3 align="center">Make it yours</h3>
-<p align="center">Light or dark appearance, hotkeys, language, font size, answer length, and your AI (Claude, ChatGPT, Gemini or Grok) with its account and plan usage.</p>
+<p align="center">Light or dark appearance, language, font size, answer length, and your AI (Claude, ChatGPT, Gemini or Grok) with its account and plan usage.</p>
 
 ## Download
 
@@ -197,7 +197,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 
 ## Features
 
-- **In-game chat:** Open and close the overlay with a global hotkey, and resize it from any edge or corner.
+- **In-game chat:** Open the overlay from the tray icon, the desktop shortcut or the taskbar, and resize it from any edge or corner.
 - **Your choice of AI:** Claude, ChatGPT, Gemini or Grok, on your own account or an API key. The app installs each one's official tool for you, with the progress shown in the app, and you can switch any time in settings.
 - **Stays on the game:** Questions that aren't about MapleStory Classic get a short note instead of an answer, and the answer comes in the language you asked in.
 - **Screen context:** Capture the game window when you open the overlay, with a camera button to refresh the screenshot.
@@ -259,7 +259,7 @@ Windows may show **Windows protected your PC** the first time, because the app i
 
 The Mac app is not notarized by Apple yet, so macOS blocks the first launch. Open **System Settings → Privacy & Security** and click **Open Anyway** next to Maple Helper. You do this once per version.
 
-Maple Helper lives in the menu bar (there is no Dock icon). Allow **Screen Recording** when it asks (or under **System Settings → Privacy & Security → Screen Recording**), then restart the app: that is how it sees the game window. The hotkeys are ordinary system shortcuts and need no permission. On macOS 15 the setting is called **Screen & System Audio Recording**.
+Maple Helper lives in the menu bar (there is no Dock icon). Allow **Screen Recording** when it asks (or under **System Settings → Privacy & Security → Screen Recording**), then restart the app: that is how it sees the game window. On macOS 15 the setting is called **Screen & System Audio Recording**.
 
 After an update, screenshots can stop working although Maple Helper still shows as allowed: the new version needs the permission again. Select Maple Helper in that list, remove it with **−**, add it again (or turn its switch off and on), then restart the app.
 
@@ -300,9 +300,9 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 
 | Control | Action |
 | --- | --- |
-| **Shift+F9** | Open or close the chat overlay. |
-| **Shift+F10** | Start recording your voice; press again to transcribe and, by default, send the question. |
-| **Window buttons** | Minimize or close the overlay (Shift+F9 opens it again). |
+| **Tray icon** | Click the Maple Helper icon by the clock (the menu bar on macOS) to open the chat; in a full-screen game, the Windows key shows it. |
+| **Microphone button** | Start recording your voice; click again to transcribe and, by default, send the question. |
+| **Window buttons** | Minimize the overlay to the taskbar or close it (the tray icon opens it again). |
 | **Tap a card** | Tag it for the next question; tap again to untag. |
 | **Camera button** | Take a fresh screenshot of the game window. |
 | **Tools button** | Open the play tools (grind spots, grind tracker, farm, quests, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, pets). |
@@ -310,7 +310,7 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 | **Orange ?** | Hover it to see what a game term means. |
 | **System tray menu** | Show the overlay, open settings, or quit the app. |
 
-In settings, you can change the AI provider (Claude, ChatGPT, Gemini or Grok) and its account, the appearance (light or dark), hotkeys, language, font size, answer length, starting with Windows, and whether voice questions are sent immediately.
+In settings, you can change the AI provider (Claude, ChatGPT, Gemini or Grok) and its account, the appearance (light or dark), language, font size, answer length, starting with Windows, and whether voice questions are sent immediately.
 
 The speech model downloads on first use, so the first voice request takes longer. Transcription uses CUDA when available and falls back to the CPU (always the CPU on macOS).
 

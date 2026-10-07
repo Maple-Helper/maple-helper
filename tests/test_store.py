@@ -4,7 +4,7 @@ import json
 
 def test_settings_defaults_and_persistence(isolated_store):
     s = isolated_store.Settings()
-    assert s["hotkey_toggle"] == "Shift+F9" and s["language"] is None
+    assert s["appearance"] == "light" and s["language"] is None and "hotkey_toggle" not in s.data
     s["language"] = "en"
     assert json.loads(isolated_store.Settings.path.read_text(encoding="utf-8"))["language"] == "en"
     assert isolated_store.Settings()["language"] == "en"
@@ -238,9 +238,9 @@ def test_alt_with_a_longer_name_is_never_merged(isolated_store):
 def test_damaged_files_never_crash_the_start(isolated_store):
     p = isolated_store.Settings.path
     p.write_bytes(b"\xff\xfe broken")
-    assert isolated_store.Settings()["hotkey_toggle"] == "Shift+F9"
+    assert isolated_store.Settings()["appearance"] == "light"
     p.write_text("[1, 2]", encoding="utf-8")
-    assert isolated_store.Settings()["hotkey_toggle"] == "Shift+F9"
+    assert isolated_store.Settings()["appearance"] == "light"
     isolated_store.Profiles.path.write_text("[1]", encoding="utf-8")
     assert isolated_store.Profiles().characters == []
 
@@ -394,24 +394,6 @@ def test_mac_damaged_install_offers_the_download_page(tmp_path, monkeypatch):
     assert "antivirus" not in setupwait.MAC_TEXT["broken"]["en"] and "אנטי-וירוס" not in setupwait.MAC_TEXT["broken"]["he"]
 
 
-def test_f12_hotkey_loads_as_the_default_on_windows(isolated_store, monkeypatch):
-    # Windows never lets a program register F12: a saved F12 is the default key there, and stays F12 on macOS
-    import json
-    isolated_store.Settings.path.write_text(json.dumps({"hotkey_toggle": "F12", "hotkey_voice": "F7"}), "utf-8")
-    monkeypatch.setattr(isolated_store.sys, "platform", "win32")
-    s = isolated_store.Settings()
-    assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("Shift+F9", "Shift+F7")
-    # the default is the other hotkey's: the next default, never two hotkeys on one key
-    isolated_store.Settings.path.write_text(json.dumps({"hotkey_toggle": "F12", "hotkey_voice": "F9"}), "utf-8")
-    s = isolated_store.Settings()
-    assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("Shift+F10", "Shift+F9")
-    isolated_store.Settings.path.write_text(json.dumps({"hotkey_toggle": "F12", "hotkey_voice": "F12"}), "utf-8")
-    s = isolated_store.Settings()
-    assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("Shift+F9", "Shift+F10")
-    monkeypatch.setattr(isolated_store.sys, "platform", "darwin")
-    assert isolated_store.Settings()["hotkey_toggle"] == "Shift+F12"
-
-
 def test_a_failed_settings_write_keeps_the_value_and_leaves_no_tmp(isolated_store, monkeypatch):
     # LIF-1: a file held by a scanner / a full disk raised into the caller (an answer stuck on "thinking…")
     s = isolated_store.Settings()
@@ -449,12 +431,12 @@ def test_history_record_after_a_torn_line_is_kept(isolated_store):
 def test_settings_of_the_wrong_type_load_as_the_default(isolated_store):
     # LIF-9: "font_size": "big" crashed every start in the stylesheet
     isolated_store.Settings.path.write_text(json.dumps({
-        "font_size": "big", "start_with_windows": 1, "language": "he", "pins": [], "hotkey_toggle": None,
+        "font_size": "big", "start_with_windows": 1, "language": "he", "pins": [], "appearance": None,
         "usage_warned": [123, "high"], "api_key_fallback": True, "window": {"x": 1}, "future_key": 5}),
         encoding="utf-8")
     s = isolated_store.Settings()
     assert s["font_size"] == 14 and s["start_with_windows"] is False and s["pins"] == {}
-    assert s["hotkey_toggle"] == "Shift+F9" and s["language"] == "he"
+    assert s["appearance"] == "light" and s["language"] == "he"
     # shapes kept on purpose, None-default settings and unknown keys are untouched
     assert s["usage_warned"] == [123, "high"] and s.api_key_mode("claude") and s["window"] == {"x": 1}
     assert s.data["future_key"] == 5
@@ -557,17 +539,3 @@ def test_a_new_portrait_replaces_the_old_file(isolated_store, tmp_path, monkeypa
     assert isolated_store.Profiles().avatar_path().read_bytes() == b"second"     # saved with the character
 
 
-def test_plain_f_keys_move_to_shift_once(isolated_store):
-    # the game binds F9/F10 (every plain F-key) to skills and items: saved keys move to their Shift version, once
-    isolated_store.Settings.path.write_text(json.dumps({"hotkey_toggle": "F9", "hotkey_voice": "F4"}), "utf-8")
-    s = isolated_store.Settings()
-    assert (s["hotkey_toggle"], s["hotkey_voice"]) == ("Shift+F9", "Shift+F4")
-    saved = json.loads(isolated_store.Settings.path.read_text(encoding="utf-8"))
-    assert saved["hotkey_toggle"] == "Shift+F9" and saved["shift_keys"] is True
-    assert isolated_store.Settings()["hotkey_voice"] == "Shift+F4"
-
-
-def test_key_names_split_into_shift_and_the_f_key():
-    from maplehelper.keys import split_key, with_shift
-    assert split_key("Shift+F10") == (True, "F10") and split_key("F9") == (False, "F9")
-    assert with_shift("F12") == "Shift+F12" and with_shift("Shift+F9") == "Shift+F9" and with_shift("x") == "x"

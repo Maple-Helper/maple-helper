@@ -15,7 +15,7 @@ LAST_FULL: Image.Image | None = None
 # slot it looked like an item (live test)
 LAST_CURSOR: tuple[int, int] | None = None
 # the game's picture in that grab, in screen pixels (x, y, w, h), without its pillarbox / letterbox bars: a game in
-# front keeps the mouse inside it, so the chat and its bubble must sit there (on the bars they couldn't be clicked)
+# front keeps its mouse pointer inside it, so the chat sits there
 PLAY_AREA: tuple[int, int, int, int] | None = None
 # why the latest look for the game gave no screenshot although the game may be open: "covered" (another window is
 # over it: its pixels are never sent as the game), "screen_permission" (macOS Screen Recording is off: the grab would

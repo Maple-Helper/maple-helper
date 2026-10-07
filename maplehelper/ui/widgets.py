@@ -113,15 +113,37 @@ class Bubble(QFrame):
             body = glossary.annotate(body, terms.LANG, limit=4)
             if not getattr(self, "_terms", False):
                 terms.watch(self.label, terms.LANG)
+                # watch() leaves only the "?" links clickable: the answer's text stays selectable too (Ctrl+C,
+                # right-click Copy), it couldn't be copied at all (the owner)
+                self.label.setTextInteractionFlags(self.label.textInteractionFlags() | Qt.TextSelectableByMouse)
                 self._terms = True
         self.label.setText(body)
 
-    def add_pin(self, on_pin, tip: str) -> None:
-        """A small pin under a finished answer (the icon font's, like the header's icons; it was the 📌 emoji)."""
+    def plain_text(self) -> str:
+        """The message as the player would paste it: no **bold** marks."""
+        return (self._text or "").replace("**", "").strip()
+
+    def add_pin(self, on_pin, tip: str, copy_tip: str = "", copied: str = "") -> None:
+        """A small pin under a finished answer (the icon font's, like the header's icons; it was the 📌 emoji), and
+        beside it a copy button: the answer's text on the clipboard."""
         from PySide6.QtWidgets import QToolButton
         row = QHBoxLayout()
         row.addStretch(1)
         from . import theme
+        if copy_tip:
+            from PySide6.QtGui import QCursor
+            from PySide6.QtWidgets import QApplication, QToolTip
+            c = QToolButton(objectName="Icon", text=theme.ICON["copy"])
+            c.setCursor(Qt.PointingHandCursor)
+            c.setToolTip(copy_tip)
+            c.setAccessibleName(copy_tip)
+
+            def copy():
+                QApplication.clipboard().setText(self.plain_text())
+                if copied:
+                    QToolTip.showText(QCursor.pos(), copied, c)
+            c.clicked.connect(copy)
+            row.addWidget(c)
         b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
@@ -161,6 +183,7 @@ class SystemLine(QLabel):
         super().__init__(bidi.plain(text))
         self.setObjectName("SystemLine")
         self.setWordWrap(True)
+        self.setTextInteractionFlags(Qt.TextSelectableByMouse)
         self.setAlignment(Qt.AlignHCenter)
 
     def set_text(self, text: str) -> None:

@@ -113,10 +113,11 @@ STRINGS = {
     "price_fm_ago_h": {"he": "לפני {n} שע'", "en": "{n} h ago"},
     "price_fm_ago_d": {"he": "לפני {n} ימים", "en": "{n} days ago"},
     "price_fm_ago_d_one": {"he": "אתמול", "en": "1 day ago"},
-    "input_placeholder": {"he": "שאלו אותי משהו… (Enter לשליחה, F10 לדיבור)",
-                          "en": "Ask anything… (Enter to send, F10 to talk)"},
+    "input_placeholder": {"he": "שאלו אותי משהו… (Enter לשליחה)",
+                         "en": "Ask anything… (Enter to send)"},
     # a narrow chat (470 px, the large font): the whole hint was cut before the talk key (VIS-18)
-    "input_placeholder_short": {"he": "שאלו אותי משהו… (F10 לדיבור)", "en": "Ask anything… (F10 to talk)"},
+    "input_placeholder_short": {"he": "שאלו אותי משהו…",
+                               "en": "Ask anything…"},
     "thinking": {"he": "חושב…", "en": "Thinking…"},
     "cancel": {"he": "ביטול", "en": "Cancel"},
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
@@ -136,8 +137,8 @@ STRINGS = {
     "other_char_saved": {"he": "במשחק מופיעה הדמות {name}, לא {current}. את {current} לא שיניתי.",
                          "en": "The game shows {name}, not {current}. {current} was left as it is."},
     "other_char_switch": {"he": "מעבר ל-{name}", "en": "Switch to {name}"},
-    "voice_nothing": {"he": "לא שמעתי כלום. לחצו על המיקרופון (או F10), דברו, ולחצו שוב כשסיימתם.",
-                      "en": "Nothing was heard. Press the mic (or F10), speak, then press it again when done."},
+    "voice_nothing": {"he": "לא שמעתי כלום. לחצו על המיקרופון, דברו, ולחצו שוב כשסיימתם.",
+                     "en": "Nothing was heard. Press the mic, speak, then press it again when done."},
     "voice_failed": {"he": "זיהוי הדיבור נכשל (ייתכן שהורדת מודל הדיבור לא הושלמה). נסו שוב בעוד רגע.",
                      "en": "Speech recognition failed (the speech model may not have finished downloading). Try again in a moment."},
     # no size: an NVIDIA PC downloads more (the ask says how much, review3 UX12-b)
@@ -146,10 +147,10 @@ STRINGS = {
     "voice_no_space": {"he": "אין מספיק מקום בדיסק להורדת מודל הדיבור (צריך כ-2GB). פנו מקום ונסו שוב.",
                        "en": "There isn't enough disk space to download the speech model (about 2GB needed). Free up some space and try again."},
     "report_preparing": {"he": "מכינים את הדוח…", "en": "Preparing the report…"},
-    "mic_tip": {"he": "לחצו (או {key}) כדי להתחיל להקליט, ושוב כשסיימתם לדבר כדי לשלוח",
-                "en": "Click (or {key}) to start recording, and again when you're done to send"},
-    "listening": {"he": "מקשיב… לחצו שוב על המיקרופון או {key} לסיום",
-                  "en": "Listening… click the mic or press {key} again when done"},
+    "mic_tip": {"he": "לחצו כדי להתחיל להקליט, ושוב כשסיימתם לדבר כדי לשלוח",
+               "en": "Click to start recording, and again when you're done to send"},
+    "listening": {"he": "מקשיב… לחצו שוב על המיקרופון לסיום",
+                 "en": "Listening… click the mic again when done"},
     "transcribing": {"he": "מתמלל…", "en": "Transcribing…"},
     "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the speech model…"},
     "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the speech model (once)…"},
@@ -163,8 +164,8 @@ STRINGS = {
     "voice_dl_no": {"he": "לא עכשיו", "en": "Not now"},
     "voice_dl_progress": {"he": "מוריד את מודל הדיבור: {pct}%", "en": "Downloading the speech model: {pct}%"},
     "voice_dl_cancel": {"he": "ביטול", "en": "Cancel"},
-    "voice_dl_done": {"he": "מודל הדיבור מוכן. לחצו על המיקרופון (או {key}), דברו, ולחצו שוב כשסיימתם.",
-                      "en": "The speech model is ready. Press the mic (or {key}), speak, then press it again when done."},
+    "voice_dl_done": {"he": "מודל הדיבור מוכן. לחצו על המיקרופון, דברו, ולחצו שוב כשסיימתם.",
+                     "en": "The speech model is ready. Press the mic, speak, then press it again when done."},
     "voice_dl_stopped": {"he": "ההורדה בוטלה. אפשר להוריד את המודל בפעם הבאה שתלחצו על המיקרופון.",
                          "en": "Download cancelled. You can get the model the next time you press the mic."},
     "no_game": {"he": "חלון המשחק לא נמצא, שולח בלי צילום מסך.", "en": "Game window not found, sending without a screenshot."},
@@ -186,8 +187,8 @@ STRINGS = {
     "sync_reading": {"he": "קורא את המסך…", "en": "Reading the screen…"},
     "sync_timeout": {"he": "הקריאה לקחה יותר מדי זמן. נסו שוב.", "en": "Reading the screen took too long. Try again."},
     "sync_no_game": {"he": "חלון המשחק לא נמצא. פתחו את המשחק ונסו שוב.", "en": "Game window not found. Open the game and try again."},
-    "shot_game_covered": {"he": "חלון אחר מסתיר את המשחק, אז לא צילמתי אותו. העבירו את המשחק לקדמת המסך ונסו שוב (F9 או המצלמה).",
-                          "en": "Another window is covering the game, so no screenshot was taken. Bring the game to the front and try again (F9 or the camera)."},
+    "shot_game_covered": {"he": "חלון אחר מסתיר את המשחק, אז לא צילמתי אותו. העבירו את המשחק לקדמת המסך ולחצו על המצלמה.",
+                         "en": "Another window is covering the game, so no screenshot was taken. Bring the game to the front and click the camera."},
     "shot_game_minimized": {"he": "המשחק ממוזער: החזירו אותו למסך ונסו שוב.",
                             "en": "The game is minimized: bring it back and try again."},
     # what the read needs (portrait.py: the player's own name tag, whole or only cut by the chat box, and no other
@@ -367,13 +368,13 @@ STRINGS = {
     "tray_quit": {"he": "יציאה", "en": "Quit"},
     "settings": {"he": "הגדרות", "en": "Settings"},
     "language": {"he": "שפה", "en": "Language"},
-    "hotkey_toggle": {"he": "מקש פתיחה/סגירה", "en": "Open/close key"},
-    "hotkey_voice": {"he": "מקש דיבור (לחיצה להתחלה ולסיום)", "en": "Talk key (press to start and stop)"},
     "appearance": {"he": "מראה", "en": "Appearance"},
     "minimize": {"he": "מזעור", "en": "Minimize"},
-    "close_chat": {"he": "סגירה (F9 פותח שוב)", "en": "Close (F9 opens it again)"},
+    "close_chat": {"he": "סגירה (הסמל ליד השעון פותח שוב)",
+                  "en": "Close (the icon by the clock opens it again)"},
+    "close_chat_mac": {"he": "סגירה (הסמל בשורת התפריטים פותח שוב)",
+                      "en": "Close (the menu bar icon opens it again)"},
     "sec_appearance": {"he": "תצוגה", "en": "Display"},
-    "sec_keys": {"he": "מקשים", "en": "Keys"},
     "sec_audio": {"he": "שמע", "en": "Audio"},
     "sec_answers": {"he": "תשובות", "en": "Answers"},
     "sec_system": {"he": "פרטיות ומערכת", "en": "Privacy & system"},
@@ -602,6 +603,8 @@ STRINGS = {
     "wish_kb_hit": {"he": "⭐ עדכון מאגר נוגע בפריט שבמעקב: {names}",
                     "en": "⭐ A database update touches a tracked item: {names}"},
     "copy_card": {"he": "העתקה כתמונה, לשיתוף עם חברים", "en": "Copy as a picture to share"},
+    "copy_answer": {"he": "העתקת התשובה", "en": "Copy the answer"},
+    "copied_text": {"he": "✓ התשובה הועתקה", "en": "✓ Answer copied"},
     "copied": {"he": "✓ הועתק. אפשר להדביק בדיסקורד או בוואטסאפ (Ctrl+V)",
                "en": "✓ Copied. Paste it in Discord or WhatsApp (Ctrl+V)"},
     "copied_mac": {"he": "✓ הועתק. אפשר להדביק בדיסקורד או בוואטסאפ (⌘V)",
@@ -747,8 +750,10 @@ STRINGS = {
     "calc_acc_by_level_head": {"he": "ACC כדי לא לפספס, לפי הרמה שלכם", "en": "ACC to never miss, by your level"},
     "calc_acc_by_level_hint": {"he": "ככל שעולים ברמה צריך פחות ACC מול אותה מפלצת.", "en": "The higher your level, the less ACC you need against the same monster."},
     "calc_maps_head_plain": {"he": "איפה המפלצת נמצאת", "en": "Where the monster lives"},
-    "shot_hint_no_game": {"he": "המשחק לא פתוח, אז אין צילום מסך. כשהמשחק פתוח, **F9 מצלם אותו** ושולח את הצילום עם השאלה הראשונה; לצילום חדש לוחצים על המצלמה.", "en": "The game isn't open, so there's no screenshot. With the game open, **F9 takes one** and sends it with your first question; click the camera for a new one."},
-    "shot_hint_ready": {"he": "צילום המסך מ-F9 יישלח עם **השאלה הבאה**.", "en": "The F9 screenshot goes with your **next question**."},
+    "shot_hint_no_game": {"he": "המשחק לא פתוח, אז אין צילום מסך. כשהמשחק פתוח, **פתיחת הצ'אט מצלמת אותו** ושולחת את הצילום עם השאלה הראשונה; לצילום חדש לוחצים על המצלמה.",
+                         "en": "The game isn't open, so there's no screenshot. With the game open, **opening the chat takes one** and sends it with your first question; click the camera for a new one."},
+    "shot_hint_ready": {"he": "צילום המסך מפתיחת הצ'אט יישלח עם **השאלה הבאה**.",
+                       "en": "The screenshot taken as the chat opened goes with your **next question**."},
     "shot_hint_used": {"he": "השאלות הבאות נשלחות **בלי צילום**. רוצים שה-AI יראה את המסך עכשיו?", "en": "Your next questions go **without a screenshot**. Want the AI to see the screen now?"},
     "shot_hint_retake": {"he": "לצלם מחדש", "en": "Retake it"},
     "spot_best": {"he": "הכי משתלם", "en": "Best pick"},
@@ -1225,16 +1230,16 @@ STRINGS = {
                      "en": "Not sure what to do? One click looks at your screen and gives the best next step: where to train, which quest, what to buy."},
     "tour_input_title": {"he": "שואלים כאן",
                         "en": "Ask here"},
-    "tour_input_body": {"he": "כותבים כל שאלה על המשחק ולוחצים Enter. כש-{toggle} פותח את החלון מתוך המשחק, הוא מצלם את המסך ושולח את הצילום עם השאלה הראשונה.",
-                       "en": "Type any game question and press Enter. When {toggle} opens this window in game, it takes a screenshot and sends it with your first question."},
+    "tour_input_body": {"he": "כותבים כל שאלה על המשחק ולוחצים Enter. כשהחלון נפתח והמשחק פתוח, הוא מצלם את המסך ושולח את הצילום עם השאלה הראשונה.",
+                       "en": "Type any game question and press Enter. When this window opens with the game running, it takes a screenshot and sends it with your first question."},
     "tour_camera_title": {"he": "צילום חדש",
                          "en": "New screenshot"},
     "tour_camera_body": {"he": "מצלם שוב את המשחק, למשל אחרי שפתחתם את התיק או חלון הסטטים, כדי שהשאלה הבאה תראה את מה שעל המסך עכשיו.",
                         "en": "Captures the game again, say after opening your bag or stat window, so the next question sees what's on screen now."},
     "tour_mic_title": {"he": "שאלה בקול",
                       "en": "Ask out loud"},
-    "tour_mic_body": {"he": "לוחצים (או {voice}) כדי להתחיל להקליט, מדברים, ולוחצים שוב כשסיימתם. השאלה נשלחת לבד.",
-                     "en": "Click (or press {voice}) to start recording, speak, then click again when you're done. It sends by itself."},
+    "tour_mic_body": {"he": "לוחצים כדי להתחיל להקליט, מדברים, ולוחצים שוב כשסיימתם. השאלה נשלחת לבד.",
+                     "en": "Click to start recording, speak, then click again when you're done. It sends by itself."},
     "tour_tools_title": {"he": "כלי משחק",
                         "en": "Play tools"},
     "tour_tools_body": {"he": "גריינד, מעקב גריינד, פארם, קווסטים לפי הרמה שלכם, קראפטינג, אזרחות, בילד וסקילים, פגיעה ונזק, מחיר פריט, למכור או לשמור, איך מגיעים וחיות מחמד.",
@@ -1257,20 +1262,26 @@ STRINGS = {
                          "en": "Everything you asked stays on your PC. Find an old answer here without asking again."},
     "tour_settings_title": {"he": "הגדרות",
                            "en": "Settings"},
-    "tour_settings_body": {"he": "שפה, מראה, גודל טקסט, מקשים, אורך תשובה, ובחירת ה-AI: Claude, ChatGPT, Gemini או Grok.",
-                          "en": "Language, look, text size, keys, answer length, and which AI answers: Claude, ChatGPT, Gemini or Grok."},
+    "tour_settings_body": {"he": "שפה, מראה, גודל טקסט, אורך תשובה, ובחירת ה-AI: Claude, ChatGPT, Gemini או Grok.",
+                          "en": "Language, look, text size, answer length, and which AI answers: Claude, ChatGPT, Gemini or Grok."},
     "tour_min_title": {"he": "מזעור",
                       "en": "Minimize"},
-    "tour_min_body": {"he": "מקטין את החלון לבועה קטנה מעל המשחק. לחיצה על הבועה פותחת אותו שוב.",
-                     "en": "Shrinks the window to a small bubble over the game. Click the bubble to bring it back."},
+    "tour_min_body": {"he": "מקטין את החלון לשורת המשימות, והמשחק חוזר לקדמת המסך. לחיצה על Maple Helper בשורת המשימות פותחת אותו שוב.",
+                     "en": "Sends the window to the taskbar and brings the game back to the front. Click Maple Helper in the taskbar to bring it back."},
+    "tour_min_body_mac": {"he": "מסתיר את החלון, והמשחק חוזר לקדמת המסך. הסמל בשורת התפריטים פותח אותו שוב.",
+                         "en": "Hides the window and brings the game back to the front. The menu bar icon opens it again."},
     "tour_close_title": {"he": "סגירה",
                         "en": "Close"},
-    "tour_close_body": {"he": "סוגר את החלון, והאפליקציה ממשיכה לרוץ ברקע. {toggle} פותח אותו שוב בכל רגע, גם מתוך המשחק.",
-                       "en": "Closes the window; Maple Helper keeps running in the background. {toggle} opens it again anytime, in game too."},
+    "tour_close_body": {"he": "סוגר את החלון, והאפליקציה ממשיכה לרוץ ברקע. הסמל של Maple Helper ליד השעון פותח אותו שוב בכל רגע.",
+                       "en": "Closes the window; Maple Helper keeps running in the background. Its icon by the clock opens it again anytime."},
+    "tour_close_body_mac": {"he": "סוגר את החלון, והאפליקציה ממשיכה לרוץ ברקע. הסמל של Maple Helper בשורת התפריטים פותח אותו שוב בכל רגע.",
+                           "en": "Closes the window; Maple Helper keeps running in the background. Its menu bar icon opens it again anytime."},
     "tour_done_title": {"he": "זהו, אפשר לשחק!",
                        "en": "That's it, go play!"},
-    "tour_done_body": {"he": "לחצו {toggle} בתוך המשחק ושאלו כל דבר. את הסיור אפשר להפעיל שוב מההגדרות.",
-                      "en": "Press {toggle} in game and ask anything. You can replay this tour from Settings."},
+    "tour_done_body": {"he": "במשחק פותחים את הצ'אט מהסמל של Maple Helper ליד השעון (במסך מלא, מקש Windows מציג אותו) ושואלים כל דבר. את הסיור אפשר להפעיל שוב מההגדרות.",
+                      "en": "In game, open the chat from the Maple Helper icon by the clock (in full screen, the Windows key shows it) and ask anything. You can replay this tour from Settings."},
+    "tour_done_body_mac": {"he": "במשחק פותחים את הצ'אט מהסמל של Maple Helper בשורת התפריטים ושואלים כל דבר. את הסיור אפשר להפעיל שוב מההגדרות.",
+                          "en": "In game, open the chat from the Maple Helper icon in the menu bar and ask anything. You can replay this tour from Settings."},
     "ob_privacy": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע Claude של Anthropic), ורק אז.",
                    "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (currently Anthropic's Claude), and only then."},
     "ob_privacy_codex": {"he": "פרטיות: ההגדרות וההיסטוריה נשמרות על המחשב שלכם. כשאתם שואלים, השאלה, צילום של חלון המשחק וההקשר שצריך כדי לענות (פרטי הדמות, השיחה האחרונה וסיכומים קצרים) נשלחים ל-AI שבחרתם (כרגע ChatGPT של OpenAI), ורק אז.",
@@ -1281,16 +1292,10 @@ STRINGS = {
                         "en": "Privacy: settings and history stay on your computer. When you ask, your question, a screenshot of the game window and the context needed to answer (character, recent chat, short summaries) go to the AI you chose (currently xAI's Grok), and only then."},
     "ob_borderless": {"he": "טיפ: הריצו את המשחק במצב Borderless / Windowed Fullscreen כדי שהצ'אט יופיע מעליו.",
                       "en": "Tip: run the game in Borderless / Windowed Fullscreen so the chat can appear on top."},
-    "ob_done_hint": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט.",
-                     "en": "Press F9 in game to open and close the chat."},
-    "ob_done_hint_mac": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט (בלי fn אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה).",
-                         "en": "Press F9 in game to open and close the chat (without fn if you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys)."},
-    "hotkey_fn_mac": {"he": "ב-Mac לוחצים עם fn (למשל fn+Shift+F9), אלא אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה.",
-                      "en": "On a Mac, hold fn with the key (fn+Shift+F9, say) unless you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys."},
-    "hotkey_same": {"he": "אותו מקש לא יכול גם לפתוח את הצ'אט וגם להתחיל דיבור. בחרו מקש אחר לאחד מהם.",
-                    "en": "One key can't both open the chat and start talking. Pick a different key for one of them."},
-    "hotkey_taken": {"he": "המקש {key} תפוס על ידי תוכנה אחרת. בחרו מקש אחר בהגדרות.",
-                     "en": "{key} is taken by another program. Pick another key in Settings."},
+    "ob_done_hint": {"he": "כדי לפתוח את הצ'אט מתוך המשחק, לוחצים על הסמל של Maple Helper ליד השעון. במסך מלא, מקש Windows מציג אותו.",
+                    "en": "To open the chat while playing, click the Maple Helper icon by the clock. In full screen, the Windows key shows it."},
+    "ob_done_hint_mac": {"he": "כדי לפתוח את הצ'אט מתוך המשחק, לוחצים על הסמל של Maple Helper בשורת התפריטים למעלה.",
+                        "en": "To open the chat while playing, click the Maple Helper icon in the menu bar at the top."},
     "busy_wait": {"he": "רגע, עוד עונה על השאלה הקודמת. אפשר לשאול שוב כשהתשובה מסתיימת.",
                   "en": "One moment, still answering the previous question. Ask again when it's done."},
     # the grind tracker's minute read or an inventory check holds the chat, not a question
@@ -1575,12 +1580,8 @@ def keep_names_whole(s: str) -> str:
 
 # macOS versions of a string ("<key>_mac"), picked by I18n: Mac paths and shortcuts (System Settings, ⌘V).
 # A listed set, not every "_mac" key: update_available_mac is a separate line next to update_available.
-MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
-# strings that teach a hotkey: on a Mac keyboard F9/F10 are media keys unless fn is held, so a Mac shows
-# "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+"; a key passed in shows as "fn+Shift+F10")
-FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
-                "shot_hint_ready", "ob_done_hint", "voice_dl_done", "input_placeholder_short"}
-_FKEY = re.compile(r"(?<![\w+])(?:Shift\+)?F(?:1[0-2]|[1-9])\b")
+MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint", "close_chat", "tour_min_body", "tour_close_body",
+                "tour_done_body"}
 
 
 def system_language() -> str:
@@ -1608,7 +1609,6 @@ class I18n:
     def __call__(self, _key: str, **kw) -> str:
         if str(kw.get("n", "")) == "1" and f"{_key}_one" in STRINGS:
             _key = f"{_key}_one"         # "תוצאה אחת" / "1 result", not "1 תוצאות" / "1 results"
-        base = _key
         if self.mac and _key in MAC_VARIANTS:
             _key = f"{_key}_mac"
         s = STRINGS.get(_key, {}).get(self.lang) or STRINGS.get(_key, {}).get("en") or _key
@@ -1620,8 +1620,6 @@ class I18n:
             kw = {k: v.replace(" ", NBSP) if isinstance(v, str) and _SHORT_RUN.fullmatch(v) and re.search("[A-Za-z]", v)
                   else v for k, v in kw.items()}
         s = s.format(**kw) if kw else s
-        if self.mac and base in FN_KEY_HINTS:
-            s = _FKEY.sub(lambda m: "fn+" + m.group(0), s)
         return s
 
     def p(self, _key: str, provider: str | None, **kw) -> str:

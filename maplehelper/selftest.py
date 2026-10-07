@@ -101,9 +101,6 @@ def run(require_kb: bool = False) -> tuple[bool, list[str]]:
         # lists windows through the native API (no permission needed; a CI runner has no game)
         from . import osapi
         osapi.find_game_window()
-        if osapi.IS_MAC:
-            from . import macapi
-            macapi.carbon().GetApplicationEventTarget()   # the hotkey API resolves in this build
         return sys.platform
     check("os layer", os_layer)
 
