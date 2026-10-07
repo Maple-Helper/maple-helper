@@ -322,3 +322,36 @@ def test_the_instant_answer_picks_its_language_with_the_kb_like_the_ai(overlay, 
     except Exception:
         pass                # no AI provider here: only the instant path's language matters
     assert seen and seen[0] is overlay.kb
+
+
+def test_the_hotkey_takes_the_front_before_the_screenshot(overlay, monkeypatch):
+    # the hotkey's right to come to the front ends with the key's release (it goes to the game): the chat takes the
+    # front at once, still see-through, and only then is the game captured
+    from maplehelper import osapi
+    seen = []
+    monkeypatch.setattr(osapi, "activate_self", lambda wid: seen.append(("front", overlay.isVisible(),
+                                                                          overlay.windowOpacity())))
+    overlay.hide()
+    overlay.toggle(lambda hwnd: seen.append(("shot",)) or None)
+    assert seen[0] == ("front", True, 0.0) and ("shot",) in seen
+    assert seen.index(("shot",)) > 0
+    assert overlay.isVisible()
+
+
+def test_minimize_puts_the_bubble_in_a_bottom_corner_of_the_screen(overlay):
+    # bottom-right in Hebrew, bottom-left in English (a fullscreen game hides the taskbar)
+    from PySide6.QtGui import QGuiApplication
+
+    from maplehelper.i18n import I18n
+    for lang in ("he", "en"):
+        overlay.t = I18n(lang)
+        overlay.settings["bubble_pos"] = None
+        overlay.setGeometry(QRect(100, 100, 460, 640))
+        overlay.show()
+        overlay.setWindowOpacity(1.0)
+        overlay.minimize()
+        area = (overlay.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+        b = overlay.bubble.geometry()
+        x = area.right() - b.width() - 16 if lang == "he" else area.left() + 16
+        assert (b.x(), b.y()) == (x, area.bottom() - b.height() - 16)
+        assert overlay.bubble.isVisible()

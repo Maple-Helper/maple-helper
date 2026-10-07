@@ -1514,7 +1514,9 @@ class Overlay(QWidget):
             osapi.focus_window(self.game_hwnd)
 
     def minimize(self):
-        """Shrink to the bubble, which appears where the chat's header was."""
+        """Shrink to the bubble: a bottom corner of the chat's screen, where a minimized app is looked for (a
+        fullscreen game hides the taskbar): the right one in Hebrew, the left one in English. Or wherever the player
+        dragged it last."""
         pos = self.settings["bubble_pos"]
         # a saved spot on a monitor that is gone (or half off one) would hide the only way back
         spot = visible_rect(QRect(pos["x"], pos["y"], self.bubble.width(), self.bubble.height()),
@@ -1522,9 +1524,9 @@ class Overlay(QWidget):
         if spot:
             self.bubble.move(spot.topLeft())
         else:
-            g = self.geometry()
-            x = g.left() + self.SHADOW if self.t.rtl else g.right() - self.bubble.width() - self.SHADOW
-            self.bubble.move(x, g.top() + self.SHADOW)
+            area = (self.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+            x = area.right() - self.bubble.width() - 16 if self.t.rtl else area.left() + 16
+            self.bubble.move(x, area.bottom() - self.bubble.height() - 16)
         self.close_overlay()
         self.bubble.show()
         self.bubble.raise_()
@@ -1561,8 +1563,21 @@ class Overlay(QWidget):
             self.close_overlay()
         else:
             self.bubble.hide()
+            self._take_front()
             hwnd = osapi.find_game_window()
             self.open_overlay(self._safe_shot(hwnd), hwnd)
+
+    def _take_front(self):
+        """The hotkey lets this app come to the front only until the next key event, and the key's release goes to
+        the game: by the time the screenshot was taken that right was gone, so the game kept the keyboard (typing
+        went to the game, and its hidden mouse pointer stayed hidden over the chat). The chat takes the front first,
+        still see-through, so the screenshot shows only the game."""
+        if self.isVisible():
+            return
+        self.setWindowOpacity(0.0)
+        self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
+        self.show()
+        osapi.activate_self(int(self.winId()))
 
     def keyPressEvent(self, e):
         # Esc deliberately does nothing: F9 or the window buttons close the chat.
