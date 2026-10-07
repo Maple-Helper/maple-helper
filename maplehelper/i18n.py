@@ -1067,6 +1067,11 @@ STRINGS = {
                          "en": "{name} is in {inside}: the orange dot is the portal you go in by."},
     "quest_where_start": {"he": "מקבלים את הקווסט", "en": "Start the quest"},
     "quest_where_end": {"he": "מסיימים את הקווסט", "en": "Turn it in"},
+    "card_item_details": {"he": "פרטי הפריט: נתונים, מי מפיל אותו, Meow Notes",
+                          "en": "Item details: stats, who drops it, Meow Notes"},
+    "item_details": {"he": "פרטי הפריט", "en": "Item details"},
+    "item_stats": {"he": "נתונים", "en": "Stats"},
+    "item_meow_notes": {"he": "Meow Notes (הערות NiaMeowDB)", "en": "Meow Notes"},
     "inv_check": {"he": "בדיקת האינבנטורי", "en": "Inventory check"},
     "telemetry": {"he": "שליחת נתוני שימוש אנונימיים", "en": "Share anonymous usage stats"},
     "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: באילו אפשרויות משתמשים, גרסת האפליקציה ומערכת "
