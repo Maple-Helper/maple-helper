@@ -135,6 +135,7 @@ DEFAULT_SETTINGS = {
     "font_size": 14,
     "answer_length": "short",     # short | detailed
     "window": None,               # {"x","y","w","h","screen"} saved on move/resize
+    "map_window_pos": None,       # where the player left the map window ({"x","y"}); None: it opens beside the chat
     "start_with_windows": False,
     "voice_send_immediately": True,
     "microphone": None,           # a name from voice.input_devices(); None = the system's default microphone

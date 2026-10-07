@@ -697,6 +697,34 @@ class _RouteRequests(QObject):
 ROUTE_REQUESTS = _RouteRequests()
 
 
+class _MapRequests(QObject):
+    """A map's, an NPC's or a quest's "Where it is on the map" (its card or its tile): the app opens the map window."""
+
+    requested = Signal(str)       # the map's, NPC's or quest's KB key
+
+
+WHERE_KINDS = ("map/", "npc/", "quest/")
+
+
+MAP_REQUESTS = _MapRequests()
+
+
+def map_where_button(kb, key: str, t):
+    """The ◎ that opens the map window, or None for what it can't draw (a map with no way in on a minimap the KB has,
+    an NPC on no map, a quest whose NPCs are on none)."""
+    from PySide6.QtWidgets import QToolButton
+
+    from . import mapview, theme
+    if not key.startswith(WHERE_KINDS) or not mapview.has_location(kb, key):
+        return None
+    b = QToolButton(objectName="Icon", text=theme.ICON["map_where"])
+    b.setCursor(Qt.PointingHandCursor)
+    b.setToolTip(t("card_map_where"))
+    b.setAccessibleName(t("card_map_where"))
+    b.clicked.connect(lambda: MAP_REQUESTS.requested.emit(key))
+    return b
+
+
 class Selectable:
     """Mixin: a tap selects this entity (orange border); every selectable follows the shared selection."""
 
@@ -868,6 +896,9 @@ class EntityCard(Selectable, QFrame):
                 way.setAccessibleName(t("card_route"))
                 way.clicked.connect(lambda: ROUTE_REQUESTS.requested.emit(self.key))
                 bl.addWidget(way)
+        where = map_where_button(kb, key, t)
+        if where is not None:
+            bl.addWidget(where)
         copy = QToolButton(objectName="Icon", text=theme.ICON["copy"])
         copy.setCursor(Qt.PointingHandCursor)
         copy.setToolTip(self._t("copy_card"))
@@ -1357,6 +1388,11 @@ class EntityTile(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             row.addWidget(self._star, 0, Qt.AlignTop)
+        # a map, an NPC or a quest in a list ("Maps", "NPCs", "Quests"): where it is, as on its full card
+        where = map_where_button(kb, key, t)
+        if where is not None:
+            where.setFixedSize(26, 26)
+            row.addWidget(where, 0, Qt.AlignTop)
         self._align_name()
 
     @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
