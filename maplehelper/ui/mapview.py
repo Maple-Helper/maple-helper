@@ -155,13 +155,14 @@ class MapLocationDialog(GlassDialog):
         self.key: str | None = None
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
-        scroll = QScrollArea()
+        self.scroll = scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         body = QWidget(objectName="Feed")
         self.lay = QVBoxLayout(body)
         self.lay.setContentsMargins(*gutter(t.rtl))
         self.lay.setSpacing(10)
+        self.body = body
         scroll.setWidget(body)
         outer.addWidget(scroll, 1)
         row = QHBoxLayout()
@@ -214,6 +215,29 @@ class MapLocationDialog(GlassDialog):
                 self.lay.addWidget(head)
             self.lay.addWidget(self._card(g, spot))
         self.lay.addStretch(1)
+        self._fit_height()
+
+    def _fit_height(self) -> None:
+        """As tall as what it shows (a building's door and the NPC inside: both pictures, no scrolling), never taller
+        than the screen it is on (a quest's four pictures may scroll there); the width the player sees stays."""
+        lay = self.lay
+        m = lay.contentsMargins()
+        # the cards' own heights at the width they get (a wrapped line under a map counts). Every widget in the layout
+        # is this ◎'s (clear() took the previous ones out), counted while still hidden: Qt shows a child added to an
+        # open window only on its next layout pass
+        rows = [w for i in range(lay.count()) if (w := lay.itemAt(i).widget()) is not None]
+        width = max(1, self.scroll.viewport().width() - m.left() - m.right())
+        need = sum(w.heightForWidth(width) if w.hasHeightForWidth() else w.sizeHint().height() for w in rows)
+        need += lay.spacing() * max(0, len(rows) - 1) + m.top() + m.bottom() + 2 * self.scroll.frameWidth()
+        extra = self.height() - self.scroll.viewport().height()      # title bar, Close button, margins, shadow
+        screen = QGuiApplication.screenAt(self.frameGeometry().center()) or QGuiApplication.primaryScreen()
+        room = screen.availableGeometry() if screen is not None else None
+        height = need + extra
+        if room is not None:
+            height = min(height, room.height())
+        self.resize(self.width(), height)
+        if room is not None and self.frameGeometry().bottom() > room.bottom():
+            self.move(self.x(), max(room.top(), room.bottom() - self.frameGeometry().height() + 1))
 
     def _card(self, g, spot: Spot) -> QFrame:
         t, rtl = self.t, self.t.rtl

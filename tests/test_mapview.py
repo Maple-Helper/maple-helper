@@ -108,3 +108,22 @@ def test_a_quest_shows_its_giver_then_who_it_is_turned_in_to(real):
     # one NPC both gives it and takes it back: shown once
     same = next(q for q in qs if not q.turn_in and mapview.locations(real, q.key))
     assert [s.role for s in mapview.locations(real, same.key)] == ["quest_where_start"]
+
+
+@needs_kb
+def test_the_window_is_as_tall_as_its_pictures(real):
+    """Arthur's door and the hall with him in it: both seen at once, no scrolling (the owner had to scroll to the
+    second); one picture after them makes the window shorter again."""
+    arthur = real.npc_key("Arthur")
+    if not arthur or len(mapview.locations(real, arthur)) != 2:
+        pytest.skip("Arthur isn't in a building with a picture by this knowledge base")
+    d = mapview.MapLocationDialog(real, "en", "")
+    d.show()
+    d.show_map(arthur)
+    app.processEvents()
+    tall = d.height()
+    assert d.scroll.verticalScrollBar().maximum() == 0
+    d.show_map(real.npc_key("Mr. Kim"))
+    app.processEvents()
+    assert d.height() < tall and d.scroll.verticalScrollBar().maximum() == 0
+    d.close()
