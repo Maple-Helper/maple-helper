@@ -173,6 +173,28 @@ def test_clearing_the_history_mid_answer_keeps_the_answer_out_of_it(overlay, fak
     pump(20)
     assert h.recent(10) == []
 
+def test_the_clear_button_starts_a_new_conversation_for_the_ai(overlay, fake_worker, isolated_store, kb):
+    """The chat's clear button (left of the mic): the chat empties, an answer still coming stays out of it, and the
+    next question's prompt has no recent conversation, while the History window keeps everything."""
+    from maplehelper.brain import build_prompt
+    ov = overlay
+    ov.settings["instant_answers"] = False
+    h = isolated_store.History(ov.profiles.active_id)
+    h.append("user", "where do snails live?")
+    h.append("assistant", "Snail Park, near Amherst.")
+    assert ov.ask("how do I get to Ellinia?")
+    ov.clear_btn.click()
+    fake_worker.made[-1].done.emit(Answer(text="Take the boat."))
+    pump(20)
+    assert ov.feed_lay.count() == 1                           # only the stretch at the bottom
+    assert [r["text"] for r in h.recent(10)][:2] == ["where do snails live?", "Snail Park, near Amherst."]
+    prompt = build_prompt("what level is a Slime?", ov.profiles.active, h, kb, False)
+    assert "<recent_conversation>" not in prompt and "Snail Park" not in prompt
+    h.append("user", "and Pigs?")
+    h.append("assistant", "Pig Beach.")
+    assert "Pig Beach" in build_prompt("what about Ribbon Pigs?", ov.profiles.active, h, kb, False)
+
+
 
 def test_old_notices_and_choices_wait_while_an_answer_streams(overlay):
     ov = overlay

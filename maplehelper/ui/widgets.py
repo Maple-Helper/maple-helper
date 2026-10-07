@@ -639,6 +639,9 @@ def card_subtitle(t, category: str, kind: str | None) -> str:
     unless it only repeats the category (a monster's type is "Monster")."""
     key = f"cat_{category}"
     label = t(key) if t(key) != key else category
+    if kind:
+        from ..itemterms import kind as kind_in
+        kind = kind_in(kind, t.lang)          # "Etc / Monster Drop" -> "שונות · דרופ ממפלצת" in Hebrew
     from ..i18n import STRINGS
     names = {category.lower(), label.lower(), *(s.lower() for s in STRINGS.get(key, {}).values())}
     if kind and kind.strip().lower() not in names:
@@ -697,6 +700,58 @@ class _RouteRequests(QObject):
 ROUTE_REQUESTS = _RouteRequests()
 
 
+class _ItemRequests(QObject):
+    """An item's ⓘ (its card or its tile): the app opens the item details window on it."""
+
+    requested = Signal(str)       # the item's KB key
+
+
+ITEM_REQUESTS = _ItemRequests()
+
+
+def item_details_button(key: str, t, size: int | None = None):
+    """The ⓘ that opens an item's details (stats, who drops it, Meow Notes)."""
+    from PySide6.QtWidgets import QToolButton
+
+    from . import theme
+    b = QToolButton(objectName="Icon", text=theme.ICON["info"])
+    if size:
+        b.setFixedSize(size, size)
+    b.setCursor(Qt.PointingHandCursor)
+    b.setToolTip(t("card_item_details"))
+    b.setAccessibleName(t("card_item_details"))
+    b.clicked.connect(lambda: ITEM_REQUESTS.requested.emit(key))
+    return b
+
+
+class _MapRequests(QObject):
+    """A map's, an NPC's or a quest's "Where it is on the map" (its card or its tile): the app opens the map window."""
+
+    requested = Signal(str)       # the map's, NPC's or quest's KB key
+
+
+WHERE_KINDS = ("map/", "npc/", "quest/")
+
+
+MAP_REQUESTS = _MapRequests()
+
+
+def map_where_button(kb, key: str, t):
+    """The ◎ that opens the map window, or None for what it can't draw (a map with no way in on a minimap the KB has,
+    an NPC on no map, a quest whose NPCs are on none)."""
+    from PySide6.QtWidgets import QToolButton
+
+    from . import mapview, theme
+    if not key.startswith(WHERE_KINDS) or not mapview.has_location(kb, key):
+        return None
+    b = QToolButton(objectName="Icon", text=theme.ICON["map_where"])
+    b.setCursor(Qt.PointingHandCursor)
+    b.setToolTip(t("card_map_where"))
+    b.setAccessibleName(t("card_map_where"))
+    b.clicked.connect(lambda: MAP_REQUESTS.requested.emit(key))
+    return b
+
+
 class Selectable:
     """Mixin: a tap selects this entity (orange border); every selectable follows the shared selection."""
 
@@ -730,7 +785,7 @@ class Selectable:
 class EntityCard(Selectable, QFrame):
     """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaMeowDB page."""
 
-    def __init__(self, kb: KnowledgeBase, key: str, lang: str):
+    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True):
         super().__init__()
         from ..i18n import I18n
         self.setObjectName("Card")
@@ -782,7 +837,7 @@ class EntityCard(Selectable, QFrame):
             col.addWidget(strip)
 
         stats = self._stats(e, t)
-        main, bonuses = stat_parts(e)
+        main, bonuses = stat_parts(e, lang=t.lang)
         # a pet: its lifespan, hunger and commands to Lv 30 as pills, sold now (or not) as a chip (sitedata.py)
         pet = pet_parts(t, kb, key) if key.startswith("item/") else None
         if pet:
@@ -859,6 +914,8 @@ class EntityCard(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             bl.addWidget(self._star)
+            if details:          # not on the card inside the item's own details window: it would only reopen it
+                bl.addWidget(item_details_button(key, t))
         if key.startswith("map/"):
             from .. import routes
             if routes.of(kb).of_key(key):          # a map in the game the route graph has
@@ -868,6 +925,9 @@ class EntityCard(Selectable, QFrame):
                 way.setAccessibleName(t("card_route"))
                 way.clicked.connect(lambda: ROUTE_REQUESTS.requested.emit(self.key))
                 bl.addWidget(way)
+        where = map_where_button(kb, key, t)
+        if where is not None:
+            bl.addWidget(where)
         copy = QToolButton(objectName="Icon", text=theme.ICON["copy"])
         copy.setCursor(Qt.PointingHandCursor)
         copy.setToolTip(self._t("copy_card"))
@@ -1274,7 +1334,20 @@ _SHORT = {"Level": "Lv.", "Level Requirement": "Lv.", "Weapon Attack": "ATT", "M
           "Upgrade Slots": "Slots"}
 
 
-def stat_parts(e: dict, tile: bool = False) -> tuple[list[str], list[str]]:
+def name_lv(name: str, level, t) -> str:
+    """"Mano · רמה 20" in Hebrew (the name one English block, then the level in Hebrew), "Mano · Lv. 20" in English;
+    laid out for a QLabel in the UI's direction."""
+    if not level:
+        return bidi.ltr_name(name, t.rtl)
+    if t.rtl:
+        return bidi.plain(f"{bidi.name_block(name, True)} · {t('lv_short', n=level)}", True)
+    return f"{name} · Lv. {level}"
+
+
+_SHORT_HE = {"Lv.": "רמה", "Slots": "סלוטים"}
+
+
+def stat_parts(e: dict, tile: bool = False, lang: str = "en") -> tuple[list[str], list[str]]:
     """(main stats, bonuses) as short pieces: ["Lv. 30", "DEF 75", "Slots 10"], ["STR DEX INT LUK +1", "HP MP +10"].
     Bonuses of the same value are one piece (the Sauna Robe's four +1s), so a card or a half-width tile stays short.
     A tile leaves out the upgrade slots (the card has them). A monster: level, HP, EXP."""
@@ -1282,7 +1355,7 @@ def stat_parts(e: dict, tile: bool = False) -> tuple[list[str], list[str]]:
     if e.get("category") != "item":
         main = [f"{_SHORT.get(k, k)}\u00a0{props[k]:,}" if isinstance(props.get(k), int) else f"{_SHORT.get(k, k)}\u00a0{props[k]}"
                 for k in EntityCard.MONSTER_STATS if props.get(k) not in (None, "", 0, "0")]
-        return main, []
+        return _in_lang(main, lang), []
     main = [f"{_SHORT.get(k, k)}\u00a0{props[k]}" for k in EntityCard.ITEM_STATS
             if props.get(k) not in (None, "", 0, "0") and not (tile and k == "Upgrade Slots")]
     groups: dict[str, list[str]] = {}
@@ -1294,7 +1367,18 @@ def stat_parts(e: dict, tile: bool = False) -> tuple[list[str], list[str]]:
         groups.setdefault(value, []).append(_SHORT.get(k, k))
     # no-break spaces inside a group: it wraps as a whole ("HP MP +10" never splits after "HP")
     bonuses = ["\u00a0".join(names) + f"\u00a0{value}" for value, names in groups.items()]
-    return main, bonuses
+    return _in_lang(main, lang), bonuses
+
+
+def _in_lang(pieces: list[str], lang: str) -> list[str]:
+    """ "Lv. 30" -> "רמה 30", "Slots 7" -> "סלוטים 7" in Hebrew (DEF, HP, EXP keep their game names)."""
+    if lang != "he":
+        return pieces
+    out = []
+    for p in pieces:
+        label, _, value = p.partition("\u00a0")
+        out.append(f"{_SHORT_HE.get(label, label)}\u00a0{value}" if value else p)
+    return out
 
 
 class EntityTile(Selectable, QFrame):
@@ -1332,7 +1416,8 @@ class EntityTile(Selectable, QFrame):
         col.addWidget(self.name)
         # the item's level requirement and bonuses under its name: tiles of look-alike items (the five Thief Hoods)
         # differ only there
-        main, bonuses = stat_parts(e, tile=True) if e.get("category") == "item" else ([], [])
+        main, bonuses = (stat_parts(e, tile=True, lang=t.lang if t else "en") if e.get("category") == "item"
+                         else ([], []))
         # one left-to-right run per line (a Hebrew chat mirrored "+1 DEX"): the main stats, then the bonuses
         stats = "\n".join("\u202a" + " · ".join(part) + "\u202c" for part in (main, bonuses) if part)
         self.stats = QLabel(stats, objectName="TileStats")
@@ -1357,6 +1442,12 @@ class EntityTile(Selectable, QFrame):
             WISHLIST.changed.connect(self._refresh_star)
             self._refresh_star()
             row.addWidget(self._star, 0, Qt.AlignTop)
+            row.addWidget(item_details_button(key, t, 26), 0, Qt.AlignTop)
+        # a map, an NPC or a quest in a list ("Maps", "NPCs", "Quests"): where it is, as on its full card
+        where = map_where_button(kb, key, t)
+        if where is not None:
+            where.setFixedSize(26, 26)
+            row.addWidget(where, 0, Qt.AlignTop)
         self._align_name()
 
     @Slot()       # a Qt slot: the wishlist's signal lets go of it when the widget is destroyed (else a crash)
@@ -1471,7 +1562,7 @@ class DropGroupCard(QFrame):
         name = QLabel(e.get("name", monster), objectName="CardName")
         name.setAlignment(align)
         lv = (e.get("props") or {}).get("Level")
-        sub = QLabel(f"Lv. {lv}" if lv else "", objectName="CardSub")
+        sub = QLabel((t("lv_short", n=lv) if t else f"Lv. {lv}") if lv else "", objectName="CardSub")
         sub.setAlignment(align)
         col.addWidget(name)
         # every drop says which list it is on (srcs: item -> "MSEA" / "community", kb.drop_group): one chip for

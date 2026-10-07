@@ -402,7 +402,23 @@ def test_the_chat_asks_for_the_nvidia_part_with_its_size(overlay):
     row = overlay._voice_offer
     assert "553 MB" in shown(row.findChild(SystemLine).text()).replace("\xa0", " ")
     row.chips[1].click()
-    assert no == [True] and not yes and not row.isEnabled()
+    assert no == [True] and not yes and not _in_feed(overlay, row)
+
+
+def _in_feed(overlay, w) -> bool:
+    return any(overlay.feed_lay.itemAt(i).widget() is w for i in range(overlay.feed_lay.count()))
+
+
+def test_not_now_takes_the_question_away_and_the_mic_asks_again(overlay):
+    """"Not now" left the question in the chat, greyed out: it looked like the click did nothing."""
+    yes = []
+    overlay.voice_download_requested.connect(lambda: yes.append(True))
+    overlay.offer_voice_download(1_621_700_000)
+    row = overlay._voice_offer
+    row.chips[1].click()
+    assert not yes and not _in_feed(overlay, row)
+    overlay.offer_voice_download(1_621_700_000)              # the mic again: asked again
+    assert overlay._voice_offer is not row and _in_feed(overlay, overlay._voice_offer)
 
 
 def test_the_chat_asks_with_the_size_then_shows_progress_and_cancel(overlay):

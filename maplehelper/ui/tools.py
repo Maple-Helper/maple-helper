@@ -21,7 +21,7 @@ from ..i18n import I18n
 from . import terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, source_tag, source_tags,
+from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, name_lv, source_tag, source_tags,
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
@@ -792,8 +792,8 @@ class ToolsDialog(GlassDialog):
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(3)
-        # "Name · Lv. N" as one English block, the same order as the wishlist's monsters (in Hebrew too)
-        name = QLabel(bidi.ltr_name(f"{m.name} · Lv. {m.level}", t.rtl), objectName="CardName")
+        # "Name · רמה N": the name one English block, the level in the UI's words
+        name = QLabel(name_lv(m.name, m.level, t), objectName="CardName")
         name.setWordWrap(True)
         col.addWidget(name)
         # "… IV · Victoria Road", one English block (run by run, a Hebrew line put the region first)
@@ -907,7 +907,7 @@ class ToolsDialog(GlassDialog):
         if not self.calc_input.text().strip():
             # why this monster when nothing was typed (the owner)
             self.calc_box.addWidget(self._label(t("calc_default", name=bidi.ltr_block(m.name, t.rtl)), "RowHint"))
-        sec = Section(bidi.ltr_block(f"{m.name} · Lv. {m.level}", t.rtl), t.rtl)
+        sec = Section(name_lv(m.name, m.level, t), t.rtl)
         nums = QHBoxLayout()
         # the monster's picture leads the row (the start side), as on the training-spot cards
         path = self.kb.picture(m.key)
@@ -3457,8 +3457,8 @@ class ToolsDialog(GlassDialog):
         row.addWidget(self._picture(d.key, 44), 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(3)
-        # "Name · Lv. N" as one English block, the same order as the training spots and the wishlist
-        name = QLabel(bidi.ltr_name(f"{d.name} · Lv. {d.level}" if d.level else d.name, t.rtl), objectName="CardName")
+        # "Name · רמה N", the same order as the training spots and the wishlist
+        name = QLabel(name_lv(d.name, d.level, t), objectName="CardName")
         name.setWordWrap(True)
         col.addWidget(name)
         if d.map:
@@ -3616,7 +3616,7 @@ class ToolsDialog(GlassDialog):
         row.addWidget(self._picture(r.key, 48), 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(3)
-        name = QLabel(bidi.ltr_name(f"{r.name} · Lv. {r.level}", t.rtl), objectName="CardName")
+        name = QLabel(name_lv(r.name, r.level, t), objectName="CardName")
         name.setWordWrap(True)
         col.addWidget(name)
         col.addWidget(self._fl(bidi.ltr_block(self.kb.map_label(r.map), t.rtl), "CardSub"))

@@ -301,6 +301,26 @@ class Graph:
     def minimap(self, mid: str) -> Path | None:
         return self.kb.image_path(f"map/{mid}")
 
+    def entrances(self, mid: str) -> list[Leg]:
+        """The portals that lead into this map, each on its own map's minimap (Leg.spot), the town first, then the
+        map with the most ways out: where a player stands to walk in (NiaMeowDB's "Leads back here" dot, at the
+        same place on the same picture). Only portals with a spot on a minimap the KB has."""
+        legs = [leg for frm, out in self.edges.items() if frm != mid for leg in out
+                if leg.to == mid and leg.kind == "portal" and leg.spot and self.minimap(frm)]
+        legs.sort(key=lambda leg: (not self.maps[leg.frm].town, -len(self.edges[leg.frm]), leg.frm))
+        return legs
+
+    def npc_spot(self, key: str) -> tuple[str, tuple[float, float]] | None:
+        """Where an NPC stands: (its map, its spot on that map's minimap), when the KB has the picture. None for one on
+        no map, or on a map with no minimap (a shop inside: its ways in say where that is)."""
+        mid = self.of_key(key) if key.startswith("npc/") else None
+        if not mid or not self.minimap(mid):
+            return None
+        slug = key.partition("/")[2]
+        npc = next((n for n in self.maps[mid].npcs if str(n.get("id")) == slug), None)
+        spot = self._spot(mid, npc) if npc else None
+        return (mid, spot) if spot else None
+
 
 def side(spot: tuple[float, float] | None) -> str:
     """'left', 'right' or 'middle' of the map, for a step's words."""

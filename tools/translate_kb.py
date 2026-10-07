@@ -3,7 +3,8 @@ into the KB's own he.json (maplehelper/translations.py reads it; tools/scrape_ne
 
 What it translates: a quest's journal line (shown as "what to do" when there is nothing to bring), a pet skill's
 description, a skill change's note, a skill's description and its level 1 / max level effects (the Skills tab,
-kind "skill_desc"), and a news item's title, summary, highlights and note. Only text with no
+kind "skill_desc"), an item's description and Meow Notes (the item details window, kinds "item_desc" and
+"item_notes"), and a news item's title, summary, highlights and note. Only text with no
 translation made from its current English; at most MAX_TEXTS a night, so a fault can never run up the bill.
 
     ANTHROPIC_API_KEY=... python tools/translate_kb.py [data/kb]      # translate what's missing
@@ -138,6 +139,19 @@ def missing(root: Path) -> list[dict]:
             for key, en in skillbook.texts(s).items():
                 if not translations.he(root, skillbook.KIND, key, en):
                     jobs.append({"kind": skillbook.KIND, "key": key, "en": en})
+    # an item's description and its Meow Notes (the item details window; the app ships most of them in
+    # assets/items/he.json, so a night translates only an item NiaMeowDB added or rewrote)
+    from maplehelper import itemdetails
+    for k in kb.entities:
+        if not k.startswith("item/"):
+            continue
+        d = itemdetails.details(kb, k)
+        texts = [("item_desc", k, d.description)]
+        texts += [("item_notes", itemdetails.note_key(k, "about", n), a) for n, a in enumerate(d.about)]
+        texts += [("item_notes", itemdetails.note_key(k, "post", n), p.text) for n, p in enumerate(d.posts)]
+        for kind, key, en in texts:
+            if en and not translations.he(root, kind, key, en):
+                jobs.append({"kind": kind, "key": key, "en": en})
     import scrape_news
     made = scrape_news.translations(kb=root)
     try:

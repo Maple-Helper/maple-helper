@@ -1136,7 +1136,7 @@ def test_an_english_question_is_answered_in_english_even_with_hebrew_context(kb,
         def summaries(self):
             return ["השחקן שאל על חלזונות והתאמן ב-Henesys."]
 
-        def recent(self):
+        def conversation(self):
             return [{"role": "user", "text": "מה נשמע"}, {"role": "assistant", "text": "הכל טוב"}]
     p = build_prompt("where do Red Snails spawn?", None, Hist(), kb, False, ui_lang="he")
     assert "Reply in English, whatever language the context above is in." in p

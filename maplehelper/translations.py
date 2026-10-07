@@ -12,8 +12,9 @@ import json
 from pathlib import Path
 
 FILE = "he.json"                    # in the KB: {kind: {key: {"en", "he"}}, "news": {...}}
-KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc")
-ASSET_DIRS = {"skill_desc": "skills"}     # a kind whose shipped file isn't assets/<kind>/he.json
+KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc", "item_desc", "item_notes")
+# a kind whose shipped file isn't assets/<kind>/he.json (an item's description and its Meow Notes: assets/items)
+ASSET_DIRS = {"skill_desc": "skills", "item_desc": "items", "item_notes": "items"}
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 _cache: dict[str, tuple[float, dict]] = {}
