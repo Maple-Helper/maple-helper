@@ -1,7 +1,10 @@
-"""The "where is it on the map" window: a map's way in, drawn as NiaMeowDB draws it ("Leads back here"): the map next
-door, with an orange dot on the portal that leads to this one. Opened from a map's ◎ in the chat (a map card, or a
-tile under "Maps")."""
+"""The "where is it on the map" window, drawn as NiaMeowDB draws it. A map: the map next door, with an orange dot on the
+portal that leads in ("Leads back here"). An NPC: its map, with a green dot where it stands (one inside a shop with no
+picture: the shop's way in). A quest: its giver's spot, then who it's turned in to. Opened from the ◎ on a map, NPC or
+quest card in the chat, or on a tile under "Maps", "NPCs" or "Quests"."""
 from __future__ import annotations
+
+from dataclasses import dataclass
 
 from PySide6.QtCore import QPoint, QPointF, QRect, Qt
 from PySide6.QtGui import QColor, QGuiApplication, QPainter, QPen, QPixmap
@@ -43,15 +46,67 @@ def saved_spot(saved, size, screens: list[QRect]) -> QPoint | None:
     return spot.topLeft() if spot is not None else None
 
 
-def has_location(kb, key: str) -> bool:
-    """A map with a way in this window can draw: the ◎ is shown only then."""
+@dataclass(frozen=True)
+class Spot:
+    """One picture in the window: a map, the dot on it, and what the dot is."""
+    map: str                             # the map the picture is of (routes.json id)
+    at: tuple[float, float]              # the dot, as 0-1 of the picture's size
+    says: str                            # the string key of the line under the map's name
+    name: str                            # what the line names: the place it leads to, or the NPC
+    inside: str = ""                     # an NPC inside a map with no picture: that map ("npc_where_inside")
+    npc: bool = False                    # an NPC's own spot (green, as the route page rings an NPC), else a portal
+    role: str = ""                       # a quest's NPC: "quest_where_start" / "quest_where_end" (a heading above it)
+
+
+def _map_spots(g, mid: str, name: str) -> list[Spot]:
+    return [Spot(leg.frm, leg.spot, "map_where_says", name) for leg in g.entrances(mid)[:MAX_ENTRANCES]]
+
+
+def _npc_spots(kb, g, key: str, role: str = "") -> list[Spot]:
+    """An NPC on its own map, the dot on it; one inside a map with no picture (a shop): that map's ways in."""
+    name = (kb.get(key) or {}).get("name", key)
+    hit = g.npc_spot(key)
+    if hit:
+        return [Spot(hit[0], hit[1], "npc_where_says", name, npc=True, role=role)]
+    mid = g.of_key(key)
+    if not mid:
+        return []
+    inside = g.name(mid)
+    return [Spot(s.map, s.at, "npc_where_inside", name, inside=inside, role=role) for s in _map_spots(g, mid, inside)]
+
+
+def locations(kb, key: str) -> list[Spot]:
+    """Every picture the window shows for a map, an NPC or a quest (its giver, then who it's turned in to)."""
     g = routes.of(kb)
-    mid = g.of_key(key) if key.startswith("map/") else None
-    return bool(mid and g.entrances(mid))
+    cat = key.partition("/")[0]
+    if cat == "map":
+        mid = g.of_key(key)
+        return _map_spots(g, mid, g.name(mid)) if mid else []
+    if cat == "npc":
+        return _npc_spots(kb, g, key)
+    if cat == "quest":
+        from .. import quests
+        q = quests.quest(kb, key)
+        if q is None:
+            return []
+        out, seen = [], set()
+        for who, role in ((q.npc, "quest_where_start"), (q.turn_in, "quest_where_end")):
+            npc = kb.npc_key(who) if who else None
+            if npc and npc not in seen:
+                seen.add(npc)
+                out += _npc_spots(kb, g, npc, role)
+        return out
+    return []
 
 
-def marked_picture(path, spot: tuple[float, float]) -> QPixmap:
-    """The map's picture, sized for the window, with the orange dot where the portal is (spot: 0-1 of its size)."""
+def has_location(kb, key: str) -> bool:
+    """Something this window can draw: the ◎ is shown only then."""
+    return bool(locations(kb, key))
+
+
+def marked_picture(path, spot: tuple[float, float], npc: bool = False) -> QPixmap:
+    """The map's picture, sized for the window, with a dot where the portal (orange) or the NPC (green) is (spot: 0-1
+    of its size)."""
     pm = QPixmap(str(path))
     if pm.isNull():
         return pm
@@ -63,13 +118,15 @@ def marked_picture(path, spot: tuple[float, float]) -> QPixmap:
     at = QPointF(spot[0] * pm.width(), spot[1] * pm.height())
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
-    glow = QColor(theme.ORANGE)
+    fill, ring = (QColor(theme.GOOD_TEXT_LIGHT), QColor(8, 48, 24)) if npc else \
+        (QColor(245, 182, 66), QColor(58, 42, 5))        # NiaMeowDB's orange and dark ring
+    glow = QColor(fill)
     glow.setAlpha(110)
     p.setPen(Qt.NoPen)
     p.setBrush(glow)
     p.drawEllipse(at, DOT + 5, DOT + 5)              # the glow, so the dot stands out on a busy map
-    p.setPen(QPen(QColor(58, 42, 5), 2))             # NiaMeowDB's dark ring
-    p.setBrush(QColor(245, 182, 66))                 # and its orange
+    p.setPen(QPen(ring, 2))
+    p.setBrush(fill)
     p.drawEllipse(at, DOT, DOT)
     p.end()
     return pm
@@ -127,37 +184,45 @@ class MapLocationDialog(GlassDialog):
             self.settings[POS_SETTING] = {"x": p.x(), "y": p.y()}
 
     def show_map(self, key: str) -> None:
-        """This map's ways in (one window: a second ◎ shows its map here instead of opening another)."""
+        """Where a map, an NPC or a quest's NPCs are (one window: a second ◎ shows its thing here instead of opening
+        another)."""
         from .tools import clear
         t, rtl, g = self.t, self.t.rtl, routes.of(self.kb)
         self.key = key
         clear(self.lay)
-        mid = g.of_key(key)
+        mid = g.of_key(key) if key.startswith("map/") else None
         name = g.name(mid) if mid else (self.kb.get(key) or {}).get("name", key)
-        self.title_label.setText(bidi.plain(t("map_where_title", name=bidi.ltr_block(name, rtl)), rtl))
+        title = "map_where_title" if key.startswith("map/") else "where_title"
+        self.title_label.setText(bidi.plain(t(title, name=bidi.ltr_block(name, rtl)), rtl))
         self.setWindowTitle(name)
-        for leg in (g.entrances(mid) if mid else [])[:MAX_ENTRANCES]:
-            self.lay.addWidget(self._entrance(g, leg, name))
+        role = None
+        for spot in locations(self.kb, key):
+            if spot.role and spot.role != role:
+                role = spot.role
+                head = QLabel(bidi.plain(t(role), rtl), objectName="ToolHeader")
+                self.lay.addWidget(head)
+            self.lay.addWidget(self._card(g, spot))
         self.lay.addStretch(1)
 
-    def _entrance(self, g, leg: routes.Leg, name: str) -> QFrame:
+    def _card(self, g, spot: Spot) -> QFrame:
         t, rtl = self.t, self.t.rtl
         card = QFrame(objectName="Card")
         col = QVBoxLayout(card)
         col.setContentsMargins(12, 10, 12, 10)
         col.setSpacing(6)
-        title = QLabel(bidi.ltr_name(g.name(leg.frm), rtl), objectName="CardName")
+        title = QLabel(bidi.ltr_name(g.name(spot.map), rtl), objectName="CardName")
         title.setWordWrap(True)
         col.addWidget(title)
-        m = g.maps[leg.frm]
+        m = g.maps[spot.map]
         where = "  ·  ".join(x for x in (m.street, m.continent) if x)
         if where:
             col.addWidget(QLabel(bidi.ltr_block(where, rtl), objectName="CardSub"))
-        says = QLabel(bidi.plain(t("map_where_says", name=bidi.ltr_block(name, rtl)), rtl), objectName="RowLabel")
+        args = {"name": bidi.ltr_block(spot.name, rtl), "inside": bidi.ltr_block(spot.inside, rtl)}
+        says = QLabel(bidi.plain(t(spot.says, **args), rtl), objectName="RowLabel")
         says.setWordWrap(True)
         col.addWidget(says)
         pic = QLabel()
-        pic.setPixmap(marked_picture(g.minimap(leg.frm), leg.spot))
-        pic.setAccessibleName(t("map_where_says", name=name))
+        pic.setPixmap(marked_picture(g.minimap(spot.map), spot.at, spot.npc))
+        pic.setAccessibleName(t(spot.says, name=spot.name, inside=spot.inside))
         col.addWidget(pic, 0, Qt.AlignHCenter)
         return card

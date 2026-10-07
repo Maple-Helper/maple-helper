@@ -48,3 +48,43 @@ def test_the_window_reopens_where_the_player_left_it(kb_copy, isolated_store):
     assert Settings()[mapview.POS_SETTING] == {"x": 200, "y": 150}
     again = mapview.MapLocationDialog(kb, "en", "", Settings(), chat)
     assert again.pos() == QPoint(200, 150)
+
+
+REAL_KB = __import__("pathlib").Path(__file__).resolve().parent.parent / "data" / "kb"
+needs_kb = pytest.mark.skipif(not (REAL_KB / "routes.json").exists(), reason="no routes.json in the real knowledge base")
+
+
+@pytest.fixture(scope="module")
+def real():
+    from maplehelper.kb import KnowledgeBase
+    return KnowledgeBase(REAL_KB)
+
+
+@needs_kb
+def test_an_npc_is_where_it_stands_and_one_in_a_shop_is_behind_the_shops_door(real):
+    """Mr. Kim stands on Lith Harbor: a green dot there. Mina is inside the Department Store, which has no minimap of
+    its own: Lith Harbor with the store's door, the orange dot NiaMeowDB draws (81.2%, 80.2%)."""
+    from maplehelper import routes
+    g = routes.of(real)
+    kim, mina = real.npc_key("Mr. Kim"), real.npc_key("Mina")
+    if not (kim and mina and g.of_key(kim) == "010000000" and g.of_key(mina) == "010000002"):
+        pytest.skip("Lith Harbor's NPCs aren't where this test knows them")
+    (spot,) = mapview.locations(real, kim)
+    assert spot.map == "010000000" and spot.npc and spot.says == "npc_where_says"
+    (spot,) = mapview.locations(real, mina)
+    assert (spot.map, spot.npc, spot.inside) == ("010000000", False, "Lith Harbor Department Store")
+    assert spot.at == pytest.approx((0.812, 0.802), abs=0.001)
+
+
+@needs_kb
+def test_a_quest_shows_its_giver_then_who_it_is_turned_in_to(real):
+    from maplehelper import quests
+    qs = [q for k, e in real.entities.items() if e["category"] == "quest" and (q := quests.quest(real, k))]
+    q = next(q for q in qs if q.turn_in and q.turn_in != q.npc and mapview.locations(real, q.key)
+             and len(mapview.locations(real, q.key)) == 2)
+    start, end = mapview.locations(real, q.key)
+    assert (start.role, start.name) == ("quest_where_start", real.get(real.npc_key(q.npc))["name"])
+    assert (end.role, end.name) == ("quest_where_end", real.get(real.npc_key(q.turn_in))["name"])
+    # one NPC both gives it and takes it back: shown once
+    same = next(q for q in qs if not q.turn_in and mapview.locations(real, q.key))
+    assert [s.role for s in mapview.locations(real, same.key)] == ["quest_where_start"]

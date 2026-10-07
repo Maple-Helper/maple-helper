@@ -310,6 +310,17 @@ class Graph:
         legs.sort(key=lambda leg: (not self.maps[leg.frm].town, -len(self.edges[leg.frm]), leg.frm))
         return legs
 
+    def npc_spot(self, key: str) -> tuple[str, tuple[float, float]] | None:
+        """Where an NPC stands: (its map, its spot on that map's minimap), when the KB has the picture. None for one on
+        no map, or on a map with no minimap (a shop inside: its ways in say where that is)."""
+        mid = self.of_key(key) if key.startswith("npc/") else None
+        if not mid or not self.minimap(mid):
+            return None
+        slug = key.partition("/")[2]
+        npc = next((n for n in self.maps[mid].npcs if str(n.get("id")) == slug), None)
+        spot = self._spot(mid, npc) if npc else None
+        return (mid, spot) if spot else None
+
 
 def side(spot: tuple[float, float] | None) -> str:
     """'left', 'right' or 'middle' of the map, for a step's words."""

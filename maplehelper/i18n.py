@@ -1052,6 +1052,13 @@ STRINGS = {
     "map_where_title": {"he": "הדרך אל {name}", "en": "The way into {name}"},
     "map_where_says": {"he": "הנקודה הכתומה היא הפורטל שמוביל אל {name}.",
                        "en": "The orange dot is the portal that leads to {name}."},
+    "where_title": {"he": "איפה {name}", "en": "Where {name} is"},
+    "npc_where_says": {"he": "הנקודה הירוקה היא איפה ש-{name} עומד/ת.",
+                       "en": "The green dot is where {name} stands."},
+    "npc_where_inside": {"he": "{name} נמצא/ת בתוך {inside}: הנקודה הכתומה היא הפורטל שמוביל לשם.",
+                         "en": "{name} is inside {inside}: the orange dot is the portal that leads there."},
+    "quest_where_start": {"he": "מקבלים את הקווסט", "en": "Start the quest"},
+    "quest_where_end": {"he": "מסיימים את הקווסט", "en": "Turn it in"},
     "inv_check": {"he": "בדיקת האינבנטורי", "en": "Inventory check"},
     "telemetry": {"he": "שליחת נתוני שימוש אנונימיים", "en": "Share anonymous usage stats"},
     "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: באילו אפשרויות משתמשים, גרסת האפליקציה ומערכת "
