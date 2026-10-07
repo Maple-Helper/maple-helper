@@ -355,3 +355,31 @@ def test_minimize_puts_the_bubble_in_a_bottom_corner_of_the_screen(overlay):
         x = area.right() - b.width() - 16 if lang == "he" else area.left() + 16
         assert (b.x(), b.y()) == (x, area.bottom() - b.height() - 16)
         assert overlay.bubble.isVisible()
+
+
+def test_while_the_game_runs_the_bubble_waits_inside_its_picture(overlay, monkeypatch):
+    # a game in front takes every key from other programs: the bubble is the way back in, where the mouse can go
+    from maplehelper import osapi
+    monkeypatch.setattr(osapi, "find_game_window", lambda: 1234)
+    monkeypatch.setattr(osapi, "cursor_clip", lambda: (440, 0, 2560, 1440))
+    monkeypatch.setattr(osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
+    overlay.settings["bubble_pos"] = {"x": 3300, "y": 1300}       # dragged onto the black bar some other day
+    overlay.hide()
+    overlay._watch_game()
+    b = overlay.bubble.geometry()
+    assert overlay.bubble.isVisible() and QRect(440, 0, 2560, 1440).contains(b)
+    area = QRect(440, 0, 2560, 1440)
+    assert (b.x(), b.y()) == (area.right() - b.width() - 16, area.bottom() - b.height() - 16)   # bottom-right in Hebrew
+    monkeypatch.setattr(osapi, "find_game_window", lambda: None)
+    overlay._watch_game()
+    assert not overlay.bubble.isVisible()                          # the game closed: so does its bubble
+
+
+def test_a_chat_on_the_black_bars_moves_into_the_picture(overlay, monkeypatch):
+    from maplehelper import osapi
+    monkeypatch.setattr(osapi, "SCREEN_COORDS_ARE_PHYSICAL", False)
+    overlay.game_hwnd = 1234
+    overlay._clip_area = QRect(440, 0, 2560, 1440)
+    overlay.setGeometry(QRect(2700, 60, 600, 640))                 # its right part over the bar
+    overlay._keep_in_play_area()
+    assert QRect(440, 0, 2560, 1440).contains(overlay.geometry()) and overlay.width() == 600

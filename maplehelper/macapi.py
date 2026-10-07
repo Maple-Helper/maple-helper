@@ -221,6 +221,11 @@ def seconds_since_self_activation() -> float:
     return time.monotonic() - _self_activated_at
 
 
+def cursor_clip() -> tuple[int, int, int, int] | None:
+    """Windows only (a game there keeps the mouse inside its picture)."""
+    return None
+
+
 def float_over_fullscreen(win_id: int) -> None:
     """Let a Qt window (winId = its NSView) appear on every Space, also over a fullscreen game."""
     from PySide6.QtGui import QGuiApplication

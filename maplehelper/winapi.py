@@ -190,6 +190,19 @@ def seconds_since_self_activation() -> float:
     return float("inf")
 
 
+def cursor_clip() -> tuple[int, int, int, int] | None:
+    """Where a program keeps the mouse (x, y, w, h, screen pixels), or None when it moves freely. A game in front
+    keeps it inside its picture (MapleStory Classic World leaves its black side bars out). Only reads the setting."""
+    r = wt.RECT()
+    if not user32.GetClipCursor(ctypes.byref(r)):
+        return None
+    sx, sy, sw, sh = (user32.GetSystemMetrics(i) for i in (76, 77, 78, 79))    # the whole virtual screen
+    if (r.left, r.top, r.right - r.left, r.bottom - r.top) == (sx, sy, sw, sh):
+        return None
+    w, h = r.right - r.left, r.bottom - r.top
+    return (r.left, r.top, w, h) if w > 200 and h > 200 else None
+
+
 def float_over_fullscreen(win_id: int) -> None:
     """Nothing to do: on Windows a topmost window already floats over a borderless game."""
 

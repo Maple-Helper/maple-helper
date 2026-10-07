@@ -247,6 +247,20 @@ def visible_rect(rect: QRect, screens: list[QRect]) -> QRect | None:
     return QRect(x, y, rect.width(), rect.height())
 
 
+def to_logical(rect: tuple[int, int, int, int]) -> QRect:
+    """Screen pixels (osapi.window_rect, a grab) as Qt's logical coordinates; the inverse of windows_over's mapping."""
+    x, y, w, h = rect
+    if not osapi.SCREEN_COORDS_ARE_PHYSICAL:
+        return QRect(x, y, w, h)
+    cx, cy = x + w / 2, y + h / 2
+    for s in QGuiApplication.screens():
+        o, ratio, g = s.geometry().topLeft(), s.devicePixelRatio(), s.geometry()
+        if o.x() <= cx < o.x() + g.width() * ratio and o.y() <= cy < o.y() + g.height() * ratio:
+            return QRect(round(o.x() + (x - o.x()) / ratio), round(o.y() + (y - o.y()) / ratio),
+                         round(w / ratio), round(h / ratio))
+    return QRect(x, y, w, h)
+
+
 def update_job(update: dict) -> str | None:
     """The job a profile update names, as the app names it ("Cleric"), or None."""
     from ..jobs import canonical_job
@@ -456,6 +470,12 @@ class Overlay(QWidget):
         self.bubble = MiniBubble()
         self.bubble.clicked.connect(self.restore_from_bubble)
         self.bubble.moved.connect(lambda pt: self.settings.__setitem__("bubble_pos", {"x": pt.x(), "y": pt.y()}))
+        self._watched_game: int | None = None
+        self._clip_area: QRect | None = None
+        # a game in front takes every key from other programs, hotkeys too (live test, the official client): while
+        # it runs, the bubble stays on screen whenever the chat is closed, as the way back in
+        self._game_watch = QTimer(self, interval=2000, timeout=self._watch_game)
+        self._game_watch.start()
         self.shot_provider = None
         self._build()
         WISHLIST.bind(settings, profiles)
@@ -1361,8 +1381,58 @@ class Overlay(QWidget):
         spot.setSize(spot.size().boundedTo(home.size()))
         return visible_rect(spot, [home])
 
+    def play_area(self) -> QRect | None:
+        """The game's picture on screen, without its black bars, or None with no game: where the game keeps the
+        mouse while it is in front (read as it happens), else the screenshot taken as the chat opened. The chat
+        and the bubble go there."""
+        from .. import capture
+        if (self.game_hwnd or self._watched_game) and self._clip_area is not None:
+            return self._clip_area
+        if not self.game_hwnd or not capture.PLAY_AREA:
+            return None
+        area = to_logical(capture.PLAY_AREA)
+        return area if area.width() > 200 and area.height() > 200 else None
+
+    def _watch_game(self) -> None:
+        """Every 2 s: the game's mouse area while it is in front, and the bubble shown while the game runs and the
+        chat is closed (hidden again when the game closes or is minimized)."""
+        from .. import capture
+        problem = capture.LAST_PROBLEM          # a look for the game resets it: the chat's hint must keep its own
+        try:
+            hwnd = osapi.find_game_window()
+            clip = osapi.cursor_clip() if hwnd else None
+        except Exception:      # noqa: BLE001 - a failed look changes nothing on screen
+            return
+        finally:
+            capture.LAST_PROBLEM = problem
+        if hwnd != self._watched_game:
+            self._clip_area = None              # another game window: its area is read again
+        self._watched_game = hwnd
+        if clip:
+            self._clip_area = to_logical(clip)
+        if not hwnd:
+            if self.bubble.isVisible() and not self.is_open():
+                self.bubble.hide()
+            return
+        if not self.is_open() and not self.bubble.isVisible():
+            self._place_bubble()
+            self.bubble.show()
+            self.bubble.raise_()
+
+    def _keep_in_play_area(self) -> None:
+        """A chat (saved or placed) partly on the game's black bars: moved fully into its picture, shrunk to fit."""
+        area = self.play_area()
+        if area is None or area.contains(self.geometry()):
+            return
+        g = self.geometry()
+        w, h = min(g.width(), area.width() - 16), min(g.height(), area.height() - 16)
+        x = min(max(g.x(), area.left() + 8), area.right() - w - 8)
+        y = min(max(g.y(), area.top() + 8), area.bottom() - h - 8)
+        self.setGeometry(x, y, w, h)
+
     def place_default(self, near_hwnd: int | None = None):
-        """Top-right corner of the game's screen (or the primary screen)."""
+        """Top-right corner of the game's screen (or the primary screen); inside the game's picture when it has
+        black bars beside it (the mouse can't reach them while the game is in front)."""
         screen = QGuiApplication.primaryScreen()
         rect = osapi.window_rect(near_hwnd) if near_hwnd else None
         if rect:
@@ -1423,6 +1493,7 @@ class Overlay(QWidget):
         self.show_news()               # news a KB update brought since, or that aged out of "new"
         if not self.settings["window"]:
             self.place_default(game_hwnd)
+        self._keep_in_play_area()
         if self._session_started is None:
             self._session_started = time.time()
             self.stats = SessionStats()
@@ -1509,24 +1580,32 @@ class Overlay(QWidget):
         def done():
             self.hide()
             self.setWindowOpacity(1.0)
+            self._watch_game()             # the game still runs: its bubble at once, not up to 2 s later
         self._materialize(False, done)
         if self.game_hwnd:
             osapi.focus_window(self.game_hwnd)
 
-    def minimize(self):
-        """Shrink to the bubble: a bottom corner of the chat's screen, where a minimized app is looked for (a
-        fullscreen game hides the taskbar): the right one in Hebrew, the left one in English. Or wherever the player
-        dragged it last."""
+    def _place_bubble(self) -> None:
+        """Where the bubble goes: a bottom corner of the game's picture (or the chat's screen), where a minimized app
+        is looked for (a fullscreen game hides the taskbar): the right one in Hebrew, the left one in English. Or
+        wherever the player dragged it last, while the mouse can reach that spot."""
         pos = self.settings["bubble_pos"]
         # a saved spot on a monitor that is gone (or half off one) would hide the only way back
         spot = visible_rect(QRect(pos["x"], pos["y"], self.bubble.width(), self.bubble.height()),
                             [s.availableGeometry() for s in QGuiApplication.screens()]) if pos else None
+        play = self.play_area()
+        if spot and play is not None and not play.contains(spot):
+            spot = None           # dragged onto the game's black bars on another day: out of the mouse's reach
         if spot:
             self.bubble.move(spot.topLeft())
         else:
-            area = (self.screen() or QGuiApplication.primaryScreen()).availableGeometry()
+            area = play or (self.screen() or QGuiApplication.primaryScreen()).availableGeometry()
             x = area.right() - self.bubble.width() - 16 if self.t.rtl else area.left() + 16
             self.bubble.move(x, area.bottom() - self.bubble.height() - 16)
+
+    def minimize(self):
+        """Shrink to the bubble (see _place_bubble)."""
+        self._place_bubble()
         self.close_overlay()
         self.bubble.show()
         self.bubble.raise_()
