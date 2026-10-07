@@ -1,4 +1,6 @@
 """The portrait comes from the player's name tag found in the pixels, not from the AI's rough box alone."""
+from pathlib import Path
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -94,3 +96,16 @@ def test_a_bush_beside_the_sprite_is_not_part_of_it():
     assert not m[95:125, :30].any()                      # the bush at the crop's left edge
     assert m[20:60, 50:90].mean() > 0.9                  # the head
     assert m[125:140, 45:75].any()                       # the feet stay
+
+
+def test_official_client_tag_with_soft_letters_and_an_overlapped_pair():
+    # MapleStory Classic World scales its picture up, so the letters are light grey (at 225 the tag went unseen and
+    # a "Hm" quick-slot box became the portrait); two overlapping tags make a short piece that must not count
+    import numpy as np
+    from PIL import Image
+
+    from maplehelper import portrait
+    a = np.asarray(Image.open(Path(__file__).parent / "fixtures" / "classic_world_tags.png").convert("RGB"))
+    assert all(abs(t[3] - 29) <= 3 for t in portrait.find_name_tags(a))
+    left, top, right, bottom = portrait.portrait_rect(a, None, "Kalimero")
+    assert 470 <= (left + right) / 2 <= 610 and 590 <= bottom <= 620       # standing on the tag at (525, 608)

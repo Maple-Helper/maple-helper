@@ -10,6 +10,10 @@ from __future__ import annotations
 
 import numpy as np
 
+# a name's letters: near white. The official client draws its 1366 px picture scaled up to the screen (2560 px on a
+# 3440 ultrawide), which softens them to light grey: at 225 the player's own tag went unseen (live, 2026-10-07)
+WHITE = 200
+
 
 def _runs(row: np.ndarray, lo: int = 30, hi: int = 420) -> list[tuple[int, int]]:
     """(start, length) of the runs of True in a 1-D bool array, lo <= length <= hi."""
@@ -25,7 +29,7 @@ def find_name_tags(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
     f = rgb.astype(np.float32)
     luma = f[..., 0] * 0.3 + f[..., 1] * 0.59 + f[..., 2] * 0.11 + 1.0
     ratio = luma[1:] / luma[:-1]                       # ratio[y] = row y+1 against row y
-    white = (f.min(axis=2) >= 225) & (f.max(axis=2) - f.min(axis=2) < 30)
+    white = (f.min(axis=2) >= WHITE) & (f.max(axis=2) - f.min(axis=2) < 30)
     bottom = (ratio > 1.5) & (ratio < 4.5)              # bottom[y]: row y is a plate's last one
     found = []
     for y in range(ratio.shape[0]):
@@ -41,7 +45,17 @@ def find_name_tags(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
                     if 2.2 <= n / h <= 14 and 0.04 <= letters <= 0.5:
                         found.append((x0, y0, n, h))
                     break
-    return found
+    return usual_height(found)
+
+
+def usual_height(tags: list[tuple[int, int, int, int]]) -> list[tuple[int, int, int, int]]:
+    """Every name tag on a screen is the same height: with three or more, one well off the usual height is a piece of
+    two overlapping tags ("Pink Bunn" under "GreatFortune", live) or of the game's UI, not a whole tag."""
+    if len(tags) < 3:
+        return tags
+    hs = sorted(t[3] for t in tags)
+    usual = hs[len(hs) // 2]
+    return [t for t in tags if abs(t[3] - usual) <= max(3, usual * 0.2)]
 
 
 def find_cut_tags(rgb: np.ndarray, name: str) -> list[tuple[int, int, int, int]]:
@@ -50,7 +64,7 @@ def find_cut_tags(rgb: np.ndarray, name: str) -> list[tuple[int, int, int, int]]
     f = rgb.astype(np.float32)
     luma = f[..., 0] * 0.3 + f[..., 1] * 0.59 + f[..., 2] * 0.11 + 1.0
     ratio = luma[1:] / luma[:-1]
-    white = (f.min(axis=2) >= 225) & (f.max(axis=2) - f.min(axis=2) < 30)
+    white = (f.min(axis=2) >= WHITE) & (f.max(axis=2) - f.min(axis=2) < 30)
     if len(name) < 4:
         return []        # a short name's plate is too small to tell from scenery by its top edge alone
     want = 0.40 * len(name) + 0.45
