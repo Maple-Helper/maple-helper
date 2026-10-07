@@ -21,6 +21,7 @@ from PySide6.QtCore import QObject, Signal
 
 from . import capture
 from .capture import grab_image, grab_jpeg
+from .keys import split_key
 
 GAME_TITLES = ("MapleStory Classic", "MapleStory", "Classic World", "MapleRoyals")
 # virtual key codes (HIToolbox kVK_F1...). Macs send F-keys only with fn held, unless
@@ -255,6 +256,7 @@ kEventHotKeyPressed = 5
 kEventParamDirectObject = fourcc("----")
 typeEventHotKeyID = fourcc("hkid")
 eventNotHandledErr = -9874
+SHIFT_KEY = 1 << 9          # Carbon modifier flag (shiftKey)
 _carbon_lib = None
 
 
@@ -306,12 +308,13 @@ class Hotkeys(QObject):
     def register(self, hotkey_id: int, key_name: str) -> bool:
         """(Re)binds hotkey_id to key_name. False when the key is unknown or another app owns it."""
         self.unregister(hotkey_id)
-        code = KEYCODES.get(key_name)
+        shift, fkey = split_key(key_name)
+        code = KEYCODES.get(fkey)
         if code is None:
             return False
         c = carbon()
         ref = ctypes.c_void_p()
-        err = c.RegisterEventHotKey(code, 0, EventHotKeyID(SIGNATURE, hotkey_id), c.GetApplicationEventTarget(), 0,
+        err = c.RegisterEventHotKey(code, SHIFT_KEY if shift else 0, EventHotKeyID(SIGNATURE, hotkey_id), c.GetApplicationEventTarget(), 0,
                                     ctypes.byref(ref))
         if err != 0:
             return False

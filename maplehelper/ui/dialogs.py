@@ -94,13 +94,13 @@ def _field(text: str) -> QLabel:
 
 
 def hotkey_choices(saved: tuple[str, ...] = ()) -> list[str]:
-    """The F-keys a hotkey can be. Windows keeps F12 for the debugger and never lets a program register it
-    (RegisterHotKey fails, and the app then said "F12 is taken by another program" on every start); macOS has it.
+    """The keys a hotkey can be: Shift with an F-key (the game binds the plain F-keys to skills and items).
+    Windows keeps F12 for the debugger and never lets a program register it (RegisterHotKey fails, and the app then said "F12 is taken by another program" on every start); macOS has it.
     macOS shows the desktop on F11 and still reports the hotkey registered, so it is not offered there, unless it is
     already a saved choice (shown, not silently changed)."""
     if sys.platform == "win32":
-        return [f"F{i}" for i in range(1, 12)]
-    return [f"F{i}" for i in range(1, 13) if i != 11 or "F11" in saved]
+        return [f"Shift+F{i}" for i in range(1, 12)]
+    return [f"Shift+F{i}" for i in range(1, 13) if i != 11 or "Shift+F11" in saved]
 
 
 def _while_open(slot):

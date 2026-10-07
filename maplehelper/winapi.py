@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 
 from . import APP_NAME, capture
 from .capture import grab_image, grab_jpeg
+from .keys import split_key
 
 user32 = ctypes.windll.user32
 dwmapi = ctypes.windll.dwmapi
@@ -197,9 +198,15 @@ MOD_NOREPEAT = 0x4000
 WM_HOTKEY = 0x0312
 
 
+MOD_SHIFT = 0x0004
+
+
 def register_hotkey(hwnd: int, hotkey_id: int, key_name: str) -> bool:
-    vk = VK.get(key_name)
-    return bool(vk and user32.RegisterHotKey(wt.HWND(hwnd), hotkey_id, MOD_NOREPEAT, vk))
+    """key_name is an F-key, alone or with Shift ("Shift+F9")."""
+    shift, fkey = split_key(key_name)
+    vk = VK.get(fkey)
+    mods = MOD_NOREPEAT | (MOD_SHIFT if shift else 0)
+    return bool(vk and user32.RegisterHotKey(wt.HWND(hwnd), hotkey_id, mods, vk))
 
 
 def unregister_hotkey(hwnd: int, hotkey_id: int) -> None:

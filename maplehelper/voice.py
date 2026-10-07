@@ -309,7 +309,7 @@ class VoiceController(QObject):
     download_progress = Signal(int)
     download_done = Signal(str)
 
-    def __init__(self, key_name: str = "F10"):
+    def __init__(self, key_name: str = "Shift+F10"):
         super().__init__()
         self.key_name = key_name
         self.microphone = None       # a name from input_devices(); None = the system's default microphone

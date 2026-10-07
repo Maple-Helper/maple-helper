@@ -29,7 +29,7 @@
 
 ## About
 
-Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Press **F9** to open it, then type a question or press **F10** to speak (press again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
+Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Press **Shift+F9** to open it, then type a question or press **Shift+F10** to speak (press again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
 
 Use it to look up drops, find quest NPCs, or ask where to train without switching away from the game. The **play tools** window adds calculators and planners that read the same database: where to train, hit and damage, your build, quests for your level, crafting, citizenship and prices.
 
@@ -44,7 +44,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   </picture>
 </p>
 <h3 align="center">Ask about anything in the game</h3>
-<p align="center">Press <b>F9</b> in game and ask. Instant answers come straight from the game database, with a card for the monster and pictures of everything it drops.</p>
+<p align="center">Press <b>Shift+F9</b> in game and ask. Instant answers come straight from the game database, with a card for the monster and pictures of everything it drops.</p>
 
 <br>
 
@@ -300,9 +300,9 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 
 | Control | Action |
 | --- | --- |
-| **F9** | Open or close the chat overlay. |
-| **F10** | Start recording your voice; press again to transcribe and, by default, send the question. |
-| **Window buttons** | Minimize or close the overlay (F9 opens it again). |
+| **Shift+F9** | Open or close the chat overlay. |
+| **Shift+F10** | Start recording your voice; press again to transcribe and, by default, send the question. |
+| **Window buttons** | Minimize or close the overlay (Shift+F9 opens it again). |
 | **Tap a card** | Tag it for the next question; tap again to untag. |
 | **Camera button** | Take a fresh screenshot of the game window. |
 | **Tools button** | Open the play tools (grind spots, grind tracker, farm, quests, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, pets). |

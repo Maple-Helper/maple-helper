@@ -1285,8 +1285,8 @@ STRINGS = {
                      "en": "Press F9 in game to open and close the chat."},
     "ob_done_hint_mac": {"he": "לחצו F9 בתוך המשחק כדי לפתוח ולסגור את הצ'אט (בלי fn אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה).",
                          "en": "Press F9 in game to open and close the chat (without fn if you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys)."},
-    "hotkey_fn_mac": {"he": "ב-Mac לוחצים עם fn (למשל fn+F9), אלא אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה.",
-                      "en": "On a Mac, hold fn with the key (fn+F9, say) unless you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys."},
+    "hotkey_fn_mac": {"he": "ב-Mac לוחצים עם fn (למשל fn+Shift+F9), אלא אם הפעלתם מקשי F רגילים בהגדרות המערכת > מקלדת > קיצורי מקלדת > מקשי פונקציה.",
+                      "en": "On a Mac, hold fn with the key (fn+Shift+F9, say) unless you turned on standard function keys in System Settings > Keyboard > Keyboard Shortcuts > Function Keys."},
     "hotkey_same": {"he": "אותו מקש לא יכול גם לפתוח את הצ'אט וגם להתחיל דיבור. בחרו מקש אחר לאחד מהם.",
                     "en": "One key can't both open the chat and start talking. Pick a different key for one of them."},
     "hotkey_taken": {"he": "המקש {key} תפוס על ידי תוכנה אחרת. בחרו מקש אחר בהגדרות.",
@@ -1577,10 +1577,10 @@ def keep_names_whole(s: str) -> str:
 # A listed set, not every "_mac" key: update_available_mac is a separate line next to update_available.
 MAC_VARIANTS = {"voice_mic_failed", "copied", "ob_done_hint"}
 # strings that teach a hotkey: on a Mac keyboard F9/F10 are media keys unless fn is held, so a Mac shows
-# "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+")
+# "fn+F9" (the callers' .replace("F9", the chosen key) keeps the "fn+"; a key passed in shows as "fn+Shift+F10")
 FN_KEY_HINTS = {"input_placeholder", "voice_nothing", "mic_tip", "listening", "close_chat", "shot_hint_no_game",
                 "shot_hint_ready", "ob_done_hint", "voice_dl_done", "input_placeholder_short"}
-_FKEY = re.compile(r"(?<![\w+])F(?:1[0-2]|[1-9])\b")
+_FKEY = re.compile(r"(?<![\w+])(?:Shift\+)?F(?:1[0-2]|[1-9])\b")
 
 
 def system_language() -> str:

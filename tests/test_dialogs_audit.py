@@ -230,16 +230,17 @@ def test_f12_is_not_offered_on_windows_and_a_saved_f12_falls_back(env, monkeypat
     from maplehelper.ui import dialogs
     s, profiles, kb = env
     monkeypatch.setattr(sys, "platform", "win32")
-    assert dialogs.hotkey_choices()[-1] == "F11"
-    s["hotkey_toggle"] = "F12"
+    assert dialogs.hotkey_choices()[-1] == "Shift+F11"
+    assert all(k.startswith("Shift+") for k in dialogs.hotkey_choices())   # the game uses the plain F-keys
+    s["hotkey_toggle"] = "Shift+F12"
     dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
-    assert "F12" not in dlg.hk_toggle._items
-    assert dlg.hk_toggle.currentText() == "F9"                 # the default, not the list's first (F1)
+    assert "Shift+F12" not in dlg.hk_toggle._items
+    assert dlg.hk_toggle.currentText() == "Shift+F9"           # the default, not the list's first (Shift+F1)
     dlg.close()
     monkeypatch.setattr(sys, "platform", "darwin")
-    assert dialogs.hotkey_choices()[-1] == "F12"               # macOS has it
-    assert "F11" not in dialogs.hotkey_choices()               # macOS shows the desktop on F11
-    assert "F11" in dialogs.hotkey_choices(("F11", "F10"))     # a saved F11 is still shown
+    assert dialogs.hotkey_choices()[-1] == "Shift+F12"         # macOS has it
+    assert "Shift+F11" not in dialogs.hotkey_choices()         # macOS shows the desktop on F11
+    assert "Shift+F11" in dialogs.hotkey_choices(("Shift+F11", "Shift+F10"))   # a saved F11 is still shown
 
 
 def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
@@ -252,7 +253,7 @@ def test_mac_keys_say_fn_once_under_the_pickers(env, monkeypatch):
     for mac in (True, False):
         monkeypatch.setattr(I18n, "mac", mac)
         dlg = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
-        shown = [lb.text() for lb in dlg.findChildren(QLabel) if "fn+F9" in lb.text()]
+        shown = [lb.text() for lb in dlg.findChildren(QLabel) if "fn+Shift+F9" in lb.text()]
         assert shown == ([hint] if mac else [])
         assert ("F11" not in hint) and dlg.hk_voice.accessibleDescription() == (hint if mac else "")
         dlg.close()
@@ -265,7 +266,7 @@ def test_settings_controls_have_screen_reader_names(env):
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     assert all(sw.accessibleName() for sw in dlg.findChildren(Switch))
     assert dlg.telemetry.accessibleDescription()                # its hint comes along
-    assert dlg.hk_toggle.accessibleName() == "Open/close key: F9"
+    assert dlg.hk_toggle.accessibleName() == "Open/close key: Shift+F9"
     assert dlg.appearance.accessibleName() == "Appearance"
     assert [b.accessibleName() for b in dlg.font.group.buttons()] == ["Small text", "Medium text", "Large text"]
     dlg.close()
