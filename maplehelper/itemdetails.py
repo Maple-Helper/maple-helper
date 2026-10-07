@@ -32,6 +32,7 @@ class Details:
     kind: str = ""                  # "Equip · Shield"
     stats: list[str] = field(default_factory=list)       # "REQ LEV 10", "W.DEF +44", "Upgrade Slots 7", ...
     description: str = ""
+    trade: str = ""                 # "Tradeable" | "Untradeable" | "" (the page doesn't say)
     about: list[str] = field(default_factory=list)       # NiaMeowDB's own Meow Notes paragraph(s)
     posts: list[Post] = field(default_factory=list)      # the editors' posts under Meow Notes
 
@@ -46,6 +47,7 @@ def details(kb, key: str) -> Details:
             if not ln or ln.startswith(_STATS_END):
                 break
             out.stats.append(ln)
+        out.trade = next((ln for ln in lines[at + 1:at + 40] if ln in ("Tradeable", "Untradeable")), "")
     title = next((n for n, ln in enumerate(lines) if ln.startswith("# ")), None)
     if title is not None:
         # the line under the "# Name" heading, when it is the description (the stat header comes first otherwise)
@@ -54,6 +56,22 @@ def details(kb, key: str) -> Details:
             out.description = first
     out.about, out.posts = _notes(lines)
     return out
+
+
+def note_key(key: str, part: str, n: int) -> str:
+    """The key a Meow Notes text is translated under: "item/917#about0", "item/917#post1"."""
+    return f"{key}#{part}{n}"
+
+
+def needed_by(kb, key: str) -> tuple[list[dict], list[dict]]:
+    """(quests, recipes) that use the item: [{"name", "key", "level", "count"}], [{"name", "key", "skill", "level",
+    "count"}], from the knowledge base's own tables (the page's "Needed By")."""
+    from . import tables
+    quests = [{"name": r["quest"], "key": r["quest_key"], "level": r["quest_level"], "count": r["count"]}
+              for r in tables.rows(kb, "quest_reqs") if r.get("target_key") == key and r.get("kind") == "collect"]
+    recipes = [{"name": r["product"], "key": r["product_key"], "skill": r["discipline"], "level": r["prof_lv"],
+                "count": r["qty"]} for r in tables.rows(kb, "recipes") if r.get("ingredient_key") == key]
+    return quests, recipes
 
 
 def _notes(lines: list[str]) -> tuple[list[str], list[Post]]:

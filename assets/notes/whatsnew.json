@@ -1,5 +1,22 @@
 [
  {
+  "version": "0.12.0",
+  "he": [
+   "חלון פרטי פריט: כפתור ⓘ על כל פריט בצ'אט פותח את כל מה שידוע עליו: תיאור, נתונים, סחיר או לא, באילו קווסטים ומתכונים צריך אותו וכמה, מי מפיל אותו, וההערות של NiaMeowDB. הכול בעברית.",
+   "איפה זה על המפה: כפתור ◎ ליד מפות, NPCs וקווסטים מראה את המפה עם נקודה על הכניסה, כמו באתר של NiaMeowDB.",
+   "כפתור ניקוי צ'אט משמאל למיקרופון: מנקה את המסך, והשאלה הבאה מתחילה שיחה חדשה. ההיסטוריה נשמרת בחלון ההיסטוריה.",
+   "\"לא עכשיו\" בהורדת מודל הדיבור סוגר את השאלה, והמיקרופון ישאל שוב בפעם הבאה.",
+   "עוד עברית: סוגי פריטים, נתונים ורמות מופיעים בעברית בכרטיסים ובכלי המשחק."
+  ],
+  "en": [
+   "Item details: an ⓘ on every item in the chat opens everything known about it: description, stats, whether it can be traded, which quests and recipes need it and how many, who drops it, and NiaMeowDB's notes.",
+   "Where it is on the map: a ◎ by maps, NPCs and quests shows the map with a dot on the way in, as on NiaMeowDB.",
+   "A clear-chat button left of the mic: clears the screen, and the next question starts a new conversation. The history stays in the History window.",
+   "\"Not now\" on the speech model download closes the question; the mic asks again next time.",
+   "More Hebrew: item kinds, stats and levels read in Hebrew on cards and in the play tools."
+  ]
+ },
+ {
   "version": "0.11.0",
   "he": [
    "בלי מקשי קיצור: המשחק הרשמי חוסם לחיצות מקלדת ועכבר לתוכנות אחרות כשהוא בקדמת המסך, ולכן F9 ו-F10 לא עבדו מתוך המשחק. פותחים את הצ'אט מהסמל של Maple Helper ליד השעון (במסך מלא, מקש Windows מציג אותו), מקיצור הדרך או משורת המשימות, ומדברים בכפתור המיקרופון.",

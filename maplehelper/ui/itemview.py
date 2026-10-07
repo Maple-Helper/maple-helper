@@ -3,17 +3,20 @@ card or tile in the chat. It opens to the right of the chat (to its left when th
 edge), then wherever the player last left it."""
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import QPoint, QRect, Qt, Signal
 from PySide6.QtGui import QGuiApplication, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
-from .. import availability, bidi, itemdetails, quick, sources
+from .. import availability, bidi, itemdetails, itemterms, quick, sources, translations
 from ..i18n import I18n
 from .controls import FlowLayout, rtl_buttons
 from .glass import SHADOW, GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, fit_picture, source_tag, vote_tag, zoom_on_hover
+from .widgets import EntityCard, fit_picture, name_lv, source_tag, vote_tag, zoom_on_hover
 
+_HEBREW = re.compile("[א-ת]")
 GAP = 8 - 2 * SHADOW                 # the frames' gap: the shadow margins overlap, so the panels show 8 px apart
 POS_SETTING = "item_window_pos"      # where the player last left the window: {"x", "y"}
 WIDTH, MAX_HEIGHT = 480, 720
@@ -106,33 +109,70 @@ class ItemDetailsDialog(GlassDialog):
         d = itemdetails.details(kb, key)
         self.lay.addWidget(EntityCard(kb, key, t.lang, details=False))
         if d.description:
-            self._text(d.description, "DialogBody")
-        if d.stats:
+            self._text(self._he("item_desc", key, d.description), "DialogBody")
+        if d.stats or d.trade:
             self._head(t("item_stats"))
             box = QFrame(objectName="Card")
             col = QVBoxLayout(box)
             col.setContentsMargins(12, 8, 12, 8)
             col.setSpacing(2)
             if d.kind:
-                kind = QLabel(bidi.ltr_name(d.kind, rtl), objectName="CardSub")
+                kind = QLabel(self._line(itemterms.kind(d.kind, t.lang)), objectName="CardSub")
                 kind.setAlignment(self._align)
                 col.addWidget(kind)
-            for ln in d.stats:
-                # the page's own lines, as NiaMeowDB writes them ("W.DEF +44"): English, left to right
-                lb = QLabel(bidi.ltr_name(ln, rtl), objectName="RowLabel")
+            for ln in d.stats + ([d.trade] if d.trade else []):
+                # NiaMeowDB's lines ("W.DEF +44"), in Hebrew in a Hebrew window (the stats keep their English names)
+                text = itemterms.tradeable(ln, t.lang) if ln == d.trade else itemterms.stat_line(ln, t.lang)
+                lb = QLabel(self._line(text), objectName="RowLabel")
                 lb.setWordWrap(True)
                 lb.setAlignment(self._align)
                 col.addWidget(lb)
             self.lay.addWidget(box)
+        self._needed_by(key)
         self._droppers(key, name)
         if d.about or d.posts:
             self._head(t("item_meow_notes"))
-            for para in d.about:
-                self._text(para, "DialogBody")
-            for post in d.posts:
-                self._post(post)
+            for n, para in enumerate(d.about):
+                self._text(self._he("item_notes", itemdetails.note_key(key, "about", n), para), "DialogBody")
+            for n, post in enumerate(d.posts):
+                self._post(post, self._he("item_notes", itemdetails.note_key(key, "post", n), post.text))
         self.lay.addStretch(1)
         self.scroll.verticalScrollBar().setValue(0)
+
+    def _he(self, kind: str, key: str, en: str) -> str:
+        """The Hebrew of a NiaMeowDB text in a Hebrew window (the app's own file, then the KB's nightly one); the
+        English until one is made."""
+        if not self.t.rtl:
+            return en
+        return translations.he(getattr(self.kb, "root", None), kind, key, en) or en
+
+    def _line(self, text: str) -> str:
+        """A line laid out in the window's direction: Hebrew reads right to left, an English one stays one block."""
+        return bidi.plain(text, self.t.rtl) if _HEBREW.search(text) else bidi.ltr_name(text, self.t.rtl)
+
+    def _needed_by(self, key: str) -> None:
+        """The quests and recipes that use it, and how many (NiaMeowDB's "Needed By")."""
+        t = self.t
+        quests, recipes = itemdetails.needed_by(self.kb, key)
+        if not quests and not recipes:
+            return
+        self._head(t("item_needed_by"))
+        box = QFrame(objectName="Card")
+        col = QVBoxLayout(box)
+        col.setContentsMargins(12, 8, 12, 8)
+        col.setSpacing(4)
+        # each English name one block among the Hebrew, closed by a right-to-left mark: "War Bow (Woodcrafting"
+        # ran together into one left-to-right run and came out in the wrong order
+        nb = lambda s: bidi.name_block(str(s), t.rtl) + ("‏" if t.rtl else "")
+        lines = [t("item_needed_quest", name=nb(q["name"]), level=q["level"], n=q["count"]) for q in quests]
+        lines += [t("item_needed_recipe", name=nb(r["name"]), skill=nb(r["skill"]), level=r["level"], n=r["count"])
+                  for r in recipes]
+        for text in lines:
+            lb = QLabel(self._line(text), objectName="RowLabel")
+            lb.setWordWrap(True)
+            lb.setAlignment(self._align)
+            col.addWidget(lb)
+        self.lay.addWidget(box)
 
     def _head(self, text: str) -> None:
         head = QLabel(bidi.plain(text, self.t.rtl), objectName="ToolHeader")
@@ -141,8 +181,9 @@ class ItemDetailsDialog(GlassDialog):
         self.lay.addWidget(head)
 
     def _text(self, text: str, name: str) -> QLabel:
-        # NiaMeowDB's English: kept left to right in a Hebrew window
-        lb = QLabel(bidi.ltr_block(text, self.t.rtl), objectName=name)
+        # Hebrew right to left; NiaMeowDB's English (no Hebrew made yet) kept left to right in a Hebrew window
+        shown = bidi.plain(text, self.t.rtl) if _HEBREW.search(text) else bidi.ltr_block(text, self.t.rtl)
+        lb = QLabel(shown, objectName=name)
         lb.setWordWrap(True)
         lb.setAlignment(self._align)
         lb.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -150,7 +191,7 @@ class ItemDetailsDialog(GlassDialog):
         self.lay.addWidget(lb)
         return lb
 
-    def _post(self, post: itemdetails.Post) -> None:
+    def _post(self, post: itemdetails.Post, text: str | None = None) -> None:
         card = QFrame(objectName="Card")
         col = QVBoxLayout(card)
         col.setContentsMargins(12, 8, 12, 8)
@@ -158,8 +199,9 @@ class ItemDetailsDialog(GlassDialog):
         by = QLabel(bidi.ltr_name(f"{post.author} · {post.when}", self.t.rtl), objectName="CardSub")
         by.setAlignment(self._align)
         col.addWidget(by)
-        for para in post.text.split("\n"):
-            lb = QLabel(bidi.ltr_block(para, self.t.rtl), objectName="RowLabel")
+        for para in (text or post.text).split("\n"):
+            shown = bidi.plain(para, self.t.rtl) if _HEBREW.search(para) else bidi.ltr_block(para, self.t.rtl)
+            lb = QLabel(shown, objectName="RowLabel")
             lb.setWordWrap(True)
             lb.setAlignment(self._align)
             lb.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -203,7 +245,7 @@ class ItemDetailsDialog(GlassDialog):
         col = QVBoxLayout()
         col.setSpacing(2)
         flow = FlowLayout(spacing=6, line_spacing=2)
-        title = QLabel(bidi.ltr_name(name + (f" · Lv. {lvl}" if lvl else ""), t.rtl), objectName="CardName")
+        title = QLabel(name_lv(name, lvl, t), objectName="CardName")
         for w in [title, source_tag(t, source)] + ([vote_tag(t, vote)] if vote else []):
             flow.addWidget(w)
         col.addLayout(flow)

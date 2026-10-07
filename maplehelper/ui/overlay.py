@@ -2624,7 +2624,7 @@ class Overlay(QWidget):
             return
         cid, name, held = c.id, c.name, dict(update)
         desc = " ".join(x for x in (new_job or new_cls or c.job_label,
-                                     f"Lv. {new_level}" if isinstance(new_level, int) else "") if x)
+                                     self.t("lv_short", n=new_level) if isinstance(new_level, int) else "") if x)
 
         def apply():
             if self._is_busy():        # (False keeps the choices: they still work once the answer is in)
