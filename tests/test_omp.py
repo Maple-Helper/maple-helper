@@ -70,6 +70,35 @@ def test_errors_from_omp(status, message, code):
     assert omp.to_result(a, "", True).error == code
 
 
+OVERLOADED = "OpenAI responses stream timed out while waiting for the first event"
+RETRY = {"type": "auto_retry_start", "attempt": 1, "maxAttempts": 10, "delayMs": 400, "errorMessage": OVERLOADED}
+
+
+def test_an_attempt_omp_retried_is_not_the_answer():
+    """Meta overloaded: omp's first try fails, its own retry answers. That answer is the result, not the failure."""
+    a = omp.parse(lines({"type": "message_end", "message": {"role": "user", "content": []}},
+                        start(), end(stop="error", status=None, message=OVERLOADED), RETRY,
+                        start(), text_delta("About 1%."), end("About 1%."), AGENT_END))
+    r = omp.to_result(a, "", a.ended)
+    assert r.error is None and r.text == "About 1%."
+    # every try failed: the last failure is the result
+    a = omp.parse(lines(start(), end(stop="error", message=OVERLOADED), RETRY,
+                        start(), end(stop="error", status=500, message="Internal error"), AGENT_END))
+    assert omp.to_result(a, "", a.ended).error == "api_error"
+
+
+def test_a_run_stuck_on_an_overloaded_server_shows_no_sign_of_life():
+    """omp echoes the question at once and reports each failed try: neither is the server answering, so the race
+    still asks again in parallel (it didn't, and the question sat on "thinking" until the 150 s stall)."""
+    failed = end(stop="error", message=OVERLOADED)
+    for ev in ({"type": "message_start", "message": {"role": "user", "content": []}},
+               {"type": "message_end", "message": {"role": "user", "content": []}},
+               {"type": "message_start", "message": failed["message"]}, failed,
+               {"type": "turn_end", "message": failed["message"]}, RETRY, {"type": "session"}):
+        assert not omp.alive(ev), ev
+    assert omp.alive(start()) and omp.alive(text_delta("x")) and omp.alive(end("x")) and omp.alive(AGENT_END)
+
+
 def test_no_answer_says_why_from_stderr():
     a = omp.parse(lines({"type": "session"}))
     assert omp.to_result(a, 'No API key found for provider "zai"', False).error == "not_logged_in"

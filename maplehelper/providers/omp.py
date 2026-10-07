@@ -45,6 +45,11 @@ ZAI_MODEL = "glm-5.3"
 MUSE_MODEL = "muse-spark-1.3-contributor"
 LOGIN_URL = re.compile(r"https://auth\.meta\.com/\S+")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
+# Meta's Model API, overloaded, answers most requests 503 with "Retry-After: 60": omp sleeps that out before each of its
+# retries and prints nothing meanwhile, so a question sat on "thinking" until the chat gave up (150 s). A request Meta
+# takes starts its stream ("response.created") within 1-4 s, and a new one gets through often: a 10 s wait for that
+# first event cuts the sleep short and omp asks again at once (its own auto-retry, up to 10 times)
+MUSE_FIRST_EVENT_TIMEOUT_MS = "10000"
 
 # credentials, profiles and model overrides in the player's environment that would replace the account, the key
 # or the model Maple Helper chose
@@ -53,7 +58,9 @@ FOREIGN_ENV = ("OMP_PROFILE", "PI_CODING_AGENT_DIR", "PI_SMOL_MODEL", "PI_SLOW_M
 FOREIGN_PREFIXES = ("ANTHROPIC_", "OPENAI_")
 
 # omp's settings in our home: nothing of its own beyond the answer (no advisor reviewing it, no memory or skills,
-# no update check), and the screenshot described by Z.AI's vision model for GLM-5.3, which reads text only
+# no update check), and the screenshot described by Z.AI's vision model for GLM-5.3, which reads text only.
+# Muse Spark 1.3 falls back to 1.2 (same Muse Code plan, same Meta API): Meta's 1.3 backend was overloaded for hours
+# (every request a 503) while 1.2 answered every one. Keyed on the exact models, so nothing else changes
 CONFIG = """advisor:
   enabled: false
 memory:
@@ -69,6 +76,12 @@ images:
   describeForTextModels: true
 modelRoles:
   vision: zai/glm-5.3-flash
+retry:
+  fallbackChains:
+    muse-code/muse-spark-1.3-contributor:
+      - muse-code/muse-spark-1.2-contributor
+    meta/muse-spark-1.3-contributor:
+      - meta/muse-spark-1.2-contributor
 skills:
   enabled: false
 lsp:
@@ -365,15 +378,25 @@ class Answer:
                 self.text = text
                 return True
             return False
+        if t == "auto_retry_start":
+            # omp asks again by itself (Meta's 503 "temporarily overloaded"): the failed attempt is not the outcome
+            self.error, self.detail = None, ""
+            return False
         if t == "agent_end":
             self.ended = True
         return False
 
 
 def alive(ev: dict) -> bool:
-    """A sign of life from the model (omp's own session and start lines come before the server says anything)."""
-    return ev.get("type") in ("message_update", "message_start", "message_end", "tool_execution_start",
-                              "tool_execution_end", "turn_end", "agent_end")
+    """A sign of life from the model. omp's own session and start lines, its echo of the question (a user message,
+    the moment the run starts) and a failed attempt it retries (an empty assistant message with stopReason "error")
+    come before the server has said anything: none of them count, or a run stuck on an overloaded server never gets
+    its hedge."""
+    t = ev.get("type")
+    if t in ("message_start", "message_end", "turn_end"):
+        m = ev.get("message") or {}
+        return m.get("role") != "user" and m.get("stopReason") != "error"
+    return t in ("message_update", "tool_execution_start", "tool_execution_end", "agent_end")
 
 
 def parse(lines, on_event=None) -> Answer:
@@ -651,7 +674,9 @@ class Muse(_Omp):
         return f"{'meta' if api_key else 'muse-code'}/{model or MUSE_MODEL}"
 
     def run_env(self, api_key: str | None) -> dict:
-        return env(meta_key=api_key, player=self.uses_player(api_key))
+        e = env(meta_key=api_key, player=self.uses_player(api_key))
+        e["PI_OPENAI_STREAM_FIRST_EVENT_TIMEOUT_MS"] = MUSE_FIRST_EVENT_TIMEOUT_MS
+        return e
 
 
 class OmpBackend:
