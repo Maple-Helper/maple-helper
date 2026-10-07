@@ -1,4 +1,7 @@
-"""The map window's place: beside the chat the first time, then where the player left it."""
+"""The map window: where it opens (beside the chat, then where the player left it) and what it shows for a map, an NPC
+and a quest."""
+from pathlib import Path
+
 import pytest
 from PySide6.QtCore import QPoint, QRect, QSize
 from PySide6.QtWidgets import QApplication
@@ -50,7 +53,7 @@ def test_the_window_reopens_where_the_player_left_it(kb_copy, isolated_store):
     assert again.pos() == QPoint(200, 150)
 
 
-REAL_KB = __import__("pathlib").Path(__file__).resolve().parent.parent / "data" / "kb"
+REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
 needs_kb = pytest.mark.skipif(not (REAL_KB / "routes.json").exists(), reason="no routes.json in the real knowledge base")
 
 
@@ -74,6 +77,23 @@ def test_an_npc_is_where_it_stands_and_one_in_a_shop_is_behind_the_shops_door(re
     (spot,) = mapview.locations(real, mina)
     assert (spot.map, spot.npc, spot.inside) == ("010000000", False, "Lith Harbor Department Store")
     assert spot.at == pytest.approx((0.812, 0.802), abs=0.001)
+
+
+@needs_kb
+def test_an_npc_in_a_building_with_a_picture_shows_its_door_then_where_it_stands(real):
+    """Arthur is in Henesys Town Hall, which has a picture of its own: first Henesys with the hall's door (orange),
+    then the hall with Arthur (green), so the player knows which building to go into."""
+    from maplehelper import routes
+    g = routes.of(real)
+    arthur = real.npc_key("Arthur")
+    hall = g.of_key(arthur) if arthur else None
+    if not hall or g.name(hall) != "Henesys Town Hall" or not g.npc_spot(arthur):
+        pytest.skip("Arthur isn't in Henesys Town Hall by this knowledge base")
+    door, inside = mapview.locations(real, arthur)
+    assert g.name(door.map) == "Henesys" and not door.npc and door.inside == "Henesys Town Hall"
+    assert inside.map == hall and inside.npc
+    # a town's own NPC (Mr. Kim, in the open on Lith Harbor) has no door to show
+    assert not mapview.in_building(g, "010000000")
 
 
 @needs_kb

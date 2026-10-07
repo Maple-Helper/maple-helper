@@ -53,7 +53,7 @@ class Spot:
     at: tuple[float, float]              # the dot, as 0-1 of the picture's size
     says: str                            # the string key of the line under the map's name
     name: str                            # what the line names: the place it leads to, or the NPC
-    inside: str = ""                     # an NPC inside a map with no picture: that map ("npc_where_inside")
+    inside: str = ""                     # an NPC inside a building: the building ("npc_where_inside")
     npc: bool = False                    # an NPC's own spot (green, as the route page rings an NPC), else a portal
     role: str = ""                       # a quest's NPC: "quest_where_start" / "quest_where_end" (a heading above it)
 
@@ -62,17 +62,28 @@ def _map_spots(g, mid: str, name: str) -> list[Spot]:
     return [Spot(leg.frm, leg.spot, "map_where_says", name) for leg in g.entrances(mid)[:MAX_ENTRANCES]]
 
 
+def in_building(g, mid: str) -> bool:
+    """A building off a town (a shop, Henesys Town Hall, the Kerning City Civic Center): a town map whose one way out
+    leads back to the town it is entered from. Its NPCs need its door shown on the town's map too."""
+    ways_in = g.entrances(mid)
+    return bool(g.maps[mid].town and len(g.edges[mid]) == 1 and ways_in and g.maps[ways_in[0].frm].town)
+
+
 def _npc_spots(kb, g, key: str, role: str = "") -> list[Spot]:
-    """An NPC on its own map, the dot on it; one inside a map with no picture (a shop): that map's ways in."""
+    """Where an NPC is: in a building, first the building's door on the map outside (orange), then, when the building
+    has a picture, the NPC inside it (green); anywhere else, its map with the green dot."""
     name = (kb.get(key) or {}).get("name", key)
-    hit = g.npc_spot(key)
-    if hit:
-        return [Spot(hit[0], hit[1], "npc_where_says", name, npc=True, role=role)]
     mid = g.of_key(key)
     if not mid:
         return []
-    inside = g.name(mid)
-    return [Spot(s.map, s.at, "npc_where_inside", name, inside=inside, role=role) for s in _map_spots(g, mid, inside)]
+    hit = g.npc_spot(key)
+    doors = []
+    if hit is None or in_building(g, mid):
+        inside = g.name(mid)
+        doors = [Spot(s.map, s.at, "npc_where_inside", name, inside=inside, role=role)
+                 for s in _map_spots(g, mid, inside)]
+    own = [Spot(hit[0], hit[1], "npc_where_says", name, npc=True, role=role)] if hit else []
+    return doors + own
 
 
 def locations(kb, key: str) -> list[Spot]:
