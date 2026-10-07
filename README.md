@@ -206,6 +206,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **Visual reference cards:** See images of relevant monsters, items, maps, NPCs, and quests alongside answers, grouped under titles (for example, what a monster drops).
 - **Tag cards:** Tap one or more cards to ask follow-up questions about them, such as "where is it?" or "which one is easier for me?".
 - **Who drops it:** Ask which monsters drop an item and get the answer grouped by monster, with pictures.
+- **Item details:** The ⓘ on an item's card or tile opens a window to the right of the chat with all the item's stats from its NiaMeowDB page, the monsters that drop it (with their level, map and an "Ask in chat" button), and NiaMeowDB's "Meow Notes". The window reopens wherever you last left it.
 - **Guides library:** 32 full guides (every class, grind maps, the EXP table, the damage formula and more) with skill and item icons, character art, tables and tips, in English and Hebrew. The ones that fit your character come first.
 - **Plan usage:** See how much of your Claude, ChatGPT or Gemini plan is used, with a heads-up in the chat before the 5-hour limit runs out, and a saver mode.
 - **Play tools:** A window of calculators and planners beside the chat, built from the game database and your character, every page linked to the others (a monster's way there, its hit & damage, an item's droppers and price):

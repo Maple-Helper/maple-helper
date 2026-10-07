@@ -183,8 +183,9 @@ class MapleHelperApp:
         self.overlay.sync_finished.connect(self.grind.sync_done)     # before the tools window redraws (below)
         self.grind.sync()          # a session running when the app last closed goes on (unless it was left idle)
         self.overlay.tools_requested.connect(lambda: self.show_tools())
-        from .ui.widgets import ROUTE_REQUESTS
+        from .ui.widgets import ITEM_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
+        ITEM_REQUESTS.requested.connect(self.show_item_details)  # an item's ⓘ
 
         self.overlay.news_requested.connect(self.show_news_page)
         self.overlay.profile_changed.connect(self.on_profile_changed)
@@ -523,6 +524,9 @@ class MapleHelperApp:
         if kind == "whats_new":
             notes = getattr(dlg, "notes", None)
             return lambda: self.show_whats_new(notes)
+        if kind == "item" and getattr(dlg, "key", None):
+            key = dlg.key
+            return lambda: self.show_item_details(key)
         cid = kind.split(":", 1)[1] if ":" in kind else None
         if self._character(cid) is None:
             return None                       # that character is gone
@@ -904,6 +908,18 @@ class MapleHelperApp:
     def show_route(self, key: str):
         """Play tools on the way to a map, from the character's map."""
         self.show_tools("route").route_to_map(key)
+
+    def show_item_details(self, key: str):
+        """An item's stats, droppers and Meow Notes, to the right of the chat the first time, then where the player
+        left it (the open window shows the next item instead of a second window)."""
+        from .ui.itemview import ItemDetailsDialog
+        chat = self.overlay.frameGeometry() if self.overlay.isVisible() else None
+
+        def make():
+            dlg = ItemDetailsDialog(self.kb, self.settings["language"], self.style(), self.settings, chat)
+            dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
+            return dlg
+        self.open_window("item", make).show_item(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
         if not self.overlay.is_open():
