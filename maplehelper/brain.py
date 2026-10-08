@@ -710,6 +710,23 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
+class Stream:
+    """The callback a provider streams the raw reply to: the chat gets the visible text (streamed_text), and stage()
+    passes on what the AI is doing before its first words ("tools", "hedge": base.Race, the providers' stream
+    readers), for the waiting bubble. A provider that knows nothing of stages just calls it with the text."""
+
+    def __init__(self, on_delta, on_stage, hebrew: bool):
+        self.on_delta, self.on_stage, self.hebrew = on_delta, on_stage, hebrew
+
+    def __call__(self, raw: str) -> None:
+        if self.on_delta:
+            self.on_delta(streamed_text(raw, self.hebrew))
+
+    def stage(self, kind: str) -> None:
+        if self.on_stage:
+            self.on_stage(kind)
+
+
 WARM_IDLE_S = 60 * 60     # the chat closed, or no question asked, this long: no process is kept waiting (audit PRF-1)
 
 
@@ -839,8 +856,9 @@ class Brain:
 
     def ask(self, question: str, character: Character | None, history: History | None,
             screenshot_jpeg: bytes | None, on_delta=None, focus=None, extra: str | None = None,
-            model: str | None = None, light: bool = False) -> Answer:
-        """Blocking call; on_delta(visible_text_so_far) is invoked while the answer streams.
+            model: str | None = None, light: bool = False, on_stage=None) -> Answer:
+        """Blocking call; on_delta(visible_text_so_far) is invoked while the answer streams, on_stage(kind) when
+        the AI reports what it is doing before that (Stream).
         extra: context for the prompt only; every heuristic below reads the player's own question.
         model: another model for this one call (None: the player's). light: a screenshot read (the ⟳ sync): no
         knowledge-base pre-fetch and no file tools, so a light model answers in seconds instead of ~40 s."""
@@ -856,7 +874,7 @@ class Brain:
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
         hebrew = reply_language(question, self.ui_lang, self.kb) == "Hebrew"
-        raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
+        raw_delta = Stream(on_delta, on_stage, hebrew) if on_delta or on_stage else None
         if cancels != self._cancels:
             return Answer(error="cancelled")      # Stop came while the prompt was built: no AI run starts at all
         if model or light:

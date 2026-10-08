@@ -674,6 +674,27 @@ class TestHedging:
         assert r.text == "quick" and seen == ["quick"]
         assert race.attempts[0].lost
 
+    def test_the_race_tells_the_waiting_bubble_its_stages(self):
+        """The chat's "Thinking…" says when the AI reads the database and when a second run went out (CHAT-03):
+        the stage rides on the delta callback (brain.Stream), and only a run that can still answer reports."""
+        from maplehelper.brain import Stream
+        stages, texts = [], []
+        race = base.Race(Stream(texts.append, stages.append, False))
+
+        def run_one(a):
+            if a.n == 0:
+                time.sleep(0.6)
+                a.stage("tools")            # lost by now: never shown
+                return base.RawResult(error="no_result")
+            a.stage("tools")
+            a.delta("Snail Park.")
+            return base.RawResult(text="Snail Park.")
+        r = race.run(run_one, hedge_after=0.1)
+        time.sleep(0.7)
+        assert r.text == "Snail Park." and texts == ["Snail Park."] and stages == ["hedge", "tools"]
+        # a provider that knows no stages: the plain callback still works
+        assert base.Race(texts.append).on_stage is None
+
 
 END_TURN = [_se({"type": "message_delta", "delta": {"stop_reason": "end_turn"}}), _se({"type": "message_stop"})]
 STATUS = {"type": "system", "subtype": "status", "status": "requesting"}

@@ -118,6 +118,13 @@ class Attempt:
                 self.active = True
                 self.race.cond.notify_all()
 
+    def stage(self, kind: str) -> None:
+        """What the run is doing ("tools": it reads the knowledge base), for the chat's waiting bubble: only from a
+        run that can still answer."""
+        race = self.race
+        if race.on_stage and not self.lost and race.owner in (None, self):
+            race.on_stage(kind)
+
     def delta(self, text: str) -> None:
         """Visible text so far. The first run to stream text wins the question (the other one is stopped), and only
         its text reaches the chat: two answers never interleave."""
@@ -143,6 +150,8 @@ class Race:
 
     def __init__(self, on_delta=None, label: str = "AI"):
         self.on_delta, self.label = on_delta, label
+        # the chat's stage callback rides on the delta callback (brain.Stream.stage): "tools", "hedge"
+        self.on_stage = getattr(on_delta, "stage", None)
         self.cond = threading.Condition()
         self.attempts: list[Attempt] = []
         self.losers: set[Attempt] = set()
@@ -219,6 +228,8 @@ class Race:
                     if wait <= 0:
                         log.info("%s: no sign of life %g s after the question, asking again in parallel",
                                  self.label, hedge_after)
+                        if self.on_stage:
+                            self.on_stage("hedge")      # the chat says it takes longer than usual
                         self._start(run_one)
                         continue
                     self.cond.wait(wait)
