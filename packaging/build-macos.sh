@@ -59,8 +59,17 @@ rm -rf dist build
 "$PYTHON" -m PyInstaller --noconfirm --clean --distpath dist --workpath build packaging/maplehelper.spec
 
 # one consistent ad-hoc signature over the whole bundle (PyInstaller signs piece by piece)
-codesign --force --deep --sign - "$APP"
-codesign --verify --deep --strict "$APP"
+signdiag() {
+  echo "== codesign failed; bundle diagnostics" >&2
+  echo "-- broken symlinks:" >&2; find "$APP" -type l ! -exec test -e {} \; -print >&2 || true
+  echo "-- hidden files/dirs:" >&2; find "$APP" -name '.*' -print >&2 || true
+  echo "-- rapidocr in the bundle:" >&2; find "$APP" -path '*rapidocr*' -maxdepth 6 -print >&2 || true
+  codesign --force --deep --sign - -vvvv "$APP" >&2 || true
+  codesign --verify --deep --strict -vvvv "$APP" >&2 || true
+  exit 1
+}
+codesign --force --deep --sign - "$APP" || signdiag
+codesign --verify --deep --strict "$APP" || signdiag
 
 # ---------------------------------------------------------------- 2. smoke test the frozen app
 selftest "$APP/$APP_EXE"
