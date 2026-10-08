@@ -267,6 +267,7 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
+  Choices: TArrayOfString;
 begin
   if (CurUninstallStep <> usPostUninstall) or UninstallSilent then
     Exit;
@@ -275,9 +276,12 @@ begin
     Exit;
   // the first choice (IDYES) keeps: it has the focus. TaskDialogMsgBox takes no default-button flag; a dialog
   // that fails returns 0, which keeps too
+  // (the choices are built first: a line of [Code] that starts with "[" is read as a new section)
+  SetArrayLength(Choices, 2);
+  Choices[0] := CustomMessage('DeleteUserDataKeep');
+  Choices[1] := CustomMessage('DeleteUserDataDelete');
   if TaskDialogMsgBox(CustomMessage('DeleteUserDataTitle'), FmtMessage(CustomMessage('DeleteUserData'), [DataDir]),
-                      mbConfirmation, MB_YESNO,
-                      [CustomMessage('DeleteUserDataKeep'), CustomMessage('DeleteUserDataDelete')], 0) = IDNO then
+                      mbConfirmation, MB_YESNO, Choices, 0) = IDNO then
   begin
     DeleteApiKeys();
     if not DelTree(DataDir, True, True, True) then
