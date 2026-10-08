@@ -349,7 +349,8 @@ class MapleHelperApp:
 
     def show_whats_new(self, notes: list[dict] | None = None):
         self.open_window("whats_new", lambda: WhatsNewDialog(
-            notes if notes is not None else whatsnew.load()[:6], self.settings["language"], self.style()))
+            notes if notes is not None else whatsnew.since("0", __version__)[:6],    # notes written ahead of
+            self.settings["language"], self.style()))                              # a release stay hidden
 
     def check_permissions(self):
         """macOS: ask once for Screen Recording (the screenshot), and say how to grant it when missing."""
