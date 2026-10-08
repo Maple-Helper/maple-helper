@@ -44,12 +44,12 @@ def to_capture(rect: QRect, screens: list[tuple[QRect, float]], scale: bool = Tr
 
 
 class RegionPicker(QWidget):
-    """Frameless stay-on-top overlay covering every screen; drag a box, a right-click cancels.
+    """Frameless stay-on-top overlay covering every screen; drag a box.
 
-    No keys at all (the owner's, 2026-10-08): Esc no longer cancels, and the keyboard is never grabbed."""
+    No way to cancel (the owner's, 2026-10-08): neither Esc nor a right-click closes it, and the keyboard is never
+    grabbed; it closes once a box is drawn."""
 
     picked = Signal(dict)
-    cancelled = Signal()
 
     def __init__(self, hint: str, rtl: bool = False, parent=None) -> None:
         super().__init__(parent)
@@ -77,7 +77,7 @@ class RegionPicker(QWidget):
                 break
 
     def start(self) -> None:
-        """Show the overlay on top of everything (a right-click cancels; no keys)."""
+        """Show the overlay on top of everything (it closes once a box is drawn)."""
         self.show()
         self.raise_()
         self.activateWindow()
@@ -90,10 +90,7 @@ class RegionPicker(QWidget):
     # -- input ---------------------------------------------------------------
 
     def mousePressEvent(self, e) -> None:
-        if e.button() == Qt.RightButton:
-            self.cancelled.emit()
-            self.close()
-        elif e.button() == Qt.LeftButton:
+        if e.button() == Qt.LeftButton:
             self._origin = e.position().toPoint()
             self._current = e.position().toPoint()
             self.update()

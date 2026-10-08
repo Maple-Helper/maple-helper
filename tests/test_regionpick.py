@@ -33,20 +33,25 @@ def test_no_scaling_passes_through():
         "x": 2600, "y": 100, "w": 200, "h": 150}
 
 
-def test_esc_does_not_cancel_and_right_click_does():
-    """No keys (the owner's, 2026-10-08): Esc leaves the picker open; a right-click cancels it."""
+def test_nothing_cancels_the_picker():
+    """No way to cancel (the owner's, 2026-10-08): Esc and a right-click leave it open; a drawn box closes it."""
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QApplication
+    from maplehelper.ui import regionpick
     from maplehelper.ui.regionpick import RegionPicker
     QApplication.instance() or QApplication([])
     picker = RegionPicker(hint="x")
-    seen = []
-    picker.cancelled.connect(lambda: seen.append(1))
+    assert not hasattr(picker, "cancelled")
+    picked = []
+    picker.picked.connect(picked.append)
     try:
+        picker.show()
         QTest.keyClick(picker, Qt.Key_Escape)
-        assert seen == []
         QTest.mouseClick(picker, Qt.RightButton, pos=QPoint(5, 5))
-        assert seen == [1]
+        assert picker.isVisible() and picked == []
+        QTest.mousePress(picker, Qt.LeftButton, pos=QPoint(10, 10))
+        QTest.mouseRelease(picker, Qt.LeftButton, pos=QPoint(10 + regionpick.MIN_SIDE + 40, 80))
+        assert len(picked) == 1 and not picker.isVisible()
     finally:
         picker.close()

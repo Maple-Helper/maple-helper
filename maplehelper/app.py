@@ -509,7 +509,6 @@ class MapleHelperApp:
         picker = RegionPicker(hint=t("minimap_pick_hint"), rtl=t.rtl)
         self._minimap_picker = picker
         picker.picked.connect(self._on_minimap_picked)
-        picker.cancelled.connect(self._on_minimap_cancelled)
         picker.start()
 
     def _on_minimap_picked(self, rect: dict):
@@ -524,9 +523,6 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # (also resets the locator's lock onto the new box)
-
-    def _on_minimap_cancelled(self):
-        self._end_minimap_pick()
 
     def _end_minimap_pick(self):
         picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None

@@ -1087,8 +1087,7 @@ STRINGS = {
                           "• The ◎ button shows the way from your map, with a yellow dot where you are\n"
                           "• \"How to get there\" in the Play tools starts from your map\n"
                           "Moved the minimap or resized the game? Click again and draw a new box."},
-    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק. קליק ימני לביטול.",
-                          "en": "Drag a box around the game's minimap. Right-click cancels."},
+    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק.", "en": "Drag a box around the game's minimap."},
     "minimap_scan_interval": {"he": "סריקת המיני-מפה לפי שניות", "en": "Minimap scan, in seconds"},
     "scan_every_0_5": {"he": "חצי שנייה", "en": "Half a second"},
     "scan_every_1": {"he": "שנייה אחת", "en": "1 second"},
