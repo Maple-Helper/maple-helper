@@ -11,13 +11,14 @@ from PySide6.QtGui import QGuiApplication, QIcon, QPainter, QPainterPath, QPen, 
 from PySide6.QtWidgets import (QApplication, QDialog, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QScrollArea, QSizePolicy, QToolButton, QVBoxLayout, QWidget, QWidgetAction)
 
-from .. import __version__, bidi, osapi, quick, sources, telemetry
+from .. import __version__, bidi, osapi, quick, routes, sources, telemetry
 from ..brain import Answer, Brain
 from ..i18n import STRINGS, I18n
 from ..kb import KnowledgeBase
 from ..session import SessionStats, blocks as session_blocks, records as session_records
 from ..store import ASSETS, History, Profiles, Settings
 from . import theme
+from .location import LOCATION
 from .glass import paint_glass
 from .widgets import (SELECTION, WISHLIST, Bubble, BubbleRow, DropGroupCard, EntityCard, NoticeCard, ProfileCard,
                       CharacterChoice, SessionCard, SplitMenu, SystemLine, TileGrid, source_tags,
@@ -453,6 +454,7 @@ class Overlay(QWidget):
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
     news_requested = Signal()          # the megaphone or the news strip: the News window
+    minimap_requested = Signal()       # the minimap icon: choose the game's minimap box to read where the player is
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, brain: Brain):
         # a normal window on Windows, not a tool window: Discord, OBS and Alt+Tab list only those, so streamers can
@@ -484,6 +486,8 @@ class Overlay(QWidget):
         self.shot_provider = None
         self._build()
         WISHLIST.bind(settings, profiles)
+        LOCATION.changed.connect(self._refresh_location)
+        LOCATION.status.connect(self._refresh_location)
         self.apply_language()
         self.restore_geometry()
 
@@ -555,7 +559,7 @@ class Overlay(QWidget):
         for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
-        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
+        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, minimap, settings | minimize, close
         self.history_btn = self._icon_button(theme.ICON["search"])
         self.history_btn.clicked.connect(self.history_requested.emit)
         tb.addWidget(self.history_btn)
@@ -573,6 +577,9 @@ class Overlay(QWidget):
         self.tools_btn = ControllerButton()                           # a game controller: the play tools
         self.tools_btn.clicked.connect(self.tools_requested.emit)
         tb.addWidget(self.tools_btn)
+        self.minimap_btn = self._icon_button(theme.ICON["minimap"])
+        self.minimap_btn.clicked.connect(self.minimap_requested.emit)
+        tb.addWidget(self.minimap_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         tb.addWidget(self.settings_btn)
@@ -829,23 +836,24 @@ class Overlay(QWidget):
         super().leaveEvent(e)
 
     def _fit_header(self):
-        """The saver badge in full only when the header has room: first the buttons move closer, then the badge
-        shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at the narrowest width
-        with the largest font does it step aside. (The version sits in the footer, beside the scope line.)"""
+        """The saver badge in full only when the header has room: first the buttons move closer, then narrower still,
+        then the badge shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at the
+        narrowest width with the largest font does it step aside. (The version sits in the footer, beside the scope
+        line.)"""
         tb = self.title_bar.layout()
         room = self.title_bar.width()
         self.saver_badge.setText("🍃 " + self.t("saver_on_badge"))
         self.saver_badge.setVisible(self._saver_on)
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.settings_btn,
-                   self.min_btn, self.close_btn)
+        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.minimap_btn,
+                   self.settings_btn, self.min_btn, self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
             b.setMinimumWidth(24)
             b.setMaximumWidth(16777215)
         tb.setSpacing(8)
-        for step in ("tight", "badge", "beta", "nobeta", "done"):
+        for step in ("tight", "tighter", "badge", "beta", "nobeta", "done"):
             tb.invalidate()
             if tb.sizeHint().width() <= room or step == "done":
                 return
@@ -853,6 +861,10 @@ class Overlay(QWidget):
                 tb.setSpacing(3)          # the header's buttons closer together, and a little narrower
                 for b in buttons:
                     b.setFixedWidth(26)
+            elif step == "tighter":
+                tb.setSpacing(2)          # nine icon buttons only fit 470 px at the largest font this narrow
+                for b in buttons:
+                    b.setFixedWidth(24)
             elif step == "badge":
                 self.saver_badge.setText("🍃")
             elif step == "beta":
@@ -907,6 +919,7 @@ class Overlay(QWidget):
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
         set_tip(self.settings_btn, self.t("settings"))
+        set_tip(self.minimap_btn, self.t("minimap_select"))
         self.saver_badge.setToolTip(self.t.p("saver_hint", self.settings["provider"]))
         self._fit_header()
         self.show_scope()
@@ -974,8 +987,23 @@ class Overlay(QWidget):
         self.no_char_card.setVisible(c is None)
         if c:
             self.profile_card.show_character(c, self.profiles.avatar_path(c), self.kb, self.t.rtl)
+        self._refresh_location()
         self.refresh_plan()
         self.refresh_pins()
+
+    def _refresh_location(self, _what: object = None) -> None:
+        """The line under the level on the character card: where the minimap read says the player is (nothing
+        when no minimap box was chosen yet). A Qt slot too: LOCATION's signals carry what changed, which this
+        re-reads from LOCATION itself."""
+        here = LOCATION.here
+        if here is not None:
+            name = routes.of(self.kb).name(here.map)
+            text = bidi.plain(self.t("location_line", name=bidi.ltr_block(name, self.t.rtl)), self.t.rtl)
+        elif LOCATION.state == "unknown":
+            text = bidi.plain(self.t("location_unknown"), self.t.rtl)
+        else:
+            text = ""
+        self.profile_card.show_location(text)
 
     # ------------------------------------------------------------------ plan (EXP, tips, "My plan")
 

@@ -1075,6 +1075,12 @@ class ProfileCard(QFrame):
         self.meta = QLabel(objectName="ProfileMeta")
         col.addWidget(self.name)
         col.addWidget(self.meta)
+        # where the minimap read says the player is ("In Henesys"): the chat owns the text (show_location),
+        # this label only shows it, hidden when there is nothing to say yet
+        self.where = QLabel(objectName="ExpText")
+        self.where.setWordWrap(True)
+        self.where.hide()
+        col.addWidget(self.where)
         from .plancard import ExpBar
         self.exp = ExpBar()
         self.exp.hide()
@@ -1134,6 +1140,13 @@ class ProfileCard(QFrame):
         self.meta.setText(level_job(c, rtl))
         self.meta.setAlignment(align)
         self.avatar.set_image(character_image(c, avatar_path, kb))
+
+    def show_location(self, text: str) -> None:
+        """Where the player is, under the level ("In Henesys", already in the UI's language): empty hides the line."""
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        self.where.setText(text)
+        self.where.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
+        self.where.setVisible(bool(text))
 
     def mouseReleaseEvent(self, e):
         if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
