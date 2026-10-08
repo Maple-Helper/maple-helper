@@ -120,20 +120,33 @@ def lines(t, kb, r: Recent) -> list[str]:
     out = [sources.change_line(f, _value(old), _value(new), *_labels(kb, r.key, f, new))
            for f, (old, new) in r.props.items() if not same(old, new)]
     if r.drops_added:
-        out.append(t("pn_drops_added", items=", ".join(r.drops_added)))
+        out.append(t("pn_drops_added", items=_items(t, r.drops_added)))
     if r.drops_removed:
-        out.append(t("pn_drops_removed", items=", ".join(r.drops_removed)))
+        out.append(t("pn_drops_removed", items=_items(t, r.drops_removed)))
     if r.old_name:
         out.append(t("pn_renamed", name=bidi.ltr_block(r.old_name, t.rtl)))
     if r.community_added:
-        out.append(t("pn_community_added", items=", ".join(r.community_added)))
+        out.append(t("pn_community_added", items=_items(t, r.community_added)))
     if r.community_removed:
-        out.append(t("pn_community_removed", items=", ".join(r.community_removed)))
+        out.append(t("pn_community_removed", items=_items(t, r.community_removed)))
     if r.mesos and r.mesos[0] != r.mesos[1]:
         # "18-23 → 20-25" one left-to-right block: in a Hebrew line the arrow still points from old to new
         change = f"{_mesos(r.mesos[0])} → {_mesos(r.mesos[1])}"
         out.append(t("pn_mesos", change=f"{bidi.LRI}{change}{bidi.PDI}"))
     return out
+
+
+ITEMS_SHOWN = 8      # item names in one line; the rest counted ("and 6 more")
+
+
+def _items(t, names: list[str]) -> str:
+    """Item names for a line: in Hebrew each one block that never breaks inside ("Earring STR Scroll:" / "Greater"
+    sat on two lines, between other names, and the commas landed at the line ends); a long list cut with a count."""
+    from .i18n import NBSP
+    shown = [bidi.ltr_block(n.replace(" ", NBSP), True) if t.rtl else n for n in names[:ITEMS_SHOWN]]
+    if len(names) > ITEMS_SHOWN:
+        shown.append(t("pn_more", n=len(names) - ITEMS_SHOWN))
+    return ", ".join(shown)
 
 
 def same(old, new) -> bool:

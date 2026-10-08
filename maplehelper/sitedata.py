@@ -260,8 +260,13 @@ def hunger_top(kb, key: str) -> int | None:
 
 
 def untradeable(kb, key: str) -> bool:
-    """The item page says "Untradeable": no NPC buys it and no player can (a pet: the Cash Shop only)."""
-    return bool(re.search(r"^Untradeable\b", kb.page(key), re.M))
+    """The item page says "Untradeable": no NPC buys it and no player can (a pet: the Cash Shop only). Once per item
+    and KB: the Tools window's item list asks it of ~650 Cash items each time it opens (1.3 s, PERF-05)."""
+    from .kb import memo
+    seen = memo(kb, "_untradeable")
+    if key not in seen:
+        seen[key] = bool(re.search(r"^Untradeable\b", kb.page(key), re.M))
+    return seen[key]
 
 
 def pets(kb) -> list[Pet]:

@@ -150,6 +150,8 @@ def needs(kb, level: int, base_class: str = "", job: str = "", done: list[str] |
         if e:
             out.setdefault(e["name"].lower(), ("wish", ""))
     for q in quests.for_level(kb, level, base_class, job, done, crafts=crafts or None)["now"]:
+        if q.area == "Crafting" and _profession(kb, q) not in {str(p).lower() for p in (crafts or {})}:
+            continue          # a profession the player never took: Garnet Ore isn't "for a quest" to them (TOOL-05)
         for line in q.needs:
             m = quests._ITEM.fullmatch(line.strip())
             if m and not m.group(1).startswith(("Defeat ", "Collect ")):
@@ -163,6 +165,19 @@ def needs(kb, level: int, base_class: str = "", job: str = "", done: list[str] |
             for _, name in r.ingredients:
                 out.setdefault(name.lower(), ("recipe", r.name))
     return out
+
+
+def _profession(kb, q) -> str:
+    """The profession a crafting quest is of ("smithing"): the level it asks, else the one it starts (its teacher's
+    "... in Need of an Apprentice" asks none)."""
+    from . import crafting
+    if q.profession:
+        return q.profession[0].lower()
+    from .kb import memo
+    starts = memo(kb, "_craft_starts")
+    if not starts:
+        starts.update({crafting.info(kb, p).start_quest: p for p in crafting.PROFESSIONS})
+    return starts.get(q.name, "")
 
 
 def _target(kb, m, level: int, wanted: dict, per_monster: int) -> Target | None:

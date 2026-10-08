@@ -957,6 +957,7 @@ class MapleHelperApp:
             dlg.detail_ask_requested.connect(lambda q, shown: self.ask_from_tools(q, True, detail=True, shown=shown))
             dlg.tag_requested.connect(self.ask_about_guide)
             dlg.guide_requested.connect(self.show_guides)
+            dlg.add_character_requested.connect(lambda: (self.add_character(), self.on_profile_changed()))
             return dlg
         return self.open_window("tools", make)
 
@@ -1080,12 +1081,15 @@ class MapleHelperApp:
         old = self.__dict__.get("_windows", {}).get(f"wishlist:{cid}")
         if old is not None:
             old.close()             # a star added meanwhile: show the list as it is now, not the open copy
-        self.open_window(f"wishlist:{cid}", lambda: self._wishlist_dialog(keys))
+        self.open_window(f"wishlist:{cid}", lambda: self._wishlist_dialog(keys, c or self.profiles.active))
 
-    def _wishlist_dialog(self, keys):
+    def _wishlist_dialog(self, keys, c=None):
         from .ui.wishlist import WishlistDialog
-        dlg = WishlistDialog(keys, self.kb, self.settings["language"], self.style())
+        dlg = WishlistDialog(keys, self.kb, self.settings["language"], self.style(), c.level if c else None)
         dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
+        # who drops it and the way there, from Play tools (answered locally, no AI)
+        dlg.farm_requested.connect(lambda name: self.show_tools("farm").farm_item(name))
+        dlg.route_requested.connect(lambda name: self.show_tools("route").route_to_place(name))
         return dlg
 
     def show_patch_notes(self, entries: list[dict] | None = None, tab: str = "changes"):

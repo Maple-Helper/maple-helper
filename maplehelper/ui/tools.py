@@ -27,6 +27,9 @@ from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, 
 from .patchnotes import gutter
 
 PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
+# the pages that are all about the character: with none, one card that offers to add one takes their place (a live
+# stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
+CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -310,6 +313,21 @@ def _bold_names(text: str) -> str:
     return text
 
 
+def _rows_once(build):
+    """A picker's rows made once per KB (the window is made anew each time it opens: the item list read ~650 pages
+    every time, PERF-05)."""
+    def rows(kb):
+        from ..kb import memo
+        seen = memo(kb, "_tool_rows")
+        if build.__name__ not in seen:
+            seen[build.__name__] = build(kb)
+        return seen[build.__name__]
+    rows.__name__ = build.__name__
+    rows.__doc__ = build.__doc__
+    return rows
+
+
+@_rows_once
 def monster_rows(kb) -> list[tuple[str, str, object]]:
     """Every monster once (the version that spawns on the most maps), lowest level first."""
     best: dict[str, combat.Monster] = {}
@@ -324,6 +342,7 @@ def monster_rows(kb) -> list[tuple[str, str, object]]:
             for m in sorted(best.values(), key=lambda m: (m.level, m.name))]
 
 
+@_rows_once
 def item_rows(kb) -> list[tuple[str, str, object]]:
     """Every item once, by name."""
     from .. import sitedata
@@ -336,6 +355,7 @@ def item_rows(kb) -> list[tuple[str, str, object]]:
     return [(name, name, kb.picture(k)) for name, k in sorted(seen.items(), key=lambda x: x[0].lower())]
 
 
+@_rows_once
 def map_rows(kb) -> list[tuple[str, str, object]]:
     """Every reachable map with its minimap: hunting grounds by monster level, then towns and the rest."""
     rows = []
@@ -381,6 +401,7 @@ class ToolsDialog(GlassDialog):
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
+    add_character_requested = Signal()         # no character yet: the chat's "Add character"
 
     def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
         self.t = t = I18n(lang or "he")
@@ -442,14 +463,31 @@ class ToolsDialog(GlassDialog):
         self._pending.remove(name)
         w = getattr(self, f"_page_{name}")()
         self.pages[name] = w
+        shown = w
+        if name in CHAR_PAGES:
+            # the page, or (no character) the card that offers to add one in its place
+            shown = QStackedWidget()
+            shown.addWidget(w)
+            empty, lay = scroll_page(self.t.rtl)
+            lay.addWidget(self._no_char_card())
+            lay.addStretch(1)
+            shown.addWidget(empty)
+            self.__dict__.setdefault("_gates", {})[name] = shown
         i = PAGES.index(name)
         placeholder = self.stack.widget(i)
-        self.stack.insertWidget(i, w)
+        self.stack.insertWidget(i, shown)
         self.stack.removeWidget(placeholder)
         placeholder.deleteLater()
-        rtl_buttons(w, self.t.rtl)
+        rtl_buttons(shown, self.t.rtl)
         # Enter in a search box runs that tab's search, never "click the first tab" (Where to train)
-        no_default_buttons(w)
+        no_default_buttons(shown)
+        self._gate(name)
+
+    def _gate(self, name: str) -> None:
+        """A character page shows itself with a character, the "add a character" card without one."""
+        gate = self.__dict__.get("_gates", {}).get(name)
+        if gate is not None:
+            gate.setCurrentIndex(0 if self.c else 1)
 
     def _build_next(self) -> None:
         """One more page per turn of the event loop, so the window stays responsive while they are made."""
@@ -493,6 +531,7 @@ class ToolsDialog(GlassDialog):
         if was != PAGES[i] and was in self.pages:
             self._leave(was)
         self._build_page(PAGES[i])
+        self._gate(PAGES[i])
         self.nav.button(i).setChecked(True)
         self.stack.setCurrentIndex(i)
         # the quest pages rebuild up to 40 cards (~0.3 s): a tab switch back to one that would show the same thing
@@ -525,6 +564,7 @@ class ToolsDialog(GlassDialog):
         """Redraw a page (or the current one) from the character and the KB."""
         self._expire_cycles()
         name = name or PAGES[self.stack.currentIndex()]
+        self._gate(name)
         getattr(self, f"_fill_{name}", lambda: None)()
         if name in ("quests", "town"):
             self.__dict__.setdefault("_filled", {})[name] = self._page_state(name)
@@ -650,7 +690,27 @@ class ToolsDialog(GlassDialog):
         return box
 
     def _no_character(self, lay):
-        lay.addWidget(self._label(self.t("tool_no_char"), "RowHint"))
+        lay.addWidget(self._no_char_card())
+
+    def _no_char_card(self) -> QFrame:
+        """No character yet: what the tools need and a button that adds one (the line alone, "create one from the
+        character card in the chat", gave no way to act on it)."""
+        t = self.t
+        card = QFrame(objectName="Card")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(6)
+        title = QLabel(self._p(t("tool_no_char_title")), objectName="CardName")
+        title.setWordWrap(True)
+        lay.addWidget(title)
+        lay.addWidget(self._label(t("tool_no_char_line"), "RowHint"))
+        add = QPushButton(self._p(t("add_character")), objectName="Primary")
+        add.setCursor(Qt.PointingHandCursor)
+        add.setAutoDefault(False)
+        add.clicked.connect(lambda *_: self.add_character_requested.emit())
+        lay.addSpacing(4)
+        lay.addWidget(add, 0, Qt.AlignLeft)        # AlignLeft is the leading edge (mirrored in Hebrew)
+        return card
 
     # my stats (shared by "where to train" and the calculator) ------------
 
@@ -995,10 +1055,13 @@ class ToolsDialog(GlassDialog):
                 # one English block: "Tree Dungeon, Forest Up North IV" kept its comma in place
                 label = self.kb.map_label(mp)
                 row = self._row(maps_sec, bidi.ltr_name(label, t.rtl), tag(self._p(t("spot_crowd", n=n)), "Tag"))
-                ask = QPushButton(self._p(t("ask_short")), objectName="Link")
-                ask.setAutoDefault(False)
-                ask.clicked.connect(lambda _=False, q=t("calc_ask_map", map=label): self.ask_requested.emit(q, False))
-                row.layout().insertWidget(1, ask, 0, Qt.AlignVCenter)      # between the map's name and its count
+                # the way there, found here: an "Ask in chat" a map asked the AI what the route finder knows (the
+                # monster's own "Ask in chat" is above, TOOL-08)
+                way = QPushButton(self._p(t("farm_route")), objectName="Link")
+                way.setAutoDefault(False)
+                way.setCursor(Qt.PointingHandCursor)
+                way.clicked.connect(lambda _=False, mp=mp: self._farm_route(mp))
+                row.layout().insertWidget(1, way, 0, Qt.AlignVCenter)      # between the map's name and its count
             self.calc_box.addWidget(maps_sec)
 
     # build ---------------------------------------------------------------
@@ -1097,6 +1160,13 @@ class ToolsDialog(GlassDialog):
             self.build_tier.addWidget(tier)
         if not tables:
             self.build_view.setHtml("")
+            # not a page with one grey line: the way on, the skills tab and the guides (a Beginner, TOOL-19)
+            beginner = next((k for k in self.kb.entities if k.startswith("guide/beginner")), None)
+            acts = [("build_see_skills", lambda: (self.build_tabs.set_value("skills"), self._build_tab("skills")))]
+            if beginner and not key:
+                acts.append(("build_beginner_guide", lambda: self.guide_requested.emit(beginner)))
+            acts.append(("build_all_guides", lambda: self.guide_requested.emit("")))
+            self.build_tier.addWidget(self._links_box(acts))
             return
         he = t.lang != "en"
         icons = self._skill_icons()
@@ -1754,10 +1824,13 @@ class ToolsDialog(GlassDialog):
         return (f"<span style='white-space: nowrap'>{bidi.LRE}{img}{html.escape(name)} x{n}{bidi.PDF}{bidi.RLM}</span>"
                 + html.escape(note or ""))
 
-    def _things_label(self, head: str, things: list[str], extra: str = "") -> QLabel:
+    def _things_label(self, head: str, things: list[str], extra: str = "", flow: bool = False) -> QLabel:
         """A heading, then one thing per line: its picture beside its own name, never split by a wrap. A monster to
-        defeat has its way there and its hit & damage after it."""
+        defeat has its way there and its hit & damage after it. flow: the things side by side, wrapping between
+        them (a quest's seven return scrolls, one a line, filled the window: TOOL-06)."""
         side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
+        if flow and len(things) > 2:
+            return self._things_flow(head, things, extra)
         lines = [f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(head)}</b></p>"]
         for x in things:
             more = ""
@@ -1774,19 +1847,78 @@ class ToolsDialog(GlassDialog):
         lb.linkActivated.connect(self._nav)
         return self._zoomable(lb)
 
+    def _things_flow(self, head: str, things: list[str], extra: str = "") -> QWidget:
+        """_things_label's things as chips in a flow: each picture with its own name, wrapping between them (in one
+        line of text a picture stayed at the end of a line while its name went on to the next)."""
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(2)
+        side = "dir='rtl' align='right'" if self.t.rtl else "dir='ltr' align='left'"
+        top = QLabel(f"<p {side} style='margin:0'><b>{html.escape(head)}</b></p>", objectName="CardSub")
+        top.setTextFormat(Qt.RichText)
+        lay.addWidget(top)
+        chips = FlowLayout(spacing=12, line_spacing=2)
+        for x in things:
+            lb = QLabel(self._thing_html(x), objectName="CardSub")
+            lb.setTextFormat(Qt.RichText)
+            lb.linkActivated.connect(self._nav)
+            chips.addWidget(self._zoomable(lb))
+        lay.addLayout(chips)
+        if extra:
+            more = QLabel(f"<p {side} style='margin:0'>{bidi.LRE}{html.escape(extra)}{bidi.PDF}</p>", objectName="CardSub")
+            more.setTextFormat(Qt.RichText)
+            lay.addWidget(more)
+        return box
+
     def _droppers_label(self, needs: list[str]) -> QLabel | None:
         """ "מאיפה משיגים:" under "צריך:", item by item: the monsters that drop it, one a line with its picture
         (lowest level first), or the recipe that makes it ("Woodcrafting: 10 x Tree Branch"). By monster, one item
         repeated down the list; and a crafted one said nothing at all (the owner)."""
+        expanded: set[str] = set()          # the items whose every dropper is shown ("Show all N")
+        lb = QLabel(objectName="CardSub")
+
+        def link(href: str) -> None:
+            if href.startswith("all:"):
+                from urllib.parse import unquote
+                expanded.add(unquote(href[4:]))
+                lb.setText(self._droppers_html(needs, expanded) or "")
+                return
+            self._nav(href)
+        text = self._droppers_html(needs, expanded)
+        if not text:
+            return None
+        lb.setText(text)
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        lb.linkActivated.connect(link)
+        return self._zoomable(lb)
+
+    DROPPERS_SHOWN = 3
+
+    def _droppers_html(self, needs: list[str], expanded: set[str]) -> str:
+        """The droppers list's text: an item's three droppers nearest the character's level first, each with how
+        it sits against the level (the Farm tab's words), the rest behind "Show all N" (Iron Ingot listed nine
+        monsters from Lv 2 to Lv 40, a Lv 35 player scrolled past Lv 1-8 ones: TOOL-06)."""
+        from urllib.parse import quote
+
         def lv(m):
             return (self.kb.get(m) or {}).get("props", {}).get("Level") or 0
-        t = self.t
+        t, c = self.t, self.c
         side = "dir='rtl' align='right'" if t.rtl else "dir='ltr' align='left'"
+        good, warn = theme.GOOD_TEXT.get(theme.MODE, theme.GOOD_TEXT["light"]), theme.WARN_TEXT.get(theme.MODE, "#C9620A")
+        fit_color = {"easy": good, "range": theme.P()["muted"], "hard": warn}
         blocks = []
         for x in needs:
             name = re.sub(r"\s*x\s*[\d,]+$", "", x).strip()
             key = self.kb._item_by_name.get(name.lower())
             mons = sorted(self.kb.droppers.get(key, []) if key else [], key=lv)
+            if c and len(mons) > self.DROPPERS_SHOWN:
+                # nearest the level first, one well above it after the ones that can be farmed now
+                near = sorted(mons, key=lambda m: (farm.fit(c.level, lv(m)) == "hard", abs(c.level - lv(m)), lv(m)))
+                top = near[:self.DROPPERS_SHOWN]
+                mons = top + ([m for m in mons if m not in top] if name in expanded else [])
+            hidden = len(self.kb.droppers.get(key, []) if key else []) - len(mons)
             made = crafting.made_from(self.kb, name) if not mons else []
             if not mons and not made:
                 continue
@@ -1802,11 +1934,18 @@ class ToolsDialog(GlassDialog):
                 # the level in the UI's words: "רמה 5" in Hebrew, after the English block (HEB-14)
                 who = (f"{bidi.LRE}{img}{html.escape(mob)}{bidi.PDF}{bidi.RLM} ({html.escape(t('lv_short', n=lv(m)))})"
                        if t.rtl else f"{bidi.LRE}{img}{html.escape(f'{mob} (Lv. {lv(m)})')}{bidi.PDF}")
-                # the way to it and its hit & damage
+                # how it sits against the level, as on the Farm tab, then the way to it and its hit & damage
+                fit = farm.fit(c.level, lv(m)) if c else ""
+                tag_html = (f" · <span style='color:{fit_color[fit]}; font-weight:600'>"
+                            f"{html.escape(bidi.plain(t(f'farm_fit_{fit}'), t.rtl))}</span>" if fit else "")
                 more = (" · " + self._nav_html([("farm_route", "route", mob), ("tool_calc", "calc", mob)])
                         if self._mob_map(mob) else "")
                 rows.append(f"<p {side} style='margin:0 0 2px 0;'><span style='white-space: nowrap'>"
-                            f"{who}{bidi.RLM}</span>{more}</p>")
+                            f"{who}{bidi.RLM}</span>{tag_html}{more}</p>")
+            if hidden > 0:
+                rows.append(f"<p {side} style='margin:0 0 2px 0;'><a href='all:{quote(name)}' style='color:"
+                            f"{theme.accent_text()}; text-decoration:none'>"
+                            f"{html.escape(bidi.plain(t('q_droppers_all', n=hidden + len(mons)), t.rtl))}</a></p>")
             if made:
                 # a Hebrew line, then each recipe as one English line ("מכינים ב-Woodcrafting מ-10 x Tree Branch"
                 # in one line read backwards)
@@ -1821,13 +1960,9 @@ class ToolsDialog(GlassDialog):
                         rows.append(f"<p {side} style='margin:0 0 2px 0;'>{self._thing_html(f'{part.strip()} x {n}')}</p>")
             blocks.append("".join(rows))
         if not blocks:
-            return None
+            return ""
         head = f"<p {side} style='margin:0 0 2px 0;'><b>{html.escape(t('q_droppers_head'))}</b></p>"
-        lb = QLabel(head + "".join(blocks), objectName="CardSub")
-        lb.setTextFormat(Qt.RichText)
-        lb.setWordWrap(True)
-        lb.linkActivated.connect(self._nav)
-        return self._zoomable(lb)
+        return head + "".join(blocks)
 
     def _quest_card(self, q: quests.Quest, done: bool = False) -> QFrame:
         t = self.t
@@ -1924,13 +2059,12 @@ class ToolsDialog(GlassDialog):
         gets = q.rewards
         extra = " · ".join(x for x in (f"{q.mesos:,} mesos" if q.mesos else "", f"+{q.fame} Fame" if q.fame else "") if x)
         if gets or extra:
-            col.addWidget(self._things_label(t("q_gets_head"), gets, extra))
+            col.addWidget(self._things_label(t("q_gets_head"), gets, extra, flow=True))
         # "Pick one (class-specific)": the player's own class's choices (and "Any Class"), not the first class listed
         base = self.c.base_class if self.c else ""
         for head, things in (("q_pick_head", q.rewards_pick(base)), ("q_random_head", q.rewards_random(base))):
             if things:
-                shown = things
-                col.addWidget(self._things_label(t(head), shown))
+                col.addWidget(self._things_label(t(head), things, flow=True))
         # a reward that depends on the character's gender: both listed, each marked (the profile has no gender)
         by_gender = q.rewards_gender(t)
         if by_gender:
@@ -2005,7 +2139,7 @@ class ToolsDialog(GlassDialog):
     def _refresh_in_place(self):
         """Redraw the page where the player is reading (the list is rebuilt: it jumped to its end, seen live)."""
         from PySide6.QtWidgets import QScrollArea
-        page = self.stack.currentWidget()
+        page = self.pages.get(PAGES[self.stack.currentIndex()])
         bar = page.verticalScrollBar() if isinstance(page, QScrollArea) else None
         at = bar.value() if bar else 0
         self.refresh()
@@ -2091,10 +2225,15 @@ class ToolsDialog(GlassDialog):
         # or every recipe by level (how a later one is made, Arcforge's scrolls, was nowhere to see)
         # two tabs, quests and recipes; the recipes split again into what you can make now and all of them (the
         # owner's order)
-        self.craft_mode = Segmented([(t("craft_mode_teacher"), "teacher"), (t("craft_mode_recipes"), "recipes")],
-                                    "teacher", t.rtl)
+        # "Teacher & quests": the tab opens on the teacher's card, then the quests ("Quests" said only half, TOOL-14)
+        self.craft_mode = Segmented([(t("craft_mode_teacher").replace("&", "&&"), "teacher"),
+                                     (t("craft_mode_recipes"), "recipes")], "teacher", t.rtl)
         self.craft_mode.changed.connect(lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
         lay.addWidget(self.craft_mode, 0, Qt.AlignHCenter)
+        # the data source at the top, as on the other tabs (under the teacher's card and quests it sat at the end)
+        self.craft_src = QHBoxLayout()
+        lay.addLayout(self.craft_src)
+        self._source_line(self.craft_src, sources.MEOWDB)
         self.craft_recipe_mode = Segmented([(t("craft_mode_now"), "now"), (t("craft_mode_all"), "all")], "now", t.rtl)
         self.craft_recipe_mode.changed.connect(
             lambda *_: (setattr(self, "_craft_level_pick", None), self._fill_crafting()))
@@ -2113,9 +2252,6 @@ class ToolsDialog(GlassDialog):
         self.craft_levels_box.hide()
         lay.addWidget(self.craft_levels_box)
         self._craft_level_pick = None
-        self.craft_src = QHBoxLayout()
-        lay.addLayout(self.craft_src)
-        self._source_line(self.craft_src, sources.MEOWDB)
         self.craft_list = QVBoxLayout()
         self.craft_list.setSpacing(8)
         lay.addLayout(self.craft_list)
@@ -2335,7 +2471,7 @@ class ToolsDialog(GlassDialog):
         sec = Section(t("town_title"), t.rtl)
         self.town_pick = Segmented([(name, name) for name in quests.TOWNS], quests.TOWNS[0], t.rtl)
         self.town_pick.changed.connect(self._set_town)
-        sec.add_row(t("town_mine"), self.town_pick)
+        self.town_pick_row = sec.add_row(t("town_mine"), self.town_pick)
         self.town_advice = self._label("", "RowLabel")
         sec.add_widget(self.town_advice)
         self.town_basics = self._label(t("town_basics"), "RowHint")
@@ -2357,14 +2493,16 @@ class ToolsDialog(GlassDialog):
         self.town_src = QHBoxLayout()
         lay.addLayout(self.town_src)
         self._source_line(self.town_src, sources.MEOWDB)
-        self.town_list = QVBoxLayout()
-        self.town_list.setSpacing(8)
-        lay.addLayout(self.town_list)
-        self.town_done_toggle = self._done_toggle()      # donations repeat: one marked done can come back
+        # donations repeat: one marked done can come back. Under the header, as on the quests page: after a list
+        # of 38 quests it was out of reach (TOOL-10)
+        self.town_done_toggle = self._done_toggle()
         lay.addWidget(self.town_done_toggle, 0, Qt.AlignHCenter)
         self.town_done = QVBoxLayout()
         self.town_done.setSpacing(8)
         lay.addLayout(self.town_done)
+        self.town_list = QVBoxLayout()
+        self.town_list.setSpacing(8)
+        lay.addLayout(self.town_list)
         lay.addStretch(1)
         self._town_limit = MAX_QUESTS
         return sc
@@ -2396,6 +2534,13 @@ class ToolsDialog(GlassDialog):
         clear(self.town_list)
         clear(self.town_done)
         self.town_done_toggle.hide()
+        locked = bool(c) and c.level < 12
+        # under Lv. 12 one card: when it opens and what it gives. A town to pick, its advice and a second "opens at
+        # Lv. 12" under it asked for a choice that can't be made yet (TOOL-18)
+        self.town_pick_row.setVisible(not locked)
+        self.town_advice.setVisible(not locked)
+        self._set(self.town_basics, t("town_locked", n=12 - c.level) if locked else t("town_basics"))
+        self._source_line(self.town_src, None if locked else sources.MEOWDB)      # no list yet to give a source for
         if not c:
             self._no_character(self.town_list)
             return
@@ -2437,8 +2582,7 @@ class ToolsDialog(GlassDialog):
         # and an empty search said the opposite (TL2-12)
         self.town_head.setVisible(c.level >= 12)
         self.town_search.setVisible(c.level >= 12)
-        if c.level < 12:
-            self.town_list.addWidget(self._label(t("town_too_low"), "RowHint"))
+        if locked:
             return
         def grade(q):
             return q.grade[1] if q.grade else 0
@@ -2451,9 +2595,15 @@ class ToolsDialog(GlassDialog):
             if self._town_grade_pick not in grades:
                 self._town_grade_pick = None
             self.town_grades_box.show()
-            for value, text in [(None, t("town_all_grades"))] + [(g, t("town_grade_group", n=g) if g else t("town_no_grade"))
-                                                                 for g in grades]:
+            # "Grade 2" on the chip: the page is citizenship already; the full name on hover (3 rows of
+            # "Citizenship grade N" chips, TOOL-16)
+            for value, text, full in [(None, t("town_all_grades"), "")] + [
+                    (g, t("town_grade_chip", n=g), t("town_grade_group", n=g)) if g else
+                    (g, t("town_no_grade"), "") for g in grades]:
                 b = QPushButton(self._p(text), objectName="Chip")
+                if full:
+                    b.setToolTip(self._p(full))
+                    b.setAccessibleName(full)
                 b.setCheckable(True)
                 b.setChecked(value == self._town_grade_pick)
                 b.setCursor(Qt.PointingHandCursor)
@@ -2607,7 +2757,12 @@ class ToolsDialog(GlassDialog):
             col.addLayout(self._links_row(acts))
         self.price_box.addWidget(card)
         self._price_for = name
+        self._fm_lookup(name, item_id)
+
+    def _fm_lookup(self, name: str, item_id: int | None) -> None:
+        """The item's Free Market from MeowDB, in the background (market_ready brings it back)."""
         import threading
+        self._fm_args = (name, item_id)
 
         def lookup(n=name, i=item_id):
             # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
@@ -2631,7 +2786,8 @@ class ToolsDialog(GlassDialog):
         if name != getattr(self, "_price_for", None) or not hasattr(self, "fm_label"):
             return                      # an older lookup, the player picked another item since
         more: list[str] = []
-        if m is None:
+        offline = m is None
+        if offline:
             text = t("price_fm_offline")
         elif isinstance(m, market.ItemMarket):
             text, more = self._fm_lines(m)
@@ -2645,8 +2801,19 @@ class ToolsDialog(GlassDialog):
             clear(self.fm_more)
             for line in more:
                 self.fm_more.addWidget(self._label(line, "RowHint", seen=seen))
+            if offline:
+                # the lookup again for the same item: clearing the box and picking it again was the only way (TOOL-12)
+                self.fm_more.addWidget(self._links_box([("price_fm_retry", self._fm_retry)]))
         except RuntimeError:
             pass                        # the card was redrawn meanwhile
+
+    def _fm_retry(self) -> None:
+        name, item_id = getattr(self, "_fm_args", (None, None))
+        if not name or name != getattr(self, "_price_for", None):
+            return
+        self._set(self.fm_label, self.t("price_fm_loading"), set(getattr(self, "_card_seen", ())))
+        clear(self.fm_more)
+        self._fm_lookup(name, item_id)
 
     def _fm_lines(self, m) -> tuple[str, list[str]]:
         """An item's Free Market in words: the usual price (the line beside the community chip), then the offers
@@ -2720,10 +2887,14 @@ class ToolsDialog(GlassDialog):
         self.grind_monster.textChanged.connect(lambda text: None if text.strip() else self._grind_pick_monster())
         ml.addWidget(self.grind_monster)
         ml.addWidget(self._gl(t("grind_monster_hint"), "RowHint"))
-        # the way to the picked monster's map, and its hit & damage
-        ml.addLayout(self._links_row([
+        # the way to the picked monster's map, and its hit & damage: greyed out while no monster is picked (they
+        # looked active and a click did nothing, TOOL-17)
+        self.grind_links = self._links_row([
             ("farm_route", lambda: self.grind_monster.text().strip() and self._go_route(self.grind_monster.text())),
-            ("tool_calc", lambda: self.grind_monster.text().strip() and self._go_calc(self.grind_monster.text()))]))
+            ("tool_calc", lambda: self.grind_monster.text().strip() and self._go_calc(self.grind_monster.text()))])
+        ml.addLayout(self.grind_links)
+        self.grind_monster.textChanged.connect(lambda *_: self._grind_links_state())
+        self._grind_links_state()
         sec.add_widget(mon)
         # the session's state right over its numbers, under the monster and its links (the owner)
         sec.add_widget(top)
@@ -2806,6 +2977,13 @@ class ToolsDialog(GlassDialog):
         self._grind_clock = QTimer(self, interval=10_000, timeout=self._grind_tick)
         self._grind_clock.start()
         return sc
+
+    def _grind_links_state(self) -> None:
+        on = bool(self.grind_monster.text().strip())
+        for i in range(self.grind_links.count()):
+            w = self.grind_links.itemAt(i).widget()
+            if w is not None:
+                w.setEnabled(on)
 
     def _gl(self, text: str, obj: str) -> QLabel:
         """A grind tracker label: the terms the intro explained get no second "?"."""
@@ -3001,6 +3179,7 @@ class ToolsDialog(GlassDialog):
             self.grind_monster.setText(mob)
             self.grind_monster.setCursorPosition(0)
             self.grind_monster.blockSignals(False)
+            self._grind_links_state()
         self._fill_cells(sm, mob)
         if sm:
             self._fill_lines(sm)
@@ -3535,6 +3714,14 @@ class ToolsDialog(GlassDialog):
         self.grind_monster.setCursorPosition(0)
         self._grind_pick_monster()
 
+    def farm_item(self, name: str) -> None:
+        """Open on an item's droppers (the wishlist's "Where to get it")."""
+        self._go_farm_item(name)
+
+    def route_to_place(self, place: str) -> None:
+        """Open on the way to a map, a monster's map or an NPC (the wishlist's "How to get there")."""
+        self._go_route(place)
+
     def _go_farm_item(self, name: str):
         """Who drops an item, where and at what level (Farm)."""
         key = farm.item_key(self.kb, name)
@@ -3635,7 +3822,11 @@ class ToolsDialog(GlassDialog):
             if d.need:
                 # what you need it for: a quest you can do, a recipe of your profession, your wishlist
                 kind, what = d.need
-                need = tag(self._p(t(f"farm_need_{kind}")), "TagGood")
+                # which quest or recipe, on the chip: 17 of 18 drops said "For a quest", the quest only on hover
+                # (TOOL-05). A long name is cut there, whole in the tooltip
+                short = what if len(what) <= 30 else what[:29].rstrip() + "…"
+                need = tag(self._p(t(f"farm_need_{kind}_named", name=bidi.ltr_block(short, t.rtl)) if what
+                                   else t(f"farm_need_{kind}")), "TagGood")
                 if what:
                     need.setToolTip(tip_html(t(f"farm_need_{kind}_tip", name=what), t.rtl))
                 chips.addWidget(need)

@@ -155,12 +155,15 @@ class Info:
 
 
 def _town(kb, key: str) -> str:
-    """The first location of an NPC page ("Location Perion Victoria Road" -> "Perion")."""
-    lines = [ln.strip() for ln in kb.page(key).splitlines()]
-    for i, ln in enumerate(lines):
-        if ln in ("Location", "Locations") and i + 1 < len(lines):
-            return lines[i + 1].replace(" Victoria Road", "").replace(" Dungeon", "").strip()
-    return ""
+    """The first location of an NPC page ("Location Perion Victoria Road" -> "Perion"). Once per NPC and KB: the
+    Citizenship tab asks it of every NPC each time it fills (PERF-05)."""
+    from .kb import memo
+    seen = memo(kb, "_npc_town")
+    if key not in seen:
+        lines = [ln.strip() for ln in kb.page(key).splitlines()]
+        seen[key] = next((lines[i + 1].replace(" Victoria Road", "").replace(" Dungeon", "").strip()
+                          for i, ln in enumerate(lines) if ln in ("Location", "Locations") and i + 1 < len(lines)), "")
+    return seen[key]
 
 
 def info(kb, profession: str) -> Info:
