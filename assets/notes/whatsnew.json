@@ -1,5 +1,28 @@
 [
  {
+  "version": "0.16.0",
+  "he": [
+   "הצ'אט: בזמן ההמתנה רואים נקודות זזות, כמה שניות עברו, ומה ה-AI עושה (\"מחפש במאגר…\"). אם תשובה נכשלת, יש כפתור \"נסו שוב\" ו\"פתיחת הגדרות\" כשצריך, והשאלה חוזרת לשדה עם התגיות שלה.",
+   "קישורים בתשובות לחיצים ונפתחים בדפדפן, ובעברית הם כבר לא מתהפכים. כותרות וטבלאות שה-AI כותב מוצגות נקי.",
+   "שדה השאלה גדל עד 4 שורות (Shift+Enter לשורה חדשה). אחרי ניקוי הצ'אט יש \"ביטול\" ל-5 שניות, ובאמצע תשובה הוא שואל קודם. כשגוללים למעלה מופיע \"↓ תשובה חדשה\".",
+   "Claude Code או Codex ישנים מדי מוצגים כ\"ישן מדי\" עם כפתור עדכון, במקום \"מחובר\" ושגיאה בכל שאלה. אפשר להכניס מפתח API גם בהגדרות, ויש \"בדיקת חיבור\".",
+   "ההתקנה הראשונה: כפתורים ברורים להתקנה ולהתחברות, \"שלב 2 מתוך 4\", מתג הפעלה עם Windows, ושאלה לפני יציאה באמצע. שמירת הגדרות כבר לא מקפיאה את הצ'אט.",
+   "כלי המשחק: חלון \"מה השתנה\" נפתח מיד, \"איפה משיגים\" מראה קודם את המפלצות הקרובות לרמה שלכם, בפארם רואים לאיזה קווסט צריך את הפריט, ובלי דמות יש כפתור \"הוספת דמות\".",
+   "עברית: מילה אחת לכל דבר (אינבנטורי, פוטים, חלון ה-Stat), קליק ימני בעברית, \"אתם ב-Henesys\", ושמות באנגלית ברבים נשארים באנגלית (Warriors).",
+   "בהסרת האפליקציה, \"למחוק גם את הנתונים?\" הוא חלון ברור עם שתי בחירות, ומחיקה כוללת גם את מפתחות ה-API השמורים."
+  ],
+  "en": [
+   "Chat: while you wait you see moving dots, the seconds so far, and what the AI is doing (\"Searching the database…\"). A failed answer has \"Try again\" and, when needed, \"Open settings\", and the question comes back in the field with its tags.",
+   "Links in answers can be clicked and open in the browser, and no longer get scrambled in Hebrew. Headings and tables the AI writes show cleanly.",
+   "The question field grows to 4 lines (Shift+Enter for a new line). Clearing the chat can be undone for 5 seconds, and mid-answer it asks first. Scrolled up, a \"↓ New answer\" pill shows.",
+   "A Claude Code or Codex that's too old says so, with an update button, instead of \"Connected\" and an error on every question. An API key can be entered in Settings too, and there's \"Check connection\".",
+   "First-run setup: clear Install and Sign in buttons, \"Step 2 of 4\", a start-with-Windows switch, and a question before quitting halfway. Saving Settings no longer freezes the chat.",
+   "Play tools: \"What changed\" opens at once, \"Where to get them\" shows the monsters near your level first, Farm names the quest an item is for, and with no character there's an \"Add character\" button.",
+   "Hebrew: one word for each thing, a Hebrew right-click menu, and English names stay English in the plural (Warriors).",
+   "When uninstalling, \"Also delete your data?\" is a clear two-choice window, and deleting also removes the saved API keys."
+  ]
+ },
+ {
   "version": "0.15.0",
   "he": [
    "המיני-מפה: הכפתור עבר לכרטיס הדמות, ליד ⟳, וכשמעבירים עליו את העכבר הוא מסביר מה לעשות ומה מקבלים. המפה בכרטיס כבר לא קופצת ל\"לא זוהתה\" ובחזרה, והדרך שמוצגת לא מתאפסת באמצע ההליכה.",
