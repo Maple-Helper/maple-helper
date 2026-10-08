@@ -123,7 +123,7 @@ def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
 
     from maplehelper import app
     fake = MagicMock()
-    fake.settings = {"language": "en", "telemetry": False, "saver_mode": False, "hotkey_voice": "F10"}
+    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10"}
     fake.brain = SimpleNamespace(ui_lang="he", prewarm=lambda: None)
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "en"
