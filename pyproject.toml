@@ -4,6 +4,8 @@ addopts = "-q"
 # a test still running after 2 minutes prints every thread's stack (the slowest take ~20 s): a hang shows where it
 # hangs instead of only the CI job's 20-minute timeout
 faulthandler_timeout = 120
+# ...and that test's worker then exits: CI names the test that hung (a hung run was cancelled with no log at all)
+faulthandler_exit_on_timeout = true
 
 [tool.ruff]
 line-length = 130
