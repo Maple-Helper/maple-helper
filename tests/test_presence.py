@@ -137,8 +137,9 @@ def test_turning_off_stops_the_pings(pres):
     assert not presence.ping(DAY1) and posts == []
 
 
-def test_opt_in_stats_stay_off_by_default(pres):
+def test_stats_turned_off_stay_off_beside_the_ping(pres):
     settings, _ = pres
+    settings["telemetry"] = False
     presence.start(settings, "0.14.0")
     telemetry.init(settings, "0.14.0")
     assert presence.enabled() and not telemetry.enabled() and settings["install_id"] == ""
