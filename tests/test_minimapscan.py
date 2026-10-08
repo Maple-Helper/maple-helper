@@ -312,26 +312,29 @@ def test_restart_clears_the_backoff_and_failures_back_off(env, clean_location, q
 
 
 def test_the_scan_row_saves_and_detects_changes(env, qapp):
-    from maplehelper.ui.dialogs import SettingsDialog
+    from maplehelper.ui.controls import Select
+    from maplehelper.ui.dialogs import SCAN_CHOICES, SettingsDialog
     s, p, kb = env
     dlg = SettingsDialog(s, p, kb, lambda *_: "")
     try:
-        assert (dlg.scan.minimum(), dlg.scan.maximum(), dlg.scan.singleStep()) == (0.2, 60.0, 0.5)
-        assert dlg.scan.value() == 1.0 and not dlg.unsaved()
-        dlg.scan.setValue(2.5)
+        # the app's own pop-up, not a bare number box (the owner's, 2026-10-08)
+        assert isinstance(dlg.scan, Select) and dlg.scan.count() == len(SCAN_CHOICES)
+        assert dlg.scan.text() == dlg.t("scan_every_1") and not dlg.unsaved()
+        dlg.scan.setCurrentIndex(SCAN_CHOICES.index(5.0))
         assert dlg.unsaved()
         dlg._save()                 # stores it (Save closes the dialog, so _initial stays as it was, like every row)
-        assert s["minimap_scan_interval"] == 2.5 and not dlg.isVisible()
+        assert s["minimap_scan_interval"] == 5.0 and not dlg.isVisible()
     finally:
         dlg.close()
 
 
-def test_the_scan_row_clamps_a_wild_setting(env, qapp):
-    from maplehelper.ui.dialogs import SettingsDialog
+def test_the_scan_row_shows_the_nearest_choice(env, qapp):
+    from maplehelper.ui.dialogs import SCAN_CHOICES, SettingsDialog
     s, p, kb = env
-    s["minimap_scan_interval"] = 600.0
-    dlg = SettingsDialog(s, p, kb, lambda *_: "")
-    try:
-        assert dlg.scan.value() == 60.0 and not dlg.unsaved()
-    finally:
-        dlg.close()
+    for stored, shown in ((600.0, 10.0), (0.2, 0.5), (3.0, 2.0), (float("nan"), 1.0), ("x", 1.0), (-4, 1.0)):
+        s["minimap_scan_interval"] = stored
+        dlg = SettingsDialog(s, p, kb, lambda *_: "")
+        try:
+            assert SCAN_CHOICES[dlg.scan.currentIndex()] == shown and not dlg.unsaved(), stored
+        finally:
+            dlg.close()

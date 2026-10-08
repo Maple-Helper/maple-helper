@@ -31,3 +31,22 @@ def test_straddling_box_follows_its_centre():
 def test_no_scaling_passes_through():
     assert to_capture(QRect(2600, 100, 200, 150), [PRIMARY, SECOND_SCALED], scale=False) == {
         "x": 2600, "y": 100, "w": 200, "h": 150}
+
+
+def test_esc_does_not_cancel_and_right_click_does():
+    """No keys (the owner's, 2026-10-08): Esc leaves the picker open; a right-click cancels it."""
+    from PySide6.QtCore import QPoint, Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QApplication
+    from maplehelper.ui.regionpick import RegionPicker
+    QApplication.instance() or QApplication([])
+    picker = RegionPicker(hint="x")
+    seen = []
+    picker.cancelled.connect(lambda: seen.append(1))
+    try:
+        QTest.keyClick(picker, Qt.Key_Escape)
+        assert seen == []
+        QTest.mouseClick(picker, Qt.RightButton, pos=QPoint(5, 5))
+        assert seen == [1]
+    finally:
+        picker.close()

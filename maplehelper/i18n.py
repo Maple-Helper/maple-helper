@@ -578,10 +578,10 @@ STRINGS = {
     "wishlist": {"he": "פריטים במעקב", "en": "Tracked items"},
     "wish_add": {"he": "הוספה לפריטים במעקב", "en": "Add to tracked items"},
     "wish_remove": {"he": "הסרה מהפריטים במעקב", "en": "Remove from tracked items"},
-    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. חפשו פריט בתיבה למעלה (למשל Stiff Feather) ובחרו אותו כדי לעקוב אחריו. "
+    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. חפשו פריט בתיבה למעלה ובחרו אותו כדי לעקוב אחריו. "
                              "אפשר גם ללחוץ על ☆ ליד פריט בתשובה בצ'אט (בכרטיס שלו או ברשימת דרופים). "
                              "כאן תראו מי מפיל אותו ואיפה, ותקבלו הודעה כשעדכון מאגר משנה אותו.",
-                       "en": "No items yet. Search for an item in the box above (Stiff Feather, say) and pick it to track it. "
+                       "en": "No items yet. Search for an item in the box above and pick it to track it. "
                              "You can also click ☆ beside an item in a chat answer (on its card or in a drop list). "
                              "Here you'll see who drops it and where, and get a note when a database update changes it."},
     "wish_search": {"he": "הוספת פריט למעקב: הקלידו שם או בחרו מהרשימה", "en": "Track an item: type a name or pick from the list"},
@@ -1072,9 +1072,29 @@ STRINGS = {
     "quest_where_end": {"he": "מסיימים את הקווסט", "en": "Turn it in"},
     # where the player is, read from the game's minimap (ui/minimapscan.py, minimap.py)
     "minimap_select": {"he": "בחירת המיני-מפה", "en": "Select minimap"},
-    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק. Esc לביטול.",
-                          "en": "Drag a box around the game's minimap. Esc cancels."},
-    "minimap_scan_interval": {"he": "סריקת המיני-מפה כל (שניות)", "en": "Minimap scan every (seconds)"},
+    "minimap_tip": {"he": "בחירת המיני-מפה: איפה אתם במשחק\n"
+                          "לחצו כאן, וגררו מסגרת סביב המיני-מפה של המשחק (הפינה עם שם המפה והנקודה הצהובה).\n"
+                          "מאותו רגע העוזר קורא אותה שוב ושוב (בהגדרות קובעים כל כמה זמן):\n"
+                          "• המפה שלכם מופיעה בכרטיס הזה, מתחת לרמה\n"
+                          "• כפתור ◎ מראה את הדרך מהמפה שלכם, עם נקודה צהובה במקום שלכם\n"
+                          "• \"איך מגיעים\" בכלי המשחק מתחיל מהמפה שלכם\n"
+                          "הזזתם את המיני-מפה או שיניתם את גודל החלון? לחצו שוב ובחרו מחדש.",
+                    "en": "Select minimap: where you are in the game\n"
+                          "Click here and drag a box around the game's minimap (the corner with the map's name and your "
+                          "yellow dot).\n"
+                          "From then on, Maple Helper keeps reading it (Settings set how often):\n"
+                          "• Your map shows on this card, under your level\n"
+                          "• The ◎ button shows the way from your map, with a yellow dot where you are\n"
+                          "• \"How to get there\" in the Play tools starts from your map\n"
+                          "Moved the minimap or resized the game? Click again and draw a new box."},
+    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק. קליק ימני לביטול.",
+                          "en": "Drag a box around the game's minimap. Right-click cancels."},
+    "minimap_scan_interval": {"he": "סריקת המיני-מפה לפי שניות", "en": "Minimap scan, in seconds"},
+    "scan_every_0_5": {"he": "חצי שנייה", "en": "Half a second"},
+    "scan_every_1": {"he": "שנייה אחת", "en": "1 second"},
+    "scan_every_2": {"he": "2 שניות", "en": "2 seconds"},
+    "scan_every_5": {"he": "5 שניות", "en": "5 seconds"},
+    "scan_every_10": {"he": "10 שניות", "en": "10 seconds"},
     "minimap_scan_hint": {"he": "כל כמה זמן העוזר בודק במיני-מפה איפה אתם.",
                           "en": "How often Maple Helper reads the minimap to see where you are."},
     "location_line": {"he": "נמצא/ת ב-{name}", "en": "In {name}"},

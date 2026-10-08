@@ -9,7 +9,7 @@ import threading
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QProgressBar, QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
@@ -66,6 +66,8 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 # at least 100). It matches the bound the saved profile keeps (store._repair), so nothing typed here is
 # changed on the next load.
 LEVEL_FIELD_MAX = 250
+# Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
+SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -1093,17 +1095,19 @@ class SettingsDialog(GlassDialog):
         self.instant = Switch(settings["instant_answers"])
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         # how often the minimap box is read (where the player is, under the level on the character card)
-        self.scan = QDoubleSpinBox()
-        self.scan.setRange(0.2, 60.0)
-        self.scan.setSingleStep(0.5)
-        self.scan.setDecimals(1)
+        # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
         try:
             scan_value = float(settings["minimap_scan_interval"])
         except (TypeError, ValueError):
             scan_value = 1.0
-        if not math.isfinite(scan_value):
+        if not math.isfinite(scan_value) or scan_value <= 0:
             scan_value = 1.0
-        self.scan.setValue(min(60.0, max(0.2, scan_value)))
+        # a value from before the choices (or hand-edited) shows as the nearest one (in ratio: 3 s is nearer 2 than 5)
+        scan_value = min(SCAN_CHOICES, key=lambda v: abs(math.log(v / scan_value)))
+        # a pop-up like the microphone's: five segments beside the label pushed the window wider than 470 px
+        self.scan = Select([t(k) for k in ("scan_every_0_5", "scan_every_1", "scan_every_2", "scan_every_5",
+                                             "scan_every_10")])   # (SCAN_CHOICES, in order)
+        self.scan.setCurrentIndex(SCAN_CHOICES.index(scan_value))
         sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
         lay.addWidget(sec)
 
@@ -1627,7 +1631,7 @@ class SettingsDialog(GlassDialog):
             "microphone": self._mic_value(),
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
-            "minimap_scan_interval": self.scan.value(),
+            "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

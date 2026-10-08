@@ -563,7 +563,8 @@ class Overlay(EdgeResize, QWidget):
         for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
-        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, minimap, settings | minimize, close
+        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
+        # (the minimap button sits on the character card, beside ⟳)
         self.history_btn = self._icon_button(theme.ICON["search"])
         self.history_btn.clicked.connect(self.history_requested.emit)
         tb.addWidget(self.history_btn)
@@ -581,9 +582,6 @@ class Overlay(EdgeResize, QWidget):
         self.tools_btn = ControllerButton()                           # a game controller: the play tools
         self.tools_btn.clicked.connect(self.tools_requested.emit)
         tb.addWidget(self.tools_btn)
-        self.minimap_btn = self._icon_button(theme.ICON["minimap"])
-        self.minimap_btn.clicked.connect(self.minimap_requested.emit)
-        tb.addWidget(self.minimap_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         tb.addWidget(self.settings_btn)
@@ -648,6 +646,8 @@ class Overlay(EdgeResize, QWidget):
         # the character, pinned at the top of the conversation
         self.profile_card = ProfileCard()
         self.profile_card.refresh_requested.connect(self.sync_profile)
+        self.minimap_btn = self.profile_card.minimap
+        self.profile_card.minimap_requested.connect(self.minimap_requested.emit)
         self.profile_card.clicked.connect(self.character_menu)
         self.profile_card.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.profile_card)
@@ -795,7 +795,7 @@ class Overlay(EdgeResize, QWidget):
         self.saver_badge.setVisible(self._saver_on)
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.minimap_btn,
+        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn,
                    self.settings_btn, self.min_btn, self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
@@ -868,7 +868,7 @@ class Overlay(EdgeResize, QWidget):
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
         set_tip(self.settings_btn, self.t("settings"))
-        set_tip(self.minimap_btn, self.t("minimap_select"))
+        set_tip(self.minimap_btn, self.t("minimap_tip"))
         self.saver_badge.setToolTip(self.t.p("saver_hint", self.settings["provider"]))
         self._fit_header()
         self.show_scope()
