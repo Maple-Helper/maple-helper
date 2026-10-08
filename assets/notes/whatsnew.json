@@ -1,5 +1,14 @@
 [
  {
+  "version": "0.14.0",
+  "he": [
+   "ספירה אנונימית של משתמשים: כל 10 דקות שהאפליקציה פתוחה היא מודיעה לנו שהיא פועלת, עם הגרסה, מערכת ההפעלה והאם זו הפעם הראשונה היום, כדי שנדע כמה שחקנים משתמשים ב-Maple Helper. בלי מזהה קבוע ובלי שום דבר עליכם או על המשחק. אפשר לכבות בהגדרות, תחת \"פרטיות ומערכת\"."
+  ],
+  "en": [
+   "Anonymous player count: every 10 minutes while Maple Helper is open, it tells us it's running, with its version, your OS and whether it's the first time today, so we know how many players use it. No lasting id, nothing about you or your game. Turn it off in Settings, under \"Privacy & system\"."
+  ]
+ },
+ {
   "version": "0.13.0",
   "he": [
    "איפה אתם, מהמיני-מפה: לוחצים על \"בחירת המיני-מפה\" בראש הצ'אט וגוררים מסגרת סביב המיני-מפה במשחק. מאותו רגע המפה שאתם נמצאים בה מופיעה מתחת לרמה בכרטיס הדמות, וכפתור ◎ מראה את הדרך משם צעד אחרי צעד, עם נקודה צהובה במקום שלכם. גם \"איך מגיעים\" בכלי המשחק מתחיל מהמפה שלכם. בהגדרות קובעים כל כמה זמן המיני-מפה נסרקת.",
