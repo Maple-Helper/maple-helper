@@ -301,3 +301,13 @@ def test_the_known_maps_street_read_alone_is_no_map(graph):
     assert got is not None and got[0] == ("Kerning City Construction Site", "Victoria Road")
     loc._prev = None                            # nothing known yet: a lone line is still read as it is
     assert loc._header([("Victoria Road", 60.0, 68.0)], 300, 0) is not None
+
+
+@needs_kb
+def test_live_busy_construction_site_places_the_dot(graph):
+    """Other players' red dots all over and the game showing through: the fit peaks sharply (0.55 at one scale,
+    under 0.5 a 4% step either side), and the player's dot was never placed (live, 2026-10-08)."""
+    from maplehelper.minimap import Locator
+    here = Locator(graph).locate(_box("minimap_construction_busy_live.png"))
+    assert here is not None and here.map == "010003010"
+    assert here.spot == pytest.approx((0.78, 0.65), abs=0.04)

@@ -10,7 +10,7 @@ import re
 import time
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QSize, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
@@ -4308,6 +4308,11 @@ class ToolsDialog(GlassDialog):
         top.addLayout(names, 1)
         col.addLayout(top)
         col.addWidget(self._label(self._route_says(leg), "RowLabel"))
+        if you is not None:
+            # which dot is which, as in the map window (the owner's, 2026-10-08)
+            legend = mapview.MapLegend(self.t, leg is not None and leg.kind != "portal", True)
+            legend.target.setVisible(leg is not None and bool(leg.spot))
+            col.addWidget(legend)
         pic = self._minimap(mid, leg, you)
         if pic is not None:
             col.addWidget(pic, 0, Qt.AlignHCenter)
@@ -4337,14 +4342,10 @@ class ToolsDialog(GlassDialog):
                 p.drawEllipse(QPoint(x, y), 11, 11)
                 p.setPen(QPen(color, 2.6))
                 p.drawEllipse(QPoint(x, y), 11, 11)
-            if you is not None:
-                # the player (yellow), ringed where they stand now
-                x, y = round(you[0] * pm.width()), round(you[1] * pm.height())
-                p.setPen(QPen(QColor(0, 0, 0, 170), 5))
-                p.drawEllipse(QPoint(x, y), 11, 11)
-                p.setPen(QPen(QColor(255, 210, 0), 2.6))
-                p.drawEllipse(QPoint(x, y), 11, 11)
             p.end()
+            if you is not None:
+                # the player: the map window's blue dot (a yellow ring couldn't be told from the orange portal)
+                mapview.you_dot(pm, QPointF(you[0] * pm.width(), you[1] * pm.height()))
         pic = QLabel()
         pic.setPixmap(pm)
         pic.setAccessibleName(self.route_graph.name(mid))

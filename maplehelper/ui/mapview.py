@@ -260,7 +260,7 @@ def _mark_colors(npc: bool) -> tuple[QColor, QColor]:
 YOU_FILL, YOU_RING = QColor(10, 132, 255), QColor(255, 255, 255)
 
 
-def _you_dot(pm: QPixmap, at: QPointF, r: float = DOT, glow: bool = True) -> None:
+def you_dot(pm: QPixmap, at: QPointF, r: float = DOT, glow: bool = True) -> None:
     p = QPainter(pm)
     p.setRenderHint(QPainter.Antialiasing)
     if glow:
@@ -283,7 +283,7 @@ def legend_icon(kind: str, ratio: float = 2.0) -> QPixmap:
     pm.fill(Qt.transparent)
     at = QPointF(side / 2, side / 2)
     if kind == "you":
-        _you_dot(pm, at, r, glow=False)
+        you_dot(pm, at, r, glow=False)
     else:
         fill, ring = _mark_colors(kind == "npc")
         p = QPainter(pm)
@@ -339,7 +339,7 @@ def route_picture(path, spot: tuple[float, float] | None = None, npc: bool = Fal
     if spot is not None:
         _dot(pm, spot, *_mark_colors(npc))
     if you is not None:
-        _you_dot(pm, QPointF(you[0] * pm.width(), you[1] * pm.height()))
+        you_dot(pm, QPointF(you[0] * pm.width(), you[1] * pm.height()))
     return pm
 
 

@@ -850,7 +850,20 @@ class Locator:
             hit = self._match(clean, mid, s, bg)
             if hit is not None and (best is None or hit.score > best.score):
                 best = hit
-        if best is None or best.score < _ALIGN_MIN:
+        if best is None:
+            return None
+        # ... then ±4% around that in 1% steps: on a busy live view (other players' dots, the game showing through)
+        # the peak is that sharp — 0.55 at x1.87 read 0.48 and 0.44 at the 4% steps beside it, and the player had
+        # no dot (live, 2026-10-08)
+        around = best.scale
+        for i in range(-4, 5):
+            if i == 0:
+                continue
+            s = min(3.0, max(0.5, around * (1 + i * 0.01)))
+            hit = self._match(clean, mid, s, bg)
+            if hit is not None and hit.score > best.score:
+                best = hit
+        if best.score < _ALIGN_MIN:
             return None
         return best
 
