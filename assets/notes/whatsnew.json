@@ -1,5 +1,20 @@
 [
  {
+  "version": "0.13.0",
+  "he": [
+   "איפה אתם, מהמיני-מפה: לוחצים על \"בחירת המיני-מפה\" בראש הצ'אט וגוררים מסגרת סביב המיני-מפה במשחק. מאותו רגע המפה שאתם נמצאים בה מופיעה מתחת לרמה בכרטיס הדמות, וכפתור ◎ מראה את הדרך משם צעד אחרי צעד, עם נקודה צהובה במקום שלכם. גם \"איך מגיעים\" בכלי המשחק מתחיל מהמפה שלכם. בהגדרות קובעים כל כמה זמן המיני-מפה נסרקת.",
+   "חלון המפה: אפשר לשנות את הגודל שלו מכל קצה, כמו את הצ'אט. התמונות מתאימות את עצמן לרוחב, והגודל נשמר.",
+   "פריטים במעקב: בחלון עצמו יש תיבת חיפוש להוספת פריט. מקלידים שם או בוחרים מהרשימה.",
+   "תמונת הדמות: חלק מהמפה (קירות, קורה, שלט) כבר לא נשמר בטעות כתמונה של הדמות."
+  ],
+  "en": [
+   "Where you are, from the minimap: click \"Select minimap\" at the top of the chat and drag a box around the game's minimap. From then on, the map you're in shows under your level on the character card, and the ◎ button shows the way from there step by step, with a yellow dot where you are. \"How to get there\" in the Play tools starts from your map too. Settings set how often the minimap is read.",
+   "The map window resizes from any edge, like the chat. Its pictures follow its width, and its size is remembered.",
+   "Tracked items: the window itself has a search box for adding an item. Type a name or pick from the list.",
+   "Your character's picture: a piece of the map (walls, a beam, a sign) is no longer saved as your character by mistake."
+  ]
+ },
+ {
   "version": "0.12.0",
   "he": [
    "חלון פרטי פריט: כפתור ⓘ על כל פריט בצ'אט פותח את כל מה שידוע עליו: תיאור, נתונים, סחיר או לא, באילו קווסטים ומתכונים צריך אותו וכמה, מי מפיל אותו, וההערות של NiaMeowDB. הכול בעברית.",
