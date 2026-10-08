@@ -71,10 +71,8 @@ def test_a_good_key_with_the_cli_connects(env, monkeypatch):
     monkeypatch.setattr(dlg, "_check_status", lambda: checks.append(1))
     dlg._on_key_checked("claude", "sk-ant-test", True)
     assert checks                    # the usual check decides: a too-old CLI isn't "connected" (review ONB-R3)
-    dlg._on_status("claude", "ok")
+    dlg._on_status("claude", "logged_out")       # what that check says for a key with no sign-in: the key counts
     assert dlg._ai_ok and dlg.next.isEnabled() and "Connected" in dlg.status_label.text()
-    dlg._on_status("claude", "logged_out")
-    assert dlg._ai_ok
     dlg.close()
 
 
@@ -157,7 +155,7 @@ def test_a_save_that_keeps_the_look_doesnt_restyle_the_chat(qapp):
     fake = MagicMock()
     fake.settings = {"language": "en", "provider": "claude", "telemetry": False, "presence": False, "saver_mode": False,
                      "appearance": "dark", "font_size": 14}
-    fake._look = ("en", "dark", 14)
+    fake._look, fake._look_provider = ("en", "dark", 14), "claude"
     app.MapleHelperApp.on_settings_changed(fake)
     assert not fake.overlay.setStyleSheet.called and not fake.overlay.apply_language.called
     assert fake.apply_autostart.called                     # the rest of the settings still apply
@@ -165,6 +163,12 @@ def test_a_save_that_keeps_the_look_doesnt_restyle_the_chat(qapp):
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.overlay.setStyleSheet.called and fake.overlay.apply_language.called
     assert fake._reopen_windows_in_new_look.called
+    # only the AI changed: the texts that name it, without the slow restyle (review ONB-R2)
+    fake.overlay.reset_mock()
+    fake._look = ("en", "light", 14)               # (what _reopen_windows_in_new_look records)
+    fake.settings["provider"] = "codex"
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.overlay.apply_language.called and not fake.overlay.setStyleSheet.called
 
 
 # --- DLG-7: Grok's key prefix in Hebrew ----------------------------------------------------------------------------
