@@ -6,14 +6,16 @@
    "הנקודה שלכם במפה כחולה, ומקרא מעל התמונה מראה מה כל נקודה: אתם, הפורטל או ה-NPC. \"איך מגיעים\" בכלי המשחק נראה ועובד כמו חלון ◎, והנקודה זזה איתכם.",
    "מעקב הגריינד קורא את הרמה ואת ה-EXP מהמסך בעצמו, בלי AI: מהיר יותר ולא צורך מכסה. ה-AI נקרא רק כשהתיק פתוח, כדי לספור mesos, שיקויים ושלל.",
    "תמונת הדמות נשמרת עם הרקע האמיתי מהמשחק, ו-⟳ אומר כשהתמונה עודכנה.",
-   "הגדרות: \"סריקת המיני-מפה לפי שניות\" נבחרת מרשימה (חצי שנייה עד 10 שניות)."
+   "הגדרות: \"סריקת המיני-מפה לפי שניות\" נבחרת מרשימה (חצי שנייה עד 10 שניות).",
+   "אחרי \"לעדכן עכשיו\" כבר לא מופיעה מסגרת כתומה על כפתור החיפוש."
   ],
   "en": [
    "Minimap: its button moved to the character card, beside ⟳, and its tooltip says what to do and what you get. The map on the card no longer flips to \"not recognized\" and back, and the way shown no longer resets mid-walk.",
    "Your dot on the map is blue, and a legend above the picture says which dot is which: you, the portal or the NPC. \"How to get there\" in the Play tools looks and works like the ◎ window, and the dot moves with you.",
    "The grind tracker reads your level and EXP off the screen itself, with no AI: faster, and none of your usage. The AI reads only while the inventory is open, to count mesos, potions and loot.",
    "Your character's picture keeps the game's own background, and ⟳ says when the picture was updated.",
-   "Settings: \"Minimap scan, in seconds\" is picked from a list (half a second to 10 seconds)."
+   "Settings: \"Minimap scan, in seconds\" is picked from a list (half a second to 10 seconds).",
+   "After \"Update now\", the search button no longer shows an orange frame."
   ]
  },
  {

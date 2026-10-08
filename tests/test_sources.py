@@ -365,8 +365,9 @@ def test_every_marker_in_the_kb_is_recognised(real):
                     found[k] = found.get(k, 0) + 1
                 assert ok & kinds, f"{key}: a {kind!r} label the classifier missed"
     # the KB as it is now has every family the app reads (a family that vanished would hide a broken reader)
+    # (no "exp_table": NiaMeowDB stopped calling levels 50-99 a historical reference on 2026-10-08)
     for kind in ("history", "prices", "respawn", "drops", "community_list", "fm_reports", "official", "shop_list",
-                 "guide_data", "exp_table", "cash_price", "cash_shop"):
+                 "guide_data", "cash_price", "cash_shop"):
         assert found.get(kind), f"no {kind!r} label anywhere in the KB"
 
 

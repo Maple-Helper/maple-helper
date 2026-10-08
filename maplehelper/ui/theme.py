@@ -557,11 +557,23 @@ class FocusRing(QObject):
 
     target = None
 
+    left = None    # the button that just lost focus
+
     def eventFilter(self, obj, e):
         t = e.type()
         if t in (QEvent.FocusIn, QEvent.FocusOut) and wants_focus_ring(obj):
             self._hide()
-            if t == QEvent.FocusIn and e.reason() in self.KEYBOARD:
+            if t == QEvent.FocusOut:
+                self.left = obj
+                return False
+            left, self.left = self.left, None
+            try:
+                # a clicked button that hid itself ("Update now" turning into the download's progress, a ✕) hands
+                # its focus on as if Tab were pressed: no ring for that (the owner saw search ringed after an update)
+                gone = left is not None and not left.isVisible()
+            except RuntimeError:
+                gone = True       # deleted along with what it closed
+            if e.reason() in self.KEYBOARD and not gone:
                 self.ring, self.target = _Ring(obj), obj
                 self.ring.show()
                 self.ring.raise_()
