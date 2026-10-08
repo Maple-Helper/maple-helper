@@ -1,6 +1,7 @@
 """AI providers (Claude Code, Codex CLI): commands, output parsing, discovery and keys (no real CLI calls)."""
 import io
 import json
+import logging
 import threading
 import time
 import tomllib
@@ -846,6 +847,57 @@ class TestWarmProcess:
         assert spawned[2].killed and b._warm is spawned[3]
         b._refresh(spawned[2])                                     # an old timer for one already gone: nothing
         assert len(spawned) == 4
+
+
+class DeadProc:
+    """A Claude Code too old for a flag Maple Helper passes: it exits at once, before reading the question, and
+    says why on stderr only (issue #107)."""
+    stderr_text = b"error: unknown option '--restricted'\n"
+
+    def __init__(self, cmd, **kw):
+        self.returncode = 1
+        self.stdin = io.BytesIO()
+        self.stdin.write = self._broken
+        self.stdout = io.BytesIO(b"")
+        self.stderr = io.BytesIO(DeadProc.stderr_text)
+
+    @staticmethod
+    def _broken(data):
+        raise BrokenPipeError(32, "Broken pipe")
+
+    def poll(self):
+        return self.returncode
+
+    def wait(self, timeout=None):
+        return self.returncode
+
+    def kill(self):
+        pass
+
+
+class TestCliThatDiesAtStart:
+    def make(self, kb_copy, monkeypatch):
+        from maplehelper.brain import Brain
+        from maplehelper.kb import KnowledgeBase
+        monkeypatch.setattr(claude.subprocess, "Popen", DeadProc)
+        b = Brain(KnowledgeBase(kb_copy), provider="claude")
+        b.backend.exe = "claude"
+        monkeypatch.setattr(b.backend, "prewarm", lambda: None)
+        return b
+
+    def test_an_outdated_cli_says_so(self, kb_copy, monkeypatch, caplog):
+        # every answer was "Something went wrong" with nothing in the log: the question never reached the CLI,
+        # and its stderr was never read
+        b = self.make(kb_copy, monkeypatch)
+        with caplog.at_level(logging.WARNING, logger="maplehelper.providers.claude"):
+            ans = b.ask("hi", None, None, None)
+        assert ans.error == "cli_outdated"
+        assert "unknown option '--restricted'" in caplog.text           # "Report a problem" carries the cause
+
+    def test_an_unknown_startup_failure_is_still_no_result(self, kb_copy, monkeypatch):
+        monkeypatch.setattr(DeadProc, "stderr_text", b"Segmentation fault\n")
+        b = self.make(kb_copy, monkeypatch)
+        assert b.ask("hi", None, None, None).error == "no_result"
 
 
 @pytest.mark.parametrize("raw,shown", [
