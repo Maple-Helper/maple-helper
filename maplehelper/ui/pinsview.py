@@ -42,10 +42,11 @@ def set_wrapped_name(lb: QLabel, text: str, rtl: bool) -> None:
 
 
 def _answer_label(text: str) -> QLabel:
-    lb = QLabel(bidi.to_html(text), objectName="PinAnswer")
+    lb = QLabel(bidi.to_html(text, md=True), objectName="PinAnswer")      # an AI answer: its links and markdown
     lb.setTextFormat(Qt.RichText)
     lb.setWordWrap(True)
-    lb.setTextInteractionFlags(Qt.TextSelectableByMouse)
+    lb.setOpenExternalLinks(True)          # (only http links: bidi's link pattern)
+    lb.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.LinksAccessibleByMouse)
     return lb
 
 
