@@ -1,8 +1,9 @@
 """Where the player is, refreshed every few seconds from the game's minimap (the box the player drew around it).
 
-A QTimer ticks on the GUI thread; the read itself (the screenshot, then matching it against the KB's minimap
-pictures) runs on a worker thread, so the chat never freezes on it. The answer comes back through a signal, and the
-chat's character card and the map windows read it from ui/location.LOCATION. No box drawn yet: nothing runs."""
+A QTimer ticks on the GUI thread; the read itself (the screenshot, then reading the minimap's title for the map
+and aligning its picture for the dot) runs on a worker thread, so the chat never freezes on it. The answer comes
+back through a signal, and the chat's character card and the map windows read it from ui/location.LOCATION. No box
+drawn yet: nothing runs."""
 from __future__ import annotations
 
 import logging
@@ -27,10 +28,10 @@ DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
 class MinimapScanner(QObject):
     """Reads the drawn minimap box every few seconds and reports it through LOCATION.
 
-    The Locator is built lazily once per KB and kept between reads (it holds its lock on the picture); a KB update
-    drops it so the next read rebuilds it. A read still going when the timer ticks skips that tick (no pile-up).
-    A box with no recognizable minimap backs off (a cold search costs seconds of CPU); a hit reads every interval
-    again, as does a restart (a new box)."""
+    The Locator is built lazily once per KB and kept between reads (it holds the OCR engine, the header rows and
+    its lock on the picture); a KB update drops it so the next read rebuilds it. A read still going when the timer
+    ticks skips that tick (no pile-up). A box with no recognizable title backs off (a wasted read costs most of a
+    second of CPU); a hit reads every interval again, as does a restart (a new box)."""
 
     _found = Signal(object)       # Here | None: a read's answer, from the worker thread
     _failed = Signal(str)         # a read's error as text ("Kind: message"), from the worker thread
@@ -134,8 +135,8 @@ class MinimapScanner(QObject):
         self._found.emit(here)
 
     def _miss(self) -> None:
-        """A read with no recognizable minimap (closed, minimized, wrong box): wait max(5 s, 5 x interval) before
-        the next one. A cold search costs 1-4 s of CPU; without this it ran back-to-back forever, pegging a core."""
+        """A read with no recognizable title (closed, minimized, wrong box): wait max(5 s, 5 x interval) before
+        the next one. A wasted read costs most of a second of CPU; without this it ran back-to-back forever."""
         self._cooldown_until = time.monotonic() + max(5.0, 5.0 * self._interval())
 
     def _deliver(self, here) -> None:

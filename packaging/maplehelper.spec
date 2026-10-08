@@ -20,7 +20,7 @@ if (kb / "index.json").exists():
 
 binaries, hiddenimports = [], ["keyring.backends.macOS" if MAC else "keyring.backends.Windows",
                                "maplehelper.macapi" if MAC else "maplehelper.winapi"]
-for pkg in ("faster_whisper", "ctranslate2", "sounddevice"):
+for pkg in ("faster_whisper", "ctranslate2", "sounddevice", "rapidocr"):     # rapidocr: its ONNX models and yaml configs
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b

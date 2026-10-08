@@ -5,4 +5,5 @@ keyring>=25
 faster-whisper>=1.2.1
 sounddevice>=0.5.6
 numpy>=1.26
+rapidocr>=3.9.2
 pyobjc-framework-Quartz>=10; sys_platform == "darwin"

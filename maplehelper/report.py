@@ -28,8 +28,8 @@ REPORT_SETTINGS = ("language", "appearance", "font_size", "answer_length",
                    "saver_mode", "seen_version", "instant_answers", "telemetry", "grind_auto", "minimap_scan_interval")
 log = logging.getLogger("maplehelper")
 # libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link
-# among them, into the log that goes with problem reports
-QUIET_LOGGERS = ("httpx", "httpcore", "huggingface_hub", "faster_whisper", "urllib3")
+# among them, into the log that goes with problem reports; RapidOCR logs its model paths on every load
+QUIET_LOGGERS = ("httpx", "httpcore", "huggingface_hub", "faster_whisper", "urllib3", "RapidOCR")
 
 
 def setup_logging() -> None:

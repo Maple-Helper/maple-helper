@@ -1,7 +1,11 @@
-"""The minimap reader: recognizing the map from a picture of the game's minimap, and the player's yellow dot on it.
+"""The minimap reader: the map from the minimap's title text, the player's yellow dot from its picture.
 
-Synthetic boxes from the real KB pictures (skipped without them, like the other real-KB tests): the art pasted
-into a dark frame with a title strip, at game scales, with a yellow player dot and red/green other dots on top.
+Live captures (skipped without the real KB, like the other real-KB tests): the whole drawn box goes through
+RapidOCR — the header's street and map-name lines name the map, and the one KB picture only places the dot.
+Perion's spot was hand-derived before (the dot's bright core against the verified match); the 3-Way and Market
+spots below are read-derived values verified to sit on the yellow dot. Name resolution is pure (resolve_name)
+and tested without OCR; stubbed OCR rows steer synthetic panels through the same path. The OCR engine loads
+once for the module (under half a second).
 """
 from pathlib import Path
 
@@ -11,254 +15,229 @@ import pytest
 REAL_KB = Path(__file__).resolve().parent.parent / "data" / "kb"
 needs_kb = pytest.mark.skipif(not (REAL_KB / "routes.json").exists(), reason="no routes.json in the real knowledge base")
 
+FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
 
 @pytest.fixture(scope="module")
 def graph():
-    from maplehelper.kb import KnowledgeBase
     from maplehelper import routes
+    from maplehelper.kb import KnowledgeBase
     return routes.of(KnowledgeBase(REAL_KB))
 
 
 @pytest.fixture(scope="module")
 def loc(graph):
-    """One reader for the search tests: its KB pictures load once, and whichever map the previous test left locked
-    never matches the next box, so every test still searches (the lock test below uses its own reader)."""
+    """One reader for the live tests: its OCR engine loads once, and the header rows it learns carry over."""
     from maplehelper.minimap import Locator
     return Locator(graph)
 
 
-_DOT_SPOTS = ((0.30, 0.62), (0.55, 0.40), (0.75, 0.70), (0.20, 0.30), (0.65, 0.55), (0.12, 0.55), (0.42, 0.25),
-              (0.85, 0.45), (0.62, 0.80), (0.35, 0.15))
-
-
-def _shot(graph, mid, scale=1.0, pick=0, dot=True):
-    """A player's drawn box around this map's minimap: the art at this scale on black (as the game draws it), a
-    dark frame with a title strip and fake title text around it, red and green dots on top, and (unless dot=False)
-    the yellow player dot. Returns the box and the dot's fractions of the KB picture (None without it). The dot
-    goes on plain background, never on yellowish art (which the reader rightly refuses to call the player)."""
-    from PIL import Image, ImageDraw
-    art = Image.open(graph.minimap(mid)).convert("RGBA")
-    sw, sh = max(1, round(art.width * scale)), max(1, round(art.height * scale))
-    flat = Image.alpha_composite(Image.new("RGBA", (sw, sh), (0, 0, 0, 255)),
-                                 art.resize((sw, sh), Image.BILINEAR)).convert("RGB")
-    free = []
-    for fx, fy in _DOT_SPOTS:
-        x, y = min(int(fx * sw), sw - 1), min(int(fy * sh), sh - 1)
-        patch = np.asarray(flat.crop((max(0, x - 2), max(0, y - 2), min(sw, x + 3), min(sh, y + 3)))).reshape(-1, 3)
-        if all(r <= 120 or g <= 120 or b >= 180 for r, g, b in patch):
-            free.append((x / sw, y / sh))
-    dot = free[pick % len(free)] if dot and free else None
-    title, margin = 24, 12
-    box = Image.new("RGB", (sw + margin * 2, sh + title + margin * 2), (24, 22, 28))
-    d = ImageDraw.Draw(box)
-    d.rectangle([margin, margin, margin + sw - 1, margin + title - 8], fill=(10, 10, 14))
-    d.rectangle([margin + 8, margin + 6, margin + 70, margin + 12], fill=(205, 205, 205))
-    box.paste(flat, (margin, margin + title))
-    d.rectangle([margin - 1, margin + title - 1, margin + sw, margin + title + sh], outline=(95, 95, 105))
-    r = max(2, round(3 * scale))
-    ax, ay = margin, margin + title
-    dots = [((0.70, 0.30), (255, 0, 0)), ((0.52, 0.80), (0, 200, 0))]
-    if dot is not None:
-        dots.append((dot, (255, 255, 0)))
-    for frac, colour in dots:
-        cx, cy = ax + frac[0] * sw, ay + frac[1] * sh
-        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=colour)
-    return box, dot
-
-
-@needs_kb
-@pytest.mark.parametrize("scale", [1.0, 1.25, 1.75, 2.0])
-def test_finds_henesys_at_any_scale(graph, loc, scale):
-    """In-game scaling is arbitrary (a 125% Windows makes 1.25): every grid gap must land a trial near it."""
-    box, dot = _shot(graph, "010001000", scale)
-    here = loc.locate(box)
-    assert here is not None and here.map == "010001000"
-    assert here.spot == pytest.approx(dot, abs=0.03)
-
-
-@needs_kb
-def test_no_dot_means_no_spot(graph):
-    """The map is recognized from its art alone; but a yellow speck painted on the KB picture itself (blown up to
-    dot size at 2x) is art, not the player."""
-    from maplehelper.minimap import Locator
-    box, dot = _shot(graph, "010001000", 2.0, dot=False)
-    assert dot is None
-    here = Locator(graph).locate(box)
-    assert here is not None and here.map == "010001000" and here.spot is None
-
-
-@needs_kb
-@pytest.mark.parametrize("mid,scale", [("000000060", 1.5), ("010000000", 1.0)])
-def test_finds_other_sizes_and_scales(graph, loc, mid, scale):
-    """A compact map drawn half again as big, and a wide town at 1:1: the scale is the player's setup, not the map."""
-    box, dot = _shot(graph, mid, scale)
-    here = loc.locate(box)
-    assert here is not None and here.map == mid
-    assert here.spot == pytest.approx(dot, abs=0.03)
-
-
-@needs_kb
-def test_noise_is_no_map(loc):
-    """Static that matches nothing: no map, however vaguely, rather than a wrong one."""
+def _box(name):
     from PIL import Image
-    rnd = np.random.RandomState(7).randint(0, 256, (250, 300, 3)).astype(np.uint8)
-    assert loc.locate(Image.fromarray(rnd)) is None
+    return Image.open(FIXTURES / name).convert("RGB")
+
+
+# ------------------------------------------------------------ live captures
 
 
 @needs_kb
-def test_duplicate_pictures_are_not_rejected(graph, loc):
-    """The Free Market booths share one drawing: six maps tie within the margin, so the reader must pick one of
-    the family (deterministically) rather than answer nothing."""
-    from PIL import Image
-    fam = sorted(m for m in graph.maps if graph.name(m).startswith("Free Market <")
-                 and Image.open(graph.minimap(m)).size == (93, 64))
-    assert len(fam) > 2
-    box, dot = _shot(graph, "080002006", 1.0)
-    first = loc.locate(box)
-    assert first is not None and first.map in fam and first.spot == pytest.approx(dot, abs=0.03)
-    again = loc.locate(box)
-    assert again is not None and again.map == first.map
-
-
-@needs_kb
-def test_portrait_maps_match(graph, loc):
-    """Tall narrow pictures (a tree, a field) match as well as wide ones, at 1:1 and enlarged."""
-    for mid, scale in [("010002061", 1.0), ("010002061", 1.5), ("010002010", 1.0)]:
-        box, dot = _shot(graph, mid, scale)
-        here = loc.locate(box)
-        assert here is not None and here.map == mid
-        assert here.spot == pytest.approx(dot, abs=0.03)
-
-@needs_kb
-def test_second_call_uses_the_lock_and_reset_drops_it(graph, monkeypatch):
-    """The dot moved but the map and scale didn't: recognized without searching everything; after reset the full
-    search runs again."""
-    from maplehelper.minimap import Locator
-    loc = Locator(graph)
-    box, dot = _shot(graph, "010001000", 1.0, pick=0)
-    first = loc.locate(box)
-    assert first is not None and first.map == "010001000" and first.spot == pytest.approx(dot, abs=0.03)
-    calls = []
-    orig = Locator._search
-
-    def spy(self, *args, **kwargs):
-        calls.append(1)
-        return orig(self, *args, **kwargs)
-
-    monkeypatch.setattr(Locator, "_search", spy)
-    moved, moved_dot = _shot(graph, "010001000", 1.0, pick=1)
-    second = loc.locate(moved)
-    assert second is not None and second.map == "010001000" and second.spot == pytest.approx(moved_dot, abs=0.03)
-    assert not calls
-    loc.reset()
-    third = loc.locate(moved)
-    assert calls and third is not None and third.map == "010001000"
-
-
-def _partial_box(graph, mid, scale, x0, win_w=300, win_h=150, pick=0):
-    """A cropped live view of this map's minimap: the art at this scale with a win_w-wide slice from x0 on a grey
-    (65,65,65) panel (taller than the art, so grey letterboxes it top and bottom, as a scrolled view does), a
-    light-blue frame with a title strip around it, red/green/blue marker pills and the yellow player dot on top.
-    Returns the box and the dot's fractions of the KB picture: the dot goes on plain background (never on
-    yellowish art, which the reader rightly refuses to call the player) and must sit inside the window."""
-    from PIL import Image, ImageDraw
-    art = Image.open(graph.minimap(mid)).convert("RGBA")
-    sw, sh = max(1, round(art.width * scale)), max(1, round(art.height * scale))
-    big = np.asarray(art.resize((sw, sh), Image.BILINEAR))
-    free = []
-    for fx, fy in _DOT_SPOTS:
-        x, y = min(int(fx * sw), sw - 1), min(int(fy * sh), sh - 1)
-        patch = np.asarray(Image.fromarray(big[..., :3]).crop(
-            (max(0, x - 2), max(0, y - 2), min(sw, x + 3), min(sh, y + 3)))).reshape(-1, 3)
-        if all(r <= 120 or g <= 120 or b >= 180 for r, g, b in patch):
-            free.append((fx, fy))
-    assert free, "no plain-background dot spot on this art"
-    dot = free[pick % len(free)]
-    assert x0 / sw <= dot[0] <= (x0 + win_w) / sw, "dot outside the cropped window"
-    bg = (65, 65, 65)
-    crop = big[:, x0:x0 + win_w]
-    panel = Image.new("RGB", (win_w, win_h), bg)
-    yoff = (win_h - crop.shape[0]) // 2
-    panel.paste(Image.alpha_composite(
-        Image.new("RGBA", (crop.shape[1], crop.shape[0]), bg + (255,)),
-        Image.fromarray(crop)).convert("RGB"), (0, yoff))
-    d = ImageDraw.Draw(panel)
-    for (fx, fy), colour in [((0.62, 0.50), (255, 0, 0)), ((0.40, 0.70), (0, 200, 0))]:
-        cx, cy = fx * sw - x0, fy * sh + yoff
-        if 0 <= cx < win_w and 0 <= cy < win_h:
-            d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=colour)
-    cx, cy = 0.55 * sw - x0, 0.30 * sh + yoff
-    if 0 <= cx < win_w and 0 <= cy < win_h:
-        d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], outline=(30, 120, 220), width=2)
-    cx, cy = dot[0] * sw - x0, dot[1] * sh + yoff
-    d.ellipse([cx - 4, cy - 4, cx + 4, cy + 4], fill=(255, 255, 0))
-    b, w = 3, 2
-    box = Image.new("RGB", (win_w + 2 * (b + w), 30 + win_h + 2 * (b + w)), (140, 170, 200))
-    dd = ImageDraw.Draw(box)
-    dd.rectangle([b + w, b + w + 30 - 1, b + w + win_w - 1, b + w + 30 + win_h - 1], fill=(255, 255, 255))
-    box.paste(panel, (b + w, b + w + 30))
-    dd.rectangle([b + w + 10, b + w + 8, b + w + 90, b + w + 16], fill=(240, 240, 240))
-    return box, dot
-
-
-@needs_kb
-def test_live_perion_cropped_view(loc):
-    """A real capture (tests/fixtures/minimap_perion_live.png, 336x316): the MINI MAP window with its title bar, a
-    light-blue Victoria Road / Perion header, and a dark-grey map panel showing only the top ~60% of Perion at
-    ~1.5x, with portal rings, NPC/monster pills, a cyan arrow and the yellow dot on top. The expected spot is
-    hand-derived: the dot's bright core (R>240, G>200, B<100 in rows 150-230 x cols 50-130: 40 px) centroids at
-    ~(88.2, 192.3) box pixels, i.e. ~(84, 77) on the detected (4, 115)-(324, 290) panel; the verified match (a
-    side-by-side overlay blend of the panel against the composited KB art, plus the refined NCC peak) puts the
-    204x192 picture at ~1.55x with its top-left ~(0, -58) panel pixels, so the dot sits ((84-0)/318,
-    (77+58)/299) = (0.26, 0.45) of the full picture."""
-    from PIL import Image
-    box = Image.open(Path(__file__).resolve().parent / "fixtures" / "minimap_perion_live.png").convert("RGB")
-    here = loc.locate(box)
+def test_live_perion(loc):
+    """The title names Perion (picture matching alone once read other maps wrongly), and the dot lands where the
+    verified picture match put it."""
+    here = loc.locate(_box("minimap_perion_live.png"))
     assert here is not None and here.map == "010004000"
     assert here.spot == pytest.approx((0.26, 0.45), abs=0.03)
 
 
 @needs_kb
 def test_live_three_way_road_split(loc):
-    """A second real capture from the same player's box (tests/fixtures/minimap_3way_live.png): 3-Way Road-Split
-    (318x156) on the same dark panel, crowded with red monster pills and the yellow dot, read as that map."""
-    from PIL import Image
-    box = Image.open(Path(__file__).resolve().parent / "fixtures" / "minimap_3way_live.png").convert("RGB")
-    here = loc.locate(box)
-    assert here is not None and here.map == "010000020" and here.spot is not None
+    """3-Way Road-Split on the same dark panel, crowded with red monster pills: named from the title, dotted."""
+    here = loc.locate(_box("minimap_3way_live.png"))
+    assert here is not None and here.map == "010000020"
+    assert here.spot == pytest.approx((0.22, 0.70), abs=0.03)
 
 
 @needs_kb
-def test_partial_window_cropped_view(graph, loc):
-    """A synthetic cropped view: Henesys at 1.5x (646x111) seen through a 300x150 window from its middle, so the
-    scaled picture overhangs the grey panel left and right while the panel letterboxes it top and bottom, with a
-    frame, a title strip and marker pills around/over it. The map still matches, and the dot maps through the
-    partial-view offset onto the full picture."""
-    box, dot = _partial_box(graph, "010001000", 1.5, 173)
-    here = loc.locate(box)
-    assert here is not None and here.map == "010001000"
-    assert here.spot == pytest.approx(dot, abs=0.03)
+def test_live_henesys_market(loc):
+    """Henesys Market: named from the title; its navy backdrop fails the flat-background test, so the background
+    falls back to the dark pixels before the picture aligns."""
+    here = loc.locate(_box("minimap_henesys_market_live.png"))
+    assert here is not None and here.map == "010001040"
+    assert here.spot == pytest.approx((0.46, 0.40), abs=0.03)
 
 
 @needs_kb
-def test_scrolled_view_holds_the_lock(graph, monkeypatch):
-    """The player walked right: the same map at the same scale, the window slid 50 art pixels over. The locked
-    map re-verifies by re-searching offsets at the locked scale (no full search), and the unmoved dot lands on
-    the same fractions of the picture."""
+def test_live_kerning_city_without_the_dot_in_view(loc):
+    """Kerning City with the player's dot outside the part of the map the window shows: the map, no spot."""
+    here = loc.locate(_box("minimap_kerning_live.png"))
+    assert here is not None and here.map == "010003000" and here.spot is None
+
+
+@needs_kb
+def test_header_crop_falls_back_to_the_whole_box(loc):
+    """A stale crop (a redrawn box) yields no header: the whole box is read and the crop relearned."""
+    loc._header_rows = 20
+    here = loc.locate(_box("minimap_perion_live.png"))
+    assert here is not None and here.map == "010004000"
+    assert here.spot == pytest.approx((0.26, 0.45), abs=0.03)
+    assert loc._header_rows > 100
+
+
+@needs_kb
+def test_second_read_rechecks_the_lock(graph, monkeypatch):
+    """The same box again: the locked scale re-verifies with one comparison (no trial sweep); after reset the
+    sweep runs again. OCR rows are stubbed — the panel, alignment and dot are real."""
     from maplehelper.minimap import Locator
+    rows = [("MINI MAP", 21.0, 27.0), ("WORLD", 21.0, 28.0),
+            ("Victoria Road", 56.0, 67.0), ("Perion", 78.0, 89.0)]
     loc = Locator(graph)
-    first_box, dot = _partial_box(graph, "010001000", 1.5, 100)
-    first = loc.locate(first_box)
-    assert first is not None and first.map == "010001000" and first.spot == pytest.approx(dot, abs=0.03)
+    monkeypatch.setattr(loc, "_ocr_rows", lambda view: list(rows))
+    box = _box("minimap_perion_live.png")
+    first = loc.locate(box)
+    assert first is not None and first.map == "010004000"
+    assert first.spot == pytest.approx((0.26, 0.45), abs=0.03)
     calls = []
-    orig = Locator._search
+    orig = Locator._coarse_best
 
     def spy(self, *args, **kwargs):
         calls.append(1)
         return orig(self, *args, **kwargs)
 
-    monkeypatch.setattr(Locator, "_search", spy)
-    second_box, _ = _partial_box(graph, "010001000", 1.5, 150)
-    second = loc.locate(second_box)
-    assert second is not None and second.map == "010001000" and second.spot == pytest.approx(dot, abs=0.03)
-    assert not calls
+    monkeypatch.setattr(Locator, "_coarse_best", spy)
+    second = loc.locate(box)
+    assert second == first and not calls
+    loc.reset()
+    third = loc.locate(box)
+    assert calls and third == first
+
+
+# ------------------------------------------------------- name resolution
+
+
+@needs_kb
+@pytest.mark.parametrize("text,street,expected", [
+    ("Perion", None, "010004000"),
+    ("perion", None, "010004000"),
+    ("  3-Way   Road-Split ", "Victoria Road", "010000020"),
+    ("Henesys Market", "Victoria Road", "010001040"),
+    ("Henesys Markel", None, "010001040"),      # OCR confusions: l/i, missing hyphen
+    ("3-Way RoadSplit", None, "010000020"),
+    ("PerI0n", None, "010004000"),
+])
+def test_resolve_names(graph, text, street, expected):
+    """Exact (any case, settled whitespace) and OCR-tolerant fuzzy reads name their maps."""
+    from maplehelper.minimap import resolve_name
+    assert resolve_name(graph, text, street) == expected
+
+
+@needs_kb
+@pytest.mark.parametrize("street,expected", [
+    ("Hidden Street", "010001021"),
+    ("Rainbow Street", "000001003"),
+    (None, "010001021"),                        # no street: town first, the deterministic pick
+])
+def test_resolve_street_breaks_the_tie(graph, street, expected):
+    """Two maps share 'Mushroom Garden': the street line picks, else the town-first rule."""
+    from maplehelper.minimap import resolve_name
+    assert resolve_name(graph, "Mushroom Garden", street) == expected
+
+
+@needs_kb
+def test_resolve_previous_map_and_neighbours_break_the_tie(graph):
+    """Two maps share 'Mushroom Town': the previous map wins, else one of its neighbours, else deterministic."""
+    from maplehelper.minimap import resolve_name
+    assert resolve_name(graph, "Mushroom Town", None, "000000010") == "000000010"
+    assert resolve_name(graph, "Mushroom Town", None, "000000021") == "000000020"
+    assert resolve_name(graph, "Mushroom Town") == "000000020"
+
+
+@needs_kb
+def test_resolve_picture_scores_break_the_tie(graph):
+    """The same tie with picture fits: a clear winner counts, a near-tie falls back to deterministic."""
+    from maplehelper.minimap import resolve_name
+    assert resolve_name(graph, "Mushroom Town", scores={"000000010": 0.9, "000000020": 0.6}) == "000000010"
+    assert resolve_name(graph, "Mushroom Town", scores={"000000010": 0.62, "000000020": 0.60}) == "000000020"
+    assert resolve_name(graph, "Mushroom Town", scores={"000000010": 0.4, "000000020": 0.3}) == "000000020"
+
+
+@needs_kb
+@pytest.mark.parametrize("text", ["Potion Shop", "Rocky Road", "", "Xyzzy"])
+def test_resolve_unrelated_text_is_no_map(graph, text):
+    """Garbage, ambiguity between two names, and nothing: no map rather than a wrong one."""
+    from maplehelper.minimap import resolve_name
+    assert resolve_name(graph, text) is None
+
+
+@pytest.mark.parametrize("text,yc,height,expected", [
+    ("MINI MAP", 21.0, 316, True),
+    ("minI mAP", 21.0, 316, True),
+    ("WORLD", 21.0, 316, True),
+    ("RLO", 20.0, 316, True),        # a tight crop's WORLD fragment: caught by the title-bar band
+    ("Perion", 78.0, 316, False),
+    ("Victoria Road", 56.0, 316, False),
+])
+def test_chrome_lines_are_not_header(text, yc, height, expected):
+    """The window furniture in any case/spacing, and anything up in the title bar, never names a map."""
+    from maplehelper.minimap import is_chrome
+    assert is_chrome(text, yc, height) is expected
+
+
+# ------------------------------------------------------------- no guessing
+
+
+@needs_kb
+def test_noise_is_no_map(loc):
+    """Static through the real reader: no text, no map — however vaguely the art might fit."""
+    rnd = np.random.RandomState(7).randint(0, 256, (250, 300, 3)).astype(np.uint8)
+    from PIL import Image
+    assert loc.locate(Image.fromarray(rnd)) is None
+
+
+@needs_kb
+def test_no_header_text_is_no_map_even_with_matching_art(loc, monkeypatch):
+    """A real minimap box whose header yields nothing: None, though the art would match perfectly."""
+    monkeypatch.setattr(loc, "_ocr_rows", lambda view: [])
+    assert loc.locate(_box("minimap_perion_live.png")) is None
+
+
+@needs_kb
+def test_unalignable_picture_keeps_the_map(graph):
+    """The title names Perion but the panel is flat grey: the map stands, with a None spot."""
+    from PIL import Image
+    from maplehelper.minimap import Here, Locator
+    loc = Locator(graph)
+    loc._ocr_rows = lambda view: [("Perion", 60.0, 70.0)]
+    assert loc.locate(Image.new("RGB", (300, 250), (60, 60, 60))) == Here("010004000", None)
+
+
+@needs_kb
+def test_map_without_a_picture_keeps_the_map(graph):
+    """A known map with no KB picture: the title still names it, with a None spot."""
+    from types import SimpleNamespace
+    from PIL import Image
+    from maplehelper.minimap import Here, Locator
+    from maplehelper.routes import MapInfo
+    stub = SimpleNamespace(
+        maps={"999": MapInfo("999", "Testville", "Test Street", True, "", None, [])},
+        edges={},
+        minimap=lambda mid: None,
+    )
+    loc = Locator(stub)
+    loc._ocr_rows = lambda view: [("Testville", 60.0, 70.0)]
+    assert loc.locate(Image.new("RGB", (300, 250), (60, 60, 60))) == Here("999", None)
+
+
+@needs_kb
+def test_dead_engine_is_no_answer_and_logs_once(graph, monkeypatch, caplog):
+    """RapidOCR won't load: reads are None, and the warning fires once no matter how many reads."""
+    import logging
+    import sys
+    from PIL import Image
+    from maplehelper.minimap import Locator
+    monkeypatch.setitem(sys.modules, "rapidocr", None)
+    loc = Locator(graph)
+    box = Image.new("RGB", (300, 250), (60, 60, 60))
+    with caplog.at_level(logging.WARNING, logger="maplehelper"):
+        assert loc.locate(box) is None
+        assert loc.locate(box) is None
+    assert sum("OCR unavailable" in r.message for r in caplog.records) == 1
