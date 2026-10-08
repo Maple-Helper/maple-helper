@@ -213,7 +213,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **Plan usage:** See how much of your Claude, ChatGPT or Gemini plan is used, with a heads-up in the chat before the 5-hour limit runs out, and a saver mode.
 - **Play tools:** A window of calculators and planners beside the chat, built from the game database and your character, every page linked to the others (a monster's way there, its hit & damage, an item's droppers and price):
   - **Grind spots:** maps for your level, ranked, with your hit chance, hits to kill, EXP per kill and kills to level.
-  - **Grind tracker:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare).
+  - **Grind tracker:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare). Level and EXP are read off the bottom bar on your computer; the AI is asked only while the inventory is open (mesos, potions, loot).
   - **Farming:** who drops each item, where and at what level; monsters that drop what your quests, recipes and starred items need come first, then what an NPC pays most for; a farm session counts what lands in your bag.
   - **Quests:** by level, a full card for each quest (where to get it, what to do, what to bring and where to get it, who to finish with, the rewards), daily and weekly quests that come back, and a search that forgives typos.
   - **Crafting:** each profession's teacher and quests, and every recipe by level, searchable by name or ingredient, with who drops each ingredient.
