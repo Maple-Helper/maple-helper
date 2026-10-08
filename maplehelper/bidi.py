@@ -199,7 +199,7 @@ _RULE = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")
 _TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
 _TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$")
 _MD_LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+)\)")
-_URL = re.compile(r"https?://[^\s<>\"'\]\[)(]+")
+_URL = re.compile(r"https?://[^\s<>\"'\]\[)(*]+")      # (no "*": a bold link's ** stays outside it)
 _ITALIC = re.compile(r"(?<![*\w])\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?![*\w])")
 _LINK_SLOT = 0xE000      # a private-use character holds a link's place while the line is isolated and escaped
 

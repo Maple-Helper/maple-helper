@@ -2292,8 +2292,9 @@ class Overlay(EdgeResize, QWidget):
             history.append("user", stored)
             self._pending_stored = stored
         # all a "Try again" needs to ask it the same way: the question, its tags and the app's context (CHAT-02)
+        c = self.profiles.active
         self._ask_ctx = {"question": question, "shown": shown, "extra": hidden, "focus": focus, "tiles": tiles,
-                         "shot": shot}
+                         "shot": shot, "cid": c.id if c else None}
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
         self._pending_bubble.start_waiting(lambda: self.t)
         self._start_reading(self._pending_bubble)
@@ -2897,6 +2898,8 @@ class Overlay(EdgeResize, QWidget):
         self._remember_render(bubble, render)
         if ctx and not ctx["shown"] and not self.input.text().strip():
             self.input.setText(ctx["question"])
+            if not self.focus_keys:
+                self.set_tags([k for k in ctx["focus"] if self.kb.get(k)])
 
     def _retry(self, ctx: dict, bubble: Bubble) -> None:
         """ "Try again" under a failed answer: the same question asked again, with its tags, the app's context and
@@ -2906,6 +2909,11 @@ class Overlay(EdgeResize, QWidget):
             return
         if self.input.text().strip() == ctx["question"].strip():
             self.input.clear()              # (put back by _show_failed)
+        c = self.profiles.active
+        if (c.id if c else None) != ctx.get("cid"):
+            # another character since: the question again, without the old one's context (it went out as the new
+            # character carrying the old talk, review CHAT-R2)
+            ctx = {**ctx, "extra": "", "tiles": None}
         keep, self.focus_keys = self.focus_keys, [k for k in ctx["focus"] if self.kb.get(k)]
         self._detail_tiles = ctx["tiles"]
         if ctx["shot"] is not None and self.shot_used:

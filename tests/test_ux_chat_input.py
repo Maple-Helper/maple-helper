@@ -302,3 +302,44 @@ def test_inventory_check_shows_a_line_until_the_items_are_named(overlay, fake_wo
         pump(20)
     pump(20)
     assert want not in lines(ov) and fake_worker.made
+
+
+def test_try_again_after_a_character_switch_drops_the_old_ones_context(overlay, fake_worker, isolated_store):
+    """Review CHAT-R2: Try again went out as the new character, carrying the old one's talk."""
+    from maplehelper.ui.widgets import Bubble, ElideLink
+    ov = overlay
+    first = ov.profiles.active_id
+    bob = ov.profiles.add("Bob", "Warrior", "Fighter", 40)
+    ov.switch_character(first)                   # (adding one makes it the active character)
+    ov._hidden_context = "<continuing>A's old talk</continuing>"
+    assert ov.ask("what next?")
+    fake_worker.made[-1].done.emit(Answer(error="timeout"))
+    pump(30)
+    ov.input.clear()
+    ov.switch_character(bob.id)
+    failed = [b for b in ov.feed.findChildren(Bubble) if b.property("error")][-1]
+    failed._err_row.findChildren(ElideLink)[0].click()       # Try again
+    pump(30)
+    assert "A's old talk" not in (fake_worker.made[-1].extra or "")
+
+
+def test_a_failed_question_comes_back_with_its_tags(overlay, fake_worker, kb):
+    """Review CHAT-R3: the question went back in the field without its tags, so Enter asked it about nothing."""
+    ov = overlay
+    key = next(k for k, e in kb.entities.items() if e["category"] == "monster")
+    ov.set_tags([key])
+    ov.input.setText("how much exp?")
+    ov._send_typed()
+    fake_worker.made[-1].done.emit(Answer(error="timeout"))
+    pump(30)
+    assert ov.input.text() == "how much exp?" and ov.focus_keys == [key]
+    QTest.keyClick(ov.input, Qt.Key_Return)
+    pump(30)
+    assert fake_worker.made[-1].focus == [key]
+
+
+def test_a_bold_link_keeps_its_stars_out_of_the_address():
+    """Review CHAT-R1: "**https://...**" put the ** inside the link and opened a wrong address."""
+    from maplehelper import bidi
+    out = bidi.to_html("See **https://meowdb.com/monster/100100** now", md=True)
+    assert "href=\"https://meowdb.com/monster/100100\"" in out.replace("'", '"') and "**" not in out
