@@ -174,6 +174,21 @@ def is_chrome(text: str, y_center: float, height: int) -> bool:
     return re.sub(r"\s+", "", text).lower() in _CHROME or y_center < _TOP_BAND * height
 
 
+def collapsed_title(text: str, streets) -> tuple[str, str] | None:
+    """A collapsed minimap's one-line title, (map, street): inside a building the game folds the window to its title
+    bar, 'Victoria Road : Warriors' Sanctuary' (no KB map name has a colon). The colon read as nothing, the line
+    still starts with a known street ('Victoria Road Warriors'Sanctuary'). None for any other line."""
+    t = re.sub(r"\s+", " ", re.sub(r"(?i)\bworld\s*$", "", text)).strip()
+    street, sep, name = t.partition(":") if ":" in t else t.partition("\uff1a")
+    if sep and street.strip() and name.strip():
+        return name.strip(), street.strip()
+    low = t.lower()
+    for s in sorted({s for s in streets if s}, key=len, reverse=True):
+        if low.startswith(s.lower() + " ") and t[len(s):].strip():
+            return t[len(s):].strip(), s
+    return None
+
+
 @dataclass(frozen=True)
 class _Hit:
     """One candidate placed on the panel: which map, how well it fits, at which scale, and where (panel pixels:
@@ -501,6 +516,7 @@ class Locator:
         self._header_rows: int | None = None
         self._last_key: tuple | None = None
         self._last_mid: str | None = None
+        self._collapsed = False         # the last read header was a folded window's one-line title (no map shown)
 
     def reset(self) -> None:
         """Forget the remembered map, scale and header: the next locate() reads the whole box again."""
@@ -567,8 +583,8 @@ class Locator:
         if mid is None:
             return None
         self._prev = mid
-        if self._pic(mid) is None:
-            return Here(mid, None)
+        if self._collapsed or self._pic(mid) is None:
+            return Here(mid, None)          # a folded window shows no map to place the dot on
         hit = self._align(panel, clean, bg, mid)
         if hit is None:
             panel, bg, clean = self._panel_view(arr, True)
@@ -615,10 +631,21 @@ class Locator:
         return rows
 
     def _header(self, rows: list[tuple[str, float, float]], height: int, panel_y0: int
-                ) -> tuple[tuple[str, str | None], float] | None:
-        """The header's (map line, street line) from read rows: the window furniture dropped, anything at or below
-        the map panel dropped, and of what stays the map line is the last one down, the street the one over it.
-        Also the header's bottom row, which the next reads crop to. None when no header line stays."""
+                ) -> tuple[tuple[str, str | None], float | None] | None:
+        """The header's (map line, street line) from read rows. A collapsed window first: its one-line 'Street : Map'
+        title sits up in the title bar (which the furniture rule drops; an unfolded window has only MINI MAP and
+        WORLD there), and under a folded window the game itself shows, whose names and bubbles must not pass for a
+        header. Otherwise the window furniture dropped, anything at or below the map panel dropped, and of what stays
+        the map line is the last one down, the street the one over it. Also the header's bottom row, which the next
+        reads crop to (None for a folded title: unfolded, the header sits much lower). None when no header line
+        stays. Sets self._collapsed for the read."""
+        streets = [m.street for m in self._graph.maps.values()]
+        for t, yc, _b in rows:
+            got = collapsed_title(t, streets) if yc < _TOP_BAND * height else None
+            if got is not None and _candidates_for(self._graph, *got):
+                self._collapsed = True
+                return got, None
+        self._collapsed = False
         kept = [(t, b) for t, yc, b in rows
                 if t.strip() and not is_chrome(t, yc, height) and (panel_y0 < 40 or b <= panel_y0 + 8)]
         if not kept:
@@ -642,7 +669,8 @@ class Locator:
         got = self._header(rows, H, panel_y0)
         if got is None:
             return None
-        self._header_rows = min(H, max(int(got[1]) + _HEADER_PAD, 1))
+        if got[1] is not None:
+            self._header_rows = min(H, max(int(got[1]) + _HEADER_PAD, 1))
         return got[0]
 
     def _resolve_text(self, map_text: str, street: str | None, panel: np.ndarray, bg: tuple[int, int, int]

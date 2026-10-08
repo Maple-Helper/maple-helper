@@ -74,6 +74,31 @@ def test_live_kerning_city_without_the_dot_in_view(loc):
 
 
 @needs_kb
+def test_live_collapsed_window_in_a_building(loc):
+    """Inside a building the game folds the window to one title line, 'Victoria Road : Warriors' Sanctuary', over
+    the game itself: the map from that line (up where the title bar's furniture is dropped), no spot (no map
+    shown); then unfolded again, the two-line header reads as before."""
+    here = loc.locate(_box("minimap_collapsed_live.png"))
+    assert here is not None and here.map == "010004003" and here.spot is None
+    here = loc.locate(_box("minimap_perion_live.png"))
+    assert here is not None and here.map == "010004000"
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("Victoria Road :Warriors'Sanctuary", ("Warriors'Sanctuary", "Victoria Road")),
+    ("Victoria Road : Warriors' Sanctuary WORLD", ("Warriors' Sanctuary", "Victoria Road")),
+    ("Victoria Road Warriors' Sanctuary", ("Warriors' Sanctuary", "Victoria Road")),    # the colon read as nothing
+    ("MINI MAP", None),
+    ("Victoria Road", None),
+    ("Perion", None),
+])
+def test_collapsed_title_splits_street_and_map(text, expected):
+    """The folded title's 'Street : Map', with or without the colon read, WORLD trailing; anything else is None."""
+    from maplehelper.minimap import collapsed_title
+    assert collapsed_title(text, ["Victoria Road", "Hidden Street", ""]) == expected
+
+
+@needs_kb
 def test_header_crop_falls_back_to_the_whole_box(loc):
     """A stale crop (a redrawn box) yields no header: the whole box is read and the crop relearned."""
     loc._header_rows = 20

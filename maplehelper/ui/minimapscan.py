@@ -152,6 +152,10 @@ class MinimapScanner(QObject):
         if LOCATION.here is not None and now - self._miss_since < self._grace():
             return
         self._cooldown_until = now + max(5.0, 5.0 * self._interval())
+        if LOCATION.here is not None:
+            # a map given up: says whether a "not recognized" the player saw was misses outlasting the grace
+            log.info("minimap: no title for %.1f s, location dropped", now - self._miss_since)
+            self._last_map = None
         LOCATION.set(None)
         LOCATION.set_state("unknown")
 
