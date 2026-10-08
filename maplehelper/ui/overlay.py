@@ -2907,8 +2907,9 @@ class Overlay(EdgeResize, QWidget):
         if self._is_busy():
             self._say_busy()
             return
-        if self.input.text().strip() == ctx["question"].strip():
-            self.input.clear()              # (put back by _show_failed)
+        restored = self.input.text().strip() == ctx["question"].strip()
+        if restored:
+            self.input.clear()              # (put back by _show_failed, with its tags)
         c = self.profiles.active
         if (c.id if c else None) != ctx.get("cid"):
             # another character since: the question again, without the old one's context (it went out as the new
@@ -2922,6 +2923,8 @@ class Overlay(EdgeResize, QWidget):
             asked = self.ask(ctx["question"], force_claude=True, shown=ctx["shown"], extra=ctx["extra"])
         finally:
             self.focus_keys = keep
+        if restored and asked and keep == [k for k in ctx["focus"] if self.kb.get(k)]:
+            self.set_tags([])               # the next, unrelated question went out tagged (review X-R1)
         if asked and _alive(bubble):
             bubble.retried = True
             bubble.show_error(bubble._text, [])

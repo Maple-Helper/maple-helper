@@ -295,6 +295,7 @@ def test_a_long_unbroken_word_can_wrap():
     # a URL is left whole (a break inside it would be in the link too): the answer's HTML breaks the text it shows
     url = "https://meowdb.com/items/" + "x" * 80
     assert soft_breaks(f"ראו {url} שם") == f"ראו {url} שם"
+    assert ZWSP in soft_breaks(url, links=False)      # the player's own question: no link, so it still wraps (X-R2)
     from maplehelper import bidi
     html = bidi.to_html(f"ראו {url} שם", "rtl", md=True)
     assert f'href="{url}"' in html and ZWSP in html

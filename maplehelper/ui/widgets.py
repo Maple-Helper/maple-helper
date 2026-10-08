@@ -48,13 +48,14 @@ def on_solid_background(pm: QPixmap, radius: float) -> QPixmap:
 ZWSP = chr(0x200B)       # zero-width space: a place to wrap, nothing drawn
 
 
-def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
+def soft_breaks(text: str, run: int = 30, every: int = 20, links: bool = True) -> str:
     """A zero-width break every `every` characters inside a word longer than `run` (a URL, names joined by "_"):
     Qt wraps only at spaces and a few marks, and such a word ran past the bubble and was cut. "**" stays whole
-    (the bold markup). A link is left alone: bidi.to_html shows it whole and breaks the text it shows itself."""
+    (the bold markup). A link is left alone (links=True, an answer): bidi.to_html shows it whole and breaks the text
+    it shows itself; the player's own question has no links, and its URL was cut off (review X-R2)."""
     def cut(m):
         w, out, n = m.group(0), [], 0
-        if "://" in w:
+        if links and "://" in w:
             return w
         for i, ch in enumerate(w):
             out.append(ch)
@@ -243,7 +244,7 @@ class Bubble(QFrame):
             self.label.setText("")
             return
         answer = self.role != "user"
-        body = bidi.to_html(soft_breaks(text), self._dir, md=answer)
+        body = bidi.to_html(soft_breaks(text, links=answer), self._dir, md=answer)
         if answer:
             from . import terms, theme
             from .. import glossary
