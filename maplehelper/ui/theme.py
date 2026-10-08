@@ -91,13 +91,13 @@ BORDER = "rgba(255,149,51,0.55)"
 
 FONT_FAMILY = "Rubik"
 ICON_FONT = "Segoe Fluent Icons"
-ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707", "pin": "\ue718", "map_where": "\ue81d", "minimap": "\ue7a8"}
+ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707", "pin": "\ue718", "map_where": "\ue81d", "minimap": "\ue7a8", "warn": "\ue7ba"}
 # the same keys without an icon font (a trailing U+FE0E asks for the plain glyph, not the color emoji)
 SYMBOL_ICONS = {"open": "\u2197", "refresh": "\u21bb", "info": "\u24d8", "edit": "\u270e", "delete": "\u232b", "add": "+", "minimize": "\u2013",
                 "close": "\u2715", "settings": "\u2699\ufe0e", "camera": "\ud83d\udcf7\ufe0e", "mic": "\ud83c\udf99\ufe0e", "send": "\u27a4", "stop": "\u25a0",
                 "copy": "\u29c9", "star": "\u2606", "star_on": "\u2605", "plan": "\u2261", "book": "\u2630", "search": "\u2315",
                 "tools": "\u2692\ufe0e", "pin": "\U0001F4CC\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
-                "route": "\u2316", "map_where": "\u25c9", "minimap": "\u2b1a"}
+                "route": "\u2316", "map_where": "\u25c9", "minimap": "\u2b1a", "warn": "\u26a0\ufe0e"}
 
 
 def high_contrast() -> str | None:
@@ -249,6 +249,14 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
                    border-radius: 15px; min-height: 32px; }}
     #BubbleUser QLabel {{ color: {ON_ORANGE}; }}
     #BubbleBot {{ background: {c['fill1']}; border: 1px solid {c['hair']}; border-radius: 15px; min-height: 32px; }}
+    /* a failed answer: tinted, with a warning icon, so it doesn't read like an answer (CHAT-02) */
+    #BubbleBot[error="true"] {{ background: {"rgba(255,69,58,0.12)" if MODE == "dark" else "rgba(255,59,48,0.07)"};
+                                border: 1px solid rgba(255,69,58,0.40); }}
+    #BubbleErrIcon {{ font-family: "{ICON_FONT}"; font-size: 15px; color: #FF453A; }}
+    QPushButton#NewPill {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFA24A, stop:1 {ORANGE_DEEP});
+                           color: {ON_ORANGE}; border: none; border-radius: 13px; min-height: 26px; max-height: 26px;
+                           padding: 0 14px; font-size: {s - 2}px; font-weight: 600; }}
+    QPushButton#NewPill:hover {{ background: {ORANGE_DEEP}; }}
     #SystemLine {{ color: {c['muted']}; font-size: {s - 2}px; }}
 
     #Card {{ background: {c['fill1']}; border: 1px solid {c['hair']}; border-radius: 14px; }}
