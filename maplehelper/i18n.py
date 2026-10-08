@@ -1097,6 +1097,11 @@ STRINGS = {
                              "ההפעלה, תחת מזהה אקראי. אף פעם לא שאלות, צילומי מסך או הקלטות",
                        "en": "Helps us improve Maple Helper: which features get used, its version and your OS, "
                              "under a random id. Never your questions, screenshots or voice"},
+    "presence": {"he": "ספירה אנונימית של משתמשים", "en": "Count me as a player (anonymous)"},
+    "presence_hint": {"he": "כל 10 דקות שהאפליקציה פתוחה: הגרסה, מערכת ההפעלה והאם זו הפעם הראשונה היום. "
+                            "בלי מזהה קבוע ובלי שום דבר עליכם או על המשחק",
+                      "en": "Every 10 minutes while Maple Helper runs: its version, your OS and whether it's the "
+                            "first time today. No lasting id, nothing about you or your game"},
     # onboarding
     "ob_welcome": {"he": "ברוכים הבאים ל-Maple Helper", "en": "Welcome to Maple Helper"},
     "ob_connect": {"he": "חיבור ה-AI", "en": "Connect your AI"},

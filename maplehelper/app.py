@@ -11,7 +11,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, news, osapi, providers, report, tables, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n, system_language
 from .kb import KnowledgeBase
@@ -150,6 +150,7 @@ class MapleHelperApp:
             self.style()
             Onboarding(self.settings, self.profiles, self.kb, self.style, only_character=True).exec()
         telemetry.init(self.settings, __version__)
+        presence.start(self.settings, __version__)
         telemetry.track("app_started", fresh_install=fresh_install, background=BACKGROUND_ARG in sys.argv[1:],
                         provider=self.settings["provider"], language=self.settings["language"])
         self.brain = Brain(self.kb, provider=self.settings["provider"], length=self.settings["answer_length"])
@@ -695,6 +696,7 @@ class MapleHelperApp:
 
     def on_settings_changed(self):
         telemetry.set_enabled(self.settings["telemetry"])
+        presence.set_enabled(self.settings["presence"])
         # the new theme first: apply_language rebuilds text with the theme's colors written in (the retake link
         # kept the dark theme's faint orange on white)
         self.overlay.setStyleSheet(self.style())
@@ -1119,6 +1121,7 @@ class MapleHelperApp:
 
     def shutdown(self):
         telemetry.flush()
+        presence.stop()
         self.grind.stop()                        # no minute read while the app goes
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
