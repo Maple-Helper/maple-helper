@@ -27,7 +27,7 @@ def test_provider_variants_have_a_base_string(key):
 
 def test_provider_lookup():
     t = I18n("en")
-    assert t.p("ob_install", "codex") == "Install ChatGPT (Codex, OpenAI's official tool)"
+    assert t.p("ob_install", "codex") == "Install Codex (OpenAI's official tool for ChatGPT)"
     assert t.p("ob_install", "claude") == "Install Claude Code (Anthropic's official tool)"      # no _claude variant: the base string
     assert t.p("err_usage_limit", None) == t("err_usage_limit")
 
