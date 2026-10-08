@@ -258,6 +258,38 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
         sc.stop()
 
 
+def test_a_known_map_outlives_a_few_unreadable_reads(env, clean_location, qapp, monkeypatch):
+    """One frame without a readable title (a bubble over the header, a map change's loading screen) keeps the map
+    and reads on; only misses lasting past the grace (max(3 s, 3 reads)) say "not recognized" and back off."""
+    from maplehelper.minimap import Here
+    from maplehelper.ui import minimapscan
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        s["minimap_scan_interval"] = 1.0
+        sc.restart()
+        now = [500.0]
+        monkeypatch.setattr(minimapscan.time, "monotonic", lambda: now[0])
+        perion = Here("010004000", (0.3, 0.4))
+        sc._deliver(perion)
+        sc._deliver(None)
+        assert clean_location.here == perion and clean_location.state == "" and sc._cooldown_until == 0.0
+        now[0] = 502.9
+        sc._deliver(None)
+        assert clean_location.here == perion
+        sc._deliver(perion)                    # read again: the next miss starts a fresh grace
+        now[0] = 510.0
+        sc._deliver(None)
+        assert clean_location.here == perion
+        now[0] = 513.0
+        sc._deliver(None)                      # 3 s of misses: really gone
+        assert clean_location.here is None and clean_location.state == "unknown"
+        assert sc._cooldown_until == 518.0
+    finally:
+        sc.stop()
+
+
 def test_restart_clears_the_backoff_and_failures_back_off(env, clean_location, qapp, monkeypatch):
     from maplehelper.ui import minimapscan
     s, _, kb = env

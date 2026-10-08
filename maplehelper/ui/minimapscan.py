@@ -48,6 +48,7 @@ class MinimapScanner(QObject):
         self._guard = threading.Lock()
         self._reading = False
         self._cooldown_until = 0.0    # monotonic deadline before the next read (0: no backoff)
+        self._miss_since: float | None = None   # when the current run of misses began (None: the last read hit)
         self._last_map: str | None = None     # the last map logged at INFO (None: none yet)
         self._logged_errors: set[str] = set()  # error texts already logged: each distinct one logs once
         self._found.connect(self._deliver)
@@ -74,6 +75,7 @@ class MinimapScanner(QObject):
         self._region = {k: int(region[k]) for k in ("x", "y", "w", "h")} if self._valid(region) else None
         self.reset_locator()
         self._cooldown_until = 0.0     # a new box or interval: read right away, don't keep an old backoff
+        self._miss_since = None
         if self._region is None:
             self._timer.stop()
             LOCATION.set(None)
@@ -134,20 +136,35 @@ class MinimapScanner(QObject):
             self._reading = False
         self._found.emit(here)
 
+    def _grace(self) -> float:
+        """How long a known map outlives reads that find no title: max(3 s, 3 reads). A single frame can hide it
+        (a chat bubble over the header, the loading screen between two maps), and the card flipped to "not
+        recognized" and back on its own while the player stood still (live)."""
+        return max(3.0, 3.0 * self._interval())
+
     def _miss(self) -> None:
-        """A read with no recognizable title (closed, minimized, wrong box): wait max(5 s, 5 x interval) before
-        the next one. A wasted read costs most of a second of CPU; without this it ran back-to-back forever."""
-        self._cooldown_until = time.monotonic() + max(5.0, 5.0 * self._interval())
+        """A read with no recognizable title. Inside the grace after a known map: keep that map and read again on
+        the interval. Past it, or with no map known: unknown, and wait max(5 s, 5 x interval) before the next read:
+        a wasted read costs most of a second of CPU; without this it ran back-to-back forever."""
+        now = time.monotonic()
+        if self._miss_since is None:
+            self._miss_since = now
+        if LOCATION.here is not None and now - self._miss_since < self._grace():
+            return
+        self._cooldown_until = now + max(5.0, 5.0 * self._interval())
+        LOCATION.set(None)
+        LOCATION.set_state("unknown")
 
     def _deliver(self, here) -> None:
         """A read's answer, back on the GUI thread."""
         if here is None:
             self._miss()
-        else:
-            self._cooldown_until = 0.0     # found: back to reading every interval
+            return
+        self._miss_since = None
+        self._cooldown_until = 0.0     # found: back to reading every interval
         LOCATION.set(here)
-        LOCATION.set_state("" if here else "unknown")
-        if here is not None and here.map != self._last_map:
+        LOCATION.set_state("")
+        if here.map != self._last_map:
             self._last_map = here.map
             try:
                 name = self._graph.name(here.map) if self._graph is not None else here.map
@@ -156,12 +173,11 @@ class MinimapScanner(QObject):
             log.info("minimap: %s", name)
 
     def _complain(self, error: str) -> None:
-        """A read's error, back on the GUI thread: logged once per distinct error, read as unknown."""
-        self._miss()                # a failing read backs off like an unrecognized one (often the same cause)
+        """A read's error, back on the GUI thread: logged once per distinct error, then a miss like an unrecognized
+        read (often the same cause)."""
         if error not in self._logged_errors:
             if len(self._logged_errors) > 100:
                 self._logged_errors.clear()     # pathological: new errors every read must not grow forever
             self._logged_errors.add(error)
             log.warning("minimap read failed: %s", error)
-        LOCATION.set(None)
-        LOCATION.set_state("unknown")
+        self._miss()
