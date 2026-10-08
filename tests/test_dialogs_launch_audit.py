@@ -123,13 +123,33 @@ def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
 
     from maplehelper import app
     fake = MagicMock()
-    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10"}
+    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10",
+                     "appearance": "dark", "font_size": 14}
     fake.brain = SimpleNamespace(ui_lang="he", prewarm=lambda: None)
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "en"
     fake.settings["language"] = None
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "he"
+
+
+def test_a_save_that_keeps_the_look_doesnt_restyle_the_chat(qapp):
+    """PERF-02: every Save restyled the chat and ran apply_language (~1.6 s with a long chat), even for the
+    microphone; only a new language, appearance or text size does now."""
+    from unittest.mock import MagicMock
+
+    from maplehelper import app
+    fake = MagicMock()
+    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False,
+                     "appearance": "dark", "font_size": 14}
+    fake._look = ("en", "dark", 14)
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert not fake.overlay.setStyleSheet.called and not fake.overlay.apply_language.called
+    assert fake.apply_autostart.called                     # the rest of the settings still apply
+    fake.settings["appearance"] = "light"
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.overlay.setStyleSheet.called and fake.overlay.apply_language.called
+    assert fake._reopen_windows_in_new_look.called
 
 
 # --- DLG-7: Grok's key prefix in Hebrew ----------------------------------------------------------------------------

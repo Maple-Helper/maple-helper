@@ -29,7 +29,7 @@ from pathlib import Path
 
 from . import base
 from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, StreamText, classify_error, child_env, \
-    find_posix, http_ok, run_installer
+    cli_outdated, find_posix, http_ok, run_installer
 
 log = logging.getLogger(__name__)
 STALL_TIMEOUT_S = 150
@@ -618,6 +618,7 @@ def sweep_sessions(max_age: float = SESSION_MAX_AGE_S) -> None:
 class Grok(Provider):
     name = "grok"
     label = "Grok"
+    tool = "Grok Build"
     keyring_user = "xai_api_key"
     model_setting = "grok_model"
     reports_usage = False      # the CLI reports tokens per session, not the plan's quota
@@ -637,8 +638,11 @@ class Grok(Provider):
         return [(None, "")] + (got[0] if got else [])
 
     def account(self) -> dict:
-        if not find_grok():
+        exe = find_grok()
+        if not exe:
             return {"status": "not_installed", "email": None}
+        if cli_outdated(self.name, exe):          # an answer said it's too old (no flags to read from its help)
+            return {"status": "outdated", "email": None}
         try:
             got = read_models(max_age=0)
         except Offline:

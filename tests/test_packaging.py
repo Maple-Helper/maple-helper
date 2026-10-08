@@ -38,20 +38,36 @@ def test_hebrew_installer_speaks_in_plural():
 
 def test_uninstall_asks_before_deleting_the_players_data():
     """SEC-12: the data folder (chats, characters, Grok/Gemini sign-ins) goes only when the player says yes:
-    never on a silent uninstall, "No" the default, and nothing but {userappdata}\\MapleHelper."""
+    never on a silent uninstall, keeping the default, and nothing but {userappdata}\\MapleHelper and the app's
+    saved keys. The default is the first choice: TaskDialogMsgBox takes no MB_DEFBUTTON flag (one makes it fail)."""
     code = _section(ISS, "Code")
     proc = code[code.index("procedure CurUninstallStepChanged"):]
     proc = proc[:proc.index("\nend;") + 5]
     assert "usPostUninstall" in proc and "UninstallSilent" in proc
-    assert "MB_DEFBUTTON2" in proc and "= IDYES" in proc
+    assert "TaskDialogMsgBox(" in proc and "MB_DEFBUTTON" not in proc and "MB_YESNO," in proc
+    # [Keep, Delete]: keeping is the first label (IDYES, focused), deleting is IDNO
+    assert "[CustomMessage('DeleteUserDataKeep'), CustomMessage('DeleteUserDataDelete')]" in proc
+    assert "= IDNO then" in proc and "DeleteApiKeys();" in proc
     assert re.findall(r"ExpandConstant\('([^']*)'\)", proc) == ["{userappdata}\\MapleHelper"]
     assert proc.count("DelTree(") == 1 and "DelTree(DataDir," in proc
     msgs = _section(ISS, "CustomMessages")
     for lang in ("hebrew", "english"):
         assert re.search(rf"^{lang}\.DeleteUserData=.*%1", msgs, re.M), lang
-    # saved API keys aren't in that folder: the question says so (review3 SEC12-a)
-    assert re.search(r"^english\.DeleteUserData=.*Credential Manager; remove them in Settings first\.", msgs, re.M)
-    assert re.search(r"^hebrew\.DeleteUserData=.*במנהל האישורים של Windows: מחקו אותם קודם בהגדרות\.", msgs, re.M)
+        for key in ("DeleteUserDataTitle", "DeleteUserDataKeep", "DeleteUserDataDelete"):
+            assert re.search(rf"^{lang}\.{key}=.+", msgs, re.M), (lang, key)
+    # saved API keys aren't in that folder: the uninstaller deletes them itself (ONB-10: Settings, which the text
+    # used to point at, is gone by then), and the question says so
+    assert re.search(r"^english\.DeleteUserData=.*API keys saved in Windows Credential Manager", msgs, re.M)
+    assert re.search(r"^hebrew\.DeleteUserData=.*מפתחות ה-API שנשמרו במנהל האישורים של Windows", msgs, re.M)
+    assert "Settings first" not in msgs and "קודם בהגדרות" not in msgs
+    # every target python-keyring may have used for the four keys (service "MapleHelper", see providers/base.py)
+    from maplehelper import providers
+    from maplehelper.providers.base import KEYRING_SERVICE
+    delete = code[code.index("procedure DeleteApiKeys"):]
+    delete = delete[:delete.index("\nend;")]
+    for p in providers.PROVIDERS.values():
+        assert f"'{p.keyring_user}@{KEYRING_SERVICE}'" in delete, p.name
+    assert f"'{KEYRING_SERVICE}'" in delete and "external 'CredDeleteW@advapi32.dll stdcall'" in code
 
 
 def test_update_clears_old_package_metadata():
