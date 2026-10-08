@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import sys
 import time
 
@@ -334,6 +335,7 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
     from PIL import Image
 
     from ..portrait import mask_reaches_feet, portrait_rect, sprite_mask
+    _plog = logging.getLogger("maplehelper")
     try:
         img = Image.open(io.BytesIO(shot_jpeg)).convert("RGB")
         # the full-resolution grab when it is the same picture (same shape): small name tags survive there
@@ -360,6 +362,7 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
                 # not a standing figure: scenery the box pointed at (live, 2026-10-07: bricks and a beam cut out
                 # for a magician, whose card showed a map). No portrait rather than a wrong one; the job's picture
                 # stays until a read finds the tag
+                _plog.info("portrait: the name tag was found, but no standing figure above it: kept the old one")
                 return None
             crop = crop.convert("RGBA")         # just the character on a transparent background, like the job art
             crop.putalpha(Image.fromarray((mask * 255).astype(np.uint8)))
@@ -370,8 +373,12 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
             return buf.getvalue()
         # no name tag: no portrait. The AI's box alone cropped scenery (live, 2026-10-04: the lamp beside Nana(H) and an
         # HP bar, for a new character with no portrait yet); the job's picture stays until a read finds the tag
+        # (logged: a refresh that updated everything but the picture said nothing about why, 2026-10-08)
+        _plog.info("portrait: no name tag spelling %r in the screenshot (%s): kept the old one",
+                   name, "learned letters" if learned is not None else "drawn name")
         return None
     except Exception:      # noqa: BLE001
+        _plog.warning("portrait: crop failed", exc_info=True)
         return None
 
 
