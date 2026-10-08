@@ -263,6 +263,19 @@ class ClaudeBackend:
         finally:
             timer.cancel()
 
+    @staticmethod
+    def _died(proc: subprocess.Popen) -> RawResult:
+        """A CLI that ended before it took the question, twice: its stderr says why. A Claude Code too old for a
+        flag passed here ("error: unknown option '--restricted'") failed every answer with "Something went wrong"
+        and nothing in the log (issue #107)."""
+        try:
+            proc.wait(timeout=5)
+            stderr = proc.stderr.read().decode("utf-8", errors="replace")
+        except (OSError, ValueError, subprocess.TimeoutExpired):
+            stderr = ""
+        log.warning("Claude Code ended before taking the question (exit %s): %s", proc.poll(), scrub(stderr[-1500:]))
+        return RawResult(error=classify_error(stderr) or "no_result")
+
     def run(self, prompt: str, screenshot_jpeg: bytes | None, on_raw_delta=None, model: str | None = None,
             tools: bool = True) -> RawResult:
         """model / tools: see _spawn. The warm process serves only a call with the player's own setup."""
@@ -304,8 +317,10 @@ class ClaudeBackend:
             except OSError as e:
                 return RawResult(error=f"launch_failed: {e}")
             how = "new process (the warm one had ended)"
-            if not a.track(proc) or not self._send(proc, data):
+            if not a.track(proc):
                 return RawResult(error="no_result")
+            if not self._send(proc, data):
+                return RawResult(error="no_result") if a.lost else self._died(proc)
         sent = time.monotonic()
         # get the next one ready while the player reads this answer
         if own:
