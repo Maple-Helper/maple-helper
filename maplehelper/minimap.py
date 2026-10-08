@@ -660,6 +660,14 @@ class Locator:
                 if t.strip() and not is_chrome(t, yc, height) and (panel_y0 < 40 or b <= panel_y0 + 8)]
         if not kept:
             return None
+        if len(kept) == 1 and self._prev in self._graph.maps:
+            # the street line read alone (the map line under it missed): "Victoria Road" is a map's name too, and
+            # the player seemed to jump there and back every few seconds (live, 2026-10-08). The known map's own
+            # street is never taken for a map name; the next read gets both lines.
+            here = self._graph.maps[self._prev]
+            only = kept[0][0]
+            if _street_ok(only, here.street) and not _street_ok(only, self._graph.name(self._prev)):
+                return None
         street = kept[-2][0] if len(kept) > 1 else None
         return (kept[-1][0], street), max(b for _, b in kept)
 

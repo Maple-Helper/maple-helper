@@ -23,6 +23,7 @@ log = logging.getLogger("maplehelper")
 MIN_INTERVAL = 0.2      # s: faster only burned CPU rereading the same picture
 MAX_INTERVAL = 60.0     # s: slower, and the "where you are" line went stale
 DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
+CONFIRM = 2             # reads in a row that must name a new map before the player counts as moved
 
 
 class MinimapScanner(QObject):
@@ -51,6 +52,8 @@ class MinimapScanner(QObject):
         self._miss_since: float | None = None   # when the current run of misses began (None: the last read hit)
         self._last_map: str | None = None     # the last map logged at INFO (None: none yet)
         self._logged_errors: set[str] = set()  # error texts already logged: each distinct one logs once
+        self._pending: tuple[str | None, int] = (None, 0)   # another map read, and how many reads in a row
+        self._miss_logged = False             # the current run of misses was logged once already
         self._found.connect(self._deliver)
         self._failed.connect(self._complain)
 
@@ -76,6 +79,7 @@ class MinimapScanner(QObject):
         self.reset_locator()
         self._cooldown_until = 0.0     # a new box or interval: read right away, don't keep an old backoff
         self._miss_since = None
+        self._pending = (None, 0)
         if self._region is None:
             self._timer.stop()
             LOCATION.set(None)
@@ -143,29 +147,43 @@ class MinimapScanner(QObject):
         return max(3.0, 3.0 * self._interval())
 
     def _miss(self) -> None:
-        """A read with no recognizable title. Inside the grace after a known map: keep that map and read again on
-        the interval. Past it, or with no map known: unknown, and wait max(5 s, 5 x interval) before the next read:
-        a wasted read costs most of a second of CPU; without this it ran back-to-back forever."""
+        """A read with no recognizable title. A known map is never dropped for it (the owner's, 2026-10-08: the
+        card flipped to "not recognized" and back every few seconds and reset the way shown mid-walk): it stays
+        until a read names another map. Misses past the grace (or with no map known yet) only slow the reads to
+        max(2 s, 2 x interval) with a map kept, max(5 s, 5 x interval) with none: a wasted read costs most of a second of CPU; without this it ran back-to-back
+        forever. With no map known at all the card says "not recognized"."""
         now = time.monotonic()
         if self._miss_since is None:
             self._miss_since = now
         if LOCATION.here is not None and now - self._miss_since < self._grace():
             return
-        self._cooldown_until = now + max(5.0, 5.0 * self._interval())
         if LOCATION.here is not None:
-            # a map given up: says whether a "not recognized" the player saw was misses outlasting the grace
-            log.info("minimap: no title for %.1f s, location dropped", now - self._miss_since)
-            self._last_map = None
-        LOCATION.set(None)
+            # a known map kept: slow down less, so a real map change after a long run of misses shows soon
+            self._cooldown_until = now + max(2.0, 2.0 * self._interval())
+            if not self._miss_logged:
+                self._miss_logged = True
+                log.info("minimap: no title for %.1f s, keeping the last map", now - self._miss_since)
+            return
+        self._cooldown_until = now + max(5.0, 5.0 * self._interval())
         LOCATION.set_state("unknown")
 
     def _deliver(self, here) -> None:
-        """A read's answer, back on the GUI thread."""
+        """A read's answer, back on the GUI thread. Another map than the known one counts only once CONFIRM reads
+        in a row name it: one misread (the street line read alone, "Victoria Road", is a map's name too) must not
+        move the player and reset the way shown."""
         if here is None:
             self._miss()
             return
         self._miss_since = None
+        self._miss_logged = False
         self._cooldown_until = 0.0     # found: back to reading every interval
+        known = LOCATION.here
+        if known is not None and here.map != known.map:
+            seen = self._pending[1] + 1 if self._pending[0] == here.map else 1
+            self._pending = (here.map, seen)
+            if seen < CONFIRM:
+                return
+        self._pending = (None, 0)
         LOCATION.set(here)
         LOCATION.set_state("")
         if here.map != self._last_map:

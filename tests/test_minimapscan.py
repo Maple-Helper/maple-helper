@@ -258,9 +258,10 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
         sc.stop()
 
 
-def test_a_known_map_outlives_a_few_unreadable_reads(env, clean_location, qapp, monkeypatch):
-    """One frame without a readable title (a bubble over the header, a map change's loading screen) keeps the map
-    and reads on; only misses lasting past the grace (max(3 s, 3 reads)) say "not recognized" and back off."""
+def test_a_known_map_is_never_dropped_for_unreadable_reads(env, clean_location, qapp, monkeypatch):
+    """Reads without a readable title (a bubble over the header, a loading screen) keep the known map, however long
+    they last (the owner's, 2026-10-08: "not recognized" and back every few seconds reset the way mid-walk); past
+    the grace they only slow the reads to max(2 s, 2 reads)."""
     from maplehelper.minimap import Here
     from maplehelper.ui import minimapscan
     s, _, kb = env
@@ -275,17 +276,40 @@ def test_a_known_map_outlives_a_few_unreadable_reads(env, clean_location, qapp, 
         sc._deliver(perion)
         sc._deliver(None)
         assert clean_location.here == perion and clean_location.state == "" and sc._cooldown_until == 0.0
-        now[0] = 502.9
+        now[0] = 503.0
+        sc._deliver(None)                      # past the grace: still Perion, reads slow a little
+        assert clean_location.here == perion and clean_location.state == ""
+        assert sc._cooldown_until == 505.0
+        now[0] = 900.0
         sc._deliver(None)
-        assert clean_location.here == perion
-        sc._deliver(perion)                    # read again: the next miss starts a fresh grace
-        now[0] = 510.0
-        sc._deliver(None)
-        assert clean_location.here == perion
-        now[0] = 513.0
-        sc._deliver(None)                      # 3 s of misses: really gone
-        assert clean_location.here is None and clean_location.state == "unknown"
-        assert sc._cooldown_until == 518.0
+        assert clean_location.here == perion and clean_location.state == ""
+        sc._deliver(perion)                    # read again: back to every interval
+        assert sc._cooldown_until == 0.0
+    finally:
+        sc.stop()
+
+
+def test_another_map_needs_two_reads_in_a_row(env, clean_location, qapp, monkeypatch):
+    """One read naming another map (a misread) doesn't move the player; two in a row do."""
+    from maplehelper.minimap import Here
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        sc.restart()
+        site, road, kerning = Here("010003010", (0.5, 0.5)), Here("088000000", None), Here("010003000", None)
+        sc._deliver(site)                      # the first map known counts at once
+        assert clean_location.here == site
+        sc._deliver(road)                      # a lone misread: ignored
+        assert clean_location.here == site
+        sc._deliver(site)                      # back: the misread is forgotten
+        sc._deliver(road)
+        assert clean_location.here == site
+        sc._deliver(None)                      # a miss between doesn't count as a second read of it either
+        sc._deliver(kerning)
+        assert clean_location.here == site
+        sc._deliver(kerning)                   # two reads in a row: moved
+        assert clean_location.here == kerning
     finally:
         sc.stop()
 
