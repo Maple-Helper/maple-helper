@@ -359,7 +359,7 @@ def test_a_map_card_offers_the_way_there(world, qt):
     way[0].click()
     assert got == [f"map/{PERION}"]
     closed = EntityCard(kb, f"map/{ORBIS}", "en")                # not in the game: no way there to offer
-    assert not [b for b in closed.findChildren(QToolButton) if b.toolTip() == "How to get here from my map"]
+    assert not [b for b in closed.findChildren(QToolButton) if b.toolTip() == "How to get here from your map"]
     ROUTE_REQUESTS.requested.disconnect(got.append)
 
 
