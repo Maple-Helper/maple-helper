@@ -31,6 +31,7 @@ WINDOW_KIND = Qt.Tool if sys.platform == "darwin" else Qt.Window
 
 class AskWorker(QObject):
     delta = Signal(str)
+    stage = Signal(str)        # what the AI is doing before its first words (brain.Stream): the waiting bubble
     done = Signal(object)
 
     def __init__(self, brain: Brain, question: str, character, history, shot: bytes | None, focus=None,
@@ -44,7 +45,7 @@ class AskWorker(QObject):
         try:
             more = {"model": self.model, "light": True} if self.light else {}     # (Brain.ask: the ⟳ sync)
             ans = self.brain.ask(self.question, self.character, self.history, self.shot, on_delta=self.delta.emit,
-                                 focus=self.focus, extra=self.extra, **more)
+                                 focus=self.focus, extra=self.extra, on_stage=self.stage.emit, **more)
         except Exception as e:  # noqa: BLE001
             ans = Answer(error=f"internal: {e}")
         self.done.emit(ans)
@@ -708,6 +709,8 @@ class Overlay(EdgeResize, QWidget):
         self.feed_lay = QVBoxLayout(self.feed)
         self.feed_lay.setContentsMargins(0, 4, 6, 4)
         self.feed_lay.setSpacing(8)
+        # the stretch first: a short conversation sits just above the input, as in chat apps (it hung from the
+        # top, the empty space between the answer and the field: CHAT-15). Rows go after it
         self.feed_lay.addStretch(1)
         self.scroll.setWidget(self.feed)
         lay.addWidget(self.scroll, 1)
@@ -1133,7 +1136,7 @@ class Overlay(EdgeResize, QWidget):
         # no question running: a screen read holds the chat ("still answering" was false during a grind session)
         key = "busy_wait" if self.busy else "busy_reading"
         line = getattr(self, "_busy_line", None)
-        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 2 \
+        if line is not None and _alive(line) and self.feed_lay.indexOf(line) == self.feed_lay.count() - 1 \
                 and getattr(self, "_busy_key", None) == key:
             return
         self._busy_key = key
@@ -1717,8 +1720,9 @@ class Overlay(EdgeResize, QWidget):
     FEED_MAX = 80      # rows kept in the chat; older ones are in the History window
 
     def _add_widget(self, w: QWidget):
-        self.feed_lay.insertWidget(self.feed_lay.count() - 1, w)
+        self.feed_lay.addWidget(w)
         self._trim_feed()
+        QTimer.singleShot(0, self._note_new_below)
         # new content fades in rather than popping
         eff = QGraphicsOpacityEffect(w)
         w.setGraphicsEffect(eff)
@@ -1737,12 +1741,12 @@ class Overlay(EdgeResize, QWidget):
         keep = {self._anchor, self._reading.parentWidget() if self._reading is not None and _alive(self._reading)
                 else None}
         while self.feed_lay.count() - 1 > self.FEED_MAX:
-            item = self.feed_lay.itemAt(0)
+            item = self.feed_lay.itemAt(1)          # (0: the stretch)
             w = item.widget() if item else None
             if w is None or w in keep:
                 break
             gone = w.height() + self.feed_lay.spacing()
-            self.feed_lay.takeAt(0)
+            self.feed_lay.takeAt(1)
             w.hide()
             w.deleteLater()
             if not self._follow and self._anchor is None:
@@ -1767,8 +1771,9 @@ class Overlay(EdgeResize, QWidget):
         self._pending_history = None
         self._stop_deltas()
         self._reading = None
+        self._hide_new_pill()
         while self.feed_lay.count() > 1:
-            w = self.feed_lay.takeAt(0).widget()
+            w = self.feed_lay.takeAt(1).widget()
             if w:
                 w.deleteLater()
 
@@ -2075,7 +2080,11 @@ class Overlay(EdgeResize, QWidget):
             # history search pairs both answers with it); asked later, after other questions, it goes in again
             history.append("user", stored)
             self._pending_stored = stored
+        # all a "Try again" needs to ask it the same way: the question, its tags and the app's context (CHAT-02)
+        self._ask_ctx = {"question": question, "shown": shown, "extra": hidden, "focus": focus, "tiles": tiles,
+                         "shot": shot}
         self._pending_bubble = self.add_bubble(self.t("thinking"), "assistant")
+        self._pending_bubble.start_waiting(lambda: self.t)
         self._start_reading(self._pending_bubble)
         self.busy = True
         self._show_send_or_stop()        # Stop, for as long as the answer runs
@@ -2086,6 +2095,7 @@ class Overlay(EdgeResize, QWidget):
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
         self._worker.delta.connect(self._on_delta)
+        self._worker.stage.connect(self._on_stage)
         # a bound method of this QObject → Qt queues the call onto the GUI thread.
         # (a lambda here would run in the worker thread and build widgets there: crash + stray window)
         self._pending_history = history
@@ -2207,6 +2217,43 @@ class Overlay(EdgeResize, QWidget):
         self._anchor = None
         self._reader_scrolled = True
         self._follow = bar.value() >= bar.maximum() - 24
+        if self._follow:
+            self._hide_new_pill()
+
+    def _note_new_below(self):
+        """Something landed below while the player reads higher up: a "↓ New answer" pill over the bottom of the
+        chat says so (nothing did, CHAT-07). Only when the player scrolled away, never for the app's own anchor."""
+        if self._follow or not self._reader_scrolled:
+            return
+        bar = self.scroll.verticalScrollBar()
+        if bar.value() >= bar.maximum() - 24:
+            return
+        pill = getattr(self, "_new_pill", None)
+        if pill is None:
+            from .widgets import NewPill
+            pill = self._new_pill = NewPill(self.scroll)
+            pill.clicked.connect(self._to_new_answer)
+        pill.show_text(bidi.plain(self.t("new_answer_pill"), self.t.rtl))
+
+    def _hide_new_pill(self):
+        pill = getattr(self, "_new_pill", None)
+        if pill is not None:
+            pill.hide()
+
+    def _to_new_answer(self):
+        """The pill: to the newest answer's first line, and follow it again."""
+        self._hide_new_pill()
+        bar = self.scroll.verticalScrollBar()
+        b = self._reading
+        row = b.parentWidget() if b is not None and _alive(b) else None
+        self._reader_scrolled = False
+        self._follow = True
+        if row is not None and row.mapTo(self.feed, row.rect().topLeft()).y() - 8 > bar.value():
+            self._anchor = row          # below where the player was: its first line at the top
+            bar.setValue(self._anchor_top())
+        else:
+            self._anchor = None
+            bar.setValue(bar.maximum())
 
     def _on_range(self, _lo: int, hi: int):
         bar = self.scroll.verticalScrollBar()
@@ -2225,6 +2272,7 @@ class Overlay(EdgeResize, QWidget):
         self._follow = True
         self._reader_scrolled = False
         self._reading = bubble
+        self._hide_new_pill()
 
     def _keep_answer_readable(self):
         """Once the answer (plus what follows it) is taller than the view, pin its first line to the top."""
@@ -2258,6 +2306,15 @@ class Overlay(EdgeResize, QWidget):
         if self._pending_bubble and text:
             self._pending_bubble.set_text(text)
             QTimer.singleShot(0, self._keep_answer_readable)
+            QTimer.singleShot(0, self._note_new_below)
+
+    def _on_stage(self, kind: str):
+        """The AI reports what it does before its first words ("tools", "hedge"): the waiting bubble says so."""
+        if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):
+            return
+        b = self._pending_bubble
+        if b is not None and _alive(b):
+            b.set_stage(kind)
 
     def _stop_deltas(self):
         """The answer is in (or the chat was cleared): a queued piece of it must not be drawn over the end."""
@@ -2575,12 +2632,7 @@ class Overlay(EdgeResize, QWidget):
         if ans.error:
             import logging
             logging.getLogger(__name__).warning("answer failed: %s", ans.error)
-            key, provider = self._error_key(ans.error), self.settings["provider"]
-            if ans.error in ("not_logged_in", "usage_limit") and self.settings.api_key_mode(provider):
-                # an API key: no sign-in or plan to point at (it said "sign in to Claude again")
-                self._pending_bubble.set_text(self.t(key + "_key"))
-            else:
-                self._pending_bubble.set_text(self.t.p(key, provider))
+            self._show_failed(self._pending_bubble, ans.error, getattr(self, "_ask_ctx", None))
             self._remember_model(ans)
             if history and getattr(self, "_pending_stored", None):
                 history.drop_last_if_user(self._pending_stored)     # no answer: the question goes too
@@ -2606,6 +2658,54 @@ class Overlay(EdgeResize, QWidget):
             # treetop), so replacing a good portrait is left to the explicit ⟳ sync
             if ans.avatar_box and getattr(self, "_question_shot", None) and not self.profiles.avatar_path():
                 self._update_avatar(self._question_shot, ans.avatar_box)
+
+    # errors that Settings fixes: installing the AI, signing in again, updating it, the API key
+    SETTINGS_ERRORS = ("not_installed", "not_logged_in", "cli_outdated", "no_credit")
+
+    def _show_failed(self, bubble: Bubble, error: str, ctx: dict | None) -> None:
+        """A failed answer: the error look, "Try again" (the same question, tags and context) and, where Settings
+        fixes it, "Open Settings". The question also goes back into an empty field (it was gone from the field and
+        the history, and every error says "Try again": CHAT-02)."""
+        provider = self.settings["provider"]
+        key_mode = bool(self.settings.api_key_mode(provider))
+
+        def render(t):
+            key = self._error_key(error)
+            if error in ("not_logged_in", "usage_limit") and key_mode:
+                # an API key: no sign-in or plan to point at (it said "sign in to Claude again")
+                text = t(key + "_key")
+            else:
+                text = t.p(key, provider)
+            actions = []
+            if ctx and not getattr(bubble, "retried", False):
+                actions.append((t("answer_retry"), lambda: self._retry(ctx, bubble)))
+            if error in self.SETTINGS_ERRORS or (key_mode and error == "usage_limit"):
+                actions.append((t("answer_open_settings"), lambda: self.settings_requested.emit()))
+            bubble.show_error(text, actions)
+        render(self.t)
+        self._remember_render(bubble, render)
+        if ctx and not ctx["shown"] and not self.input.text().strip():
+            self.input.setText(ctx["question"])
+
+    def _retry(self, ctx: dict, bubble: Bubble) -> None:
+        """ "Try again" under a failed answer: the same question asked again, with its tags, the app's context and
+        the screenshot it went with (its bubble is already in the chat above)."""
+        if self._is_busy():
+            self._say_busy()
+            return
+        if self.input.text().strip() == ctx["question"].strip():
+            self.input.clear()              # (put back by _show_failed)
+        keep, self.focus_keys = self.focus_keys, [k for k in ctx["focus"] if self.kb.get(k)]
+        self._detail_tiles = ctx["tiles"]
+        if ctx["shot"] is not None and self.shot_used:
+            self.shot, self.shot_used = ctx["shot"], False
+        try:
+            asked = self.ask(ctx["question"], force_claude=True, shown=ctx["shown"], extra=ctx["extra"])
+        finally:
+            self.focus_keys = keep
+        if asked and _alive(bubble):
+            bubble.retried = True
+            bubble.show_error(bubble._text, [])
 
     def _remember_model(self, ans: Answer) -> None:
         """The model that answered, for Settings: stored after the answer is on screen, so a settings write can

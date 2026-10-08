@@ -303,3 +303,57 @@ def test_a_long_route_breaks_only_after_an_arrow():
     shown = bidi.isolate_ltr_runs("הכי טוב: Pig Beach (Lv. 30) → Ant Tunnel I (Lv. 35) ואז הלאה")
     assert "Ant Tunnel I (Lv. 35)" in shown and "Beach (Lv. 30) → " in shown
     assert "PigBeach(Lv.30)→AntTunnelI(Lv.35)" in _reading_order(shown)
+
+
+# ---------------------------------------------------------------- markdown and links in an AI answer (CHAT-01)
+
+URL = "https://meowdb.com/monster/2220000"
+
+
+def _shown(html_text: str) -> str:
+    """A paragraph's visible text with its bidi marks, as Qt gets it (tags dropped, entities read)."""
+    import html as h
+    import re
+    return h.unescape(re.sub(r"<[^>]+>", "", html_text)).replace("\u200b", "")
+
+
+@pytest.mark.parametrize("line", [f"אפשר לבדוק ב-[MeowDB]({URL}) את הדרופים.",
+                                  f"הכל מופיע כאן: {URL} באתר.",
+                                  f"הדף [{URL}]({URL}) של Mano."])
+def test_a_link_in_a_hebrew_answer_is_one_clickable_block(line):
+    """The run splitter cut a URL apart and reordered it ("(000https://meowdb.com/monster/2220][MeowDB]", and a bare
+    one "monster/2220000/https://meowdb.com"): a link is one left-to-right block and a real link."""
+    out = bidi.to_html(line, "rtl", md=True)
+    assert f'<a href="{URL}">' in out and "](" not in out
+    text = _shown(out)
+    inner = text[text.index(bidi.LRI) + 1:text.index(bidi.PDI)]
+    assert bidi.LRE not in inner and bidi.RLM not in inner
+    order = _reading_order(text)
+    shown = "MeowDB" if "[MeowDB]" in line else URL
+    assert shown in order
+
+
+def test_a_url_shown_in_full_keeps_its_order_and_still_wraps():
+    out = bidi.to_html(f"הנה הדף: {URL}.", "rtl", md=True)
+    assert "\u200b" in out.split(">", 2)[2]          # a break opportunity in the shown text, never in the href
+    assert f'href="{URL}"' in out and URL in _reading_order(_shown(out))
+
+
+def test_answer_markdown_is_shown_as_text():
+    md = "\n".join(["## Mano", "| Item | Chance |", "|---|---|", "| Red Potion | 5% |", "```", "*Tip:* use `Avoid`",
+                    "---", "**bold** stays"])
+    out = bidi.to_html(md, "ltr", md=True)
+    for mark in ("##", "|", "```", "`", "---", "*"):
+        assert mark not in _shown(out), mark
+    assert "<b>Mano</b>" in out and "<b>Item · Chance</b>" in out and "Red Potion · 5%" in out
+    assert "<i>Tip:</i> use Avoid" in out and "<b>bold</b> stays" in out
+    code_url = bidi.to_html(f"or `{URL}`", "ltr", md=True)          # a URL in backticks: no "`" in it or its link
+    assert "`" not in code_url and f'href="{URL}"' in code_url
+    # a bullet is still a bullet, and plain text (a tooltip, the player's own question) is left as it was
+    assert "• one" in bidi.to_html("* one", "ltr", md=True)
+    assert "`x`" in bidi.to_html("`x` *y*", "ltr") and "*y*" in bidi.to_html("`x` *y*", "ltr")
+
+
+def test_a_hebrew_link_text_in_an_english_line_keeps_its_own_direction():
+    out = bidi.to_html(f"See [המדריך]({URL}) first.", "ltr", md=True)
+    assert f'{bidi.RLI}<a href="{URL}">המדריך</a>{bidi.PDI}' in out

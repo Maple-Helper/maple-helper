@@ -330,11 +330,16 @@ def mesos_line(t, mesos) -> str:
     return t("mesos_line", amount=f"{bidi.LRI}{span} mesos{bidi.PDI}", src=tag(t, COMMUNITY))
 
 
+_NB = "\u00a0"      # a no-break space
+
+
 def change_line(stat: str, old, new, before: str = "", after: str = "") -> str:
     """ "ACC 62 → 64 (COT1 → COT2)" as one left-to-right block (bidi.ltr_block's isolate): in a Hebrew line the
     arrow still points from the old value to the new one and the parentheses stay around the labels."""
     labels = f" ({before} → {after})" if before and after else ""
-    return f"{bidi.LRI}{stat} {old} → {new}{labels}{bidi.PDI}"
+    # no-break spaces inside the pair: a narrow Hebrew card broke "P.DMG 101 →" | "252" over two lines, in mirrored
+    # order (CHAT-13); a line breaks only between the pairs
+    return f"{bidi.LRI}{stat.replace(' ', _NB)}{_NB}{old}{_NB}→{_NB}{new}{labels}{bidi.PDI}"
 
 
 def stamp_tip(t, source: str, stamp: Stamp | None = None, limit: int = 6) -> str:

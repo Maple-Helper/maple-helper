@@ -190,14 +190,92 @@ def _isolate_runs(text: str) -> str:
     return "".join(out)
 
 
-def paragraph_html(line: str, d: str | None = None) -> str:
-    """One paragraph → HTML with its own dir/alignment; **bold** supported."""
+# Markdown an AI answer may still carry (the prompt asks for none): "## Mano", "| Item | Chance |", "`Avoid`",
+# "*Tip:*" and "[MeowDB](https://…)" showed as literal marks, and in a Hebrew line the run splitter cut a URL apart
+# and reordered its pieces ("(000https://meowdb.com/monster/2220][MeowDB]", the UX audit CHAT-01)
+_HEADING = re.compile(r"^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$")
+_FENCE = re.compile(r"^\s*(```|~~~)")
+_RULE = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")
+_TABLE_ROW = re.compile(r"^\s*\|.*\|\s*$")
+_TABLE_SEP = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(?:\|\s*:?-{2,}:?\s*)*\|?\s*$")
+_MD_LINK = re.compile(r"\[([^\]\n]+)\]\((https?://[^\s)]+)\)")
+_URL = re.compile(r"https?://[^\s<>\"'\]\[)(]+")
+_ITALIC = re.compile(r"(?<![*\w])\*(?=[^\s*])([^*\n]+?)(?<=[^\s*])\*(?![*\w])")
+_LINK_SLOT = 0xE000      # a private-use character holds a link's place while the line is isolated and escaped
+
+
+def markdown_lines(text: str) -> str:
+    """An answer's block markdown as plain lines: a heading becomes a bold line, a pipe table one "a · b" line per
+    row (its header bold), and code fences and rules go."""
+    lines, out = text.split("\n"), []
+    for i, line in enumerate(lines):
+        if _FENCE.match(line) or _RULE.match(line) or (_TABLE_SEP.match(line) and "|" in line):
+            continue
+        m = _HEADING.match(line)
+        if m:
+            out.append(f"**{m.group(1).strip('* ')}**")
+        elif _TABLE_ROW.match(line):
+            row = " · ".join(c for c in (c.strip() for c in line.strip().strip("|").split("|")) if c)
+            header = i + 1 < len(lines) and bool(_TABLE_SEP.match(lines[i + 1]))     # the row over the |---| line
+            out.append(f"**{row.replace('**', '')}**" if header and row else row)
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
+def _links(line: str, d: str) -> tuple[str, list[tuple[str, str]]]:
+    """[text](url) and bare URLs out of a line: each becomes one private-use character (restored by _restore),
+    wrapped as one left-to-right block when its text is English and the paragraph Hebrew, so the run splitter
+    never cuts it."""
+    found: list[tuple[str, str]] = []
+
+    def slot(shown: str, url: str) -> str:
+        found.append((shown, url.replace("​", "")))
+        mark = chr(_LINK_SLOT + len(found) - 1)
+        rtl_text = bool(_RTL.search(shown))
+        if d == "rtl" and not rtl_text:
+            return f"{LRI}{mark}{PDI}"
+        if d == "ltr" and rtl_text:
+            return f"{RLI}{mark}{PDI}"
+        return mark
+
+    def bare(m: re.Match) -> str:
+        url = m.group(0)
+        tail = re.search(r"[.,;:!?]+$", url)          # "see https://meowdb.com." keeps its full stop outside
+        if tail:
+            url = url[:tail.start()]
+        return slot(url, url) + (tail.group(0) if tail else "")
+
+    line = _MD_LINK.sub(lambda m: slot(m.group(1).strip("`*"), m.group(2)), line)
+    line = _URL.sub(bare, line)
+    return line, found
+
+
+def _restore(body: str, found: list[tuple[str, str]]) -> str:
+    for i, (shown, url) in enumerate(found):
+        # a long URL shown as itself still wraps (a break opportunity every 20 characters, never in the link)
+        text = html.escape(shown)
+        if shown == url and len(text) > 30:
+            text = "​".join(text[j:j + 20] for j in range(0, len(text), 20))
+        body = body.replace(chr(_LINK_SLOT + i), f'<a href="{html.escape(url, quote=True)}">{text}</a>')
+    return body
+
+
+def paragraph_html(line: str, d: str | None = None, md: bool = False, style: str = "margin:0 0 4px 0;") -> str:
+    """One paragraph → HTML with its own dir/alignment; **bold** supported.
+    md: an AI answer: links clickable and kept whole, backticks dropped, *italic* (markdown_lines does the blocks)."""
     d = d or direction(line)
+    found: list[tuple[str, str]] = []
+    if md:
+        line, found = _links(line.replace("`", ""), d)
     body = isolate_ltr_runs(line) if d == "rtl" else line
     body = html.escape(body)
     body = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", body)
+    if md:
+        body = _ITALIC.sub(r"<i>\1</i>", body)
+        body = _restore(body, found)
     align = "right" if d == "rtl" else "left"
-    return f'<p dir="{d}" align="{align}" style="margin:0 0 4px 0;">{body}</p>'
+    return f'<p dir="{d}" align="{align}" style="{style}">{body}</p>'
 
 
 def paragraph_direction(line: str, message_dir: str) -> str:
@@ -218,10 +296,13 @@ def message_direction(text: str) -> str:
     return "rtl" if words and rtl_words / len(words) >= 0.2 else "ltr"
 
 
-def to_html(text: str, msg_dir: str | None = None) -> str:
+def to_html(text: str, msg_dir: str | None = None, md: bool = False) -> str:
     """Multi-paragraph message → HTML. Blank lines become small gaps; bullets keep their marker.
     msg_dir: the message's language when the caller knows it (an instant answer is written in the UI's language;
-    its list of English map names outvoted its one Hebrew line, and the list went left)."""
+    its list of English map names outvoted its one Hebrew line, and the list went left).
+    md: an AI answer: its markdown shown as text, not marks (markdown_lines, paragraph_html)."""
+    if md:
+        text = markdown_lines(text)
     msg_dir = msg_dir or message_direction(text)
     parts = []
     for line in text.strip().split("\n"):
@@ -230,7 +311,7 @@ def to_html(text: str, msg_dir: str | None = None) -> str:
             parts.append('<p style="margin:0; font-size:4px;">&nbsp;</p>')
             continue
         line = re.sub(r"^\s*[-*•]\s+", "• ", line)
-        parts.append(paragraph_html(line, paragraph_direction(line, msg_dir)))
+        parts.append(paragraph_html(line, paragraph_direction(line, msg_dir), md))
     return "".join(parts)
 
 

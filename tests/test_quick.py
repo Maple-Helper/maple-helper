@@ -15,7 +15,7 @@ def test_stat_question_is_answered_from_the_kb(kb):
     key = first_monster(kb)
     e = kb.get(key)
     ans = quick.answer(f"how much HP does {e['name']} have?".replace("how ", "what's the "), kb, t)
-    assert ans and f"HP: {e['props']['HP']}" in ans.text and ans.entities == [key]
+    assert ans and f"HP: {quick._grouped(e['props']['HP'])}" in ans.text and ans.entities == [key]
 
 
 def test_hebrew_stat_question(kb):
@@ -82,3 +82,9 @@ def test_the_players_level_and_the_damage_they_deal_are_not_the_monsters_stats(k
     ans = quick.answer(f"how much exp does {e['name']} give at level 40", kb, t)
     assert ans and "Level:" not in ans.text
     assert quick.answer(f"כמה נזק עושים ל-{e['name']}", kb, t) is None
+
+
+def test_stat_numbers_have_thousands_separators(kb):
+    """ "Mano · HP: 7420" sat over a card saying "HP 7,420" (CHAT-12)."""
+    assert quick._grouped(325400) == "325,400" and quick._grouped("7420") == "7,420"
+    assert quick._grouped(45) == "45" and quick._grouped("1.5") == "1.5" and quick._grouped("10%") == "10%"

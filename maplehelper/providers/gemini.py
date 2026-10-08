@@ -211,6 +211,7 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
     current, result, errors, conv = "", None, [], None
     tools, active = 0, False      # a tool step reports ACTIVE, then DONE: counted when it turns active
     seen: set = set()             # the tool steps' ids counted
+    stage = getattr(on_delta, "stage", None)      # the chat's waiting bubble (brain.Stream)
     for line in lines:
         if isinstance(line, bytes):
             line = line.decode("utf-8", errors="replace")
@@ -240,6 +241,8 @@ def parse_events(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
                 active = s.get("state") == "ACTIVE"
             if s.get("step_type") == "tool" and s.get("state") == "ACTIVE":
                 current = ""
+                if stage:
+                    stage("tools")
             elif s.get("step_type") == "agent_response" and s.get("text_delta"):
                 current += str(s["text_delta"])
                 if on_delta:

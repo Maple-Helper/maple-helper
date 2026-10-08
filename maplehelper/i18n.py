@@ -119,6 +119,14 @@ STRINGS = {
     "input_placeholder_short": {"he": "שאלו אותי משהו…",
                                "en": "Ask anything…"},
     "thinking": {"he": "חושב…", "en": "Thinking…"},
+    # the waiting bubble (widgets.Waiting): the seconds so far, and what the AI is doing when its stream says
+    "thinking_secs": {"he": "{s} שנ'", "en": "{s}s"},
+    "thinking_tools": {"he": "מחפש במאגר…", "en": "Searching the database…"},
+    "thinking_hedge": {"he": "לוקח יותר זמן מהרגיל, ממשיך לנסות…", "en": "Taking longer than usual, still trying…"},
+    # a failed answer's actions, and the pill over the chat when an answer arrived below where the player reads
+    "answer_retry": {"he": "לנסות שוב", "en": "Try again"},
+    "answer_open_settings": {"he": "פתיחת ההגדרות", "en": "Open Settings"},
+    "new_answer_pill": {"he": "↓ תשובה חדשה", "en": "↓ New answer"},
     "cancel": {"he": "ביטול", "en": "Cancel"},
     "recaptured": {"he": "צילום מסך חדש נשמר ויישלח עם השאלה הבאה", "en": "New screenshot saved; it goes with your next question"},
     "recapture": {"he": "צילום מחדש של מסך המשחק", "en": "Retake the game screenshot"},

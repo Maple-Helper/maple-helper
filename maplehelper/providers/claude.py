@@ -368,7 +368,10 @@ class ClaudeBackend:
                 lines.touch()
                 a.activity()
             t = ev.get("type")
+            n_calls = len(calls)
             blocks = note_tool_use(ev, calls) or blocks
+            if len(calls) > n_calls:
+                a.stage("tools")
             if t == "stream_event":
                 se = ev.get("event") or {}
                 kind = se.get("type")

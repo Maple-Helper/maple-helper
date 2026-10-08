@@ -203,7 +203,7 @@ def test_thirteenth_pin_asks_before_dropping_the_oldest(overlay):
     overlay.pin_answer("new q", "new a")
     assert len(pins.items(overlay.settings, cid)) == pins.MAX_PINS
     assert not any(p["a"] == "new a" for p in pins.items(overlay.settings, cid))      # nothing dropped yet
-    row = overlay.feed_lay.itemAt(overlay.feed_lay.count() - 2).widget()
+    row = overlay.feed_lay.itemAt(overlay.feed_lay.count() - 1).widget()
     yes = row.chips[0]
     yes.click()
     have = [p["a"] for p in pins.items(overlay.settings, cid)]
@@ -580,7 +580,7 @@ def test_class_change_in_chat_asks_and_advancement_does_not(overlay):
     c = overlay.profiles.active                    # Thief / Assassin, Lv. 32
     overlay._apply_profile_update({"job": "Cleric", "level": 55})
     assert (c.job, c.level) == ("Assassin", 32)
-    row = overlay.feed_lay.itemAt(overlay.feed_lay.count() - 2).widget()
+    row = overlay.feed_lay.itemAt(overlay.feed_lay.count() - 1).widget()
     assert len(row.chips) == 3
     row.chips[0].click()                           # "Update"
     assert c.job == "Cleric" and c.level == 55 and c.base_class == "Magician"

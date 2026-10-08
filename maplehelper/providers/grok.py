@@ -439,6 +439,7 @@ def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
     text, result, model = StreamText(), None, None
     tools: set = set()
     blocks = False
+    stage = getattr(on_delta, "stage", None)      # the chat's waiting bubble (brain.Stream)
     for line in lines:
         if line is None:            # (base.Lines: nothing came for a moment)
             continue
@@ -451,7 +452,10 @@ def parse_stream(lines, on_delta=None, stats: dict | None = None) -> tuple[str, 
         if not isinstance(ev, dict):
             continue
         t = ev.get("type")
+        n_tools = len(tools)
         blocks = base.note_tool_use(ev, tools) or blocks
+        if stage and len(tools) > n_tools:
+            stage("tools")
         if t == "stream_event":
             se = ev.get("event") or {}
             if se.get("type") == "message_start":

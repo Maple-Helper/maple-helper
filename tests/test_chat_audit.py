@@ -55,12 +55,13 @@ def overlay(isolated_store, kb, monkeypatch):
 class FakeWorker(QObject):
     """Stands in for AskWorker: records what the question was sent with, answers when told to."""
     delta = Signal(str)
+    stage = Signal(str)
     done = Signal(object)
     made: list = []
 
     def __init__(self, brain, question, character, history, shot, focus=None, extra=None, model=None, light=False):
         super().__init__()
-        self.question, self.extra, self.shot = question, extra, shot
+        self.question, self.extra, self.shot, self.focus = question, extra, shot, focus
         FakeWorker.made.append(self)
 
     def run(self):
@@ -186,7 +187,7 @@ def test_the_clear_button_starts_a_new_conversation_for_the_ai(overlay, fake_wor
     ov.clear_btn.click()
     fake_worker.made[-1].done.emit(Answer(text="Take the boat."))
     pump(20)
-    assert ov.feed_lay.count() == 1                           # only the stretch at the bottom
+    assert ov.feed_lay.count() == 1                           # only the stretch
     assert [r["text"] for r in h.recent(10)][:2] == ["where do snails live?", "Snail Park, near Amherst."]
     prompt = build_prompt("what level is a Slime?", ov.profiles.active, h, kb, False)
     assert "<recent_conversation>" not in prompt and "Snail Park" not in prompt
@@ -738,3 +739,136 @@ def test_a_menu_row_left_by_the_mouse_shows_its_text_again():
         menu.close()
     finally:
         app.setStyleSheet(old)
+
+
+# ------------------------------------------------------------------ the answer experience (UX audit, chat)
+
+def plain(rich: str) -> str:
+    """A label's rich text as words: no tags, entities read, no direction marks."""
+    import html
+    import re
+    import unicodedata
+    return "".join(c for c in html.unescape(re.sub(r"<[^>]+>", "", rich)) if unicodedata.category(c) != "Cf")
+
+
+def test_the_waiting_bubble_shows_time_and_stage_until_the_first_words(overlay, fake_worker, monkeypatch):
+    """CHAT-03 / PERF-01: "Thinking…" sat frozen for 10-40 s. It has moving dots, the seconds from 5 s on, what
+    the AI is doing (a tool call; the hedged second run), and all of it goes when the first words arrive."""
+    ov = overlay
+    ov.settings["instant_answers"] = False
+    assert ov.ask("how do I get to Ellinia?")
+    b = ov._pending_bubble
+    wait = b._wait
+    assert b.waiting and "חושב" in b.label.text()
+    assert "שנ'" not in b.label.text()
+    began = wait.began
+    monkeypatch.setattr(wait, "clock", lambda: began + 12.4)
+    wait._tick()
+    assert "12 שנ'" in plain(b.label.text()) and wait.dots.phase == 1
+    fake_worker.made[-1].stage.emit("tools")
+    pump(20)
+    assert "מחפש במאגר" in b.label.text()
+    fake_worker.made[-1].stage.emit("hedge")
+    pump(20)
+    assert "לוקח יותר זמן מהרגיל" in b.label.text()
+    assert b._text == ov.t("thinking")            # (still the "thinking" bubble for Stop and a language switch)
+    fake_worker.made[-1].delta.emit("Take the boat")
+    pump(ov.DELTA_MS + 60)
+    assert not b.waiting and "Take the boat" in b.label.text() and b.text_row.count() == 1
+
+
+def test_a_failed_answer_offers_try_again_with_the_same_tags(overlay, fake_worker, kb):
+    """CHAT-02: the error read like an answer, and the question was gone from the field and the history."""
+    ov = overlay
+    ov.settings["instant_answers"] = False
+    key = next(k for k, e in kb.entities.items() if e["category"] == "monster")
+    ov.set_tags([key])
+    ov.input.setText("how much exp?")
+    ov._send_typed()
+    assert ov.input.text() == "" and fake_worker.made[-1].focus == [key] and ov.focus_keys == []
+    b = ov._pending_bubble
+    fake_worker.made[-1].done.emit(Answer(error="timeout"))
+    pump(20)
+    assert b.property("error") and b._err_icon is not None and not b.waiting
+    assert ov.input.text() == "how much exp?"         # back in the empty field
+    from maplehelper.ui.widgets import ElideLink
+    actions = b._err_row.findChildren(ElideLink)
+    texts = [w.text() for w in actions]
+    assert any("לנסות שוב" in x for x in texts) and not any("הגדרות" in x for x in texts)
+    users_before = sum(1 for i in range(ov.feed_lay.count()) if getattr(ov.feed_lay.itemAt(i).widget(), "bubble", None)
+                       and ov.feed_lay.itemAt(i).widget().bubble.role == "user")
+    next(w for w in actions if "לנסות שוב" in w.text()).click()
+    pump(20)
+    again = fake_worker.made[-1]
+    assert again.question == "how much exp?" and again.focus == [key]
+    assert ov.focus_keys == [] and ov.input.text() == "" and ov.busy
+    users_after = sum(1 for i in range(ov.feed_lay.count()) if getattr(ov.feed_lay.itemAt(i).widget(), "bubble", None)
+                      and ov.feed_lay.itemAt(i).widget().bubble.role == "user")
+    assert users_after == users_before               # the question's bubble is already in the chat
+    assert b._err_row is None                        # its actions are done
+
+
+def test_an_error_settings_fix_has_an_open_settings_action(overlay, fake_worker):
+    ov = overlay
+    ov.settings["instant_answers"] = False
+    asked = []
+    ov.settings_requested.connect(lambda: asked.append(True))
+    assert ov.ask("hi there friend?")
+    b = ov._pending_bubble
+    fake_worker.made[-1].done.emit(Answer(error="not_installed"))
+    pump(20)
+    from maplehelper.ui.widgets import ElideLink
+    links = b._err_row.findChildren(ElideLink)
+    settings = [w for w in links if "הגדרות" in w.text()]
+    assert len(links) == 2 and settings
+    settings[0].click()
+    assert asked == [True]
+    ov.settings["language"] = "en"
+    ov.apply_language()                              # a language switch draws the error and its actions again
+    assert "isn't installed" in plain(b.label.text()) and [w.text() for w in b._err_row.findChildren(ElideLink)] == [
+        "Try again", "Open Settings"]
+
+
+def test_a_new_answer_pill_when_the_player_scrolled_up(overlay):
+    """CHAT-07: scrolled up while an answer streams, nothing said new content arrived below."""
+    ov = overlay
+    for i in range(30):
+        ov.add_system(f"line {i}")
+    pump(50)
+    bar = ov.scroll.verticalScrollBar()
+    assert bar.maximum() > 0
+    bar.setValue(0)
+    ov._user_scrolled()
+    assert not ov._follow
+    b = ov.add_bubble("The answer", "assistant")
+    ov._reading = b
+    pump(50)
+    pill = ov._new_pill
+    assert pill.isVisible() and "תשובה חדשה" in pill.text()
+    pill.click()
+    pump(50)
+    assert not pill.isVisible() and ov._follow and bar.value() > 0
+
+
+def test_a_short_chat_sits_at_the_bottom_and_answers_have_a_max_width(overlay):
+    """CHAT-15: the stretch comes first, so rows sit above the input. CHAT-14: an answer is at most ANSWER_MAX wide."""
+    from maplehelper.ui.widgets import BubbleRow
+    ov = overlay
+    ov.resize(1100, 700)
+    b = ov.add_bubble("A short answer.", "assistant")
+    pump(50)
+    assert ov.feed_lay.itemAt(0).spacerItem() is not None
+    row = b.parentWidget()
+    assert row.width() > BubbleRow.ANSWER_MAX and b.width() <= BubbleRow.ANSWER_MAX
+    assert b.mapTo(row, b.rect().topLeft()).x() > 0        # Hebrew UI: on the right, the leading side
+
+
+def test_a_one_line_answer_has_copy_and_pin_on_its_row():
+    """CHAT-20: a one-line answer was a three-row bubble, its icons on a row of their own."""
+    from maplehelper.ui.widgets import Bubble
+    short = Bubble("Mano · HP: 7,420", "assistant", True)
+    short.add_pin(lambda: None, "pin", "copy", "copied")
+    assert short.text_row.count() == 3 and short.layout().count() == 1
+    long = Bubble("first line\nsecond line", "assistant", True)
+    long.add_pin(lambda: None, "pin", "copy", "copied")
+    assert long.text_row.count() == 1 and long.layout().count() == 2

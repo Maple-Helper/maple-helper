@@ -259,6 +259,15 @@ class TestStream:
         r = grok.to_result(text, result, "", model)
         assert r.error is None and r.text == "Hunt snails." and r.model == "grok-4.6"
 
+    def test_a_tool_call_tells_the_waiting_bubble(self):
+        """Grok's stream names its tool calls: the chat's "Thinking…" says it searches the database (CHAT-03)."""
+        from maplehelper.brain import Stream
+        stages = []
+        tool = {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "t1", "name": "Grep"}]}}
+        grok.parse_stream(stream(START, tool, tool, START, delta("Hunt snails."), OK),
+                          Stream(lambda s: None, stages.append, False))
+        assert stages == ["tools"]                     # once per call, by its id
+
     @pytest.mark.parametrize("errors,kind", [
         (["Not signed in. To authenticate without a browser, run: grok login --device-code"], "not_logged_in"),
         (["rate limit exceeded (429)"], "usage_limit"),

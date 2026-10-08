@@ -87,9 +87,13 @@ def test_a_trailing_plus_stays_with_its_number():
     assert f"{bidi.LRE}Kerning{bidi.PDF}" in bidi.isolate_ltr_runs("Kerning +שלום")    # not a number's plus
 
 
-def test_term_badge_goes_after_the_labels_colon():
-    out = glossary.annotate("HP: 7420", "en")
-    assert out.startswith("HP:<a href='g:HP'") and out.endswith(" 7420")
+def test_term_badge_goes_after_the_labels_value():
+    # never between the label and its value ("HP ?: 7420", then "HP: ? 7420": CHAT-12)
+    out = glossary.annotate("HP: 7,420", "en")
+    assert out.startswith("HP: 7,420<a href='g:HP'")
+    # in a Hebrew line, where the label and the value are two blocks
+    he = glossary.annotate(bidi.isolate_ltr_runs("Mano · HP: 7,420"), "he")
+    assert he.index("g:HP") > he.index("7,420") and he.count("g:HP") == 1
 
 
 def test_session_lines_keep_names_whole_and_apart():
