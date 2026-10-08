@@ -356,7 +356,8 @@ class GuidesDialog(GlassDialog):
             self.cats.addButton(b)
             chips.addWidget(b)
         self.cats.buttons()[0].setChecked(True)
-        self.cats.buttonClicked.connect(lambda *_: self._fill())
+        self._cat = guides.CATEGORIES[0]          # the category to go back to when the search is emptied
+        self.cats.buttonClicked.connect(self._pick_cat)
         lay.addLayout(chips)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -377,7 +378,10 @@ class GuidesDialog(GlassDialog):
                 item.widget().hide()   # gone now, not at the next event loop
                 item.widget().deleteLater()
         q = self.search.text().strip().lower()
-        cat = self.cats.checkedButton().property("cat")
+        # a search looks in every guide: no category chip stays lit as if it filtered (TOOL-11); emptied, the
+        # category picked before comes back
+        self._light_cat(None if q else self._cat)
+        cat = self._cat
         if q:
             texts = self.__dict__.setdefault("_texts", {})
             for g in self.all:
@@ -393,6 +397,8 @@ class GuidesDialog(GlassDialog):
             shown = [by_key[k] for k in self.picks if k in by_key]
         else:
             shown = [g for g in self.all if g["category"] == cat]
+        if q and shown:
+            self.rows.addWidget(QLabel(bidi.plain(self.t("g_found", n=len(shown)), self.t.rtl), objectName="RowHint"))
         for g in shown:
             row = GuideRow(self.kb, g, self.t, self.t.rtl)
             row.clicked.connect(self.open_guide)
@@ -400,6 +406,21 @@ class GuidesDialog(GlassDialog):
         if not shown:
             self.rows.addWidget(QLabel(bidi.plain(self.t("g_none"), self.t.rtl), objectName="RowHint"))
         self.rows.addStretch(1)
+
+    def _pick_cat(self, b) -> None:
+        """A category chip: that category's guides, the search emptied (it looks in every guide)."""
+        self._cat = b.property("cat")
+        if self.search.text():
+            self.search.blockSignals(True)
+            self.search.clear()
+            self.search.blockSignals(False)
+        self._fill()
+
+    def _light_cat(self, cat: str | None) -> None:
+        self.cats.setExclusive(False)         # (an exclusive group never lets its checked chip go)
+        for b in self.cats.buttons():
+            b.setChecked(b.property("cat") == cat)
+        self.cats.setExclusive(True)
 
     def _queries(self, q: str) -> list[str]:
         """The search as typed, and in Hebrew also with the KB's Hebrew names turned into the English ones the

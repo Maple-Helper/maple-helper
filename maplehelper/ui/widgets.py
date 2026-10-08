@@ -782,10 +782,23 @@ class Selectable:
         super().keyPressEvent(ev)
 
 
+def load_lazy_picture(card, size: int, trim: bool = False) -> None:
+    """A card's picture put off at its making (card._lazy = (label, path)), now."""
+    lazy, card._lazy = getattr(card, "_lazy", None), None
+    if not lazy or not lazy[1]:
+        return
+    pic, img = lazy
+    pm = QPixmap(str(img))
+    if not pm.isNull():
+        pic.setPixmap(fit_picture(pm, size, size, pic, trim=trim))
+        zoom_on_hover(pic, img)
+
+
 class EntityCard(Selectable, QFrame):
     """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaMeowDB page."""
 
-    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True):
+    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True, lazy: bool = False):
+        """lazy: the picture waits for load_picture() (a window of a hundred cards shows first, PERF-04)."""
         super().__init__()
         from ..i18n import I18n
         self.setObjectName("Card")
@@ -804,7 +817,9 @@ class EntityCard(Selectable, QFrame):
         row.setSpacing(10)
 
         img = kb.picture(key)          # never empty: own picture, related one, or category icon
-        pm = QPixmap(str(img)) if img else QPixmap()
+        self._lazy = None
+        lazy = lazy and not key.startswith("map/")       # a map's picture decides the card's layout
+        pm = QPixmap(str(img)) if img and not lazy else QPixmap()
         # a map's wide minimap goes under its name, across the column (the square showed a thin sliver)
         strip = None
         if key.startswith("map/") and WidePicture.wide(pm):
@@ -814,7 +829,9 @@ class EntityCard(Selectable, QFrame):
             pic = QLabel()
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
-            if not pm.isNull():
+            if lazy:
+                self._lazy = (pic, img)
+            elif not pm.isNull():
                 pic.setPixmap(fit_picture(pm, 56, 56, pic))
                 zoom_on_hover(pic, img)
             row.addWidget(pic, 0, Qt.AlignTop)
@@ -973,6 +990,9 @@ class EntityCard(Selectable, QFrame):
     ITEM_STATS = ("Level Requirement", "Weapon Attack", "Magic Attack", "Weapon Defense", "Magic Defense",
                   "Upgrade Slots")
     ITEM_BONUSES = ("STR", "DEX", "INT", "LUK", "HP", "MP", "Accuracy", "Avoidability", "Speed", "Jump")
+
+    def load_picture(self) -> None:
+        load_lazy_picture(self, 56)
 
     @staticmethod
     def _stats(e: dict, t, limit: int | None = None) -> str:

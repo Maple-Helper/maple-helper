@@ -588,6 +588,20 @@ class FlowLayout(QLayout):
         m = self.contentsMargins()
         return size + QSize(m.left() + m.right(), m.top() + m.bottom())
 
+    @staticmethod
+    def _width(item) -> int:
+        """An item's width; a checkable chip's room for its text in bold, as it's drawn when picked (a picked
+        "All levels" was sized for its regular text and showed "ll levels")."""
+        w = item.sizeHint().width()
+        b = item.widget()
+        if isinstance(b, QAbstractButton) and b.isCheckable() and b.text():
+            from PySide6.QtGui import QFontMetrics
+            b.ensurePolished()
+            bold = b.font()
+            bold.setBold(True)
+            w += max(0, QFontMetrics(bold).horizontalAdvance(b.text()) - QFontMetrics(b.font()).horizontalAdvance(b.text()))
+        return w
+
     def _rtl(self) -> bool:
         w = self.parentWidget()
         return (w.layoutDirection() if w is not None else Qt.LeftToRight) == Qt.RightToLeft
@@ -600,7 +614,7 @@ class FlowLayout(QLayout):
         for item in self._items:
             if item.isEmpty():
                 continue
-            w = min(item.sizeHint().width(), max(1, area.width()))
+            w = min(self._width(item), max(1, area.width()))
             if line and (x + self._h + w > area.width() or (self._per_row and len(line) >= self._per_row)):
                 lines.append(line)
                 line, x = [], 0

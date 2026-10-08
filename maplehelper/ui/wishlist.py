@@ -6,24 +6,29 @@ from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
-from .. import availability, bidi, quick, sources
+from .. import availability, bidi, farm, quick, sources
 from ..i18n import I18n
 from ..kb import KnowledgeBase
 from .controls import FlowLayout, rtl_buttons
 from .glass import GlassDialog
 from .patchnotes import gutter
-from .widgets import EntityCard, chip_row, fit_picture, source_tag, source_tags, updated_tag, vote_tag, zoom_on_hover
+from .widgets import (EntityCard, chip_row, fit_picture, info_tag, name_lv, source_tag, source_tags, updated_tag,
+                      vote_tag, zoom_on_hover)
 
 
 class WishlistDialog(GlassDialog):
     ask_requested = Signal(str)          # a question for the chat (where to hunt a dropper)
+    farm_requested = Signal(str)         # an item's droppers on Play tools' Farm tab (by its name)
+    route_requested = Signal(str)        # the way to a monster's map on Play tools' How to get there (its name)
 
-    def __init__(self, keys: list[str], kb: KnowledgeBase, lang: str, stylesheet: str):
+    def __init__(self, keys: list[str], kb: KnowledgeBase, lang: str, stylesheet: str, level: int | None = None):
+        """level: the character's, for how each dropper sits against it (the Farm tab's chips) and their order."""
         self.t = t = I18n(lang or "he")
         super().__init__(t("wishlist"), t.rtl)
         self.setStyleSheet(stylesheet)
         self.resize(500, 640)
         self.kb = kb
+        self.level = level
         rtl = t.rtl
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -88,6 +93,7 @@ class WishlistDialog(GlassDialog):
                 lay.addLayout(chip_row(chips, head))
             else:
                 lay.addWidget(head)
+            item = (kb.get(k) or {}).get("name", k)
             if droppers:
                 # the drop lists include the MSEA reference drops, not all confirmed for Classic: said here as the
                 # instant answers say it under the same data
@@ -96,12 +102,26 @@ class WishlistDialog(GlassDialog):
                 note.setAlignment(self._align)
                 note.setContentsMargins(4, 0, 4, 0)
                 lay.addWidget(note)
-            item = (kb.get(k) or {}).get("name", k)
+                # the item on the Farm tab: its droppers with the way there and a farm session, answered here and
+                # not by the AI (TOOL-07)
+                go = QPushButton(bidi.plain(t("wish_on_farm"), rtl), objectName="Link")
+                go.setCursor(Qt.PointingHandCursor)
+                go.setAutoDefault(False)
+                go.clicked.connect(lambda _=False, n=item: self.farm_requested.emit(n))
+                lay.addWidget(go, 0, Qt.AlignLeft)      # AlignLeft is the leading edge (mirrored in Hebrew)
             # each dropper as a row with its picture, level, map and a way to ask the chat about it (live feedback:
             # a small text list was hard to read and led nowhere)
             # every dropper ("and 4 more" hid them, and the window scrolls anyway: the owner's report)
-            for m in droppers:
-                lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None, kb.community_vote(m, k)))
+            # with the character's level: the community's first as before, then the ones to farm now nearest the
+            # level (Snail Lv 1 came first for a Lv 35 player), each with the Farm tab's chip for its fit
+            ds = farm.droppers(kb, k, self.level) if self.level else []
+            if ds:
+                ds.sort(key=lambda d: (d.source != sources.COMMUNITY, d.fit == "hard", d.boss,
+                                       abs(self.level - d.level), d.level, d.name))
+            fits = {d.key: d for d in ds}
+            for m in ([d.key for d in ds] or droppers):
+                lay.addWidget(self._dropper(m, item, srcs.get(m) if self._mixed else None, kb.community_vote(m, k),
+                                            fits.get(m)))
             lay.addSpacing(10)
         lay.addStretch(1)
 
@@ -137,7 +157,8 @@ class WishlistDialog(GlassDialog):
             pass
         super().done(r)
 
-    def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None) -> QFrame:
+    def _dropper(self, m: str, item: str, source: str | None = None, vote: dict | None = None,
+                 d: farm.Dropper | None = None) -> QFrame:
         t, kb = self.t, self.kb
         e = kb.get(m) or {}
         name = e.get("name", m)
@@ -162,11 +183,17 @@ class WishlistDialog(GlassDialog):
         row.addWidget(pic, 0, Qt.AlignTop)
         col = QVBoxLayout()
         col.setSpacing(2)
-        title = QLabel(bidi.ltr_name(name + (f" · Lv. {lvl}" if lvl else ""), t.rtl), objectName="CardName")
+        # "Snail · רמה 1": the level in the UI's words, as on every tools card
+        title = QLabel(name_lv(name, lvl, t), objectName="CardName")
         title.setAlignment(self._align)
-        # this row's own drop list when the droppers mix them, the players' votes when players reported it ("16 ✓"),
-        # and a KB update this week that changed the monster
-        chips = ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else []) \
+        # how it sits against the level (the Farm tab's chip), this row's own drop list when the droppers mix them,
+        # the players' votes when players reported it ("16 ✓"), and a KB update this week that changed the monster
+        fit = []
+        if d is not None:
+            fit = [info_tag(t, t("farm_fit_boss"), t("farm_fit_boss_tip"), "TagWarn") if d.boss else
+                   info_tag(t, t(f"farm_fit_{d.fit}"), t(f"farm_fit_{d.fit}_tip"),
+                            {"easy": "TagGood", "range": "Tag", "hard": "TagWarn"}[d.fit])]
+        chips = fit + ([source_tag(t, source)] if source else []) + ([vote_tag(t, vote)] if vote else []) \
             + [c for c in [updated_tag(t, kb, m)] if c]
         if chips:
             # a flow, not one row: name + Lv, "Community", "Single report" and "Updated" in one row were 570 px
@@ -183,9 +210,15 @@ class WishlistDialog(GlassDialog):
             where.setAlignment(self._align)
             col.addWidget(where)
         row.addLayout(col, 1)
-        ask = QPushButton(bidi.plain(t("ask_short"), t.rtl), objectName="Link")
-        ask.setCursor(Qt.PointingHandCursor)
-        ask.setAutoDefault(False)
-        ask.clicked.connect(lambda: self.ask_requested.emit(t("wish_ask", monster=name, item=item)))
-        row.addWidget(ask, 0, Qt.AlignVCenter)
+        # the way to its map, worked out here, then the chat (the only action was the AI's, for what the app knows)
+        links = FlowLayout(spacing=14, line_spacing=0)
+        acts = [("farm_route", lambda: self.route_requested.emit(name))] if maps and not (d and d.closed) else []
+        acts.append(("ask_short", lambda: self.ask_requested.emit(t("wish_ask", monster=name, item=item))))
+        for key, then in acts:
+            b = QPushButton(bidi.plain(t(key), t.rtl), objectName="Link")
+            b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)
+            b.clicked.connect(lambda _=False, f=then: f())
+            links.addWidget(b)
+        col.addLayout(links)
         return card

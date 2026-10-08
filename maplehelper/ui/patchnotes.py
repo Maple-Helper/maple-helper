@@ -1,6 +1,7 @@
 """Patch notes for knowledge-base updates: exactly what changed, so players know what's new."""
 from __future__ import annotations
 
+import time
 from datetime import date
 
 from PySide6.QtCore import Qt, QTimer, Signal
@@ -14,9 +15,11 @@ from ..kb import KnowledgeBase
 from . import newsview
 from .controls import Section, Segmented, rtl_buttons
 from .glass import GlassDialog
-from .widgets import EntityCard, Selectable, fit_picture, zoom_on_hover
+from .widgets import EntityCard, Selectable, fit_picture, load_lazy_picture, zoom_on_hover
 
-SHOWN = 80   # rows per list; the rest is counted
+SHOWN = 12   # cards a list shows first; "Show more" adds MORE at a time (80 at once held the window back 1.3-1.8 s)
+MORE = 40
+FIRST_CARDS = 8      # made before the window shows; the rest follow a few at a time once it is up (PERF-04)
 
 
 KINDS = ("added", "changed", "updated", "removed")
@@ -91,7 +94,8 @@ def _value(v) -> str:
 class ChangeCard(Selectable, QFrame):
     """A chat-style card (picture, name, category) with what changed underneath."""
 
-    def __init__(self, kb: KnowledgeBase, r: dict, sub: str, lines: list[str], rtl: bool):
+    def __init__(self, kb: KnowledgeBase, r: dict, sub: str, lines: list[str], rtl: bool, lazy: bool = False):
+        """lazy: the picture waits for load_picture()."""
         super().__init__()
         self.setObjectName("Card")
         if kb.get(r["key"]):
@@ -103,7 +107,8 @@ class ChangeCard(Selectable, QFrame):
         pic.setFixedSize(48, 48)
         pic.setAlignment(Qt.AlignCenter)
         img = kb.picture(r["key"])
-        pm = QPixmap(str(img)) if img else QPixmap()
+        self._lazy = (pic, img) if lazy else None
+        pm = QPixmap(str(img)) if img and not lazy else QPixmap()
         if not pm.isNull():
             # without the sprite's empty margins: Trixter (a small bug in a 67x81 canvas) drew half the size of
             # Jr. Sentinel on the next card (VIS-22)
@@ -123,6 +128,9 @@ class ChangeCard(Selectable, QFrame):
     def mouseReleaseEvent(self, ev):
         if hasattr(self, "key"):
             super().mouseReleaseEvent(ev)
+
+    def load_picture(self) -> None:
+        load_lazy_picture(self, 48, trim=True)       # without the sprite's empty margins, as above
 
 
 def gutter(rtl: bool) -> tuple[int, int, int, int]:
@@ -231,20 +239,25 @@ class PatchNotesDialog(GlassDialog):
             empty = QLabel(bidi.plain(t("patch_notes_empty"), t.rtl), objectName="DialogBody")
             empty.setWordWrap(True)
             lay.addWidget(empty)
+        # the headings and lists are laid out now, their cards queued: the first few are made before the window
+        # shows, the rest a few at a time once it is up, the pictures last (it was blank for 1.3-1.8 s, PERF-04)
+        self._jobs: list = []          # (layout, make card)
+        self._pics: list = []          # cards whose picture is still to load
         mine, rest = recent.split(entries, kb, char, self.wished) if (char or self.wished) else ([], entries)
         self.mine = mine
         if mine:
             box = QVBoxLayout()
             box.setSpacing(8)
             box.addWidget(QLabel(bidi.plain(t("pn_affects", n=len(mine)), t.rtl), objectName="ProfileName"))
-            for reason, kind, r in mine[:SHOWN]:
-                box.addWidget(self._card(kind, r, reason))
+            self._list(box, [lambda reason=reason, kind=kind, r=r: self._card(kind, r, reason)
+                             for reason, kind, r in mine], len(mine))
             lay.addLayout(box)
             if any(any((e.get("counts") or {}).get(k) for k in KINDS) for e in rest):
                 lay.addWidget(QLabel(bidi.plain(t("pn_more_changes"), t.rtl), objectName="ProfileName"))
         for e in rest:
             self._entry(lay, e)
         lay.addStretch(1)
+        self._build_cards(FIRST_CARDS)
 
         row = QHBoxLayout()
         row.setContentsMargins(0, 10, 0, 0)
@@ -257,6 +270,86 @@ class PatchNotesDialog(GlassDialog):
         row.addStretch(1)
         outer.addLayout(row)
         rtl_buttons(self, t.rtl)
+
+    def _list(self, box: QVBoxLayout, makers: list, n: int) -> None:
+        """A list's cards (a maker each) under its heading: the first SHOWN, then "and N more" with "Show more",
+        which adds the next MORE (the count alone was a dead end, TOOL-21). n: every row, the ones an update
+        counted without listing them too (those have no card to show)."""
+        cards = QVBoxLayout()
+        cards.setSpacing(8)
+        box.addLayout(cards)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 0, 0, 0)
+        fl.setSpacing(0)
+        left = QLabel(objectName="RowHint")
+        left.setAlignment(Qt.AlignHCenter)
+        fl.addWidget(left)
+        # the number in the line above, not on the button (a button lays a Hebrew label with a number out of order)
+        more = QPushButton(bidi.plain(self.t("pn_show_more"), self.t.rtl), objectName="Link")
+        more.setCursor(Qt.PointingHandCursor)
+        more.setAutoDefault(False)
+        fl.addWidget(more, 0, Qt.AlignHCenter)
+        box.addWidget(foot)
+        state = {"shown": 0}
+
+        def show(count: int) -> None:
+            for make in makers[state["shown"]:state["shown"] + count]:
+                self._jobs.append((cards, make))
+            state["shown"] = min(len(makers), state["shown"] + count)
+            hidden = n - state["shown"]
+            foot.setVisible(hidden > 0)
+            left.setText(bidi.plain(self.t("pn_more", n=hidden), self.t.rtl))
+            more.setVisible(state["shown"] < len(makers))
+
+        def show_more() -> None:
+            show(MORE)
+            self._build_cards()
+        more.clicked.connect(lambda *_: show_more())
+        show(SHOWN)
+
+    def _build_cards(self, first: int = 0) -> None:
+        """The queued cards: `first` of them now (before the window shows), else as many as fit in 30 ms, again
+        each turn of the event loop until all are made; then their pictures, the same way."""
+        try:
+            if self.__dict__.get("_closed"):
+                return
+            if first:
+                for _ in range(min(first, len(self._jobs))):
+                    self._make_one()
+            else:
+                start = time.perf_counter()
+                while self._jobs and time.perf_counter() - start < 0.03:
+                    self._make_one()
+            if self._jobs:
+                QTimer.singleShot(0, self._build_cards)
+            elif self._pics:
+                QTimer.singleShot(0, self._load_pictures)
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _make_one(self) -> None:
+        layout, make = self._jobs.pop(0)
+        card = make()
+        layout.addWidget(card)
+        if getattr(card, "_lazy", None):
+            self._pics.append(card)
+
+    def _load_pictures(self) -> None:
+        try:
+            if self.__dict__.get("_closed"):
+                return
+            start = time.perf_counter()
+            while self._pics and time.perf_counter() - start < 0.02:
+                self._pics.pop(0).load_picture()
+            if self._pics:
+                QTimer.singleShot(0, self._load_pictures)
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def closeEvent(self, e):
+        self._closed = True
+        super().closeEvent(e)
 
     @property
     def tab(self) -> str:
@@ -280,10 +373,10 @@ class PatchNotesDialog(GlassDialog):
                                list(r.get("drops_added") or []), list(r.get("drops_removed") or []),
                                r.get("old_name") or "", list(r.get("community_added") or []),
                                list(r.get("community_removed") or []), list(r.get("mesos") or []))
-            return ChangeCard(self.kb, r, sub, recent.lines(t, self.kb, rc), rtl)
+            return ChangeCard(self.kb, r, sub, recent.lines(t, self.kb, rc), rtl, lazy=True)
         if self.kb.get(r["key"]) and not reason:
-            return EntityCard(self.kb, r["key"], t.lang)     # exactly the chat's card
-        return ChangeCard(self.kb, r, sub, [], rtl)
+            return EntityCard(self.kb, r["key"], t.lang, lazy=True)     # exactly the chat's card
+        return ChangeCard(self.kb, r, sub, [], rtl, lazy=True)
 
     def _entry(self, lay: QVBoxLayout, e: dict):
         t, rtl = self.t, self.t.rtl
@@ -300,12 +393,7 @@ class PatchNotesDialog(GlassDialog):
             box = QVBoxLayout()
             box.setSpacing(8)
             box.addWidget(QLabel(bidi.plain(t(f"pn_{kind}", n=n), rtl), objectName="SectionHeader"))
-            for r in rows[:SHOWN]:
-                box.addWidget(card_fn(r))
-            if n > min(len(rows), SHOWN):
-                more = QLabel(bidi.plain(t("pn_more", n=n - min(len(rows), SHOWN)), rtl), objectName="RowHint")
-                more.setAlignment(Qt.AlignHCenter)
-                box.addWidget(more)
+            self._list(box, [lambda r=r: card_fn(r) for r in rows], max(n, len(rows)))
             lay.addLayout(box)
 
         for kind in KINDS:
