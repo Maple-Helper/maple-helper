@@ -84,7 +84,7 @@
      "640,000",
      "Bubbling (lv15)",
      "3 (Kerning City Pharmacy)",
-     "מפה עם מוב אחד בדיוק ברמה 15, אחד הגריינדים הכי נקיים בטווח. הצפיפות של הסאבוויי מנצחת."
+     "מפה עם מוב אחד בדיוק ברמה 15, אחד הגריינדים הכי נקיים בטווח. הצפיפות של ה-Subway מנצחת."
     ],
     [
      "[[img:b62ded95656118.png]] West Rocky Mountain III",
@@ -108,7 +108,7 @@
    "h2": "רמה 16-20"
   },
   {
-   "p": "ל-Dangerous Steam יש את ה-Max EXP/hr הכי גבוה בטווח הזה, ומפת ה-Stirge בסאבוויי קרובה מאחוריה."
+   "p": "ל-Dangerous Steam יש את ה-Max EXP/hr הכי גבוה בטווח הזה, ומפת ה-Stirge ב-Subway קרובה מאחוריה."
   },
   {
    "table": [
@@ -134,7 +134,7 @@
      "502,143",
      "Stirge (lv20)",
      "4 (Kerning City Pharmacy)",
-     "מפה של Stirge בלבד עם מבנה צפוף מאוד, בחירה קלה למג'ים ולקשתים."
+     "מפה של Stirge בלבד עם מבנה צפוף מאוד, בחירה קלה ל-Magicians ול-Bowmen."
     ],
     [
      "[[img:059caff41683e8.png]] Tree Dungeon, Forest Up North III",
@@ -237,7 +237,7 @@
    "h2": "רמה 31-35"
   },
   {
-   "p": "האזור של Kerning Subway Line 2 מתחיל להשתלם כאן, בזכות הצפיפות של Jr. Wraith. The Burnt Land V היא האלטרנטיבה מחוץ לסאבוויי לווריורים ולקשתים שרוצים Fire Boar ברמה 32 במקום."
+   "p": "האזור של Kerning Subway Line 2 מתחיל להשתלם כאן, בזכות הצפיפות של Jr. Wraith. The Burnt Land V היא האלטרנטיבה מחוץ ל-Subway ל-Warriors ול-Bowmen שרוצים Fire Boar ברמה 32 במקום."
   },
   {
    "table": [
@@ -255,7 +255,7 @@
      "2,270,000",
      "Jr. Wraith (lv34)",
      "5 (Kerning City Pharmacy)",
-     "הגריינד של Jr. Wraith מתחיל. צפיפות של סאבוויי פלוס התאמת רמה מושלמת לשחקנים ברמה 32-34."
+     "הגריינד של Jr. Wraith מתחיל. צפיפות של Subway פלוס התאמת רמה מושלמת לשחקנים ברמה 32-34."
     ],
     [
      "[[img:777ced8b4048a6.png]] Line 1 <Area 2>",
@@ -263,7 +263,7 @@
      "2,002,500",
      "Jr. Wraith (lv34)",
      "5 (Kerning City Pharmacy)",
-     "מפת סאבוויי חלופית ל-Jr. Wraith. פחות פופולרית מ-Line 2, אז אולי תהיה שקטה יותר."
+     "מפת Subway חלופית ל-Jr. Wraith. פחות פופולרית מ-Line 2, אז אולי תהיה שקטה יותר."
     ],
     [
      "[[img:762bddf50eb031.png]] The Burnt Land V",
@@ -271,7 +271,7 @@
      "1,080,714",
      "Fire Boar (lv32)",
      "8 (Perion Department Store)",
-     "גריינד של Fire Boar עם כמה Lupins ו-Dark Axe Stumps לגיוון. האפשרות הכי טובה מחוץ לסאבוויי בטווח, וגם הקווסטים פה נותנים EXP."
+     "גריינד של Fire Boar עם כמה Lupins ו-Dark Axe Stumps לגיוון. האפשרות הכי טובה מחוץ ל-Subway בטווח, וגם הקווסטים פה נותנים EXP."
     ]
    ]
   },
@@ -321,7 +321,7 @@
    "h2": "רמה 41-45"
   },
   {
-   "p": "זה הטווח הכי קשה לעשות בו גריינד; הציוד מתחיל לקבוע את מהירות הקלירינג. המפות של Monkey Swamp הן האפשרות הסלחנית: ההגנה הנמוכה של Zombie Lupin שומרת על דמג' סביר גם אם הציוד שלכם מפגר. Forgotten Entrance III, שמוחבאת מעבר ליער שצפונית ל-Ellinia, היא האפשרות אם אתם רוצים Glowshroom ו-Raffle בטווח רמה 33-40."
+   "p": "זה הטווח הכי קשה לעשות בו גריינד; הציוד מתחיל לקבוע את מהירות הקלירינג. המפות של Monkey Swamp הן האפשרות הסלחנית: ההגנה הנמוכה של Zombie Lupin שומרת על נזק סביר גם אם הציוד שלכם מפגר. Forgotten Entrance III, שמוחבאת מעבר ליער שצפונית ל-Ellinia, היא האפשרות אם אתם רוצים Glowshroom ו-Raffle בטווח רמה 33-40."
   },
   {
    "table": [
@@ -363,7 +363,7 @@
    "h2": "רמה 46-50"
   },
   {
-   "p": "מפות ה-Wraith ב-Kerning Subway שולטות בטווח הזה. Line 2 Area 2 מגיעה ל-3.7M Max EXP/hr, הכי גבוה מכל מפה ב-Victoria Island. Hot Sand ב-Florina Road היא האלטרנטיבה עם Tortie ו-Clang. מג'י Lightning מקבלים בונוס אלמנטלי על ה-Clangs; ל-Torties, שיש מהם יותר, אין חולשה."
+   "p": "מפות ה-Wraith ב-Kerning Subway שולטות בטווח הזה. Line 2 Area 2 מגיעה ל-3.7M Max EXP/hr, הכי גבוה מכל מפה ב-Victoria Island. Hot Sand ב-Florina Road היא האלטרנטיבה עם Tortie ו-Clang. Magicians עם Lightning מקבלים בונוס אלמנטלי על ה-Clangs; ל-Torties, שיש מהם יותר, אין חולשה."
   },
   {
    "table": [
@@ -389,7 +389,7 @@
      "3,205,714",
      "Wraith (lv48)",
      "7 (Kerning City Pharmacy)",
-     "רק Wraith ברמה 48, שום דבר אחר לא מספן. מג'י Lightning יאהבו את המבנה. קצת פחות EXP גולמי מ-Area 2, אבל כל קיל ברמה שלכם."
+     "רק Wraith ברמה 48, שום דבר אחר לא מספן. Magicians עם Lightning יאהבו את המבנה. קצת פחות EXP גולמי מ-Area 2, אבל כל קיל ברמה שלכם."
     ],
     [
      "[[img:0386eea7010d4c.png]] Line 1 <Area 4>",
@@ -397,7 +397,7 @@
      "2,781,429",
      "Wraith (lv48)",
      "7 (Kerning City Pharmacy)",
-     "הסאבוויי השני עם Wraith בלבד. קצת יותר קטן מ-Line 2 Area 3 (59 מול 68 נקודות ספאון), אבל משחק בדיוק אותו דבר. תבחרו את זה שפחות עמוס."
+     "ה-Subway השני עם Wraith בלבד. קצת יותר קטן מ-Line 2 Area 3 (59 מול 68 נקודות ספאון), אבל משחק בדיוק אותו דבר. תבחרו את זה שפחות עמוס."
     ]
    ]
   },
@@ -405,7 +405,7 @@
    "h2": "רמה 51-55"
   },
   {
-   "p": "לפי החישובים שלנו, מפות ה-Wraith בסאבוויי עדיין מעל כל מפה בטווח הזה, אז להישאר ב-Line 2 Area 2 זו בחירה טובה. למובים ברמה שלכם, מפת ה-Clang בחוף וביצת ה-Croco מובילות. Forbidden Entrance היא האפשרות ב-Forgotten Hollow."
+   "p": "לפי החישובים שלנו, מפות ה-Wraith ב-Subway עדיין מעל כל מפה בטווח הזה, אז להישאר ב-Line 2 Area 2 זו בחירה טובה. למובים ברמה שלכם, מפת ה-Clang בחוף וביצת ה-Croco מובילות. Forbidden Entrance היא האפשרות ב-Forgotten Hollow."
   },
   {
    "table": [
@@ -594,7 +594,7 @@
      "43-50",
      "1,201,072",
      "2 (Cave Fairy Department Store)",
-     "Aqumander חלש לברק, Rafflesia לאש ו-Duskmander לקרח. פארטי של מג'ים עם אלמנטים שונים מכסה את שלושתם."
+     "Aqumander חלש לברק, Rafflesia לאש ו-Duskmander לקרח. פארטי של Magicians עם אלמנטים שונים מכסה את שלושתם."
     ],
     [
      "[[img:0386eea7010d4c.png]] Line 2 <Area 3>",
@@ -643,7 +643,7 @@
   },
   {
    "guide": "explaining-the-damage-formula",
-   "text": "נוסחת הדמג' של MapleStory Classic"
+   "text": "נוסחת הנזק של MapleStory Classic"
   },
   {
    "guide": "exp-table-level-1-to-100",
