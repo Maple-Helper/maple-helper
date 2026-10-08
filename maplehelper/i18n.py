@@ -1073,18 +1073,17 @@ STRINGS = {
     # where the player is, read from the game's minimap (ui/minimapscan.py, minimap.py)
     "minimap_select": {"he": "בחירת המיני-מפה", "en": "Select minimap"},
     "minimap_tip": {"he": "בחירת המיני-מפה: איפה אתם במשחק\n"
-                          "לחצו כאן, וגררו מסגרת סביב המיני-מפה של המשחק (הפינה עם שם המפה והנקודה הצהובה).\n"
+                          "לחצו כאן, וגררו מסגרת סביב המיני-מפה של המשחק (הפינה עם שם המפה).\n"
                           "מאותו רגע העוזר קורא אותה שוב ושוב (בהגדרות קובעים כל כמה זמן):\n"
                           "• המפה שלכם מופיעה בכרטיס הזה, מתחת לרמה\n"
-                          "• כפתור ◎ מראה את הדרך מהמפה שלכם, עם נקודה צהובה במקום שלכם\n"
+                          "• כפתור ◎ מראה את הדרך מהמפה שלכם, עם נקודה כחולה במקום שלכם\n"
                           "• \"איך מגיעים\" בכלי המשחק מתחיל מהמפה שלכם\n"
                           "הזזתם את המיני-מפה או שיניתם את גודל החלון? לחצו שוב ובחרו מחדש.",
                     "en": "Select minimap: where you are in the game\n"
-                          "Click here and drag a box around the game's minimap (the corner with the map's name and your "
-                          "yellow dot).\n"
+                          "Click here and drag a box around the game's minimap (the corner with the map's name).\n"
                           "From then on, Maple Helper keeps reading it (Settings set how often):\n"
                           "• Your map shows on this card, under your level\n"
-                          "• The ◎ button shows the way from your map, with a yellow dot where you are\n"
+                          "• The ◎ button shows the way from your map, with a blue dot where you are\n"
                           "• \"How to get there\" in the Play tools starts from your map\n"
                           "Moved the minimap or resized the game? Click again and draw a new box."},
     "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק.", "en": "Drag a box around the game's minimap."},
@@ -1099,7 +1098,9 @@ STRINGS = {
     "location_line": {"he": "נמצא/ת ב-{name}", "en": "In {name}"},
     "location_unknown": {"he": "המיני-מפה לא זוהתה", "en": "Minimap not recognized"},
     "route_from_here_title": {"he": "מ-{here} אל {name}", "en": "From {here} to {name}"},
-    "route_you_are_here": {"he": "הנקודה הצהובה היא איפה שאתם עכשיו.", "en": "The yellow dot is where you are now."},
+    "legend_you": {"he": "אתם כאן", "en": "You are here"},
+    "legend_portal": {"he": "הפורטל", "en": "The portal"},
+    "legend_npc": {"he": "ה-NPC", "en": "The NPC"},
     "route_here_already": {"he": "אתם כבר כאן.", "en": "You're already here."},
     "card_item_details": {"he": "פרטי הפריט: נתונים, מי מפיל אותו, Meow Notes",
                           "en": "Item details: stats, who drops it, Meow Notes"},

@@ -246,42 +246,100 @@ def marked_picture(path, spot: tuple[float, float], npc: bool = False, cap_w: in
     pm = _scaled(path, cap_w)
     if pm.isNull():
         return pm
-    fill, ring = (QColor(theme.GOOD_TEXT_LIGHT), QColor(8, 48, 24)) if npc else \
-        (QColor(245, 182, 66), QColor(58, 42, 5))        # NiaMeowDB's orange and dark ring
-    _dot(pm, spot, fill, ring)
+    _dot(pm, spot, *_mark_colors(npc))
     return pm
 
 
-YOU_FILL, YOU_RING = QColor(255, 213, 47), QColor(84, 62, 0)      # the player's own dot: yellow, white-ringed
+def _mark_colors(npc: bool) -> tuple[QColor, QColor]:
+    """The target's dot: the NPC's green, or the portal's orange (NiaMeowDB's), each with a dark ring."""
+    return (QColor(theme.GOOD_TEXT_LIGHT), QColor(8, 48, 24)) if npc else (QColor(245, 182, 66), QColor(58, 42, 5))
+
+
+# the player's own dot: blue, white-ringed (it was yellow, which the owner couldn't tell from the orange portal,
+# 2026-10-08; blue is on neither the portal nor the NPC dot)
+YOU_FILL, YOU_RING = QColor(10, 132, 255), QColor(255, 255, 255)
+
+
+def _you_dot(pm: QPixmap, at: QPointF, r: float = DOT, glow: bool = True) -> None:
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.Antialiasing)
+    if glow:
+        halo = QColor(YOU_FILL)
+        halo.setAlpha(110)
+        p.setPen(Qt.NoPen)
+        p.setBrush(halo)
+        p.drawEllipse(at, r + 5, r + 5)
+    p.setPen(QPen(YOU_RING, 3 if r >= DOT else 2))
+    p.setBrush(YOU_FILL)
+    p.drawEllipse(at, r, r)
+    p.end()
+
+
+def legend_icon(kind: str, ratio: float = 2.0) -> QPixmap:
+    """The legend's small dot ("you", "portal", "npc"), drawn as on the map so the two match at a glance."""
+    side, r = 16, 5.5
+    pm = QPixmap(round(side * ratio), round(side * ratio))
+    pm.setDevicePixelRatio(ratio)
+    pm.fill(Qt.transparent)
+    at = QPointF(side / 2, side / 2)
+    if kind == "you":
+        _you_dot(pm, at, r, glow=False)
+    else:
+        fill, ring = _mark_colors(kind == "npc")
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(QPen(ring, 1.5))
+        p.setBrush(fill)
+        p.drawEllipse(at, r, r)
+        p.end()
+    return pm
+
+
+class MapLegend(QWidget):
+    """What the dots on a step's picture are: "● You are here   ● The portal" (or the NPC), above the picture.
+    The player's entry hides while the minimap read has no dot for them."""
+
+    def __init__(self, t, npc: bool, you: bool):
+        super().__init__()
+        rtl = t.rtl
+        self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(14)
+        self.you = self._entry(lay, "you", t("legend_you"), rtl)
+        self.target = self._entry(lay, "npc" if npc else "portal", t("legend_npc" if npc else "legend_portal"), rtl)
+        lay.addStretch(1)
+        self.show_you(you)
+
+    @staticmethod
+    def _entry(lay, kind: str, text: str, rtl: bool) -> QWidget:
+        w = QWidget()
+        row = QHBoxLayout(w)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.setSpacing(5)
+        icon = QLabel()
+        icon.setPixmap(legend_icon(kind))
+        row.addWidget(icon, 0, Qt.AlignVCenter)
+        row.addWidget(QLabel(bidi.plain(text, rtl), objectName="RowHint"), 0, Qt.AlignVCenter)
+        w.setAccessibleName(text)
+        lay.addWidget(w)
+        return w
+
+    def show_you(self, on: bool) -> None:
+        self.you.setVisible(bool(on))
 
 
 def route_picture(path, spot: tuple[float, float] | None = None, npc: bool = False,
                    you: tuple[float, float] | None = None, cap_w: int = PICTURE_W) -> QPixmap:
-    """A step's picture: the portal/NPC dot as marked_picture draws it, plus the player's yellow dot (a white ring,
+    """A step's picture: the portal/NPC dot as marked_picture draws it, plus the player's blue dot (a white ring,
     so it stands out from the orange and green ones). Either dot missing: just the other."""
     pm = _scaled(path, cap_w)
     if pm.isNull():
         return pm
     if spot is not None:
-        fill, ring = (QColor(theme.GOOD_TEXT_LIGHT), QColor(8, 48, 24)) if npc else \
-            (QColor(245, 182, 66), QColor(58, 42, 5))
-        _dot(pm, spot, fill, ring)
+        _dot(pm, spot, *_mark_colors(npc))
     if you is not None:
-        at = QPointF(you[0] * pm.width(), you[1] * pm.height())
-        p = QPainter(pm)
-        p.setRenderHint(QPainter.Antialiasing)
-        glow = QColor(YOU_FILL)
-        glow.setAlpha(110)
-        p.setPen(Qt.NoPen)
-        p.setBrush(glow)
-        p.drawEllipse(at, DOT + 5, DOT + 5)
-        p.setPen(QPen(QColor(255, 255, 255), 3))
-        p.setBrush(YOU_FILL)
-        p.drawEllipse(at, DOT, DOT)
-        p.setPen(QPen(YOU_RING, 1.5))
-        p.setBrush(Qt.NoBrush)
-        p.drawEllipse(at, DOT, DOT)
-        p.end()
+        _you_dot(pm, QPointF(you[0] * pm.width(), you[1] * pm.height()))
     return pm
 
 
@@ -309,6 +367,7 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         self._here_map: str | None = None     # the live map the way shown is from (None: the generic ways in)
         self._way: WayFromHere | None = None
         self._first = None                    # (picture, map, leg|None, npc spot|None) of the first card
+        self._legend = None                   # the first card's legend of the dots (MapLegend)
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
         self.scroll = scroll = QScrollArea()
@@ -392,7 +451,7 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         self.key = key
         self._shown_cap = self._picture_cap()     # the width the new cards' pictures draw at
         clear(self.lay)
-        self._way, self._first = None, None
+        self._way, self._first, self._legend = None, None, None
         mid = g.of_key(key) if key.startswith("map/") else None
         name = g.name(mid) if mid else (self.kb.get(key) or {}).get("name", key)
         here = LOCATION.here
@@ -446,6 +505,8 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         pic, mid, leg, npc_at = self._first
         try:
             you = here.spot if here else None
+            if self._legend is not None:
+                self._legend.show_you(you is not None)
             g = routes.of(self.kb)
             cap = self._picture_cap()
             if leg is not None:
@@ -575,18 +636,17 @@ class MapLocationDialog(EdgeResize, GlassDialog):
 
     def _route_card(self, g, number: str, mid: str, leg, you, first: bool = False) -> QFrame:
         """One step of the way: what to do on this map, its minimap with the portal/NPC ringed, and on the first
-        card the player's yellow dot with where-you-are."""
-        t, rtl = self.t, self.t.rtl
+        card the player's blue dot and a legend of the dots."""
+        t = self.t
         path = g.minimap(mid)
         card, pic = self._numbered_card(number, False, mid, route_says(t, g, leg),
                                         route_picture(path, leg.spot, leg.kind != "portal", you,
                                                       cap_w=self._shown_cap),
                                         g.name(mid), (path, leg.spot, leg.kind != "portal", you))
-        if you is not None:
-            yours = QLabel(bidi.plain(t("route_you_are_here"), rtl), objectName="RowHint")
-            yours.setWordWrap(True)
-            card.layout().insertWidget(2, yours)
         if first:
+            # what each dot is, above the picture (the owner's, 2026-10-08: "which dot is me?")
+            self._legend = MapLegend(t, leg.kind != "portal", you is not None)
+            card.layout().insertWidget(2, self._legend)
             self._first = (pic, mid, leg, None)
         return card
 
@@ -610,7 +670,7 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         return card
 
     def _here_card(self, g, way: WayFromHere, you) -> QFrame:
-        """Already on the destination map: said, with the player's yellow dot (and the NPC's for an NPC)."""
+        """Already on the destination map: said, with the player's blue dot (and the NPC's for an NPC)."""
         t = self.t
         npc_at = self._npc_at(g, way.npc)
         path = g.minimap(way.dest)
@@ -618,5 +678,8 @@ class MapLocationDialog(EdgeResize, GlassDialog):
                                         route_picture(path, npc_at, npc_at is not None, you,
                                                       cap_w=self._shown_cap),
                                         g.name(way.dest), (path, npc_at, npc_at is not None, you))
+        self._legend = MapLegend(t, True, you is not None)
+        self._legend.target.setVisible(npc_at is not None)
+        card.layout().insertWidget(2, self._legend)
         self._first = (pic, way.dest, None, npc_at)
         return card
