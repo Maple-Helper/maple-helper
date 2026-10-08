@@ -169,6 +169,8 @@ def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None
 
         # a KB name kept whole (LRI ... PDI: "Bottomwear HP Scroll: Chaos") is a name, not a use of its terms
         for run in re.finditer(f"{bidi.LRE}(.*?){bidi.PDF}|{bidi.LRI}.*?{bidi.PDI}", part, re.S):
+            if run.start() < pos:      # the value already copied after the block before ("ACC: 47 ? 47")
+                continue
             out.append(_TERM_COLON.sub(sub, part[pos:run.start()]))
             marks = "".join(link(m.group(1)) for m in _PATTERN.finditer(run.group(1) or "") if wanted(m.group(1)))
             value = _BLOCK_VALUE.match(part, run.end()) if marks else None

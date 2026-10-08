@@ -66,7 +66,9 @@ class Toast(QWidget):
             col.addWidget(b)
         row.addLayout(col, 1)
 
-        close = theme.dismiss_button()
+        from ..i18n import STRINGS
+        name = STRINGS["close"]["he" if rtl else "en"]      # (its icon-font glyph read as nothing to a screen reader)
+        close = theme.dismiss_button(name, name)
         close.clicked.connect(self.dismiss)
         row.addWidget(close, 0, Qt.AlignTop)
         # the text column's exact width before any adjustSize(): the height then comes from the wrapped text

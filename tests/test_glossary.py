@@ -42,3 +42,13 @@ def test_no_mark_inside_a_kb_name_block():
         assert out.count("g:HP") == 1 and out.index("g:HP") > out.index(bidi.PDI)
     finally:
         bidi.set_names([])
+
+
+def test_a_hebrew_terms_value_shows_once():
+    """"ACC: 47" in a Hebrew line is two English runs; the value moved after the "?" was then written again
+    ("ACC: 47 ? 47", review COPY-R1)."""
+    import re
+    from maplehelper import bidi
+    for line, value in (("צריך ACC: 47 כדי לא לפספס", "47"), ("ל-Mano יש HP: 7,420 ו-MP: 30.", "7,420")):
+        out = re.sub(r"<[^>]+>", "", glossary.annotate(bidi.plain(line, True), "he"))
+        assert out.count(value) == 1, out
