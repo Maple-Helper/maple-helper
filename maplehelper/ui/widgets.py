@@ -66,6 +66,9 @@ def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
 class Bubble(QFrame):
     """A chat message. Direction is decided per paragraph, not by the UI language."""
 
+    pin_btn = None          # an answer's pin (add_pin), and the answer it pins
+    pin_key = ""
+
     def __init__(self, text: str, role: str, ui_rtl: bool, tag: str = "", direction: str | None = None):
         # tag: "Mano, Blue Snail"; direction: the message's language when known ("rtl" for a Hebrew instant answer)
         super().__init__()
@@ -148,7 +151,10 @@ class Bubble(QFrame):
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
         b.setAccessibleName(tip)        # its text is an icon-font glyph: a screen reader read nothing (UX-15)
-        b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
+        # the chat greys it out once the answer is really pinned, and brings it back on unpin (it went grey on the
+        # click itself: "Not now" on a full pin list left an answer that could never be pinned, CHAT-11)
+        b.clicked.connect(lambda: on_pin())
+        self.pin_btn, self.pin_key = b, self._text
         row.addWidget(b)
         self.layout().addLayout(row)
 
@@ -1191,6 +1197,18 @@ class SplitMenu(QMenu):
                 for x in (w, *w.findChildren(QWidget, "MenuRowText")):
                     x.style().unpolish(x)
                     x.style().polish(x)
+
+    def add_note(self, text: str) -> None:
+        """A muted line on the panel that can't be chosen (why the rows under it are grey)."""
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        label = QLabel(bidi.plain(text, rtl), objectName="MenuNote")
+        label.setWordWrap(True)
+        label.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
+        label.setProperty("panel", True)
+        a = QWidgetAction(self)
+        a.setDefaultWidget(label)
+        a.setEnabled(False)
+        self.addAction(a)
 
     def add_row(self, icon_name: str, text: str, on_click, enabled: bool = True) -> None:
         """A menu line laid out by us: in Hebrew the icon on the right and the text right beside it (a QMenu

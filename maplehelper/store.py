@@ -152,6 +152,7 @@ DEFAULT_SETTINGS = {
     # Older files hold a single bool here, which meant the Anthropic key.
     "api_key_fallback": {},
     "onboarding_done": False,
+    "shot_hints_seen": [],        # the screenshot hints shown in full once (then one line, CHAT-05)
     "tour_done": False,           # the first-run tour of the chat window was shown (skipped counts too)
     "pins": {},                   # character id -> pinned answers [{q, a, t}]
     "tips_dismissed": {},         # character id -> {tip kind: level it was hidden at}

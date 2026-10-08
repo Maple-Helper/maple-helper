@@ -324,7 +324,11 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
 
     #Capsule {{ background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 21px; }}
     #Capsule[focus="true"] {{ border: 1px solid rgba(255,149,51,0.85); }}
-    QLineEdit#Input {{ background: transparent; border: none; padding: 0 4px; selection-background-color: {ORANGE};
+    #Capsule[voice="true"] {{ border: 1px solid #FF453A; }}
+    #VoiceChip {{ color: {c['text']}; background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 9px;
+                  padding: 2px 10px; font-size: {s - 3}px; }}
+    #VoiceChip[voice="true"] {{ background: rgba(255,69,58,0.14); border: 1px solid rgba(255,69,58,0.55); }}
+    QPlainTextEdit#Input {{ background: transparent; border: none; padding: 0 2px; selection-background-color: {ORANGE};
                        selection-color: {ON_ORANGE};
                        color: {c['text']}; }}
     QToolButton#Send {{ font-family: "{ICON_FONT}"; font-size: 13px; color: {ON_ORANGE}; border: none; border-radius: 15px;
@@ -435,6 +439,7 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
        ":disabled" one painted every label grey), so the label is styled by its own state: a child of a disabled
        row is disabled itself, and the hover comes as a property set by MenuRowHover (installed per row) */
     #MenuRowText {{ color: {c['text']}; }}
+    #MenuNote {{ color: {c['muted']}; font-size: {s - 2}px; padding: 6px 17px 2px 17px; }}
     #MenuRowText:disabled {{ color: {c['faint']}; }}
     #MenuRow[active="true"] {{ background: {ORANGE}; }}
     #MenuRowText[hover="true"], #MenuRow[active="true"] #MenuRowText {{ color: {ON_ORANGE}; }}

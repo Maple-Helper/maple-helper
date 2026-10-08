@@ -228,11 +228,20 @@ _INDEX: dict[str, Index] = {}
 _INDEX_LOCK = threading.Lock()     # the background warm-up and a read must not both build it
 
 
-def _index(kb) -> Index:
+def _index_key(kb) -> str:
     # by folder and size: a KB update keeps the folder but changes its items (a stale key broke describe())
-    root = f"{getattr(kb, 'root', '')}|{len(kb.entities)}|{id(kb)}"
+    return f"{getattr(kb, 'root', '')}|{len(kb.entities)}|{id(kb)}"
+
+
+def _index(kb) -> Index:
+    root = _index_key(kb)
     with _INDEX_LOCK:
         return _INDEX.get(root) or _build_index(kb, root)
+
+
+def index_ready(kb) -> bool:
+    """The icon index is built: a check takes about half a second (else several, while it builds)."""
+    return _index_key(kb) in _INDEX
 
 
 def _build_index(kb, root: str) -> Index:
