@@ -325,3 +325,12 @@ def test_a_brace_in_the_tables_note_never_breaks_the_prompt(monkeypatch):
 def test_scope_is_not_called_official_and_summaries_leave_the_level_out():
     assert "official (Nexon)" not in brain.SYSTEM_PROMPT                  # audit AI-16
     assert "Leave out the character's level" in brain.SUMMARY_PROMPT      # audit AI-20
+
+
+def test_an_english_plural_never_gets_a_hebrew_ending():
+    """Seen live: "Warrior-ים". The plural stays English, irregular ones too; Hebrew words are left alone."""
+    from maplehelper.brain import drop_keys
+    assert drop_keys("זה טוב ל-Warrior-ים.") == "זה טוב ל-Warriors."
+    assert drop_keys("Bowman-ים ו-Thief-ים") == "Bowmen ו-Thieves"
+    assert drop_keys("הרבה Lemon-ים במפה") == "הרבה Lemons במפה"
+    assert drop_keys("ל-Henesys עם חברים") == "ל-Henesys עם חברים"

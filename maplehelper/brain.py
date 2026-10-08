@@ -184,7 +184,8 @@ REPLY_RULES = """<reply_rules>
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
     Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Magician. לא מתאים לכם: אתם Assassin ברמה 31."
-  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'".
+  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'". A plural stays
+    English too ("Warriors", "Bowmen", "Thieves"), never a Hebrew ending on it ("Warrior-ים").
   * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
@@ -554,6 +555,21 @@ _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\
 _LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])((?:ו|ש|כש|וכש)?(?:ה|מה|לה|בה|מ|ל)?|(?:ו|ש|כש|וכש)?ב(?=לבל\s*-?\d|"
                          r"לבלים|לבלינג))(לבלים|לבלינג|לבל)([- ]?אפ)?(?![\u0590-\u05FF])")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+# an English name given a Hebrew plural ending, seen live: "Warrior-ים". The plural stays English: "Warriors"
+_HEBREW_PLURAL = re.compile(r"\b([A-Za-z][A-Za-z']*)-(?:ים|ות)(?![\u0590-\u05FF])")
+
+
+def _english_plural(word: str) -> str:
+    low = word.lower()
+    if low.endswith("man"):
+        return word[:-3] + "men"                 # Bowman -> Bowmen
+    if low.endswith("ief"):
+        return word[:-1] + "ves"                 # Thief -> Thieves
+    if low.endswith(("s", "x", "ch", "sh")):
+        return word + "es"
+    if low.endswith("y") and low[-2:-1] not in "aeiou":
+        return word[:-1] + "ies"
+    return word + "s"
 
 
 def _level_word(m: re.Match) -> str:
@@ -566,11 +582,13 @@ def _level_word(m: re.Match) -> str:
 
 def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
-    named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
+    named as one ("אתם ברמה 31", not "אתם ב-31"), "רמה" for the gamer's "לבל" (the owner's word), and an English
+    plural for a Hebrew ending on an English name ("Warriors", not "Warrior-ים")."""
     text = _KEY_IN_TEXT.sub("", text)
     text = _BARE_LEVEL.sub(lambda m: f"{m['me'] or m['he']} ברמה {m['n'] or m['n2']}", text)
     text = _LEVEL_WORD.sub(_level_word, text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
+    text = _HEBREW_PLURAL.sub(lambda m: _english_plural(m.group(1)), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
