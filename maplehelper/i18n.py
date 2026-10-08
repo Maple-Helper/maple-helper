@@ -1039,7 +1039,7 @@ STRINGS = {
     "route_walk_alt": {"he": "ברגל, בלי מונית: {n} מפות.", "en": "On foot, without a cab: {n} maps."},
     "route_walk_alt_one": {"he": "ברגל, בלי מונית: מפה אחת.", "en": "On foot, without a cab: 1 map."},
     "route_walk_alt_boat": {"he": "בלי מונית: {n} מפות (הספינה עדיין עולה mesos).", "en": "Without a cab: {n} maps (the boat still costs mesos)."},
-    "route_ring": {"he": "בכל מפה, העיגול מסמן לאן ללכת.", "en": "On each map, the ring marks where to go."},
+    "route_ring": {"he": "בכל מפה, הנקודה מסמנת לאן ללכת.", "en": "On each map, the dot marks where to go."},
     "route_fares": {"he": "מונית וספינה עולות mesos, אבל המחיר לא מופיע במאגר.", "en": "Cabs and boats cost mesos, but the database doesn't list the fare."},
     "route_fares_taxi": {"he": "מונית עולה mesos, אבל המחיר לא מופיע במאגר.", "en": "A cab costs mesos, but the database doesn't list the fare."},
     "route_fares_boat": {"he": "הספינה עולה mesos, אבל המחיר לא מופיע במאגר.", "en": "The boat costs mesos, but the database doesn't list the fare."},

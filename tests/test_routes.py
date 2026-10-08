@@ -403,3 +403,32 @@ def test_a_taxi_town_asked_from_nowhere_is_no_0_step_route_and_pason_is_not_free
         assert f"Without a cab ({_walk_cost(walk)})" in text
         assert ("(free)" in text) == (_walk_cost(walk) == "free")
     assert not [m.name for m in g.maps.values() if m.name != m.name.strip()]
+
+
+def test_route_page_dot_follows_the_player_like_the_map_window(world, qt, isolated_store):
+    """'How to get there' draws its steps as the ◎ window does: the legend on the player's map's card, and the blue
+    dot there moving with the minimap read, without rebuilding the page (the owner's, 2026-10-08)."""
+    from maplehelper.minimap import Here
+    from maplehelper.ui import mapview
+    from maplehelper.ui.location import LOCATION
+    from maplehelper.ui.tools import ToolsDialog
+    kb, g = world
+    p = isolated_store.Profiles()
+    p.add("Kiwi", "Warrior", "Fighter", 20)
+    old = LOCATION.here
+    try:
+        LOCATION.set(Here(GARDEN, (0.2, 0.5)))
+        d = ToolsDialog(kb, p, isolated_store.Settings(), "en", "", {}, "route")
+        try:
+            d.route_to_map(f"map/{PERION}")
+            mid, dot = d._route_live
+            assert mid == GARDEN and dot.legend is not None and dot.legend.you.isVisibleTo(d.pages["route"])
+            assert dot.pic._pic_spec[3] == (0.2, 0.5)
+            cards = d.pages["route"].findChildren(mapview.MapLegend)
+            assert len(cards) == 1
+            LOCATION.set(Here(GARDEN, (0.7, 0.4)))         # moved on the same map: the same picture repaints
+            assert d._route_live[1] is dot and dot.pic._pic_spec[3] == (0.7, 0.4)
+        finally:
+            d.close()
+    finally:
+        LOCATION.set(old)

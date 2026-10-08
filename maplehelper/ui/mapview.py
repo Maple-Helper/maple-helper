@@ -343,6 +343,66 @@ def route_picture(path, spot: tuple[float, float] | None = None, npc: bool = Fal
     return pm
 
 
+def step_card(t, g, number: str, good: bool, mid: str, says: str, pm: QPixmap, spec=None) -> tuple[QFrame, QLabel]:
+    """A step's frame: its number, the map's name, the line, and the picture (the caller keeps the QLabel to repaint
+    the live dot; spec redraws it at a new width on resize). The ◎ window and the play tools' "How to get there" both
+    draw their steps with it, so the two look and behave the same (the owner's, 2026-10-08)."""
+    rtl = t.rtl
+    card = QFrame(objectName="Card")
+    col = QVBoxLayout(card)
+    col.setContentsMargins(12, 10, 12, 10)
+    col.setSpacing(6)
+    top = QHBoxLayout()
+    top.setSpacing(10)
+    num = QLabel(number, objectName="TagGood" if good else "TagAccent")
+    num.setAlignment(Qt.AlignCenter)
+    num.setMinimumWidth(26)
+    top.addWidget(num, 0, Qt.AlignTop)
+    names = QVBoxLayout()
+    names.setSpacing(1)
+    title = QLabel(bidi.ltr_name(g.name(mid), rtl), objectName="CardName")
+    title.setWordWrap(True)
+    names.addWidget(title)
+    m = g.maps[mid]
+    where = "  ·  ".join(x for x in (m.street, m.continent) if x)
+    if where:
+        names.addWidget(QLabel(bidi.ltr_block(where, rtl), objectName="CardSub"))
+    top.addLayout(names, 1)
+    col.addLayout(top)
+    line = QLabel(objectName="RowLabel")              # rich: the step's **words** come out bold, as on the
+    line.setTextFormat(Qt.RichText)                   # route page (a plain label showed the asterisks)
+    line.setWordWrap(True)
+    line.setText(says_html(t, says))
+    col.addWidget(line)
+    pic = QLabel()
+    if not pm.isNull():
+        pic.setPixmap(pm)
+    if spec is not None:
+        pic._pic_spec = spec
+    pic.setAccessibleName(g.name(mid))
+    col.addWidget(pic, 0, Qt.AlignHCenter)
+    return card, pic
+
+
+class LiveDot:
+    """The player's dot on one step's picture, following the minimap read while the step is shown: a moved dot
+    repaints that picture only (rebuilding every second flickered), and the legend's "You are here" follows whether
+    the read has a dot. `spec` is the picture's (path, target spot, npc) without the player."""
+
+    def __init__(self, pic: QLabel, spec: tuple, legend: MapLegend | None, cap) -> None:
+        self.pic, self.spec, self.legend, self.cap = pic, spec, legend, cap
+
+    def show(self, you) -> None:
+        try:
+            if self.legend is not None:
+                self.legend.show_you(you is not None)
+            full = (*self.spec, you)
+            self.pic._pic_spec = full
+            self.pic.setPixmap(route_picture(*full, cap_w=self.cap()))
+        except RuntimeError:
+            pass                                       # closed meanwhile
+
+
 class MapLocationDialog(EdgeResize, GlassDialog):
     """Resizable from every edge and corner (EdgeResize): the glass root margins keep the rim free of controls,
     like the chat's (SHADOW+18 at the sides, SHADOW+10 at the top, past the SHADOW+EDGE zone)."""
@@ -597,42 +657,7 @@ class MapLocationDialog(EdgeResize, GlassDialog):
 
     def _numbered_card(self, number: str, good: bool, mid: str, says: str, pm, accessible: str,
                        spec=None) -> tuple[QFrame, QLabel]:
-        """A step's frame: its number, the map's name, the line, and the picture (the caller keeps the QLabel to
-        repaint the live dot; spec redraws it at a new width on resize)."""
-        rtl, g = self.t.rtl, routes.of(self.kb)
-        card = QFrame(objectName="Card")
-        col = QVBoxLayout(card)
-        col.setContentsMargins(12, 10, 12, 10)
-        col.setSpacing(6)
-        top = QHBoxLayout()
-        top.setSpacing(10)
-        num = QLabel(number, objectName="TagGood" if good else "TagAccent")
-        num.setAlignment(Qt.AlignCenter)
-        num.setMinimumWidth(26)
-        top.addWidget(num, 0, Qt.AlignTop)
-        names = QVBoxLayout()
-        names.setSpacing(1)
-        title = QLabel(bidi.ltr_name(g.name(mid), rtl), objectName="CardName")
-        title.setWordWrap(True)
-        names.addWidget(title)
-        m = g.maps[mid]
-        where = "  ·  ".join(x for x in (m.street, m.continent) if x)
-        if where:
-            names.addWidget(QLabel(bidi.ltr_block(where, rtl), objectName="CardSub"))
-        top.addLayout(names, 1)
-        col.addLayout(top)
-        line = QLabel(objectName="RowLabel")              # rich: the step's **words** come out bold, as on the
-        line.setTextFormat(Qt.RichText)                   # route page (a plain label showed the asterisks)
-        line.setWordWrap(True)
-        line.setText(says_html(self.t, says))
-        col.addWidget(line)
-        pic = QLabel()
-        if not pm.isNull():
-            pic.setPixmap(pm)
-        if spec is not None:
-            pic._pic_spec = spec
-        col.addWidget(pic, 0, Qt.AlignHCenter)
-        return card, pic
+        return step_card(self.t, routes.of(self.kb), number, good, mid, says, pm, spec)
 
     def _route_card(self, g, number: str, mid: str, leg, you, first: bool = False) -> QFrame:
         """One step of the way: what to do on this map, its minimap with the portal/NPC ringed, and on the first
