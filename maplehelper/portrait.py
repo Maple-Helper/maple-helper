@@ -58,25 +58,6 @@ def usual_height(tags: list[tuple[int, int, int, int]]) -> list[tuple[int, int, 
     return [t for t in tags if abs(t[3] - usual) <= max(3, usual * 0.2)]
 
 
-def find_cut_tags(rgb: np.ndarray, name: str) -> list[tuple[int, int, int, int]]:
-    """Tags whose lower part is hidden (the chat box covers the bottom of the screen, where players often stand):
-    only the top edge and the start of the letters show. Its height comes from its width and the name's length."""
-    f = rgb.astype(np.float32)
-    luma = f[..., 0] * 0.3 + f[..., 1] * 0.59 + f[..., 2] * 0.11 + 1.0
-    ratio = luma[1:] / luma[:-1]
-    white = (f.min(axis=2) >= WHITE) & (f.max(axis=2) - f.min(axis=2) < 30)
-    if len(name) < 4:
-        return []        # a short name's plate is too small to tell from scenery by its top edge alone
-    want = 0.40 * len(name) + 0.45
-    found = []
-    for y in range(ratio.shape[0] - 8):
-        for x0, n in _runs((ratio[y] > 0.3) & (ratio[y] < 0.5), lo=40):     # the plate's own darkening, ~0.4
-            h = int(round(n / want))
-            if 12 <= h <= 60 and white[y + 1 + h // 4:y + 1 + h // 2, x0:x0 + n].mean() >= 0.04:
-                found.append((x0, y + 1, n, h))
-    return found
-
-
 def tag_fits_name(tag: tuple[int, int, int, int], name: str) -> bool:
     """Could this plate hold that name? Its width grows with the name's length (the game's font is about
     0.4 tag-heights a letter): another player's tag, or a box of the game's own UI, usually doesn't fit."""
@@ -226,8 +207,9 @@ def find_learned(rgb: np.ndarray, learned: np.ndarray) -> tuple[tuple[int, int, 
 def portrait_rect(rgb: np.ndarray, box: list[float] | None, name: str = "", learned: np.ndarray | None = None,
                   found: dict | None = None) -> tuple[int, int, int, int] | None:
     """Pixel rect (left, top, right, bottom) of the player's sprite, from the AI's rough box (fractions).
-    With the character's name, the tag whose letters spell it (own_tag); `found["letters"]` then holds them, to be
-    learned. Without a name: the tag nearest the box, or the only one without a box."""
+    With the character's name, only the tag whose letters spell it (the learned letters, else the drawn name via
+    own_tag); `found["letters"]` then holds them, to be learned. A plate of the right width near the box is not
+    enough. Without a name: the tag nearest the box, or the only one without a box."""
     H, W = rgb.shape[:2]
     if name:
         hit = (find_learned(rgb, learned) if learned is not None else None) or own_tag(rgb, find_name_tags(rgb), name)
@@ -242,16 +224,13 @@ def portrait_rect(rgb: np.ndarray, box: list[float] | None, name: str = "", lear
         if box is None:
             return None
 
-    def fitting(tags, region=None):
-        if not name:
-            return tags
-        # whole tags were judged by their letters (own_tag) and none spelled the name: only one cut off by the chat
-        # box (its top edge and letters still show) is left, and only near the AI's box: across the whole screen a
-        # top edge alone matches scenery too
-        return find_cut_tags(region, name) if region is not None else []
+    def fitting(tags):
+        # With the name, whole tags were already judged by their letters (own_tag) and none spelled it: a plate's
+        # width alone near the box matched scenery live (a beam for a magician), so nothing more counts.
+        return [] if name else tags
 
     if box is None:
-        tags = fitting(find_name_tags(rgb), rgb)
+        tags = fitting(find_name_tags(rgb))
         if len(tags) != 1:
             return None
         tx, ty, tw, th = tags[0]
@@ -263,7 +242,7 @@ def portrait_rect(rgb: np.ndarray, box: list[float] | None, name: str = "", lear
     left, top = int(max(0, cx - rw)), int(max(0, cy - rh))
     right, bottom = int(min(W, cx + rw)), int(min(H, cy + rh * 1.4))
     sub = rgb[top:bottom, left:right]
-    tags = fitting(find_name_tags(sub), sub)
+    tags = fitting(find_name_tags(sub))
     if not tags:
         # the box was further off than that (live test: it pointed at a TAXI sign 400 px away): every tag on screen,
         # nearest to the box (other players have tags too, NPCs don't: theirs are opaque yellow plates)
@@ -330,6 +309,12 @@ def sprite_mask(rgb: np.ndarray) -> np.ndarray | None:
     fg = lab == 1 + int(sizes.argmax())                 # the character; stray dark grass at the edges goes
     fg = _without_scenery(a, fg)
     return fg if 0.12 <= fg.mean() <= 0.8 else _soft_outline_mask(a)
+
+
+def mask_reaches_feet(mask: np.ndarray) -> bool:
+    """A portrait crop stands on the tag at its bottom, so its cut-out reaches the bottom third. A bit of scenery
+    (live, 2026-10-07: bricks and a beam cut out for a magician) is a band across the top with nothing below."""
+    return bool(mask[2 * mask.shape[0] // 3:].any())
 
 
 def _dilate(m: np.ndarray) -> np.ndarray:

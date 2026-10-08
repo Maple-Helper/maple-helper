@@ -150,3 +150,55 @@ def test_a_soft_outlined_sprite_against_bricks_comes_out_whole():
     rows = np.flatnonzero(m.any(axis=1))
     assert rows[0] <= 30 and rows[-1] >= 140                    # the hat's top down to the feet
     assert not m[:12].any()                                    # the bricks above the hat are gone
+
+
+def _beam() -> np.ndarray:
+    """A dark beam over a lighter wall, plate-wide for the name, with bright speckle where letters would start:
+    the live scenery (bricks, a beam, a shop sign) that became a magician's portrait."""
+    rng = np.random.default_rng(7)
+    img = np.full((500, 800, 3), 180, np.uint8)
+    img[300:330, 200:310] = (72, 72, 72)
+    band = img[308:317, 200:310]
+    band[rng.random(band.shape[:2]) < 0.10] = (205, 205, 205)
+    return img
+
+
+def test_a_scenery_edge_of_the_right_width_is_no_portrait():
+    # live (2026-10-07): the tag search found nothing for "formatme", yet a beam of the right width near the AI's
+    # box became the portrait. Without the name's letters, no rect, even with a plate-shaped edge by the box
+    box = [240 / 800, 250 / 500, 40 / 800, 60 / 500]      # the AI pointed just above the beam
+    assert portrait_rect(_beam(), box, "Formatme", None) is None
+
+
+def test_another_players_tag_with_the_wrong_name_is_no_portrait():
+    # another player's tag by the AI's box spells their name, not ours: its width fitting is not enough either
+    box = [0.10, 0.10, 0.05, 0.06]                        # next to the other tag at (104, 102)
+    assert portrait_rect(_fixture("classic_world_tags.png"), box, "Formatme", None) is None
+
+
+def test_a_scenery_cutout_does_not_reach_the_feet():
+    # the live portrait's cut-out is a band across the top (rows 0-53 of 128) with the bottom half transparent;
+    # a real cut-out stands on the tag at the crop's bottom
+    from maplehelper.portrait import mask_reaches_feet, sprite_mask
+    scenery = np.asarray(Image.open(Path(__file__).parent / "fixtures" / "portrait_scenery_live.png"))
+    assert not mask_reaches_feet(scenery[..., 3] > 127)
+    crop = np.zeros((100, 100, 3), np.uint8)
+    crop[:] = (150, 210, 120)
+    crop[20:80, 30:70] = (20, 20, 20)
+    crop[22:78, 32:68] = (200, 60, 60)
+    assert mask_reaches_feet(sprite_mask(crop))
+    for name in ("portrait_bush.png", "classic_sprite_bricks.png"):
+        assert mask_reaches_feet(sprite_mask(_fixture(name))), name
+
+
+def test_a_spritless_cutout_is_no_portrait():
+    """A rect without a sprite in it (the nameless scene's grass, no outline to cut out) keeps the job picture
+    instead of saving the scenery as the portrait."""
+    import io
+
+    from maplehelper.ui.overlay import crop_portrait
+    img = _scene()
+    H, W = img.shape[:2]
+    buf = io.BytesIO()
+    Image.fromarray(img).save(buf, "JPEG")
+    assert crop_portrait(buf.getvalue(), [600 / W, 250 / H, 60 / W, 90 / H], None, "", False) is None

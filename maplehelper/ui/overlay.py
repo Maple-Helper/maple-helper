@@ -332,7 +332,7 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
     import numpy as np
     from PIL import Image
 
-    from ..portrait import portrait_rect, sprite_mask
+    from ..portrait import mask_reaches_feet, portrait_rect, sprite_mask
     try:
         img = Image.open(io.BytesIO(shot_jpeg)).convert("RGB")
         # the full-resolution grab when it is the same picture (same shape): small name tags survive there
@@ -355,9 +355,13 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
         if rect:
             crop = src.crop(rect)
             mask = sprite_mask(np.asarray(crop))
-            if mask is not None:          # just the character on a transparent background, like the job art
-                crop = crop.convert("RGBA")
-                crop.putalpha(Image.fromarray((mask * 255).astype(np.uint8)))
+            if mask is None or not mask_reaches_feet(mask):
+                # not a standing figure: scenery the box pointed at (live, 2026-10-07: bricks and a beam cut out
+                # for a magician, whose card showed a map). No portrait rather than a wrong one; the job's picture
+                # stays until a read finds the tag
+                return None
+            crop = crop.convert("RGBA")         # just the character on a transparent background, like the job art
+            crop.putalpha(Image.fromarray((mask * 255).astype(np.uint8)))
             # pixel art: NEAREST keeps it crisp when it grows, LANCZOS when it shrinks
             square = crop.resize((128, 128), Image.NEAREST if crop.width < 128 else Image.LANCZOS)
             buf = io.BytesIO()
