@@ -153,13 +153,25 @@ hebrew.AdditionalIcons=קיצורי דרך:
 hebrew.CreateDesktopIcon=קיצור דרך על &שולחן העבודה
 hebrew.LaunchProgram=לפתוח את %1 עכשיו
 english.LaunchProgram=Open %1 now
-; asked once the app is removed (never when silent); "No" is the default, so Enter keeps everything
-hebrew.DeleteUserData=למחוק גם את הנתונים שלכם ב-Maple Helper?%n%nזה מוחק את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nאי אפשר לבטל את זה. אם לא תמחקו, הכל יחכה לכם בהתקנה הבאה.%n%nמפתחות API שמורים נשארים במנהל האישורים של Windows: מחקו אותם קודם בהגדרות.
-english.DeleteUserData=Also delete your Maple Helper data?%n%nThis deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nThis can't be undone. If you keep it, everything will be there when you reinstall.%n%nSaved API keys stay in Windows Credential Manager; remove them in Settings first.
+; asked once the app is removed (never when silent), as a Windows task dialog with two labelled choices (a plain
+; Yes/No box looked nothing like the app). Keeping is the first choice, so Enter keeps everything. Deleting removes
+; the saved API keys too: the uninstaller does it itself (Settings, which the text used to point at, is gone by then)
+hebrew.DeleteUserDataTitle=למחוק גם את הנתונים שלכם ב-Maple Helper?
+hebrew.DeleteUserData=המחיקה כוללת את הדמויות, היסטוריית הצ'אט, ההגדרות וההתחברויות ל-Gemini ול-Grok שנשמרו בתיקייה:%n%1%n%nוגם את מפתחות ה-API שנשמרו במנהל האישורים של Windows.%n%nאי אפשר לבטל את המחיקה.
+hebrew.DeleteUserDataKeep=להשאיר את הנתונים%nהכל יחכה לכם בהתקנה הבאה.
+hebrew.DeleteUserDataDelete=למחוק את הנתונים%nהדמויות, ההיסטוריה, ההגדרות ומפתחות ה-API.
+english.DeleteUserDataTitle=Also delete your Maple Helper data?
+english.DeleteUserData=This deletes your characters, chat history, settings and the Gemini and Grok sign-ins kept in:%n%1%n%nand the API keys saved in Windows Credential Manager.%n%nThis can't be undone.
+english.DeleteUserDataKeep=Keep my data%nEverything will be there when you reinstall.
+english.DeleteUserDataDelete=Delete my data%nCharacters, history, settings and API keys.
 
 [Code]
 var
   KbDecided, KbInstall: Boolean;
+
+// Windows Credential Manager: where the app keeps the players' API keys (Python keyring, service "MapleHelper")
+function CredDelete(TargetName: String; CredType: Cardinal; Flags: Cardinal): Integer;
+  external 'CredDeleteW@advapi32.dll stdcall';
 
 // "2026.10.02.0638" from <Dir>\meta.json, or '' when Dir holds no usable KB (same test as store.kb_dir)
 function KbVersionIn(Dir: String): String;
@@ -232,8 +244,26 @@ begin
   Result := True;
 end;
 
+// The saved API keys: keyring stores one under the target "MapleHelper" and, when a second is saved, moves the
+// first to "<user>@MapleHelper". Each is a generic credential (type 1) of this Windows user; a missing one is fine
+procedure DeleteApiKeys();
+var
+  Targets: TArrayOfString;
+  I: Integer;
+begin
+  SetArrayLength(Targets, 5);
+  Targets[0] := 'MapleHelper';
+  Targets[1] := 'anthropic_api_key@MapleHelper';
+  Targets[2] := 'openai_api_key@MapleHelper';
+  Targets[3] := 'gemini_api_key@MapleHelper';
+  Targets[4] := 'xai_api_key@MapleHelper';
+  for I := 0 to GetArrayLength(Targets) - 1 do
+    if CredDelete(Targets[I], 1, 0) <> 0 then
+      Log('deleted the saved key ' + Targets[I]);
+end;
+
 // After the app is removed: ask whether the player's own data goes too (SEC-12: chats, characters and the Grok and
-// Gemini sign-ins stayed on disk). Only that one folder, only when the player says yes; a silent uninstall keeps it
+// Gemini sign-ins stayed on disk), with the saved API keys. Only when the player says so; a silent uninstall keeps it
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
@@ -243,10 +273,16 @@ begin
   DataDir := ExpandConstant('{userappdata}\MapleHelper');
   if not DirExists(DataDir) then
     Exit;
-  if MsgBox(FmtMessage(CustomMessage('DeleteUserData'), [DataDir]), mbConfirmation,
-            MB_YESNO or MB_DEFBUTTON2) = IDYES then
+  // the first choice (IDYES) keeps: it has the focus. TaskDialogMsgBox takes no default-button flag; a dialog
+  // that fails returns 0, which keeps too
+  if TaskDialogMsgBox(CustomMessage('DeleteUserDataTitle'), FmtMessage(CustomMessage('DeleteUserData'), [DataDir]),
+                      mbConfirmation, MB_YESNO,
+                      [CustomMessage('DeleteUserDataKeep'), CustomMessage('DeleteUserDataDelete')], 0) = IDNO then
+  begin
+    DeleteApiKeys();
     if not DelTree(DataDir, True, True, True) then
       Log('could not delete all of ' + DataDir);
+  end;
 end;
 
 // Uninstalling while the app runs left its files behind (in use): close it first
