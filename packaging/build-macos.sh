@@ -97,7 +97,13 @@ if [ "$TEST_DMG" = 1 ]; then
   [ -L "$mnt/Applications" ] || { echo "DMG is missing the Applications link" >&2; exit 1; }
   codesign --verify --deep --strict "$mnt/Maple Helper.app"
   selftest "$mnt/Maple Helper.app/$APP_EXE"
-  hdiutil detach "$mnt" >/dev/null
+  # the self-tested app can still be closing: "Resource busy" failed the v0.14.0 release after SELFTEST OK.
+  # The image is read-only and already tested, so the last try forces it
+  for attempt in 1 2 3 4; do
+    if [ "$attempt" = 4 ]; then hdiutil detach "$mnt" -force >/dev/null && break; echo "hdiutil detach failed" >&2; exit 1; fi
+    if hdiutil detach "$mnt" >/dev/null; then break; fi
+    echo "hdiutil detach failed, retrying ($attempt)"; sleep 5
+  done
   trap - EXIT
   echo "== DMG round trip OK"
 fi
