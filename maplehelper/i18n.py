@@ -184,6 +184,7 @@ STRINGS = {
     "untag": {"he": "הסרת התיוג", "en": "Untag"},
     "untag_all": {"he": "ניקוי כל התיוגים", "en": "Clear all tags"},
     "syncing": {"he": "מצלם ומעדכן את הדמות…", "en": "Capturing and updating your character…"},
+    "sync_portrait": {"he": "✓ התמונה של הדמות עודכנה", "en": "✓ Character picture updated"},
     "sync_nothing": {"he": "✓ הדמות מעודכנת, לא זוהו שינויים", "en": "✓ Character is up to date, no changes found"},
     "sync_not_found": {"he": "לא הצלחתי לזהות את הדמות במסך. ודאו שהמשחק פתוח והדמות נראית.",
                        "en": "Couldn't spot your character on screen. Make sure the game is open and the character is visible."},

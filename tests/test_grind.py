@@ -619,3 +619,25 @@ def test_the_same_level_misread_twice_starts_no_run(math):
         end = grind.summarize(math, session(read(0, 21, 10.0), read(10, 21, 30.0), read(20, 21, 50.0),
                                             read(30, 21, 60.0), read(31, 12, 61.0), read(32, 12, 62.0)))
         assert middle.exp == clean.exp == end.exp == 600 and middle.level_to == end.level_to == 21
+
+
+@pytest.mark.parametrize("new_picture", [True, False])
+def test_a_refresh_that_changed_only_the_picture_says_so(isolated_store, kb, new_picture):
+    """'Up to date, no changes' showed right after the portrait had changed (the owner's, 2026-10-08)."""
+    from unittest.mock import Mock
+
+    from PySide6.QtWidgets import QApplication
+    from maplehelper.brain import Answer
+    from maplehelper.ui import overlay
+
+    QApplication.instance() or QApplication([])
+    profiles = isolated_store.Profiles()
+    c = profiles.add("Kiwi", "Thief", "Assassin", 24)
+    win = overlay.Overlay(isolated_store.Settings(), profiles, kb, Mock())
+    said = []
+    win.add_system = lambda f: said.append(f(win.t))
+    win._update_avatar = lambda shot, box, full=None, on_done=None: on_done(new_picture)
+    win._sync_cid, win._sync_shot = c.id, b"screenshot"
+    win._on_sync_done(Answer(profile_update={"name": "Kiwi"}))
+    assert (win.t("sync_portrait") in said) == new_picture
+    assert (win.t("sync_nothing") in said) == (not new_picture)
