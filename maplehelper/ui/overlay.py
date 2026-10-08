@@ -364,8 +364,8 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
                 # stays until a read finds the tag
                 _plog.info("portrait: the name tag was found, but no standing figure above it: kept the old one")
                 return None
-            crop = crop.convert("RGBA")         # just the character on a transparent background, like the job art
-            crop.putalpha(Image.fromarray((mask * 255).astype(np.uint8)))
+            # the character with the game's own background behind it, as on screen (the owner's, 2026-10-08: the
+            # cut-out on a transparent background came out ragged); the mask only vouches that a figure stands there
             # pixel art: NEAREST keeps it crisp when it grows, LANCZOS when it shrinks
             square = crop.resize((128, 128), Image.NEAREST if crop.width < 128 else Image.LANCZOS)
             buf = io.BytesIO()
