@@ -184,10 +184,16 @@ def test_the_clear_button_starts_a_new_conversation_for_the_ai(overlay, fake_wor
     h.append("user", "where do snails live?")
     h.append("assistant", "Snail Park, near Amherst.")
     assert ov.ask("how do I get to Ellinia?")
-    ov.clear_btn.click()
+    ov.clear_btn.click()                  # mid-answer it asks first (CHAT-04)
+    ask = ov._clear_ask
+    assert ov.busy and ask.chips[0].text().strip("‏") == I18n("he")("clear_busy_yes")
+    ask.chips[0].click()
+    assert not ov.busy
     fake_worker.made[-1].done.emit(Answer(text="Take the boat."))
     pump(20)
-    assert ov.feed_lay.count() == 1                           # only the stretch
+    ov._commit_clear()                    # the Undo seconds are up
+    pump(20)
+    assert ov.feed_lay.count() == 1                           # only the stretch at the bottom
     assert [r["text"] for r in h.recent(10)][:2] == ["where do snails live?", "Snail Park, near Amherst."]
     prompt = build_prompt("what level is a Slime?", ov.profiles.active, h, kb, False)
     assert "<recent_conversation>" not in prompt and "Snail Park" not in prompt

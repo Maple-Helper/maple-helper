@@ -133,6 +133,11 @@ STRINGS = {
     # the input row's clear button (left of the mic): an empty chat, and a new conversation for the AI
     "clear_chat": {"he": "ניקוי הצ'אט (השאלה הבאה מתחילה שיחה חדשה)",
                    "en": "Clear the chat (your next question starts a new conversation)"},
+    # after a clear: a few seconds to bring it all back (CHAT-04); mid-answer the clear asks first
+    "chat_cleared": {"he": "הצ'אט נוקה", "en": "Chat cleared"},
+    "chat_cleared_undo": {"he": "ביטול", "en": "Undo"},
+    "clear_busy_ask": {"he": "לעצור את התשובה ולנקות את הצ'אט?", "en": "Stop the answer and clear the chat?"},
+    "clear_busy_yes": {"he": "לעצור ולנקות", "en": "Stop and clear"},
     "send_question": {"he": "שליחת השאלה", "en": "Send the question"},
     # the send button while an answer runs (audit OVL-2), and the line it leaves
     "stop_answer": {"he": "עצירת התשובה", "en": "Stop the answer"},
@@ -162,6 +167,9 @@ STRINGS = {
                "en": "Click to start recording, and again when you're done to send"},
     "listening": {"he": "מקשיב… לחצו שוב על המיקרופון לסיום",
                  "en": "Listening… click the mic again when done"},
+    # the voice chip above the input while recording (the placeholder is hidden once the field has text, CHAT-08)
+    "listening_chip": {"he": "מקשיב… לחצו על המיקרופון לסיום", "en": "Listening… click the mic to finish"},
+    "mic_stop_tip": {"he": "עצירה ושליחה", "en": "Stop and send"},
     "transcribing": {"he": "מתמלל…", "en": "Transcribing…"},
     "voice_loading": {"he": "טוען את מודל הדיבור…", "en": "Loading the speech model…"},
     "voice_downloading": {"he": "מוריד את מודל הדיבור (פעם אחת)…", "en": "Downloading the speech model (once)…"},
@@ -603,6 +611,11 @@ STRINGS = {
                              "You can also click ☆ beside an item in a chat answer (on its card or in a drop list). "
                              "Here you'll see who drops it and where, and get a note when a database update changes it."},
     "wish_search": {"he": "הוספת פריט למעקב: הקלידו שם או בחרו מהרשימה", "en": "Track an item: type a name or pick from the list"},
+    # the chat's inventory check, from the shot until the items are named (PERF-08); _cold: the icon index is still
+    # being built (after a start or a KB update)
+    "inv_checking": {"he": "בודק את האינבנטורי…", "en": "Checking the inventory…"},
+    "inv_checking_cold": {"he": "בודק את האינבנטורי… בפעם הראשונה זה יכול לקחת כמה שניות.",
+                          "en": "Checking the inventory… The first check can take a few seconds."},
     "inv_found": {"he": "זיהיתי {n} פריטים באינבנטורי:", "en": "Recognized {n} items in the inventory:"},
     "inv_found_one": {"he": "זיהיתי פריט אחד באינבנטורי:", "en": "Recognized 1 item in the inventory:"},
     "inv_not_found": {"he": "לא מצאתי את חלון האינבנטורי בצילום. פתחו אותו במשחק ונסו שוב.",
@@ -780,6 +793,10 @@ STRINGS = {
                        "en": "The screenshot taken as the chat opened goes with your **next question**."},
     "shot_hint_used": {"he": "השאלות הבאות נשלחות **בלי צילום**. רוצים שה-AI יראה את המסך עכשיו?", "en": "Your next questions go **without a screenshot**. Want the AI to see the screen now?"},
     "shot_hint_retake": {"he": "לצלם מחדש", "en": "Retake it"},
+    # the same hints in one line, once the full one was shown (CHAT-05); the whole text is in the tooltip
+    "shot_hint_no_game_short": {"he": "המשחק לא פתוח: אין צילום מסך", "en": "The game isn't open: no screenshot"},
+    "shot_hint_ready_short": {"he": "צילום מסך יישלח עם **השאלה הבאה**", "en": "A screenshot goes with your **next question**"},
+    "shot_hint_used_short": {"he": "השאלות הבאות **בלי צילום**", "en": "Next questions go **without a screenshot**"},
     "spot_best": {"he": "הכי משתלם", "en": "Best pick"},
     "spot_guide": {"he": "מומלץ במדריך", "en": "In the guide"},
     "spot_hit": {"he": "פגיעה {pct}%", "en": "{pct}% hit"},
@@ -1413,7 +1430,12 @@ STRINGS = {
     # the grind tracker's minute read or an inventory check holds the chat, not a question
     "busy_reading": {"he": "רגע, קורא את מסך המשחק. אפשר לשאול שוב בעוד רגע.",
                      "en": "One moment, reading the game screen. Ask again in a moment."},
-    "card_ask_tip": {"he": "לחצו כדי לשאול על זה", "en": "Click to ask about it"},
+    # a click tags the card for the next question; nothing is asked yet (CHAT-16)
+    "card_ask_tip": {"he": "לחצו כדי לתייג לשאלה הבאה", "en": "Click to tag it for your next question"},
+    # the field's hint while cards are tagged: {name} is the first card's name (one block in Hebrew)
+    "input_placeholder_tagged": {"he": "שאלו על {name}…", "en": "Ask about {name}…"},
+    # the character menu while an answer runs: why its rows are grey (CHAT-17)
+    "menu_busy_note": {"he": "אפשר אחרי שהתשובה מסתיימת", "en": "Available once the answer finishes"},
     "card_level": {"he": "רמה", "en": "Level"},
     "card_req_level": {"he": "רמה נדרשת", "en": "Required level"},
     "stat_hp": {"he": "HP", "en": "HP"},
