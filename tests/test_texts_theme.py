@@ -171,3 +171,21 @@ def test_every_text_key_the_code_asks_for_exists():
         asked |= set(re.findall(r'(?<![\w.])(?:self\.)?t\(\s*"([a-z][a-z0-9_]*)"', f.read_text(encoding="utf-8")))
     missing = sorted(k for k in asked if k not in STRINGS)
     assert missing == []
+
+
+def test_right_click_menu_speaks_the_ui_language(app):
+    """COPY-08: a text field's own menu (Undo, Copy, Paste) was English, "&" marks and all, in the Hebrew app."""
+    from PySide6.QtWidgets import QLineEdit
+
+    from maplehelper.app import qt_texts
+
+    def words():
+        edit = QLineEdit()             # the menu is the field's child: keep the field alive while reading it
+        return " ".join(a.text() for a in edit.createStandardContextMenu().actions())
+    try:
+        qt_texts(app, "he")
+        assert re.search("[\u0590-\u05ff]", words()) and "Paste" not in words()
+        qt_texts(app, "en")
+        assert "Paste" in words()
+    finally:
+        qt_texts(app, "en")
