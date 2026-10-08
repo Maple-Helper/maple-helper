@@ -1914,7 +1914,7 @@ class Overlay(EdgeResize, QWidget):
             ask.deleteLater()
         rows = []
         while self.feed_lay.count() > 1:
-            w = self.feed_lay.takeAt(0).widget()
+            w = self.feed_lay.takeAt(1).widget()       # (0: the stretch, which keeps the chat at the bottom)
             if w:
                 w.hide()               # kept, not deleted: Undo puts them back
                 rows.append(w)
@@ -1939,7 +1939,7 @@ class Overlay(EdgeResize, QWidget):
         self._drop_cleared_note()
         for i, w in enumerate(cleared["rows"]):
             if _alive(w):
-                self.feed_lay.insertWidget(i, w)       # above anything said since the clear
+                self.feed_lay.insertWidget(i + 1, w)   # above anything said since the clear (after the stretch)
                 w.show()
         c = self.profiles.active
         if (c.id if c else None) == cleared["cid"]:      # (another character meanwhile: its context is its own)

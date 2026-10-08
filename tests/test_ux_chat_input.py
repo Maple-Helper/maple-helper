@@ -92,7 +92,8 @@ def test_clear_can_be_undone_and_the_ai_forgets_only_when_it_expires(overlay, is
     notes[0].btn.click()
     pump(20)
     assert ov.feed_lay.count() == 3 and ov.focus_keys == ["monster/100100"]
-    assert all(not ov.feed_lay.itemAt(i).widget().isHidden() for i in range(2))
+    assert ov.feed_lay.itemAt(0).widget() is None                  # the stretch stays first
+    assert all(not ov.feed_lay.itemAt(i).widget().isHidden() for i in (1, 2))
     assert h.conversation()
     # cleared again and left alone: final after UNDO_SECONDS
     ov.clear_btn.click()
@@ -226,7 +227,7 @@ def test_pin_stays_usable_after_not_now_and_after_unpin(overlay):
         pins.add(ov.settings, cid, f"q{i}", f"a{i}")
     b = ov.add_bubble("the answer", "assistant")
     b.add_pin(lambda: ov.pin_answer("the question", "the answer", cid), "Pin")
-    last_row = lambda: ov.feed_lay.itemAt(ov.feed_lay.count() - 2).widget()      # noqa: E731
+    last_row = lambda: ov.feed_lay.itemAt(ov.feed_lay.count() - 1).widget()      # noqa: E731
     b.pin_btn.click()                          # the list is full: asked first
     assert b.pin_btn.isEnabled()
     last_row().chips[1].click()                # "Not now"
