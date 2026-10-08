@@ -65,13 +65,24 @@ APP = {
     "NPC": ("דמות של המשחק (לא שחקן): חנויות, נותני קווסטים ומדריכי ג'וב.",
             "A character run by the game (not a player): shops, quest givers, job instructors."),
     "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מרמה 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
-                    "Citizenship of a town (Henesys or Kerning City) from Lv. 12. Donations raise your grade, "
+                    "Citizenship of a town (Henesys or Kerning City) from level 12. Donations raise your grade, "
                     "which opens discounts and items in that town's shops."),
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
             "Level: of your character or a monster. Every level up gives AP and SP."),
     "mob": ("מפלצת (קיצור של mobile). \"מובים\" = מפלצות.", "A monster (short for mobile)."),
     "catalyst": ("ה-mesos שמשלמים כדי ליצור את הפריט, מעבר לחומרים.", "The mesos paid to craft, on top of the materials."),
-    "Training Advisor": ("כלי של NiaMeowDB שממליץ על מפות אימון לפי הדמות והבילד.",
+    # the book's lines point to website tools ("try the scroll simulator", "see the damage formula guide") or are
+    # fragments; these say the same in full, with nothing the app doesn't have
+    "scroll": ("Scroll: פריט מתכלה שמשדרג את הסטטים של פריט ציוד. יש ארבע דרגות: Lesser, Intermediate, Greater ו-Chaos.",
+               "Scroll: a consumable that upgrades a piece of gear's stats. Four grades: Lesser, Intermediate, "
+               "Greater and Chaos."),
+    "WATK / W.ATK": ("Weapon Attack: מספר ההתקפה של הנשק. ככל שהוא גבוה יותר, כל מכה עושה יותר נזק.",
+                     "Weapon Attack: the attack number on your weapon. The higher it is, the more damage each hit does."),
+    "grind": ("גריינד: הורגים מפלצות שוב ושוב כדי לצבור EXP. אחרי רמה 30 רוב הרמות מגיעות ככה.",
+              "Grinding: killing monsters over and over for EXP. Past level 30 most levels come this way."),
+    "kPQ": ("ה-Party Quest של Kerning City: נפתח ברמה 21, לקבוצה של ארבעה שחקנים. דרך נפוצה לעלות רמות בהתחלה.",
+            "The Kerning City Party Quest: opens at level 21, for a party of four. A staple way to level early on."),
+    "Training Advisor": ("כלי של NiaMeowDB שממליץ על מפות גריינד לפי הדמות והבילד.",
                          "NiaMeowDB's tool that recommends training maps for your character and build."),
 }
 

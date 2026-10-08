@@ -78,3 +78,13 @@ def test_the_next_night_cleans_hebrew_news_already_published(tmp_path):
     assert kb_release._news_hebrew_problems(items) == []
     assert items[0]["title_he"] == "פרטי Founder's Access: תקרת רמה 100" and items[1] == ok
     assert scrape_news.clean_hebrew(tmp_path) == 0                    # once clean, no change a night
+
+
+def test_shipped_guides_and_the_nightly_prompt_use_the_apps_words():
+    # COPY-11: the guides said "דמג'" next to the tools' "נזק", and wrote jobs and the Subway in Hebrew letters
+    for f in (Path(__file__).resolve().parent.parent / "assets" / "guides" / "he").glob("*.json"):
+        text = json.dumps(json.loads(f.read_text(encoding="utf-8")), ensure_ascii=False)
+        for word in ("דמג'", "סאבוויי", "מג'ים", "וריור", "קשתים"):
+            assert word not in text, (f.name, word)
+    for rules in (translate_kb.RULES, translate_kb.REVIEW):
+        assert "never \"דמג'\"" in rules and "Subway" in rules

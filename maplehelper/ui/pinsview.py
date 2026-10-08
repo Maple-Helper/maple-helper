@@ -7,7 +7,7 @@ import time
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFontMetrics, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton, QScrollArea,
-                               QToolButton, QVBoxLayout, QWidget)
+                               QVBoxLayout, QWidget)
 
 from .. import bidi, dates, pins
 from ..i18n import I18n
@@ -102,10 +102,7 @@ class PinsBar(QFrame):
             q.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
             set_wrapped_name(q, pins.shown_question(p.get("q") or ""), rtl)
             top.addWidget(q, 1)
-            x = QToolButton(objectName="Icon", text="✕")
-            x.setToolTip(t("unpin"))
-            x.setAccessibleName(t("unpin"))         # a screen reader said "✕"
-            x.setCursor(Qt.PointingHandCursor)
+            x = theme.dismiss_button(t("unpin"), t("unpin"))         # (a screen reader said "✕" with no name)
             x.clicked.connect(lambda _=False, a=p["a"]: self.unpin.emit(a))
             top.addWidget(x, 0, Qt.AlignTop)
             bl.addLayout(top)

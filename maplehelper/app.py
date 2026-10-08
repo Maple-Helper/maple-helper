@@ -6,7 +6,7 @@ import sys
 import threading
 import webbrowser
 
-from PySide6.QtCore import QLockFile, QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QLibraryInfo, QLockFile, QObject, Qt, QTimer, QTranslator, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -105,8 +105,9 @@ class MapleHelperApp:
 
     def style(self, opacity: float | None = None) -> str:
         theme.set_mode(self.settings["appearance"])
-        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"] or system_language()).rtl
-                                     else Qt.LeftToRight)
+        lang = self.settings["language"] or system_language()
+        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(lang).rtl else Qt.LeftToRight)
+        qt_texts(self.qapp, lang)
         css = theme.stylesheet(self.font_family, self.settings["font_size"])
         # restyling the app re-polishes every open widget (the chat with its answers too): only when it changed,
         # not each time a window opens, which held "Play tools" back for a second
@@ -1177,6 +1178,29 @@ def _hold_running_mutex():
     wait_for_setup()
     k32 = ctypes.windll.kernel32
     _RUNNING = k32.CreateMutexW(None, False, "MapleHelperRunning")
+
+
+_QT_TEXTS: dict = {}       # the installed Qt translator and its language
+
+
+def qt_texts(qapp, lang: str) -> None:
+    """Qt's own words (a text field's right-click menu: Undo, Copy, Paste, Select All) in the UI language. Without
+    qtbase_he they stayed English, "&" marks and all, in the Hebrew app. The frozen build ships the .qm files
+    (maplehelper.spec drops only qtwebengine's)."""
+    want = "he" if lang == "he" else ""
+    if _QT_TEXTS.get("lang", "") == want:
+        return
+    old = _QT_TEXTS.pop("tr", None)
+    if old is not None:
+        qapp.removeTranslator(old)
+    _QT_TEXTS["lang"] = want
+    if want:
+        tr = QTranslator(qapp)
+        if tr.load(f"qtbase_{want}", QLibraryInfo.path(QLibraryInfo.TranslationsPath)):
+            qapp.installTranslator(tr)
+            _QT_TEXTS["tr"] = tr
+        else:
+            report.log.info("no Qt translations for %s", want)
 
 
 def main():

@@ -200,8 +200,9 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QToolButton#Icon[active="true"] {{ color: #FF453A; }}
     QToolButton#Icon[unread="true"] {{ color: {ORANGE}; }}
     QToolButton#Icon[wished="true"] {{ color: {ot}; }}
+    QToolButton#Icon[dismiss="true"] {{ font-size: 12px; }}
     #HeaderSep {{ background: {c['stroke']}; border: none; }}
-    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {ot}; background: transparent;
+    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 12px; color: {ot}; background: transparent;
                              border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
     QToolButton#IconClose:hover {{ background: {ORANGE}; color: #FFFFFF; }}
     QToolButton#IconClose:pressed {{ background: {ORANGE_DEEP}; color: #FFFFFF; }}
@@ -587,6 +588,21 @@ class FocusRing(QObject):
 
 def dialog_background() -> str:
     return "#1C1C1E" if MODE == "dark" else "#F2F2F7"
+
+
+def dismiss_button(tip: str = "", name: str = ""):
+    """The ✕ that takes a note, a tip, a pin or a toast away: one glyph at one size everywhere, grey (only the
+    window's own close is orange, at the same size). Each place had its own: a 14 px glyph, a text "✕" in another
+    font, an 11 px window close (VIS-13)."""
+    from PySide6.QtWidgets import QToolButton
+    b = QToolButton(objectName="Icon", text=ICON["close"])
+    b.setProperty("dismiss", True)
+    b.setCursor(Qt.PointingHandCursor)
+    if tip:
+        b.setToolTip(tip)
+    if name:
+        b.setAccessibleName(name)
+    return b
 
 
 def glyph_icon(name: str, color: str | None = None, px: int = 16):

@@ -170,11 +170,14 @@ REPLY_RULES = """<reply_rules>
   HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
 - A Hebrew answer reads as if a fluent Israeli gamer wrote it: plain, short sentences in natural Hebrew word order,
   never English sentence structure in Hebrew words. Before replying, reread it once as a Hebrew reader would.
-  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מונסטר בסיסי", never "מונסטר בסיס").
+  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מפלצת בסיסית", never "מפלצת בסיס").
   * A level always says so: "אתם ברמה 31", "נשק לרמה 20", never "(31)", "ב-31" or "לבל"; "רמה" is feminine
     ("הרמה הבאה", "רמה גבוהה").
   * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
     letters (never "מזו", "מזוס", "מסוס", "מסות").
+  * One word per thing, the same as the app's screens: "מפלצת", "נזק" (never "דמג'"), "אינבנטורי" (never "תיק"),
+    "פוטים" (never "שיקויים"), "חלון ה-Stat", "הסרגל התחתון" of the game (never "HUD"), "Free Market" (never
+    "שוק"), "קלאס", "הטסט הסגור".
   * English only for game names and stat names, joined to a Hebrew prefix with a hyphen ("ל-Henesys",
     "מ-Blue Snail"); never "This", "drop", "and" or "community" in a Hebrew sentence.
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".

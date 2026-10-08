@@ -138,3 +138,10 @@ def test_nightly_kb_manifest_says_when_it_was_checked(tmp_path, monkeypatch):
     _, manifest = release.build_kb()
     m = json.loads(manifest.read_text(encoding="utf-8"))
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["checked"]) and m["url"].endswith("/latest/download/kb.zip")
+
+
+def test_frozen_build_keeps_qts_hebrew_texts():
+    # the Hebrew right-click menu (app.qt_texts) loads PySide6/translations/qtbase_he.qm: only qtwebengine's go
+    spec = (ROOT / "packaging" / "maplehelper.spec").read_text(encoding="utf-8")
+    dropped = re.findall(r'startswith\(\(([^)]*)\)', spec)
+    assert dropped and all("translations/qtbase" not in d and d.strip(' ",') != "PySide6/translations/" for d in dropped)

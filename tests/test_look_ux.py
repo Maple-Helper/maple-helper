@@ -363,3 +363,26 @@ def test_the_session_age_uses_the_time_cells_format_from_an_hour(tools):
     assert d._started_ago(SimpleNamespace(start=time.time() - 3700)) == "Started 1:01 h ago"
     assert d._started_ago(SimpleNamespace(start=time.time() - 12 * 60 - 40)) == "Started 12 min ago"
     assert d._started_ago(SimpleNamespace(start=time.time() - 20)) == "Started 1 min ago"      # never "0 min"
+
+
+def test_every_dismiss_x_is_one_glyph_at_one_size(app):
+    """VIS-13: the news strip's ✕ was a 14 px glyph, the toast's and the pins' a text "✕" in another font, the
+    window's close 11 px. Now one glyph and one size: grey to dismiss, orange only for the window."""
+    from PySide6.QtWidgets import QToolButton
+
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.pinsview import PinsBar
+    from maplehelper.ui.toast import Toast
+    from maplehelper.ui.widgets import NoticeCard
+    app.setStyleSheet(theme.stylesheet("Rubik", 14))
+    bar = PinsBar()
+    bar.show_pins([{"q": "Where is Henesys?", "a": "In Victoria Island."}], I18n("en"), False)
+    toast = Toast("Title", "Body", False, "Rubik")
+    note = NoticeCard("A note", "", False)
+    xs = [b for w in (bar, toast, note) for b in w.findChildren(QToolButton) if b.property("dismiss")]
+    assert len(xs) == 3 and all(b.text() == theme.ICON["close"] for b in xs)
+    window_close = QToolButton(objectName="IconClose", text=theme.ICON["close"])
+    sizes = {b.font().pixelSize() for b in xs + [window_close] if b.ensurePolished() is None}
+    assert sizes == {12}
+    for w in (bar, toast, note, window_close):
+        w.deleteLater()

@@ -286,7 +286,8 @@ def test_the_unpin_button_has_a_name(qapp):
     from maplehelper.ui.pinsview import PinsBar
     bar = PinsBar()
     bar.show_pins([{"q": "Where is Henesys?", "a": "In Victoria Island."}], I18n("en"), False)
-    xs = [b for b in bar.findChildren(QToolButton) if b.text() == "✕"]
+    from maplehelper.ui import theme
+    xs = [b for b in bar.findChildren(QToolButton) if b.text() == theme.ICON["close"]]
     assert xs and all(b.accessibleName() == "Unpin" for b in xs)
 
 
