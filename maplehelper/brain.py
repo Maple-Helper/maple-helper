@@ -817,16 +817,20 @@ class Brain:
         if drop:
             drop()
 
-    def _find_cli(self) -> None:
+    def _find_cli(self, again: bool = False) -> None:
         """The backend looked for its CLI when it was made: an install since (from Settings) or a CLI that moved
         (a Store update renames its folder) left it with none, and every question said "not installed" until
-        a restart."""
+        a restart. again: look even when the old one is still there (an update for a CLI that was too old can
+        install the new one in another folder, and the old one kept answering "too old")."""
         import os
         exe = self.backend.exe
-        if not exe or (os.path.isabs(exe) and not os.path.exists(exe)):
+        if again or not exe or (os.path.isabs(exe) and not os.path.exists(exe)):
             found = self._provider.find_exe()
             if found != exe:
                 self.backend.exe = found
+
+    def refind_cli(self) -> None:
+        self._find_cli(again=True)
 
     def available(self) -> bool:
         self._find_cli()
@@ -864,6 +868,9 @@ class Brain:
         else:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta)
         if result.error:
+            if result.error == "cli_outdated":
+                from .providers.base import note_outdated
+                note_outdated(self._provider.name, self.backend.exe)     # Settings says "too old", not "Connected"
             return Answer(error=result.error, limits=result.limits)
         text, meta = split_meta(result.text, hebrew)
         if not text and not meta:

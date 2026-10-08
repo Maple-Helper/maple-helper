@@ -34,7 +34,7 @@ from pathlib import Path
 
 from . import base
 from .base import CREATE_NO_WINDOW, Installer, Provider, RawResult, classify_error, child_env, find_posix, http_ok, \
-    http_status, run_installer
+    cli_outdated, http_status, run_installer
 
 log = logging.getLogger(__name__)
 STALL_TIMEOUT_S = 150    # no output for this long = stuck (tool steps and streaming print all along)
@@ -420,6 +420,7 @@ def resolve_model(model: str | None) -> str | None:
 class Gemini(Provider):
     name = "gemini"
     label = "Gemini"
+    tool = "Google Antigravity"
     keyring_user = "gemini_api_key"
     model_setting = "gemini_model"
     reports_usage = True       # read on demand (agy -p /usage)
@@ -459,8 +460,11 @@ class Gemini(Provider):
 
     def account(self) -> dict:
         """agy models answers in ~2 s: the list when signed in, "Please sign in" when not."""
-        if not find_agy():
+        exe = find_agy()
+        if not exe:
             return {"status": "not_installed", "email": None}
+        if cli_outdated(self.name, exe):          # an answer said it's too old (no flags to read from its help)
+            return {"status": "outdated", "email": None}
         try:
             found = read_models(max_age=0)
         except Offline:

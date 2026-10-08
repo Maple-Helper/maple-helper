@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .. import usage
 from .base import CREATE_NO_WINDOW, HEDGE_AFTER_S, Attempt, Installer, Lines, Provider, Race, RawResult, StreamText, \
-    classify_error, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer, scrub
+    classify_error, cli_outdated, child_env, find_posix, find_windows_exe, http_ok, note_tool_use, open_login, run_installer, scrub
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +31,9 @@ WARM_MAX_AGE_S = 15 * 60    # a warm process waiting longer is replaced by a fre
 RESULT_GRACE_S = 5.0        # the answer's turn ended (with its META block) and no "result" line came: done anyway
 META_MARK = "@@META@@"
 POSIX_DIRS = ["~/.local/bin", "~/.claude/local", "/opt/homebrew/bin", "/usr/local/bin", "~/.npm-global/bin"]
+# flags ClaudeBackend passes that an old Claude Code rejects ("error: unknown option '--restricted'", issue #107)
+NEEDED_FLAGS = ("--restricted", "--strict-mcp-config", "--tools", "--no-session-persistence",
+                "--include-partial-messages")
 
 
 def find_claude() -> str | None:
@@ -76,6 +79,7 @@ def env(api_key: str | None = None) -> dict:
 class Claude(Provider):
     name = "claude"
     label = "Claude"
+    tool = "Claude Code"
     keyring_user = "anthropic_api_key"
     model_setting = "model"
     saver_model = usage.SAVER_MODEL
@@ -92,6 +96,8 @@ class Claude(Provider):
         exe = find_claude()
         if not exe:
             return {"status": "not_installed", "email": None}
+        if cli_outdated(self.name, exe, ("--help",), NEEDED_FLAGS, env()):
+            return {"status": "outdated", "email": None}       # signed in or not, no answer can work: update first
         try:
             r = subprocess.run([exe, "auth", "status"], capture_output=True, timeout=20, env=env(),
                                creationflags=CREATE_NO_WINDOW)

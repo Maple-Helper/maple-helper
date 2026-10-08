@@ -671,10 +671,60 @@ def classify_error(text: str) -> str | None:
     return None
 
 
+# A CLI too old for Maple Helper still says "signed in", so Settings showed "Connected" while every answer failed
+# with "too old" (issue #107). Two signs, both tied to the exact file (its path and its modified time: an update,
+# in place or elsewhere, clears them): an answer that failed with cli_outdated, and the CLI's own --help missing a
+# flag the app passes (read once per file).
+_outdated_seen: dict[str, tuple] = {}     # provider -> the (exe, mtime) whose answer said "too old"
+_help_has_flags: dict[tuple, bool] = {}   # (exe, mtime, help args, flags) -> the help lists every flag
+
+
+def _stamp(exe: str | None) -> tuple | None:
+    try:
+        return (exe, os.stat(exe).st_mtime_ns) if exe else None
+    except OSError:
+        return None
+
+
+def note_outdated(provider: str, exe: str | None) -> None:
+    """An answer failed with cli_outdated: the account check says "too old" for this file from now on."""
+    stamp = _stamp(exe)
+    if stamp:
+        _outdated_seen[provider] = stamp
+
+
+def cli_outdated(provider: str, exe: str, help_args: tuple = (), flags: tuple = (), env: dict | None = None) -> bool:
+    """This CLI is too old for the flags Maple Helper passes. Only a help text that reads as one is judged: a CLI
+    that can't print its help (or prints something else) is never called old."""
+    stamp = _stamp(exe)
+    if not stamp:
+        return False
+    if _outdated_seen.get(provider) == stamp:
+        return True
+    if not flags:
+        return False
+    key = (*stamp, tuple(help_args), tuple(flags))
+    if key not in _help_has_flags:
+        try:
+            r = subprocess.run([exe, *help_args], capture_output=True, timeout=20, env=env, stdin=subprocess.DEVNULL,
+                               creationflags=CREATE_NO_WINDOW)
+        except (OSError, subprocess.TimeoutExpired):
+            return False                    # not cached: the next check tries again
+        out = (r.stdout + r.stderr).decode("utf-8", errors="replace")
+        if "--help" not in out:
+            return False
+        # whole flags only: "--tools" is not in "--allowedTools"
+        _help_has_flags[key] = all(re.search(re.escape(f) + r"(?![\w-])", out) for f in flags)
+        if not _help_has_flags[key]:
+            log.warning("%s at %s lacks flags Maple Helper needs: too old", provider, exe)
+    return not _help_has_flags[key]
+
+
 class Provider:
     """One AI CLI the player signs in to. Subclasses fill in the specifics."""
     name = ""
     label = ""
+    tool = ""                # the program Maple Helper runs it through (what gets installed and updated)
     keyring_user = ""
     model_setting = ""       # settings key holding this provider's model (None = the CLI's default)
     saver_model = None       # lighter model for saver mode; None = keep the model, answers just get shorter
@@ -701,8 +751,9 @@ class Provider:
         return None
 
     def account(self) -> dict:
-        """{'status': 'not_installed' | 'logged_out' | 'offline' | 'ok', 'email': str | None, ...}
-        offline: the CLI couldn't reach its service, so whether it is signed in is unknown (Gemini)."""
+        """{'status': 'not_installed' | 'outdated' | 'logged_out' | 'offline' | 'ok', 'email': str | None, ...}
+        offline: the CLI couldn't reach its service, so whether it is signed in is unknown (Gemini).
+        outdated: installed, but too old for the flags Maple Helper passes (cli_outdated)."""
         raise NotImplementedError
 
     def status(self) -> str:
