@@ -122,8 +122,12 @@ def explain(term: str, lang: str) -> str | None:
 MARK = "<b style='font-size:large;'>&nbsp;?</b>"
 
 _PATTERN = re.compile(r"(?<![\w.])(" + "|".join(re.escape(t) for t in sorted(TERMS, key=len, reverse=True)) + r")(?![\w])")
-# a term with its label colon ("HP: 7420"): the "?" goes after the colon, never between the label and it ("HP ?: 7420")
-_TERM_COLON = re.compile(_PATTERN.pattern + r"(:)?")
+# a term with its label colon and value ("HP: 7,420"): the "?" goes after the value, never between the label and it
+# ("HP ?: 7420", "HP: ? 7420": the instant answer, CHAT-12)
+_VALUE = r"\d(?:[\d,.]*\d)?%?"
+_TERM_COLON = re.compile(_PATTERN.pattern + rf"(:(?:[ \u00a0]?{_VALUE})?)?")
+# the same in a Hebrew line, where the label and the value are two blocks (bidi.isolate_ltr_runs)
+_BLOCK_VALUE = re.compile(rf"{bidi.RLM}?:[ \u00a0]?{bidi.LRE}{_VALUE}{bidi.PDF}{bidi.RLM}?")
 
 
 def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None = None, limit: int = 6) -> str:
@@ -156,8 +160,9 @@ def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None
         for run in re.finditer(f"{bidi.LRE}(.*?){bidi.PDF}|{bidi.LRI}.*?{bidi.PDI}", part, re.S):
             out.append(_TERM_COLON.sub(sub, part[pos:run.start()]))
             marks = "".join(link(m.group(1)) for m in _PATTERN.finditer(run.group(1) or "") if wanted(m.group(1)))
-            out.append(run.group(0) + marks)
-            pos = run.end()
+            value = _BLOCK_VALUE.match(part, run.end()) if marks else None
+            out.append(run.group(0) + (value.group(0) if value else "") + marks)
+            pos = value.end() if value else run.end()
         out.append(_TERM_COLON.sub(sub, part[pos:]))
         return "".join(out)
 
