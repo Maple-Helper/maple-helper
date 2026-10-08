@@ -216,10 +216,22 @@ def _code_row(t: I18n, on_send) -> tuple[QWidget, QLineEdit]:
 
 
 class _Bridge(QObject):
+    """Brings a background check's result back to the GUI thread. Make it with its dialog as parent, and let the
+    thread hold only the bridge, never the dialog: a thread that held a dialog's last reference freed it off the GUI
+    thread, and PySide6 6.12 crashed. The parent deletes the bridge with the dialog; a later emit is dropped."""
     status = Signal(str, str)      # provider, status
     account = Signal(object)
     logged_out = Signal()
     key_checked = Signal(str, str, bool)   # provider, API key, it works
+    level = Signal(float)          # the microphone test's loudness
+
+
+def _emit(signal, *args) -> None:
+    """Emit from a background thread; the dialog (and its bridge) may have closed meanwhile."""
+    try:
+        signal.emit(*args)
+    except RuntimeError:            # "Internal C++ object already deleted"
+        pass
 
 
 class CharacterForm(QWidget):
@@ -413,7 +425,7 @@ class Onboarding(GlassDialog):
         # Esc must not quit the first-run setup (closing it quits the app); adding a character can be cancelled
         self.esc_closes = only_character
         self.fit_screen(600, 680)
-        self._bridge = _Bridge()
+        self._bridge = _Bridge(self)
         self._bridge.status.connect(self._on_status)
         self._bridge.key_checked.connect(self._on_key_checked)
         self.provider = providers.get(settings["provider"]).name
@@ -776,7 +788,8 @@ class Onboarding(GlassDialog):
         if not self._signing_in:
             self.status_label.setText(bidi.plain(self.t("ob_checking"), self.t.rtl))
         ai = self._ai()
-        threading.Thread(target=lambda: self._bridge.status.emit(ai.name, _safe_status(ai)), daemon=True).start()
+        bridge = self._bridge
+        threading.Thread(target=lambda: _emit(bridge.status, ai.name, _safe_status(ai)), daemon=True).start()
 
     def _poll_status(self, seconds: int):
         """One timer for the dialog: a second sign-in click used to start another, and the first kept running."""
@@ -858,12 +871,14 @@ class Onboarding(GlassDialog):
         self.key_btn.setEnabled(False)
         self._key_message(self.t("ob_checking"))
 
+        bridge = self._bridge
+
         def work():
             try:
                 ok = ai.test_api_key(key)
             except Exception:
                 ok = False
-            self._bridge.key_checked.emit(ai.name, key, ok)
+            _emit(bridge.key_checked, ai.name, key, ok)
         # the check can take up to 15 seconds: off the GUI thread, so the window doesn't freeze
         threading.Thread(target=work, daemon=True).start()
 
@@ -1018,7 +1033,6 @@ class SettingsDialog(GlassDialog):
     patch_notes_requested = Signal()
     whats_new_requested = Signal()
     tour_requested = Signal()
-    _mic_heard = Signal(float)       # the microphone test's loudness (RMS), -1 when it couldn't record
 
     def __init__(self, settings: Settings, profiles: Profiles, kb: KnowledgeBase, stylesheet_fn):
         self.t = t = I18n(settings["language"] or "he")
@@ -1080,7 +1094,8 @@ class SettingsDialog(GlassDialog):
         sec.add_row(t("mic_test_label"), self.mic_test)
         sec.add_widget(self.mic_result)
         self.mic_result.hide()
-        self._mic_heard.connect(self._mic_tested)
+        self._mic_bridge = _Bridge(self)    # the microphone test's loudness (RMS), -1 when it couldn't record
+        self._mic_bridge.level.connect(self._mic_tested)
         self.voice_lang = Segmented([(t("voice_lang_app"), "app"), (t("voice_lang_auto"), "auto")],
                                     settings["voice_language"], rtl)
         sec.add_row(t("voice_lang"), self.voice_lang, hint=t("voice_lang_hint"), hint_below=True)
@@ -1123,7 +1138,7 @@ class SettingsDialog(GlassDialog):
         self.model_hint.setWordWrap(True)
         self.model_pick.picked.connect(self._on_model)
         self._model_values: list = []
-        self._models_bridge = _Bridge()
+        self._models_bridge = _Bridge(self)
         # a bound method, not a lambda: the lambda held the dialog from inside the bridge's C++ connection, where
         # Python's collector can't see it, so every Settings window opened stayed in memory with its bridges
         self._models_bridge.account.connect(self._on_models)
@@ -1158,7 +1173,7 @@ class SettingsDialog(GlassDialog):
             b.hide()
         lay.addWidget(sec)
         self._login_broken = False
-        self._account_bridge = _Bridge()
+        self._account_bridge = _Bridge(self)
         self._account_bridge.account.connect(self._on_account)
         self._account_bridge.logged_out.connect(self._after_logout)
         self._logout_for = None
@@ -1184,7 +1199,7 @@ class SettingsDialog(GlassDialog):
         self.saver = Switch(settings["saver_mode"])
         self.saver_hint = sec.add_row(t("saver_mode"), self.saver, hint=t("saver_hint")).findChild(QLabel, "RowHint")
         lay.addWidget(sec)
-        self._limits_bridge = _Bridge()
+        self._limits_bridge = _Bridge(self)
         self._limits_bridge.account.connect(self._on_limits)
         self._label_usage()
 
@@ -1269,8 +1284,9 @@ class SettingsDialog(GlassDialog):
         self.usage_note.setVisible(ai.reports_usage)
         self.saver_hint.setText(bidi.plain(t.p("saver_hint", ai.name), t.rtl))
         if ai.reports_usage and not self.settings.api_key_mode(ai.name):
-            threading.Thread(target=lambda: self._limits_bridge.account.emit(
-                {"provider": ai.name, "limits": ai.read_limits()}), daemon=True).start()
+            bridge = self._limits_bridge
+            threading.Thread(target=lambda: _emit(bridge.account, {"provider": ai.name, "limits": ai.read_limits()}),
+                             daemon=True).start()
 
     def _show_usage(self, provider: str):
         from .. import usage
@@ -1292,8 +1308,9 @@ class SettingsDialog(GlassDialog):
         ai = self._ai()
         if ai.name != "claude":
             self._show_models(ai.name, [(None, "")])
-            threading.Thread(target=lambda: self._models_bridge.account.emit(
-                {"provider": ai.name, "models": ai.models()}), daemon=True).start()
+            bridge = self._models_bridge
+            threading.Thread(target=lambda: _emit(bridge.account, {"provider": ai.name, "models": ai.models()}),
+                             daemon=True).start()
         else:
             self._show_models(ai.name, ai.models())
 
@@ -1369,7 +1386,8 @@ class SettingsDialog(GlassDialog):
 
     def _refresh_account(self):
         ai = self._ai()
-        threading.Thread(target=lambda: self._account_bridge.account.emit(_safe_account(ai)), daemon=True).start()
+        bridge = self._account_bridge
+        threading.Thread(target=lambda: _emit(bridge.account, _safe_account(ai)), daemon=True).start()
 
     def _set_account_text(self, text: str):
         self.account_label.setText(bidi.plain(text, self.t.rtl))
@@ -1454,9 +1472,11 @@ class SettingsDialog(GlassDialog):
 
         self._logout_for = ai.name
 
+        bridge = self._account_bridge
+
         def work():
             _safe_logout(ai)
-            self._account_bridge.logged_out.emit()
+            _emit(bridge.logged_out)
         threading.Thread(target=work, daemon=True).start()
 
     def _after_logout(self):
@@ -1565,9 +1585,11 @@ class SettingsDialog(GlassDialog):
             self._refresh_account()
             return
 
+        bridge = self._account_bridge
+
         def work():
             _safe_logout(ai)
-            self._account_bridge.account.emit(_safe_account(ai))
+            _emit(bridge.account, _safe_account(ai))
         threading.Thread(target=work, daemon=True).start()
 
     def _clear_history(self):
@@ -1603,10 +1625,8 @@ class SettingsDialog(GlassDialog):
                 level = float(np.sqrt(np.mean(np.square(audio))))
             except Exception:      # noqa: BLE001
                 level = -1.0
-            try:
-                self._mic_heard.emit(level)
-            except RuntimeError:
-                pass                # Settings closed meanwhile (it was logged as a crash)
+            _emit(bridge.level, level)      # Settings may have closed meanwhile (it was logged as a crash)
+        bridge = self._mic_bridge
         threading.Thread(target=run, daemon=True).start()
 
     def _mic_tested(self, level: float):
