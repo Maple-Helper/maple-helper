@@ -578,10 +578,13 @@ STRINGS = {
     "wishlist": {"he": "פריטים במעקב", "en": "Tracked items"},
     "wish_add": {"he": "הוספה לפריטים במעקב", "en": "Add to tracked items"},
     "wish_remove": {"he": "הסרה מהפריטים במעקב", "en": "Remove from tracked items"},
-    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. לחצו על ☆ ליד פריט (בכרטיס שלו או ברשימת דרופים) כדי לעקוב אחריו: תראו כאן מי מפיל "
-                             "אותו ואיפה, ותקבלו הודעה כשעדכון מאגר משנה אותו.",
-                       "en": "No items yet. Click ☆ beside an item (on its card or in a drop list) to follow it: see here who drops it and where, "
-                             "and get a note when a database update changes it."},
+    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. חפשו פריט בתיבה למעלה (למשל Stiff Feather) ובחרו אותו כדי לעקוב אחריו. "
+                             "אפשר גם ללחוץ על ☆ ליד פריט בתשובה בצ'אט (בכרטיס שלו או ברשימת דרופים). "
+                             "כאן תראו מי מפיל אותו ואיפה, ותקבלו הודעה כשעדכון מאגר משנה אותו.",
+                       "en": "No items yet. Search for an item in the box above (Stiff Feather, say) and pick it to track it. "
+                             "You can also click ☆ beside an item in a chat answer (on its card or in a drop list). "
+                             "Here you'll see who drops it and where, and get a note when a database update changes it."},
+    "wish_search": {"he": "הוספת פריט למעקב: הקלידו שם או בחרו מהרשימה", "en": "Track an item: type a name or pick from the list"},
     "inv_found": {"he": "זיהיתי {n} פריטים בתיק:", "en": "Recognized {n} items in the inventory:"},
     "inv_found_one": {"he": "זיהיתי פריט אחד בתיק:", "en": "Recognized 1 item in the inventory:"},
     "inv_not_found": {"he": "לא מצאתי את חלון האינבנטורי בצילום. פתחו אותו במשחק ונסו שוב.",

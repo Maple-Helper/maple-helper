@@ -457,6 +457,32 @@ def test_a_star_taken_off_leaves_the_open_wishlist_at_once(ckb, app, isolated_st
         WISHLIST.bind(None, None)
 
 
+def test_an_item_searched_in_the_wishlist_window_goes_on_it(ckb, app, isolated_store):
+    """The ☆ was only on cards in a chat answer: an empty window had nothing to click (#96)."""
+    from maplehelper.ui.widgets import WISHLIST, EntityCard
+    from maplehelper.ui.wishlist import WishlistDialog
+    profiles = isolated_store.Profiles()
+    profiles.set_active(profiles.add("Kiwi", "Thief", "Assassin", 24).id)
+    WISHLIST.bind(isolated_store.Settings(), profiles)
+    dlg = WishlistDialog(WISHLIST.keys(), ckb, "en", "")
+    try:
+        dlg.show()
+        name = ckb.get("item/413")["name"]
+        dlg.search.setText(name)
+        dlg.search.picked.emit()
+        for _ in range(3):
+            app.processEvents()
+        assert WISHLIST.keys() == ["item/413"]
+        assert [c.key for c in dlg.findChildren(EntityCard) if c.isVisibleTo(dlg)] == ["item/413"]
+        assert dlg.search.text() == ""
+        dlg.search.setText(name)                 # picked again: it stays on the list, never taken off
+        dlg.search.picked.emit()
+        assert WISHLIST.keys() == ["item/413"]
+    finally:
+        dlg.close()
+        WISHLIST.bind(None, None)
+
+
 def test_answers_that_all_come_back_empty_never_wipe_the_reports(kb_copy):
     _add_items(kb_copy)
     _community(kb_copy, {SNAIL: {"drops": [_drop("item/413", 3)], "mesos": None, "fetched": "2026-10-01"}})
