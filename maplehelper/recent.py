@@ -143,7 +143,9 @@ def _items(t, names: list[str]) -> str:
     """Item names for a line: in Hebrew each one block that never breaks inside ("Earring STR Scroll:" / "Greater"
     sat on two lines, between other names, and the commas landed at the line ends); a long list cut with a count."""
     from .i18n import NBSP
-    shown = [bidi.ltr_block(n.replace(" ", NBSP), True) if t.rtl else n for n in names[:ITEMS_SHOWN]]
+    # (a word joiner after a hyphen too: "One-" / "Handed ..." broke the 130 One-/Two-Handed names, review TOOL-R1)
+    shown = [bidi.ltr_block(n.replace(" ", NBSP).replace("-", "-\u2060"), True) if t.rtl else n
+             for n in names[:ITEMS_SHOWN]]
     if len(names) > ITEMS_SHOWN:
         shown.append(t("pn_more", n=len(names) - ITEMS_SHOWN))
     return ", ".join(shown)

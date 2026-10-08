@@ -67,10 +67,25 @@ def test_a_good_key_with_the_cli_connects(env, monkeypatch):
     from maplehelper import providers
     monkeypatch.setattr(type(providers.get("claude")), "find_exe", lambda self: "claude.exe")
     dlg = _onboarding(env)
+    checks = []
+    monkeypatch.setattr(dlg, "_check_status", lambda: checks.append(1))
     dlg._on_key_checked("claude", "sk-ant-test", True)
+    assert checks                    # the usual check decides: a too-old CLI isn't "connected" (review ONB-R3)
+    dlg._on_status("claude", "ok")
     assert dlg._ai_ok and dlg.next.isEnabled() and "Connected" in dlg.status_label.text()
     dlg._on_status("claude", "logged_out")
     assert dlg._ai_ok
+    dlg.close()
+
+
+def test_a_good_key_on_a_too_old_cli_is_not_connected(env, monkeypatch):
+    from maplehelper import providers
+    monkeypatch.setattr(type(providers.get("claude")), "find_exe", lambda self: "claude.exe")
+    dlg = _onboarding(env)
+    monkeypatch.setattr(dlg, "_check_status", lambda: None)
+    dlg._on_key_checked("claude", "sk-ant-test", True)
+    dlg._on_status("claude", "outdated")
+    assert not dlg._ai_ok and "Connected" not in dlg.status_label.text()
     dlg.close()
 
 
@@ -123,7 +138,7 @@ def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
 
     from maplehelper import app
     fake = MagicMock()
-    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10",
+    fake.settings = {"language": "en", "provider": "claude", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10",
                      "appearance": "dark", "font_size": 14}
     fake.brain = SimpleNamespace(ui_lang="he", prewarm=lambda: None)
     app.MapleHelperApp.on_settings_changed(fake)
@@ -140,7 +155,7 @@ def test_a_save_that_keeps_the_look_doesnt_restyle_the_chat(qapp):
 
     from maplehelper import app
     fake = MagicMock()
-    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False,
+    fake.settings = {"language": "en", "provider": "claude", "telemetry": False, "presence": False, "saver_mode": False,
                      "appearance": "dark", "font_size": 14}
     fake._look = ("en", "dark", 14)
     app.MapleHelperApp.on_settings_changed(fake)

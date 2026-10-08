@@ -188,6 +188,7 @@ def test_patch_note_item_lists_keep_names_whole_and_cut_long_lists():
     he = recent._items(I18n("he"), names)
     assert f"{bidi.LRI}Earring{NBSP}STR{NBSP}Scroll{NBSP}0{bidi.PDI}" in he and he.endswith("ועוד 4")
     assert recent._items(I18n("en"), names[:2]) == "Earring STR Scroll 0, Earring STR Scroll 1"
+    assert "One-\u2060Handed" in recent._items(I18n("he"), ["Scroll for One-Handed Sword"])
 
 
 @needs_kb

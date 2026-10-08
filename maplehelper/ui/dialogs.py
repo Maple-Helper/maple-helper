@@ -984,8 +984,8 @@ class Onboarding(_ApiKeyEntry, GlassDialog):
             self.settings.set_api_key_mode(provider, True)
             self.key_hint.hide()
             if ai.find_exe():
-                self._ai_ok = True
-                self.status_label.setText(bidi.plain(self.t("ob_connected"), self.t.rtl))
+                # the usual check, not a plain "connected": a too-old CLI fails every answer, key or not
+                self._check_status()
             else:
                 # the key runs through the AI's CLI: without it every answer failed "not installed"
                 self.status_label.setText(bidi.plain(self.t.p("ob_not_installed", provider), self.t.rtl))

@@ -46,7 +46,10 @@ def test_uninstall_asks_before_deleting_the_players_data():
     assert "usPostUninstall" in proc and "UninstallSilent" in proc
     assert "TaskDialogMsgBox(" in proc and "MB_DEFBUTTON" not in proc and "MB_YESNO," in proc
     # [Keep, Delete]: keeping is the first label (IDYES, focused), deleting is IDNO
-    assert "[CustomMessage('DeleteUserDataKeep'), CustomMessage('DeleteUserDataDelete')]" in proc
+    assert "Choices[0] := CustomMessage('DeleteUserDataKeep');" in proc
+    assert "Choices[1] := CustomMessage('DeleteUserDataDelete');" in proc and "MB_YESNO, Choices, 0)" in proc
+    # a [Code] line that starts with "[" is read as a new section: ISCC stopped with "Invalid section tag"
+    assert not re.search(r"^\s*\[", proc, re.M)
     assert "= IDNO then" in proc and "DeleteApiKeys();" in proc
     assert re.findall(r"ExpandConstant\('([^']*)'\)", proc) == ["{userappdata}\\MapleHelper"]
     assert proc.count("DelTree(") == 1 and "DelTree(DataDir," in proc

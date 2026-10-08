@@ -100,6 +100,7 @@ class MapleHelperApp:
         qapp.setQuitOnLastWindowClosed(False)
         self.main_thread = _MainThread()
         self._look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
+        self._look_provider = self.settings["provider"]
 
     # ------------------------------------------------------------------ startup
 
@@ -162,6 +163,7 @@ class MapleHelperApp:
         self.overlay.setStyleSheet(self.style())
         # the look the chat is built in (the first-run setup may have picked the language since __init__)
         self._look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
+        self._look_provider = self.settings["provider"]
         self.overlay.setWindowOpacity(1.0)
         self.overlay.shot_provider = self.capture
         self.overlay.settings_requested.connect(self.open_settings)
@@ -717,6 +719,9 @@ class MapleHelperApp:
                     toast.restyle()              # a toast up during the switch: old text colors on the new glass
             finally:
                 QApplication.restoreOverrideCursor()
+        elif self.settings["provider"] != getattr(self, "_look_provider", None):
+            self.overlay.apply_language()       # only the AI changed: the texts that name it ("Ask Claude anyway")
+        self._look_provider = self.settings["provider"]
         terms.hide()
         self.overlay.apply_capture_mode()
         self.apply_saver_mode()
