@@ -167,6 +167,8 @@ DEFAULT_SETTINGS = {
     "telemetry": False,           # anonymous usage stats, opt-in (see telemetry.py)
     "install_id": "",             # random id for those stats, created on first use
     "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
+    "minimap_region": None,       # the game's minimap on screen, drawn by the player: {"x","y","w","h"} in capture pixels
+    "minimap_scan_interval": 1.0,  # seconds between two reads of the minimap (where the player is)
 }
 
 

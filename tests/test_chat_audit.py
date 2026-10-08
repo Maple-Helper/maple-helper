@@ -321,10 +321,61 @@ def test_tab_stays_inside_the_tour(overlay):
 
 def test_icon_buttons_have_names_for_screen_readers(overlay):
     ov = overlay
-    for b in (ov.history_btn, ov.tools_btn, ov.guides_btn, ov.wish_btn, ov.settings_btn, ov.min_btn, ov.close_btn,
-              ov.mic_btn, ov.recapture_btn, ov.send_btn, ov.profile_card.refresh):
+    for b in (ov.history_btn, ov.tools_btn, ov.guides_btn, ov.wish_btn, ov.minimap_btn, ov.settings_btn, ov.min_btn,
+              ov.close_btn, ov.mic_btn, ov.recapture_btn, ov.send_btn, ov.profile_card.refresh):
         name = b.accessibleName()
         assert name and not any(0xE000 <= ord(ch) <= 0xF8FF for ch in name), b.objectName()
+
+
+def test_minimap_button_asks_for_the_minimap_box(overlay):
+    seen = []
+    overlay.minimap_requested.connect(lambda: seen.append(1))
+    assert overlay.minimap_btn.toolTip() == overlay.t("minimap_select")
+    assert overlay.minimap_btn.accessibleName() == overlay.t("minimap_select")
+    overlay.minimap_btn.click()
+    assert seen == [1]
+
+
+def test_the_card_shows_where_the_minimap_read_says(overlay, monkeypatch):
+    from types import SimpleNamespace
+    from maplehelper import bidi, routes as routes_mod
+    from maplehelper.minimap import Here
+    from maplehelper.ui.location import LOCATION
+    monkeypatch.setattr(routes_mod, "of", lambda kb: SimpleNamespace(name=lambda mid: "Henesys"))
+    rtl = overlay.t.rtl
+    try:
+        LOCATION.set(Here(map="100000000"))
+        assert overlay.profile_card.where.text() == bidi.plain(
+            overlay.t("location_line", name=bidi.ltr_block("Henesys", rtl)), rtl)
+        assert overlay.profile_card.where.isVisible()
+        LOCATION.set(None)
+        LOCATION.set_state("unknown")
+        assert overlay.profile_card.where.text() == bidi.plain(overlay.t("location_unknown"), rtl)
+        assert overlay.profile_card.where.isVisible()
+        LOCATION.set_state("")
+        assert overlay.profile_card.where.isHidden()
+    finally:
+        LOCATION.set(None)
+        LOCATION.set_state("")
+
+
+def test_the_location_line_follows_a_language_switch(overlay, monkeypatch):
+    from types import SimpleNamespace
+    from maplehelper import routes as routes_mod
+    from maplehelper.minimap import Here
+    from maplehelper.ui.location import LOCATION
+    monkeypatch.setattr(routes_mod, "of", lambda kb: SimpleNamespace(name=lambda mid: "Henesys"))
+    try:
+        LOCATION.set(Here(map="100000000"))
+        overlay.settings["language"] = "en"
+        overlay.apply_language()
+        assert overlay.profile_card.where.text() == "In Henesys"
+        assert overlay.minimap_btn.toolTip() == "Select minimap"
+    finally:
+        LOCATION.set(None)
+        LOCATION.set_state("")
+        overlay.settings["language"] = "he"
+        overlay.apply_language()
 
 
 # ------------------------------------------------------------------ language switch, copy, bullets, gutter

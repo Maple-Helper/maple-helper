@@ -50,6 +50,7 @@ def test_report_leaves_out_the_stats_id_and_every_unlisted_setting(tmp_path, mon
     assert "install_id" not in saved and "some_new_secret" not in saved and saved["language"] == "en"
     # every setting is either reported or private on purpose: a new one makes this test ask which
     private = {"window", "map_window_pos", "item_window_pos", "pins", "last_session", "wishlist", "farm_target", "microphone",
+               "minimap_region",
                "tips_dismissed", "usage_warned", "install_id", "news_read"}
     assert set(DEFAULT_SETTINGS) - set(report.REPORT_SETTINGS) == private
 

@@ -183,6 +183,12 @@ class MapleHelperApp:
         self.overlay.sync_finished.connect(self.grind.sync_done)     # before the tools window redraws (below)
         self.grind.sync()          # a session running when the app last closed goes on (unless it was left idle)
         self.overlay.tools_requested.connect(lambda: self.show_tools())
+        # where the player is, read from the game's minimap every few seconds (the box they drew around it): the
+        # character card says it, and the map windows draw the way from there (ui/minimapscan.py)
+        from .ui.minimapscan import MinimapScanner
+        self.minimap_scanner = MinimapScanner(self.kb, self.settings)
+        self.minimap_scanner.restart()
+        self.overlay.minimap_requested.connect(self.pick_minimap)     # the header's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -490,6 +496,46 @@ class MapleHelperApp:
             return dlg
         self.open_window("settings", make, on_close=self.overlay.refresh_profile_chip)
 
+    def pick_minimap(self):
+        """The header's minimap button: draw the box around the game's minimap; the reads start from it."""
+        from .ui.regionpick import RegionPicker
+        if getattr(self, "_minimap_picker", None) is not None:
+            return                  # already picking
+        t = I18n(self.settings["language"] or "he")
+        self._minimap_overlay_open = self.overlay.is_open()
+        if self._minimap_overlay_open:
+            self.overlay.hide()     # the chat would cover the game the box is drawn on
+        picker = RegionPicker(hint=t("minimap_pick_hint"), rtl=t.rtl)
+        self._minimap_picker = picker
+        picker.picked.connect(self._on_minimap_picked)
+        picker.cancelled.connect(self._on_minimap_cancelled)
+        picker.start()
+
+    def _on_minimap_picked(self, rect: dict):
+        self._end_minimap_pick()
+        ok = (isinstance(rect, dict)
+              and all(isinstance(rect.get(k), (int, float)) and not isinstance(rect.get(k), bool)
+                      for k in ("x", "y", "w", "h"))
+              and rect["w"] > 0 and rect["h"] > 0)
+        if not ok:
+            return                  # not a box: keep whatever was there
+        self.settings["minimap_region"] = {k: int(rect[k]) for k in ("x", "y", "w", "h")}  # saves, like every setting
+        scanner = getattr(self, "minimap_scanner", None)
+        if scanner is not None:
+            scanner.restart()       # (also resets the locator's lock onto the new box)
+
+    def _on_minimap_cancelled(self):
+        self._end_minimap_pick()
+
+    def _end_minimap_pick(self):
+        picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None
+        if picker is not None:
+            picker.close()
+        if getattr(self, "_minimap_overlay_open", False):
+            self._minimap_overlay_open = False
+            if not self.overlay.isVisible():
+                self.overlay.show()
+
     def _reopen_windows_in_new_look(self):
         """A language or appearance change: the other open windows (tools, guides, history...) were built in the
         old one (the tools window stayed Hebrew after a switch to English, seen live). Reopen them."""
@@ -669,6 +715,9 @@ class MapleHelperApp:
         self.apply_autostart()
         self.tray.hide()
         self.make_tray()
+        scanner = getattr(self, "minimap_scanner", None)
+        if scanner is not None:
+            scanner.restart()       # the scan interval (or nothing) changed: pick it up, no restart needed
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
@@ -1053,6 +1102,9 @@ class MapleHelperApp:
         # a tagged card the new KB dropped would crash the next question (set_tags keeps only cards it has)
         self.overlay.set_tags(self.overlay.focus_keys)
         self.grind.kb = self.kb
+        scanner = getattr(self, "minimap_scanner", None)
+        if scanner is not None:
+            scanner.set_kb(self.kb)     # its locator is rebuilt from the new KB on the next read
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1068,6 +1120,9 @@ class MapleHelperApp:
     def shutdown(self):
         telemetry.flush()
         self.grind.stop()                        # no minute read while the app goes
+        scanner = getattr(self, "minimap_scanner", None)
+        if scanner is not None:
+            scanner.stop()                  # no minimap read while the app goes
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

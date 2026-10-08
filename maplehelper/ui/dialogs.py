@@ -2,14 +2,15 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 import sys
 import threading
 
 from PySide6.QtCore import QObject, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QProgressBar,
-                               QPushButton,
+from PySide6.QtWidgets import (QButtonGroup, QDoubleSpinBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
+                               QProgressBar, QPushButton,
                                QScrollArea, QSizePolicy, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
 
 from .. import bidi, osapi, providers
@@ -1091,6 +1092,19 @@ class SettingsDialog(GlassDialog):
         sec.add_row(t("answer_length"), self.length)
         self.instant = Switch(settings["instant_answers"])
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
+        # how often the minimap box is read (where the player is, under the level on the character card)
+        self.scan = QDoubleSpinBox()
+        self.scan.setRange(0.2, 60.0)
+        self.scan.setSingleStep(0.5)
+        self.scan.setDecimals(1)
+        try:
+            scan_value = float(settings["minimap_scan_interval"])
+        except (TypeError, ValueError):
+            scan_value = 1.0
+        if not math.isfinite(scan_value):
+            scan_value = 1.0
+        self.scan.setValue(min(60.0, max(0.2, scan_value)))
+        sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1611,6 +1625,7 @@ class SettingsDialog(GlassDialog):
             "microphone": self._mic_value(),
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
+            "minimap_scan_interval": self.scan.value(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

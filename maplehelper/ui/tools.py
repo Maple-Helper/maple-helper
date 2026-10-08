@@ -18,9 +18,10 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, Q
 from .. import (availability, bidi, buildplan, combat, crafting, dates, farm, glossary, grind, guides, market, plan, quests,
                quick, routes, sitedata, skillbook, sources)
 from ..i18n import I18n
-from . import terms, theme
+from . import mapview, terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
+from .location import LOCATION
 from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, name_lv, source_tag, source_tags,
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
@@ -355,11 +356,6 @@ def map_rows(kb) -> list[tuple[str, str, object]]:
         rows.append((lo, e["name"], (shown, e["name"], kb.picture(k))))
     rows.sort(key=lambda r: (r[0], r[1]))
     return [r[2] for r in rows]
-
-
-def _whole(name: str) -> str:
-    """A short name with no-break spaces, so a line wraps before it rather than inside it."""
-    return name.replace(" ", " ") if len(name) <= bidi.KEEP_TOGETHER else name
 
 
 def route_rows(kb, graph) -> list[tuple[str, str, object]]:
@@ -4150,24 +4146,56 @@ class ToolsDialog(GlassDialog):
         lay.addLayout(self.route_out)
         lay.addStretch(1)
         self._route_auto = ""          # the start filled in from the character's map (followed when it moves)
+        LOCATION.changed.connect(self._on_location)
         return sc
 
+    def _live_start(self) -> str | None:
+        """The live map's id, when the minimap read knows it and the graph has it."""
+        here = LOCATION.here
+        return here.map if here and here.map in self.route_graph.maps else None
+
+    def _on_location(self, here) -> None:
+        """The minimap read moved: an auto-filled start follows it (a typed start stays). A way already shown
+        is re-found only then, when the start actually changed (not on every move of the dot)."""
+        if "route" not in self.__dict__.get("pages", {}):
+            return                                     # the page isn't built yet
+        live = self._live_start()
+        if not live:
+            return
+        name = self.route_graph.name(live)
+        start = self.route_from.text().strip()
+        if start and start != self._route_auto:
+            return                                     # typed by hand: stays
+        if name == start:
+            return                                     # the dot moved on the same map: still right
+        self._route_auto = name
+        self.route_from.setText(name)
+        self.route_from.setCursorPosition(0)
+        if self.route_out.count() > 1:
+            self._find_route()
+
     def _fill_route(self):
-        c = self.c
-        here = (c.map if c else "") or ""
-        mid = self.route_graph.find(here) if here else None
+        live = self._live_start()
+        if live:
+            mid, name = live, self.route_graph.name(live)
+        else:
+            c = self.c
+            here = (c.map if c else "") or ""
+            mid = self.route_graph.find(here) if here else None
+            name = self.route_graph.name(mid) if mid else ""
         start = self.route_from.text().strip()
         if mid and (not start or start == self._route_auto):
-            self._route_auto = self.route_graph.name(mid)
-            self.route_from.setText(self._route_auto)
+            self._route_auto = name
+            self.route_from.setText(name)
             self.route_from.setCursorPosition(0)
         # the way shows on the button (or a link from another page), not on its own (the owner)
         if self.route_out.count() == 0:
             self._route_hint(self.t("route_pick" if self.route_graph.maps else "route_no_data"))
 
     def route_to_map(self, key: str) -> None:
-        """Open on the way to this map (a map card's "How to get here"), from the character's map."""
+        """Open on the way to this map (a map card's "How to get here"), from the player's live map."""
         self.show_page(PAGES.index("route"))
+        self._fill_route()           # the live map is the start, before the way is found
         mid = self.route_graph.of_key(key)
         if not mid:
             # a map the way-finder doesn't know: said, never the last destination's way under it (TL2-8)
@@ -4243,28 +4271,20 @@ class ToolsDialog(GlassDialog):
         notes.append(t("route_ring"))
         self.route_out.addWidget(self._label("\n".join(notes), "RowHint"))
         self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+        here = LOCATION.here
+        you_on, you = (here.map, here.spot) if here and here.spot else (None, None)
         for i, leg in enumerate(r.legs, 1):
-            self.route_out.addWidget(self._route_step(str(i), leg.frm, leg))
-        self.route_out.addWidget(self._route_step("✓", b, None))
+            self.route_out.addWidget(self._route_step(str(i), leg.frm, leg, you if leg.frm == you_on else None))
+        self.route_out.addWidget(self._route_step("✓", b, None, you if b == you_on else None))
 
     def _ask_route(self, a: str, b: str) -> None:
         g = self.route_graph
         self.ask_requested.emit(self.t("route_q", a=g.name(a), b=g.name(b)), False)
 
     def _route_says(self, leg: routes.Leg | None) -> str:
-        t, rtl = self.t, self.t.rtl
-        if leg is None:
-            return t("route_arrive")
-        # a map name of a few words stays on one line: wrapped inside, "The Road to the" ended one line and
-        # "Dungeon" began the next
-        to = bidi.ltr_block(_whole(self.route_graph.name(leg.to)), rtl)
-        if leg.kind == "portal":
-            where = routes.side(leg.spot)
-            return t(f"route_portal_{where}" if where in ("left", "right") else "route_portal", to=to)
-        said = t(f"route_by_{leg.kind}", npc=bidi.ltr_block(leg.via, rtl), to=to)
-        return said + (" " + t("route_fare", n=f"{leg.fare:,}") if leg.fare else "")
+        return mapview.route_says(self.t, self.route_graph, leg)
 
-    def _route_step(self, number: str, mid: str, leg: routes.Leg | None) -> QFrame:
+    def _route_step(self, number: str, mid: str, leg: routes.Leg | None, you=None) -> QFrame:
         """One map of the way: its name, what to do there, and its minimap with the spot to go to ringed."""
         g, rtl = self.route_graph, self.t.rtl
         card = QFrame(objectName="Card")
@@ -4288,14 +4308,14 @@ class ToolsDialog(GlassDialog):
         top.addLayout(names, 1)
         col.addLayout(top)
         col.addWidget(self._label(self._route_says(leg), "RowLabel"))
-        pic = self._minimap(mid, leg)
+        pic = self._minimap(mid, leg, you)
         if pic is not None:
             col.addWidget(pic, 0, Qt.AlignHCenter)
         return card
 
     MINIMAP_W, MINIMAP_H = 360, 170       # the most a step's minimap takes (small ones grow, pixel for pixel)
 
-    def _minimap(self, mid: str, leg: routes.Leg | None) -> QLabel | None:
+    def _minimap(self, mid: str, leg: routes.Leg | None, you=None) -> QLabel | None:
         path = self.route_graph.minimap(mid)
         pm = QPixmap(str(path)) if path else QPixmap()
         if pm.isNull():
@@ -4305,17 +4325,25 @@ class ToolsDialog(GlassDialog):
             pm = pm.scaled(pm.width() * grow, pm.height() * grow, Qt.KeepAspectRatio, Qt.FastTransformation)
         if pm.width() > self.MINIMAP_W or pm.height() > self.MINIMAP_H:
             pm = pm.scaled(self.MINIMAP_W, self.MINIMAP_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        if leg is not None and leg.spot:
-            # the portal (orange) or the NPC to talk to (green), ringed where it is on the map
-            x, y = round(leg.spot[0] * pm.width()), round(leg.spot[1] * pm.height())
-            color = QColor(theme.ORANGE if leg.kind == "portal" else theme.GOOD_TEXT_LIGHT)
+        if (leg is not None and leg.spot) or you is not None:
             p = QPainter(pm)
             p.setRenderHint(QPainter.Antialiasing)
             p.setBrush(Qt.NoBrush)
-            p.setPen(QPen(QColor(0, 0, 0, 170), 5))
-            p.drawEllipse(QPoint(x, y), 11, 11)
-            p.setPen(QPen(color, 2.6))
-            p.drawEllipse(QPoint(x, y), 11, 11)
+            if leg is not None and leg.spot:
+                # the portal (orange) or the NPC to talk to (green), ringed where it is on the map
+                x, y = round(leg.spot[0] * pm.width()), round(leg.spot[1] * pm.height())
+                color = QColor(theme.ORANGE if leg.kind == "portal" else theme.GOOD_TEXT_LIGHT)
+                p.setPen(QPen(QColor(0, 0, 0, 170), 5))
+                p.drawEllipse(QPoint(x, y), 11, 11)
+                p.setPen(QPen(color, 2.6))
+                p.drawEllipse(QPoint(x, y), 11, 11)
+            if you is not None:
+                # the player (yellow), ringed where they stand now
+                x, y = round(you[0] * pm.width()), round(you[1] * pm.height())
+                p.setPen(QPen(QColor(0, 0, 0, 170), 5))
+                p.drawEllipse(QPoint(x, y), 11, 11)
+                p.setPen(QPen(QColor(255, 210, 0), 2.6))
+                p.drawEllipse(QPoint(x, y), 11, 11)
             p.end()
         pic = QLabel()
         pic.setPixmap(pm)
