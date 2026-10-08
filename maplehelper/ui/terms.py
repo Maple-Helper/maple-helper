@@ -208,6 +208,11 @@ class _Keys(QObject):
             label.focusNextPrevChild(forward)        # a label made in Python may call it: moves to the next "?"
 
     def activated(self, link: str) -> None:
+        if link.startswith(("https://", "http://")):
+            # a link in an answer (bidi.to_html): in the browser, like the cards' MeowDB links
+            from ..osapi import open_url
+            open_url(link)
+            return
         near = None
         if self.keyboard:
             label = self.parent()

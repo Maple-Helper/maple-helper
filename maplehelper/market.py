@@ -63,6 +63,15 @@ def _int(text: str) -> int | None:
 
 
 def npc_prices(kb, key: str) -> NpcPrices:
+    """Once per item and KB (the Farm tab read ~1,700 item pages a redraw, PERF-05); callers only read it."""
+    from .kb import memo
+    seen = memo(kb, "_npc_prices")
+    if key not in seen:
+        seen[key] = _npc_prices(kb, key)
+    return seen[key]
+
+
+def _npc_prices(kb, key: str) -> NpcPrices:
     lines = [ln.strip() for ln in kb.page(key).split("\n---", 2)[-1].splitlines()]
     sell = next((_int(ln) for ln in lines if ln.startswith("NPC Sell-back")), None)
     out = NpcPrices(sell)

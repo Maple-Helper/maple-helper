@@ -38,20 +38,39 @@ def test_hebrew_installer_speaks_in_plural():
 
 def test_uninstall_asks_before_deleting_the_players_data():
     """SEC-12: the data folder (chats, characters, Grok/Gemini sign-ins) goes only when the player says yes:
-    never on a silent uninstall, "No" the default, and nothing but {userappdata}\\MapleHelper."""
+    never on a silent uninstall, keeping the default, and nothing but {userappdata}\\MapleHelper and the app's
+    saved keys. The default is the first choice: TaskDialogMsgBox takes no MB_DEFBUTTON flag (one makes it fail)."""
     code = _section(ISS, "Code")
     proc = code[code.index("procedure CurUninstallStepChanged"):]
     proc = proc[:proc.index("\nend;") + 5]
     assert "usPostUninstall" in proc and "UninstallSilent" in proc
-    assert "MB_DEFBUTTON2" in proc and "= IDYES" in proc
+    assert "TaskDialogMsgBox(" in proc and "MB_DEFBUTTON" not in proc and "MB_YESNO," in proc
+    # [Keep, Delete]: keeping is the first label (IDYES, focused), deleting is IDNO
+    assert "Choices[0] := CustomMessage('DeleteUserDataKeep');" in proc
+    assert "Choices[1] := CustomMessage('DeleteUserDataDelete');" in proc and "MB_YESNO, Choices, 0)" in proc
+    # a [Code] line that starts with "[" is read as a new section: ISCC stopped with "Invalid section tag"
+    assert not re.search(r"^\s*\[", proc, re.M)
+    assert "= IDNO then" in proc and "DeleteApiKeys();" in proc
     assert re.findall(r"ExpandConstant\('([^']*)'\)", proc) == ["{userappdata}\\MapleHelper"]
     assert proc.count("DelTree(") == 1 and "DelTree(DataDir," in proc
     msgs = _section(ISS, "CustomMessages")
     for lang in ("hebrew", "english"):
         assert re.search(rf"^{lang}\.DeleteUserData=.*%1", msgs, re.M), lang
-    # saved API keys aren't in that folder: the question says so (review3 SEC12-a)
-    assert re.search(r"^english\.DeleteUserData=.*Credential Manager; remove them in Settings first\.", msgs, re.M)
-    assert re.search(r"^hebrew\.DeleteUserData=.*במנהל האישורים של Windows: מחקו אותם קודם בהגדרות\.", msgs, re.M)
+        for key in ("DeleteUserDataTitle", "DeleteUserDataKeep", "DeleteUserDataDelete"):
+            assert re.search(rf"^{lang}\.{key}=.+", msgs, re.M), (lang, key)
+    # saved API keys aren't in that folder: the uninstaller deletes them itself (ONB-10: Settings, which the text
+    # used to point at, is gone by then), and the question says so
+    assert re.search(r"^english\.DeleteUserData=.*API keys saved in Windows Credential Manager", msgs, re.M)
+    assert re.search(r"^hebrew\.DeleteUserData=.*מפתחות ה-API שנשמרו במנהל האישורים של Windows", msgs, re.M)
+    assert "Settings first" not in msgs and "קודם בהגדרות" not in msgs
+    # every target python-keyring may have used for the four keys (service "MapleHelper", see providers/base.py)
+    from maplehelper import providers
+    from maplehelper.providers.base import KEYRING_SERVICE
+    delete = code[code.index("procedure DeleteApiKeys"):]
+    delete = delete[:delete.index("\nend;")]
+    for p in providers.PROVIDERS.values():
+        assert f"'{p.keyring_user}@{KEYRING_SERVICE}'" in delete, p.name
+    assert f"'{KEYRING_SERVICE}'" in delete and "external 'CredDeleteW@advapi32.dll stdcall'" in code
 
 
 def test_update_clears_old_package_metadata():
@@ -138,3 +157,10 @@ def test_nightly_kb_manifest_says_when_it_was_checked(tmp_path, monkeypatch):
     _, manifest = release.build_kb()
     m = json.loads(manifest.read_text(encoding="utf-8"))
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", m["checked"]) and m["url"].endswith("/latest/download/kb.zip")
+
+
+def test_frozen_build_keeps_qts_hebrew_texts():
+    # the Hebrew right-click menu (app.qt_texts) loads PySide6/translations/qtbase_he.qm: only qtwebengine's go
+    spec = (ROOT / "packaging" / "maplehelper.spec").read_text(encoding="utf-8")
+    dropped = re.findall(r'startswith\(\(([^)]*)\)', spec)
+    assert dropped and all("translations/qtbase" not in d and d.strip(' ",') != "PySide6/translations/" for d in dropped)

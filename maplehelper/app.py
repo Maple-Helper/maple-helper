@@ -6,7 +6,7 @@ import sys
 import threading
 import webbrowser
 
-from PySide6.QtCore import QLockFile, QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QLibraryInfo, QLockFile, QObject, Qt, QTimer, QTranslator, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -100,13 +100,15 @@ class MapleHelperApp:
         qapp.setQuitOnLastWindowClosed(False)
         self.main_thread = _MainThread()
         self._look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
+        self._look_provider = self.settings["provider"]
 
     # ------------------------------------------------------------------ startup
 
     def style(self, opacity: float | None = None) -> str:
         theme.set_mode(self.settings["appearance"])
-        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(self.settings["language"] or system_language()).rtl
-                                     else Qt.LeftToRight)
+        lang = self.settings["language"] or system_language()
+        self.qapp.setLayoutDirection(Qt.RightToLeft if I18n(lang).rtl else Qt.LeftToRight)
+        qt_texts(self.qapp, lang)
         css = theme.stylesheet(self.font_family, self.settings["font_size"])
         # restyling the app re-polishes every open widget (the chat with its answers too): only when it changed,
         # not each time a window opens, which held "Play tools" back for a second
@@ -159,6 +161,9 @@ class MapleHelperApp:
         # tray at login keeps none waiting all day (audit PRF-1); typing the first question outlasts its start
         self.overlay = Overlay(self.settings, self.profiles, self.kb, self.brain)
         self.overlay.setStyleSheet(self.style())
+        # the look the chat is built in (the first-run setup may have picked the language since __init__)
+        self._look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
+        self._look_provider = self.settings["provider"]
         self.overlay.setWindowOpacity(1.0)
         self.overlay.shot_provider = self.capture
         self.overlay.settings_requested.connect(self.open_settings)
@@ -495,6 +500,8 @@ class MapleHelperApp:
             dlg.patch_notes_requested.connect(lambda: self.show_patch_notes())
             dlg.whats_new_requested.connect(lambda: self.show_whats_new())
             dlg.tour_requested.connect(lambda: self.replay_tour(dlg))
+            if getattr(self, "_kb_updating", False) and getattr(self, "_kb_interactive", False):
+                dlg.kb_update_busy()       # a check asked for in an earlier Settings window still runs
             return dlg
         self.open_window("settings", make, on_close=self.overlay.refresh_profile_chip)
 
@@ -633,6 +640,7 @@ class MapleHelperApp:
         # another provider, account or model: a warm process started under the old setup is replaced. An answer
         # in progress goes on (changing the model mid-answer killed it); switching provider ends the old one anyway
         self.apply_ai_settings()
+        self.brain.refind_cli()     # an install or update from Settings may have put the CLI elsewhere
         self.brain.drop_warm()
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
 
@@ -694,15 +702,26 @@ class MapleHelperApp:
     def on_settings_changed(self):
         telemetry.set_enabled(self.settings["telemetry"])
         presence.set_enabled(self.settings["presence"])
-        # the new theme first: apply_language rebuilds text with the theme's colors written in (the retake link
-        # kept the dark theme's faint orange on white)
-        self.overlay.setStyleSheet(self.style())
-        self.overlay.apply_language()
-        self._reopen_windows_in_new_look()
         from .ui import terms
-        from .ui.toast import Toast
-        for toast in list(Toast._live):
-            toast.restyle()              # a toast up during the switch: old text colors on the new glass
+        look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
+        # only a new language, appearance or text size restyles the chat: with a long chat that took ~1.6 s on
+        # every Save (the microphone, saver mode...), and a theme switch ~4 s (PERF-02)
+        if look != getattr(self, "_look", None):
+            QApplication.setOverrideCursor(Qt.WaitCursor)     # a few seconds with a long chat: not a hang
+            try:
+                # the new theme first: apply_language rebuilds text with the theme's colors written in (the retake
+                # link kept the dark theme's faint orange on white)
+                self.overlay.setStyleSheet(self.style())
+                self.overlay.apply_language()
+                self._reopen_windows_in_new_look()
+                from .ui.toast import Toast
+                for toast in list(Toast._live):
+                    toast.restyle()              # a toast up during the switch: old text colors on the new glass
+            finally:
+                QApplication.restoreOverrideCursor()
+        elif self.settings["provider"] != getattr(self, "_look_provider", None):
+            self.overlay.apply_language()       # only the AI changed: the texts that name it ("Ask Claude anyway")
+        self._look_provider = self.settings["provider"]
         terms.hide()
         self.overlay.apply_capture_mode()
         self.apply_saver_mode()
@@ -787,6 +806,9 @@ class MapleHelperApp:
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):
         t = I18n(self.settings["language"])
+        settings_win = self.__dict__.get("_windows", {}).get("settings")
+        if settings_win is not None and hasattr(settings_win, "kb_update_done"):
+            settings_win.kb_update_done()     # its "Update database" link said "Checking…" meanwhile
         self.overlay.show_scope()           # the check itself moves "verified on" on, even with nothing new
         if status == "updated":
             self.reload_kb()
@@ -940,6 +962,7 @@ class MapleHelperApp:
             dlg.detail_ask_requested.connect(lambda q, shown: self.ask_from_tools(q, True, detail=True, shown=shown))
             dlg.tag_requested.connect(self.ask_about_guide)
             dlg.guide_requested.connect(self.show_guides)
+            dlg.add_character_requested.connect(lambda: (self.add_character(), self.on_profile_changed()))
             return dlg
         return self.open_window("tools", make)
 
@@ -1063,12 +1086,15 @@ class MapleHelperApp:
         old = self.__dict__.get("_windows", {}).get(f"wishlist:{cid}")
         if old is not None:
             old.close()             # a star added meanwhile: show the list as it is now, not the open copy
-        self.open_window(f"wishlist:{cid}", lambda: self._wishlist_dialog(keys))
+        self.open_window(f"wishlist:{cid}", lambda: self._wishlist_dialog(keys, c or self.profiles.active))
 
-    def _wishlist_dialog(self, keys):
+    def _wishlist_dialog(self, keys, c=None):
         from .ui.wishlist import WishlistDialog
-        dlg = WishlistDialog(keys, self.kb, self.settings["language"], self.style())
+        dlg = WishlistDialog(keys, self.kb, self.settings["language"], self.style(), c.level if c else None)
         dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
+        # who drops it and the way there, from Play tools (answered locally, no AI)
+        dlg.farm_requested.connect(lambda name: self.show_tools("farm").farm_item(name))
+        dlg.route_requested.connect(lambda name: self.show_tools("route").route_to_place(name))
         return dlg
 
     def show_patch_notes(self, entries: list[dict] | None = None, tab: str = "changes"):
@@ -1177,6 +1203,29 @@ def _hold_running_mutex():
     wait_for_setup()
     k32 = ctypes.windll.kernel32
     _RUNNING = k32.CreateMutexW(None, False, "MapleHelperRunning")
+
+
+_QT_TEXTS: dict = {}       # the installed Qt translator and its language
+
+
+def qt_texts(qapp, lang: str) -> None:
+    """Qt's own words (a text field's right-click menu: Undo, Copy, Paste, Select All) in the UI language. Without
+    qtbase_he they stayed English, "&" marks and all, in the Hebrew app. The frozen build ships the .qm files
+    (maplehelper.spec drops only qtwebengine's)."""
+    want = "he" if lang == "he" else ""
+    if _QT_TEXTS.get("lang", "") == want:
+        return
+    old = _QT_TEXTS.pop("tr", None)
+    if old is not None:
+        qapp.removeTranslator(old)
+    _QT_TEXTS["lang"] = want
+    if want:
+        tr = QTranslator(qapp)
+        if tr.load(f"qtbase_{want}", QLibraryInfo.path(QLibraryInfo.TranslationsPath)):
+            qapp.installTranslator(tr)
+            _QT_TEXTS["tr"] = tr
+        else:
+            report.log.info("no Qt translations for %s", want)
 
 
 def main():

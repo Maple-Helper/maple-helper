@@ -9,6 +9,15 @@ def test_every_marked_term_is_explained_in_both_languages():
         assert glossary.explain(term, "en"), term
 
 
+def test_tips_point_to_nothing_the_app_lacks():
+    # COPY-13: the website glossary sent players to "the scroll simulator" / "the damage formula guide"
+    for term in glossary.TERMS:
+        he, en = glossary.explain(term, "he"), glossary.explain(term, "en")
+        assert "סימולטור" not in he and "ראו את המדריך" not in he and "אימון" not in he, term
+        assert "simulator" not in en and "See the" not in en, term
+    assert "גריינד" in glossary.explain("grind", "he")
+
+
 def test_only_the_first_appearance_is_marked():
     out = glossary.annotate("<p>ACC 47 and ACC 50, AP 5, Lv. 30, EXP 45</p>", "en")
     assert out.count("g:ACC") == 1 and out.count("g:AP") == 1
@@ -33,3 +42,13 @@ def test_no_mark_inside_a_kb_name_block():
         assert out.count("g:HP") == 1 and out.index("g:HP") > out.index(bidi.PDI)
     finally:
         bidi.set_names([])
+
+
+def test_a_hebrew_terms_value_shows_once():
+    """"ACC: 47" in a Hebrew line is two English runs; the value moved after the "?" was then written again
+    ("ACC: 47 ? 47", review COPY-R1)."""
+    import re
+    from maplehelper import bidi
+    for line, value in (("צריך ACC: 47 כדי לא לפספס", "47"), ("ל-Mano יש HP: 7,420 ו-MP: 30.", "7,420")):
+        out = re.sub(r"<[^>]+>", "", glossary.annotate(bidi.plain(line, True), "he"))
+        assert out.count(value) == 1, out

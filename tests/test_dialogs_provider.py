@@ -47,7 +47,7 @@ def test_onboarding_relabels_the_connect_page_for_codex(env):
     assert dlg.install_btn.text() == "Install Claude Code (Anthropic's official tool)"
     dlg._on_provider("codex")
     assert s["provider"] == "codex"
-    assert dlg.install_btn.text() == "Install ChatGPT (Codex, OpenAI's official tool)"
+    assert dlg.install_btn.text() == "Install Codex (OpenAI's official tool for ChatGPT)"
     assert dlg.login_btn.text() == "Sign in with ChatGPT"
     assert "OpenAI" in dlg.key_edit.placeholderText()
     assert "OpenAI" in dlg.privacy_label.text()
@@ -61,7 +61,7 @@ def test_onboarding_relabels_the_connect_page_for_gemini(env, monkeypatch):
     dlg = Onboarding(s, profiles, kb, lambda *_: "")
     dlg._on_provider("gemini")
     assert s["provider"] == "gemini"
-    assert dlg.install_btn.text() == "Install Gemini (Google Antigravity, Google's official tool)"
+    assert dlg.install_btn.text() == "Install Google Antigravity (Google's official tool for Gemini)"
     assert dlg.login_btn.text() == "Sign in with Google"
     assert "AIza" in dlg.key_edit.placeholderText()
     assert "the AI you chose (currently Google's Gemini)" in dlg.privacy_label.text()
@@ -289,7 +289,7 @@ def test_settings_offers_install_and_says_when_a_sign_in_timed_out(env, monkeypa
     s["provider"] = "codex"
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     dlg._on_account({"status": "not_installed", "email": None, "provider": "codex"})
-    assert not dlg.install_btn.isHidden() and dlg.install_btn.text() == "Install ChatGPT (Codex, OpenAI's official tool)"
+    assert not dlg.install_btn.isHidden() and dlg.install_btn.text() == "Install Codex (OpenAI's official tool for ChatGPT)"
     dlg._on_account({"status": "logged_out", "email": None, "provider": "codex"})
     assert dlg.install_btn.isHidden()
 
@@ -358,7 +358,7 @@ def test_install_runs_inside_the_app_and_shows_why_it_failed(env, monkeypatch):
     dlg = Onboarding(s, profiles, kb, lambda *_: "")
     dlg._on_provider("codex")
     dlg._start_install()
-    assert not dlg.install_panel.isHidden() and "Installing ChatGPT" in dlg.install_panel.title.text()
+    assert not dlg.install_panel.isHidden() and "Installing Codex" in dlg.install_panel.title.text()
     assert dlg.install_btn.isHidden()
     inst.lines.append("Downloading Codex 1.2.3")
     dlg.install_panel._tick()

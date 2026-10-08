@@ -408,7 +408,6 @@ def test_history_card_opens_from_the_keyboard_and_makes_its_answer_then():
 def test_english_in_the_hebrew_history_is_laid_out_as_itself():
     """Wrapped as an isolate in a right-to-left paragraph, a nearly full line stuck out a space on the left and its
     first letter was cut. Rendered with a margin: no ink left of the text's own box."""
-    from maplehelper import bidi
     from maplehelper.ui.pinsview import set_wrapped_name
     words = "Mano drops a shell and Red Potion when you hit the snail at the edge of the map".split()
     margin = 8
@@ -430,8 +429,9 @@ def test_english_in_the_hebrew_history_is_laid_out_as_itself():
             ink = [x for x in range(margin - 1) for y in range(img.height()) if img.pixelColor(x, y).value() < 160]
             out += bool(ink)
         return out
-    assert overflows(lambda lb, text: lb.setText(bidi.ltr_name(text, True))) > 0      # the old way did
     assert overflows(lambda lb, text: set_wrapped_name(lb, text, True)) == 0
+    # (the old way, lb.setText(bidi.ltr_name(text, True)), stuck out with Windows' fonts; whether it does depends on
+    # the fonts and on what earlier tests in the same worker loaded, so it failed CI on macOS: only the fix is checked)
     lb = QLabel()
     set_wrapped_name(lb, "Mano drops a shell", True)
     assert lb.layoutDirection() == Qt.LeftToRight and lb.text() == "Mano drops a shell"

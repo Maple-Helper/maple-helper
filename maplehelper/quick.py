@@ -72,6 +72,13 @@ price cost needed need required and with get gets kill m p magic physical
 """.split())
 
 
+def _grouped(value) -> str:
+    """A whole number with thousands separators ("325,400"); anything else as it is."""
+    if (isinstance(value, int) and not isinstance(value, bool)) or (isinstance(value, str) and re.fullmatch(r"\d{4,}", value)):
+        return f"{int(value):,}"
+    return str(value)
+
+
 def _known_word(w: str) -> bool:
     """A question word, also with a glued Hebrew prefix or article ("והלבל", "בשביל"), or a prefix written apart
     ("כמה HP יש ל-Snail")."""
@@ -178,6 +185,7 @@ def answer(question: str, kb: KnowledgeBase, t, char=None) -> Answer | None:
     q_stats = ASKED_LEVEL.sub(" ", q)
     asked = [(k, label) for rx, k, label in STATS if rx.search(q_stats) and props.get(k) not in (None, "")]
     if asked:
-        return Answer(text="\n".join(f"{name} · {label}: {props[k]}" for k, label in asked), entities=[key],
+        # "HP: 7,420" as the card under it writes it (it said "7420" over the card's "HP 7,420", CHAT-12)
+        return Answer(text="\n".join(f"{name} · {label}: {_grouped(props[k])}" for k, label in asked), entities=[key],
                       sources=[sources.source_of(kb, key)])
     return None

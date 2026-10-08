@@ -92,21 +92,40 @@ BROKEN_TEXT = {
 }
 
 
+def _system_language() -> str:
+    """Hebrew on a Hebrew Windows or Mac, else English (i18n.system_language without Qt, which may be what's
+    missing): an English player whose first start failed got a Hebrew error (COPY-07)."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            # the primary language of the Windows display language: 0x0D is Hebrew
+            return "he" if ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF == 0x0D else "en"
+        import locale
+        import os
+        lang = locale.getlocale()[0] or os.environ.get("LANG") or ""
+        return "he" if lang.lower().startswith(("he", "iw")) else "en"
+    except Exception:
+        return "en"
+
+
 def _language() -> str:
-    """The app's language from settings.json (standard library only: Qt may be what's missing)."""
+    """The app's language from settings.json (standard library only: Qt may be what's missing); before the
+    player picked one (a first start that failed), the system's."""
     import json
     try:
         from .store import DATA_DIR
-        return json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("language") or "he"
+        lang = json.loads((DATA_DIR / "settings.json").read_text(encoding="utf-8")).get("language")
     except Exception:
-        return "he"
+        lang = None
+    return lang if lang in ("he", "en") else _system_language()
 
 
+# the app didn't start, so its "Report a problem" isn't there: the address itself, as report_saved_body gives it
 STARTUP_TEXT = {
-    "he": "Maple Helper לא הצליח לעלות. הפרטים נשמרו בקובץ:\n%s\n\nאפשר לשלוח אותו אלינו (דיווח על תקלה), "
-          "או לנסות להפעיל מחדש את המחשב.",
-    "en": "Maple Helper couldn't start. The details were saved to:\n%s\n\nYou can send it to us (Report a problem), "
-          "or try restarting the PC.",
+    "he": "Maple Helper לא הצליח לעלות. הפרטים נשמרו בקובץ:\n%s\n\nאפשר לפתוח דיווח ב-GitHub ולצרף אליו את "
+          "הקובץ:\ngithub.com/Maple-Helper/maple-helper/issues\n\nאו לנסות להפעיל מחדש את המחשב.",
+    "en": "Maple Helper couldn't start. The details were saved to:\n%s\n\nYou can open an issue on GitHub and attach "
+          "this file:\ngithub.com/Maple-Helper/maple-helper/issues\n\nOr try restarting the PC.",
 }
 # a release that fails at start never reaches its own update check: the way out is the latest installer
 STARTUP_NEWER_TEXT = {

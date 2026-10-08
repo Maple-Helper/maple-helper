@@ -67,10 +67,23 @@ def test_a_good_key_with_the_cli_connects(env, monkeypatch):
     from maplehelper import providers
     monkeypatch.setattr(type(providers.get("claude")), "find_exe", lambda self: "claude.exe")
     dlg = _onboarding(env)
+    checks = []
+    monkeypatch.setattr(dlg, "_check_status", lambda: checks.append(1))
     dlg._on_key_checked("claude", "sk-ant-test", True)
+    assert checks                    # the usual check decides: a too-old CLI isn't "connected" (review ONB-R3)
+    dlg._on_status("claude", "logged_out")       # what that check says for a key with no sign-in: the key counts
     assert dlg._ai_ok and dlg.next.isEnabled() and "Connected" in dlg.status_label.text()
-    dlg._on_status("claude", "logged_out")
-    assert dlg._ai_ok
+    dlg.close()
+
+
+def test_a_good_key_on_a_too_old_cli_is_not_connected(env, monkeypatch):
+    from maplehelper import providers
+    monkeypatch.setattr(type(providers.get("claude")), "find_exe", lambda self: "claude.exe")
+    dlg = _onboarding(env)
+    monkeypatch.setattr(dlg, "_check_status", lambda: None)
+    dlg._on_key_checked("claude", "sk-ant-test", True)
+    dlg._on_status("claude", "outdated")
+    assert not dlg._ai_ok and "Connected" not in dlg.status_label.text()
     dlg.close()
 
 
@@ -123,13 +136,39 @@ def test_a_language_saved_in_settings_reaches_the_ai_at_once(qapp):
 
     from maplehelper import app
     fake = MagicMock()
-    fake.settings = {"language": "en", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10"}
+    fake.settings = {"language": "en", "provider": "claude", "telemetry": False, "presence": False, "saver_mode": False, "hotkey_voice": "F10",
+                     "appearance": "dark", "font_size": 14}
     fake.brain = SimpleNamespace(ui_lang="he", prewarm=lambda: None)
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "en"
     fake.settings["language"] = None
     app.MapleHelperApp.on_settings_changed(fake)
     assert fake.brain.ui_lang == "he"
+
+
+def test_a_save_that_keeps_the_look_doesnt_restyle_the_chat(qapp):
+    """PERF-02: every Save restyled the chat and ran apply_language (~1.6 s with a long chat), even for the
+    microphone; only a new language, appearance or text size does now."""
+    from unittest.mock import MagicMock
+
+    from maplehelper import app
+    fake = MagicMock()
+    fake.settings = {"language": "en", "provider": "claude", "telemetry": False, "presence": False, "saver_mode": False,
+                     "appearance": "dark", "font_size": 14}
+    fake._look, fake._look_provider = ("en", "dark", 14), "claude"
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert not fake.overlay.setStyleSheet.called and not fake.overlay.apply_language.called
+    assert fake.apply_autostart.called                     # the rest of the settings still apply
+    fake.settings["appearance"] = "light"
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.overlay.setStyleSheet.called and fake.overlay.apply_language.called
+    assert fake._reopen_windows_in_new_look.called
+    # only the AI changed: the texts that name it, without the slow restyle (review ONB-R2)
+    fake.overlay.reset_mock()
+    fake._look = ("en", "light", 14)               # (what _reopen_windows_in_new_look records)
+    fake.settings["provider"] = "codex"
+    app.MapleHelperApp.on_settings_changed(fake)
+    assert fake.overlay.apply_language.called and not fake.overlay.setStyleSheet.called
 
 
 # --- DLG-7: Grok's key prefix in Hebrew ----------------------------------------------------------------------------
@@ -286,7 +325,8 @@ def test_the_unpin_button_has_a_name(qapp):
     from maplehelper.ui.pinsview import PinsBar
     bar = PinsBar()
     bar.show_pins([{"q": "Where is Henesys?", "a": "In Victoria Island."}], I18n("en"), False)
-    xs = [b for b in bar.findChildren(QToolButton) if b.text() == "✕"]
+    from maplehelper.ui import theme
+    xs = [b for b in bar.findChildren(QToolButton) if b.text() == theme.ICON["close"]]
     assert xs and all(b.accessibleName() == "Unpin" for b in xs)
 
 

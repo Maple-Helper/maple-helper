@@ -142,7 +142,7 @@ def test_labels_and_tooltips_in_both_languages():
     assert [sources.tag(en, s) for s in (sources.MSEA, sources.COMMUNITY, sources.OFFICIAL, sources.MEOWDB, "COT2")] \
         == ["MSEA", "Community", "Official · Nexon", "MeowDB", "COT2"]
     assert [sources.tag(he, s) for s in (sources.COMMUNITY, sources.OFFICIAL)] == ["קהילה", "רשמי · Nexon"]
-    assert sources.tip(he, "COT2") == "נתוני גרסת הניסיון השנייה (COT2), לא מאושרים להשקה."
+    assert sources.tip(he, "COT2") == "נתונים מהטסט הסגור השני (COT2), לא מאושרים להשקה."
     assert sources.tip(en, "COT1").startswith("Data from the first closed test (COT1)")
     for s in sources.FIXED:
         assert sources.tip(en, s) != f"src_{s.lower()}_tip" and sources.tip(he, s) != f"src_{s.lower()}_tip"
@@ -173,13 +173,17 @@ def test_respawn_timer_source():
     assert sources.respawn_source(kb, "monster/700000") == ("COT2", True)
 
 
+NB = "\u00a0"
+
+
 def test_change_line_is_one_left_to_right_block_in_hebrew():
     line = sources.change_line("Weapon Attack", 30, 33, "COT2", "Launch")
-    assert line == f"{bidi.LRI}Weapon Attack 30 → 33 (COT2 → Launch){bidi.PDI}"
+    # no-break spaces inside the pair: a narrow Hebrew card broke it after the arrow (CHAT-13)
+    assert line == f"{bidi.LRI}Weapon{NB}Attack{NB}30{NB}→{NB}33 (COT2 → Launch){bidi.PDI}"
     # in a Hebrew tooltip the block stays whole: no run marks inside it, the arrow inside the isolate
     html = bidi.to_html(he("src_changed_head", before="COT2") + "\n" + line, "rtl")
     inner = html[html.index(bidi.LRI):html.index(bidi.PDI)]
-    assert bidi.LRE not in inner and bidi.RLM not in inner and "30 → 33 (COT2 → Launch)" in inner
+    assert bidi.LRE not in inner and bidi.RLM not in inner and f"30{NB}→{NB}33 (COT2 → Launch)" in inner
     assert html.count('dir="rtl"') == 2
     # and drawn: old value left of the arrow, the arrow left of the new value, the labels in order, in brackets
     from test_bidi import _reading_order
@@ -259,7 +263,7 @@ def test_recent_changes_last_a_week_from_the_updates_own_date(tiny):
     assert recent.lines(en, tiny, r) == [sources.change_line("Weapon Attack", "50", "53", "COT2", "Launch")]
     assert recent.lines(en, tiny, found["item/12"]) == [sources.change_line("Weapon Defense", "1", "2")]
     tip = recent.tip(he, tiny, r)
-    assert tip.startswith("עודכן במאגר ב-") and "Weapon Attack 50 → 53 (COT2 → Launch)" in tip
+    assert tip.startswith("עודכן במאגר ב-") and "Weapon Attack 50 → 53 (COT2 → Launch)" in tip.replace(NB, " ")
 
 
 def test_ai_hears_about_recent_changes(tiny):
@@ -312,15 +316,15 @@ def test_cards_and_groups_show_their_source(tiny, qapp):
     def chips(w, name="SourceTag"):
         return [c.text().strip("‏‪‬") for c in w.findChildren(QLabel) if c.objectName() == name]
     card = EntityCard(tiny, "monster/1", "en")
-    assert chips(card) == ["COT2"] and "ACC 30 → 33 (COT1 → COT2)" in card.source_chip.toolTip()
+    assert chips(card) == ["COT2"] and "ACC 30 → 33 (COT1 → COT2)" in card.source_chip.toolTip().replace(NB, " ")
     assert chips(card, "UpdatedTag") == ["Updated"] and "HP 10 → 8" in \
-        [c for c in card.findChildren(QLabel) if c.objectName() == "UpdatedTag"][0].toolTip()
+        [c for c in card.findChildren(QLabel) if c.objectName() == "UpdatedTag"][0].toolTip().replace(NB, " ")
     assert chips(EntityCard(tiny, "item/10", "he")) == ["השקה"]
     assert chips(EntityCard(tiny, "item/13", "en")) == []            # no stat line, nothing to label
     group = DropGroupCard(tiny, "monster/1", ["item/13", "item/11"], en)
     assert chips(group) == ["Community", "MSEA"]                      # a group that mixes lists: one chip each
     # the change from the test before, in sight (it was only in the tag's tooltip)
-    assert "ACC 30 → 33" in card.changed_label.text() and "COT1" in card.changed_label.text()
+    assert f"ACC{NB}30{NB}→{NB}33" in card.changed_label.text() and "COT1" in card.changed_label.text()
     assert not hasattr(EntityCard(tiny, "item/10", "en"), "changed_label")      # official values: no test change
     assert chips(TileGrid(tiny, ["item/13"], "Snail drops", False, t=en, srcs=["MSEA"])) == ["MSEA"]
 

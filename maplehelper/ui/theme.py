@@ -91,13 +91,13 @@ BORDER = "rgba(255,149,51,0.55)"
 
 FONT_FAMILY = "Rubik"
 ICON_FONT = "Segoe Fluent Icons"
-ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707", "pin": "\ue718", "map_where": "\ue81d", "minimap": "\ue7a8"}
+ICON = {"open": "\ue8a7", "refresh": "\ue72c", "info": "\ue946", "edit": "\ue70f", "delete": "\ue74d", "add": "\ue710", "minimize": "\ue921", "close": "\ue8bb", "settings": "\ue713", "camera": "\ue722", "mic": "\ue720", "send": "\ue74a", "stop": "\ue71a", "copy": "\ue8c8", "star": "\ue734", "star_on": "\ue735", "plan": "\ue8fd", "book": "\ue736", "search": "\ue721", "tools": "\ue90f", "timer": "\ue916", "play": "\ue768", "check": "\ue73e", "route": "\ue707", "pin": "\ue718", "map_where": "\ue81d", "minimap": "\ue7a8", "warn": "\ue7ba"}
 # the same keys without an icon font (a trailing U+FE0E asks for the plain glyph, not the color emoji)
 SYMBOL_ICONS = {"open": "\u2197", "refresh": "\u21bb", "info": "\u24d8", "edit": "\u270e", "delete": "\u232b", "add": "+", "minimize": "\u2013",
                 "close": "\u2715", "settings": "\u2699\ufe0e", "camera": "\ud83d\udcf7\ufe0e", "mic": "\ud83c\udf99\ufe0e", "send": "\u27a4", "stop": "\u25a0",
                 "copy": "\u29c9", "star": "\u2606", "star_on": "\u2605", "plan": "\u2261", "book": "\u2630", "search": "\u2315",
                 "tools": "\u2692\ufe0e", "pin": "\U0001F4CC\ufe0e", "timer": "\u23f1\ufe0e", "play": "\u25b6\ufe0e", "check": "\u2713",
-                "route": "\u2316", "map_where": "\u25c9", "minimap": "\u2b1a"}
+                "route": "\u2316", "map_where": "\u25c9", "minimap": "\u2b1a", "warn": "\u26a0\ufe0e"}
 
 
 def high_contrast() -> str | None:
@@ -200,8 +200,9 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     QToolButton#Icon[active="true"] {{ color: #FF453A; }}
     QToolButton#Icon[unread="true"] {{ color: {ORANGE}; }}
     QToolButton#Icon[wished="true"] {{ color: {ot}; }}
+    QToolButton#Icon[dismiss="true"] {{ font-size: 12px; }}
     #HeaderSep {{ background: {c['stroke']}; border: none; }}
-    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 11px; color: {ot}; background: transparent;
+    QToolButton#IconClose {{ font-family: "{ICON_FONT}"; font-size: 12px; color: {ot}; background: transparent;
                              border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
     QToolButton#IconClose:hover {{ background: {ORANGE}; color: #FFFFFF; }}
     QToolButton#IconClose:pressed {{ background: {ORANGE_DEEP}; color: #FFFFFF; }}
@@ -249,6 +250,14 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
                    border-radius: 15px; min-height: 32px; }}
     #BubbleUser QLabel {{ color: {ON_ORANGE}; }}
     #BubbleBot {{ background: {c['fill1']}; border: 1px solid {c['hair']}; border-radius: 15px; min-height: 32px; }}
+    /* a failed answer: tinted, with a warning icon, so it doesn't read like an answer (CHAT-02) */
+    #BubbleBot[error="true"] {{ background: {"rgba(255,69,58,0.12)" if MODE == "dark" else "rgba(255,59,48,0.07)"};
+                                border: 1px solid rgba(255,69,58,0.40); }}
+    #BubbleErrIcon {{ font-family: "{ICON_FONT}"; font-size: 15px; color: #FF453A; }}
+    QPushButton#NewPill {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #FFA24A, stop:1 {ORANGE_DEEP});
+                           color: {ON_ORANGE}; border: none; border-radius: 13px; min-height: 26px; max-height: 26px;
+                           padding: 0 14px; font-size: {s - 2}px; font-weight: 600; }}
+    QPushButton#NewPill:hover {{ background: {ORANGE_DEEP}; }}
     #SystemLine {{ color: {c['muted']}; font-size: {s - 2}px; }}
 
     #Card {{ background: {c['fill1']}; border: 1px solid {c['hair']}; border-radius: 14px; }}
@@ -324,7 +333,11 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
 
     #Capsule {{ background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 21px; }}
     #Capsule[focus="true"] {{ border: 1px solid rgba(255,149,51,0.85); }}
-    QLineEdit#Input {{ background: transparent; border: none; padding: 0 4px; selection-background-color: {ORANGE};
+    #Capsule[voice="true"] {{ border: 1px solid #FF453A; }}
+    #VoiceChip {{ color: {c['text']}; background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 9px;
+                  padding: 2px 10px; font-size: {s - 3}px; }}
+    #VoiceChip[voice="true"] {{ background: rgba(255,69,58,0.14); border: 1px solid rgba(255,69,58,0.55); }}
+    QPlainTextEdit#Input {{ background: transparent; border: none; padding: 0 2px; selection-background-color: {ORANGE};
                        selection-color: {ON_ORANGE};
                        color: {c['text']}; }}
     QToolButton#Send {{ font-family: "{ICON_FONT}"; font-size: 13px; color: {ON_ORANGE}; border: none; border-radius: 15px;
@@ -435,6 +448,7 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
        ":disabled" one painted every label grey), so the label is styled by its own state: a child of a disabled
        row is disabled itself, and the hover comes as a property set by MenuRowHover (installed per row) */
     #MenuRowText {{ color: {c['text']}; }}
+    #MenuNote {{ color: {c['muted']}; font-size: {s - 2}px; padding: 6px 17px 2px 17px; }}
     #MenuRowText:disabled {{ color: {c['faint']}; }}
     #MenuRow[active="true"] {{ background: {ORANGE}; }}
     #MenuRowText[hover="true"], #MenuRow[active="true"] #MenuRowText {{ color: {ON_ORANGE}; }}
@@ -587,6 +601,21 @@ class FocusRing(QObject):
 
 def dialog_background() -> str:
     return "#1C1C1E" if MODE == "dark" else "#F2F2F7"
+
+
+def dismiss_button(tip: str = "", name: str = ""):
+    """The ✕ that takes a note, a tip, a pin or a toast away: one glyph at one size everywhere, grey (only the
+    window's own close is orange, at the same size). Each place had its own: a 14 px glyph, a text "✕" in another
+    font, an 11 px window close (VIS-13)."""
+    from PySide6.QtWidgets import QToolButton
+    b = QToolButton(objectName="Icon", text=ICON["close"])
+    b.setProperty("dismiss", True)
+    b.setCursor(Qt.PointingHandCursor)
+    if tip:
+        b.setToolTip(tip)
+    if name:
+        b.setAccessibleName(name)
+    return b
 
 
 def glyph_icon(name: str, color: str | None = None, px: int = 16):

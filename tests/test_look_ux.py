@@ -331,16 +331,17 @@ def _texts(layout) -> list[str]:
 
 def test_citizenship_under_level_12_says_only_that_it_opens_at_12(tools):
     """TL2-12: "0 Henesys quests you can do now, best first" stood above "Citizenship opens at Lv. 12."."""
-    from maplehelper.i18n import I18n
-    t = I18n("he")
     d, c = tools("Beginner", "Beginner", 1, "town")
     d._fill_town()
     assert d.town_head.isHidden() and d.town_search.isHidden()
-    shown = _texts(d.town_list)
-    assert len(shown) == 1 and "12" in shown[0] and t("town_too_low")[:6] in shown[0]
+    # TOOL-18: one card says it, with the levels to go; no town to pick yet and no second "opens at 12" below
+    assert _texts(d.town_list) == []
+    assert d.town_pick_row.isHidden() and d.town_advice.isHidden()
+    assert "12" in d.town_basics.text() and "11" in d.town_basics.text()
     d.c.level = 20
     d._fill_town()
     assert not d.town_head.isHidden() and not d.town_search.isHidden()
+    assert not d.town_pick_row.isHidden() and not d.town_advice.isHidden()
 
 
 def test_the_recipe_level_chip_keeps_a_visible_gap_in_hebrew(tools):
@@ -363,3 +364,26 @@ def test_the_session_age_uses_the_time_cells_format_from_an_hour(tools):
     assert d._started_ago(SimpleNamespace(start=time.time() - 3700)) == "Started 1:01 h ago"
     assert d._started_ago(SimpleNamespace(start=time.time() - 12 * 60 - 40)) == "Started 12 min ago"
     assert d._started_ago(SimpleNamespace(start=time.time() - 20)) == "Started 1 min ago"      # never "0 min"
+
+
+def test_every_dismiss_x_is_one_glyph_at_one_size(app):
+    """VIS-13: the news strip's ✕ was a 14 px glyph, the toast's and the pins' a text "✕" in another font, the
+    window's close 11 px. Now one glyph and one size: grey to dismiss, orange only for the window."""
+    from PySide6.QtWidgets import QToolButton
+
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.pinsview import PinsBar
+    from maplehelper.ui.toast import Toast
+    from maplehelper.ui.widgets import NoticeCard
+    app.setStyleSheet(theme.stylesheet("Rubik", 14))
+    bar = PinsBar()
+    bar.show_pins([{"q": "Where is Henesys?", "a": "In Victoria Island."}], I18n("en"), False)
+    toast = Toast("Title", "Body", False, "Rubik")
+    note = NoticeCard("A note", "", False)
+    xs = [b for w in (bar, toast, note) for b in w.findChildren(QToolButton) if b.property("dismiss")]
+    assert len(xs) == 3 and all(b.text() == theme.ICON["close"] for b in xs)
+    window_close = QToolButton(objectName="IconClose", text=theme.ICON["close"])
+    sizes = {b.font().pixelSize() for b in xs + [window_close] if b.ensurePolished() is None}
+    assert sizes == {12}
+    for w in (bar, toast, note, window_close):
+        w.deleteLater()

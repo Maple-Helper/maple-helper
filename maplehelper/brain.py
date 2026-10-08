@@ -170,18 +170,22 @@ REPLY_RULES = """<reply_rules>
   HP") still gets that number with its source. In a Hebrew sentence a stat's number comes first: "51 HP".
 - A Hebrew answer reads as if a fluent Israeli gamer wrote it: plain, short sentences in natural Hebrew word order,
   never English sentence structure in Hebrew words. Before replying, reread it once as a Hebrew reader would.
-  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מונסטר בסיסי", never "מונסטר בסיס").
+  * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מפלצת בסיסית", never "מפלצת בסיס").
   * A level always says so: "אתם ברמה 31", "נשק לרמה 20", never "(31)", "ב-31" or "לבל"; "רמה" is feminine
     ("הרמה הבאה", "רמה גבוהה").
   * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
     letters (never "מזו", "מזוס", "מסוס", "מסות").
+  * One word per thing, the same as the app's screens: "מפלצת", "נזק" (never "דמג'"), "אינבנטורי" (never "תיק"),
+    "פוטים" (never "שיקויים"), "חלון ה-Stat", "הסרגל התחתון" of the game (never "HUD"), "Free Market" (never
+    "שוק"), "קלאס", "הטסט הסגור".
   * English only for game names and stat names, joined to a Hebrew prefix with a hyphen ("ל-Henesys",
     "מ-Blue Snail"); never "This", "drop", "and" or "community" in a Hebrew sentence.
   * The player is "אתם": "קחו", "תוכלו", never "קח" or "קחי".
   * Stat bonuses one per item ("STR +1, DEX +1"), never slashed ("STR/DEX +1").
   * Wrong: "Iron Mace הוא נשק Blunt חד-ידני בסיסי לבל 20 - לא רלוונטי לכם כ-Assassin (31)."
     Right: "Iron Mace הוא נשק חד-ידני בסיסי לרמה 20, ל-Warrior ול-Magician. לא מתאים לכם: אתם Assassin ברמה 31."
-  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'".
+  * Jobs and classes in English, always ("Warrior", "Magician", "Assassin"), never "וריור" or "מג'". A plural stays
+    English too ("Warriors", "Bowmen", "Thieves"), never a Hebrew ending on it ("Warrior-ים").
   * The test builds by name: "COT1", "COT2", "בין COT1 ל-COT2" or "בין הטסטים"; never "בנייות" or "בילדים".
 - NEVER translate game names: items, monsters, maps, NPCs, skills and quests stay in English exactly as in the data
   ("Blue Snail Shell", not "קונכיית חילזון כחול"), even inside a Hebrew sentence.
@@ -551,6 +555,21 @@ _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\
 _LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])((?:ו|ש|כש|וכש)?(?:ה|מה|לה|בה|מ|ל)?|(?:ו|ש|כש|וכש)?ב(?=לבל\s*-?\d|"
                          r"לבלים|לבלינג))(לבלים|לבלינג|לבל)([- ]?אפ)?(?![\u0590-\u05FF])")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+# an English name given a Hebrew plural ending, seen live: "Warrior-ים". The plural stays English: "Warriors"
+_HEBREW_PLURAL = re.compile(r"\b([A-Za-z][A-Za-z']*)-(?:ים|ות)(?![\u0590-\u05FF])")
+
+
+def _english_plural(word: str) -> str:
+    low = word.lower()
+    if low.endswith("man"):
+        return word[:-3] + "men"                 # Bowman -> Bowmen
+    if low.endswith("ief"):
+        return word[:-1] + "ves"                 # Thief -> Thieves
+    if low.endswith(("s", "x", "ch", "sh")):
+        return word + "es"
+    if low.endswith("y") and low[-2:-1] not in "aeiou":
+        return word[:-1] + "ies"
+    return word + "s"
 
 
 def _level_word(m: re.Match) -> str:
@@ -563,11 +582,13 @@ def _level_word(m: re.Match) -> str:
 
 def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
-    named as one ("אתם ברמה 31", not "אתם ב-31"), and "רמה" for the gamer's "לבל" (the owner's word)."""
+    named as one ("אתם ברמה 31", not "אתם ב-31"), "רמה" for the gamer's "לבל" (the owner's word), and an English
+    plural for a Hebrew ending on an English name ("Warriors", not "Warrior-ים")."""
     text = _KEY_IN_TEXT.sub("", text)
     text = _BARE_LEVEL.sub(lambda m: f"{m['me'] or m['he']} ברמה {m['n'] or m['n2']}", text)
     text = _LEVEL_WORD.sub(_level_word, text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
+    text = _HEBREW_PLURAL.sub(lambda m: _english_plural(m.group(1)), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")
 
 
@@ -710,6 +731,23 @@ def streamed_text(raw: str, hebrew: bool = False) -> str:
     return drop_keys(strip_lead_in(text) if hebrew else text).strip()
 
 
+class Stream:
+    """The callback a provider streams the raw reply to: the chat gets the visible text (streamed_text), and stage()
+    passes on what the AI is doing before its first words ("tools", "hedge": base.Race, the providers' stream
+    readers), for the waiting bubble. A provider that knows nothing of stages just calls it with the text."""
+
+    def __init__(self, on_delta, on_stage, hebrew: bool):
+        self.on_delta, self.on_stage, self.hebrew = on_delta, on_stage, hebrew
+
+    def __call__(self, raw: str) -> None:
+        if self.on_delta:
+            self.on_delta(streamed_text(raw, self.hebrew))
+
+    def stage(self, kind: str) -> None:
+        if self.on_stage:
+            self.on_stage(kind)
+
+
 WARM_IDLE_S = 60 * 60     # the chat closed, or no question asked, this long: no process is kept waiting (audit PRF-1)
 
 
@@ -817,16 +855,20 @@ class Brain:
         if drop:
             drop()
 
-    def _find_cli(self) -> None:
+    def _find_cli(self, again: bool = False) -> None:
         """The backend looked for its CLI when it was made: an install since (from Settings) or a CLI that moved
         (a Store update renames its folder) left it with none, and every question said "not installed" until
-        a restart."""
+        a restart. again: look even when the old one is still there (an update for a CLI that was too old can
+        install the new one in another folder, and the old one kept answering "too old")."""
         import os
         exe = self.backend.exe
-        if not exe or (os.path.isabs(exe) and not os.path.exists(exe)):
+        if again or not exe or (os.path.isabs(exe) and not os.path.exists(exe)):
             found = self._provider.find_exe()
             if found != exe:
                 self.backend.exe = found
+
+    def refind_cli(self) -> None:
+        self._find_cli(again=True)
 
     def available(self) -> bool:
         self._find_cli()
@@ -839,8 +881,9 @@ class Brain:
 
     def ask(self, question: str, character: Character | None, history: History | None,
             screenshot_jpeg: bytes | None, on_delta=None, focus=None, extra: str | None = None,
-            model: str | None = None, light: bool = False) -> Answer:
-        """Blocking call; on_delta(visible_text_so_far) is invoked while the answer streams.
+            model: str | None = None, light: bool = False, on_stage=None) -> Answer:
+        """Blocking call; on_delta(visible_text_so_far) is invoked while the answer streams, on_stage(kind) when
+        the AI reports what it is doing before that (Stream).
         extra: context for the prompt only; every heuristic below reads the player's own question.
         model: another model for this one call (None: the player's). light: a screenshot read (the ⟳ sync): no
         knowledge-base pre-fetch and no file tools, so a light model answers in seconds instead of ~40 s."""
@@ -856,7 +899,7 @@ class Brain:
         prompt = build_prompt(question, character, history, self.kb, has, "short" if light else self.length, focus,
                               extra, kb_context=not light, ui_lang=self.ui_lang)
         hebrew = reply_language(question, self.ui_lang, self.kb) == "Hebrew"
-        raw_delta = (lambda raw: on_delta(streamed_text(raw, hebrew))) if on_delta else None
+        raw_delta = Stream(on_delta, on_stage, hebrew) if on_delta or on_stage else None
         if cancels != self._cancels:
             return Answer(error="cancelled")      # Stop came while the prompt was built: no AI run starts at all
         if model or light:
@@ -864,6 +907,9 @@ class Brain:
         else:
             result = self.backend.run(prompt, screenshot_jpeg, raw_delta)
         if result.error:
+            if result.error == "cli_outdated":
+                from .providers.base import note_outdated
+                note_outdated(self._provider.name, self.backend.exe)     # Settings says "too old", not "Connected"
             return Answer(error=result.error, limits=result.limits)
         text, meta = split_meta(result.text, hebrew)
         if not text and not meta:

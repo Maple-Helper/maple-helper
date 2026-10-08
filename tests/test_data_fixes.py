@@ -372,7 +372,7 @@ def test_instant_answers_on_the_real_kb(real):
     c = SimpleNamespace(level=30, base_class="Warrior")
     acc = quick.answer("accuracy needed for lupin", real, t, c)
     lupin = combat.monster(real, next(k for k, e in real.entities.items() if e["name"] == "Lupin"))
-    assert acc and f"**{combat.acc_needed(30, lupin.level, lupin.avoid)} ACC**" in acc.text and "Lv. 30" in acc.text
+    assert acc and f"**{combat.acc_needed(30, lupin.level, lupin.avoid)} ACC**" in acc.text and "level 30" in acc.text
     assert quick.answer("כמה דיוק צריך בשביל לופין", real, t, c).text == acc.text
     assert quick.answer("lupin avoid", real, t).text == f"Lupin · Avoid: {lupin.avoid}"
     assert "M.DEF" in quick.answer("Lupin magic defense", real, t).text
@@ -640,10 +640,10 @@ def test_instant_acc_answer_uses_the_level_the_question_names(real):
     """"acc needed for lupin at level 25" answered for the character's level 50 (86 ACC, far too low)."""
     m = combat.monster(real, "monster/35")
     a = quick.answer("acc needed for lupin at level 25", real, t, SimpleNamespace(level=50))
-    assert a and "Lv. 25" in a.text and f"**{combat.acc_needed(25, m.level, m.avoid)} ACC**" in a.text
+    assert a and "level 25" in a.text and f"**{combat.acc_needed(25, m.level, m.avoid)} ACC**" in a.text
     he = quick.answer("כמה דיוק צריך ללופין בלבל 25", real, t, SimpleNamespace(level=50))
-    assert he and "Lv. 25" in he.text
-    assert "Lv. 50" in quick.answer("acc needed for lupin", real, t, SimpleNamespace(level=50)).text
+    assert he and "level 25" in he.text
+    assert "level 50" in quick.answer("acc needed for lupin", real, t, SimpleNamespace(level=50)).text
 
 
 def test_unreleased_pages_are_marked_in_the_ai_context(tmp_path):

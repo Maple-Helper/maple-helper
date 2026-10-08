@@ -65,13 +65,24 @@ APP = {
     "NPC": ("דמות של המשחק (לא שחקן): חנויות, נותני קווסטים ומדריכי ג'וב.",
             "A character run by the game (not a player): shops, quest givers, job instructors."),
     "Citizenship": ("אזרחות בעיר (Henesys או Kerning City) מרמה 12. תרומות מעלות דרגה, שפותחת הנחות ופריטים בחנויות העיר.",
-                    "Citizenship of a town (Henesys or Kerning City) from Lv. 12. Donations raise your grade, "
+                    "Citizenship of a town (Henesys or Kerning City) from level 12. Donations raise your grade, "
                     "which opens discounts and items in that town's shops."),
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
             "Level: of your character or a monster. Every level up gives AP and SP."),
     "mob": ("מפלצת (קיצור של mobile). \"מובים\" = מפלצות.", "A monster (short for mobile)."),
     "catalyst": ("ה-mesos שמשלמים כדי ליצור את הפריט, מעבר לחומרים.", "The mesos paid to craft, on top of the materials."),
-    "Training Advisor": ("כלי של NiaMeowDB שממליץ על מפות אימון לפי הדמות והבילד.",
+    # the book's lines point to website tools ("try the scroll simulator", "see the damage formula guide") or are
+    # fragments; these say the same in full, with nothing the app doesn't have
+    "scroll": ("Scroll: פריט מתכלה שמשדרג את הסטטים של פריט ציוד. יש ארבע דרגות: Lesser, Intermediate, Greater ו-Chaos.",
+               "Scroll: a consumable that upgrades a piece of gear's stats. Four grades: Lesser, Intermediate, "
+               "Greater and Chaos."),
+    "WATK / W.ATK": ("Weapon Attack: מספר ההתקפה של הנשק. ככל שהוא גבוה יותר, כל מכה עושה יותר נזק.",
+                     "Weapon Attack: the attack number on your weapon. The higher it is, the more damage each hit does."),
+    "grind": ("גריינד: הורגים מפלצות שוב ושוב כדי לצבור EXP. אחרי רמה 30 רוב הרמות מגיעות ככה.",
+              "Grinding: killing monsters over and over for EXP. Past level 30 most levels come this way."),
+    "kPQ": ("ה-Party Quest של Kerning City: נפתח ברמה 21, לקבוצה של ארבעה שחקנים. דרך נפוצה לעלות רמות בהתחלה.",
+            "The Kerning City Party Quest: opens at level 21, for a party of four. A staple way to level early on."),
+    "Training Advisor": ("כלי של NiaMeowDB שממליץ על מפות גריינד לפי הדמות והבילד.",
                          "NiaMeowDB's tool that recommends training maps for your character and build."),
 }
 
@@ -122,8 +133,12 @@ def explain(term: str, lang: str) -> str | None:
 MARK = "<b style='font-size:large;'>&nbsp;?</b>"
 
 _PATTERN = re.compile(r"(?<![\w.])(" + "|".join(re.escape(t) for t in sorted(TERMS, key=len, reverse=True)) + r")(?![\w])")
-# a term with its label colon ("HP: 7420"): the "?" goes after the colon, never between the label and it ("HP ?: 7420")
-_TERM_COLON = re.compile(_PATTERN.pattern + r"(:)?")
+# a term with its label colon and value ("HP: 7,420"): the "?" goes after the value, never between the label and it
+# ("HP ?: 7420", "HP: ? 7420": the instant answer, CHAT-12)
+_VALUE = r"\d(?:[\d,.]*\d)?%?"
+_TERM_COLON = re.compile(_PATTERN.pattern + rf"(:(?:[ \u00a0]?{_VALUE})?)?")
+# the same in a Hebrew line, where the label and the value are two blocks (bidi.isolate_ltr_runs)
+_BLOCK_VALUE = re.compile(rf"{bidi.RLM}?:[ \u00a0]?{bidi.LRE}{_VALUE}{bidi.PDF}{bidi.RLM}?")
 
 
 def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None = None, limit: int = 6) -> str:
@@ -154,10 +169,13 @@ def annotate(html_text: str, lang: str, color: str = "#F07A12", seen: set | None
 
         # a KB name kept whole (LRI ... PDI: "Bottomwear HP Scroll: Chaos") is a name, not a use of its terms
         for run in re.finditer(f"{bidi.LRE}(.*?){bidi.PDF}|{bidi.LRI}.*?{bidi.PDI}", part, re.S):
+            if run.start() < pos:      # the value already copied after the block before ("ACC: 47 ? 47")
+                continue
             out.append(_TERM_COLON.sub(sub, part[pos:run.start()]))
             marks = "".join(link(m.group(1)) for m in _PATTERN.finditer(run.group(1) or "") if wanted(m.group(1)))
-            out.append(run.group(0) + marks)
-            pos = run.end()
+            value = _BLOCK_VALUE.match(part, run.end()) if marks else None
+            out.append(run.group(0) + (value.group(0) if value else "") + marks)
+            pos = value.end() if value else run.end()
         out.append(_TERM_COLON.sub(sub, part[pos:]))
         return "".join(out)
 

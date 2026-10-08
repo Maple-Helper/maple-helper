@@ -40,6 +40,8 @@ STALL_TIMEOUT_S = 150
 
 INSTALL_CMD = "irm https://chatgpt.com/codex/install.ps1 | iex"
 INSTALL_CMD_MAC = "curl -fsSL https://chatgpt.com/codex/install.sh | sh"
+# flags of `codex exec` that an old Codex rejects ("error: unexpected argument '--ignore-rules' found")
+NEEDED_FLAGS = ("--json", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check")
 POSIX_DIRS = ["~/.local/bin", "~/.codex/bin", "/opt/homebrew/bin", "/usr/local/bin", "~/.npm-global/bin"]
 
 # Codex features that are on by default and reach beyond reading the knowledge base: ChatGPT connectors,
@@ -269,6 +271,7 @@ def parse_status(returncode: int, output: str) -> dict:
 class Codex(Provider):
     name = "codex"
     label = "ChatGPT"     # what players know it as (it runs through the Codex CLI)
+    tool = "Codex"
     keyring_user = "openai_api_key"
     model_setting = "codex_model"
     reports_usage = True      # read on demand from the app-server (codex exec doesn't report it)
@@ -298,6 +301,8 @@ class Codex(Provider):
         exe = find_codex()
         if not exe:
             return {"status": "not_installed", "email": None, "method": None}
+        if base.cli_outdated(self.name, exe, ("exec", "--help"), NEEDED_FLAGS, env()):
+            return {"status": "outdated", "email": None, "method": None}
         try:
             r = subprocess.run([exe, "login", "status"], capture_output=True, timeout=20, env=env(),
                                creationflags=CREATE_NO_WINDOW)

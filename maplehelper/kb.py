@@ -30,6 +30,19 @@ _FINALS = str.maketrans("ךםןףץ", "כמנפצ")
 _QUOTES = str.maketrans({"׳": "'", "`": "'", "´": "'", "’": "'", "‘": "'", "״": '"', "“": '"', "”": '"'})
 
 
+def memo(kb, name: str) -> dict:
+    """A cache kept on this KB object, the way availability.of and routes.of keep theirs: a KB update loads a new
+    object, and with it an empty cache. A stand-in that takes no attributes gets a fresh one each call."""
+    cache = getattr(kb, name, None)
+    if not isinstance(cache, dict):
+        cache = {}
+        try:
+            setattr(kb, name, cache)
+        except AttributeError:
+            pass
+    return cache
+
+
 def fold_quotes(s: str) -> str:
     return s.translate(_QUOTES)
 
@@ -1061,6 +1074,14 @@ class KnowledgeBase:
         self.map_label("warm")
         self.droppers                               # noqa: B018 - the drop index and the route graph (KB-19)
         routes.of(self)
+        # the Tools window's item list (which Cash items are pets) and the Farm tab's NPC prices: ~1,500 item pages
+        # read here, not on the GUI thread when the window opens (it stopped answering for 1.3 s, PERF-05)
+        from . import market, sitedata
+        for k, e in self.entities.items():
+            if e.get("category") == "item" and str(e.get("type") or "").startswith("Cash"):
+                sitedata.untradeable(self, k)
+        for k in self.droppers:
+            market.npc_prices(self, k)
 
     def ensure_drop_table(self) -> None:
         """Make sure the flat tables beside index.json are current (tables.py): drops.tsv ("which monsters drop X"

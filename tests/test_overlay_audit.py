@@ -61,7 +61,7 @@ def pump(app, ms):
 
 
 def last_row(ov):
-    return ov.feed_lay.itemAt(ov.feed_lay.count() - 2).widget()
+    return ov.feed_lay.itemAt(ov.feed_lay.count() - 1).widget()
 
 
 def shown(text: str) -> str:
@@ -289,9 +289,16 @@ def test_a_long_notice_link_shrinks_instead_of_widening_the_chat():
 
 def test_a_long_unbroken_word_can_wrap():
     from maplehelper.ui.widgets import ZWSP, soft_breaks
+    word = "Snail_Shell_" + "x" * 80
+    out = soft_breaks(f"ראו {word} שם")
+    assert out.replace(ZWSP, "") == f"ראו {word} שם" and ZWSP in out
+    # a URL is left whole (a break inside it would be in the link too): the answer's HTML breaks the text it shows
     url = "https://meowdb.com/items/" + "x" * 80
-    out = soft_breaks(f"ראו {url} שם")
-    assert out.replace(ZWSP, "") == f"ראו {url} שם" and ZWSP in out
+    assert soft_breaks(f"ראו {url} שם") == f"ראו {url} שם"
+    assert ZWSP in soft_breaks(url, links=False)      # the player's own question: no link, so it still wraps (X-R2)
+    from maplehelper import bidi
+    html = bidi.to_html(f"ראו {url} שם", "rtl", md=True)
+    assert f'href="{url}"' in html and ZWSP in html
     assert soft_breaks("**" + "a" * 40 + "**").count("**") == 2           # the bold markup stays whole
     assert soft_breaks("short words only") == "short words only"
 

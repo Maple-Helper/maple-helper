@@ -27,6 +27,20 @@ def test_summary_tracks_levels_quests_and_questions():
     assert "30 → 33" in text and "Mai's Training" in text and "2 questions" in text
 
 
+def test_hebrew_level_change_reads_old_to_new_like_the_other_changes():
+    # COPY-12: "רמה 12 ← 15" pointed the other way from a skill change's "35% → 50%" (sitedata.change_text)
+    from maplehelper import bidi
+    kiwi = char(level=12)
+    s = session.SessionStats(now=0)
+    s.touch(kiwi)
+    kiwi.level = 15
+    out = s.summary(SimpleNamespace(characters=[kiwi]))
+    he = I18n("he")
+    for line in (session.lines(out, he)[0], session.blocks(out, he)[0]["lines"][0]):
+        assert "←" not in line and "12 → 15" in line
+        assert f"{bidi.LRI}12 → 15{bidi.PDI}" in bidi.plain(line, True)
+
+
 def test_nothing_happened_means_no_summary():
     kiwi = char()
     s = session.SessionStats(now=0)

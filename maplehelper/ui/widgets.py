@@ -3,12 +3,13 @@ from __future__ import annotations
 
 import re
 
-from PySide6.QtCore import QObject, QSize, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QSizePolicy, QVBoxLayout, QWidget,
                                QWidgetAction)
 
 from .. import bidi
+from ..i18n import STRINGS
 from ..kb import KnowledgeBase
 from ..osapi import open_url
 
@@ -47,12 +48,15 @@ def on_solid_background(pm: QPixmap, radius: float) -> QPixmap:
 ZWSP = chr(0x200B)       # zero-width space: a place to wrap, nothing drawn
 
 
-def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
+def soft_breaks(text: str, run: int = 30, every: int = 20, links: bool = True) -> str:
     """A zero-width break every `every` characters inside a word longer than `run` (a URL, names joined by "_"):
     Qt wraps only at spaces and a few marks, and such a word ran past the bubble and was cut. "**" stays whole
-    (the bold markup)."""
+    (the bold markup). A link is left alone (links=True, an answer): bidi.to_html shows it whole and breaks the text
+    it shows itself; the player's own question has no links, and its URL was cut off (review X-R2)."""
     def cut(m):
         w, out, n = m.group(0), [], 0
+        if links and "://" in w:
+            return w
         for i, ch in enumerate(w):
             out.append(ch)
             n += 1
@@ -63,14 +67,138 @@ def soft_breaks(text: str, run: int = 30, every: int = 20) -> str:
     return re.sub(r"\S{%d,}" % run, cut, text)
 
 
+THINKING = set(STRINGS["thinking"].values())
+
+
+def _solid(css: str) -> str:
+    """A see-through palette color as the opaque color it shows on the chat (Qt's rich text can't read rgba())."""
+    from PySide6.QtGui import QColor
+    from . import theme
+    c, bg = theme.qcolor(css), QColor(*theme.P()["glass"])
+    a = c.alphaF()
+    return QColor(*(round(f(c) * a + f(bg) * (1 - a)) for f in (QColor.red, QColor.green, QColor.blue))).name()
+
+
+class _Dots(QWidget):
+    """Three small dots that light up in turn beside "Thinking". Repaints only itself (no layout pass)."""
+
+    def __init__(self, height: int):
+        super().__init__()
+        self.phase = 0
+        self.setFixedSize(26, height)
+
+    def step(self) -> None:
+        self.phase = (self.phase + 1) % 3
+        self.update()
+
+    def paintEvent(self, e):
+        from PySide6.QtGui import QColor, QPainter
+        from . import theme
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        lit, dim = QColor(theme.accent_text()), theme.qcolor(theme.P()["faint"])
+        y = self.height() / 2 + 1
+        for i in range(3):
+            # from the leading edge: right to left in a Hebrew chat, as the text reads
+            x = (self.width() - 7 - i * 9) if self.layoutDirection() == Qt.RightToLeft else 2 + i * 9
+            p.setBrush(lit if i == self.phase else dim)
+            p.drawEllipse(QRectF(x, y - 2.5, 5, 5))
+        p.end()
+
+
+class Waiting(QObject):
+    """The "Thinking…" bubble alive while the AI works (a static bubble for 10-40 s read as a frozen app, the UX
+    audit CHAT-03): dots that light up in turn, the seconds from SECONDS_AFTER on, and what the AI is doing when its
+    stream says so ("tools": it searches the knowledge base; "hedge": a second run went out). Light, as the chat sits
+    beside the game: one timer, the dots repaint only themselves and the text is set again only when it changes
+    (once a second at most). Gone as soon as the answer's first words replace "Thinking…" (Bubble.set_text)."""
+
+    TICK_MS = 400
+    SECONDS_AFTER = 5
+
+    def __init__(self, bubble: Bubble, t_of):
+        super().__init__(bubble)
+        import time
+
+        from PySide6.QtCore import QTimer
+        self.bubble, self.t_of, self.clock = bubble, t_of, time.monotonic
+        self.began = self.clock()
+        self.stage = ""
+        self.hedged = False
+        self._shown = None
+        self.dots = _Dots(bubble.label.fontMetrics().height())
+        row = bubble.text_row
+        row.setStretchFactor(bubble.label, 0)
+        row.addWidget(self.dots, 0, Qt.AlignTop)
+        row.addStretch(1)
+        self._timer = QTimer(self, interval=self.TICK_MS, timeout=self._tick)
+        self._timer.start()
+        self._draw()
+
+    def set_stage(self, kind: str) -> None:
+        if kind == "hedge":
+            self.hedged = True
+        else:
+            self.stage = kind
+        self._draw()
+
+    def seconds(self) -> int:
+        return int(self.clock() - self.began)
+
+    def _tick(self) -> None:
+        self.dots.step()
+        self._draw()
+
+    def _draw(self) -> None:
+        t = self.t_of()
+        s = self.seconds()
+        state = (t.lang, s if s >= self.SECONDS_AFTER else None, self.stage, self.hedged)
+        if state == self._shown:
+            return
+        self._shown = state
+        self.bubble.label.setText(self.html(t, state[1]))
+
+    def html(self, t, secs: int | None) -> str:
+        from . import theme
+        d = "rtl" if t.rtl else "ltr"
+        head = t("thinking").rstrip("…").rstrip(".")       # the dots say the rest
+        if secs is not None:
+            head += " · " + t("thinking_secs", s=secs)
+        out = bidi.paragraph_html(head, d)
+        note = t("thinking_hedge") if self.hedged else t("thinking_tools") if self.stage == "tools" else ""
+        if note:
+            size = max(9, self.bubble.label.fontInfo().pixelSize() - 2)
+            out += bidi.paragraph_html(note, d, style=f"margin:0; color:{_solid(theme.P()['muted'])};"
+                                                       f" font-size:{size}px;")
+        return out
+
+    def close(self) -> None:
+        self._timer.stop()
+        row = self.bubble.text_row
+        for i in reversed(range(row.count())):
+            item = row.itemAt(i)
+            if item.widget() is self.dots or item.spacerItem() is not None:
+                row.takeAt(i)
+        self.dots.hide()
+        self.dots.deleteLater()
+        row.setStretchFactor(self.bubble.label, 1)
+        self.deleteLater()
+
+
 class Bubble(QFrame):
     """A chat message. Direction is decided per paragraph, not by the UI language."""
+
+    pin_btn = None          # an answer's pin (add_pin), and the answer it pins
+    pin_key = ""
 
     def __init__(self, text: str, role: str, ui_rtl: bool, tag: str = "", direction: str | None = None):
         # tag: "Mano, Blue Snail"; direction: the message's language when known ("rtl" for a Hebrew instant answer)
         super().__init__()
         self.role = role
         self._dir = direction
+        self._wait: Waiting | None = None
+        self._err_icon = self._err_row = None
         self.setObjectName("BubbleUser" if role == "user" else "BubbleBot")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(13, 8, 13, 9)
@@ -85,7 +213,13 @@ class Bubble(QFrame):
             lay.addWidget(self.tag_label)
         self.label = _label(rich=True)
         self.label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
-        lay.addWidget(self.label)
+        # the text's row: an error's icon before the text, a one-line answer's copy and pin after it (CHAT-20), the
+        # waiting dots
+        self.text_row = QHBoxLayout()
+        self.text_row.setContentsMargins(0, 0, 0, 0)
+        self.text_row.setSpacing(6)
+        self.text_row.addWidget(self.label, 1)
+        lay.addLayout(self.text_row)
         self.set_text(text)
 
     def fit_width(self, row_width: int) -> None:
@@ -103,13 +237,19 @@ class Bubble(QFrame):
 
     def set_text(self, text: str) -> None:
         self._text = text
+        if self._wait is not None and text not in THINKING:
+            w, self._wait = self._wait, None        # the first words (or the end): the waiting look goes
+            w.close()
         if not text:
             self.label.setText("")
             return
-        body = bidi.to_html(soft_breaks(text), self._dir)
-        if self.role != "user":
-            from . import terms
+        answer = self.role != "user"
+        body = bidi.to_html(soft_breaks(text, links=answer), self._dir, md=answer)
+        if answer:
+            from . import terms, theme
             from .. import glossary
+            # an answer's links in the app's link color (not Qt's default blue), opened in the browser (terms.watch)
+            body = body.replace('<a href="', f'<a style="color:{theme.accent_text()};" href="')
             body = glossary.annotate(body, terms.LANG, limit=4)
             if not getattr(self, "_terms", False):
                 terms.watch(self.label, terms.LANG)
@@ -119,17 +259,67 @@ class Bubble(QFrame):
                 self._terms = True
         self.label.setText(body)
 
+    def start_waiting(self, t_of) -> None:
+        """ "Thinking…" comes alive (Waiting) until the answer's first words. t_of(): the UI's I18n now."""
+        if self._wait is None and self._text in THINKING:
+            self._wait = Waiting(self, t_of)
+
+    def set_stage(self, kind: str) -> None:
+        """What the AI is doing while no word of the answer is in yet: "tools" or "hedge" (Waiting)."""
+        if self._wait is not None:
+            self._wait.set_stage(kind)
+
+    @property
+    def waiting(self) -> bool:
+        return self._wait is not None
+
+    def show_error(self, text: str, actions: list) -> list:
+        """A failed answer, not an answer (it read like one, CHAT-02): an error tint and icon, and its actions under
+        the text ("Try again", "Open Settings"; actions: (label, callback) pairs). Called again with a new language's
+        texts, it draws them again. Returns the action buttons."""
+        from . import theme
+        self.set_text(text)
+        if not self.property("error"):
+            self.setProperty("error", True)
+            self.style().unpolish(self)
+            self.style().polish(self)
+            self._err_icon = QLabel(theme.ICON["warn"], objectName="BubbleErrIcon")
+            self._err_icon.setFixedHeight(self.label.fontMetrics().height())
+            self.text_row.insertWidget(0, self._err_icon, 0, Qt.AlignTop)
+        if self._err_row is not None:
+            self._err_row.hide()
+            self._err_row.deleteLater()
+            self._err_row = None
+        buttons = []
+        if actions:
+            from .controls import FlowLayout
+            rtl = (self._dir or bidi.direction(text)) == "rtl"
+            self._err_row = QWidget()
+            self._err_row.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+            row = FlowLayout(self._err_row, spacing=18, line_spacing=0)
+            row.setContentsMargins(0, 0, 0, 0)
+            for label, on_click in actions:
+                b = ElideLink(bidi.plain(label, rtl), objectName="Link")
+                b.setCursor(Qt.PointingHandCursor)
+                b.clicked.connect(on_click)
+                row.addWidget(b)
+                buttons.append(b)
+            self.layout().addWidget(self._err_row)
+        return buttons
+
     def plain_text(self) -> str:
         """The message as the player would paste it: no **bold** marks."""
         return (self._text or "").replace("**", "").strip()
 
+    ONE_ROW_CHARS = 160      # an answer this short, in one paragraph, has its copy and pin on its text's row
+
     def add_pin(self, on_pin, tip: str, copy_tip: str = "", copied: str = "") -> None:
         """A small pin under a finished answer (the icon font's, like the header's icons; it was the 📌 emoji), and
-        beside it a copy button: the answer's text on the clipboard."""
+        beside it a copy button: the answer's text on the clipboard. A one-paragraph answer has them at the end of
+        its own text: on a row of their own they made "Mano · HP: 7,420" a three-row bubble (CHAT-20)."""
         from PySide6.QtWidgets import QToolButton
-        row = QHBoxLayout()
-        row.addStretch(1)
         from . import theme
+        icons = []
         if copy_tip:
             from PySide6.QtGui import QCursor
             from PySide6.QtWidgets import QApplication, QToolTip
@@ -143,18 +333,33 @@ class Bubble(QFrame):
                 if copied:
                     QToolTip.showText(QCursor.pos(), copied, c)
             c.clicked.connect(copy)
-            row.addWidget(c)
+            icons.append(c)
         b = QToolButton(objectName="Icon", text=theme.ICON["pin"])
         b.setCursor(Qt.PointingHandCursor)
         b.setToolTip(tip)
         b.setAccessibleName(tip)        # its text is an icon-font glyph: a screen reader read nothing (UX-15)
-        b.clicked.connect(lambda: (on_pin(), b.setEnabled(False)))
-        row.addWidget(b)
+        # the chat greys it out once the answer is really pinned, and brings it back on unpin (it went grey on the
+        # click itself: "Not now" on a full pin list left an answer that could never be pinned, CHAT-11)
+        b.clicked.connect(lambda: on_pin())
+        self.pin_btn, self.pin_key = b, self._text
+        icons.append(b)
+        text = (self._text or "").strip()
+        if "\n" not in text and len(text) <= self.ONE_ROW_CHARS:
+            for w in icons:
+                self.text_row.addWidget(w, 0, Qt.AlignBottom)
+            return
+        row = QHBoxLayout()
+        row.addStretch(1)
+        for w in icons:
+            row.addWidget(w)
         self.layout().addLayout(row)
 
 
 class BubbleRow(QWidget):
-    """iMessage convention: your messages sit on the trailing side (left in Hebrew), answers span the width."""
+    """iMessage convention: your messages sit on the trailing side (left in Hebrew), answers span the width, up to
+    ANSWER_MAX px (on a 900 px chat a line ran ~120 characters, hard to read beside a game: CHAT-14)."""
+
+    ANSWER_MAX = 680
 
     def __init__(self, bubble: Bubble, ui_rtl: bool):
         super().__init__()
@@ -170,12 +375,44 @@ class BubbleRow(QWidget):
             lay.addStretch(1)
             lay.addWidget(bubble, 0)
         else:
+            bubble.setMaximumWidth(self.ANSWER_MAX)
             lay.addWidget(bubble, 1)
+            lay.addStretch(0)            # the room past ANSWER_MAX, on the trailing side
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
         if self.bubble.role == "user" and e.oldSize().width() != e.size().width():
             self.bubble.fit_width(self.width())
+
+
+class NewPill(QPushButton):
+    """ "↓ New answer", floating over the bottom of the chat when an answer (or a card under it) landed below where
+    the player is reading (Overlay._note_new_below). Stays centred over the view as the chat resizes."""
+
+    def __init__(self, scroll: QWidget):
+        super().__init__(scroll, objectName="NewPill")
+        self.setCursor(Qt.PointingHandCursor)
+        self.hide()
+        scroll.installEventFilter(self)
+
+    def show_text(self, text: str) -> None:
+        self.setText(text)
+        self.setAccessibleName(text)
+        self.adjustSize()
+        self._place()
+        self.show()
+        self.raise_()
+
+    def _place(self) -> None:
+        area = self.parentWidget()
+        view = getattr(area, "viewport", lambda: area)()
+        self.move((view.width() - self.width()) // 2 + view.x(), view.y() + view.height() - self.height() - 10)
+
+    def eventFilter(self, obj, e) -> bool:
+        from PySide6.QtCore import QEvent
+        if e.type() == QEvent.Resize and self.isVisible():
+            self._place()
+        return False
 
 
 class SystemLine(QLabel):
@@ -287,9 +524,7 @@ class NoticeCard(QFrame):
             self._col.addWidget(holder)
         self.close_btn = None
         if closable:
-            from PySide6.QtWidgets import QToolButton
-            self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
-            self.close_btn.setCursor(Qt.PointingHandCursor)
+            self.close_btn = theme.dismiss_button()
             self.close_btn.setFixedSize(24, 24)
             self.close_btn.clicked.connect(self._dismiss)
             lay.addWidget(self.close_btn, 0, Qt.AlignTop)
@@ -782,10 +1017,23 @@ class Selectable:
         super().keyPressEvent(ev)
 
 
+def load_lazy_picture(card, size: int, trim: bool = False) -> None:
+    """A card's picture put off at its making (card._lazy = (label, path)), now."""
+    lazy, card._lazy = getattr(card, "_lazy", None), None
+    if not lazy or not lazy[1]:
+        return
+    pic, img = lazy
+    pm = QPixmap(str(img))
+    if not pm.isNull():
+        pic.setPixmap(fit_picture(pm, size, size, pic, trim=trim))
+        zoom_on_hover(pic, img)
+
+
 class EntityCard(Selectable, QFrame):
     """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaMeowDB page."""
 
-    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True):
+    def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True, lazy: bool = False):
+        """lazy: the picture waits for load_picture() (a window of a hundred cards shows first, PERF-04)."""
         super().__init__()
         from ..i18n import I18n
         self.setObjectName("Card")
@@ -804,7 +1052,9 @@ class EntityCard(Selectable, QFrame):
         row.setSpacing(10)
 
         img = kb.picture(key)          # never empty: own picture, related one, or category icon
-        pm = QPixmap(str(img)) if img else QPixmap()
+        self._lazy = None
+        lazy = lazy and not key.startswith("map/")       # a map's picture decides the card's layout
+        pm = QPixmap(str(img)) if img and not lazy else QPixmap()
         # a map's wide minimap goes under its name, across the column (the square showed a thin sliver)
         strip = None
         if key.startswith("map/") and WidePicture.wide(pm):
@@ -814,7 +1064,9 @@ class EntityCard(Selectable, QFrame):
             pic = QLabel()
             pic.setFixedSize(56, 56)
             pic.setAlignment(Qt.AlignCenter)
-            if not pm.isNull():
+            if lazy:
+                self._lazy = (pic, img)
+            elif not pm.isNull():
                 pic.setPixmap(fit_picture(pm, 56, 56, pic))
                 zoom_on_hover(pic, img)
             row.addWidget(pic, 0, Qt.AlignTop)
@@ -974,6 +1226,9 @@ class EntityCard(Selectable, QFrame):
                   "Upgrade Slots")
     ITEM_BONUSES = ("STR", "DEX", "INT", "LUK", "HP", "MP", "Accuracy", "Avoidability", "Speed", "Jump")
 
+    def load_picture(self) -> None:
+        load_lazy_picture(self, 56)
+
     @staticmethod
     def _stats(e: dict, t, limit: int | None = None) -> str:
         """Every stat the KB gives the item (or the monster's level, HP and EXP): the bonuses are what tells one
@@ -1003,7 +1258,6 @@ class EntityCard(Selectable, QFrame):
 
 # ------------------------------------------------------------------ profile card (pinned at the top of the chat)
 
-from PySide6.QtCore import QRectF  # noqa: E402
 from PySide6.QtGui import QColor, QPainter, QPainterPath  # noqa: E402
 
 JOB_IMAGE_FALLBACK = {  # 3rd jobs have no picture in the database: use their 2nd job's
@@ -1191,6 +1445,18 @@ class SplitMenu(QMenu):
                 for x in (w, *w.findChildren(QWidget, "MenuRowText")):
                     x.style().unpolish(x)
                     x.style().polish(x)
+
+    def add_note(self, text: str) -> None:
+        """A muted line on the panel that can't be chosen (why the rows under it are grey)."""
+        rtl = self.layoutDirection() == Qt.RightToLeft
+        label = QLabel(bidi.plain(text, rtl), objectName="MenuNote")
+        label.setWordWrap(True)
+        label.setAlignment((Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter)
+        label.setProperty("panel", True)
+        a = QWidgetAction(self)
+        a.setDefaultWidget(label)
+        a.setEnabled(False)
+        self.addAction(a)
 
     def add_row(self, icon_name: str, text: str, on_click, enabled: bool = True) -> None:
         """A menu line laid out by us: in Hebrew the icon on the right and the text right beside it (a QMenu
