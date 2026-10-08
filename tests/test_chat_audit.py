@@ -330,8 +330,14 @@ def test_icon_buttons_have_names_for_screen_readers(overlay):
 def test_minimap_button_asks_for_the_minimap_box(overlay):
     seen = []
     overlay.minimap_requested.connect(lambda: seen.append(1))
-    assert overlay.minimap_btn.toolTip() == overlay.t("minimap_select")
-    assert overlay.minimap_btn.accessibleName() == overlay.t("minimap_select")
+    # on the character card beside ⟳, not in the header (the owner's, 2026-10-08)
+    assert overlay.minimap_btn is overlay.profile_card.minimap
+    assert overlay.minimap_btn.parent() is overlay.profile_card
+    assert not overlay.title_bar.isAncestorOf(overlay.minimap_btn)
+    # the tooltip says what to do and what it gives, not just its name
+    tip = overlay.minimap_btn.toolTip()
+    assert tip == overlay.t("minimap_tip") and tip.count("\n") >= 4 and "◎" in tip
+    assert overlay.minimap_btn.accessibleName() == tip.split("\n", 1)[0]
     overlay.minimap_btn.click()
     assert seen == [1]
 
@@ -370,7 +376,7 @@ def test_the_location_line_follows_a_language_switch(overlay, monkeypatch):
         overlay.settings["language"] = "en"
         overlay.apply_language()
         assert overlay.profile_card.where.text() == "In Henesys"
-        assert overlay.minimap_btn.toolTip() == "Select minimap"
+        assert overlay.minimap_btn.toolTip().startswith("Select minimap:")
     finally:
         LOCATION.set(None)
         LOCATION.set_state("")

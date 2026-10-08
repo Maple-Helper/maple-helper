@@ -1,4 +1,5 @@
-"""Anonymous usage stats (PostHog), only when the player opts in (Settings > Privacy & system).
+"""Anonymous usage stats (PostHog), on by default for a new install; the player can turn them off (Settings >
+Privacy & system). An install that already has the setting keeps its choice.
 
 What is sent: event names ("question_asked", ...), the app version, the OS, and a few short
 values such as which provider answered. Each install gets a random id that is not linked to the
@@ -60,7 +61,7 @@ def base_props(version: str) -> dict:
 def init(settings, version: str) -> None:
     """Call once at startup. Nothing is sent unless the player turned stats on and a key is set."""
     _state["key"] = _key()
-    # the id is made only when stats are turned on: a player who never opts in never gets one
+    # the id is made only when stats are on: a player who turns them off before any event never gets one
     _state["settings"], _state["id"] = settings, settings["install_id"] or ""
     _state["base"] = base_props(version)
     set_enabled(bool(settings["telemetry"]))

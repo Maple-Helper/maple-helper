@@ -189,7 +189,7 @@ class MapleHelperApp:
         from .ui.minimapscan import MinimapScanner
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
-        self.overlay.minimap_requested.connect(self.pick_minimap)     # the header's minimap button
+        self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -499,7 +499,7 @@ class MapleHelperApp:
         self.open_window("settings", make, on_close=self.overlay.refresh_profile_chip)
 
     def pick_minimap(self):
-        """The header's minimap button: draw the box around the game's minimap; the reads start from it."""
+        """The character card's minimap button: draw the box around the game's minimap; the reads start from it."""
         from .ui.regionpick import RegionPicker
         if getattr(self, "_minimap_picker", None) is not None:
             return                  # already picking
@@ -510,7 +510,6 @@ class MapleHelperApp:
         picker = RegionPicker(hint=t("minimap_pick_hint"), rtl=t.rtl)
         self._minimap_picker = picker
         picker.picked.connect(self._on_minimap_picked)
-        picker.cancelled.connect(self._on_minimap_cancelled)
         picker.start()
 
     def _on_minimap_picked(self, rect: dict):
@@ -525,9 +524,6 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # (also resets the locator's lock onto the new box)
-
-    def _on_minimap_cancelled(self):
-        self._end_minimap_pick()
 
     def _end_minimap_pick(self):
         picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None

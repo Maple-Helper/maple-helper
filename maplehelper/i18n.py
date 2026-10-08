@@ -184,6 +184,7 @@ STRINGS = {
     "untag": {"he": "הסרת התיוג", "en": "Untag"},
     "untag_all": {"he": "ניקוי כל התיוגים", "en": "Clear all tags"},
     "syncing": {"he": "מצלם ומעדכן את הדמות…", "en": "Capturing and updating your character…"},
+    "sync_portrait": {"he": "✓ התמונה של הדמות עודכנה", "en": "✓ Character picture updated"},
     "sync_nothing": {"he": "✓ הדמות מעודכנת, לא זוהו שינויים", "en": "✓ Character is up to date, no changes found"},
     "sync_not_found": {"he": "לא הצלחתי לזהות את הדמות במסך. ודאו שהמשחק פתוח והדמות נראית.",
                        "en": "Couldn't spot your character on screen. Make sure the game is open and the character is visible."},
@@ -578,10 +579,10 @@ STRINGS = {
     "wishlist": {"he": "פריטים במעקב", "en": "Tracked items"},
     "wish_add": {"he": "הוספה לפריטים במעקב", "en": "Add to tracked items"},
     "wish_remove": {"he": "הסרה מהפריטים במעקב", "en": "Remove from tracked items"},
-    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. חפשו פריט בתיבה למעלה (למשל Stiff Feather) ובחרו אותו כדי לעקוב אחריו. "
+    "wishlist_empty": {"he": "עוד לא סימנתם פריטים. חפשו פריט בתיבה למעלה ובחרו אותו כדי לעקוב אחריו. "
                              "אפשר גם ללחוץ על ☆ ליד פריט בתשובה בצ'אט (בכרטיס שלו או ברשימת דרופים). "
                              "כאן תראו מי מפיל אותו ואיפה, ותקבלו הודעה כשעדכון מאגר משנה אותו.",
-                       "en": "No items yet. Search for an item in the box above (Stiff Feather, say) and pick it to track it. "
+                       "en": "No items yet. Search for an item in the box above and pick it to track it. "
                              "You can also click ☆ beside an item in a chat answer (on its card or in a drop list). "
                              "Here you'll see who drops it and where, and get a note when a database update changes it."},
     "wish_search": {"he": "הוספת פריט למעקב: הקלידו שם או בחרו מהרשימה", "en": "Track an item: type a name or pick from the list"},
@@ -1039,7 +1040,7 @@ STRINGS = {
     "route_walk_alt": {"he": "ברגל, בלי מונית: {n} מפות.", "en": "On foot, without a cab: {n} maps."},
     "route_walk_alt_one": {"he": "ברגל, בלי מונית: מפה אחת.", "en": "On foot, without a cab: 1 map."},
     "route_walk_alt_boat": {"he": "בלי מונית: {n} מפות (הספינה עדיין עולה mesos).", "en": "Without a cab: {n} maps (the boat still costs mesos)."},
-    "route_ring": {"he": "בכל מפה, העיגול מסמן לאן ללכת.", "en": "On each map, the ring marks where to go."},
+    "route_ring": {"he": "בכל מפה, הנקודה מסמנת לאן ללכת.", "en": "On each map, the dot marks where to go."},
     "route_fares": {"he": "מונית וספינה עולות mesos, אבל המחיר לא מופיע במאגר.", "en": "Cabs and boats cost mesos, but the database doesn't list the fare."},
     "route_fares_taxi": {"he": "מונית עולה mesos, אבל המחיר לא מופיע במאגר.", "en": "A cab costs mesos, but the database doesn't list the fare."},
     "route_fares_boat": {"he": "הספינה עולה mesos, אבל המחיר לא מופיע במאגר.", "en": "The boat costs mesos, but the database doesn't list the fare."},
@@ -1072,15 +1073,35 @@ STRINGS = {
     "quest_where_end": {"he": "מסיימים את הקווסט", "en": "Turn it in"},
     # where the player is, read from the game's minimap (ui/minimapscan.py, minimap.py)
     "minimap_select": {"he": "בחירת המיני-מפה", "en": "Select minimap"},
-    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק. Esc לביטול.",
-                          "en": "Drag a box around the game's minimap. Esc cancels."},
-    "minimap_scan_interval": {"he": "סריקת המיני-מפה כל (שניות)", "en": "Minimap scan every (seconds)"},
+    "minimap_tip": {"he": "בחירת המיני-מפה: איפה אתם במשחק\n"
+                          "לחצו כאן, וגררו מסגרת סביב המיני-מפה של המשחק (הפינה עם שם המפה).\n"
+                          "מאותו רגע העוזר קורא אותה שוב ושוב (בהגדרות קובעים כל כמה זמן):\n"
+                          "• המפה שלכם מופיעה בכרטיס הזה, מתחת לרמה\n"
+                          "• כפתור ◎ מראה את הדרך מהמפה שלכם, עם נקודה כחולה במקום שלכם\n"
+                          "• \"איך מגיעים\" בכלי המשחק מתחיל מהמפה שלכם\n"
+                          "הזזתם את המיני-מפה או שיניתם את גודל החלון? לחצו שוב ובחרו מחדש.",
+                    "en": "Select minimap: where you are in the game\n"
+                          "Click here and drag a box around the game's minimap (the corner with the map's name).\n"
+                          "From then on, Maple Helper keeps reading it (Settings set how often):\n"
+                          "• Your map shows on this card, under your level\n"
+                          "• The ◎ button shows the way from your map, with a blue dot where you are\n"
+                          "• \"How to get there\" in the Play tools starts from your map\n"
+                          "Moved the minimap or resized the game? Click again and draw a new box."},
+    "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק.", "en": "Drag a box around the game's minimap."},
+    "minimap_scan_interval": {"he": "סריקת המיני-מפה לפי שניות", "en": "Minimap scan, in seconds"},
+    "scan_every_0_5": {"he": "חצי שנייה", "en": "Half a second"},
+    "scan_every_1": {"he": "שנייה אחת", "en": "1 second"},
+    "scan_every_2": {"he": "2 שניות", "en": "2 seconds"},
+    "scan_every_5": {"he": "5 שניות", "en": "5 seconds"},
+    "scan_every_10": {"he": "10 שניות", "en": "10 seconds"},
     "minimap_scan_hint": {"he": "כל כמה זמן העוזר בודק במיני-מפה איפה אתם.",
                           "en": "How often Maple Helper reads the minimap to see where you are."},
     "location_line": {"he": "נמצא/ת ב-{name}", "en": "In {name}"},
     "location_unknown": {"he": "המיני-מפה לא זוהתה", "en": "Minimap not recognized"},
     "route_from_here_title": {"he": "מ-{here} אל {name}", "en": "From {here} to {name}"},
-    "route_you_are_here": {"he": "הנקודה הצהובה היא איפה שאתם עכשיו.", "en": "The yellow dot is where you are now."},
+    "legend_you": {"he": "אתם כאן", "en": "You are here"},
+    "legend_portal": {"he": "הפורטל", "en": "The portal"},
+    "legend_npc": {"he": "ה-NPC", "en": "The NPC"},
     "route_here_already": {"he": "אתם כבר כאן.", "en": "You're already here."},
     "card_item_details": {"he": "פרטי הפריט: נתונים, מי מפיל אותו, Meow Notes",
                           "en": "Item details: stats, who drops it, Meow Notes"},

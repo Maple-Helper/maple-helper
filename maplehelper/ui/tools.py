@@ -11,7 +11,7 @@ import time
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QSize, Qt, QTimer, QUrl, Signal
-from PySide6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QStandardItem, QStandardItemModel, QTextOption
+from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel, QTextOption
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
@@ -4165,9 +4165,11 @@ class ToolsDialog(GlassDialog):
         name = self.route_graph.name(live)
         start = self.route_from.text().strip()
         if start and start != self._route_auto:
-            return                                     # typed by hand: stays
+            self._route_dot(here)                      # typed by hand: stays; a dot on the way still follows
+            return
         if name == start:
-            return                                     # the dot moved on the same map: still right
+            self._route_dot(here)                      # the dot moved on the same map: just repaint it
+            return
         self._route_auto = name
         self.route_from.setText(name)
         self.route_from.setCursorPosition(0)
@@ -4222,6 +4224,7 @@ class ToolsDialog(GlassDialog):
     def _find_route(self):
         t, g, rtl = self.t, self.route_graph, self.t.rtl
         clear(self.route_out)
+        self._route_live = None
         if not g.maps:
             self._route_hint(t("route_no_data"))
             return
@@ -4271,11 +4274,15 @@ class ToolsDialog(GlassDialog):
         notes.append(t("route_ring"))
         self.route_out.addWidget(self._label("\n".join(notes), "RowHint"))
         self.route_out.addWidget(self._ask_link(lambda: self._ask_route(a, b)))
+        # the steps as the ◎ window draws them (mapview.step_card): the legend on the card of the player's map (the
+        # first one when they're not on the way), and the blue dot there following the minimap read
         here = LOCATION.here
-        you_on, you = (here.map, here.spot) if here and here.spot else (None, None)
-        for i, leg in enumerate(r.legs, 1):
-            self.route_out.addWidget(self._route_step(str(i), leg.frm, leg, you if leg.frm == you_on else None))
-        self.route_out.addWidget(self._route_step("✓", b, None, you if b == you_on else None))
+        on = here.map if here and here.map in {leg.frm for leg in r.legs} | {b} else None
+        steps = [(str(i), leg.frm, leg) for i, leg in enumerate(r.legs, 1)] + [("✓", b, None)]
+        mark = next((i for i, (_, mid, _) in enumerate(steps) if mid == on), 0)
+        for i, (number, mid, leg) in enumerate(steps):
+            self.route_out.addWidget(self._route_step(number, mid, leg, here if i == mark and on == mid else None,
+                                                      legend=i == mark))
 
     def _ask_route(self, a: str, b: str) -> None:
         g = self.route_graph
@@ -4284,71 +4291,36 @@ class ToolsDialog(GlassDialog):
     def _route_says(self, leg: routes.Leg | None) -> str:
         return mapview.route_says(self.t, self.route_graph, leg)
 
-    def _route_step(self, number: str, mid: str, leg: routes.Leg | None, you=None) -> QFrame:
-        """One map of the way: its name, what to do there, and its minimap with the spot to go to ringed."""
-        g, rtl = self.route_graph, self.t.rtl
-        card = QFrame(objectName="Card")
-        col = QVBoxLayout(card)
-        col.setContentsMargins(12, 10, 12, 10)
-        col.setSpacing(6)
-        top = QHBoxLayout()
-        top.setSpacing(10)
-        num = tag(number, "TagAccent" if leg else "TagGood")
-        num.setMinimumWidth(26)
-        top.addWidget(num, 0, Qt.AlignTop)
-        names = QVBoxLayout()
-        names.setSpacing(1)
-        title = QLabel(bidi.ltr_name(g.name(mid), rtl), objectName="CardName")
-        title.setWordWrap(True)
-        names.addWidget(title)
-        m = g.maps[mid]
-        where = "  ·  ".join(x for x in (m.street, m.continent) if x)
-        if where:
-            names.addWidget(self._label(bidi.ltr_block(where, rtl), "CardSub"))
-        top.addLayout(names, 1)
-        col.addLayout(top)
-        col.addWidget(self._label(self._route_says(leg), "RowLabel"))
-        pic = self._minimap(mid, leg, you)
-        if pic is not None:
-            col.addWidget(pic, 0, Qt.AlignHCenter)
+    def _route_step(self, number: str, mid: str, leg: routes.Leg | None, here=None, legend: bool = False) -> QFrame:
+        """One map of the way, as the ◎ window draws it: its name, what to do there, its minimap with the portal or
+        NPC dotted; on the step with the legend, the player's blue dot, kept live (self._route_live)."""
+        g = self.route_graph
+        path = g.minimap(mid)
+        spot, npc = (leg.spot, leg.kind != "portal") if leg is not None else (None, False)
+        you = here.spot if here is not None else None
+        card, pic = mapview.step_card(self.t, g, number, leg is None, mid, self._route_says(leg),
+                                      mapview.route_picture(path, spot, npc, you, cap_w=self._route_cap()),
+                                      (path, spot, npc, you))
+        if legend:
+            key = mapview.MapLegend(self.t, npc, you is not None)
+            key.target.setVisible(spot is not None)
+            card.layout().insertWidget(2, key)
+            self._route_live = (mid, mapview.LiveDot(pic, (path, spot, npc), key, self._route_cap))
         return card
 
-    MINIMAP_W, MINIMAP_H = 360, 170       # the most a step's minimap takes (small ones grow, pixel for pixel)
+    def _route_cap(self) -> int:
+        """A step picture's width: the page's inside width less a card's margins, as the ◎ window sizes them."""
+        page = self.pages.get("route") if isinstance(getattr(self, "pages", None), dict) else None
+        w = page.viewport().width() if page is not None and hasattr(page, "viewport") else 0
+        return max(240, min(mapview.PICTURE_W, w - mapview.CARD_SIDE - 32)) if w > 0 else 360
 
-    def _minimap(self, mid: str, leg: routes.Leg | None, you=None) -> QLabel | None:
-        path = self.route_graph.minimap(mid)
-        pm = QPixmap(str(path)) if path else QPixmap()
-        if pm.isNull():
-            return None
-        grow = max(1, min(3, self.MINIMAP_W // max(1, pm.width()), self.MINIMAP_H // max(1, pm.height())))
-        if grow > 1:
-            pm = pm.scaled(pm.width() * grow, pm.height() * grow, Qt.KeepAspectRatio, Qt.FastTransformation)
-        if pm.width() > self.MINIMAP_W or pm.height() > self.MINIMAP_H:
-            pm = pm.scaled(self.MINIMAP_W, self.MINIMAP_H, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        if (leg is not None and leg.spot) or you is not None:
-            p = QPainter(pm)
-            p.setRenderHint(QPainter.Antialiasing)
-            p.setBrush(Qt.NoBrush)
-            if leg is not None and leg.spot:
-                # the portal (orange) or the NPC to talk to (green), ringed where it is on the map
-                x, y = round(leg.spot[0] * pm.width()), round(leg.spot[1] * pm.height())
-                color = QColor(theme.ORANGE if leg.kind == "portal" else theme.GOOD_TEXT_LIGHT)
-                p.setPen(QPen(QColor(0, 0, 0, 170), 5))
-                p.drawEllipse(QPoint(x, y), 11, 11)
-                p.setPen(QPen(color, 2.6))
-                p.drawEllipse(QPoint(x, y), 11, 11)
-            if you is not None:
-                # the player (yellow), ringed where they stand now
-                x, y = round(you[0] * pm.width()), round(you[1] * pm.height())
-                p.setPen(QPen(QColor(0, 0, 0, 170), 5))
-                p.drawEllipse(QPoint(x, y), 11, 11)
-                p.setPen(QPen(QColor(255, 210, 0), 2.6))
-                p.drawEllipse(QPoint(x, y), 11, 11)
-            p.end()
-        pic = QLabel()
-        pic.setPixmap(pm)
-        pic.setAccessibleName(self.route_graph.name(mid))
-        return pic
+    def _route_dot(self, here) -> None:
+        """The minimap read moved on the shown step's map: its dot follows (no rebuild)."""
+        live = getattr(self, "_route_live", None)
+        if live is None:
+            return
+        mid, dot = live
+        dot.show(here.spot if here is not None and here.map == mid else None)
 
 
 def market_ago(t, ts: float) -> str:

@@ -1,5 +1,5 @@
 """Counting the players: an anonymous "Maple Helper is running" ping, on for everyone unless switched off
-(Settings > Privacy & system), apart from the opt-in usage stats (telemetry.py).
+(Settings > Privacy & system), apart from the usage stats (telemetry.py).
 
 What is sent, at start and then every INTERVAL seconds: the app version, the OS, and three flags (the first
 ping of this install ever, of the UTC day, of the UTC month). The id is random for each run and never stored,

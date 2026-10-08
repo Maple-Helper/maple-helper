@@ -21,8 +21,12 @@ def tel(isolated_store, monkeypatch):
     telemetry._drain()
 
 
-def test_off_by_default(tel):
+def test_on_by_default_and_off_when_turned_off(tel):
+    """On for a new install (the owner's, 2026-10-08); a player who turned it off sends nothing."""
     settings, _ = tel
+    telemetry.init(settings, "0.6.0")
+    assert telemetry.enabled()
+    settings["telemetry"] = False
     telemetry.init(settings, "0.6.0")
     telemetry.track("app_started")
     assert not telemetry.enabled()
@@ -61,6 +65,7 @@ def test_opted_in_event_shape(tel):
 def test_no_id_until_stats_are_turned_on(tel):
     """The random id was created at every start, opted in or not (audit SEC-16)."""
     settings, _ = tel
+    settings["telemetry"] = False
     telemetry.init(settings, "0.6.0")
     assert settings["install_id"] == "" and telemetry._state["id"] == ""
     settings["telemetry"] = True

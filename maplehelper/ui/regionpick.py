@@ -44,10 +44,12 @@ def to_capture(rect: QRect, screens: list[tuple[QRect, float]], scale: bool = Tr
 
 
 class RegionPicker(QWidget):
-    """Frameless stay-on-top overlay covering every screen; drag a box, Esc/right-click cancels."""
+    """Frameless stay-on-top overlay covering every screen; drag a box.
+
+    No way to cancel (the owner's, 2026-10-08): neither Esc nor a right-click closes it, and the keyboard is never
+    grabbed; it closes once a box is drawn."""
 
     picked = Signal(dict)
-    cancelled = Signal()
 
     def __init__(self, hint: str, rtl: bool = False, parent=None) -> None:
         super().__init__(parent)
@@ -60,7 +62,6 @@ class RegionPicker(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setCursor(Qt.CrossCursor)
-        self.setFocusPolicy(Qt.StrongFocus)
         self.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
         self.setGeometry(union)
         self._origin: QPoint | None = None
@@ -76,12 +77,10 @@ class RegionPicker(QWidget):
                 break
 
     def start(self) -> None:
-        """Show the overlay and take the keyboard so Esc cancels (released again on close)."""
+        """Show the overlay on top of everything (it closes once a box is drawn)."""
         self.show()
         self.raise_()
         self.activateWindow()
-        self.setFocus(Qt.PopupFocusReason)
-        self.grabKeyboard()
 
     def _box(self) -> QRect | None:
         if self._origin is None or self._current is None:
@@ -91,10 +90,7 @@ class RegionPicker(QWidget):
     # -- input ---------------------------------------------------------------
 
     def mousePressEvent(self, e) -> None:
-        if e.button() == Qt.RightButton:
-            self.cancelled.emit()
-            self.close()
-        elif e.button() == Qt.LeftButton:
+        if e.button() == Qt.LeftButton:
             self._origin = e.position().toPoint()
             self._current = e.position().toPoint()
             self.update()
@@ -116,20 +112,6 @@ class RegionPicker(QWidget):
         payload = to_capture(box.translated(top_left), self._screens, scale=sys.platform != "darwin")
         self.picked.emit(payload)
         self.close()
-
-    def keyPressEvent(self, e) -> None:
-        if e.key() == Qt.Key_Escape:
-            self.cancelled.emit()
-            self.close()
-        else:
-            super().keyPressEvent(e)
-
-    def closeEvent(self, e) -> None:
-        try:
-            self.releaseKeyboard()
-        except RuntimeError:  # closed twice meanwhile
-            pass
-        super().closeEvent(e)
 
     # -- painting ------------------------------------------------------------
 

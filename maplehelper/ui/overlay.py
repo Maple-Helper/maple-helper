@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import html
+import logging
 import sys
 import time
 
@@ -322,6 +323,31 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     return tiles, slots, described
 
 
+# an inventory window shows a grid of 16-24 slots; a brick wall passed for 3 (live frames)
+INVENTORY_MIN_SLOTS = 8
+
+
+def local_grind_read(full, table: dict, map_name: str | None) -> tuple[dict, dict] | None:
+    """A grind read without the AI: the bottom bar (level, job, name, EXP) read here (hud.py), the map from the
+    minimap read. None when the AI must read it: the inventory is open (its mesos, potions and loot), or the bar
+    gave no EXP percentage or no sure level. No Qt: runs on a worker thread."""
+    import logging
+
+    import numpy as np
+
+    from .. import hud, inventory
+    if full is None:
+        return None
+    if len(inventory.find_slots(np.asarray(full.convert("RGB")))) >= INVENTORY_MIN_SLOTS:
+        logging.getLogger("maplehelper").debug("grind read: inventory open, the AI reads it")
+        return None
+    got = hud.read(full, table)
+    if got is None or got.exp_pct is None or got.level is None:
+        logging.getLogger("maplehelper").info("grind read: the bar didn't read (%s), the AI reads it", got)
+        return None
+    return got.profile_update(), ({"map": map_name} if map_name else {})
+
+
 def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool,
                   letters_dir=None) -> bytes | None:
     """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels by the name's
@@ -334,6 +360,7 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
     from PIL import Image
 
     from ..portrait import mask_reaches_feet, portrait_rect, sprite_mask
+    _plog = logging.getLogger("maplehelper")
     try:
         img = Image.open(io.BytesIO(shot_jpeg)).convert("RGB")
         # the full-resolution grab when it is the same picture (same shape): small name tags survive there
@@ -360,9 +387,10 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
                 # not a standing figure: scenery the box pointed at (live, 2026-10-07: bricks and a beam cut out
                 # for a magician, whose card showed a map). No portrait rather than a wrong one; the job's picture
                 # stays until a read finds the tag
+                _plog.info("portrait: the name tag was found, but no standing figure above it: kept the old one")
                 return None
-            crop = crop.convert("RGBA")         # just the character on a transparent background, like the job art
-            crop.putalpha(Image.fromarray((mask * 255).astype(np.uint8)))
+            # the character with the game's own background behind it, as on screen (the owner's, 2026-10-08: the
+            # cut-out on a transparent background came out ragged); the mask only vouches that a figure stands there
             # pixel art: NEAREST keeps it crisp when it grows, LANCZOS when it shrinks
             square = crop.resize((128, 128), Image.NEAREST if crop.width < 128 else Image.LANCZOS)
             buf = io.BytesIO()
@@ -370,8 +398,12 @@ def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_port
             return buf.getvalue()
         # no name tag: no portrait. The AI's box alone cropped scenery (live, 2026-10-04: the lamp beside Nana(H) and an
         # HP bar, for a new character with no portrait yet); the job's picture stays until a read finds the tag
+        # (logged: a refresh that updated everything but the picture said nothing about why, 2026-10-08)
+        _plog.info("portrait: no name tag spelling %r in the screenshot (%s): kept the old one",
+                   name, "learned letters" if learned is not None else "drawn name")
         return None
     except Exception:      # noqa: BLE001
+        _plog.warning("portrait: crop failed", exc_info=True)
         return None
 
 
@@ -456,6 +488,7 @@ class Overlay(EdgeResize, QWidget):
     delete_character_requested = Signal(str)      # plan usage read in the background after an answer (ChatGPT)
     inventory_read = Signal(object)    # (question, shown, character id, tiles, slots, description), worker thread
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
+    local_grind_done = Signal(object)  # (token, shot, full, cursor, (update, grind) or None), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
     news_requested = Signal()          # the megaphone or the news strip: the News window
     minimap_requested = Signal()       # the minimap icon: choose the game's minimap box to read where the player is
@@ -563,7 +596,8 @@ class Overlay(EdgeResize, QWidget):
         for w in (self.saver_badge, self.beta_badge):
             w.setMinimumWidth(1)
         tb.addStretch(1)
-        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, minimap, settings | minimize, close
+        # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
+        # (the minimap button sits on the character card, beside ⟳)
         self.history_btn = self._icon_button(theme.ICON["search"])
         self.history_btn.clicked.connect(self.history_requested.emit)
         tb.addWidget(self.history_btn)
@@ -581,9 +615,6 @@ class Overlay(EdgeResize, QWidget):
         self.tools_btn = ControllerButton()                           # a game controller: the play tools
         self.tools_btn.clicked.connect(self.tools_requested.emit)
         tb.addWidget(self.tools_btn)
-        self.minimap_btn = self._icon_button(theme.ICON["minimap"])
-        self.minimap_btn.clicked.connect(self.minimap_requested.emit)
-        tb.addWidget(self.minimap_btn)
         self.settings_btn = self._icon_button(theme.ICON["settings"])
         self.settings_btn.clicked.connect(self.settings_requested.emit)
         tb.addWidget(self.settings_btn)
@@ -648,6 +679,8 @@ class Overlay(EdgeResize, QWidget):
         # the character, pinned at the top of the conversation
         self.profile_card = ProfileCard()
         self.profile_card.refresh_requested.connect(self.sync_profile)
+        self.minimap_btn = self.profile_card.minimap
+        self.profile_card.minimap_requested.connect(self.minimap_requested.emit)
         self.profile_card.clicked.connect(self.character_menu)
         self.profile_card.setCursor(Qt.PointingHandCursor)
         lay.addWidget(self.profile_card)
@@ -795,7 +828,7 @@ class Overlay(EdgeResize, QWidget):
         self.saver_badge.setVisible(self._saver_on)
         self.beta_badge.setText("BETA")
         self.beta_badge.show()
-        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn, self.minimap_btn,
+        buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn,
                    self.settings_btn, self.min_btn, self.close_btn)
         for b in buttons:
             # a low minimum, so the header never holds the chat wider than 470 px; full size when there's room
@@ -868,7 +901,7 @@ class Overlay(EdgeResize, QWidget):
         self.input.setAccessibleName(self.t("input_a11y"))
         set_tip(self.recapture_btn, self.t("recapture"))
         set_tip(self.settings_btn, self.t("settings"))
-        set_tip(self.minimap_btn, self.t("minimap_select"))
+        set_tip(self.minimap_btn, self.t("minimap_tip"))
         self.saver_badge.setToolTip(self.t.p("saver_hint", self.settings["provider"]))
         self._fit_header()
         self.show_scope()
@@ -2340,8 +2373,57 @@ class Overlay(EdgeResize, QWidget):
             self._sync_shot = shot
             from .. import capture
             self._sync_full = capture.LAST_FULL       # the same grab at full resolution, for the portrait
-            self._sync_thread = QThread(self)
             self._sync_cid = self.profiles.active_id
+            if getattr(self, "_sync_grind", False):
+                # a grind read: the bar is read here first (hud.py), the AI only when the inventory is open or the
+                # bar won't read (the owner's, 2026-10-08: a screenshot to the AI every minute just for the numbers)
+                self._start_local_grind_read(shot, self._sync_full, capture.LAST_CURSOR)
+                return
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("profile refresh could not start")
+            self._on_sync_done(Answer(error="internal"))
+            return
+        self._start_sync_worker(shot)
+
+    def _start_local_grind_read(self, shot: bytes, full, cursor) -> None:
+        """Read the bar on a worker thread; its result comes back through local_grind_done (on the GUI thread)."""
+        import threading
+
+        from .. import plan
+        from .location import LOCATION
+        if not getattr(self, "_local_grind_wired", False):
+            self.local_grind_done.connect(self._on_local_grind)
+            self._local_grind_wired = True
+        table = plan.exp_table(self.kb)
+        here = LOCATION.here
+        map_name = routes.of(self.kb).name(here.map) if here is not None else None
+        token = object()
+        self._local_grind_token = token
+
+        def work():
+            try:
+                got = local_grind_read(full, table, map_name)
+            except Exception:      # noqa: BLE001 - the AI read still runs
+                got = None
+            self.local_grind_done.emit((token, shot, full, cursor, got))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_local_grind(self, r: tuple) -> None:
+        token, shot, full, cursor, got = r
+        if token is not getattr(self, "_local_grind_token", None) or not getattr(self, "_syncing", False):
+            return             # timed out meanwhile (said so), or a newer read: this one goes nowhere
+        if got is None:
+            # the inventory is open (its mesos, potions and loot need the AI) or the bar didn't read
+            self._start_sync_worker(shot)
+            return
+        update, grind_obj = got
+        self._on_sync_done(Answer(profile_update=update, grind=grind_obj))
+
+    def _start_sync_worker(self, shot: bytes) -> None:
+        try:
+            from .. import capture
+            self._sync_thread = QThread(self)
             # reading a name, a level and a bar off a screenshot: no knowledge base, no file tools (it went looking
             # through the pages). The player's own model: measured 2026-10-02, Sonnet answered this read in ~3 s and
             # Haiku in 13-50 s, so the "light" model is no faster here
@@ -2431,9 +2513,12 @@ class Overlay(EdgeResize, QWidget):
             self._syncing = False
             if changes:
                 self._show_changes(changes)
-            if not asked and not [ch for ch in changes if ch[0] != "exp"]:
+            if avatar:
+                # a new picture is a change too: it said "up to date, no changes" while the portrait had just changed
+                self.add_system(lambda t: t("sync_portrait"))
+            elif not asked and not [ch for ch in changes if ch[0] != "exp"]:
                 # nothing that shows as its own line (an EXP change only moves the bar): still say it worked
-                key = "sync_nothing" if ans.profile_update or ans.avatar_box or avatar or changes else "sync_not_found"
+                key = "sync_nothing" if ans.profile_update or ans.avatar_box or changes else "sync_not_found"
                 self.add_system(lambda t: t(key))
             self.refresh_profile_chip()
             self.sync_finished.emit(bool(ans.profile_update))

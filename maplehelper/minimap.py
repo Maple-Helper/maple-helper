@@ -660,6 +660,14 @@ class Locator:
                 if t.strip() and not is_chrome(t, yc, height) and (panel_y0 < 40 or b <= panel_y0 + 8)]
         if not kept:
             return None
+        if len(kept) == 1 and self._prev in self._graph.maps:
+            # the street line read alone (the map line under it missed): "Victoria Road" is a map's name too, and
+            # the player seemed to jump there and back every few seconds (live, 2026-10-08). The known map's own
+            # street is never taken for a map name; the next read gets both lines.
+            here = self._graph.maps[self._prev]
+            only = kept[0][0]
+            if _street_ok(only, here.street) and not _street_ok(only, self._graph.name(self._prev)):
+                return None
         street = kept[-2][0] if len(kept) > 1 else None
         return (kept[-1][0], street), max(b for _, b in kept)
 
@@ -842,7 +850,20 @@ class Locator:
             hit = self._match(clean, mid, s, bg)
             if hit is not None and (best is None or hit.score > best.score):
                 best = hit
-        if best is None or best.score < _ALIGN_MIN:
+        if best is None:
+            return None
+        # ... then ±4% around that in 1% steps: on a busy live view (other players' dots, the game showing through)
+        # the peak is that sharp — 0.55 at x1.87 read 0.48 and 0.44 at the 4% steps beside it, and the player had
+        # no dot (live, 2026-10-08)
+        around = best.scale
+        for i in range(-4, 5):
+            if i == 0:
+                continue
+            s = min(3.0, max(0.5, around * (1 + i * 0.01)))
+            hit = self._match(clean, mid, s, bg)
+            if hit is not None and hit.score > best.score:
+                best = hit
+        if best.score < _ALIGN_MIN:
             return None
         return best
 

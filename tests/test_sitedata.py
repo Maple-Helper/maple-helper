@@ -418,5 +418,8 @@ def test_the_pets_launch_lifespan_note_is_the_kbs_own(site_kb):
         page = kb.page("formula/pets") if kb.get("formula/pets") else ""
         m = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
         closed = [ln for ln in sitedata.ai_pet_lines(kb) if "closed-test value" in ln]
-        assert closed and all((f"NiaMeowDB: {m.group(0)})" if m else "(closed-test value)") in ln for ln in closed)
+        # the test site's pets are closed-test ones; the live KB's may all be launch values by now (2026-10-08:
+        # every pet 30 days), and then there is no note to carry
+        assert closed or kb.root != Path(site_kb)
+        assert all((f"NiaMeowDB: {m.group(0)})" if m else "(closed-test value)") in ln for ln in closed)
     assert "expects 30 to 90 days" not in Path(sitedata.__file__).read_text(encoding="utf-8")

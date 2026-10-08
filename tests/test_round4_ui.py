@@ -82,6 +82,33 @@ def test_focus_ring_only_for_keyboard_focus():
     w.close()
 
 
+def test_a_clicked_button_that_hides_itself_rings_nothing():
+    """"Update now" turns into the download's progress: Qt hands its focus to the next button as if Tab were
+    pressed, and the search button showed the orange ring (the owner's, 2026-10-08)."""
+    from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
+    from maplehelper.ui import theme
+    theme.install_focus_ring()
+    w = QWidget()
+    lay = QVBoxLayout(w)
+    search, update = QPushButton("search"), QPushButton("update")
+    lay.addWidget(search)
+    lay.addWidget(update)
+    w.show()
+    pump()
+    update.setFocus(Qt.MouseFocusReason)      # clicked
+    pump()
+    update.hide()                             # its own click hid it
+    pump()
+    assert search.findChild(theme._Ring) is None and theme._FOCUS_RING.ring is None
+    update.show()
+    update.setFocus(Qt.MouseFocusReason)
+    pump()
+    search.setFocus(Qt.TabFocusReason)        # a real Tab still rings
+    pump()
+    assert search.findChild(theme._Ring) is not None
+    w.close()
+
+
 def test_dialogs_open_on_their_search_field_not_the_close_button(kb):
     from maplehelper.ui.guides import GuidesDialog
     from maplehelper.ui.pinsview import HistoryDialog
