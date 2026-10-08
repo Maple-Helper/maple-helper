@@ -318,3 +318,154 @@ def test_the_window_shows_the_way_from_the_live_map(tiny, isolated_store):
     finally:
         LOCATION.set(None)
         d.close()
+
+
+def test_clamp_size_keeps_a_saved_size_on_screen():
+    big, small = QRect(0, 0, 1920, 1040), QRect(0, 0, 1280, 720)
+    minimum = QSize(mapview.MIN_W, mapview.MIN_H)
+    assert mapview.clamp_size(700, 500, [big], minimum) == QSize(700, 500)
+    assert mapview.clamp_size(5000, 5000, [big], minimum) == QSize(1920, 1040)   # a bigger monitor since
+    assert mapview.clamp_size(100, 100, [big], minimum) == minimum               # never under the minimum
+    assert mapview.clamp_size(1500, 900, [small], minimum) == QSize(1280, 720)   # a smaller monitor since
+
+
+def test_the_window_reopens_at_its_resized_size(tiny, isolated_store):
+    """An edge dragged wider, then closed: the size is saved with the position and restored on open."""
+    from maplehelper.store import Settings
+    kb, _ = tiny
+    settings = Settings()
+    chat = QRect(1296, 60, 624, 664)
+    d = mapview.MapLocationDialog(kb, "en", "", settings, chat)
+    try:
+        d.show()
+        d.show_map(f"map/{PERION}")
+        app.processEvents()
+        d.move(50, 50)
+        d.resize(600, 500)                            # the player drags an edge
+        app.processEvents()
+        assert d._user_sized
+        d._pics.stop()                                # the debounce redraw happens live; not part of this test
+        d.reject()
+    finally:
+        d.close()
+    saved = Settings()[mapview.POS_SETTING]
+    assert (saved["x"], saved["y"], saved["w"], saved["h"]) == (50, 50, 600, 500)
+    again = mapview.MapLocationDialog(kb, "en", "", Settings(), chat)
+    try:
+        assert again.pos() == QPoint(50, 50)
+        assert again.size() == QSize(600, 500)
+    finally:
+        again.close()
+
+
+def test_an_oversized_saved_size_is_clamped_to_the_screen(tiny, isolated_store):
+    from maplehelper.store import Settings
+    kb, _ = tiny
+    Settings()[mapview.POS_SETTING] = {"x": 0, "y": 0, "w": 5000, "h": 5000}
+    d = mapview.MapLocationDialog(kb, "en", "", Settings())
+    try:
+        screens = [s.availableGeometry() for s in app.screens()]
+        assert d.size() == mapview.clamp_size(5000, 5000, screens, d.minimumSize())
+    finally:
+        d.close()
+
+
+def test_an_old_position_without_a_size_still_opens(tiny, isolated_store):
+    """{x, y} saved before sizes were kept: the window opens there at its default size."""
+    from maplehelper.store import Settings
+    kb, _ = tiny
+    Settings()[mapview.POS_SETTING] = {"x": 200, "y": 150}
+    chat = QRect(1296, 60, 624, 664)
+    d = mapview.MapLocationDialog(kb, "en", "", Settings(), chat)
+    try:
+        d.show()
+        app.processEvents()
+        assert d.pos() == QPoint(200, 150)
+        assert d.width() == 560
+    finally:
+        d.close()
+
+
+def test_a_resized_window_keeps_its_size(tiny, isolated_store):
+    """show_map fits the height to the content, until the player drags an edge: then their size stays."""
+    kb, _ = tiny
+    d = mapview.MapLocationDialog(kb, "en", "", isolated_store.Settings())
+    try:
+        d.show()
+        d.show_map(f"map/{PERION}")
+        app.processEvents()
+        fitted, wide = d.height(), d.width() + 100
+        d.resize(wide, fitted)                        # the player drags an edge wider
+        app.processEvents()
+        d._pics.stop()
+        d.show_map(f"map/{PERION}")                   # another ◎: no auto-fit anymore
+        app.processEvents()
+        assert (d.width(), d.height()) == (wide, fitted)
+    finally:
+        d.close()
+
+
+def test_every_edge_and_corner_resizes_the_map_window(tiny, isolated_store):
+    """Like the chat: the frameless window's whole rim resizes it, and the rim holds no controls."""
+    from PySide6.QtCore import Qt
+    kb, _ = tiny
+    d = mapview.MapLocationDialog(kb, "en", "", isolated_store.Settings())
+    try:
+        assert d.minimumSize() == QSize(mapview.MIN_W, mapview.MIN_H)
+        d.show()
+        app.processEvents()
+        w, h, z = d.width(), d.height(), mapview.SHADOW + d.EDGE
+        E = d._edges_at
+        assert E(QPoint(2, 2)) == Qt.LeftEdge | Qt.TopEdge
+        assert E(QPoint(w - 2, 2)) == Qt.RightEdge | Qt.TopEdge
+        assert E(QPoint(2, h - 2)) == Qt.LeftEdge | Qt.BottomEdge
+        assert E(QPoint(w - 2, h - 2)) == Qt.RightEdge | Qt.BottomEdge
+        assert E(QPoint(w // 2, 3)) == Qt.TopEdge and E(QPoint(w - 3, h // 2)) == Qt.RightEdge
+        assert E(QPoint(z + 5, h // 2)) == Qt.Edge(0) and E(QPoint(w // 2, h // 2)) == Qt.Edge(0)
+        assert d._edge_cursor(Qt.LeftEdge | Qt.TopEdge) == Qt.SizeFDiagCursor
+        assert d._edge_cursor(Qt.LeftEdge | Qt.BottomEdge) == Qt.SizeBDiagCursor
+        assert d._edge_cursor(Qt.TopEdge) == Qt.SizeVerCursor and d._edge_cursor(Qt.Edge(0)) is None
+        corner = d.scroll.mapTo(d, QPoint(0, 0))      # the content starts inside the rim
+        assert corner.x() >= z and corner.y() >= z
+    finally:
+        d.close()
+
+
+def test_wider_windows_draw_wider_pictures(tiny, isolated_store):
+    """The pictures follow the window's width: a wider window redraws them wider, in place."""
+    kb, g = tiny
+    assert QPixmap(400, 300).save(str(g.minimap(HG1)))    # life-size, not the 16x12 stand-in (3x-capped)
+    d = mapview.MapLocationDialog(kb, "en", "", isolated_store.Settings())
+    try:
+        d.show()
+        d.show_map(f"map/{PERION}")
+        app.processEvents()
+        pics = [lb for lb in d.body.findChildren(QLabel) if getattr(lb, "_pic_spec", None)]
+        assert pics and all(lb.pixmap() is not None and not lb.pixmap().isNull() for lb in pics)
+        narrow = [lb.pixmap().width() for lb in pics]
+        d.resize(d.width() + 200, d.height())
+        app.processEvents()
+        d._pics.stop()
+        d._rescale_pictures()
+        wide = [lb.pixmap().width() for lb in pics]
+        assert all(b > a for a, b in zip(narrow, wide))
+    finally:
+        d.close()
+
+
+def test_the_dot_stays_at_its_fraction_at_any_width(tmp_path):
+    """Two caps of one map: wider pictures, and each dot still centered on its fraction of the size."""
+    from PySide6.QtGui import QColor
+    path = tmp_path / "mini.png"
+    assert QPixmap(100, 60).save(str(path))
+    spot, you = (0.25, 0.75), (0.8, 0.2)
+    narrow = mapview.marked_picture(str(path), spot, cap_w=240)
+    wide = mapview.marked_picture(str(path), spot, cap_w=480)
+    assert wide.width() > narrow.width()
+    orange = QColor(245, 182, 66)
+    for pm in (narrow, wide):                         # drawn after scaling, from fractions
+        assert pm.toImage().pixelColor(round(spot[0] * pm.width()),
+                                       round(spot[1] * pm.height())) == orange
+    stepped = mapview.route_picture(str(path), spot, False, you, cap_w=480)
+    assert stepped.toImage().pixelColor(round(you[0] * stepped.width()),
+                                        round(you[1] * stepped.height())) == mapview.YOU_FILL

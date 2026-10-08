@@ -86,6 +86,63 @@ class _DragBar(QWidget):
         self._grab = None
 
 
+class EdgeResize:
+    """Any-edge resizing for a frameless window: its shadow margin and the panel's own margin (no controls
+    there) are the edges. Pressing there hands the drag to the system (startSystemResize), like a normal
+    window's border. Mix in first (class W(EdgeResize, QDialog)); every handler cooperates via super()."""
+
+    EDGE = 8          # how far into the panel the edge reaches, past the shadow
+
+    def _edges_at(self, pos) -> Qt.Edge:
+        zone = getattr(self, "SHADOW", SHADOW) + self.EDGE
+        x, y = pos.x(), pos.y()
+        edges = Qt.Edge(0)
+        if x < zone:
+            edges |= Qt.LeftEdge
+        elif x >= self.width() - zone:
+            edges |= Qt.RightEdge
+        if y < zone:
+            edges |= Qt.TopEdge
+        elif y >= self.height() - zone:
+            edges |= Qt.BottomEdge
+        return edges
+
+    @staticmethod
+    def _edge_cursor(edges: Qt.Edge):
+        left, right = bool(edges & Qt.LeftEdge), bool(edges & Qt.RightEdge)
+        top, bottom = bool(edges & Qt.TopEdge), bool(edges & Qt.BottomEdge)
+        if (left and top) or (right and bottom):
+            return Qt.SizeFDiagCursor
+        if (right and top) or (left and bottom):
+            return Qt.SizeBDiagCursor
+        if left or right:
+            return Qt.SizeHorCursor
+        if top or bottom:
+            return Qt.SizeVerCursor
+        return None
+
+    def mouseMoveEvent(self, e):
+        if not e.buttons():
+            cursor = self._edge_cursor(self._edges_at(e.position().toPoint()))
+            if cursor is None:
+                self.unsetCursor()
+            else:
+                self.setCursor(cursor)
+        super().mouseMoveEvent(e)
+
+    def mousePressEvent(self, e):
+        edges = self._edges_at(e.position().toPoint())
+        if e.button() == Qt.LeftButton and edges and self.windowHandle():
+            self.windowHandle().startSystemResize(edges)
+            e.accept()
+            return
+        super().mousePressEvent(e)
+
+    def leaveEvent(self, e):
+        self.unsetCursor()
+        super().leaveEvent(e)
+
+
 SCREEN_MARGIN = 48        # room kept free above and below a window that would not fit the screen
 
 
