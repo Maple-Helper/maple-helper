@@ -7,7 +7,7 @@ tapping a line asks the chat for the details.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QToolButton, QVBoxLayout
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QProgressBar, QVBoxLayout
 
 from .. import bidi, plan
 
@@ -69,8 +69,7 @@ class TipStrip(QFrame):
         self.text = QLabel(objectName="InfoText")
         self.text.setWordWrap(True)
         row.addWidget(self.text, 1)
-        self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
-        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn = theme.dismiss_button()
         self.close_btn.clicked.connect(lambda: self.dismissed.emit(self._tip.kind) if self._tip else None)
         row.addWidget(self.close_btn, 0, Qt.AlignTop)
         self.setCursor(Qt.PointingHandCursor)

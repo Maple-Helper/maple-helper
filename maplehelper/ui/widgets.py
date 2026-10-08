@@ -287,9 +287,7 @@ class NoticeCard(QFrame):
             self._col.addWidget(holder)
         self.close_btn = None
         if closable:
-            from PySide6.QtWidgets import QToolButton
-            self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
-            self.close_btn.setCursor(Qt.PointingHandCursor)
+            self.close_btn = theme.dismiss_button()
             self.close_btn.setFixedSize(24, 24)
             self.close_btn.clicked.connect(self._dismiss)
             lay.addWidget(self.close_btn, 0, Qt.AlignTop)

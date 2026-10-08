@@ -16,7 +16,7 @@ import re
 
 from PySide6.QtCore import QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QBrush, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from .. import bidi, news
 from ..osapi import open_url
@@ -249,8 +249,7 @@ class NewsStrip(QFrame):
         self.title.setWordWrap(True)
         col.addWidget(self.title)
         row.addLayout(col, 1)
-        self.close_btn = QToolButton(objectName="Icon", text=theme.ICON["close"])
-        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn = theme.dismiss_button()
         self.close_btn.clicked.connect(lambda: self.dismissed.emit(self._item["id"]) if self._item else None)
         row.addWidget(self.close_btn, 0, Qt.AlignTop)
         self.setCursor(Qt.PointingHandCursor)

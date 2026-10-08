@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QEasingCurve, QPoint, QPropertyAnimation, QRect, Qt, QTimer
 from PySide6.QtGui import QGuiApplication, QPixmap
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from .. import bidi, osapi
 from ..store import ASSETS
@@ -66,8 +66,7 @@ class Toast(QWidget):
             col.addWidget(b)
         row.addLayout(col, 1)
 
-        close = QToolButton(text="✕")
-        close.setCursor(Qt.PointingHandCursor)
+        close = theme.dismiss_button()
         close.clicked.connect(self.dismiss)
         row.addWidget(close, 0, Qt.AlignTop)
         # the text column's exact width before any adjustSize(): the height then comes from the wrapped text
@@ -91,8 +90,9 @@ class Toast(QWidget):
             #Title {{ font-size: 14px; font-weight: 600; color: {c['text']}; }}
             #Body {{ font-size: 13px; color: {c['text']}; }}
             #Brand {{ font-size: 11px; color: {c['muted']}; }}
-            QToolButton {{ background: transparent; border: none; color: {c['muted']}; font-size: 14px; }}
-            QToolButton:hover {{ color: {c['text']}; }}
+            QToolButton {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; color: {c['muted']}; background: transparent;
+                           border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
+            QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
         """)
         self.update()
 
