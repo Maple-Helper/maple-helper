@@ -27,6 +27,12 @@ class WishlistDialog(GlassDialog):
         rtl = t.rtl
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
+        # items added here too: the ☆ was only on cards in a chat answer, so an empty window led nowhere (#96)
+        from .tools import EntityPicker, item_rows
+        self.search = EntityPicker(item_rows(kb), bidi.plain(t("wish_search"), rtl), icon=32, rtl=rtl)
+        self.search.picked.connect(self._add_searched)
+        outer.addWidget(self.search)
+        outer.addSpacing(8)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -98,6 +104,18 @@ class WishlistDialog(GlassDialog):
                 lay.addWidget(self._dropper(m, item, srcs[m] if self._mixed else None, kb.community_vote(m, k)))
             lay.addSpacing(10)
         lay.addStretch(1)
+
+    def _add_searched(self) -> None:
+        """The item picked in the search box goes on the list (one already on it stays: picking never unstars)."""
+        from .tools import _item_named
+        from .widgets import WISHLIST
+        name = self.search.text().strip()
+        key = _item_named(self.kb, name) if name else None
+        if key is None:
+            return                     # a half-typed name: the box keeps it to finish
+        if not WISHLIST.has(key):
+            WISHLIST.toggle(key)
+        self.search.clear()
 
     @Slot()
     def _refill(self) -> None:
