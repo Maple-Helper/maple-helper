@@ -113,10 +113,10 @@ def test_quest_search_header_says_the_level_only_on_the_levels_list(tools):
     later = quests_mode(d, "later")
     d.q_search.setText(later[0].name)
     d._fill_quests()
-    assert "match" in d.q_head.text() and "at Lv." not in d.q_head.text()
+    assert "match" in d.q_head.text() and "at level" not in d.q_head.text()
     quests_mode(d, "level")
     d._fill_quests()
-    assert "at Lv. 32" in d.q_head.text()
+    assert "at level 32" in d.q_head.text()
 
 
 def quests_mode(d, mode):
