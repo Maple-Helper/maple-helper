@@ -37,10 +37,12 @@ a = Analysis(
               "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml"],
     noarchive=False,
 )
-# drop heavy binaries the app never loads
+# drop heavy binaries the app never loads. The av* names are PyAV's FFmpeg; OpenCV (RapidOCR's cv2) ships its own
+# FFmpeg on macOS (cv2/.dylibs) and links it, so cv2's files are kept: dropping them broke the bundle's symlinks
 DROP = ("opengl32sw", "Qt6Quick", "Qt6Qml", "Qt6Pdf", "Qt6VirtualKeyboard", "Qt6OpenGL", "av.libs", "avcodec",
         "avformat", "avutil", "swresample", "swscale", "avfilter", "avdevice")
-a.binaries = [b for b in a.binaries if not any(d.lower() in b[0].lower() for d in DROP)]
+a.binaries = [b for b in a.binaries if b[0].replace("\\", "/").startswith("cv2/")
+              or not any(d.lower() in b[0].lower() for d in DROP)]
 a.datas = [d for d in a.datas if not d[0].replace("\\", "/").startswith(("PySide6/translations/qtwebengine",))]
 
 pyz = PYZ(a.pure)
