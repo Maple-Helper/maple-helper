@@ -354,7 +354,7 @@ def test_a_map_card_offers_the_way_there(world, qt):
     got = []
     ROUTE_REQUESTS.requested.connect(got.append)
     card = EntityCard(kb, f"map/{PERION}", "he")
-    way = [b for b in card.findChildren(QToolButton) if b.toolTip() == "איך מגיעים לכאן מהמפה שלי"]
+    way = [b for b in card.findChildren(QToolButton) if b.toolTip() == "איך מגיעים לכאן מהמפה שלכם"]
     assert len(way) == 1
     way[0].click()
     assert got == [f"map/{PERION}"]
