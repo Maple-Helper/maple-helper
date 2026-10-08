@@ -26,6 +26,14 @@ def pump(ms=50):
         time.sleep(0.005)
 
 
+def pump_until(cond, seconds=5.0):
+    """Events until cond() holds: a slow CI runner (macOS) hadn't laid the chat out within a fixed 50 ms."""
+    end = time.time() + seconds
+    while not cond() and time.time() < end:
+        pump(20)
+    return cond()
+
+
 @pytest.fixture
 def overlay(isolated_store, kb, monkeypatch):
     from maplehelper import osapi
@@ -840,20 +848,18 @@ def test_a_new_answer_pill_when_the_player_scrolled_up(overlay):
     ov = overlay
     for i in range(30):
         ov.add_system(f"line {i}")
-    pump(50)
     bar = ov.scroll.verticalScrollBar()
-    assert bar.maximum() > 0
+    assert pump_until(lambda: bar.maximum() > 0)
     bar.setValue(0)
     ov._user_scrolled()
     assert not ov._follow
     b = ov.add_bubble("The answer", "assistant")
     ov._reading = b
-    pump(50)
+    assert pump_until(lambda: getattr(ov, "_new_pill", None) is not None and ov._new_pill.isVisible())
     pill = ov._new_pill
-    assert pill.isVisible() and "תשובה חדשה" in pill.text()
+    assert "תשובה חדשה" in pill.text()
     pill.click()
-    pump(50)
-    assert not pill.isVisible() and ov._follow and bar.value() > 0
+    assert pump_until(lambda: not pill.isVisible() and ov._follow and bar.value() > 0)
 
 
 def test_a_short_chat_sits_at_the_bottom_and_answers_have_a_max_width(overlay):
