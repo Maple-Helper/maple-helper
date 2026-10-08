@@ -323,6 +323,31 @@ def read_inventory(full, cursor, kb) -> tuple[list, list, str]:
     return tiles, slots, described
 
 
+# an inventory window shows a grid of 16-24 slots; a brick wall passed for 3 (live frames)
+INVENTORY_MIN_SLOTS = 8
+
+
+def local_grind_read(full, table: dict, map_name: str | None) -> tuple[dict, dict] | None:
+    """A grind read without the AI: the bottom bar (level, job, name, EXP) read here (hud.py), the map from the
+    minimap read. None when the AI must read it: the inventory is open (its mesos, potions and loot), or the bar
+    gave no EXP percentage or no sure level. No Qt: runs on a worker thread."""
+    import logging
+
+    import numpy as np
+
+    from .. import hud, inventory
+    if full is None:
+        return None
+    if len(inventory.find_slots(np.asarray(full.convert("RGB")))) >= INVENTORY_MIN_SLOTS:
+        logging.getLogger("maplehelper").debug("grind read: inventory open, the AI reads it")
+        return None
+    got = hud.read(full, table)
+    if got is None or got.exp_pct is None or got.level is None:
+        logging.getLogger("maplehelper").info("grind read: the bar didn't read (%s), the AI reads it", got)
+        return None
+    return got.profile_update(), ({"map": map_name} if map_name else {})
+
+
 def crop_portrait(shot_jpeg: bytes, box: list | None, full, name: str, have_portrait: bool,
                   letters_dir=None) -> bytes | None:
     """The player's own sprite as a 128 px PNG portrait, on their name tag (found in the pixels by the name's
@@ -463,6 +488,7 @@ class Overlay(EdgeResize, QWidget):
     delete_character_requested = Signal(str)      # plan usage read in the background after an answer (ChatGPT)
     inventory_read = Signal(object)    # (question, shown, character id, tiles, slots, description), worker thread
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
+    local_grind_done = Signal(object)  # (token, shot, full, cursor, (update, grind) or None), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
     news_requested = Signal()          # the megaphone or the news strip: the News window
     minimap_requested = Signal()       # the minimap icon: choose the game's minimap box to read where the player is
@@ -2347,8 +2373,57 @@ class Overlay(EdgeResize, QWidget):
             self._sync_shot = shot
             from .. import capture
             self._sync_full = capture.LAST_FULL       # the same grab at full resolution, for the portrait
-            self._sync_thread = QThread(self)
             self._sync_cid = self.profiles.active_id
+            if getattr(self, "_sync_grind", False):
+                # a grind read: the bar is read here first (hud.py), the AI only when the inventory is open or the
+                # bar won't read (the owner's, 2026-10-08: a screenshot to the AI every minute just for the numbers)
+                self._start_local_grind_read(shot, self._sync_full, capture.LAST_CURSOR)
+                return
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("profile refresh could not start")
+            self._on_sync_done(Answer(error="internal"))
+            return
+        self._start_sync_worker(shot)
+
+    def _start_local_grind_read(self, shot: bytes, full, cursor) -> None:
+        """Read the bar on a worker thread; its result comes back through local_grind_done (on the GUI thread)."""
+        import threading
+
+        from .. import plan
+        from .location import LOCATION
+        if not getattr(self, "_local_grind_wired", False):
+            self.local_grind_done.connect(self._on_local_grind)
+            self._local_grind_wired = True
+        table = plan.exp_table(self.kb)
+        here = LOCATION.here
+        map_name = routes.of(self.kb).name(here.map) if here is not None else None
+        token = object()
+        self._local_grind_token = token
+
+        def work():
+            try:
+                got = local_grind_read(full, table, map_name)
+            except Exception:      # noqa: BLE001 - the AI read still runs
+                got = None
+            self.local_grind_done.emit((token, shot, full, cursor, got))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_local_grind(self, r: tuple) -> None:
+        token, shot, full, cursor, got = r
+        if token is not getattr(self, "_local_grind_token", None) or not getattr(self, "_syncing", False):
+            return             # timed out meanwhile (said so), or a newer read: this one goes nowhere
+        if got is None:
+            # the inventory is open (its mesos, potions and loot need the AI) or the bar didn't read
+            self._start_sync_worker(shot)
+            return
+        update, grind_obj = got
+        self._on_sync_done(Answer(profile_update=update, grind=grind_obj))
+
+    def _start_sync_worker(self, shot: bytes) -> None:
+        try:
+            from .. import capture
+            self._sync_thread = QThread(self)
             # reading a name, a level and a bar off a screenshot: no knowledge base, no file tools (it went looking
             # through the pages). The player's own model: measured 2026-10-02, Sonnet answered this read in ~3 s and
             # Haiku in 13-50 s, so the "light" model is no faster here
