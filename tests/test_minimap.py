@@ -266,3 +266,23 @@ def test_dead_engine_is_no_answer_and_logs_once(graph, monkeypatch, caplog):
         assert loc.locate(box) is None
         assert loc.locate(box) is None
     assert sum("OCR unavailable" in r.message for r in caplog.records) == 1
+
+
+def test_engine_is_one_thread_and_never_upscales(monkeypatch):
+    """The OCR engine is built with one ONNX thread and a shrink-only detector resize: the defaults spun every
+    core for ~1 s per read (the scanner reads every second) and blew a header strip up to 736 px tall."""
+    import sys
+    import types
+    from maplehelper.minimap import Locator
+    made = []
+    fake = types.ModuleType("rapidocr")
+    fake.RapidOCR = lambda **kw: made.append(kw) or object()
+    monkeypatch.setitem(sys.modules, "rapidocr", fake)
+    loc = Locator(None)
+    assert loc._engine() is not None
+    assert loc._engine() is loc._engine()          # built once
+    assert len(made) == 1
+    params = made[0]["params"]
+    assert params["EngineConfig.onnxruntime.intra_op_num_threads"] == 1
+    assert params["EngineConfig.onnxruntime.inter_op_num_threads"] == 1
+    assert params["Det.limit_type"] == "max"

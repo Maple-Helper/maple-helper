@@ -51,6 +51,16 @@ _TOP_BAND = 0.12    # ... nor is any line up here (the title bar): tight header 
 _HEADER_PAD = 70    # the learned header crop keeps this many rows below the header's last line: a tight crop reads
                     # worse, not faster (measured: a 100-row crop took 0.34 s and lost WORLD, a 160-row one 0.20 s),
                     # so the crop stays generous and the whole box is the fallback when it yields no name
+# RapidOCR's defaults cost ~15 s of CPU per read on a 16-core machine (measured: every core spun for ~1 s, every
+# second, beside the game). One ONNX thread reads as fast in wall time; and the detector's default "min" resize
+# blew the short side up to 736 px (a 110-row header strip went 6.7x, slower than the whole box). "max" only ever
+# shrinks: ~0.19 s of CPU per read, same names and dots on the live captures.
+_OCR_PARAMS = {
+    "EngineConfig.onnxruntime.intra_op_num_threads": 1,
+    "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+    "Det.limit_type": "max",
+    "Det.limit_side_len": 960,
+}
 _COV_MAX = 160   # the single-map alignment tries its trial scales shrunken (longest side); the best is refined
                 # full-size, where the dot is placed
 _MIN_SIDE = 8       # a match smaller than this is noise, not a minimap ...
@@ -603,7 +613,7 @@ class Locator:
                 if self._ocr is None and not self._ocr_failed:
                     try:
                         from rapidocr import RapidOCR
-                        self._ocr = RapidOCR()
+                        self._ocr = RapidOCR(params=_OCR_PARAMS)
                     except Exception as e:  # noqa: BLE001 - no reader, no answer, never a crash
                         self._ocr_failed = True
                         log.warning("minimap OCR unavailable: %s", e)
