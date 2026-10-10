@@ -1225,7 +1225,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         lay.addWidget(sec)
 
         # the minimap: how often its box is read (where the player is, under the level on the character card), the
-        # hidden-portal dots drawn over it, and the NPCs-on-this-map window over the game
+        # hidden-portal dots drawn over it, the bar over the game that opens the NPCs window and the searches, and
+        # the NPCs-on-this-map window itself
         sec = Section(t("sec_minimap"), rtl)
         # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
         try:
@@ -1243,6 +1244,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
         self.hidden_portals = Switch(settings["minimap_hidden_portals"])
         sec.add_row(t("minimap_hidden_portals"), self.hidden_portals, hint=t("minimap_hidden_portals_hint"))
+        self.game_toolbar = Switch(settings["game_toolbar"])
+        sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
         self.npc_overlay = Switch(settings["npc_overlay"])
         sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
         try:
@@ -1868,6 +1871,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "instant_answers": self.instant.isChecked(),
             "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
             "minimap_hidden_portals": self.hidden_portals.isChecked(),
+            "game_toolbar": self.game_toolbar.isChecked(),
             "npc_overlay": self.npc_overlay.isChecked(),
             "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
             "saver_mode": self.saver.isChecked(),

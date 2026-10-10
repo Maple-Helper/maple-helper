@@ -293,6 +293,16 @@ def test_the_x_turns_the_setting_off_and_hides(overlay):
     assert s["npc_overlay"] is False and not w.isVisible() and loc.guide is None
 
 
+def test_the_x_also_says_it_closed(overlay):
+    """The toolbar's NPCs-here button unchecks when the window's own ✕ closes it (app.py wires closed → its
+    refresh)."""
+    w, _, _ = overlay
+    seen = []
+    w.closed.connect(lambda: seen.append(True))
+    w._close.click()
+    assert seen == [True]
+
+
 def test_the_guide_is_its_own_window_docked_left_of_the_list(overlay):
     """The way to the picked NPC opens as a small window of its own beside the list (the owner's: "a little window
     to the left, not part of the same NPCs here window"), and goes with it: moved with the list, hidden with it."""

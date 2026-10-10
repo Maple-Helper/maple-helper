@@ -176,6 +176,9 @@ DEFAULT_SETTINGS = {
     "npc_overlay": False,         # the in-game "NPCs on this map" window over the game (ui/npcoverlay.py)
     "npc_overlay_geom": None,     # where the player left it: {"x","y","w","h"}; None: beside the minimap box
     "npc_overlay_opacity": 0.85,  # its background's opacity, 0.3-1.0 (the game shows through)
+    "game_toolbar": True,         # the small bar over the game: the NPCs-here window, monster/NPC/item search (ui/gametoolbar.py)
+    "game_toolbar_pos": None,     # where the player left the bar: {"x","y"}; None: above the minimap box
+    "game_search_geom": None,     # where the player left the search window: {"x","y","w","h"}; None: under the bar
 }
 
 

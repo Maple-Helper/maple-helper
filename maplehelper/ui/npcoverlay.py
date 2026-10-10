@@ -11,7 +11,7 @@ import re
 import sys
 from dataclasses import dataclass
 
-from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QToolButton, QVBoxLayout, QWidget
 
@@ -276,6 +276,8 @@ class NpcOverlay(EdgeResize, QWidget):
     """The window itself. Clicks work (rows are picked, edges resize) but it never takes the keyboard from the
     game, and the minimap reads never see it. Its place is kept in npc_overlay_geom; it sets LOCATION.guide —
     the ring on the game's own minimap is drawn elsewhere (ui/portaldots.py)."""
+
+    closed = Signal()               # the ✕ turned the setting off: the toolbar's NPCs-here button unchecks
 
     def __init__(self, kb: KnowledgeBase, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -584,6 +586,7 @@ class NpcOverlay(EdgeResize, QWidget):
         self._settings["npc_overlay"] = False
         self._clear_pick()
         self.hide()
+        self.closed.emit()
 
     def closeEvent(self, e) -> None:
         self._guide.close()
