@@ -245,7 +245,9 @@ def test_the_dot_tooltip_says_where_it_comes_from():
     for lang in ("he", "en"):
         t = I18n(lang)
         tip = serverdot.tip(t, st, now)
-        assert serverdot.when(st.notice_end) in tip and t("server_source", time=serverdot.when(st.checked)) in tip
+        # in the tooltip's language: past midnight the end is "Oct 11, 00:07" in English, "11.10, 00:07" in Hebrew
+        assert serverdot.when(st.notice_end, t.rtl) in tip
+        assert t("server_source", time=serverdot.when(st.checked, t.rtl)) in tip
     assert I18n("en")("server_unknown") in serverdot.tip(I18n("en"), None)
 
 
