@@ -842,9 +842,19 @@ class Locator:
         if img is None or min(img.size) < _MIN_SIDE:
             return None
         arr = np.asarray(img.convert("RGB"))
-        panel, bg, grey, valid = self._panel_view(arr, self._locked is None)
+        fresh = self._locked is None
+        panel, bg, grey, valid = self._panel_view(arr, fresh)
         panel_y0 = self._panel[2][1] if self._panel is not None else 0
         text = self._read_text(arr, panel_y0)
+        if text is None and not fresh:
+            # the cached panel is the last map's, and the title lines are only read above it: another map's window
+            # can sit lower in the box, its map line then taken for map art and dropped, and only the street left
+            # (the last map's own, never a map name). No read then named a map, so the panel was never looked for
+            # again, and the player stayed on The Forest North of Ellinia, in Ellinia, until a restart (live)
+            panel, bg, grey, valid = self._panel_view(arr, True)
+            if self._panel is not None and self._panel[2][1] != panel_y0:
+                panel_y0 = self._panel[2][1]
+                text = self._read_text(arr, panel_y0)
         if text is None:
             return None
         mid = self._resolve_text(text[0], text[1], panel, bg, valid)

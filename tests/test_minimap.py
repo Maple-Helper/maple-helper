@@ -177,6 +177,22 @@ def test_dots_show_only_over_the_map_not_the_window_frame(graph, fixture, shown)
 
 
 @needs_kb
+def test_a_stale_panel_from_the_last_map_never_hides_the_new_title(graph):
+    """The panel found on one map is kept between reads, and title lines are only read above it. Left from an
+    earlier map at 44 px down, it took Ellinia's map line (110 px down) for map art: no read named a map, so the
+    panel was never looked for again, and the player stayed on The Forest North of Ellinia while in Ellinia until a
+    restart (live). A read whose title won't resolve looks for the panel afresh."""
+    from maplehelper.minimap import Locator
+    box = _box("minimap_ellinia_stale_panel_live.png")
+    loc = Locator(graph)
+    north = next(mid for mid, m in graph.known.items() if m.name == "The Forest North of Ellinia")
+    loc._locked, loc._prev = (north, 2.0, 0, 0), north
+    loc._panel = (box.size[0], box.size[1], (9, 44, 351, 374))
+    here = loc.locate(box)
+    assert here is not None and here.map == "010002000" and here.view is not None
+
+
+@needs_kb
 def test_a_map_off_the_routes_is_still_named(graph):
     """A map the KB says is not in the game is never on a route, but the player standing on it is still read
     there: the reader names every map the KB has (it said nothing and kept the last map, live)."""
