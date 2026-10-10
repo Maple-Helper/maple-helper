@@ -1,27 +1,28 @@
 """The in-game toolbar's search window (ui/gametoolbar.py opens it): the KB's monsters, NPCs and items, typed
-down to a row. A click opens what the app already has for an NPC or an item (the map window with the way there,
-the item's details); a monster first shows where it lives, here in the window, each map opening the map window.
-It is the one window over the game that takes the keyboard (the player is typing in it); Esc or the ✕ hides it,
-and the minimap reads never see it. The search itself is plain data: Hit / search / monster_maps need no Qt."""
+down to a row. A click opens the thing's own page in the detail window docked beside the search — an NPC: where
+it stands and the way there; a monster: where it lives; an item: who drops and who sells it; a map: its
+monsters — with a way back through what was opened. The search is the one window over the game that takes the
+keyboard (the player is typing in it); the detail never does; Esc or the ✕ hides it, and the minimap reads
+never see either. The search itself is plain data: Hit / search / monster_maps need no Qt."""
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QGuiApplication, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QToolButton,
                                QVBoxLayout, QWidget)
 
-from .. import availability, bidi, combat, sitedata, tables
+from .. import availability, bidi, combat, gamelookup, routes, sitedata, tables
 from ..i18n import I18n
 from ..kb import KnowledgeBase, memo
 from ..store import Settings
 from . import mapview, theme
 from .glass import SHADOW, EdgeResize
+from .location import LOCATION
 from .npcoverlay import (BOTTOM, FILL1, FILL2, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TEXT, TOP,
-                         _Header, _exclude_from_capture, _paint_glass)
-from .widgets import ITEM_REQUESTS, MAP_REQUESTS
+                         _Header, _exclude_from_capture, _flags, _paint_glass, direction, dock_beside)
 
 KINDS = ("monster", "npc", "item")   # the three searches the toolbar offers
 MIN_W, MIN_H = 260, 300             # the smallest the player can drag the window to
@@ -30,12 +31,17 @@ GAP = 8                             # between the toolbar and the window that op
 LIMIT = 50                          # rows shown before the "and N more" line
 TYPE_DEBOUNCE_MS = 150              # a pause in the typing before the rows are read again
 GEOM_DEBOUNCE_MS = 400              # a move/resize saves the window's place once it settles
+DETAIL_W = 300                     # the detail window's width; its height follows what it shows
+DETAIL_H = 520                     # the height it grows to, then the body scrolls
+PIC = 36                           # the header's small picture of the thing whose page it is
+SRC_CAP = 12                       # droppers and sellers listed, then "and N more"
 
 # the same dark glass as the NPCs window (its own panel, whatever theme the app's windows are in)
 QSS = f"""
 #Title {{ color: {TEXT}; font-weight: 600; }}
 #Status {{ color: {MUTED}; }}
 #Lives {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
+#GuideLine {{ color: {TEXT}; }}
 #DetailName {{ color: {TEXT}; font-weight: 700; font-size: 15px; }}
 QLineEdit {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 6px 10px; }}
 QLineEdit:focus {{ background: {FILL2}; }}
@@ -196,9 +202,10 @@ class _Row(QFrame):
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 6, 10, 6)
         lay.setSpacing(1)
-        self.name = QLabel(name, objectName="Name")
+        # both lines wrap: "Construction Site North of Kerning City  ·  Victoria Road" ran under the scrollbar
+        self.name = QLabel(name, objectName="Name", wordWrap=True)
         lay.addWidget(self.name)
-        self.sub = QLabel(sub, objectName="Sub") if sub else None
+        self.sub = QLabel(sub, objectName="Sub", wordWrap=True) if sub else None
         if self.sub is not None:
             lay.addWidget(self.sub)
 
@@ -208,11 +215,362 @@ class _Row(QFrame):
         super().mouseReleaseEvent(e)
 
 
+class DetailWindow(QWidget):
+    """A clicked result's own page, in the NPCs window's guide's own look: a see-through always-on-top panel
+    docked beside the search (its left, or its right where the screen has no room) that moves and hides with it
+    and never takes the keyboard from the game. Its views are a history — a row's click pushes one, ‹ Back pops,
+    a new search click starts it over. While it shows an NPC on the player's map it guides them: the sentence
+    and the picture's blue dot follow the player, and the game's own minimap rings the spot (LOCATION.guide)."""
+
+    def __init__(self, owner: GameSearch):
+        super().__init__(None, _flags())
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setFixedWidth(DETAIL_W)
+        self.setStyleSheet(QSS)
+        self._owner = owner
+        self._excluded = False
+        self._stack: list[tuple[str, str]] = []     # each view pushed, the last one shown
+        self._guided: tuple | None = None           # the guide this window set, None while it set none
+        self._rows: list[QWidget] = []
+        col = QVBoxLayout(self)
+        col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
+        col.setSpacing(8)
+        self._head = QWidget()
+        hrow = QHBoxLayout(self._head)
+        hrow.setContentsMargins(0, 0, 0, 0)
+        hrow.setSpacing(8)
+        self.back = QPushButton(objectName="Back")
+        self.back.setCursor(Qt.PointingHandCursor)
+        self.back.setFocusPolicy(Qt.NoFocus)
+        self.back.clicked.connect(lambda _=False: self.go_back())
+        self.pic = QLabel()
+        self.title = QLabel(objectName="Title")
+        self.title.setWordWrap(True)
+        self.close_btn = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
+        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn.setFocusPolicy(Qt.NoFocus)
+        self.close_btn.clicked.connect(lambda _=False: self.hide())
+        hrow.addWidget(self.back, 0, Qt.AlignTop)
+        hrow.addWidget(self.pic, 0, Qt.AlignTop)
+        hrow.addWidget(self.title, 1)
+        hrow.addWidget(self.close_btn, 0, Qt.AlignTop)
+        col.addWidget(self._head)
+        self._scroll = QScrollArea(objectName="Body")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.NoFrame)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        rows = QWidget(objectName="Rows")
+        self._rows_lay = QVBoxLayout(rows)
+        self._rows_lay.setContentsMargins(0, 0, 0, 0)
+        self._rows_lay.setSpacing(4)
+        self._rows_lay.addStretch(1)
+        self._scroll.setWidget(rows)
+        col.addWidget(self._scroll, 1)
+        self._retext_chrome()
+        LOCATION.changed.connect(self._moved)
+
+    # ------------------------------------------------------------ the views
+
+    def open_view(self, kind: str, key: str) -> None:
+        """A search result clicked: its page, the history started over."""
+        self._stack = [(kind, key)]
+        self._draw()
+        self.show_beside()
+
+    def push(self, kind: str, key: str) -> None:
+        """A row's click inside a page: one more view on the history."""
+        self._stack.append((kind, key))
+        self._draw()
+        self.show_beside()
+
+    def go_back(self) -> None:
+        """‹ Back: the view under this one on the history."""
+        if len(self._stack) > 1:
+            self._stack.pop()
+            self._draw()
+            self.show_beside()
+
+    def redraw(self) -> None:
+        """The view drawn again — the language or the KB changed under it."""
+        if self._stack:
+            self._draw()
+
+    def _draw(self) -> None:
+        """The last view on the history, built again from the KB and where the player is now: also the redraw
+        when they move (the guide let go first — the view may no longer be on their map)."""
+        self._clear_guide()
+        self._clear_body()
+        kind, key = self._stack[-1]
+        body = {"npc": self._npc_body, "monster": self._monster_body,
+                "item": self._item_body, "map": self._map_body}.get(kind)
+        if body is not None:
+            body(key)
+        self._fit()
+        if self.isVisible():
+            self.dock()
+            self.update()
+
+    def _npc_body(self, key: str) -> None:
+        """The NPC's page: on the player's map, where it stands from them and the picture with its dot and
+        theirs, the game's own minimap ringed; elsewhere, the map it stands on and the way there."""
+        o = self._owner
+        t, kb = o.t, o._kb
+        name = self._name(key)
+        self._set_head(key, name)
+        here = LOCATION.here
+        place = gamelookup.npc_place(kb, key, here.map if here is not None else None)
+        if place is None:
+            return                                   # nowhere the KB can place it: the header says who it is
+        g = routes.of(kb)
+        if here is not None and place.map == here.map:
+            who = t("npc_guide_door", place=g.name(place.inside)) if place.inside else name
+            line = t(direction(g, place.map, here.spot, place.spot), name=who)
+            if place.inside:
+                line = t("npc_guide_inside", name=name, place=g.name(place.inside)) + " " + line
+            self._line(line)
+            self._picture(g.minimap(place.map), place.spot, not place.inside, here.spot)
+            if place.spot is not None:
+                self._guided = (place.map, place.spot, key)
+                LOCATION.set_guide(self._guided)
+            return
+        self._line(t("lk_on_map", name=name, map=place.map_name or g.name(place.map)))
+        self._picture(g.minimap(place.map), place.spot, not place.inside, None)
+        self._way(place.map)
+
+    def _monster_body(self, key: str) -> None:
+        """The monster's page: its stats, every map it lives on (a click: that map's page)."""
+        o = self._owner
+        t, kb = o.t, o._kb
+        name = self._name(key)
+        self._set_head(key, name)
+        m = combat.monster(kb, key)
+        if m is not None:
+            self._line(t("mob_stats", lv=m.level, hp=f"{m.hp:,}", exp=f"{m.exp:,}"), muted=True)
+        self._heading(t("mob_lives", name=name))
+        maps = monster_maps(kb, key)
+        if not maps:
+            self._line(t("mob_none", name=name), muted=True)
+        for map_key, mname, street, count in maps:
+            row = _Row(bidi.ltr_name(f"{mname}  ·  {street}" if street else mname, t.rtl),
+                       bidi.plain(t("mob_spawns", n=count), t.rtl), t("lk_open_map"))
+            row.clicked.connect(lambda _=False, k=map_key: self.push("map", k))
+            self._add(row)
+
+    def _item_body(self, key: str) -> None:
+        """The item's page: its type, the monsters that drop it and the NPCs that sell it, each a click away
+        (a dozen of each, then "and N more")."""
+        o = self._owner
+        t, kb = o.t, o._kb
+        self._set_head(key, self._name(key))
+        what = str((kb.get(key) or {}).get("type") or "")
+        if what:
+            self._line(what, muted=True)
+        drop, sell = gamelookup.item_sources(kb, key)
+        if not drop and not sell:
+            self._line(t("lk_no_sources"), muted=True)
+            return
+        if drop:
+            self._heading(t("lk_dropped_by"))
+            for d in drop[:SRC_CAP]:
+                row = _Row(bidi.ltr_name(d.name, t.rtl), f"Lv. {d.level}", t("lk_open_monster"))
+                row.clicked.connect(lambda _=False, k=d.key: self.push("monster", k))
+                self._add(row)
+            self._more(len(drop))
+        if sell:
+            self._heading(t("lk_sold_by"))
+            for s in sell[:SRC_CAP]:
+                price = t("lk_price", n=f"{s.price:,}") if s.price is not None else ""
+                row = _Row(bidi.ltr_name(s.name, t.rtl),
+                           bidi.plain(" · ".join(x for x in (price, s.place) if x), t.rtl), t("lk_open_npc"))
+                row.clicked.connect(lambda _=False, k=s.key: self.push("npc", k))
+                self._add(row)
+            self._more(len(sell))
+
+    def _map_body(self, key: str) -> None:
+        """The map's page: its street and its picture (the player's blue dot on it, while they're there),
+        whether they're on it or the way there, and the monsters that spawn on it (a click: that monster's
+        page)."""
+        o = self._owner
+        t, kb = o.t, o._kb
+        g = routes.of(kb)
+        mid = key.partition("/")[2]
+        self._set_head(key, self._map_name(g, mid))
+        m = g.known.get(mid)
+        if m is not None and m.street:
+            self._line(m.street, muted=True)
+        here = LOCATION.here
+        self._picture(g.minimap(mid), None, False, here.spot if here is not None and here.map == mid else None)
+        if here is not None and here.map == mid:
+            self._line(t("lk_here"))
+        else:
+            self._way(mid)
+        for mkey, mname, level, count in gamelookup.map_monsters(kb, key):
+            row = _Row(bidi.ltr_name(mname, t.rtl),
+                       bidi.plain(f"Lv. {level} · {t('mob_spawns', n=count)}", t.rtl), t("lk_open_monster"))
+            row.clicked.connect(lambda _=False, k=mkey: self.push("monster", k))
+            self._add(row)
+
+    def _way(self, to_map: str) -> None:
+        """The way from the player's map to this one, a line per step; already there, no way known, or their
+        map not read yet."""
+        o = self._owner
+        t = o.t
+        here = LOCATION.here
+        way = gamelookup.way_to(o._kb, here.map if here is not None else None, to_map)
+        self._heading(t("lk_way"))
+        if not way.known:
+            self._line(t("lk_way_unknown_here" if way.here is None else "lk_way_none"), muted=True)
+        elif not way.legs:
+            self._line(t("lk_here"), muted=True)
+        else:
+            g = routes.of(o._kb)
+            for leg in way.legs:
+                self._line(mapview.route_says(t, g, leg), rich=True)
+
+    def _line(self, text: str, muted: bool = False, rich: bool = False) -> None:
+        """A line of the page; `rich`: a route step, its **bold** names drawn bold as the map window draws them
+        (mapview.says_html), not shown as asterisks."""
+        t = self._owner.t
+        w = QLabel(objectName="Status" if muted else "GuideLine")
+        if rich:
+            w.setTextFormat(Qt.RichText)
+            w.setText(mapview.says_html(t, text))
+        else:
+            w.setText(bidi.plain(text, t.rtl))
+        w.setWordWrap(True)
+        self._add(w)
+
+    def _heading(self, text: str) -> None:
+        w = QLabel(bidi.plain(text, self._owner.t.rtl), objectName="Lives")
+        w.setWordWrap(True)
+        self._add(w)
+
+    def _more(self, n: int) -> None:
+        if n > SRC_CAP:
+            self._line(self._owner.t("lk_more", n=n - SRC_CAP), muted=True)
+
+    def _picture(self, path, spot, npc: bool, you) -> None:
+        """The map's picture with the thing's dot (an NPC's green, its building's door orange) and the
+        player's blue one while they're on that map; no picture: nothing."""
+        pm = mapview.route_picture(path, spot, npc, you, cap_w=self.pic_cap())
+        if not pm.isNull():
+            w = QLabel(alignment=Qt.AlignHCenter)
+            w.setPixmap(pm)
+            self._add(w)
+
+    def _name(self, key: str) -> str:
+        return str((self._owner._kb.get(key) or {}).get("name") or key.partition("/")[2])
+
+    def _map_name(self, g, mid: str) -> str:
+        """A map's name: its own page's, else the route graph's (routes.json names maps the KB has no page for)."""
+        return str((self._owner._kb.get(f"map/{mid}") or {}).get("name") or g.name(mid))
+
+    def _set_head(self, key: str, name: str) -> None:
+        """The page's header: the thing's name and a small picture of it, ‹ Back when there is a view under
+        this one."""
+        pm = QPixmap()
+        p = self._owner._kb.picture(key)
+        if p is not None:
+            pm = QPixmap(str(p))
+        self.back.setVisible(len(self._stack) > 1)
+        self.title.setText(bidi.ltr_name(name, self._owner.t.rtl))
+        if pm.isNull():
+            self.pic.clear()
+            self.pic.hide()
+        else:
+            self.pic.setPixmap(pm.scaled(PIC, PIC, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.pic.show()
+
+    def _add(self, w: QWidget) -> None:
+        self._rows.append(w)
+        self._rows_lay.insertWidget(self._rows_lay.count() - 1, w)
+        w.show()            # now, not on the next event pass: _fit measures the new view at once (it measured 0
+                            # and the window folded to its header after the first view, offscreen render)
+
+    def _clear_body(self) -> None:
+        while self._rows:
+            w = self._rows.pop()
+            self._rows_lay.removeWidget(w)
+            w.hide()        # gone from the panel now: deleteLater left the old view drawn under the new one
+            w.deleteLater()
+
+    def _clear_guide(self) -> None:
+        """Let the game-minimap ring go — only when it is still this window's (another window may have taken
+        the guide over since it was set)."""
+        if self._guided is not None:
+            guide, self._guided = self._guided, None
+            if LOCATION.guide == guide:
+                LOCATION.set_guide(None)
+
+    def _moved(self, _here: object = None) -> None:
+        """The player moved (a Qt slot too: LOCATION.changed): the view of an NPC or a map is drawn again —
+        on the map they're on the sentence and the blue dot follow them, another map and the guide is let go."""
+        if self.isVisible() and self._stack and self._stack[-1][0] in ("npc", "map"):
+            self._draw()
+
+    # ------------------------------------------------------------ language
+
+    def apply_language(self, t: I18n) -> None:
+        self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
+        self._retext_chrome()
+        self.redraw()
+
+    def _retext_chrome(self) -> None:
+        t = self._owner.t
+        self.back.setText(bidi.plain(t("lk_back"), t.rtl))
+        self.back.setToolTip(t("lk_back"))
+        self.close_btn.setAccessibleName(t("lk_close"))
+        self.close_btn.setToolTip(t("lk_close"))
+
+    # ------------------------------------------------------------ the panel
+
+    def pic_cap(self) -> int:
+        """The pictures' width: the panel's inside, bar the scrollbar's groove."""
+        return DETAIL_W - 2 * SIDE - 4
+
+    def paintEvent(self, e) -> None:
+        _paint_glass(self, self._owner._opacity)
+
+    def dock(self) -> None:
+        """Beside the search's panel, top edges lined up: on its left, or on its right when the search's screen
+        has no room left of it; kept on that screen top to bottom."""
+        dock_beside(self, self._owner)
+
+    def show_beside(self) -> None:
+        """Shown (or kept) docked beside the search, at the height its contents need."""
+        self.dock()
+        if not self.isVisible():
+            self.show()
+        if not self._excluded:
+            self._excluded = True
+            _exclude_from_capture(self)
+        self.update()
+
+    def _fit(self) -> None:
+        """The window's height follows its body up to the cap; past it, the body scrolls."""
+        inner = DETAIL_W - 2 * SIDE
+        head = self._need(self._head, inner)
+        body = self._need(self._rows_lay, inner - 2)     # the scrollbar's groove eats a little of it
+        self.setFixedHeight(min(DETAIL_H, TOP + BOTTOM + 8 + head + body))
+
+    @staticmethod
+    def _need(item, width: int) -> int:
+        """The height a widget or layout needs at this width: the wrapped way when it has one, else its hint."""
+        h = item.heightForWidth(width)
+        return h if h >= 0 else item.sizeHint().height()
+
+    def hideEvent(self, e) -> None:
+        self._clear_guide()
+        super().hideEvent(e)
+
+
 class GameSearch(EdgeResize, QWidget):
     """The search window itself: over the game, in the NPCs window's dark glass, but taking the keyboard (the
     player types in it; Esc or the ✕ gives it back). The toolbar opens it in a mode — the same mode again is a
-    toggle off — and each mode keeps its last query. A click opens the app's own window for an NPC or an item;
-    a monster's maps show here first. Its place is kept in game_search_geom."""
+    toggle off — and each mode keeps its last query. A click opens the thing's own page in the detail window
+    beside this one, the results still listed. Its place is kept in game_search_geom."""
 
     mode_changed = Signal(str)          # the mode it shows, "" once hidden
 
@@ -231,7 +589,6 @@ class GameSearch(EdgeResize, QWidget):
         self._queries = {kind: "" for kind in KINDS}     # each mode's last query, kept while it switches
         self._hits: list[Hit] = []
         self._total = 0
-        self._detail: Hit | None = None                  # the monster whose maps are shown
         self._rows: list[QWidget] = []
         self._opacity = OPACITY_DEFAULT
         self._placed = False                 # geometry applied at least once: there is a place to remember
@@ -279,6 +636,7 @@ class GameSearch(EdgeResize, QWidget):
         col.addWidget(self._scroll, 1)
         self._retext_chrome()
         self._retext_status()
+        self._detail = DetailWindow(self)             # the clicked result's page, a window of its own
 
     def paintEvent(self, e) -> None:
         _paint_glass(self, self._opacity)
@@ -316,7 +674,6 @@ class GameSearch(EdgeResize, QWidget):
 
     def _set_kind(self, kind: str) -> None:
         self._kind = kind
-        self._detail = None
         self._box.setText(self._queries[kind])     # the mode's own last query, back in the box
         self._retext_chrome()
         self._run()
@@ -328,25 +685,22 @@ class GameSearch(EdgeResize, QWidget):
         """The rows for what is typed (the typing debounce's work too)."""
         q = self._box.text()
         self._queries[self._kind] = q
-        self._detail = None
         self._hits, self._total = search(self._kb, self._kind, q, LIMIT)
         self._rebuild_rows()
         self._retext_status()
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         self._kb = kb
-        self._detail = None
+        self._detail.redraw()     # the page shown is drawn again: its names and places may all have moved
         self._run()      # every list is read again (each one is built once per KB)
 
     def apply_language(self, t: I18n) -> None:
         self.t = t
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self._retext_chrome()
-        if self._detail is not None:
-            self._show_monster(self._detail)      # its words again, its maps' names re-embedded
-        else:
-            self._rebuild_rows()
-            self._retext_status()
+        self._rebuild_rows()
+        self._retext_status()
+        self._detail.apply_language(t)     # its page drawn again, its words again
 
     # ------------------------------------------------------------ text (all of it, for apply_language)
 
@@ -392,47 +746,9 @@ class GameSearch(EdgeResize, QWidget):
             self._add(row)
 
     def _picked(self, hit: Hit) -> None:
-        """A result clicked: an NPC or an item opens in the app's own window for it; a monster shows where it
-        lives, here."""
-        if self._kind == "npc":
-            MAP_REQUESTS.requested.emit(hit.key)
-        elif self._kind == "item":
-            ITEM_REQUESTS.requested.emit(hit.key)
-        else:
-            self._show_monster(hit)
-
-    def _show_monster(self, hit: Hit) -> None:
-        """The monster's own page in the window: its stats, every map it lives on (a click opens the map
-        window, with the way there from the player's map) and the way back to the results."""
-        t, rtl = self.t, self.t.rtl
-        self._detail = hit
-        self._clear_rows()
-        back = QPushButton(objectName="Back")
-        back.setCursor(Qt.PointingHandCursor)
-        back.setText(bidi.plain(t("search_back"), rtl))
-        back.setToolTip(t("search_back"))
-        back.clicked.connect(self._back)
-        self._add(back)
-        self._add(QLabel(bidi.ltr_name(hit.name, rtl), objectName="DetailName"))
-        m = combat.monster(self._kb, hit.key)
-        if m is not None:
-            self._add(QLabel(bidi.plain(t("mob_stats", lv=m.level, hp=f"{m.hp:,}", exp=f"{m.exp:,}"), rtl),
-                             objectName="Status"))
-        self._add(QLabel(bidi.plain(t("mob_lives", name=hit.name), rtl), objectName="Lives"))
-        maps = monster_maps(self._kb, hit.key)
-        if not maps:
-            self._add(QLabel(bidi.plain(t("mob_none", name=hit.name), rtl), objectName="Status"))
-        for map_key, name, street, count in maps:
-            row = _Row(bidi.ltr_name(f"{name}  ·  {street}" if street else name, rtl),
-                       bidi.plain(t("mob_spawns", n=count), rtl), t("mob_map_open"))
-            row.clicked.connect(lambda _=False, k=map_key: MAP_REQUESTS.requested.emit(k))
-            self._add(row)
-
-    def _back(self) -> None:
-        """Back to the results, the query still in the box."""
-        self._detail = None
-        self._rebuild_rows()
-        self._retext_status()
+        """A result clicked: its own page in the detail window beside this one, the history started over (the
+        results stay listed here)."""
+        self._detail.open_view(self._kind, hit.key)
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: hidden (the toolbar's button lets go of its highlight; nothing is turned off)."""
@@ -471,14 +787,19 @@ class GameSearch(EdgeResize, QWidget):
 
     def moveEvent(self, e) -> None:
         self._geom.start()
+        if self._detail.isVisible():
+            self._detail.dock()      # the detail moves with the search
         super().moveEvent(e)
 
     def resizeEvent(self, e) -> None:
         self._geom.start()
+        if self._detail.isVisible():
+            self._detail.dock()      # a left-edge drag moves the search's left side
         super().resizeEvent(e)
 
     def hideEvent(self, e) -> None:
         self._typing.stop()       # nothing fires once it is hidden: the rows are not read again behind the player's back
+        self._detail.hide()       # the page goes with it, its guide let go
         if self._placed:             # hidden (the toolbar, Esc, the ✕): keep the place now, not 400 ms later
             self._geom.stop()
             self._remember()

@@ -182,6 +182,19 @@ def _flags() -> Qt.WindowType:
     return Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
 
 
+def dock_beside(win: QWidget, owner: QWidget, gap: int = GUIDE_GAP) -> None:
+    """A small panel of its own docked beside its owner (its left, or its right where the owner's screen has no
+    room left of it): top edges lined up, kept on that screen top to bottom."""
+    left = owner.x() + 2 * SHADOW - gap - win.width()
+    right = owner.x() + owner.width() - 2 * SHADOW + gap
+    screen = QGuiApplication.screenAt(owner.geometry().center()) or QGuiApplication.primaryScreen()
+    room = screen.availableGeometry()
+    x = left if left + SHADOW >= room.left() else right
+    y = min(max(owner.y(), room.top()), max(room.top(), room.bottom() - win.height() + 1))
+    if win.pos() != QPoint(x, y):
+        win.move(x, y)
+
+
 class GuideWindow(QWidget):
     """The way to the picked NPC, a small window of its own docked beside the list (its left, or its right where
     the screen has no room): the NPC's name with a ✕, the sentence saying where it is, the map's picture with its
@@ -242,15 +255,7 @@ class GuideWindow(QWidget):
     def dock(self) -> None:
         """Beside the list's panel, top edges lined up: on its left, or on its right when the list's screen has
         no room left of it; kept on that screen top to bottom."""
-        o = self._owner
-        left = o.x() + 2 * SHADOW - GUIDE_GAP - self.width()
-        right = o.x() + o.width() - 2 * SHADOW + GUIDE_GAP
-        screen = QGuiApplication.screenAt(o.geometry().center()) or QGuiApplication.primaryScreen()
-        room = screen.availableGeometry()
-        x = left if left + SHADOW >= room.left() else right
-        y = min(max(o.y(), room.top()), max(room.top(), room.bottom() - self.height() + 1))
-        if self.pos() != QPoint(x, y):
-            self.move(x, y)
+        dock_beside(self, self._owner)
 
 
 class _Header(QWidget):
