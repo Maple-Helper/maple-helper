@@ -116,29 +116,35 @@ def test_follow_tracks_the_scroll_and_drops_another_map(graph):
 
 
 @needs_kb
-def test_a_see_through_minimap_is_placed_by_the_games_markers(graph):
-    """The Forest of Wisdom's minimap is drawn see-through over the game's scene: its art matched at 0.14 where it
-    truly lay (the bar is 0.5), so it never aligned and showed no hidden-portal dots (live). Its two blue portal
-    rings place it instead, and the yellow dot is found on it; the follow then tracks those rings as the minimap
-    scrolls, and loses them on a black loading screen."""
+@pytest.mark.parametrize("fixture,mid,at,width", [
+    ("minimap_forest_of_wisdom_live.png", "010002020", (54, 58), 252),
+    # the box cuts the window off on the right: the panel runs to that edge (the fill left that side open)
+    ("minimap_forest_south_cut_live.png", "010002030", (8, 147), 414),
+])
+def test_a_see_through_minimap_is_placed_and_followed_by_its_colours(graph, fixture, mid, at, width):
+    """The Ellinia forests' minimaps are drawn see-through over the game's own scene: the grey shape matched 0.14 to
+    0.16 where they truly lay (the bar is 0.5), so they never placed and showed no hidden-portal dots (live). The
+    picture's colours, compared only where it draws, place them; the follow then tracks them as the minimap scrolls
+    sideways and up and down (jumping and climbing scroll a tall map: the dots drifted, live), and loses them on a
+    black loading screen."""
     from PIL import Image
 
     from maplehelper.minimap import Locator
     loc = Locator(graph)
-    box = _box("minimap_forest_of_wisdom_live.png")
+    box = _box(fixture)
     here = loc.locate(box)
-    assert here is not None and here.map == "010002020" and here.view is not None
-    assert (here.view.x, here.view.y) == pytest.approx((52, 56), abs=2)
-    assert here.view.w == pytest.approx(254, abs=4)
-    assert here.spot == pytest.approx((0.67, 0.47), abs=0.02)
-    # its hidden portals land on the picture now (up10, the tree trunk right of the start, MeowDB's map data)
-    assert here.view.at(graph._spot("010002020", {"x": 478, "y": 208})) is not None
-    arr = np.asarray(box).copy()
+    assert here is not None and here.map == mid and here.view is not None
+    assert (here.view.x, here.view.y) == pytest.approx(at, abs=2)
+    assert here.view.w == pytest.approx(width, abs=5)
     x0, y0, x1, y1 = here.view.panel
-    arr[y0:y1, x0:x1] = np.roll(arr[y0:y1, x0:x1], 10, axis=1)
-    mid, v = loc.follow(Image.fromarray(arr))
-    assert mid == "010002020" and v.x == pytest.approx(here.view.x + 10, abs=1.0)
-    assert loc.follow(Image.new("RGB", box.size)) == ("010002020", None)
+    for dx, dy in ((10, 0), (0, 15), (0, -15), (-6, 8)):
+        arr = np.asarray(box).copy()
+        arr[y0:y1, x0:x1] = np.roll(arr[y0:y1, x0:x1], (dy, dx), axis=(0, 1))
+        got, v = loc.follow(Image.fromarray(arr))
+        assert got == mid and v is not None, (dx, dy)
+        assert (v.x, v.y) == pytest.approx((here.view.x + dx, here.view.y + dy), abs=1.0), (dx, dy)
+        loc.follow(box)
+    assert loc.follow(Image.new("RGB", box.size)) == (mid, None)
 
 
 @needs_kb
@@ -161,8 +167,9 @@ def test_a_read_that_fails_to_align_its_own_map_keeps_the_follow(graph, monkeypa
     loc = Locator(graph)
     box = _box("minimap_kerning_hidden_portal_live.png")
     first = loc.locate(box)
-    monkeypatch.setattr(loc, "_align", lambda *a: None)
-    monkeypatch.setattr(loc, "_anchor", lambda *a, **k: None)     # neither the art nor the markers place it
+    monkeypatch.setattr(loc, "_align", lambda *a, **k: None)
+    monkeypatch.setattr(loc, "_see_align", lambda *a: None)     # neither the grey shape nor the colours place it
+    monkeypatch.setattr(loc, "_see_at", lambda *a: None)
     assert loc.locate(box) == Here("010003000", None)
     mid, v = loc.follow(Image.fromarray(np.roll(np.asarray(box), 6, axis=1)))
     assert mid == "010003000" and v.x == pytest.approx(first.view.x + 6, abs=1.0)
@@ -222,8 +229,9 @@ def test_header_crop_falls_back_to_the_whole_box(loc):
 
 @needs_kb
 def test_second_read_rechecks_the_lock(graph, monkeypatch):
-    """The same box again: the locked scale re-verifies with one comparison (no trial sweep); after reset the
-    sweep runs again. OCR rows are stubbed — the panel, alignment and dot are real."""
+    """The same box again: the locked scale re-verifies with one comparison (no trial sweep). After reset the last
+    scale (the game's minimap zoom, the same from map to map) places it again without a sweep; with no scale known
+    the sweep runs. OCR rows are stubbed — the panel, alignment and dot are real."""
     from maplehelper.minimap import Locator
     rows = [("MINI MAP", 21.0, 27.0), ("WORLD", 21.0, 28.0),
             ("Victoria Road", 56.0, 67.0), ("Perion", 78.0, 89.0)]
@@ -245,7 +253,11 @@ def test_second_read_rechecks_the_lock(graph, monkeypatch):
     assert second == first and not calls
     loc.reset()
     third = loc.locate(box)
-    assert calls and third == first
+    assert not calls and third == first
+    loc.reset()
+    loc._scale_prior = None
+    fourth = loc.locate(box)
+    assert calls and fourth == first
 
 
 # ------------------------------------------------------- name resolution
