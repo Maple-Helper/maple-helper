@@ -28,6 +28,7 @@ class _FakeGraph:
     .known, so a class attribute binds it to this graph). No map pictures: the guide panel is only words."""
 
     _spot = routes.Graph._spot
+    picture_spot = routes.Graph.picture_spot
 
     def __init__(self):
         self.known = {
@@ -121,8 +122,8 @@ def test_npcs_on_of_a_map_the_kb_doesnt_have():
     ((0.5, 0.5), (0.5 + NEAR, 0.5), "npc_guide_here"),        # 31.25 units aside: right by you
     ((0.5, 0.5), (0.5, 0.5 + NEAR), "npc_guide_here"),        # 62.5 units below: right by you
     ((0.5, 0.5), (0.5, 0.5), "npc_guide_here"),
-    (None, (0.5, 0.5), "npc_guide_nowhere"),                  # no dot for the player on this read
-    ((0.5, 0.5), None, "npc_guide_nowhere"),                  # no place for the NPC
+    (None, (0.5, 0.5), "npc_guide_marked"),                   # no dot for the player (a shop folds the minimap)
+    ((0.5, 0.5), None, "npc_guide_unplaced"),                 # no place for the NPC
 ])
 def test_direction_where_the_npc_is_from_the_player(you, spot, want):
     from maplehelper.ui.npcoverlay import direction
@@ -131,8 +132,27 @@ def test_direction_where_the_npc_is_from_the_player(you, spot, want):
 
 def test_direction_on_a_map_with_no_minimap_to_measure_on():
     from maplehelper.ui.npcoverlay import direction
-    assert direction(GRAPH, OTHER, (0.5, 0.5), (0.9, 0.9)) == "npc_guide_nowhere"
-    assert direction(GRAPH, "999999999", (0.5, 0.5), (0.9, 0.9)) == "npc_guide_nowhere"
+    assert direction(GRAPH, OTHER, (0.5, 0.5), (0.9, 0.9)) == "npc_guide_marked"
+    assert direction(GRAPH, "999999999", (0.5, 0.5), (0.9, 0.9)) == "npc_guide_marked"
+
+
+def test_inside_a_shop_its_npcs_stand_on_the_room_picture(overlay, monkeypatch):
+    """A shop has no minimap (the game folds it there, so the player has no dot) but its picture is the whole room,
+    framed by the map's view rectangle (MapInfo.scene): its NPCs are placed on it and the guide marks them (the
+    owner's, 2026-10-10: inside a shop it said "your spot isn't known yet" with no NPC on the picture)."""
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    shop = "010020005"
+    g = _FakeGraph()
+    g.known[shop] = MapInfo(shop, "Fake Salon", "", True, "", None, [{"id": "414", "name": "Andre", "x": -72, "y": -12}],
+                            scene=[800, 600, 400, 300])           # vr = (-400, -300, 400, 300)
+    monkeypatch.setattr(npcoverlay.routes, "of", lambda kb: g)
+    loc.set(_here(shop, None))
+    andre = w._npcs[0]
+    assert andre.spot == pytest.approx((328 / 800, 288 / 600))
+    _row(w, "Andre").click()
+    assert loc.guide == (shop, andre.spot, "npc/414")
+    assert w._line.text() == "Andre is marked on the map"
 
 
 # ------------------------------------------------------------ the window

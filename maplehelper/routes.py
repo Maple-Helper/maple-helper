@@ -78,6 +78,9 @@ class MapInfo:
     minimap: list | None
     npcs: list[dict]
     hidden: list[dict] = field(default_factory=list)    # its invisible teleports ({"name", "x", "y"}), see hidden_spots
+    # a map with no minimap of its own (a shop, the hospital: the game folds its minimap there) has its picture as
+    # the whole room: [width, height, x offset, y offset] in map units, like `minimap` (see picture_spot)
+    scene: list | None = None
 
 
 class Graph:
@@ -104,7 +107,7 @@ class Graph:
             # routes.json's name, trimmed ("A Hill West of Henesys " made "to A Hill West of Henesys .")
             info = MapInfo(mid, (m.get("name") or "").strip() or kb.get(key)["name"], m.get("street") or "",
                            bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
-                           m.get("minimap"), list(m.get("npcs") or []), list(m.get("hidden") or []))
+                           m.get("minimap"), list(m.get("npcs") or []), list(m.get("hidden") or []), m.get("scene"))
             self.known[mid] = info
             if not open_.entity_open(key):
                 continue      # not in the game, as the KB says: never on a route
@@ -128,14 +131,23 @@ class Graph:
         if not any(e.to == leg.to and e.kind == leg.kind for e in self.edges[leg.frm]):
             self.edges[leg.frm].append(leg)
 
-    def _spot(self, mid: str, thing: dict) -> tuple[float, float] | None:
-        """Where a portal or an NPC is on the map's minimap picture, as fractions of its size."""
-        mm = self.known[mid].minimap
+    def _spot(self, mid: str, thing: dict, frame: list | None = None) -> tuple[float, float] | None:
+        """Where a portal or an NPC is on the map's minimap picture, as fractions of its size (`frame`: another
+        [width, height, x offset, y offset] of the picture instead of the minimap's)."""
+        mm = frame if frame is not None else self.known[mid].minimap
         if not mm or not mm[0] or not mm[1]:
             return None
         x, y = (thing.get("x") or 0) + mm[2], (thing.get("y") or 0) + mm[3]
         fx, fy = x / mm[0], y / mm[1]
         return (fx, fy) if 0 <= fx <= 1 and 0 <= fy <= 1 else None
+
+    def picture_spot(self, mid: str, thing: dict) -> tuple[float, float] | None:
+        """Where something stands on the map's picture: on its minimap, or on a map with none (a shop) on its
+        picture of the whole room (MapInfo.scene). Only for showing where an NPC is: routes keep to minimaps."""
+        m = self.known.get(mid)
+        if m is None:
+            return None
+        return self._spot(mid, thing) if m.minimap else self._spot(mid, thing, m.scene)
 
     def _npc_on(self, mid: str, test) -> dict | None:
         return next((n for n in self.maps[mid].npcs if test(n.get("name") or "")), None)

@@ -94,8 +94,9 @@ def buildings_off(g, mid: str) -> list:
 
 def npcs_on(g, mid: str) -> list[NpcHere]:
     """Every NPC the KB knows on this map, one row per id (the first place it stands — the same cab drawn twice
-    is one cab), sorted by name; then those inside each building off it (buildings_off), building by building
-    (sorted by its name), each guided to its door. [] for a map the KB doesn't have."""
+    is one cab), sorted by name, placed on the map's picture (its minimap, or a shop's room: Graph.picture_spot);
+    then those inside each building off it (buildings_off), building by building (sorted by its name), each guided
+    to its door. [] for a map the KB doesn't have."""
     m = g.known.get(mid)
     if m is None:
         return []
@@ -111,7 +112,7 @@ def npcs_on(g, mid: str) -> list[NpcHere]:
             out.append(NpcHere(f"npc/{nid}", str(n.get("name") or nid), spot_of(n), inside))
         return sorted(out, key=lambda x: x.name.casefold())
 
-    out = rows(mid, lambda n: g._spot(mid, n))
+    out = rows(mid, lambda n: g.picture_spot(mid, n))
     for leg in sorted(buildings_off(g, mid), key=lambda leg: g.name(leg.to).casefold()):
         out += rows(leg.to, lambda n, door=leg.spot: door, leg.to)
     return out
@@ -119,16 +120,17 @@ def npcs_on(g, mid: str) -> list[NpcHere]:
 
 def direction(g, mid: str, you, spot) -> str:
     """The i18n key saying where the NPC is from the player, measured in map units (the fraction between them
-    times the minimap's own size, so it reads the same on small and large maps): 'left'/'right' only from 60
-    units aside, 'up'/'down' from 90 — nearer than both is "right by you". The screen's y grows downward, so an
-    NPC above the player (the smaller fraction) is 'up'. No player dot, no spot for the NPC, or no minimap to
-    measure on: npc_guide_nowhere."""
-    if you is None or spot is None:
-        return "npc_guide_nowhere"
+    times the picture's own size in map units, so it reads the same on small and large maps): 'left'/'right' only
+    from 60 units aside, 'up'/'down' from 90 — nearer than both is "right by you". The screen's y grows downward,
+    so an NPC above the player (the smaller fraction) is 'up'. No spot for the NPC: npc_guide_unplaced. No player
+    dot (inside a shop the game folds its minimap, so there never is one) or nothing to measure on:
+    npc_guide_marked, its dot on the picture is the guide."""
+    if spot is None:
+        return "npc_guide_unplaced"
     m = g.known.get(mid)
-    mm = m.minimap if m is not None else None
-    if not mm or not mm[0] or not mm[1]:
-        return "npc_guide_nowhere"
+    mm = (m.minimap or m.scene) if m is not None else None
+    if you is None or not mm or not mm[0] or not mm[1]:
+        return "npc_guide_marked"
     dx, dy = (spot[0] - you[0]) * mm[0], (spot[1] - you[1]) * mm[1]
     h = "left" if dx <= -H_NEAR else "right" if dx >= H_NEAR else ""
     v = "up" if dy <= -V_NEAR else "down" if dy >= V_NEAR else ""

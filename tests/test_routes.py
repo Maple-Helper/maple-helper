@@ -189,10 +189,14 @@ def test_scrape_keeps_the_route_data_it_needs(monkeypatch, tmp_path):
                               {"name": "dup", "type": 1, "x": 7, "y": 8, "toName": "hide01"},
                               {"name": "shown", "type": 2, "x": 11, "y": 12, "toName": "x"}],
              "npcs": [{"id": "7", "name": "Regular Cab", "x": 3, "y": 4}], "monsters": [1, 2, 3]},
-            {"id": "000000002", "name": "B", "portals": [], "npcs": []}]
+            {"id": "000000002", "name": "B", "portals": [], "npcs": []},
+            # a shop: no minimap, its NPCs placed on its room picture by the view rectangle of its terrain file
+            {"id": "000000003", "name": "Shop", "hasMinimapImage": False, "portals": [],
+             "npcs": [{"id": "8", "name": "Andre", "x": -72, "y": -12}]}]
     page = '<script src="/_next/static/chunks/app/msclassic/%5Blocale%5D/pathfinder/page-abc.js"></script>'
     js = 'let h=["000000001","000000002"];var r=/^[0-9]{9}$/'
-    answers = {scrape_meowdb.MAPS_DATA: json.dumps(maps), scrape_meowdb.PATHFINDER: page}
+    answers = {scrape_meowdb.MAPS_DATA: json.dumps(maps), scrape_meowdb.PATHFINDER: page,
+               scrape_meowdb.MAP_TERRAIN.format(id="000000003"): json.dumps({"vr": [-400, -300, 400, 300], "fh": []})}
     monkeypatch.setattr(scrape_meowdb, "fetch", lambda url, binary=False: answers.get(url, js))
     monkeypatch.setattr(scrape_meowdb, "DELAY_SECONDS", 0)
     monkeypatch.setattr(scrape_meowdb, "KB", tmp_path)
@@ -206,8 +210,10 @@ def test_scrape_keeps_the_route_data_it_needs(monkeypatch, tmp_path):
     # draws the visible ones (type 2) itself
     assert a["hidden"] == [{"name": "door", "x": 5, "y": 6}, {"name": "hide01", "x": 7, "y": 8},
                            {"name": "trap", "x": 9, "y": 10}]
-    assert data["maps"][1]["hidden"] == []
+    assert data["maps"][1]["hidden"] == [] and "scene" not in data["maps"][1]   # no NPCs: no terrain fetched
     assert a["minimap"] == [160, 80, 80, 40] and a["npcs"][0]["name"] == "Regular Cab" and "monsters" not in a
+    assert "scene" not in a                                                           # a minimap: no room frame
+    assert data["maps"][2]["minimap"] is None and data["maps"][2]["scene"] == [800, 600, 400, 300]
     assert scrape_meowdb.scrape_routes() == 0                                         # nothing new: no change
     # the site down: the file we have stays
     monkeypatch.setattr(scrape_meowdb, "fetch", lambda url, binary=False: None)
