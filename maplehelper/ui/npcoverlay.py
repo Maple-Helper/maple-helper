@@ -1,8 +1,9 @@
 """The "NPCs on this map" window over the game: a see-through, always-on-top panel listing every NPC the KB knows
 on the player's map (the map itself comes from the minimap reads, ui/location.LOCATION.here). Clicking one guides
-the player to it: LOCATION.guide carries its spot (the game-minimap dots window rings it there), and the panel
-draws the map's picture with the NPC's green dot, the player's blue one and the way between them. Never takes the
-keyboard (the game keeps it) and is never seen by the minimap reads (SetWindowDisplayAffinity, as the portal dots)."""
+the player to it: LOCATION.guide carries its spot (the game-minimap dots window rings it there), and a small window
+of its own, docked left of the list, draws the map's picture with the NPC's green dot, the player's blue one and
+where to go. Neither takes the keyboard (the game keeps it) nor is seen by the minimap reads (SetWindowDisplayAffinity,
+as the portal dots)."""
 from __future__ import annotations
 
 import logging
@@ -29,9 +30,9 @@ DEFAULT_W, DEFAULT_H = 320, 440     # what opens beside the minimap box before i
 RADIUS = 16                         # the panel's own rounding (a touch tighter than the app's windows)
 GAP = 8                             # kept between it and the minimap box it opens beside
 SIDE, TOP, BOTTOM = SHADOW + 18, SHADOW + 10, SHADOW + 8    # content margins, past the edge-resize rim
-GUIDE_PAD = 10                      # the guide panel's own padding, inside those
+GUIDE_W = 270                       # the guide window's width (its height follows the picture)
+GUIDE_GAP = 6                       # between the guide's panel and the list's
 GEOM_DEBOUNCE_MS = 400              # a move/resize saves the window's place once it settles
-PICS_DEBOUNCE_MS = 120              # the guide picture is redrawn at the new width the same way
 H_NEAR, V_NEAR = 60, 90             # map units: nearer than this aside / above-below is "right by you"
 OPACITY_MIN, OPACITY_MAX, OPACITY_DEFAULT = 0.3, 1.0, 0.85
 WDA_EXCLUDEFROMCAPTURE = 0x11       # Windows 10 2004+: screen captures (the minimap reads) never see this window
@@ -48,7 +49,6 @@ QSS = f"""
 #Title {{ color: {TEXT}; font-weight: 600; }}
 #Status {{ color: {MUTED}; }}
 #GuideLine {{ color: {TEXT}; }}
-#Guide {{ background: {FILL1}; border-radius: 10px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
               padding: 6px 10px; text-align: left; }}
 QPushButton:hover {{ background: {FILL2}; }}
@@ -111,6 +111,120 @@ def direction(g, mid: str, you, spot) -> str:
     return f"npc_guide_{h or v}" if h or v else "npc_guide_here"
 
 
+def _paint_glass(w: QWidget, opacity: float) -> None:
+    """A floating panel's own glass: the soft shadow, then a dark rounded fill at the player's chosen opacity, so
+    the game shows through as much as they asked (settings: npc_overlay_opacity)."""
+    p = QPainter(w)
+    p.setRenderHint(QPainter.Antialiasing)
+    for i in range(SHADOW, 0, -2):
+        sh = QPainterPath()
+        sh.addRoundedRect(QRectF(w.rect()).adjusted(SHADOW - i, SHADOW - i + 3, -(SHADOW - i), -(SHADOW - i) + 3),
+                          RADIUS + i, RADIUS + i)
+        p.fillPath(sh, QColor(0, 0, 0, int(26 * (1 - i / SHADOW)) + 2))
+    path = QPainterPath()
+    path.addRoundedRect(QRectF(w.rect()).adjusted(SHADOW + 0.5, SHADOW + 0.5, -SHADOW - 0.5, -SHADOW - 0.5),
+                        RADIUS, RADIUS)
+    fill = QColor(*PANEL)
+    fill.setAlphaF(opacity)
+    p.fillPath(path, fill)
+    rim = QLinearGradient(0, SHADOW, 0, w.height() - SHADOW)
+    rim.setColorAt(0.0, QColor(255, 255, 255, 60))
+    rim.setColorAt(0.4, QColor(255, 255, 255, 22))
+    rim.setColorAt(1.0, QColor(255, 255, 255, 11))
+    p.setPen(QPen(rim, 1))
+    p.drawPath(path)
+    p.end()
+
+
+def _exclude_from_capture(w: QWidget) -> None:
+    """Keep a window out of the screenshots the minimap reads take: it may sit over the very box they read. Older
+    Windows draws it into the shot, where the reader's picture matching may still survive it."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        if not ctypes.windll.user32.SetWindowDisplayAffinity(int(w.winId()), WDA_EXCLUDEFROMCAPTURE):
+            log.debug("npc overlay: capture exclusion not available")
+    except Exception as e:  # noqa: BLE001 - the window still shows; only the reads may see it
+        log.debug("npc overlay: capture exclusion failed: %r", e)
+
+
+def _flags() -> Qt.WindowType:
+    """Over the game, frameless, and never taking the keyboard from it (clicks still work)."""
+    return Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
+
+
+class GuideWindow(QWidget):
+    """The way to the picked NPC, a small window of its own docked beside the list (its left, or its right where
+    the screen has no room): the NPC's name with a ✕, the sentence saying where it is, the map's picture with its
+    green dot and the player's blue one, and Stop guiding. It moves with the list; its height follows the picture."""
+
+    def __init__(self, owner: NpcOverlay):
+        super().__init__(None, _flags())
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setFixedWidth(GUIDE_W)
+        self.setStyleSheet(QSS)
+        self._owner = owner
+        self._excluded = False
+        col = QVBoxLayout(self)
+        col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
+        col.setSpacing(8)
+        head = QHBoxLayout()
+        head.setSpacing(8)
+        self.title = QLabel(objectName="Title")
+        self.title.setWordWrap(True)
+        self.close_btn = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
+        self.close_btn.setCursor(Qt.PointingHandCursor)
+        self.close_btn.setFocusPolicy(Qt.NoFocus)
+        self.close_btn.clicked.connect(lambda _=False: owner._clear_pick())
+        head.addWidget(self.title, 1)
+        head.addWidget(self.close_btn, 0, Qt.AlignTop)
+        col.addLayout(head)
+        self.line = QLabel(objectName="GuideLine")
+        self.line.setWordWrap(True)
+        self.pic = QLabel()
+        self.pic.setAlignment(Qt.AlignHCenter)
+        self.clear = QPushButton()
+        self.clear.setCursor(Qt.PointingHandCursor)
+        self.clear.setFocusPolicy(Qt.NoFocus)
+        self.clear.clicked.connect(lambda _=False: owner._clear_pick())
+        col.addWidget(self.line)
+        col.addWidget(self.pic, 0, Qt.AlignHCenter)
+        col.addWidget(self.clear)
+
+    def pic_cap(self) -> int:
+        return GUIDE_W - 2 * SIDE - 4
+
+    def paintEvent(self, e) -> None:
+        _paint_glass(self, self._owner._opacity)
+
+    def show_beside(self) -> None:
+        """Shown (or kept) docked to the list at the size its contents need."""
+        self.adjustSize()
+        self.dock()
+        if not self.isVisible():
+            self.show()
+        if not self._excluded:
+            self._excluded = True
+            _exclude_from_capture(self)
+        self.update()
+
+    def dock(self) -> None:
+        """Beside the list's panel, top edges lined up: on its left, or on its right when the list's screen has
+        no room left of it; kept on that screen top to bottom."""
+        o = self._owner
+        left = o.x() + 2 * SHADOW - GUIDE_GAP - self.width()
+        right = o.x() + o.width() - 2 * SHADOW + GUIDE_GAP
+        screen = QGuiApplication.screenAt(o.geometry().center()) or QGuiApplication.primaryScreen()
+        room = screen.availableGeometry()
+        x = left if left + SHADOW >= room.left() else right
+        y = min(max(o.y(), room.top()), max(room.top(), room.bottom() - self.height() + 1))
+        if self.pos() != QPoint(x, y):
+            self.move(x, y)
+
+
 class _Header(QWidget):
     """The title row: dragging it moves the window (the ✕ in it still clicks)."""
 
@@ -136,8 +250,7 @@ class NpcOverlay(EdgeResize, QWidget):
     the ring on the game's own minimap is drawn elsewhere (ui/portaldots.py)."""
 
     def __init__(self, kb: KnowledgeBase, settings: Settings, t: I18n):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool
-                         | Qt.WindowDoesNotAcceptFocus)
+        super().__init__(None, _flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.NoFocus)
@@ -156,7 +269,6 @@ class NpcOverlay(EdgeResize, QWidget):
         self._placed = False                 # geometry applied at least once: there is a place to remember
         self._excluded = False
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
-        self._pics = QTimer(self, singleShot=True, interval=PICS_DEBOUNCE_MS, timeout=self._redraw_guide)
         self.setStyleSheet(QSS)
         self._build()
         LOCATION.changed.connect(self.refresh)
@@ -193,48 +305,13 @@ class NpcOverlay(EdgeResize, QWidget):
         self._rows_lay.addStretch(1)
         self._scroll.setWidget(rows)
         col.addWidget(self._scroll, 1)
-        self._guide = QFrame(objectName="Guide")         # the way to the picked NPC
-        self._guide.setVisible(False)
-        glow = QVBoxLayout(self._guide)
-        glow.setContentsMargins(GUIDE_PAD, GUIDE_PAD, GUIDE_PAD, GUIDE_PAD)
-        glow.setSpacing(6)
-        self._line = QLabel(objectName="GuideLine")
-        self._line.setWordWrap(True)
-        self._pic = QLabel()
-        self._pic.setAlignment(Qt.AlignHCenter)
-        self._clear = QPushButton()
-        self._clear.setCursor(Qt.PointingHandCursor)
-        self._clear.setFocusPolicy(Qt.NoFocus)
-        self._clear.clicked.connect(self._clear_pick)
-        glow.addWidget(self._line)
-        glow.addWidget(self._pic, 0, Qt.AlignHCenter)
-        glow.addWidget(self._clear)
-        col.addWidget(self._guide)
+        self._guide = GuideWindow(self)                  # the way to the picked NPC, a window of its own
+        self._line, self._pic, self._clear = self._guide.line, self._guide.pic, self._guide.clear
+        self._guide.setLayoutDirection(self.layoutDirection())
         self._retext()
 
     def paintEvent(self, e) -> None:
-        """The panel's own glass: the soft shadow, then a dark rounded fill at the player's chosen opacity, so
-        the game shows through as much as they asked (settings: npc_overlay_opacity)."""
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        for i in range(SHADOW, 0, -2):
-            sh = QPainterPath()
-            sh.addRoundedRect(QRectF(self.rect()).adjusted(SHADOW - i, SHADOW - i + 3, -(SHADOW - i), -(SHADOW - i) + 3),
-                              RADIUS + i, RADIUS + i)
-            p.fillPath(sh, QColor(0, 0, 0, int(26 * (1 - i / SHADOW)) + 2))
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()).adjusted(SHADOW + 0.5, SHADOW + 0.5, -SHADOW - 0.5, -SHADOW - 0.5),
-                            RADIUS, RADIUS)
-        fill = QColor(*PANEL)
-        fill.setAlphaF(self._opacity)
-        p.fillPath(path, fill)
-        rim = QLinearGradient(0, SHADOW, 0, self.height() - SHADOW)
-        rim.setColorAt(0.0, QColor(255, 255, 255, 60))
-        rim.setColorAt(0.4, QColor(255, 255, 255, 22))
-        rim.setColorAt(1.0, QColor(255, 255, 255, 11))
-        p.setPen(QPen(rim, 1))
-        p.drawPath(path)
-        p.end()
+        _paint_glass(self, self._opacity)
 
     # ------------------------------------------------------------ text (all of it, for apply_language)
 
@@ -246,6 +323,8 @@ class NpcOverlay(EdgeResize, QWidget):
         self._close.setAccessibleName(t("npc_overlay_close"))
         self._close.setToolTip(t("npc_overlay_close"))
         self._clear.setText(bidi.plain(t("npc_overlay_clear"), rtl))
+        self._guide.close_btn.setAccessibleName(t("npc_overlay_clear"))
+        self._guide.close_btn.setToolTip(t("npc_overlay_clear"))
         for row, npc in zip(self._rows, self._npcs):
             row.setText(bidi.ltr_name(npc.name, rtl))
         self._retext_status()
@@ -278,7 +357,7 @@ class NpcOverlay(EdgeResize, QWidget):
             row.clicked.connect(lambda _=False, n=npc: self._pick(n))
             self._rows.append(row)
             self._rows_lay.insertWidget(self._rows_lay.count() - 1, row)
-        self._guide.setVisible(False)
+        self._guide.hide()
         self._retext()
 
     def _pick(self, npc: NpcHere) -> None:
@@ -297,7 +376,7 @@ class NpcOverlay(EdgeResize, QWidget):
         LOCATION.set_guide(None)
         self._mark_rows()
         self._retext_status()
-        self._guide.setVisible(False)
+        self._guide.hide()
 
     def _mark_rows(self) -> None:
         for row, npc in zip(self._rows, self._npcs):
@@ -307,28 +386,26 @@ class NpcOverlay(EdgeResize, QWidget):
                 row.style().unpolish(row)
                 row.style().polish(row)
 
-    # ------------------------------------------------------------ the guide panel
+    # ------------------------------------------------------------ the guide window
 
     def _redraw_guide(self) -> None:
         """The picked NPC's way: the sentence and the map picture with its green dot and the player's blue one,
-        redrawn while the player moves (a read of the same map) and at the panel's current width."""
-        if self._sel is None:
-            self._guide.setVisible(False)
+        redrawn while the player moves (a read of the same map), in its own window beside the list."""
+        if self._sel is None or not self.isVisible():
+            self._guide.hide()
             return
         g = routes.of(self._kb)
         here = LOCATION.here
         you = here.spot if here is not None and here.map == self._mid else None
-        self._line.setText(bidi.plain(self.t(direction(g, self._mid, you, self._sel.spot), name=self._sel.name),
-                                      self.t.rtl))
-        pm = mapview.route_picture(g.minimap(self._mid), self._sel.spot, True, you, cap_w=self._pic_cap())
+        rtl = self.t.rtl
+        self._guide.title.setText(bidi.ltr_name(self._sel.name, rtl))
+        self._line.setText(bidi.plain(self.t(direction(g, self._mid, you, self._sel.spot), name=self._sel.name), rtl))
+        pm = mapview.route_picture(g.minimap(self._mid), self._sel.spot, True, you, cap_w=self._guide.pic_cap())
         if pm.isNull():
             self._pic.clear()
         else:
             self._pic.setPixmap(pm)
-        self._guide.setVisible(True)
-
-    def _pic_cap(self) -> int:
-        return max(120, self.width() - 2 * SIDE - 2 * GUIDE_PAD - 4)
+        self._guide.show_beside()
 
     # ------------------------------------------------------------ place, move, resize
 
@@ -364,14 +441,18 @@ class NpcOverlay(EdgeResize, QWidget):
 
     def moveEvent(self, e) -> None:
         self._geom.start()
+        if self._guide.isVisible():
+            self._guide.dock()      # the guide moves with the list
         super().moveEvent(e)
 
     def resizeEvent(self, e) -> None:
         self._geom.start()
-        self._pics.start()          # the guide picture follows the panel's new width once the drag settles
+        if self._guide.isVisible():
+            self._guide.dock()      # a left-edge drag moves the list's left side
         super().resizeEvent(e)
 
     def hideEvent(self, e) -> None:
+        self._guide.hide()
         if self._placed:             # turned off or the app closing: keep the place now, not 400 ms later
             self._geom.stop()
             self._remember()
@@ -397,16 +478,19 @@ class NpcOverlay(EdgeResize, QWidget):
             return
         here = LOCATION.here
         mid = here.map if here is not None else None
+        if not self.isVisible():
+            self._place()
+            self.show()
+            if not self._excluded:
+                self._excluded = True
+                _exclude_from_capture(self)
         if mid != self._mid:
             self._rebuild(mid)
         else:
             self._retext_status()
             self._redraw_guide()
-        if not self.isVisible():
-            self._place()
-            self.show()
-            self._exclude_from_capture()
         self.update()
+        self._guide.update()
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         self._kb = kb
@@ -416,6 +500,7 @@ class NpcOverlay(EdgeResize, QWidget):
     def apply_language(self, t: I18n) -> None:
         self.t = t
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
+        self._guide.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self._retext()
 
     def _close_clicked(self, _=False) -> None:
@@ -424,15 +509,6 @@ class NpcOverlay(EdgeResize, QWidget):
         self._clear_pick()
         self.hide()
 
-    def _exclude_from_capture(self) -> None:
-        """Keep the window out of the screenshots the minimap reads take: it may sit over the very box they read.
-        Older Windows draws it into the shot, where the reader's picture matching may still survive it."""
-        if self._excluded or sys.platform != "win32":
-            return
-        self._excluded = True
-        try:
-            import ctypes
-            if not ctypes.windll.user32.SetWindowDisplayAffinity(int(self.winId()), WDA_EXCLUDEFROMCAPTURE):
-                log.debug("npc overlay: capture exclusion not available")
-        except Exception as e:  # noqa: BLE001 - the window still shows; only the reads may see it
-            log.debug("npc overlay: capture exclusion failed: %r", e)
+    def closeEvent(self, e) -> None:
+        self._guide.close()
+        super().closeEvent(e)

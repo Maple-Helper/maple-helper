@@ -230,6 +230,44 @@ def test_the_x_turns_the_setting_off_and_hides(overlay):
     assert s["npc_overlay"] is False and not w.isVisible() and loc.guide is None
 
 
+def test_the_guide_is_its_own_window_docked_left_of_the_list(overlay):
+    """The way to the picked NPC opens as a small window of its own beside the list (the owner's: "a little window
+    to the left, not part of the same NPCs here window"), and goes with it: moved with the list, hidden with it."""
+    from PySide6.QtCore import QPoint
+    from PySide6.QtGui import QGuiApplication
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    room = QGuiApplication.primaryScreen().availableGeometry()
+    loc.set(_here())                          # shown at its own place first, then moved
+    w.move(room.left() + 400, room.top() + 50)
+    _row(w, "Cara").click()
+    g = w._guide
+    assert g.isVisible() and g.isWindow() and g is not w and not w.isAncestorOf(g)
+    assert g.title.text() == "Cara"
+    gap = (w.x() + npcoverlay.SHADOW) - (g.x() + g.width() - npcoverlay.SHADOW)    # panel edge to panel edge
+    assert gap == npcoverlay.GUIDE_GAP and g.y() == w.y()
+    w.move(w.pos() + QPoint(30, 20))
+    assert g.x() + g.width() - npcoverlay.SHADOW == w.x() + npcoverlay.SHADOW - npcoverlay.GUIDE_GAP
+    assert g.y() == w.y()
+    g.close_btn.click()                       # its ✕ stops guiding; the list stays
+    assert not g.isVisible() and loc.guide is None and w.isVisible()
+    _row(w, "Cara").click()
+    w.hide()
+    assert not g.isVisible()
+
+
+def test_the_guide_opens_right_of_the_list_with_no_room_left(overlay):
+    from PySide6.QtGui import QGuiApplication
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    room = QGuiApplication.primaryScreen().availableGeometry()
+    loc.set(_here())
+    w.move(room.left() - npcoverlay.SHADOW, room.top() + 50)    # the list's panel against the screen's left edge
+    _row(w, "Cara").click()
+    g = w._guide
+    assert g.x() + npcoverlay.SHADOW == w.x() + w.width() - npcoverlay.SHADOW + npcoverlay.GUIDE_GAP
+
+
 def test_set_kb_builds_the_list_again(overlay, monkeypatch):
     w, _, loc = overlay
     loc.set(_here())                       # the player's map first: set_kb rebuilds the list of that map
