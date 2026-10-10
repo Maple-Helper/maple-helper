@@ -20,10 +20,10 @@ def qapp():
 @pytest.fixture
 def clean_location():
     from maplehelper.ui.location import LOCATION
-    old = LOCATION.here, LOCATION.state, LOCATION.follow
-    LOCATION.here, LOCATION.state, LOCATION.follow = None, "", None
+    old = LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide
+    LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide = None, "", None, None
     yield LOCATION
-    LOCATION.here, LOCATION.state, LOCATION.follow = old
+    LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide = old
 
 
 @pytest.fixture
@@ -37,6 +37,7 @@ def dots(qapp, isolated_store, kb, clean_location, monkeypatch):
     yield w, s, clean_location
     clean_location.changed.disconnect(w.refresh)
     clean_location.followed.disconnect(w.refresh)
+    clean_location.guided.disconnect(w.refresh)
     w.close()
 
 
@@ -87,6 +88,32 @@ def test_nothing_to_place_hides_the_dots(dots, change):
     else:
         _place(loc, _here("100000000"))                 # a map with no hidden portals
     assert not w.isVisible() and w._dots == []
+
+
+def test_the_guided_npc_rings_where_the_map_was_placed(dots):
+    """A guide rings its NPC green on the game's minimap (wider than the blue dots) from the follow alone: the
+    hidden-portal setting gates only the dots, so the ring shows with it off and beside the dots with it on.
+    Another map's guide, or none, leaves the window with nothing to draw."""
+    from PySide6.QtCore import QPointF
+
+    w, s, loc = dots
+    s["minimap_hidden_portals"] = False
+    _place(loc, _here())
+    assert not w.isVisible()
+    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+    assert w.isVisible() and w._dots == [] and w._ring == QPointF(60, 45)
+    img = w.grab().toImage()
+    c = img.pixelColor(60, 38)                            # on the ring, 7 px above its centre
+    assert c.green() > 90 and c.red() < 90                # the NPC's green, drawn
+    loc.set_guide(("100000000", (0.5, 0.5), "npc/303"))   # a guide for another map: nothing to ring here
+    assert not w.isVisible() and w._ring is None
+    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+    loc.set_guide(None)                                   # guiding stopped: the ring goes with it
+    assert not w.isVisible() and w._ring is None
+    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+    s["minimap_hidden_portals"] = True
+    w.refresh()                                           # beside the dots, when they show too
+    assert w.isVisible() and w._dots and w._ring == QPointF(60, 45)
 
 
 def test_the_follow_moves_the_dots_between_reads_and_a_lost_one_hides_them(dots):

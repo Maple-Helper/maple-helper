@@ -198,6 +198,11 @@ class MapleHelperApp:
         from .ui.portaldots import PortalDots
         self.portal_dots = PortalDots(self.kb, self.settings)
         self.portal_dots.refresh()
+        # the "NPCs on this map" window over the game itself (ui/npcoverlay.py), shown from its own setting; the
+        # guide it sets is what the ring above draws on the game's minimap
+        from .ui.npcoverlay import NpcOverlay
+        self.npc_overlay = NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        self.npc_overlay.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
@@ -720,6 +725,9 @@ class MapleHelperApp:
                 # link kept the dark theme's faint orange on white)
                 self.overlay.setStyleSheet(self.style())
                 self.overlay.apply_language()
+                npc = getattr(self, "npc_overlay", None)
+                if npc is not None:
+                    npc.apply_language(I18n(self.settings["language"] or "he"))   # its texts follow the switch
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -746,6 +754,9 @@ class MapleHelperApp:
         dots = getattr(self, "portal_dots", None)
         if dots is not None:
             dots.refresh()          # the hidden-portal dots switched on or off
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.refresh()          # the NPCs-on-this-map window switched on or off
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
@@ -1143,6 +1154,9 @@ class MapleHelperApp:
         dots = getattr(self, "portal_dots", None)
         if dots is not None:
             dots.set_kb(self.kb)        # the new KB's hidden portals
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.set_kb(self.kb)        # the new KB's NPC lists
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as

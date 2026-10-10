@@ -36,10 +36,10 @@ def env(qapp, isolated_store, kb, monkeypatch):
 @pytest.fixture
 def clean_location():
     from maplehelper.ui.location import LOCATION
-    old = LOCATION.here, LOCATION.state, LOCATION.follow
-    LOCATION.here, LOCATION.state, LOCATION.follow = None, "", None
+    old = LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide
+    LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide = None, "", None, None
     yield LOCATION
-    LOCATION.here, LOCATION.state, LOCATION.follow = old
+    LOCATION.here, LOCATION.state, LOCATION.follow, LOCATION.guide = old
 
 
 def _make_scanner(s, kb):
@@ -320,6 +320,31 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         sc._on_followed(("010003000", view))
         sc._on_followed(None)                               # nothing locked: no stale follow left behind
         assert clean_location.follow is None
+    finally:
+        sc.stop()
+
+
+def test_the_follow_also_runs_while_a_guide_is_on_the_players_map(env, clean_location):
+    """The fast follow keeps the guided NPC's ring placed on the game's minimap too (ui/portaldots.py), hidden
+    portals or not; a guide for another map keeps nothing running."""
+    from types import SimpleNamespace
+
+    from maplehelper.minimap import Here
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        sc._graph = SimpleNamespace(hidden_spots=lambda m: [], name=lambda m: m)
+        clean_location.set(Here("010003000", None))
+        assert not sc._wants_follow()                      # nothing to follow for: no portals, no guide
+        clean_location.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+        assert sc._wants_follow()                          # the ring needs the follow to stay placed
+        s["minimap_hidden_portals"] = False
+        assert sc._wants_follow()                          # the dots' setting off: the guide keeps it running
+        s["minimap_hidden_portals"] = True
+        clean_location.set_guide(("100000000", (0.5, 0.5), "npc/303"))
+        assert not sc._wants_follow()                      # a guide elsewhere rings nothing here
+        clean_location.set_guide(None)
+        assert not sc._wants_follow()
     finally:
         sc.stop()
 

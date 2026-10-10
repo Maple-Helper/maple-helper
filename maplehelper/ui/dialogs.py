@@ -68,6 +68,8 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 LEVEL_FIELD_MAX = 250
 # Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
 SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
+# Settings → the NPCs-on-this-map window's background opacity (npcoverlay clamps whatever is stored to 0.3-1.0)
+OPACITY_CHOICES = (0.3, 0.5, 0.7, 0.85, 1.0)
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -1205,8 +1207,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         lay.addWidget(sec)
 
-        # the minimap: how often its box is read (where the player is, under the level on the character card), and
-        # the hidden-portal dots drawn over it
+        # the minimap: how often its box is read (where the player is, under the level on the character card), the
+        # hidden-portal dots drawn over it, and the NPCs-on-this-map window over the game
         sec = Section(t("sec_minimap"), rtl)
         # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
         try:
@@ -1224,6 +1226,20 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
         self.hidden_portals = Switch(settings["minimap_hidden_portals"])
         sec.add_row(t("minimap_hidden_portals"), self.hidden_portals, hint=t("minimap_hidden_portals_hint"))
+        self.npc_overlay = Switch(settings["npc_overlay"])
+        sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
+        try:
+            opacity = float(settings["npc_overlay_opacity"])
+        except (TypeError, ValueError):
+            opacity = 0.85
+        if not math.isfinite(opacity) or opacity <= 0:
+            opacity = 0.85
+        # a pop-up like the scan interval's: the few set choices, a hand-edited value shows as the nearest one
+        # (in ratio: 0.8 is nearer 0.85 than 0.7)
+        opacity = min(OPACITY_CHOICES, key=lambda v: abs(math.log(v / opacity)))
+        self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
+        self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
+        sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1835,6 +1851,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "instant_answers": self.instant.isChecked(),
             "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
             "minimap_hidden_portals": self.hidden_portals.isChecked(),
+            "npc_overlay": self.npc_overlay.isChecked(),
+            "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),
