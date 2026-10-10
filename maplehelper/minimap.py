@@ -106,6 +106,10 @@ _SEE_MARGIN = 0.10   # ... and standing this far above the best placing more tha
 _SEE_TIE = 0.03      # follow: the placing nearest the last one wins over the best anywhere this close to it
 _SEE_APART = 12      # (box pixels)
 _SEE_SIDE = 160      # the see-through scale sweep runs this small (longest side), refined at half size
+_TRACK_STEP = 3      # the follow's local tracker (_track) samples the picture's drawn pixels on this grid: every 4th
+                     # pixel drifted up to 1.3 px off the full-size match on a live jump recording, every 3rd 0.48 px
+_TRACK_REACH = 12    # ... and looks for the map this far (box pixels) from the last placing along each axis, then
+                     # climbs from the best: the game scrolls its minimap in 2-8 px steps
 _PANEL_SMALL = 170   # the surround fill that finds the content panel runs this small (longest side): a blurred 1px
                       # outline still blocks the fill there, while quarter-scale would ramp it into a passable slope
 _PANEL_STEP = 16  # a colour step this big stops the fill: frames and title edges are far steeper, their insides far
@@ -578,6 +582,85 @@ _SEE_WEIGHTS = (0.5, 0.5)
 
 
 @dataclass(frozen=True)
+class _Track:
+    """A map picture sampled for the follow's local tracker (_track_scores): its drawn pixels on a _TRACK_STEP grid
+    (rows, columns, at its scale) and their colour planes."""
+    vv: np.ndarray
+    uu: np.ndarray
+    planes: tuple[np.ndarray, ...]
+
+
+def _track_points(art: np.ndarray) -> _Track:
+    """The picture (RGBA, at its scale) sampled for _track_scores."""
+    vv, uu = np.nonzero(art[::_TRACK_STEP, ::_TRACK_STEP, 3] > 127)
+    vv, uu = vv * _TRACK_STEP, uu * _TRACK_STEP
+    return _Track(vv, uu, tuple(p.astype(np.float32) for p in _see_feats(art[vv, uu, :3][None])[:2]))
+
+
+def _track_scores(planes: tuple[np.ndarray, ...], valid: np.ndarray, track: _Track, bx: int, by: int,
+                  cand: np.ndarray) -> np.ndarray:
+    """_see_scores at only these whole-pixel placings (cand: rows of (dy, dx) from the picture's top-left at
+    (bx, by)), over the sampled pixels: the same NCC of brightness and greenness, -2 where too little of the
+    picture lands on the panel."""
+    H, W = valid.shape
+    py = track.vv[None, :] + (by + cand[:, 0:1])
+    px = track.uu[None, :] + (bx + cand[:, 1:2])
+    flat = np.clip(py, 0, H - 1) * W + np.clip(px, 0, W - 1)
+    w = ((py >= 0) & (py < H) & (px >= 0) & (px < W) & valid.ravel()[flat]).astype(np.float32)
+    n = np.maximum(w.sum(axis=1), 1.0)
+    total = np.zeros(len(cand), np.float32)
+    for wgt, plane, t in zip(_SEE_WEIGHTS, planes, track.planes):
+        img = plane.ravel()[flat] * w
+        tm = t.ravel()[None, :] * w
+        si, st = img.sum(axis=1), tm.sum(axis=1)
+        cc = np.einsum("ij,ij->i", img, tm)
+        vi = np.einsum("ij,ij->i", img, img) - si * si / n
+        vt = np.einsum("ij,ij->i", tm, tm) - st * st / n
+        total += wgt * (cc - si * st / n) / np.sqrt(np.maximum(vi * vt, 1e-6))
+    return np.where(n >= 0.3 * len(track.vv), total, -2.0)
+
+
+_TRACK_CROSS = np.array(sorted({(dy, dx) for dy in range(-2, 3) for dx in range(-2, 3)}
+                               | {(d, 0) for d in range(-_TRACK_REACH, _TRACK_REACH + 1)}
+                               | {(0, d) for d in range(-_TRACK_REACH, _TRACK_REACH + 1)}))
+
+
+def _track(panel: np.ndarray, track: _Track, x: float, y: float) -> tuple[float, float, float, float] | None:
+    """The follow's fast see-through match: the picture placed near (x, y), its last top-left in the panel, as
+    _see_match's (score, x, y, margin), in ~5 ms where the whole panel's FFT takes 15 (the dots trailed each of the
+    minimap's scroll steps by the time to the next follow, live). A cross of whole-pixel placings out to
+    _TRACK_REACH, then a climb from the best, refined to sub-pixel by a parabola. None when the best lies at the
+    reach (scrolled farther: the whole panel's match takes over)."""
+    valid = ~_marker_mask(panel)
+    planes = tuple(p.astype(np.float32) for p in _see_feats(panel))
+    bx, by = round(x), round(y)
+    seen = dict(zip(map(tuple, _TRACK_CROSS.tolist()), _track_scores(planes, valid, track, bx, by,
+                                                                     _TRACK_CROSS).tolist()))
+    dy, dx = max(seen, key=seen.get)
+    for _ in range(8):
+        ring = [(dy + i, dx + j) for i in (-1, 0, 1) for j in (-1, 0, 1)]
+        new = [c for c in ring if c not in seen]
+        if new:
+            seen.update(zip(new, _track_scores(planes, valid, track, bx, by, np.array(new)).tolist()))
+        top = max(ring, key=seen.get)
+        if top == (dy, dx):
+            break
+        dy, dx = top
+    if max(abs(dy), abs(dx)) >= _TRACK_REACH:
+        return None
+    best = seen[(dy, dx)]
+
+    def sub(lo: float, mid: float, hi: float) -> float:
+        d = lo - 2 * mid + hi
+        return 0.0 if d >= 0 or min(lo, hi) <= -1.0 else max(-0.5, min(0.5, 0.5 * (lo - hi) / d))
+
+    fy = sub(seen[(dy - 1, dx)], best, seen[(dy + 1, dx)])
+    fx = sub(seen[(dy, dx - 1)], best, seen[(dy, dx + 1)])
+    rest = max((v for (cy, cx), v in seen.items() if abs(cy - dy) > 3 or abs(cx - dx) > 3), default=0.0)
+    return best, bx + dx + fx, by + dy + fy, best - max(rest, 0.0)
+
+
+@dataclass(frozen=True)
 class _SeeTemplate:
     """A map picture prepared for _see_scores at one size and FFT size: the same for every frame the follow
     compares it to, so only the panel's side is transformed per frame (a quarter of the work)."""
@@ -683,6 +766,7 @@ class Locator:
         self._shown = (0, 0, 0, 0)      # ... and the part of it showing the map (_shown_area), in the box
         self._comp_cache: dict[tuple[str, int, int, int], np.ndarray] = {}
         self._see_cache: dict[tuple, _SeeTemplate] = {}     # prepared see-through pictures (_see_match)
+        self._tracks: dict[tuple[str, float], _Track] = {}  # pictures sampled for the follow's local tracker
         self._ocr: object | None = None
         self._ocr_lock = threading.Lock()
         self._ocr_failed = False
@@ -1235,13 +1319,26 @@ class Locator:
         ph, pw = panel.shape[0], panel.shape[1]
         return min(1.0, max(_MIN_SIDE, round(max(pw, ph) / part)) / max(pw, ph))
 
+    def _track_for(self, mid: str, scale: float) -> _Track:
+        """The map's picture at this scale, sampled for the follow's local tracker (built once per map and scale)."""
+        track = self._tracks.get((mid, scale))
+        if track is None:
+            _, art, alpha = self._pic(mid)
+            size = (max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)))
+            rgba = np.asarray(Image.fromarray(np.dstack([art, np.asarray(alpha)]), "RGBA").resize(size, Image.BILINEAR))
+            if len(self._tracks) > 16:
+                self._tracks.clear()
+            track = self._tracks[(mid, scale)] = _track_points(rgba)
+        return track
+
     def follow(self, img: Image.Image) -> tuple[str, View | None] | None:
         """Where the last aligned map's picture lies in the box now, without reading the title: the game scrolls a
         cropped minimap as the player walks, and a whole read (the OCR, then the alignment) every second made
         anything drawn over it jump. The locked map at its locked scale is matched at half size (~15 ms), nearest
         the last placing first, then anywhere in the panel (a hidden passage moves the view far at once); a
-        see-through minimap, or one whose grey shape no longer matches, is followed by its colours (_see_match) at
-        a third of full size, near the last placing first, at half size when that won't tell. (map, view), with a
+        see-through minimap is followed by its colours: a local track near the last placing (_track, ~5 ms), else
+        (scrolled far, or it won't tell) the whole panel's match at a third of full size, near the last placing
+        first, at half size when that won't tell; so is one whose grey shape no longer matches. (map, view), with a
         None view when neither finds it (another map, the loading screen); None when no read has aligned a map yet."""
         with self._follow_lock:
             snap = self._follow
@@ -1253,6 +1350,10 @@ class Locator:
         x0, y0, x1, y1 = rect
         panel = np.asarray(img.convert("RGB"))[y0:y1, x0:x1]
         placed = None if see else self._follow_art(panel, mid, scale, lx, ly, bg)
+        if see:
+            got = _track(panel, self._track_for(mid, scale), lx, ly)
+            if got is not None and got[0] >= _SEE_MIN and got[3] >= _SEE_MARGIN:
+                placed = (round(2 * got[1]) / 2, round(2 * got[2]) / 2)
         if placed is None:
             # see-through (or the grey shape lost on a busy frame): the picture's colours, shrunk to a third with the
             # read's measured offset taken off; a third blurs the margin down (0.13 -> 0.09 on a dense live scene),
