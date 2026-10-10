@@ -50,16 +50,17 @@ class PortalDots(QWidget):
         self.refresh()
 
     def refresh(self, _what: object = None) -> None:
-        """Place the dots from the latest read and follow (a Qt slot too: LOCATION's signals carry what it re-reads)."""
+        """Place the dots from the live follow of the player's map (a Qt slot too: LOCATION's signals carry what it
+        re-reads). Never from a read's own view: it can be the last map's while the reads wait to confirm a new one,
+        and entering a shop flashed the street's dots back for a second (live)."""
         region = self._settings["minimap_region"]
         here = LOCATION.here
         if not self._settings["minimap_hidden_portals"] or not isinstance(region, dict) or here is None:
             self._clear()
             return
         follow = LOCATION.follow
-        # the follow is newer than any read (a read's picture is half a second old when it lands); one of another
-        # map means the box shows that one now, not the player's known map
-        view = here.view if follow is None else follow[1] if follow[0] == here.map else None
+        # none, or one of another map (the box shows that one now, not the player's known map): nothing to place
+        view = follow[1] if follow is not None and follow[0] == here.map else None
         if view is None:
             self._clear()
             return

@@ -242,6 +242,12 @@ class MinimapScanner(QObject):
         self._pending = (None, 0)
         LOCATION.set(here)
         LOCATION.set_state("")
+        # the dots draw from the follow only: a read that placed its map starts it there when nothing live follows
+        # this map yet (the first read, a map just confirmed, a follow that lost it). A live follow is newer than
+        # the read's half-second-old picture: overwriting it jumped the dots back mid-walk
+        follow = LOCATION.follow
+        if here.view is not None and (follow is None or follow[0] != here.map or follow[1] is None):
+            LOCATION.set_follow((here.map, here.view))
         if here.map != self._last_map:
             self._last_map = here.map
             try:

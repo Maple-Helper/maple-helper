@@ -313,6 +313,33 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         sc.stop()
 
 
+def test_a_placed_read_starts_the_follow_but_never_overrides_a_live_one(env, clean_location, qapp):
+    """The dots draw from the follow only, so a confirmed read that placed its map starts it there: the first
+    read, and one after the follow lost the picture. A live follow of that map is newer than the read's picture and
+    stays (overwriting it jumped the dots back mid-walk). A read with no placing starts nothing."""
+    from maplehelper.minimap import Here, View
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        sc.restart()
+        sc._graph = _Graph()
+        read_view, live = View(1, 2, 30, 40, (0, 0, 100, 50)), View(9, 2, 30, 40, (0, 0, 100, 50))
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", read_view)
+        clean_location.set_follow(("010003000", live))
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", live)
+        clean_location.set_follow(("010003000", None))       # lost: the next placed read takes over
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", read_view)
+        clean_location.set_follow(None)
+        sc._deliver(Here("010003000", None))
+        assert clean_location.follow is None
+    finally:
+        sc.stop()
+
+
 def test_a_known_map_is_never_dropped_for_unreadable_reads(env, clean_location, qapp, monkeypatch):
     """Reads without a readable title (a bubble over the header, a loading screen) keep the known map, however long
     they last (the owner's, 2026-10-08: "not recognized" and back every few seconds reset the way mid-walk); past

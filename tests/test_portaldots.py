@@ -45,12 +45,18 @@ def _here(mid="010003000", panel=(0, 0, 200, 200)):
     return Here(mid, (0.3, 0.3), View(10, 20, 100, 50, panel))
 
 
-def test_dots_sit_on_the_box_where_the_read_placed_the_map(dots, qapp):
+def _place(loc, here):
+    """A confirmed read that placed its map, as the scanner hands it over: the map, and the follow started there."""
+    loc.set(here)
+    loc.set_follow((here.map, here.view))
+
+
+def test_dots_sit_on_the_box_where_the_map_was_placed(dots, qapp):
     """Each hidden portal in view is a blue dot at its place in the drawn box; one outside the window shown is
     left out. The window covers the box exactly and never takes a click."""
     from PySide6.QtCore import QPointF, QRect, Qt
     w, _, loc = dots
-    loc.set(_here(panel=(15, 5, 200, 200)))
+    _place(loc, _here(panel=(15, 5, 200, 200)))
     assert w.isVisible() and w.geometry() == QRect(100, 100, 200, 200)
     assert w._dots == [QPointF(60, 45), QPointF(100, 65)]          # (0, 0) lands at x=10, left of the panel
     assert w.testAttribute(Qt.WA_TransparentForMouseEvents)
@@ -64,22 +70,22 @@ def test_dots_sit_on_the_box_where_the_read_placed_the_map(dots, qapp):
 def test_nothing_to_place_hides_the_dots(dots, change):
     from maplehelper.minimap import Here
     w, s, loc = dots
-    loc.set(_here())
+    _place(loc, _here())
     assert w.isVisible()
     if change == "setting_off":
         s["minimap_hidden_portals"] = False
         w.refresh()
     elif change == "no_view":
-        loc.set(Here("010003000", (0.3, 0.3)))
+        _place(loc, Here("010003000", (0.3, 0.3)))
     elif change == "no_read":
         loc.set(None)
     elif change == "no_box":
         s["minimap_region"] = None
         w.refresh()
     elif change == "none_in_view":
-        loc.set(_here(panel=(150, 150, 200, 200)))
+        _place(loc, _here(panel=(150, 150, 200, 200)))
     else:
-        loc.set(_here("100000000"))
+        _place(loc, _here("100000000"))                 # a map with no hidden portals
     assert not w.isVisible() and w._dots == []
 
 
@@ -91,7 +97,7 @@ def test_the_follow_moves_the_dots_between_reads_and_a_lost_one_hides_them(dots)
 
     from maplehelper.minimap import View
     w, _, loc = dots
-    loc.set(_here())
+    _place(loc, _here())
     assert w._dots[0] == QPointF(60, 45)
     loc.set_follow(("010003000", View(5, 20, 100, 50, (0, 0, 200, 200))))
     assert w.isVisible() and w._dots[0] == QPointF(55, 45)
@@ -102,6 +108,22 @@ def test_the_follow_moves_the_dots_between_reads_and_a_lost_one_hides_them(dots)
     loc.set_follow(("010003000", View(5, 20, 100, 50, (0, 0, 200, 200))))
     assert w.isVisible()
     loc.set_follow(("100000000", View(5, 20, 100, 50, (0, 0, 200, 200))))
+    assert not w.isVisible()
+
+
+def test_entering_a_shop_never_flashes_the_streets_dots_back(dots):
+    """Into a shop: the follow loses the street's picture, then a read names the shop (no minimap picture) and the
+    follow is cleared, while the known map is still the street for a read until the shop is confirmed. The street's
+    last read view must not bring its dots back meanwhile (they flashed for a second, live)."""
+    from maplehelper.minimap import Here
+    w, _, loc = dots
+    _place(loc, _here())
+    assert w.isVisible()
+    loc.set_follow(("010003000", None))                 # the loading screen
+    assert not w.isVisible()
+    loc.set_follow(None)                                # the shop read cleared the follow; the street is still known
+    assert loc.here.view is not None and not w.isVisible()
+    loc.set(Here("010003001", None))                    # the shop confirmed
     assert not w.isVisible()
 
 
