@@ -100,7 +100,7 @@ def _npc_hits(kb) -> list[Hit]:
     """Every NPC in the game (the KB's own npc_open rule), the grey line the map it stands on and the street,
     as the KB's npcs table has them; an NPC the table has no place for keeps an empty one."""
     where: dict[str, str] = {}
-    for r in tables.rows(kb, "npcs", build=False):
+    for r in tables.rows(kb, "npcs"):
         if r.get("key"):
             where[str(r["key"])] = " · ".join(x for x in (str(r.get("map") or ""), str(r.get("street") or "")) if x)
     open_ = availability.of(kb)
@@ -129,10 +129,14 @@ _BUILDERS = {"monster": _monster_hits, "npc": _npc_hits, "item": _item_hits}
 
 def _source(kb, kind: str) -> list[Hit]:
     """One kind's every row, built once per KB (a keystroke only ranks them; the item list alone reads ~650
-    pages)."""
+    pages). A list made while the KB's tables weren't ready (still building at start-up) isn't kept: it would have
+    left every NPC without its map for the whole session."""
     cache = memo(kb, "_game_search")
     if kind not in cache:
-        cache[kind] = _BUILDERS[kind](kb)
+        hits = _BUILDERS[kind](kb)
+        if kind != "npc" or tables.ready(kb):
+            cache[kind] = hits
+        return hits
     return cache[kind]
 
 
@@ -164,7 +168,9 @@ def monster_maps(kb, key: str) -> list[tuple[str, str, str, int]]:
     if not name:
         return []
     out: dict[str, tuple[str, str, str, int]] = {}
-    for r in tables.rows(kb, "spawns", build=False):
+    # the tables built when missing (cheap when current): with build=False a fresh KB, or a search while the app
+    # still built them at start-up, found no maps at all (CI's fixture KB, 2026-10-10)
+    for r in tables.rows(kb, "spawns"):
         mk = str(r.get("map_key") or "")
         if r.get("monster") != name or not mk:
             continue

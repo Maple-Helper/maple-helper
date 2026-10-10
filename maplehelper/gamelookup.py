@@ -138,11 +138,12 @@ def _droppers(kb, key: str) -> list[Dropper]:
 
 
 def _sellers_by_item(kb) -> dict[str, list[Seller]]:
-    """item key -> its sellers, built once per KB (shops.tsv is read once, never per call)."""
+    """item key -> its sellers, built once per KB (shops.tsv is read once, never per call; the tables built first
+    when missing, and an index read before they were ready not kept)."""
     cache = memo(kb, _CACHE)
     if "sellers" not in cache:
         by_item: dict[str, dict[str, Seller]] = {}
-        for r in tables.rows(kb, "shops", build=False):
+        for r in tables.rows(kb, "shops"):
             ikey = str(r.get("item_key") or "")
             who = str(r.get("npc_key") or "") or str(r.get("npc") or "")
             if not ikey or not who:
@@ -153,9 +154,11 @@ def _sellers_by_item(kb) -> dict[str, list[Seller]]:
             prev = by_item.setdefault(ikey, {}).get(who)
             if prev is None or (row.price is not None and (prev.price is None or row.price < prev.price)):
                 by_item[ikey][who] = row
-        cache["sellers"] = {k: sorted(v.values(), key=lambda s: (s.price is None, s.price or 0,
-                                                                 s.name.casefold()))
-                            for k, v in by_item.items()}
+        sellers = {k: sorted(v.values(), key=lambda s: (s.price is None, s.price or 0, s.name.casefold()))
+                   for k, v in by_item.items()}
+        if not tables.ready(kb):
+            return sellers          # read before the tables were ready (still building): not kept for the session
+        cache["sellers"] = sellers
     return cache["sellers"]
 
 
@@ -170,11 +173,12 @@ def map_monsters(kb, map_key_or_id: str) -> list[tuple[str, str, int, int]]:
 
 
 def _spawns_by_map(kb) -> dict[str, list[tuple[str, str, int, int]]]:
-    """map key -> what spawns on it, built once per KB (spawns.tsv is read once, never per call)."""
+    """map key -> what spawns on it, built once per KB (spawns.tsv is read once, never per call; the tables built
+    first when missing, and an index read before they were ready not kept)."""
     cache = memo(kb, _CACHE)
     if "spawns" not in cache:
         by_map: dict[str, dict[str, tuple[str, str, int, int]]] = {}
-        for r in tables.rows(kb, "spawns", build=False):
+        for r in tables.rows(kb, "spawns"):
             mk, mkey = str(r.get("map_key") or ""), str(r.get("monster_key") or "")
             if not mk or not mkey:
                 continue
@@ -186,6 +190,8 @@ def _spawns_by_map(kb) -> dict[str, list[tuple[str, str, int, int]]]:
             prev = by_map.setdefault(mk, {}).get(mkey)
             if prev is None or n > prev[3]:
                 by_map[mk][mkey] = row
-        cache["spawns"] = {k: sorted(v.values(), key=lambda t: (-t[3], t[1].casefold()))
-                           for k, v in by_map.items()}
+        spawns = {k: sorted(v.values(), key=lambda t: (-t[3], t[1].casefold())) for k, v in by_map.items()}
+        if not tables.ready(kb):
+            return spawns           # read before the tables were ready (still building): not kept for the session
+        cache["spawns"] = spawns
     return cache["spawns"]
