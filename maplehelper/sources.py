@@ -27,7 +27,8 @@ OFFICIAL = "official"
 MEOWDB = "MeowDB"
 REFERENCE = "reference"        # a historical reference table (the EXP guide's levels 50+)
 CLOSED_TEST = "closed_test"    # a value the KB marks "(closed test)" without naming the build (a pet's lifespan)
-FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE, CLOSED_TEST)
+MESOWATCH = "MesoWatch"       # Free Market sales seen in players' shops on public streams (mesowatch.py): community
+FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE, CLOSED_TEST, MESOWATCH)
 
 # readable names for the build labels the KB uses or is likely to (an unknown one is shown as written)
 BUILD_NAMES = {
@@ -360,7 +361,8 @@ AI_NAMES = {MSEA: "MSEA reference (old MapleSEA, not confirmed for Classic)",
             OFFICIAL: "official (Nexon)",
             MEOWDB: "MeowDB (no build label)",
             REFERENCE: "historical reference table (an estimate until verified)",
-            CLOSED_TEST: "closed-test value (not confirmed for launch)"}
+            CLOSED_TEST: "closed-test value (not confirmed for launch)",
+            MESOWATCH: "MesoWatch (community: Free Market sales read from public streams)"}
 
 
 def ai_name(source: str) -> str:

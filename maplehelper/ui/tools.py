@@ -15,8 +15,8 @@ from PySide6.QtGui import QIcon, QPixmap, QStandardItem, QStandardItemModel, QTe
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QCompleter, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
                                QLabel, QLineEdit, QPushButton, QScrollArea, QStackedWidget, QTextBrowser, QVBoxLayout, QWidget)
 
-from .. import (availability, bidi, buildplan, combat, crafting, dates, farm, glossary, grind, guides, market, plan, quests,
-               quick, routes, sitedata, skillbook, sources)
+from .. import (availability, bidi, buildplan, combat, crafting, dates, farm, glossary, grind, guides, market,
+               mesowatch, plan, quests, quick, routes, sitedata, skillbook, sources)
 from ..i18n import I18n
 from . import mapview, terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
@@ -76,6 +76,7 @@ NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
 FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
 SELL_FM_DEADLINE = 20               # seconds the sell check starts new Free Market lookups for
+LISTINGS_MW = 3                     # MesoWatch shops shown under an item's price, cheapest first
 
 
 def _close(typed: str, name: str) -> bool:
@@ -395,8 +396,9 @@ class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
     grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
     market_ready = Signal(object)             # (item name, Market or None) from the background lookup
+    mesowatch_ready = Signal(object)          # (item key, (Snapshot or None, Sales or None)) from MesoWatch
     inventory_ready = Signal(object)          # the inventory slots a sell-or-keep read found (or None: no shot)
-    sell_market_ready = Signal(object)        # (read id, key -> the usual Free Market price) for those items
+    sell_market_ready = Signal(object)        # (read id, key -> usual reported price, key -> usual sold price)
     ask_requested = Signal(str, bool)          # question for the chat, with a fresh screenshot?
     detail_ask_requested = Signal(str, str)    # ...with a full-resolution screenshot (inventory icons); bubble label
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
@@ -2658,6 +2660,7 @@ class ToolsDialog(GlassDialog):
         lay.addWidget(self._label(t("price_hint"), "RowHint", seen=set(self._price_seen)))
         lay.addStretch(1)
         self.market_ready.connect(self._on_market)
+        self.mesowatch_ready.connect(self._on_mesowatch)
         return sc
 
     def _fill_prices(self):
@@ -2742,6 +2745,12 @@ class ToolsDialog(GlassDialog):
         self.fm_more = QVBoxLayout()
         self.fm_more.setSpacing(4)
         col.addLayout(self.fm_more)
+        # the sales MesoWatch saw in players' shops (mesowatch.py), beside the reports: both community, neither wins
+        self.mw_label = self._label(t("price_mw_loading"), "RowLabel", seen=set(seen))
+        col.addLayout(chip_row([source_tag(t, sources.MESOWATCH)], self.mw_label, lead=True))
+        self.mw_more = QVBoxLayout()
+        self.mw_more.setSpacing(4)
+        col.addLayout(self.mw_more)
         slug = key.split("/", 1)[1]
         item_id = int(slug) if slug.isdigit() else None        # the KB's item ids are NiaMeowDB's
         web = QPushButton(self._p(t("price_open_site")), objectName="Link")
@@ -2749,6 +2758,11 @@ class ToolsDialog(GlassDialog):
         web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
             market.item_page(i) if i else market.page_url(n)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+        # MesoWatch's terms: a visible credit and link wherever its prices show (the chip, and this)
+        mw = QPushButton(self._p(t("price_mw_open")), objectName="Link")
+        mw.setCursor(Qt.PointingHandCursor)
+        mw.clicked.connect(lambda _=False: __import__("webbrowser").open(mesowatch.item_url(self._mw_id)))
+        col.addWidget(mw, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         # who drops it (Farm), the way to the cheapest shop
         acts = [("go_get", lambda n=name: self._go_farm_item(n))] if self.kb.droppers.get(key) else []
         if shops and routes.of(self.kb).find(shops[0][0]):
@@ -2757,7 +2771,86 @@ class ToolsDialog(GlassDialog):
             col.addLayout(self._links_row(acts))
         self.price_box.addWidget(card)
         self._price_for = name
+        self._price_key = key
+        self._mw_id = None              # the item's id on MesoWatch, once the lookup matched it (_on_mesowatch)
         self._fm_lookup(name, item_id)
+        self._mw_lookup(key)
+
+    def _mw_lookup(self, key: str) -> None:
+        """The item's sales on MesoWatch, in the background: the first one of a run may download the market."""
+        import threading
+
+        def lookup(k=key):
+            try:
+                found = mesowatch.for_item(self.kb, k)
+            except Exception:      # noqa: BLE001 - a file the parser didn't expect: "can't reach" rather than nothing
+                logging.getLogger(__name__).warning("MesoWatch lookup failed", exc_info=True)
+                found = (None, None)
+            try:
+                self.mesowatch_ready.emit((k, found))
+            except RuntimeError:
+                pass                    # the window was closed meanwhile
+        threading.Thread(target=lookup, daemon=True).start()
+
+    def _on_mesowatch(self, result) -> None:
+        key, (snap, sales) = result
+        if key != getattr(self, "_price_key", None) or not hasattr(self, "mw_label"):
+            return                      # an older lookup: the player picked another item since
+        self._mw_id = sales.game_id if sales else None
+        text, more = self._mw_lines(snap, sales)
+        seen = set(getattr(self, "_card_seen", ()))
+        try:
+            self._set(self.mw_label, text, seen)
+            clear(self.mw_more)
+            for line in more:
+                self.mw_more.addWidget(self._label(line, "RowHint", seen=seen))
+        except RuntimeError:
+            pass                        # the card was redrawn meanwhile
+
+    def _mw_lines(self, snap, s) -> tuple[str, list[str]]:
+        """An item's MesoWatch sales in words: the usual sold price beside the chip, then how solid it is, the trend,
+        what shops ask and the shops seen listing it (smaller, under it)."""
+        t = self.t
+        if snap is None:
+            return t("price_mw_offline"), []
+        more: list[str] = []
+        if s is None or not s.price:
+            text = t("price_mw_none")
+        else:
+            text = t("price_mw", price=f"{s.price:,}", n=f"{s.sold:,}", world=snap.world)
+            facts = []
+            if s.p25 and s.p75 and s.p25 != s.p75:
+                facts.append(t("price_mw_range", low=f"{s.p25:,}", high=f"{s.p75:,}"))
+            if s.per_set:
+                facts.append(t("price_mw_per_set"))
+            if s.low_data:
+                facts.append(t("price_mw_few"))
+            if s.scrolled_only:
+                facts.append(t("price_mw_scrolled"))
+            if facts:
+                more.append(" · ".join(facts))
+            moves = []
+            if s.trend_pct is not None and s.trend_days:
+                arrow = "▲" if s.trend_pct > 0 else "▼" if s.trend_pct < 0 else "="
+                moves.append(t("price_mw_trend", trend=f"{arrow} {abs(s.trend_pct)}%", days=s.trend_days,
+                               n=s.trend_days))
+            if s.ask:
+                moves.append(t("price_mw_ask", price=f"{s.ask:,}"))
+            if moves:
+                more.append(" · ".join(moves))
+        if s is not None and s.shops:
+            more.append(t("price_mw_shops"))
+            for x in sorted(s.shops, key=lambda x: x.price)[:LISTINGS_MW]:
+                # each English part one block: in a Hebrew line "399 mesos", the map and "8" ran together reversed
+                bits = [bidi.ltr_block(f"{x.price:,} mesos", t.rtl)] + ([bidi.ltr_block(x.location, t.rtl)]
+                                                                        if x.location else [])
+                if x.stock:
+                    bits.append(t("price_mw_stock", n=x.stock))
+                if x.seen:
+                    bits.append(market_ago(t, x.seen))
+                more.append("• " + " · ".join(bits))
+        more.append(t("price_mw_updated", ago=market_ago(t, snap.generated)))
+        return text, more
 
     def _fm_lookup(self, name: str, item_id: int | None) -> None:
         """The item's Free Market from MeowDB, in the background (market_ready brings it back)."""
@@ -4223,6 +4316,18 @@ class ToolsDialog(GlassDialog):
 
         def look():
             usual = {}
+            # MesoWatch's sold prices: one market file for every item (the first of a run may download it)
+            try:
+                snap = mesowatch.snapshot()
+            except Exception:      # noqa: BLE001 - no sold prices; NiaMeowDB's reports still come
+                logging.getLogger(__name__).warning("MesoWatch lookup failed", exc_info=True)
+                snap = None
+            sold = {}
+            for k in keys:
+                gid = mesowatch.match(snap, self.kb, k) if snap else None
+                price = mesowatch.solid_price(snap.items.get(gid)) if gid else None
+                if isinstance(price, int) and price > 0:
+                    sold[k] = price
             # a slow connection: no new lookup after SELL_FM_DEADLINE, the cards show what came in by then (each
             # item is up to 3 requests of 8 s, 30 of them took minutes of "checking", TL2-9)
             stop = time.monotonic() + SELL_FM_DEADLINE
@@ -4239,17 +4344,17 @@ class ToolsDialog(GlassDialog):
                     if m is not None and m.usual:
                         usual[k] = m.usual
             try:
-                self.sell_market_ready.emit((read_id, usual))
+                self.sell_market_ready.emit((read_id, usual, sold))
             except RuntimeError:
                 pass
         threading.Thread(target=look, daemon=True).start()
 
     def _on_sell_market(self, r) -> None:
         from .. import sellkeep
-        read_id, usual = r
+        read_id, usual, sold = r
         if read_id != self.__dict__.get("_sell_read") or not self.__dict__.get("_sell_verdicts"):
             return
-        self._sell_verdicts = sellkeep.with_market(self._sell_verdicts, usual)
+        self._sell_verdicts = sellkeep.with_market(self._sell_verdicts, usual, sold)
         self._render_sell(self._sell_verdicts)
 
     def _render_sell(self, verdicts, checking: bool = False) -> None:
@@ -4288,7 +4393,7 @@ class ToolsDialog(GlassDialog):
                "wish": t("sell_why_wish"), "supply": t("sell_why_supply"), "wear": t("sell_why_wear", lv=v.why or "-"),
                "not_yet": t("sell_why_not_yet", lv=v.why), "other_job": t("sell_why_other_job"),
                "sell": t("sell_why_sell", n=f"{v.price:,}"), "no_price": t("sell_why_no_price"),
-               "fm": t("sell_why_fm", n=f"{v.fm:,}") + (" " + t("sell_or_npc", n=f"{v.price:,}") if v.price else ""),
+               "fm": t("sell_why_fm_mw" if v.fm_src == sources.MESOWATCH else "sell_why_fm", n=f"{v.fm:,}") + (" " + t("sell_or_npc", n=f"{v.price:,}") if v.price else ""),
                "unknown": t("sell_why_unknown")}[v.kind]
         if v.kind in ("not_yet", "other_job") and v.price:
             why += " " + t("sell_or_npc", n=f"{v.price:,}")

@@ -73,7 +73,7 @@ def no_real_world():
     import shutil
     import socket
 
-    from maplehelper import market, serverstatus
+    from maplehelper import market, mesowatch, serverstatus
     from maplehelper.providers import codex
 
     mp = pytest.MonkeyPatch()
@@ -83,6 +83,11 @@ def no_real_world():
     mp.setattr(codex, "store_apps", lambda: [])           # the Microsoft Store copy, found through the registry
     mp.setattr(market, "free_market", lambda name, timeout=10: None)
     mp.setattr(market, "item_market", lambda item_id, timeout=8: None)
+
+    # MesoWatch's market file: "can't reach it" (a test that needs it patches _request and resets the module's state)
+    def offline(*a, **k):
+        raise OSError("tests must not reach meso.watch")
+    mp.setattr(mesowatch, "_request", offline)
     # the chat's server-status dot (live from MeowDB): "can't reach it", without asking
     mp.setattr(serverstatus, "fetch", lambda timeout=8: None)
 

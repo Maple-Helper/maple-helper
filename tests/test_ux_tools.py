@@ -159,6 +159,37 @@ def test_an_offline_free_market_offers_to_try_again(tools, monkeypatch):
     assert looked == ["Red Potion"] and "Free Market" in d.fm_label.text()
 
 
+@needs_kb
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch, lang):
+    import time
+
+    from PySide6.QtWidgets import QPushButton
+
+    from maplehelper import mesowatch
+    snap = mesowatch.Snapshot("Windia", time.time() - 600, {})
+    ore = mesowatch.Sales(4010001, "Iron Ore", 375, 299, 499, 2243, False, 500, trend_pct=-22, trend_days=3,
+                          shops=[mesowatch.Shop("The Rain-Forest East of Henesys", 399, 1, 8, time.time() - 300)])
+    monkeypatch.setattr(mesowatch, "for_item", lambda kb, key, *a, **k: (snap, ore))
+    opened = []
+    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
+    d = tools(page="prices", lang=lang)
+    d.price_input.setText("Iron Ore")
+    d._fill_prices()
+    assert "MesoWatch" in d.mw_label.text()                              # checking…, before the lookup is in
+    d._on_mesowatch((d._price_key, (snap, ore)))
+    text = d.mw_label.text()
+    assert "375" in text and "Windia" in text
+    more = [d.mw_more.itemAt(i).widget().text() for i in range(d.mw_more.count())]
+    assert any("299" in x and "499" in x for x in more) and any("399" in x and "Rain-Forest" in x for x in more)
+    link = [b for b in d.findChildren(QPushButton) if "MesoWatch" in b.text()]
+    assert link
+    link[0].click()
+    assert opened == ["https://meso.watch/?item=04010001"]
+    d._on_mesowatch((d._price_key, (None, None)))                       # can't reach it
+    assert "MesoWatch" in d.mw_label.text() and d.mw_more.count() == 0
+
+
 def test_guide_search_lights_no_category_and_counts(app):
     """TOOL-11: the search looks in every guide while "For you" stayed lit."""
     from types import SimpleNamespace
