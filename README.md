@@ -220,7 +220,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   - **Citizenship:** the Henesys and Kerning City quests by citizenship grade, and the town the guide recommends for your class.
   - **Build plan:** your class guide's AP, SP and gear tables, your level's row highlighted, a table for each 2nd job, and the community tier list for your job.
   - **Hit & damage:** pick a monster to see the ACC you need to never miss, your hit chance and hits to kill.
-  - **Item price:** NPC buy and sell prices, and a live Free Market median from player reports on NiaMeowDB.
+  - **Item price:** NPC buy and sell prices, a live Free Market median from player reports on NiaMeowDB, and what the item actually sells for: completed shop sales MesoWatch read from public streams (the usual price, the middle half of the sales, the trend and the shops seen selling it).
   - **Sell or keep:** open your inventory and the app names each item and says whether to keep it (a quest, a recipe, gear you can wear, a starred item) or sell it to an NPC or on the Free Market, and for how much. No AI: straight from the database.
   - **How to get there:** the way from your map to any map, monster or NPC, with taxis and boats.
   - **Pets:** lifespan, hunger, commands to level 30 and the fastest command at each stage, Cash Shop prices, and the pet skills.
@@ -323,7 +323,7 @@ Settings, character profiles, conversation history, speech models, and downloade
 
 When you ask a question, the app sends your chosen AI provider (Anthropic for Claude, OpenAI for ChatGPT, Google for Gemini, xAI for Grok) your question, the available game screenshot, character profile, recent conversation, earlier session summaries, and relevant knowledge-base context. The AI can also read local knowledge-base files to answer the question; it runs read-only and cannot change files or search the web. Claude and Grok can read nothing outside the knowledge base and the screenshot; Gemini is kept out of your own files too. With Codex, Gemini and Grok, the screenshot is written to a temporary file for the run and deleted right after. After a chat session has been closed for 30 minutes, the app may send the session transcript to the same provider to generate a summary for future conversations.
 
-Voice recordings are transcribed locally. The resulting text is used as your question. The Prices tool asks NiaMeowDB for recent Free Market listings of the item you look up (only the item name is sent). The app also checks GitHub Releases for app and knowledge-base updates, and installs an update only when its SHA-256 matches the release's checksums.
+Voice recordings are transcribed locally. The resulting text is used as your question. The Prices tool asks NiaMeowDB for recent Free Market listings of the item you look up (only the item name is sent), and reads MesoWatch's public market file (nothing is sent; checked at most once an hour, kept on disk). The app also checks GitHub Releases for app and knowledge-base updates, and installs an update only when its SHA-256 matches the release's checksums.
 
 So we know how many people use Maple Helper, every 10 minutes while it runs the app tells our PostHog project that it is running: its version, your OS, and whether this is the first time ever, today or this month. The id it is sent under is random for each run and never stored, so runs can't be linked to each other or to you, and the project discards IP addresses. Turn it off in **Settings → Privacy & system → Count me as a player**. Separately, **Share anonymous usage stats** (on unless you turn it off) also sends which features get used, under a random id kept on your computer. Neither ever sends your questions, answers, screenshots, voice or character names. Setting the environment variable `MAPLEHELPER_NO_TELEMETRY=1` turns both off.
 
@@ -348,6 +348,7 @@ For a small knowledge-base download during development, limit the scraper to fiv
 ## Credits
 
 - Game data and images: [NiaMeowDB](https://meowdb.com), used with permission. Game assets belong to their rights holders.
+- Free Market sale prices: [MesoWatch](https://meso.watch), used with written permission.
 - Font: [Rubik](https://fonts.google.com/specimen/Rubik), distributed under the [SIL Open Font License](assets/fonts/OFL.txt).
 - Speech recognition: [ivrit.ai](https://huggingface.co/ivrit-ai) Whisper models.
 - MapleStory Classic World is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.
