@@ -37,7 +37,7 @@ GUIDE_GAP = 6                       # between the guide's panel and the list's
 GEOM_DEBOUNCE_MS = 400              # a move/resize saves the window's place once it settles
 H_NEAR, V_NEAR = 60, 90             # map units: nearer than this aside / above-below is "right by you"
 OPACITY_MIN, OPACITY_MAX, OPACITY_DEFAULT = 0.3, 1.0, 0.85
-WDA_EXCLUDEFROMCAPTURE = 0x11       # Windows 10 2004+: screen captures (the minimap reads) never see this window
+WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0x0, 0x11   # Windows 10 2004+: screen captures see / never see the window
 
 # the panel floats over the game, whatever theme the app's own windows are in: its own dark glass and light text
 PANEL = (24, 24, 27)
@@ -164,17 +164,21 @@ def _paint_glass(w: QWidget, opacity: float) -> None:
     p.end()
 
 
-def _exclude_from_capture(w: QWidget) -> None:
-    """Keep a window out of the screenshots the minimap reads take: it may sit over the very box they read. Older
-    Windows draws it into the shot, where the reader's picture matching may still survive it."""
+def set_capturable(w: QWidget, settings) -> None:
+    """Whether screen captures see this window over the game: by default never (WDA_EXCLUDEFROMCAPTURE), since it
+    may sit over the very box the minimap reads take (the hidden-portal dots over the player's yellow dot hid it from
+    the read) and the chat's game screenshots would carry it too; with settings["overlays_in_screenshots"] on they
+    do, so the player can screenshot what the overlays show. Set on every show, and by the app when the setting
+    flips. Older Windows draws it into the shot either way, where the reader's matching leaves the markers out."""
     if sys.platform != "win32":
         return
     try:
         import ctypes
-        if not ctypes.windll.user32.SetWindowDisplayAffinity(int(w.winId()), WDA_EXCLUDEFROMCAPTURE):
-            log.debug("npc overlay: capture exclusion not available")
-    except Exception as e:  # noqa: BLE001 - the window still shows; only the reads may see it
-        log.debug("npc overlay: capture exclusion failed: %r", e)
+        mode = WDA_NONE if settings["overlays_in_screenshots"] else WDA_EXCLUDEFROMCAPTURE
+        if not ctypes.windll.user32.SetWindowDisplayAffinity(int(w.winId()), mode):
+            log.debug("overlay: display affinity not available")
+    except Exception as e:  # noqa: BLE001 - the window still shows; only who captures it changes
+        log.debug("overlay: display affinity failed: %r", e)
 
 
 def _flags() -> Qt.WindowType:
@@ -208,7 +212,6 @@ class GuideWindow(QWidget):
         self.setFixedWidth(GUIDE_W)
         self.setStyleSheet(QSS)
         self._owner = owner
-        self._excluded = False
         col = QVBoxLayout(self)
         col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
         col.setSpacing(8)
@@ -247,9 +250,7 @@ class GuideWindow(QWidget):
         self.dock()
         if not self.isVisible():
             self.show()
-        if not self._excluded:
-            self._excluded = True
-            _exclude_from_capture(self)
+        set_capturable(self, self._owner._settings)
         self.update()
 
     def dock(self) -> None:
@@ -303,7 +304,6 @@ class NpcOverlay(EdgeResize, QWidget):
         self._heads: list[tuple[QLabel, str]] = []     # each building's heading over its NPCs, with its map id
         self._sel: NpcHere | None = None
         self._placed = False                 # geometry applied at least once: there is a place to remember
-        self._excluded = False
         self._collapsed = False              # folded to the header: no NPCs to list (_fit)
         self._full_h: int | None = None      # the height it opens back to from the fold
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
@@ -560,9 +560,7 @@ class NpcOverlay(EdgeResize, QWidget):
         if not self.isVisible():
             self._place()
             self.show()
-            if not self._excluded:
-                self._excluded = True
-                _exclude_from_capture(self)
+            set_capturable(self, self._settings)
         if mid != self._mid:
             going = self._sel.key if self._sel is not None and mid and self._sel.inside == mid else None
             self._rebuild(mid)

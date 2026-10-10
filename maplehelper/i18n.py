@@ -1150,6 +1150,13 @@ STRINGS = {
                          "en": "A see-through window over the game listing every NPC on your map. Click one to mark "
                                "it on the minimap and be guided to it."},
     "npc_overlay_opacity": {"he": "אטימות החלון", "en": "Window opacity"},
+    "overlays_in_screenshots": {"he": "החלונות שמעל המשחק בצילומי מסך", "en": "Show the overlays in screenshots"},
+    "overlays_in_screenshots_hint": {
+        "he": "דלוק: צילום מסך (גם של Windows) רואה את הסרגל, החלונות והנקודות שמעל המשחק, כדי שתוכלו לצלם ולשתף אותם. "
+              "כבוי (מומלץ): הם נשארים מחוץ לצילומים, כי קריאת המיני-מפה וצילומי המשחק שנשלחים ל-AI רואים אותם גם.",
+        "en": "On: screenshots (Windows' own too) show the toolbar, windows and dots over the game, so you can capture "
+              "and share them. Off (recommended): they stay out, since the minimap reads and the game shots the AI "
+              "gets would see them too."},
     "npc_overlay_title": {"he": "דמויות במפה", "en": "NPCs here"},
     "npc_overlay_none": {"he": "אין דמויות במפה הזו", "en": "No NPCs on this map"},
     "npc_overlay_unknown": {"he": "עוד לא ידוע באיזו מפה אתם", "en": "Your map isn't known yet"},

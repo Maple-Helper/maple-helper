@@ -1260,6 +1260,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
         self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
         sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
+        self.overlay_shots = Switch(settings["overlays_in_screenshots"])
+        sec.add_row(t("overlays_in_screenshots"), self.overlay_shots, hint=t("overlays_in_screenshots_hint"))
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1874,6 +1876,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "game_toolbar": self.game_toolbar.isChecked(),
             "npc_overlay": self.npc_overlay.isChecked(),
             "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
+            "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

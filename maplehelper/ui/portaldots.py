@@ -19,6 +19,7 @@ from ..kb import KnowledgeBase
 from ..store import Settings
 from . import theme
 from .location import LOCATION
+from .npcoverlay import set_capturable
 from .regionpick import from_capture
 
 log = logging.getLogger("maplehelper")
@@ -31,7 +32,6 @@ RING_PX = 7                         # the guided NPC's ring radius: wider than t
 RING_PEN = 2.0                      # the green stroke's width, the dark rim drawn a little wider under it
 RING_FILL = QColor(theme.GOOD_TEXT_LIGHT)   # the NPC green, as the map windows dot an NPC (mapview._mark_colors)
 RING_RIM = QColor(8, 48, 24)        # its dark rim (mapview's), so the ring holds on any minimap
-WDA_EXCLUDEFROMCAPTURE = 0x11       # Windows 10 2004+: screen captures (the minimap reads) never see this window
 
 
 class PortalDots(QWidget):
@@ -49,7 +49,6 @@ class PortalDots(QWidget):
         self._dots: list[QPointF] = []
         self._ring: QPointF | None = None     # the guided NPC, once the follow places it
         self._ratio = 1.0
-        self._excluded = False
         LOCATION.changed.connect(self.refresh)
         LOCATION.followed.connect(self.refresh)
         LOCATION.guided.connect(self.refresh)
@@ -95,7 +94,7 @@ class PortalDots(QWidget):
             self.setGeometry(rect)
         if not self.isVisible():
             self.show()
-            self._exclude_from_capture()
+            set_capturable(self, self._settings)     # off the minimap reads' shots, unless the player asked
         self.update()
 
     def _clear(self) -> None:
@@ -103,20 +102,6 @@ class PortalDots(QWidget):
         self._ring = None
         if self.isVisible():
             self.hide()
-
-    def _exclude_from_capture(self) -> None:
-        """Keep the dots out of the screenshots the minimap reads take: drawn over the player's yellow dot (standing
-        on a portal), they would hide it from the read. Older Windows draws them into the shot, where the reader
-        leaves blue marks out of its picture matching anyway."""
-        if self._excluded or sys.platform != "win32":
-            return
-        self._excluded = True
-        try:
-            import ctypes
-            if not ctypes.windll.user32.SetWindowDisplayAffinity(int(self.winId()), WDA_EXCLUDEFROMCAPTURE):
-                log.debug("hidden portal dots: capture exclusion not available")
-        except Exception as e:  # noqa: BLE001 - the dots still show; only the reads may see them
-            log.debug("hidden portal dots: capture exclusion failed: %r", e)
 
     def paintEvent(self, e) -> None:
         if not self._dots and self._ring is None:

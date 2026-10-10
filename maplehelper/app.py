@@ -798,6 +798,18 @@ class MapleHelperApp:
         game = getattr(self, "game_toolbar", None)
         if game is not None:
             game.refresh()         # the bar over the game switched on or off (its button follows the window)
+        self._apply_overlay_capture()
+
+    def _apply_overlay_capture(self) -> None:
+        """Settings' "Show the overlays in screenshots": every window over the game that exists takes it now (each
+        also takes it whenever it shows), not on the next restart."""
+        from .ui.npcoverlay import set_capturable
+        search = getattr(self, "game_search", None)
+        npc = getattr(self, "npc_overlay", None)
+        for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
+                  getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None)):
+            if w is not None:
+                set_capturable(w, self.settings)
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):

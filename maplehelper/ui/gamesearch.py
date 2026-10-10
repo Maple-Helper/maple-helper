@@ -24,7 +24,7 @@ from . import mapview, theme
 from .glass import SHADOW, EdgeResize
 from .location import LOCATION
 from .npcoverlay import (BOTTOM, FILL1, FILL2, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TEXT, TOP,
-                         _Header, _exclude_from_capture, _flags, _paint_glass, direction, dock_beside)
+                         _Header, _flags, _paint_glass, direction, dock_beside, set_capturable)
 
 KINDS = ("monster", "npc", "item", "sell")   # the searches the toolbar offers ("sell": the items, safe to sell?)
 MIN_W, MIN_H = 260, 300             # the smallest the player can drag the window to
@@ -266,7 +266,6 @@ class DetailWindow(EdgeResize, QWidget):
         self._sized = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._resized)
         self.setStyleSheet(QSS)
         self._owner = owner
-        self._excluded = False
         self._stack: list[tuple[str, str]] = []     # each view pushed, the last one shown
         self._guided: tuple | None = None           # the guide this window set, None while it set none
         self._rows: list[QWidget] = []
@@ -629,9 +628,7 @@ class DetailWindow(EdgeResize, QWidget):
         self.dock()
         if not self.isVisible():
             self.show()
-        if not self._excluded:
-            self._excluded = True
-            _exclude_from_capture(self)
+        set_capturable(self, self._owner._settings)
         self.update()
 
     def _saved_size(self) -> QSize | None:
@@ -712,7 +709,6 @@ class GameSearch(EdgeResize, QWidget):
         self._rows: list[QWidget] = []
         self._opacity = OPACITY_DEFAULT
         self._placed = False                 # geometry applied at least once: there is a place to remember
-        self._excluded = False
         self._under: QRect | None = None     # the toolbar's rect, where the window first opens
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
         self._typing = QTimer(self, singleShot=True, interval=TYPE_DEBOUNCE_MS, timeout=self._run)
@@ -776,9 +772,7 @@ class GameSearch(EdgeResize, QWidget):
         if not self.isVisible():
             self._place()
             self.show()
-            if not self._excluded:
-                self._excluded = True
-                _exclude_from_capture(self)
+            set_capturable(self, self._settings)
         self.raise_()
         self.activateWindow()
         self._box.setFocus()

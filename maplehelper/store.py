@@ -181,6 +181,7 @@ DEFAULT_SETTINGS = {
     "game_search_geom": None,     # where the player left the search window: {"x","y","w","h"}; None: under the bar
     "game_detail_size": None,     # the size the player dragged the search's page window to: {"w","h"}; None: fits its page
     "game_rides": False,          # the toolbar's Cabs & Teleports switch: the way to a found NPC/map takes them, or walks
+    "overlays_in_screenshots": False,   # the windows over the game show in screen captures (they hide from them)
 }
 
 

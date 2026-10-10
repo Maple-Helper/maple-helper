@@ -27,8 +27,8 @@ from .npcoverlay import (
     OPACITY_MIN,
     SEL_TEXT,
     TEXT,
-    _exclude_from_capture,
     _flags,
+    set_capturable,
     _paint_glass,
 )
 from .regionpick import from_capture
@@ -88,7 +88,6 @@ class GameToolbar(QWidget):
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self._opacity = OPACITY_DEFAULT
         self._placed = False                 # geometry applied at least once: there is a place to remember
-        self._excluded = False
         self._mode = ""                      # the search window's mode, lit on its button ("" none)
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
         self.setStyleSheet(QSS)
@@ -240,9 +239,7 @@ class GameToolbar(QWidget):
         if not self.isVisible():
             self._place()
             self.show()
-            if not self._excluded:
-                self._excluded = True
-                _exclude_from_capture(self)
+            set_capturable(self, self._settings)
         self.update()
 
     def apply_language(self, t: I18n) -> None:
