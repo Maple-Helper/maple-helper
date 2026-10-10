@@ -7,7 +7,7 @@ import re
 import sys
 import threading
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QProgressBar, QPushButton,
@@ -330,12 +330,29 @@ class _Bridge(QObject):
     level = Signal(float)          # the microphone test's loudness
 
 
+class _Relay(QObject):
+    """Carries a background thread's emit over to the GUI thread before it touches the bridge. A thread emitting on
+    a bridge while the GUI thread was deleting it (its dialog closed, a test's teardown) read a half-freed C++ object:
+    an access violation, not the RuntimeError a deleted one raises, and it killed CI's test runs on main and on PRs
+    (test_dialogs_provider). The relay lives as long as the app; on the GUI thread a bridge is alive or deleted,
+    never between."""
+    call = Signal(object, object)          # the bridge's signal, its arguments
+
+    @Slot(object, object)
+    def deliver(self, signal, args) -> None:
+        try:
+            signal.emit(*args)
+        except RuntimeError:            # "Internal C++ object already deleted": the dialog closed meanwhile
+            pass
+
+
+_RELAY = _Relay()                   # made on the thread importing this module: the GUI thread
+_RELAY.call.connect(_RELAY.deliver, Qt.QueuedConnection)
+
+
 def _emit(signal, *args) -> None:
     """Emit from a background thread; the dialog (and its bridge) may have closed meanwhile."""
-    try:
-        signal.emit(*args)
-    except RuntimeError:            # "Internal C++ object already deleted"
-        pass
+    _RELAY.call.emit(signal, args)
 
 
 class CharacterForm(QWidget):
