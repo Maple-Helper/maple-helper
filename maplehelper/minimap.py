@@ -546,27 +546,46 @@ def _see_feats(rgb: np.ndarray) -> list[np.ndarray]:
 _SEE_WEIGHTS = (0.5, 0.5)
 
 
-def _see_scores(panel: np.ndarray, valid: np.ndarray, art: np.ndarray, oy: np.ndarray, ox: np.ndarray
+@dataclass(frozen=True)
+class _SeeTemplate:
+    """A map picture prepared for _see_scores at one size and FFT size: the same for every frame the follow
+    compares it to, so only the panel's side is transformed per frame (a quarter of the work)."""
+    h: int
+    w: int
+    size: tuple[int, int]
+    msum: float
+    fm: np.ndarray                                   # conj FFT of the picture's drawn pixels
+    planes: tuple[tuple[np.ndarray, np.ndarray], ...]   # per colour plane: conj FFTs of t*m and (t*m)^2
+
+
+def _see_template(art: np.ndarray, size: tuple[int, int]) -> _SeeTemplate:
+    """The picture (RGBA, at its scale) prepared for an FFT of this size."""
+    m = (art[:, :, 3] > 127).astype(np.float64)
+    planes = []
+    for tm in _see_feats(art[:, :, :3]):
+        tm = tm.astype(np.float64) * m
+        planes.append((np.conj(np.fft.rfft2(tm, s=size)), np.conj(np.fft.rfft2(tm * tm, s=size))))
+    return _SeeTemplate(art.shape[0], art.shape[1], size, float(m.sum()), np.conj(np.fft.rfft2(m, s=size)),
+                        tuple(planes))
+
+
+def _see_scores(panel: np.ndarray, valid: np.ndarray, tmpl: _SeeTemplate, oy: np.ndarray, ox: np.ndarray
                 ) -> np.ndarray:
-    """The see-through match of the picture (RGBA, at its scale) placed with its top-left at every (oy, ox): NCC
-    over only the pixels the picture draws (its alpha) and the panel shows (not the game's markers), per colour
-    plane, weighted. Placements where too little of the picture lands on the panel score -2."""
+    """The see-through match of the prepared picture placed with its top-left at every (oy, ox): NCC over only the
+    pixels the picture draws (its alpha) and the panel shows (not the game's markers), per colour plane, weighted.
+    Placements where too little of the picture lands on the panel score -2."""
     H, W = valid.shape
-    h, w = art.shape[0], art.shape[1]
-    size = (_fast_len(H + h - 1), _fast_len(W + w - 1))
+    size, fm = tmpl.size, tmpl.fm
     at = (oy % size[0], ox % size[1])
     v = valid.astype(np.float64)
-    m = (art[:, :, 3] > 127).astype(np.float64)
-    fv, fm = np.fft.rfft2(v, s=size), np.conj(np.fft.rfft2(m, s=size))
+    fv = np.fft.rfft2(v, s=size)
     n = np.fft.irfft2(fv * fm, s=size)[at]
     n1 = np.maximum(n, 1)
-    need = 0.3 * m.sum() * min(1.0, H * W / (h * w))
+    need = 0.3 * tmpl.msum * min(1.0, H * W / (tmpl.h * tmpl.w))
     total = np.zeros(n.shape)
-    for wgt, img, tm in zip(_SEE_WEIGHTS, _see_feats(panel), _see_feats(art[:, :, :3])):
+    for wgt, img, (ft, ft2) in zip(_SEE_WEIGHTS, _see_feats(panel), tmpl.planes):
         img = img.astype(np.float64) * v
-        tm = tm.astype(np.float64) * m
         fi, fi2 = np.fft.rfft2(img, s=size), np.fft.rfft2(img * img, s=size)
-        ft, ft2 = np.conj(np.fft.rfft2(tm, s=size)), np.conj(np.fft.rfft2(tm * tm, s=size))
         si = np.fft.irfft2(fi * fm, s=size)[at]
         qi = np.fft.irfft2(fi2 * fm, s=size)[at]
         st = np.fft.irfft2(fv * ft, s=size)[at]
@@ -631,6 +650,7 @@ class Locator:
         self._panel: tuple[int, int, tuple[int, int, int, int]] | None = None
         self._origin = (0, 0)           # the last panel view's top-left in the box (where a hit's offsets count from)
         self._comp_cache: dict[tuple[str, int, int, int], np.ndarray] = {}
+        self._see_cache: dict[tuple, _SeeTemplate] = {}     # prepared see-through pictures (_see_match)
         self._ocr: object | None = None
         self._ocr_lock = threading.Lock()
         self._ocr_failed = False
@@ -643,6 +663,7 @@ class Locator:
         self._follow: tuple | None = None
         self._follow_lock = threading.Lock()
         self._see = False               # the lock is a see-through match (Locator._see_align), not the grey shape
+        self._see_exact: tuple[float, float] | None = None   # the last accepted see-through placing, unrounded
         self._scale_prior: float | None = None   # the last placed scale: the game's minimap zoom, the same map to map
 
     def reset(self) -> None:
@@ -715,6 +736,7 @@ class Locator:
             self._unfollow(mid)
             return Here(mid, None)          # a folded window shows no map to place the dot on
         hit, see = None, False
+        self._see_exact = None
         if self._see and self._locked is not None and self._locked[0] == mid:
             hit = self._see_at(panel, valid, mid, self._locked[1])      # a see-through minimap: its colours again
             see = hit is not None
@@ -753,14 +775,20 @@ class Locator:
         sw, sh = max(1, round(art.shape[1] * scale * k)), max(1, round(art.shape[0] * scale * k))
         if min(sw, sh) < _MIN_SIDE or sw > _OV * size[0] or sh > _OV * size[1]:
             return None
-        rgba = np.dstack([art, alpha])
-        small_art = np.asarray(Image.fromarray(rgba, "RGBA").resize((sw, sh), Image.BILINEAR))
+        H, W = size[1], size[0]
+        key = (mid, sw, sh, H, W)
+        tmpl = self._see_cache.get(key)
+        if tmpl is None:
+            rgba = np.dstack([art, alpha])
+            small_art = np.asarray(Image.fromarray(rgba, "RGBA").resize((sw, sh), Image.BILINEAR))
+            if len(self._see_cache) > 256:
+                self._see_cache.clear()      # (a sweep fills it with scales tried once)
+            tmpl = self._see_cache[key] = _see_template(small_art, (_fast_len(H + sh - 1), _fast_len(W + sw - 1)))
         small = panel if k == 1.0 else np.asarray(Image.fromarray(panel).resize(size, Image.BILINEAR))
         small_valid = valid if k == 1.0 else np.asarray(Image.fromarray(valid).resize(size, Image.NEAREST), dtype=bool)
-        H, W = small_valid.shape
         oy = np.arange(-(sh - 1), H)[:, None]
         ox = np.arange(-(sw - 1), W)[None, :]
-        scores = _see_scores(small, small_valid, small_art, oy, ox)
+        scores = _see_scores(small, small_valid, tmpl, oy, ox)
         i, j = divmod(int(np.argmax(scores)), scores.shape[1])
         pick = scores
         if near is not None:
@@ -782,12 +810,22 @@ class Locator:
 
         fy = sub(pick[i - 1, j], pick[i, j], pick[i + 1, j]) if 0 < i < pick.shape[0] - 1 else 0.0
         fx = sub(pick[i, j - 1], pick[i, j], pick[i, j + 1]) if 0 < j < pick.shape[1] - 1 else 0.0
-        return best, (float(ox[0, j]) + fx) / k, (float(oy[i, 0]) + fy) / k, best - max(rest, 0.0)
+        # back to full size with each side's true factors: the panel and the picture are each shrunk to whole pixels,
+        # so neither shrinks by exactly k, and dividing by k left the dots ~1 px off at a third of full size. A shrunk
+        # pixel's centre u+0.5 is the full one's (u+0.5) * factor; the offset is taken at the picture's middle
+        fpx, fpy = pw / W, ph / H                                   # the panel's factors (full / shrunk)
+        fax, fay = art.shape[1] * scale / sw, art.shape[0] * scale / sh   # the picture's
+        ux, uy = float(ox[0, j]) + fx, float(oy[i, 0]) + fy
+        x = (ux + sw / 2 + 0.5) * fpx - (sw / 2 + 0.5) * fax
+        y = (uy + sh / 2 + 0.5) * fpy - (sh / 2 + 0.5) * fay
+        return best, x, y, best - max(rest, 0.0)
 
     def _see_hit(self, mid: str, scale: float, got) -> _Hit | None:
-        """A see-through match good enough to place the map, as a _Hit; None otherwise."""
+        """A see-through match good enough to place the map, as a _Hit (its unrounded placing kept for the follow);
+        None otherwise."""
         if got is None or got[0] < _SEE_MIN or got[3] < _SEE_MARGIN:
             return None
+        self._see_exact = (got[1], got[2])
         return _Hit(mid, got[0], scale, round(got[1]), round(got[2]))
 
     def _see_at(self, panel: np.ndarray, valid: np.ndarray, mid: str, scale: float) -> _Hit | None:
@@ -1136,9 +1174,26 @@ class Locator:
         view = View(ox + hit.x, oy + hit.y, max(1, round(art.shape[1] * hit.scale)),
                     max(1, round(art.shape[0] * hit.scale)), rect)
         box = (self._panel[0], self._panel[1]) if self._panel is not None else (0, 0)
+        corr = (0.0, 0.0)
+        if self._see and self._see_exact is not None:
+            # the follow's shrunk match sits a steady pixel or so off the full-size one (thin platforms blur when
+            # shrunk: +0.8, +1.2 px through a whole live jump recording, spread under 0.2): measured here, taken off
+            # every follow until the next read
+            got = self._see_match(arr, ~_marker_mask(arr), hit.mid, hit.scale, self._follow_k(arr),
+                                  near=self._see_exact)
+            if got is not None:
+                corr = (self._see_exact[0] - got[1], self._see_exact[1] - got[2])
         with self._follow_lock:
-            self._follow = (hit.mid, hit.scale, float(hit.x), float(hit.y), bg, rect, box, self._see)
+            start = self._see_exact if self._see and self._see_exact is not None else (float(hit.x), float(hit.y))
+            self._follow = (hit.mid, hit.scale, start[0], start[1], bg, rect, box, self._see, corr)
         return Here(hit.mid, self._dot(arr, hit), view)
+
+    @staticmethod
+    def _follow_k(panel: np.ndarray, part: int = 3) -> float:
+        """The shrink factor of the follow's see-through match: a third of full size (~20 ms; at half size it took
+        45 ms, and the dots trailed a bouncing minimap), half (`part` 2) for the retry when a third won't tell."""
+        ph, pw = panel.shape[0], panel.shape[1]
+        return min(1.0, max(_MIN_SIDE, round(max(pw, ph) / part)) / max(pw, ph))
 
     def follow(self, img: Image.Image) -> tuple[str, View | None] | None:
         """Where the last aligned map's picture lies in the box now, without reading the title: the game scrolls a
@@ -1146,31 +1201,34 @@ class Locator:
         anything drawn over it jump. The locked map at its locked scale is matched at half size (~15 ms), nearest
         the last placing first, then anywhere in the panel (a hidden passage moves the view far at once); a
         see-through minimap, or one whose grey shape no longer matches, is followed by its colours (_see_match) at
-        half size, near the last placing first. (map, view), with a None view when neither finds it (another map,
-        the loading screen); None when no read has aligned a map yet."""
+        a third of full size, near the last placing first, at half size when that won't tell. (map, view), with a
+        None view when neither finds it (another map, the loading screen); None when no read has aligned a map yet."""
         with self._follow_lock:
             snap = self._follow
         if snap is None:
             return None
-        mid, scale, lx, ly, bg, rect, box, see = snap
+        mid, scale, lx, ly, bg, rect, box, see, corr = snap
         if img is None or img.size != box:
             return mid, None
         x0, y0, x1, y1 = rect
         panel = np.asarray(img.convert("RGB"))[y0:y1, x0:x1]
         placed = None if see else self._follow_art(panel, mid, scale, lx, ly, bg)
         if placed is None:
-            # see-through (or the grey shape lost on a busy frame): the picture's colours, at half size
-            ph, pw = panel.shape[0], panel.shape[1]
-            k = min(1.0, max(_MIN_SIDE, round(max(pw, ph) / 2)) / max(pw, ph))
-            got = self._see_match(panel, ~_marker_mask(panel), mid, scale, k, near=(lx, ly))
-            placed = (None if got is None or got[0] < _SEE_MIN or got[3] < _SEE_MARGIN
-                      else (round(2 * got[1]) / 2, round(2 * got[2]) / 2))
+            # see-through (or the grey shape lost on a busy frame): the picture's colours, shrunk to a third with the
+            # read's measured offset taken off; a third blurs the margin down (0.13 -> 0.09 on a dense live scene),
+            # so a short one is retried at half size, close enough as it is (0.5 px)
+            valid = ~_marker_mask(panel)
+            for part, (cx, cy) in ((3, corr), (2, (0.0, 0.0))):
+                got = self._see_match(panel, valid, mid, scale, self._follow_k(panel, part), near=(lx - cx, ly - cy))
+                if got is not None and got[0] >= _SEE_MIN and got[3] >= _SEE_MARGIN:
+                    placed = (round(2 * (got[1] + cx)) / 2, round(2 * (got[2] + cy)) / 2)
+                    break
         if placed is None:
             return mid, None
         x, y = placed
         with self._follow_lock:
             if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
-                self._follow = (mid, scale, x, y, bg, rect, box, see)
+                self._follow = (mid, scale, x, y, bg, rect, box, see, corr)
         art = self._pic(mid)[1]
         return mid, View(x0 + x, y0 + y, max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)),
                          rect)

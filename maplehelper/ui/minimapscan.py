@@ -5,7 +5,8 @@ and aligning its picture for the dot) runs on a worker thread, so the chat never
 back through a signal, and the chat's character card and the map windows read it from ui/location.LOCATION. No box
 drawn yet: nothing runs.
 
-Between reads, while the hidden-portal dots have something to show, a fast follow (every FOLLOW_MS, no OCR) tracks
+Between reads, while the hidden-portal dots have something to show, a fast follow (every FOLLOW_MS while the minimap
+moves, FOLLOW_IDLE_MS while it is still; no OCR) tracks
 where the aligned map's picture lies as the game scrolls the minimap, and says at once when it stops matching (a
 teleport, the loading screen): LOCATION.followed. That loss starts a whole read right away."""
 from __future__ import annotations
@@ -28,7 +29,9 @@ MIN_INTERVAL = 0.2      # s: faster only burned CPU rereading the same picture
 MAX_INTERVAL = 60.0     # s: slower, and the "where you are" line went stale
 DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
 CONFIRM = 2             # reads in a row that must name a new map before the player counts as moved
-FOLLOW_MS = 100         # the fast follow's period: ~15 ms of matching each, so the dots move with the minimap's scroll
+FOLLOW_MS = 50          # the fast follow's period while the minimap moves: a jump bounces it ~24 px in half a second, and
+                        # at 100 ms the dots trailed it and caught up in jumps (live)
+FOLLOW_IDLE_MS = 150    # ... and while it stands still (the last follow found it where it was)
 
 
 class MinimapScanner(QObject):
@@ -99,7 +102,7 @@ class MinimapScanner(QObject):
             LOCATION.set_state("")
             return
         self._timer.start(int(self._interval() * 1000))
-        self._follow_timer.start(FOLLOW_MS)
+        self._follow_timer.start(FOLLOW_IDLE_MS)
 
     def stop(self) -> None:
         """No read while the app goes (a read on its way finishes on its own)."""
@@ -187,7 +190,12 @@ class MinimapScanner(QObject):
         whole read at once (once per loss): it is what names the map the player arrived on."""
         if self._region is None:
             return
+        moved = got is not None and got != LOCATION.follow
         LOCATION.set_follow(got)
+        # a moving minimap is followed closely, a still one at a gentler pace (the matching costs CPU each time)
+        period = FOLLOW_MS if moved else FOLLOW_IDLE_MS
+        if self._follow_timer.isActive() and self._follow_timer.interval() != period:
+            self._follow_timer.setInterval(period)
         if got is None:
             return
         lost = got[1] is None

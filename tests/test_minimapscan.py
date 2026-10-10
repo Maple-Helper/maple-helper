@@ -265,6 +265,7 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
     from types import SimpleNamespace
 
     from maplehelper.minimap import Here, View
+    from maplehelper.ui import minimapscan
     s, _, kb = env
     sc = _make_scanner(s, kb)
     try:
@@ -297,8 +298,13 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         assert started == ["_follow"]
         sc._following = False
         view = View(1, 2, 30, 40, (0, 0, 100, 50))
+        assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
         sc._on_followed(("010003000", view))
         assert clean_location.follow == ("010003000", view) and started == ["_follow"]
+        # the minimap moved: followed every FOLLOW_MS (the dots trailed a jump at 100 ms); still again: idle pace
+        assert sc._follow_timer.interval() == minimapscan.FOLLOW_MS
+        sc._on_followed(("010003000", view))
+        assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
         sc._on_followed(("010003000", None))                 # lost: one whole read now
         sc._on_followed(("010003000", None))
         assert clean_location.follow == ("010003000", None) and started == ["_follow", "_read"]
