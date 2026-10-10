@@ -155,6 +155,28 @@ def test_a_see_through_minimap_is_placed_and_followed_by_its_colours(graph, fixt
 
 
 @needs_kb
+@pytest.mark.parametrize("fixture,shown", [
+    # the box runs past the window on the right: the panel took in its frame's right edge and bottom bar
+    ("minimap_forest_south_dense_live.png", (8, 147, 422, 371)),
+    ("minimap_forest_of_wisdom_live.png", (8, 146, 352, 370)),
+    ("minimap_perion_live.png", (4, 115, 324, 290)),        # a panel already the map: left as it is
+])
+def test_dots_show_only_over_the_map_not_the_window_frame(graph, fixture, shown):
+    """The detected panel can take in the minimap window's own frame (its bottom bar and right edge): a hidden
+    portal whose spot scrolled under it was still drawn there, a blue dot over the frame, bobbing as the player
+    jumped (live). The view's panel is the part showing the map, so a spot under the frame is not shown."""
+    from maplehelper.minimap import Locator
+    here = Locator(graph).locate(_box(fixture))
+    assert here is not None and here.view is not None
+    v = here.view
+    assert v.panel == shown
+    x0, _, x1, y1 = shown
+    to_spot = lambda bx, by: ((bx - v.x) / v.w, (by - v.y) / v.h)
+    assert v.at(to_spot((x0 + x1) / 2, y1 - 1)) is not None
+    assert v.at(to_spot((x0 + x1) / 2, y1 + 4)) is None            # on the frame's bottom bar
+
+
+@needs_kb
 def test_a_map_off_the_routes_is_still_named(graph):
     """A map the KB says is not in the game is never on a route, but the player standing on it is still read
     there: the reader names every map the KB has (it said nothing and kept the last map, live)."""

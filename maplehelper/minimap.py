@@ -378,6 +378,37 @@ def _blobs(mask: np.ndarray) -> list[list[tuple[int, int]]]:
     return out
 
 
+def _shown_area(panel: np.ndarray, bg: tuple[int, int, int]) -> tuple[int, int, int, int]:
+    """The part of the panel that shows the map (x0, y0, x1, y1 in panel pixels, exclusive): the detected panel can
+    take in the window's own frame (its bottom bar and right edge, ~45 px of near-flat greys and blues), and a dot
+    whose spot slid under it was still drawn there, over the frame, while the minimap scrolled (live). Searched out
+    from the middle: the first run of frame lines (near-flat, light, bluish-grey, unlike the map background) on each
+    side ends the map. 80% flat: a box drawn past the window puts some game scene at the end of each frame line."""
+    a = panel.astype(np.int16)
+    H, W = a.shape[0], a.shape[1]
+    back = np.array(bg)
+
+    def frame(line: np.ndarray) -> bool:
+        med = np.median(line, axis=0)
+        return bool((np.abs(line - med).max(axis=1) <= 12).mean() >= 0.8 and med.max() >= 80
+                    and med[2] >= max(med[0], med[1]) - 4 and med.max() - med.min() <= 70
+                    and np.abs(med - back).max() > 24)
+
+    def edge(lines, order, default: int, step: int) -> int:
+        for i in order:
+            if all(0 <= j < len(lines) and frame(lines[j]) for j in range(i, i + 4 * step, step)):
+                return i
+        return default
+
+    rows = [a[y] for y in range(H)]
+    y1 = edge(rows, range(H // 2, H), H, 1)
+    y0 = edge(rows, range(H // 2, -1, -1), -1, -1) + 1
+    cols = [a[y0:y1, x] for x in range(W)]
+    x1 = edge(cols, range(W // 2, W), W, 1)
+    x0 = edge(cols, range(W // 2, -1, -1), -1, -1) + 1
+    return x0, y0, x1, y1
+
+
 def _detect_panel(arr: np.ndarray) -> tuple[int, int, int, int]:
     """The minimap content panel inside the drawn box (x0, y0, x1, y1, exclusive): the box holds the window's title
     bar, header and frame around the map, and a cropped live view needs them gone before matching. A flood fill
@@ -649,6 +680,7 @@ class Locator:
         self._prev: str | None = None
         self._panel: tuple[int, int, tuple[int, int, int, int]] | None = None
         self._origin = (0, 0)           # the last panel view's top-left in the box (where a hit's offsets count from)
+        self._shown = (0, 0, 0, 0)      # ... and the part of it showing the map (_shown_area), in the box
         self._comp_cache: dict[tuple[str, int, int, int], np.ndarray] = {}
         self._see_cache: dict[tuple, _SeeTemplate] = {}     # prepared see-through pictures (_see_match)
         self._ocr: object | None = None
@@ -702,6 +734,9 @@ class Locator:
                 bg = np.median(dark, axis=0)
                 bg_rgb = (int(bg[0]), int(bg[1]), int(bg[2]))
         grey = np.asarray(Image.fromarray(panel).convert("L"), dtype=np.float32)
+        sx0, sy0, sx1, sy1 = _shown_area(panel, bg_rgb)
+        ox, oy = self._origin
+        self._shown = (ox + sx0, oy + sy0, ox + sx1, oy + sy1)
         return panel, bg_rgb, grey, ~_marker_mask(panel)
 
     @staticmethod
@@ -1171,8 +1206,9 @@ class Locator:
         art = self._pic(hit.mid)[1]
         ox, oy = self._origin
         rect = (ox, oy, ox + arr.shape[1], oy + arr.shape[0])
+        shown = self._shown
         view = View(ox + hit.x, oy + hit.y, max(1, round(art.shape[1] * hit.scale)),
-                    max(1, round(art.shape[0] * hit.scale)), rect)
+                    max(1, round(art.shape[0] * hit.scale)), shown)
         box = (self._panel[0], self._panel[1]) if self._panel is not None else (0, 0)
         corr = (0.0, 0.0)
         if self._see and self._see_exact is not None:
@@ -1189,7 +1225,7 @@ class Locator:
             if last is not None and last[:2] == (hit.mid, hit.scale):
                 # a read agreeing with the live follow to half a pixel leaves its placing (each read nudged the dots)
                 sx, sy = (last[2] if abs(last[2] - sx) <= 0.5 else sx), (last[3] if abs(last[3] - sy) <= 0.5 else sy)
-            self._follow = (hit.mid, hit.scale, sx, sy, bg, rect, box, self._see, corr)
+            self._follow = (hit.mid, hit.scale, sx, sy, bg, rect, box, self._see, corr, shown)
         return Here(hit.mid, self._dot(arr, hit), view)
 
     @staticmethod
@@ -1211,7 +1247,7 @@ class Locator:
             snap = self._follow
         if snap is None:
             return None
-        mid, scale, lx, ly, bg, rect, box, see, corr = snap
+        mid, scale, lx, ly, bg, rect, box, see, corr, shown = snap
         if img is None or img.size != box:
             return mid, None
         x0, y0, x1, y1 = rect
@@ -1234,10 +1270,10 @@ class Locator:
         x, y = (lx if abs(placed[0] - lx) <= 0.5 else placed[0]), (ly if abs(placed[1] - ly) <= 0.5 else placed[1])
         with self._follow_lock:
             if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
-                self._follow = (mid, scale, x, y, bg, rect, box, see, corr)
+                self._follow = (mid, scale, x, y, bg, rect, box, see, corr, shown)
         art = self._pic(mid)[1]
         return mid, View(x0 + x, y0 + y, max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)),
-                         rect)
+                         shown)
 
     def _follow_art(self, panel: np.ndarray, mid: str, scale: float, lx: float, ly: float,
                     bg: tuple[int, int, int]) -> tuple[float, float] | None:
