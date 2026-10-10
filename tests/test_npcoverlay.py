@@ -170,6 +170,23 @@ def test_a_map_with_no_npcs_says_so(overlay):
     assert not w._rows and w._status.text() == "No NPCs on this map"
 
 
+def test_a_map_with_no_npcs_folds_the_window_and_one_with_npcs_opens_it_again(overlay):
+    """Nothing to list, nothing to scroll through: the window folds to its header and the line saying so (the
+    owner's: "with maps with no npcs it should be collapsed"), and opens back to the height it had."""
+    from maplehelper.ui import npcoverlay
+    w, s, loc = overlay
+    loc.set(_here())
+    w.resize(w.width(), 500)
+    loc.set(_here(OTHER))
+    assert w._collapsed and not w._scroll.isVisible() and w._status.text() == "No NPCs on this map"
+    assert w.height() < npcoverlay.MIN_H and w.minimumHeight() == w.maximumHeight() == w.height()
+    w._remember()
+    assert s["npc_overlay_geom"]["h"] == 500                  # the height it opens back to, not the fold's
+    loc.set(_here())
+    assert not w._collapsed and w._scroll.isVisible() and w.height() == 500
+    assert w.minimumHeight() == npcoverlay.MIN_H
+
+
 def test_clicking_a_row_guides_and_clicking_it_again_lets_go(overlay):
     w, _, loc = overlay
     loc.set(_here())

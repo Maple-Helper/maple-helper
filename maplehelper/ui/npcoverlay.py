@@ -26,6 +26,7 @@ from .regionpick import from_capture
 log = logging.getLogger("maplehelper")
 
 MIN_W, MIN_H = 220, 260             # the smallest the player can drag the window to
+QWIDGETSIZE_MAX = 16777215           # Qt's "no maximum" (the fold's fixed height lifted again)
 DEFAULT_W, DEFAULT_H = 320, 440     # what opens beside the minimap box before it is ever resized
 RADIUS = 16                         # the panel's own rounding (a touch tighter than the app's windows)
 GAP = 8                             # kept between it and the minimap box it opens beside
@@ -268,6 +269,8 @@ class NpcOverlay(EdgeResize, QWidget):
         self._sel: NpcHere | None = None
         self._placed = False                 # geometry applied at least once: there is a place to remember
         self._excluded = False
+        self._collapsed = False              # folded to the header: no NPCs to list (_fit)
+        self._full_h: int | None = None      # the height it opens back to from the fold
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
         self.setStyleSheet(QSS)
         self._build()
@@ -336,6 +339,25 @@ class NpcOverlay(EdgeResize, QWidget):
                "npc_overlay_none" if not self._npcs else
                "" if self._sel is not None else "npc_overlay_pick")
         self._status.setText(bidi.plain(t(key), t.rtl) if key else "")
+        self._fit()
+
+    def _fit(self) -> None:
+        """No NPCs to list (a map with none, or the map not known yet): the window folds to its header and the
+        line saying so, and can't be stretched taller; NPCs again, and it opens back to the height it had."""
+        empty = not self._npcs
+        if empty == self._collapsed:
+            return
+        self._collapsed = empty
+        self._scroll.setVisible(not empty)
+        if empty:
+            self._full_h = self.height()
+            self.setMinimumHeight(0)
+            self.layout().activate()
+            self.setFixedHeight(self.layout().sizeHint().height())
+        else:
+            self.setMaximumHeight(QWIDGETSIZE_MAX)
+            self.setMinimumHeight(MIN_H)
+            self.resize(self.width(), max(MIN_H, self._full_h or DEFAULT_H))
 
     # ------------------------------------------------------------ the list
 
@@ -414,10 +436,13 @@ class NpcOverlay(EdgeResize, QWidget):
         unplugged: beside the minimap box again)."""
         screens = [s.geometry() for s in QGuiApplication.screens()]
         saved = self._settings["npc_overlay_geom"]
-        size = QSize(self.width(), self.height())
+        size = QSize(self.width(), self._full_h if self._collapsed and self._full_h else self.height())
         if isinstance(saved, dict) and isinstance(saved.get("w"), int) and isinstance(saved.get("h"), int):
-            size = mapview.clamp_size(saved["w"], saved["h"], screens, self.minimumSize())
+            size = mapview.clamp_size(saved["w"], saved["h"], screens, QSize(MIN_W, MIN_H))
         spot = mapview.saved_spot(saved, size, screens)
+        if self._collapsed:             # folded: the saved height waits for a map with NPCs
+            self._full_h = size.height()
+            size = QSize(size.width(), self.height())
         self.setGeometry(QRect(spot if spot is not None else self._default_spot(size), size))
         self._placed = True
 
@@ -459,8 +484,9 @@ class NpcOverlay(EdgeResize, QWidget):
         super().hideEvent(e)
 
     def _remember(self) -> None:
-        if self._placed:
-            self._settings["npc_overlay_geom"] = {"x": self.x(), "y": self.y(), "w": self.width(), "h": self.height()}
+        if self._placed:            # folded, the height kept is the one it opens back to
+            h = self._full_h if self._collapsed and self._full_h else self.height()
+            self._settings["npc_overlay_geom"] = {"x": self.x(), "y": self.y(), "w": self.width(), "h": h}
 
     # ------------------------------------------------------------ the rest of the window's life
 
