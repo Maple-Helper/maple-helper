@@ -187,6 +187,32 @@ def test_a_map_with_no_npcs_folds_the_window_and_one_with_npcs_opens_it_again(ov
     assert w.minimumHeight() == npcoverlay.MIN_H
 
 
+def test_an_npc_inside_a_shop_guides_to_its_door_then_to_itself_inside(overlay, monkeypatch):
+    """An NPC in a building off the map is listed under its building and guided to the building's door; walking in,
+    it is picked again there and guided to where it stands inside."""
+    from maplehelper.routes import Leg
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    shop, ally = "010020005", "010020006"
+    g = _FakeGraph()
+    g.known[shop] = MapInfo(shop, "Fake Shop", "", True, "", MM, [{"id": "7", "name": "Dee", "x": 0, "y": 0}])
+    g.known[ally] = MapInfo(ally, "Fake Alley", "", False, "", MM, [{"id": "8", "name": "Eve", "x": 0, "y": 0}])
+    g.edges = {MID: [Leg(MID, shop, "portal", "in01", spot=(0.25, 0.5)), Leg(MID, ally, "portal", "west00",
+                                                                              spot=(0.0, 0.5))],
+               shop: [Leg(shop, MID, "portal", "out00", spot=(0.5, 0.5))], ally: [Leg(ally, MID, "portal", "e")]}
+    monkeypatch.setattr(npcoverlay.routes, "of", lambda kb: g)
+    loc.set(_here())
+    assert [n.name for n in w._npcs] == ["Al", "bob", "Cara", "Dee"]       # not the alley's Eve: not a door
+    assert [h.text() for h, _ in w._heads] == ["Inside Fake Shop"]
+    _row(w, "Dee").click()
+    assert loc.guide == (MID, (0.25, 0.5), "npc/7")                          # her building's door here
+    assert w._line.text() == "Dee is inside Fake Shop. The door to Fake Shop is to your left"
+    loc.set(_here(shop, (0.9, 0.5)))                                           # walked in
+    assert w._sel is not None and w._sel.name == "Dee" and not w._sel.inside
+    assert loc.guide == (shop, (0.5, 0.5), "npc/7")                           # where she stands inside
+    assert w._line.text() == "Dee is to your left"
+
+
 def test_clicking_a_row_guides_and_clicking_it_again_lets_go(overlay):
     w, _, loc = overlay
     loc.set(_here())
@@ -346,14 +372,35 @@ def real():
 def test_ellinias_npcs_are_one_row_each_where_the_kb_places_them(real):
     from maplehelper.ui.npcoverlay import npcs_on
     out = npcs_on(routes.of(real), "010002000")
+    own = [n.name for n in out if not n.inside]
     names = [n.name for n in out]
-    assert names == sorted(names, key=str.casefold)
+    assert own == sorted(own, key=str.casefold)
     if "Regular Cab" not in names:           # the KB's Ellinia moved since this test knew it
         pytest.skip("Ellinia's NPCs aren't where this test knows them")
     assert len(names) == len(set(names))
     fr = next((n for n in out if n.name == "Francois"), None)
     assert fr is not None and fr.key == "npc/303"
     assert fr.spot == pytest.approx((0.540, 0.480), abs=0.01)
+
+
+@needs_kb
+def test_kerning_citys_buildings_list_their_npcs_at_their_doors(real):
+    """The NPCs inside the shops off a town are listed too (the owner's, 2026-10-10: "I'm in Kerning City but it's
+    not listing the NPCs inside shops"), each guided to its building's door: the doors the game names in00.., into
+    a map that leads back. Not the subway or the construction site, which are maps of their own."""
+    from maplehelper.ui.npcoverlay import buildings_off, npcs_on
+    g = routes.of(real)
+    doors = {leg.to: leg.spot for leg in buildings_off(g, "010003000")}
+    if "010003002" not in doors:              # the KB's Kerning City moved since this test knew it
+        pytest.skip("Kerning City's buildings aren't where this test knows them")
+    assert {"010003001", "010003002", "010003004", "010003007"} <= set(doors)     # shops, hospital, civic center
+    assert not {"010003060", "010003010"} & set(doors)                             # subway, construction site
+    out = npcs_on(g, "010003000")
+    inside = [n.inside for n in out]
+    assert inside[:inside.index("010003002")] == [""] * len([n for n in out if not n.inside]) + [
+        i for i in inside[:inside.index("010003002")] if i]                         # the town's own NPCs first
+    faymus = next(n for n in out if n.name == "Dr. Faymus")
+    assert faymus.inside == "010003002" and faymus.spot == doors["010003002"]
 
 
 @needs_kb

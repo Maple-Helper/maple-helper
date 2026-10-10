@@ -7,6 +7,7 @@ as the portal dots)."""
 from __future__ import annotations
 
 import logging
+import re
 import sys
 from dataclasses import dataclass
 
@@ -49,6 +50,7 @@ SEL_TEXT = "#07230F"                # on the selected row's green, as the NPC's 
 QSS = f"""
 #Title {{ color: {TEXT}; font-weight: 600; }}
 #Status {{ color: {MUTED}; }}
+#Inside {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
 #GuideLine {{ color: {TEXT}; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
               padding: 6px 10px; text-align: left; }}
@@ -69,26 +71,49 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: tran
 @dataclass(frozen=True)
 class NpcHere:
     """One row: an NPC on the map, and where it stands on the map's minimap picture (as fractions of its size,
-    None when the KB can't place it: no picture, or it stands off it)."""
+    None when the KB can't place it: no picture, or it stands off it). One inside a building off the map (a shop,
+    the hospital) has that building's map id in `inside`, and its spot is the building's door on this map."""
     key: str                            # its KB key, "npc/<id>"
     name: str
     spot: tuple[float, float] | None
+    inside: str = ""
+
+
+_DOOR = re.compile(r"in\d")             # the game names a building's door portal in00, in01_1, jobin00...
+
+
+def buildings_off(g, mid: str) -> list:
+    """The buildings entered from this map, as the portal legs that lead in (Leg.to the building, Leg.spot its door
+    here): a door the game names in00/in01_1/jobin00, into a map that leads back here. That's Kerning City's shops,
+    hospital, hideout and civic center, not its subway or the construction site (live data, 2026-10-10)."""
+    edges = getattr(g, "edges", {})
+    return [leg for leg in edges.get(mid, ())
+            if leg.kind == "portal" and _DOOR.search(leg.via or "") and leg.to in g.known
+            and any(back.to == mid for back in edges.get(leg.to, ()))]
 
 
 def npcs_on(g, mid: str) -> list[NpcHere]:
     """Every NPC the KB knows on this map, one row per id (the first place it stands — the same cab drawn twice
-    is one cab), sorted by name. [] for a map the KB doesn't have."""
+    is one cab), sorted by name; then those inside each building off it (buildings_off), building by building
+    (sorted by its name), each guided to its door. [] for a map the KB doesn't have."""
     m = g.known.get(mid)
     if m is None:
         return []
-    out, seen = [], set()
-    for n in m.npcs:
-        nid = str(n.get("id") or "")
-        if not nid or nid in seen:
-            continue
-        seen.add(nid)
-        out.append(NpcHere(f"npc/{nid}", str(n.get("name") or nid), g._spot(mid, n)))
-    out.sort(key=lambda x: x.name.casefold())
+    seen: set[str] = set()
+
+    def rows(of, spot_of, inside="") -> list[NpcHere]:
+        out = []
+        for n in g.known[of].npcs:
+            nid = str(n.get("id") or "")
+            if not nid or nid in seen:
+                continue
+            seen.add(nid)
+            out.append(NpcHere(f"npc/{nid}", str(n.get("name") or nid), spot_of(n), inside))
+        return sorted(out, key=lambda x: x.name.casefold())
+
+    out = rows(mid, lambda n: g._spot(mid, n))
+    for leg in sorted(buildings_off(g, mid), key=lambda leg: g.name(leg.to).casefold()):
+        out += rows(leg.to, lambda n, door=leg.spot: door, leg.to)
     return out
 
 
@@ -266,6 +291,7 @@ class NpcOverlay(EdgeResize, QWidget):
         self._mid: str | None = None         # the map the list is of
         self._npcs: list[NpcHere] = []
         self._rows: list[QPushButton] = []
+        self._heads: list[tuple[QLabel, str]] = []     # each building's heading over its NPCs, with its map id
         self._sel: NpcHere | None = None
         self._placed = False                 # geometry applied at least once: there is a place to remember
         self._excluded = False
@@ -330,6 +356,9 @@ class NpcOverlay(EdgeResize, QWidget):
         self._guide.close_btn.setToolTip(t("npc_overlay_clear"))
         for row, npc in zip(self._rows, self._npcs):
             row.setText(bidi.ltr_name(npc.name, rtl))
+        g = routes.of(self._kb)
+        for head, inside in self._heads:
+            head.setText(bidi.plain(t("npc_overlay_inside", place=g.name(inside)), rtl))
         self._retext_status()
         self._redraw_guide()
 
@@ -362,17 +391,25 @@ class NpcOverlay(EdgeResize, QWidget):
     # ------------------------------------------------------------ the list
 
     def _rebuild(self, mid: str | None) -> None:
-        """The rows for this map (a Qt slot too: LOCATION.changed names the map). A new map — or none — lets the
-        picked NPC and its guide go: the old spot is on another map's picture."""
+        """The rows for this map (a Qt slot too: LOCATION.changed names the map), each building's under a heading
+        of its own. A new map — or none — lets the picked NPC and its guide go: the old spot is on another map's
+        picture."""
         self._mid = mid
         self._npcs = npcs_on(routes.of(self._kb), mid) if mid else []
-        while self._rows:
-            row = self._rows.pop()
-            self._rows_lay.removeWidget(row)
-            row.deleteLater()
+        while self._rows or self._heads:
+            w = self._rows.pop() if self._rows else self._heads.pop()[0]
+            self._rows_lay.removeWidget(w)
+            w.deleteLater()
         self._sel = None
         LOCATION.set_guide(None)
+        inside = ""
         for npc in self._npcs:
+            if npc.inside != inside:
+                inside = npc.inside
+                head = QLabel(objectName="Inside")
+                head.setWordWrap(True)
+                self._heads.append((head, inside))
+                self._rows_lay.insertWidget(self._rows_lay.count() - 1, head)
             row = QPushButton(bidi.ltr_name(npc.name, self.t.rtl))
             row.setFocusPolicy(Qt.NoFocus)
             row.setCursor(Qt.PointingHandCursor)
@@ -383,7 +420,8 @@ class NpcOverlay(EdgeResize, QWidget):
         self._retext()
 
     def _pick(self, npc: NpcHere) -> None:
-        """A row clicked: guide the player to this NPC; the row clicked again lets it go."""
+        """A row clicked: guide the player to this NPC (one inside a building: to its door); the row clicked again
+        lets it go."""
         if self._sel is not None and self._sel.key == npc.key:
             self._clear_pick()
             return
@@ -412,17 +450,22 @@ class NpcOverlay(EdgeResize, QWidget):
 
     def _redraw_guide(self) -> None:
         """The picked NPC's way: the sentence and the map picture with its green dot and the player's blue one,
-        redrawn while the player moves (a read of the same map), in its own window beside the list."""
+        redrawn while the player moves (a read of the same map), in its own window beside the list. One inside a
+        building: which building, and the way to its door (orange, as the map window marks a portal)."""
         if self._sel is None or not self.isVisible():
             self._guide.hide()
             return
         g = routes.of(self._kb)
         here = LOCATION.here
         you = here.spot if here is not None and here.map == self._mid else None
-        rtl = self.t.rtl
-        self._guide.title.setText(bidi.ltr_name(self._sel.name, rtl))
-        self._line.setText(bidi.plain(self.t(direction(g, self._mid, you, self._sel.spot), name=self._sel.name), rtl))
-        pm = mapview.route_picture(g.minimap(self._mid), self._sel.spot, True, you, cap_w=self._guide.pic_cap())
+        t, rtl, sel = self.t, self.t.rtl, self._sel
+        self._guide.title.setText(bidi.ltr_name(sel.name, rtl))
+        way = t(direction(g, self._mid, you, sel.spot), name=t("npc_guide_door", place=g.name(sel.inside))
+                if sel.inside else sel.name)
+        if sel.inside:
+            way = t("npc_guide_inside", name=sel.name, place=g.name(sel.inside)) + " " + way
+        self._line.setText(bidi.plain(way, rtl))
+        pm = mapview.route_picture(g.minimap(self._mid), sel.spot, not sel.inside, you, cap_w=self._guide.pic_cap())
         if pm.isNull():
             self._pic.clear()
         else:
@@ -493,7 +536,8 @@ class NpcOverlay(EdgeResize, QWidget):
     def refresh(self, _what: object = None) -> None:
         """Show or hide from the setting, and follow the player's map (a Qt slot too: LOCATION.changed). The same
         map keeps the list and the picked NPC — only the guide panel follows the player's dot; a new one rebuilds
-        the list and lets the guide go."""
+        the list and lets the guide go, except into the building the picked NPC is in: there the NPC is picked
+        again, now guided to where it stands inside."""
         try:
             self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self._settings["npc_overlay_opacity"])))
         except (TypeError, ValueError):
@@ -511,7 +555,11 @@ class NpcOverlay(EdgeResize, QWidget):
                 self._excluded = True
                 _exclude_from_capture(self)
         if mid != self._mid:
+            going = self._sel.key if self._sel is not None and mid and self._sel.inside == mid else None
             self._rebuild(mid)
+            again = next((n for n in self._npcs if n.key == going), None)
+            if again is not None:
+                self._pick(again)
         else:
             self._retext_status()
             self._redraw_guide()
