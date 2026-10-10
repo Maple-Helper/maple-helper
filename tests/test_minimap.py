@@ -104,7 +104,7 @@ def test_follow_tracks_the_scroll_and_drops_another_map(graph):
     assert loc.follow(box) is None
     here = loc.locate(box)
     arr = np.asarray(box)
-    for dx in (-7, 3, 11):
+    for dx in (-7, 3, 11, 40, -35):                     # (40 and -35: a fast scroll, past the near window, in one step)
         mid, v = loc.follow(Image.fromarray(np.roll(arr, dx, axis=1)))
         assert mid == "010003000" and v is not None
         assert v.x == pytest.approx(here.view.x + dx, abs=1.0) and v.y == pytest.approx(here.view.y, abs=1.0)
@@ -113,6 +113,40 @@ def test_follow_tracks_the_scroll_and_drops_another_map(graph):
     assert loc.follow(other) == ("010003000", None)
     assert loc.follow(Image.new("RGB", box.size)) == ("010003000", None)
     assert loc.follow(box)[1] is not None               # the map back in view: followed again
+
+
+@needs_kb
+def test_a_read_that_fails_to_align_its_own_map_keeps_the_follow(graph, monkeypatch):
+    """Mid-walk on a crowded map a read can name the map yet not align its picture: the follow went with it, and
+    the hidden-portal dots froze where the last good read left them while the minimap scrolled on (live). The same
+    map keeps being followed; a read naming another map (a teleport) ends it."""
+    from PIL import Image
+
+    from maplehelper.minimap import Here, Locator
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    first = loc.locate(box)
+    monkeypatch.setattr(loc, "_align", lambda *a: None)
+    assert loc.locate(box) == Here("010003000", None)
+    mid, v = loc.follow(Image.fromarray(np.roll(np.asarray(box), 6, axis=1)))
+    assert mid == "010003000" and v.x == pytest.approx(first.view.x + 6, abs=1.0)
+    loc._unfollow("010003001")
+    assert loc.follow(box) is None
+
+
+@needs_kb
+def test_the_locked_scale_rechecks_under_the_first_lock_bar(graph, monkeypatch):
+    """A crowded live view re-checks its locked scale at 0.51-0.53, right on the first lock's 0.5: a re-check
+    passes from _RECHECK_MIN, with no scale sweep (a sweep could land a slightly different scale and shift every
+    dot drawn from it)."""
+    from maplehelper.minimap import _RECHECK_MIN, Locator, _Hit
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    first = loc.locate(box)
+    _, scale, x, y = loc._locked
+    monkeypatch.setattr(loc, "_match", lambda *a, **k: _Hit("010003000", _RECHECK_MIN + 0.05, scale, x, y))
+    monkeypatch.setattr(loc, "_coarse_best", lambda *a, **k: pytest.fail("swept the scales"))
+    assert loc.locate(box).view == first.view
 
 
 @needs_kb

@@ -182,11 +182,14 @@ class MinimapScanner(QObject):
         self._followed.emit(got)
 
     def _on_followed(self, got) -> None:
-        """A fast follow's answer, back on the GUI thread. Losing the picture starts a whole read at once (once per
-        loss): it is what names the map the player arrived on."""
-        if got is None or self._region is None:
+        """A fast follow's answer, back on the GUI thread. Nothing locked (or a failed follow) clears the follow: a
+        stale one kept the dots where it last left them while the minimap scrolled on. Losing the picture starts a
+        whole read at once (once per loss): it is what names the map the player arrived on."""
+        if self._region is None:
             return
         LOCATION.set_follow(got)
+        if got is None:
+            return
         lost = got[1] is None
         if lost and not self._follow_lost:
             self._cooldown_until = 0.0

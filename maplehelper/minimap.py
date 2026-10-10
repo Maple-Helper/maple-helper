@@ -52,6 +52,10 @@ class Here:
 #: The one known map's picture only counts as aligned when it matches this well (normalized cross-correlation,
 #: 0-1): below it the dot has no placing, and the map is still returned from its title text (Here with spot None).
 _ALIGN_MIN = 0.5
+#: ... except the locked map's re-check at its locked scale, which passes at this: the title already names the map and
+#: the scale was proven once, and a crowded live Kerning City re-checked at 0.51-0.53, so reads kept failing the bar
+#: mid-walk and re-sweeping the scales (and the hidden-portal dots froze where the last good read left them)
+_RECHECK_MIN = 0.4
 #: The picture tie-break between same-name maps only counts with this clear a margin: closer, and the maps are
 #: indistinguishable art (or none of them fits), so the deterministic pick below decides instead of a coin flip.
 _TIE_MARGIN = 0.05
@@ -633,21 +637,23 @@ class Locator:
             return None
         self._prev = mid
         if self._collapsed or self._pic(mid) is None:
-            self._unfollow()
+            self._unfollow(mid)
             return Here(mid, None)          # a folded window shows no map to place the dot on
         hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
             panel, bg, grey, valid = self._panel_view(arr, True)
             hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
-            self._unfollow()
+            self._unfollow(mid)
             return Here(mid, None)
         return self._remember(hit, panel, bg)
 
-    def _unfollow(self) -> None:
-        """A read named a map but placed no picture: follow() has nothing of this map to track."""
+    def _unfollow(self, mid: str) -> None:
+        """A read named this map but placed no picture: follow() stops tracking another map's (a teleport). Its own
+        map it keeps following: one read that fails to align on a busy frame is no reason to lose it."""
         with self._follow_lock:
-            self._follow = None
+            if self._follow is not None and self._follow[0] != mid:
+                self._follow = None
 
     # ------------------------------------------------------------------ OCR
 
@@ -885,7 +891,7 @@ class Locator:
         full-size around itself."""
         if self._locked is not None and self._locked[0] == mid:
             hit = self._match(grey, valid, mid, self._locked[1], bg)
-            if hit is not None and hit.score >= _ALIGN_MIN:
+            if hit is not None and hit.score >= _RECHECK_MIN:
                 return hit
         H, W = grey.shape
         small, small_valid, k = self._shrunk(panel, valid, _COV_MAX)
@@ -977,7 +983,7 @@ class Locator:
         near = _FOLLOW_NEAR * k
         close = (np.abs(oy - ly * k) <= near) & (np.abs(ox - lx * k) <= near)
         pick = np.where(close, scores, -2.0)
-        if float(pick.max()) < _FOLLOW_MIN:
+        if float(pick.max()) < _FOLLOW_MIN:              # (a fast scroll leaves the near window: search the panel)
             pick = scores
         i, j = divmod(int(np.argmax(pick)), pick.shape[1])
         if float(pick[i, j]) < _FOLLOW_MIN:

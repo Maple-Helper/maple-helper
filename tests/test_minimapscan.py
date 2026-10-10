@@ -306,6 +306,9 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         sc._on_followed(("010003000", view))                 # found again, then lost again: another read
         sc._on_followed(("010003000", None))
         assert started == ["_follow", "_read", "_read"]
+        sc._on_followed(("010003000", view))
+        sc._on_followed(None)                               # nothing locked: no stale follow left behind
+        assert clean_location.follow is None
     finally:
         sc.stop()
 
