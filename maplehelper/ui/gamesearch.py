@@ -44,6 +44,7 @@ QSS = f"""
 #Status {{ color: {MUTED}; }}
 #Lives {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
 #GuideLine {{ color: {TEXT}; }}
+#StepMap {{ color: {TEXT}; font-weight: 700; padding: 6px 2px 0 2px; }}
 #DetailName {{ color: {TEXT}; font-weight: 700; font-size: 15px; }}
 QLineEdit {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 6px 10px; }}
 QLineEdit:focus {{ background: {FILL2}; }}
@@ -480,9 +481,10 @@ class DetailWindow(QWidget):
             self._add(row)
 
     def _way(self, to_map: str) -> None:
-        """The way from the player's map to this one, a line per step; already there, no way known, or their
-        map not read yet. On foot, or with cabs and NPC teleports when the toolbar's switch says so
-        (settings["game_rides"])."""
+        """The way from the player's map to this one, step by step as the ◎ window draws it: the step's number and
+        map, what to do there, and the map's picture with the portal (orange) or the NPC (green) marked, the
+        player's blue dot on the first; already there, no way known, or their map not read yet. On foot, or with
+        cabs and NPC teleports when the toolbar's switch says so (settings["game_rides"])."""
         o = self._owner
         t = o.t
         here = LOCATION.here
@@ -496,8 +498,14 @@ class DetailWindow(QWidget):
             self._line(t("lk_here"), muted=True)
         else:
             g = routes.of(o._kb)
-            for leg in way.legs:
+            for i, leg in enumerate(way.legs, 1):
+                w = QLabel(objectName="StepMap")
+                w.setText(bidi.plain(f"{i} · {bidi.ltr_block(self._map_name(g, leg.frm), t.rtl)}", t.rtl))
+                w.setWordWrap(True)
+                self._add(w)
                 self._line(mapview.route_says(t, g, leg), rich=True)
+                you = here.spot if i == 1 and here is not None and here.map == leg.frm else None
+                self._picture(g.minimap(leg.frm), leg.spot, leg.kind != "portal", you)
 
     def _line(self, text: str, muted: bool = False, rich: bool = False) -> None:
         """A line of the page; `rich`: a route step, its **bold** names drawn bold as the map window draws them

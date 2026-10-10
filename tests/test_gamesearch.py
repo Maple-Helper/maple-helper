@@ -432,7 +432,12 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     assert _texts(d) == ["Fake Street", "You're on this map"] and LOCATION.guide is None
 
 
-def test_an_npc_elsewhere_shows_the_way_there_line_by_line(win, qapp, kb, clean_location, graph, monkeypatch):
+def test_an_npc_elsewhere_shows_the_way_there_step_by_step_with_each_maps_picture(
+        win, qapp, kb, clean_location, graph, monkeypatch):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QPixmap
+    from PySide6.QtWidgets import QLabel
+
     from maplehelper import gamelookup
     from maplehelper.i18n import I18n
     from maplehelper.routes import Leg
@@ -452,9 +457,27 @@ def test_an_npc_elsewhere_shows_the_way_there_line_by_line(win, qapp, kb, clean_
     t = I18n("en")
 
     def says(legs):
-        return [mapview.route_says(t, graph, leg).replace("**", "") for leg in legs]
+        """Each step as the page reads: its number and map, then what to do there."""
+        return [line for i, leg in enumerate(legs, 1)
+                for line in (f"{i} · {d._map_name(graph, leg.frm)}",
+                             mapview.route_says(t, graph, leg).replace("**", ""))]
+
+    drawn = []
+
+    def picture(path, spot=None, npc=False, you=None, cap_w=0):
+        drawn.append((path, spot, npc, you))
+        pm = QPixmap(10, 10)
+        pm.fill(Qt.black)
+        return pm
+    monkeypatch.setattr(graph, "minimap", lambda mid: f"minimap/{mid}", raising=False)
+    monkeypatch.setattr(mapview, "route_picture", picture)
+    d.redraw()
     # the toolbar's Cabs & Teleports off (the default): on foot
     assert _texts(d) == [f"{_kb_name(kb, 'npc/3')} is on Far Map", "The way from here on foot", *says(walk)]
+    # the NPC's own map, then each step's map with its portal (orange) or NPC (green) marked, as the ◎ window draws
+    # them; the player's blue dot on the first, the map they're on
+    assert drawn == [(f"minimap/{FAR}", (0.5, 0.5), True, None), (f"minimap/{MID}", (0.9, 0.5), False, (0.5, 0.5))]
+    assert len([w for w in d._rows if isinstance(w, QLabel) and not w.pixmap().isNull()]) == 2
     # the steps' **bold** names are drawn bold, never shown as asterisks (offscreen render, 2026-10-10)
     assert all("**" not in w.text() for w in d._rows if hasattr(w, "text"))
     assert LOCATION.guide is None                      # never ringed: it isn't where the player is
