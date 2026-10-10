@@ -301,8 +301,12 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
         sc._on_followed(("010003000", view))
         assert clean_location.follow == ("010003000", view) and started == ["_follow"]
-        # the minimap moved: followed every FOLLOW_MS (the dots trailed a jump at 100 ms); still again: idle pace
+        # the minimap moved: followed every FOLLOW_MS (the dots trailed a jump at 100 ms), still so through a pause
+        # between the game's scroll steps; idle pace once it has stood still FOLLOW_HOLD_S
         assert sc._follow_timer.interval() == minimapscan.FOLLOW_MS
+        sc._on_followed(("010003000", view))
+        assert sc._follow_timer.interval() == minimapscan.FOLLOW_MS
+        sc._moved_at -= minimapscan.FOLLOW_HOLD_S
         sc._on_followed(("010003000", view))
         assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
         sc._on_followed(("010003000", None))                 # lost: one whole read now

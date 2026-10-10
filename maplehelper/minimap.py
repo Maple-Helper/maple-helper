@@ -1184,8 +1184,12 @@ class Locator:
             if got is not None:
                 corr = (self._see_exact[0] - got[1], self._see_exact[1] - got[2])
         with self._follow_lock:
-            start = self._see_exact if self._see and self._see_exact is not None else (float(hit.x), float(hit.y))
-            self._follow = (hit.mid, hit.scale, start[0], start[1], bg, rect, box, self._see, corr)
+            sx, sy = self._see_exact if self._see and self._see_exact is not None else (float(hit.x), float(hit.y))
+            last = self._follow
+            if last is not None and last[:2] == (hit.mid, hit.scale):
+                # a read agreeing with the live follow to half a pixel leaves its placing (each read nudged the dots)
+                sx, sy = (last[2] if abs(last[2] - sx) <= 0.5 else sx), (last[3] if abs(last[3] - sy) <= 0.5 else sy)
+            self._follow = (hit.mid, hit.scale, sx, sy, bg, rect, box, self._see, corr)
         return Here(hit.mid, self._dot(arr, hit), view)
 
     @staticmethod
@@ -1225,7 +1229,9 @@ class Locator:
                     break
         if placed is None:
             return mid, None
-        x, y = placed
+        # within half a pixel of the last placing is the match's rounding, not a scroll (the game scrolls whole pixels):
+        # flipping 9.0/9.5 on a still minimap made the dots shimmer (live)
+        x, y = (lx if abs(placed[0] - lx) <= 0.5 else placed[0]), (ly if abs(placed[1] - ly) <= 0.5 else placed[1])
         with self._follow_lock:
             if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
                 self._follow = (mid, scale, x, y, bg, rect, box, see, corr)

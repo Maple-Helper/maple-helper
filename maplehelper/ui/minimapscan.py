@@ -31,7 +31,9 @@ DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
 CONFIRM = 2             # reads in a row that must name a new map before the player counts as moved
 FOLLOW_MS = 50          # the fast follow's period while the minimap moves: a jump bounces it ~24 px in half a second, and
                         # at 100 ms the dots trailed it and caught up in jumps (live)
-FOLLOW_IDLE_MS = 150    # ... and while it stands still (the last follow found it where it was)
+FOLLOW_IDLE_MS = 150    # ... and once it has stood still for FOLLOW_HOLD_S
+FOLLOW_HOLD_S = 1.0     # the game scrolls its minimap in 2-6 px steps, often a few hundred ms apart mid-jump: dropping
+                        # to the idle pace at the first unchanged follow drew most steps up to 185 ms late (live)
 
 
 class MinimapScanner(QObject):
@@ -59,6 +61,7 @@ class MinimapScanner(QObject):
         self._follow_timer.timeout.connect(self._follow_tick)
         self._following = False               # a fast follow is running (under _guard, like _reading)
         self._follow_lost = False             # the last follow lost the picture (one whole read per loss)
+        self._moved_at = -math.inf            # monotonic time the last follow found the minimap moved
         self._guard = threading.Lock()
         self._reading = False
         self._cooldown_until = 0.0    # monotonic deadline before the next read (0: no backoff)
@@ -190,10 +193,13 @@ class MinimapScanner(QObject):
         whole read at once (once per loss): it is what names the map the player arrived on."""
         if self._region is None:
             return
-        moved = got is not None and got != LOCATION.follow
+        now = time.monotonic()
+        if got is not None and got != LOCATION.follow:
+            self._moved_at = now
         LOCATION.set_follow(got)
-        # a moving minimap is followed closely, a still one at a gentler pace (the matching costs CPU each time)
-        period = FOLLOW_MS if moved else FOLLOW_IDLE_MS
+        # a moving minimap is followed closely until it has stood still a while, a still one at a gentler pace (the
+        # matching costs CPU each time)
+        period = FOLLOW_MS if now - self._moved_at < FOLLOW_HOLD_S else FOLLOW_IDLE_MS
         if self._follow_timer.isActive() and self._follow_timer.interval() != period:
             self._follow_timer.setInterval(period)
         if got is None:
