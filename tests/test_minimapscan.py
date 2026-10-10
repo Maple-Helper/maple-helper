@@ -299,23 +299,24 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         sc._following = False
         view = View(1, 2, 30, 40, (0, 0, 100, 50))
         assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
+        # the minimap moved: the next follow starts at once (at 100 ms, then 50, the dots trailed each scroll step
+        # and snapped after it, live), and still so through a pause between the game's scroll steps
         sc._on_followed(("010003000", view))
-        assert clean_location.follow == ("010003000", view) and started == ["_follow"]
-        # the minimap moved: followed every FOLLOW_MS (the dots trailed a jump at 100 ms), still so through a pause
-        # between the game's scroll steps; idle pace once it has stood still FOLLOW_HOLD_S
-        assert sc._follow_timer.interval() == minimapscan.FOLLOW_MS
+        assert clean_location.follow == ("010003000", view) and started == ["_follow"] * 2
+        sc._following = False
         sc._on_followed(("010003000", view))
-        assert sc._follow_timer.interval() == minimapscan.FOLLOW_MS
-        sc._moved_at -= minimapscan.FOLLOW_HOLD_S
+        assert started == ["_follow"] * 3
+        sc._following = False
+        sc._moved_at -= minimapscan.FOLLOW_HOLD_S            # stood still FOLLOW_HOLD_S: back to the timer's pace
         sc._on_followed(("010003000", view))
-        assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
-        sc._on_followed(("010003000", None))                 # lost: one whole read now
+        assert started == ["_follow"] * 3 and sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
+        sc._on_followed(("010003000", None))                 # lost: one whole read now, no follow chained
         sc._on_followed(("010003000", None))
-        assert clean_location.follow == ("010003000", None) and started == ["_follow", "_read"]
+        assert clean_location.follow == ("010003000", None) and started == ["_follow"] * 3 + ["_read"]
         sc._reading = False
         sc._on_followed(("010003000", view))                 # found again, then lost again: another read
         sc._on_followed(("010003000", None))
-        assert started == ["_follow", "_read", "_read"]
+        assert started == ["_follow"] * 3 + ["_read", "_follow", "_read"]
         sc._on_followed(("010003000", view))
         sc._on_followed(None)                               # nothing locked: no stale follow left behind
         assert clean_location.follow is None
