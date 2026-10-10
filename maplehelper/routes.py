@@ -24,6 +24,10 @@ from . import availability
 
 ROUTES_FILE = "routes.json"
 FOUND_MAX = 4096                # Graph.find's remembered texts (names; the AI's free text can't grow it for ever)
+# the hidden-portal dots sit this far (map units) above the portal's own point. The game's own blue portal rings sit
+# 122-130 map units up on four live captures; dots that high read too high in game, and the owner set them lower in
+# game (2026-10-09: 125, then 100, 75, 50; 25 units is ~3 screen px at a x2 minimap) (hidden_spots)
+PORTAL_MARK_RISE = 50
 # what a step costs in the search: a short walk beats a cab ride, a long one doesn't
 COST = {"portal": 1, "npc": 2, "boat": 3, "taxi": 4}
 PAID = ("taxi", "boat")         # steps a player pays mesos for (how many only when a guide says: Leg.fare)
@@ -73,6 +77,7 @@ class MapInfo:
     continent: str
     minimap: list | None
     npcs: list[dict]
+    hidden: list[dict] = field(default_factory=list)    # its invisible teleports ({"name", "x", "y"}), see hidden_spots
 
 
 class Graph:
@@ -86,18 +91,25 @@ class Graph:
                 data = {}
         open_ = availability.of(kb)
         self.maps: dict[str, MapInfo] = {}
+        # every map routes.json lists that the KB has a page for, open or not: the minimap reader names whatever map
+        # the player stands on (and the dots go on it); only the open ones (self.maps) are ever on a route
+        self.known: dict[str, MapInfo] = {}
         raw = {}
         for m in data.get("maps") or []:
             mid = str(m.get("id") or "")
             key = f"map/{mid}"
-            if not kb.get(key) or not open_.entity_open(key):
-                continue      # not in the game, as the KB says: never on a route
-            raw[mid] = m
+            if not kb.get(key):
+                continue
             cont = open_.map_place.get(open_.map_cell.get(key, ""), ("",))[0]
             # routes.json's name, trimmed ("A Hill West of Henesys " made "to A Hill West of Henesys .")
-            self.maps[mid] = MapInfo(mid, (m.get("name") or "").strip() or kb.get(key)["name"], m.get("street") or "",
-                                     bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
-                                     m.get("minimap"), list(m.get("npcs") or []))
+            info = MapInfo(mid, (m.get("name") or "").strip() or kb.get(key)["name"], m.get("street") or "",
+                           bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
+                           m.get("minimap"), list(m.get("npcs") or []), list(m.get("hidden") or []))
+            self.known[mid] = info
+            if not open_.entity_open(key):
+                continue      # not in the game, as the KB says: never on a route
+            raw[mid] = m
+            self.maps[mid] = info
         self.edges: dict[str, list[Leg]] = {mid: [] for mid in self.maps}
         for mid, m in raw.items():
             seen = set()
@@ -118,7 +130,7 @@ class Graph:
 
     def _spot(self, mid: str, thing: dict) -> tuple[float, float] | None:
         """Where a portal or an NPC is on the map's minimap picture, as fractions of its size."""
-        mm = self.maps[mid].minimap
+        mm = self.known[mid].minimap
         if not mm or not mm[0] or not mm[1]:
             return None
         x, y = (thing.get("x") or 0) + mm[2], (thing.get("y") or 0) + mm[3]
@@ -243,7 +255,7 @@ class Graph:
     # ------------------------------------------------------------ names
 
     def name(self, mid: str) -> str:
-        m = self.maps.get(mid)
+        m = self.known.get(mid)
         return m.name if m else mid
 
     def duplicates(self, mid: str) -> bool:
@@ -321,6 +333,14 @@ class Graph:
         spot = self._spot(mid, npc) if npc else None
         return (mid, spot) if spot else None
 
+    def hidden_spots(self, mid: str) -> list[tuple[float, float]]:
+        """The map's invisible teleports (press-up and touch portals the game's minimap never draws), each a spot on
+        its minimap picture PORTAL_MARK_RISE above the portal's own point (just under where the game rings a visible
+        portal). [] for a map the KB doesn't have, or one with no picture."""
+        if mid not in self.known:
+            return []
+        return [s for s in (self._spot(mid, {"x": p.get("x") or 0, "y": (p.get("y") or 0) - PORTAL_MARK_RISE})
+                            for p in self.known[mid].hidden) if s is not None]
 
 def side(spot: tuple[float, float] | None) -> str:
     """'left', 'right' or 'middle' of the map, for a step's words."""

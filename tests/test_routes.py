@@ -81,6 +81,21 @@ def test_only_maps_in_the_game_are_on_the_graph(world):
     assert g.route(HENESYS, ORBIS) is None and g.find("Orbis") is None and g.not_in_game("Orbis")
 
 
+def test_hidden_portals_are_spots_on_the_minimap(world):
+    """A map's invisible teleports as spots on its minimap picture, raised PORTAL_MARK_RISE above their points; one
+    off the picture and a map without any give none."""
+    kb, _ = world
+    data = {"maps": [{**_map(HENESYS, "Henesys", town=True),
+                      "hidden": [{"name": "hide01", "x": 0, "y": 0}, {"name": "far", "x": 5000, "y": 0}]},
+                     _map(PERION, "Perion", town=True),
+                     {**_map(ORBIS, "Orbis", town=True), "hidden": [{"name": "h", "x": 0, "y": 0}]}]}
+    g = routes.Graph(kb, data)
+    assert g.hidden_spots(HENESYS) == [(0.5, (400 - routes.PORTAL_MARK_RISE) / 800)]
+    assert g.hidden_spots(PERION) == []
+    # a map off the routes (not in the game, as the KB says) still has its dots: the player may stand on it anyway
+    assert ORBIS not in g.maps and g.hidden_spots(ORBIS) == [(0.5, (400 - routes.PORTAL_MARK_RISE) / 800)]
+
+
 def test_portals_go_one_way_and_a_short_walk_beats_a_cab(world):
     _, g = world
     assert _path(g, g.route(GARDEN, HENESYS)) == [("portal", "Henesys")]
@@ -166,8 +181,13 @@ def test_scrape_keeps_the_route_data_it_needs(monkeypatch, tmp_path):
     import scrape_meowdb
     maps = [{"id": "000000001", "name": "A", "streetName": "S", "region": "R", "isTown": True, "returnMap": "000000001",
              "hasMinimapImage": True, "minimapWidth": 160, "minimapHeight": 80, "miniMapCenterX": 80,
-             "miniMapCenterY": 40, "portals": [{"name": "out", "toMapId": "000000002", "x": 1, "y": 2},
-                                               {"name": "nowhere", "toMapId": "999999999", "x": 0, "y": 0}],
+             "miniMapCenterY": 40, "portals": [{"name": "out", "type": 2, "toMapId": "000000002", "x": 1, "y": 2},
+                                               {"name": "nowhere", "toMapId": "999999999", "x": 0, "y": 0},
+                                               {"name": "door", "type": 1, "toMapId": "000000002", "x": 5, "y": 6}],
+             "intraPortals": [{"name": "hide01", "type": 1, "x": 7, "y": 8, "toName": "hide01_1"},
+                              {"name": "trap", "type": 3, "x": 9, "y": 10, "toName": "h001"},
+                              {"name": "dup", "type": 1, "x": 7, "y": 8, "toName": "hide01"},
+                              {"name": "shown", "type": 2, "x": 11, "y": 12, "toName": "x"}],
              "npcs": [{"id": "7", "name": "Regular Cab", "x": 3, "y": 4}], "monsters": [1, 2, 3]},
             {"id": "000000002", "name": "B", "portals": [], "npcs": []}]
     page = '<script src="/_next/static/chunks/app/msclassic/%5Blocale%5D/pathfinder/page-abc.js"></script>'
@@ -180,7 +200,13 @@ def test_scrape_keeps_the_route_data_it_needs(monkeypatch, tmp_path):
     data = json.loads((tmp_path / "routes.json").read_text(encoding="utf-8"))
     assert data["taxi"] == ["000000001", "000000002"]
     a = data["maps"][0]
-    assert a["portals"] == [{"to": "000000002", "name": "out", "x": 1, "y": 2}]     # none to a map it doesn't know
+    assert a["portals"] == [{"to": "000000002", "name": "out", "x": 1, "y": 2},      # none to a map it doesn't know
+                            {"to": "000000002", "name": "door", "x": 5, "y": 6}]
+    # the invisible teleports (type 1 press-up, type 3 touch), to other maps and within it, once per spot; the game
+    # draws the visible ones (type 2) itself
+    assert a["hidden"] == [{"name": "door", "x": 5, "y": 6}, {"name": "hide01", "x": 7, "y": 8},
+                           {"name": "trap", "x": 9, "y": 10}]
+    assert data["maps"][1]["hidden"] == []
     assert a["minimap"] == [160, 80, 80, 40] and a["npcs"][0]["name"] == "Regular Cab" and "monsters" not in a
     assert scrape_meowdb.scrape_routes() == 0                                         # nothing new: no change
     # the site down: the file we have stays

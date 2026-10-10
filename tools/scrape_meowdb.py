@@ -426,10 +426,26 @@ MAPS_DATA = f"{BASE}/_data/maps.json"
 PATHFINDER = f"{BASE}/msclassic/pathfinder"
 _MAP_ID = re.compile(r"^\d{9}$")
 _ID_LIST = re.compile(r'\[(?:"\d{9}",)+"\d{9}"\]')
+# the game's portal kinds (the map data's "type"): 2 is drawn on the minimap (the blue ring), 1 is invisible (stand on it
+# and press up) and 3 is a touch teleport (walk or fall into it); the app draws the invisible ones on the game's minimap
+HIDDEN_PORTAL_TYPES = (1, 3)
+
+
+def hidden_portals(m: dict) -> list[dict]:
+    """The map's invisible teleports, to other maps and within it (the hidden passages: "hide01" to "hide01_1"), each
+    once per spot."""
+    out, seen = [], set()
+    for p in [*(m.get("portals") or []), *(m.get("intraPortals") or [])]:
+        x, y = p.get("x") or 0, p.get("y") or 0
+        if p.get("type") in HIDDEN_PORTAL_TYPES and (x, y) not in seen:
+            seen.add((x, y))
+            out.append({"name": p.get("name") or "", "x": x, "y": y})
+    return out
 
 
 def routes_data(maps: list[dict], taxi: list[str]) -> dict:
-    """What the app routes with, from the site's map data: ids, names, portals and NPCs with their minimap spots."""
+    """What the app routes with, from the site's map data: ids, names, portals and NPCs with their minimap spots, and
+    the invisible teleports it marks on the game's minimap."""
     out, ids = [], {str(m.get("id") or "") for m in maps}
     for m in maps:
         mid = str(m.get("id") or "")
@@ -444,7 +460,7 @@ def routes_data(maps: list[dict], taxi: list[str]) -> dict:
                 for n in m.get("npcs") or [] if n.get("id")]
         out.append({"id": mid, "name": m.get("name") or mid, "street": m.get("streetName") or "",
                     "region": m.get("region") or "", "town": bool(m.get("isTown")), "return": m.get("returnMap") or "",
-                    "minimap": mm, "portals": portals, "npcs": npcs})
+                    "minimap": mm, "portals": portals, "npcs": npcs, "hidden": hidden_portals(m)})
     out.sort(key=lambda m: m["id"])
     return {"source": "NiaMeowDB (meowdb.com) map data, as its Pathfinder reads it", "taxi": taxi, "maps": out}
 

@@ -74,6 +74,170 @@ def test_live_kerning_city_without_the_dot_in_view(loc):
 
 
 @needs_kb
+def test_live_kerning_city_crowded_drawn_wide_places_the_dot_and_the_view(loc):
+    """Kerning City drawn a little outside the window (the game's scene on the box's border) and crowded with other
+    players' red dots: the panel is found from the title bar down, the markers are left out of the matching, and
+    the picture aligns. The player stands on the hidden portal to The Swamp of Despair (mid00): projected through
+    the read's view, it lands on the yellow dot, which is what the blue hidden-portal dots are drawn from."""
+    here = loc.locate(_box("minimap_kerning_hidden_portal_live.png"))
+    assert here is not None and here.map == "010003000"
+    assert here.spot == pytest.approx((0.318, 0.862), abs=0.02)
+    v = here.view
+    assert v is not None and v.panel[1] > 100           # the panel under the header, not the whole box
+    portal = v.at(loc._graph._spot("010003000", {"x": -849, "y": 373}))
+    player = v.at(here.spot)
+    assert portal is not None and player is not None
+    assert abs(portal[0] - player[0]) <= 4 and abs(portal[1] - player[1]) <= 4
+    assert v.at((0.98, 0.5)) is None                    # the map's east end is outside the cropped window
+
+
+@needs_kb
+def test_follow_tracks_the_scroll_and_drops_another_map(graph):
+    """Between reads the locked picture is followed without OCR: the minimap scrolled sideways moves the view by as
+    much (to a pixel); another map's minimap or the black loading screen in the box is lost at once (None view);
+    nothing aligned yet is no answer."""
+    from PIL import Image
+
+    from maplehelper.minimap import Locator
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    assert loc.follow(box) is None
+    here = loc.locate(box)
+    arr = np.asarray(box)
+    for dx in (-7, 3, 11, 40, -35):                     # (40 and -35: a fast scroll, past the near window, in one step)
+        mid, v = loc.follow(Image.fromarray(np.roll(arr, dx, axis=1)))
+        assert mid == "010003000" and v is not None
+        assert v.x == pytest.approx(here.view.x + dx, abs=1.0) and v.y == pytest.approx(here.view.y, abs=1.0)
+        loc.follow(box)                                 # back where the read placed it
+    other = _box("minimap_perion_live.png").resize(box.size)
+    assert loc.follow(other) == ("010003000", None)
+    assert loc.follow(Image.new("RGB", box.size)) == ("010003000", None)
+    assert loc.follow(box)[1] is not None               # the map back in view: followed again
+
+
+@needs_kb
+@pytest.mark.parametrize("fixture,mid,at,width", [
+    ("minimap_forest_of_wisdom_live.png", "010002020", (54, 58), 252),
+    # the box cuts the window off on the right: the panel runs to that edge (the fill left that side open)
+    ("minimap_forest_south_cut_live.png", "010002030", (8, 147), 414),
+    # a dense scene behind the map: the right placing scores only 0.34 (wrong maps reached 0.61 on other captures)
+    # but stands 0.13 clear of any other placing; the score bar (0.35) hid the dots here, and the cold scale search
+    # by score picked x0.8 over the true x2.0 (live)
+    ("minimap_forest_south_dense_live.png", "010002030", (9, 77), 412),
+])
+def test_a_see_through_minimap_is_placed_and_followed_by_its_colours(graph, fixture, mid, at, width):
+    """The Ellinia forests' minimaps are drawn see-through over the game's own scene: the grey shape matched 0.14 to
+    0.16 where they truly lay (the bar is 0.5), so they never placed and showed no hidden-portal dots (live). The
+    picture's colours, compared only where it draws, place them; the follow then tracks them as the minimap scrolls
+    sideways and up and down (jumping and climbing scroll a tall map: the dots drifted, live), and loses them on a
+    black loading screen or another map's minimap (a teleport)."""
+    from PIL import Image
+
+    from maplehelper.minimap import Locator
+    loc = Locator(graph)
+    box = _box(fixture)
+    here = loc.locate(box)
+    assert here is not None and here.map == mid and here.view is not None
+    assert (here.view.x, here.view.y) == pytest.approx(at, abs=2)
+    assert here.view.w == pytest.approx(width, abs=5)
+    x0, y0, x1, y1 = here.view.panel
+    for dx, dy in ((10, 0), (0, 15), (0, -15), (-6, 8)):
+        arr = np.asarray(box).copy()
+        arr[y0:y1, x0:x1] = np.roll(arr[y0:y1, x0:x1], (dy, dx), axis=(0, 1))
+        got, v = loc.follow(Image.fromarray(arr))
+        assert got == mid and v is not None, (dx, dy)
+        assert (v.x, v.y) == pytest.approx((here.view.x + dx, here.view.y + dy), abs=1.0), (dx, dy)
+        loc.follow(box)
+    assert loc.follow(Image.new("RGB", box.size)) == (mid, None)
+    loc.follow(box)
+    other = _box("minimap_perion_live.png").resize(box.size)
+    assert loc.follow(other) == (mid, None)
+
+
+@needs_kb
+@pytest.mark.parametrize("fixture,shown", [
+    # the box runs past the window on the right: the panel took in its frame's right edge and bottom bar
+    ("minimap_forest_south_dense_live.png", (8, 147, 422, 371)),
+    ("minimap_forest_of_wisdom_live.png", (8, 146, 352, 370)),
+    ("minimap_perion_live.png", (4, 115, 324, 290)),        # a panel already the map: left as it is
+])
+def test_dots_show_only_over_the_map_not_the_window_frame(graph, fixture, shown):
+    """The detected panel can take in the minimap window's own frame (its bottom bar and right edge): a hidden
+    portal whose spot scrolled under it was still drawn there, a blue dot over the frame, bobbing as the player
+    jumped (live). The view's panel is the part showing the map, so a spot under the frame is not shown."""
+    from maplehelper.minimap import Locator
+    here = Locator(graph).locate(_box(fixture))
+    assert here is not None and here.view is not None
+    v = here.view
+    assert v.panel == shown
+    x0, _, x1, y1 = shown
+    to_spot = lambda bx, by: ((bx - v.x) / v.w, (by - v.y) / v.h)
+    assert v.at(to_spot((x0 + x1) / 2, y1 - 1)) is not None
+    assert v.at(to_spot((x0 + x1) / 2, y1 + 4)) is None            # on the frame's bottom bar
+
+
+@needs_kb
+def test_a_stale_panel_from_the_last_map_never_hides_the_new_title(graph):
+    """The panel found on one map is kept between reads, and title lines are only read above it. Left from an
+    earlier map at 44 px down, it took Ellinia's map line (110 px down) for map art: no read named a map, so the
+    panel was never looked for again, and the player stayed on The Forest North of Ellinia while in Ellinia until a
+    restart (live). A read whose title won't resolve looks for the panel afresh."""
+    from maplehelper.minimap import Locator
+    box = _box("minimap_ellinia_stale_panel_live.png")
+    loc = Locator(graph)
+    north = next(mid for mid, m in graph.known.items() if m.name == "The Forest North of Ellinia")
+    loc._locked, loc._prev = (north, 2.0, 0, 0), north
+    loc._panel = (box.size[0], box.size[1], (9, 44, 351, 374))
+    here = loc.locate(box)
+    assert here is not None and here.map == "010002000" and here.view is not None
+
+
+@needs_kb
+def test_a_map_off_the_routes_is_still_named(graph):
+    """A map the KB says is not in the game is never on a route, but the player standing on it is still read
+    there: the reader names every map the KB has (it said nothing and kept the last map, live)."""
+    from maplehelper.minimap import resolve_name
+    off = next(mid for mid, m in graph.known.items() if mid not in graph.maps and m.name == "Forgotten Hollow")
+    assert resolve_name(graph, "Forgotten Hollow", "Shallow Passage") == off
+
+
+@needs_kb
+def test_a_read_that_fails_to_align_its_own_map_keeps_the_follow(graph, monkeypatch):
+    """Mid-walk on a crowded map a read can name the map yet not align its picture: the follow went with it, and
+    the hidden-portal dots froze where the last good read left them while the minimap scrolled on (live). The same
+    map keeps being followed; a read naming another map (a teleport) ends it."""
+    from PIL import Image
+
+    from maplehelper.minimap import Here, Locator
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    first = loc.locate(box)
+    monkeypatch.setattr(loc, "_align", lambda *a, **k: None)
+    monkeypatch.setattr(loc, "_see_align", lambda *a: None)     # neither the grey shape nor the colours place it
+    monkeypatch.setattr(loc, "_see_at", lambda *a: None)
+    assert loc.locate(box) == Here("010003000", None)
+    mid, v = loc.follow(Image.fromarray(np.roll(np.asarray(box), 6, axis=1)))
+    assert mid == "010003000" and v.x == pytest.approx(first.view.x + 6, abs=1.0)
+    loc._unfollow("010003001")
+    assert loc.follow(box) is None
+
+
+@needs_kb
+def test_the_locked_scale_rechecks_under_the_first_lock_bar(graph, monkeypatch):
+    """A crowded live view re-checks its locked scale at 0.51-0.53, right on the first lock's 0.5: a re-check
+    passes from _RECHECK_MIN, with no scale sweep (a sweep could land a slightly different scale and shift every
+    dot drawn from it)."""
+    from maplehelper.minimap import _RECHECK_MIN, Locator, _Hit
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    first = loc.locate(box)
+    _, scale, x, y = loc._locked
+    monkeypatch.setattr(loc, "_match", lambda *a, **k: _Hit("010003000", _RECHECK_MIN + 0.05, scale, x, y))
+    monkeypatch.setattr(loc, "_coarse_best", lambda *a, **k: pytest.fail("swept the scales"))
+    assert loc.locate(box).view == first.view
+
+
+@needs_kb
 def test_live_collapsed_window_in_a_building(loc):
     """Inside a building the game folds the window to one title line, 'Victoria Road : Warriors' Sanctuary', over
     the game itself: the map from that line (up where the title bar's furniture is dropped), no spot (no map
@@ -110,8 +274,9 @@ def test_header_crop_falls_back_to_the_whole_box(loc):
 
 @needs_kb
 def test_second_read_rechecks_the_lock(graph, monkeypatch):
-    """The same box again: the locked scale re-verifies with one comparison (no trial sweep); after reset the
-    sweep runs again. OCR rows are stubbed — the panel, alignment and dot are real."""
+    """The same box again: the locked scale re-verifies with one comparison (no trial sweep). After reset the last
+    scale (the game's minimap zoom, the same from map to map) places it again without a sweep; with no scale known
+    the sweep runs. OCR rows are stubbed — the panel, alignment and dot are real."""
     from maplehelper.minimap import Locator
     rows = [("MINI MAP", 21.0, 27.0), ("WORLD", 21.0, 28.0),
             ("Victoria Road", 56.0, 67.0), ("Perion", 78.0, 89.0)]
@@ -133,7 +298,11 @@ def test_second_read_rechecks_the_lock(graph, monkeypatch):
     assert second == first and not calls
     loc.reset()
     third = loc.locate(box)
-    assert calls and third == first
+    assert not calls and third == first
+    loc.reset()
+    loc._scale_prior = None
+    fourth = loc.locate(box)
+    assert calls and fourth == first
 
 
 # ------------------------------------------------------- name resolution
@@ -229,6 +398,7 @@ def test_no_header_text_is_no_map_even_with_matching_art(loc, monkeypatch):
 def test_unalignable_picture_keeps_the_map(graph):
     """The title names Perion but the panel is flat grey: the map stands, with a None spot."""
     from PIL import Image
+
     from maplehelper.minimap import Here, Locator
     loc = Locator(graph)
     loc._ocr_rows = lambda view: [("Perion", 60.0, 70.0)]
@@ -239,11 +409,15 @@ def test_unalignable_picture_keeps_the_map(graph):
 def test_map_without_a_picture_keeps_the_map(graph):
     """A known map with no KB picture: the title still names it, with a None spot."""
     from types import SimpleNamespace
+
     from PIL import Image
+
     from maplehelper.minimap import Here, Locator
     from maplehelper.routes import MapInfo
+    info = MapInfo("999", "Testville", "Test Street", True, "", None, [])
     stub = SimpleNamespace(
-        maps={"999": MapInfo("999", "Testville", "Test Street", True, "", None, [])},
+        maps={"999": info},
+        known={"999": info},
         edges={},
         minimap=lambda mid: None,
     )
@@ -257,7 +431,9 @@ def test_dead_engine_is_no_answer_and_logs_once(graph, monkeypatch, caplog):
     """RapidOCR won't load: reads are None, and the warning fires once no matter how many reads."""
     import logging
     import sys
+
     from PIL import Image
+
     from maplehelper.minimap import Locator
     monkeypatch.setitem(sys.modules, "rapidocr", None)
     loc = Locator(graph)
@@ -273,6 +449,7 @@ def test_engine_is_one_thread_and_never_upscales(monkeypatch):
     core for ~1 s per read (the scanner reads every second) and blew a header strip up to 736 px tall."""
     import sys
     import types
+
     from maplehelper.minimap import Locator
     made = []
     fake = types.ModuleType("rapidocr")

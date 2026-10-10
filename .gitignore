@@ -13,6 +13,9 @@ kb-in/
 test-results.xml
 .ruff_cache/
 .pytest_cache/
+# the tables the tests build into the fixture KB (tables.py), never committed
+tests/fixtures/kb/*.tsv
+tests/fixtures/kb/drops.ingame
 
 # answer-eval runs (tools/eval_answers.py --mode claude)
 evals/reports/

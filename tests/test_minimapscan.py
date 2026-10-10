@@ -36,10 +36,10 @@ def env(qapp, isolated_store, kb, monkeypatch):
 @pytest.fixture
 def clean_location():
     from maplehelper.ui.location import LOCATION
-    old_here, old_state = LOCATION.here, LOCATION.state
-    LOCATION.here, LOCATION.state = None, ""
+    old = LOCATION.here, LOCATION.state, LOCATION.follow
+    LOCATION.here, LOCATION.state, LOCATION.follow = None, "", None
     yield LOCATION
-    LOCATION.here, LOCATION.state = old_here, old_state
+    LOCATION.here, LOCATION.state, LOCATION.follow = old
 
 
 def _make_scanner(s, kb):
@@ -254,6 +254,99 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
         assert sc._cooldown_until == 0.0
         sc._tick()
         assert started == [1, 1]
+    finally:
+        sc.stop()
+
+
+def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_location, qapp, monkeypatch):
+    """The fast follow runs only while the dots have something to show (the setting on, hidden portals on the
+    map). Its answers reach LOCATION.follow; losing the picture (a teleport) starts a whole read at once, once per
+    loss, not every 100 ms while the loading screen lasts."""
+    from types import SimpleNamespace
+
+    from maplehelper.minimap import Here, View
+    from maplehelper.ui import minimapscan
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        sc.restart()
+        assert sc._follow_timer.isActive()
+        spots = {"010003000": [(0.5, 0.5)]}
+        sc._locator = _Locator(None)
+        sc._graph = SimpleNamespace(hidden_spots=lambda m: spots.get(m, []), name=lambda m: m)
+        started = []
+
+        class FakeThread:
+            def __init__(self, target=None, args=(), **k):
+                self.target = target
+
+            def start(self):
+                started.append(self.target.__name__)
+
+        monkeypatch.setattr(threading, "Thread", FakeThread)
+        clean_location.set(Here("100000000", None))         # no hidden portals here: no follow
+        sc._follow_tick()
+        assert started == []
+        clean_location.set(Here("010003000", None))
+        s["minimap_hidden_portals"] = False
+        sc._follow_tick()
+        assert started == []
+        s["minimap_hidden_portals"] = True
+        sc._follow_tick()
+        sc._follow_tick()                                   # still going: no second one
+        assert started == ["_follow"]
+        sc._following = False
+        view = View(1, 2, 30, 40, (0, 0, 100, 50))
+        assert sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
+        # the minimap moved: the next follow starts at once (at 100 ms, then 50, the dots trailed each scroll step
+        # and snapped after it, live), and still so through a pause between the game's scroll steps
+        sc._on_followed(("010003000", view))
+        assert clean_location.follow == ("010003000", view) and started == ["_follow"] * 2
+        sc._following = False
+        sc._on_followed(("010003000", view))
+        assert started == ["_follow"] * 3
+        sc._following = False
+        sc._moved_at -= minimapscan.FOLLOW_HOLD_S            # stood still FOLLOW_HOLD_S: back to the timer's pace
+        sc._on_followed(("010003000", view))
+        assert started == ["_follow"] * 3 and sc._follow_timer.interval() == minimapscan.FOLLOW_IDLE_MS
+        sc._on_followed(("010003000", None))                 # lost: one whole read now, no follow chained
+        sc._on_followed(("010003000", None))
+        assert clean_location.follow == ("010003000", None) and started == ["_follow"] * 3 + ["_read"]
+        sc._reading = False
+        sc._on_followed(("010003000", view))                 # found again, then lost again: another read
+        sc._on_followed(("010003000", None))
+        assert started == ["_follow"] * 3 + ["_read", "_follow", "_read"]
+        sc._on_followed(("010003000", view))
+        sc._on_followed(None)                               # nothing locked: no stale follow left behind
+        assert clean_location.follow is None
+    finally:
+        sc.stop()
+
+
+def test_a_placed_read_starts_the_follow_but_never_overrides_a_live_one(env, clean_location, qapp):
+    """The dots draw from the follow only, so a confirmed read that placed its map starts it there: the first
+    read, and one after the follow lost the picture. A live follow of that map is newer than the read's picture and
+    stays (overwriting it jumped the dots back mid-walk). A read with no placing starts nothing."""
+    from maplehelper.minimap import Here, View
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        sc.restart()
+        sc._graph = _Graph()
+        read_view, live = View(1, 2, 30, 40, (0, 0, 100, 50)), View(9, 2, 30, 40, (0, 0, 100, 50))
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", read_view)
+        clean_location.set_follow(("010003000", live))
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", live)
+        clean_location.set_follow(("010003000", None))       # lost: the next placed read takes over
+        sc._deliver(Here("010003000", (0.5, 0.5), read_view))
+        assert clean_location.follow == ("010003000", read_view)
+        clean_location.set_follow(None)
+        sc._deliver(Here("010003000", None))
+        assert clean_location.follow is None
     finally:
         sc.stop()
 
