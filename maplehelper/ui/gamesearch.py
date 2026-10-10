@@ -33,10 +33,12 @@ GAP = 8                             # between the toolbar and the window that op
 LIMIT = 50                          # rows shown before the "and N more" line
 TYPE_DEBOUNCE_MS = 150              # a pause in the typing before the rows are read again
 GEOM_DEBOUNCE_MS = 400              # a move/resize saves the window's place once it settles
-DETAIL_W = 300                     # the detail window's width; its height follows what it shows
-DETAIL_H = 520                     # the height it grows to, then the body scrolls
+DETAIL_W = 300                     # the detail window's width until the player resizes it
+DETAIL_H = 520                     # the height it grows to, then the body scrolls (until the player resizes it)
+DETAIL_MIN_W, DETAIL_MIN_H = 240, 100   # the smallest the player can drag it to (a short page folds to its own height)
 PIC = 36                           # the header's small picture of the thing whose page it is
 SRC_CAP = 12                       # droppers and sellers listed, then "and N more"
+SCROLLBAR_W = 8                    # the body's scrollbar (QSS below): pictures stay clear of it
 
 # the same dark glass as the NPCs window (its own panel, whatever theme the app's windows are in)
 QSS = f"""
@@ -62,7 +64,7 @@ QToolButton {{ background: transparent; color: {MUTED}; border: none; border-rad
 QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
 QScrollArea {{ background: transparent; border: none; }}
 #Rows {{ background: transparent; }}
-QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
+QScrollBar:vertical {{ background: transparent; width: {SCROLLBAR_W}px; margin: 0; }}
 QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.25); border-radius: 4px; min-height: 30px; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
@@ -244,19 +246,24 @@ class _Row(QFrame):
         super().mouseReleaseEvent(e)
 
 
-class DetailWindow(QWidget):
+class DetailWindow(EdgeResize, QWidget):
     """A clicked result's own page, in the NPCs window's guide's own look: a see-through always-on-top panel
     docked beside the search (its left, or its right where the screen has no room) that moves and hides with it
     and never takes the keyboard from the game. Its views are a history — a row's click pushes one, ‹ Back pops,
     a new search click starts it over. While it shows an NPC on the player's map it guides them: the sentence
-    and the picture's blue dot follow the player, and the game's own minimap rings the spot (LOCATION.guide)."""
+    and the picture's blue dot follow the player, and the game's own minimap rings the spot (LOCATION.guide).
+    Its edges resize it (EdgeResize): the size the player drags it to is kept (game_detail_size) and its pictures
+    follow the width; until then it is DETAIL_W wide and as tall as its page, up to DETAIL_H."""
 
     def __init__(self, owner: GameSearch):
         super().__init__(None, _flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.NoFocus)
-        self.setFixedWidth(DETAIL_W)
+        self.setMouseTracking(True)          # hovering the rim shows the resize cursor
+        self.setMinimumSize(DETAIL_MIN_W, DETAIL_MIN_H)
+        self._fit_size = QSize()             # the size the window last gave itself (a resize to it isn't the player's)
+        self._sized = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._resized)
         self.setStyleSheet(QSS)
         self._owner = owner
         self._excluded = False
@@ -605,8 +612,9 @@ class DetailWindow(QWidget):
     # ------------------------------------------------------------ the panel
 
     def pic_cap(self) -> int:
-        """The pictures' width: the panel's inside, bar the scrollbar's groove."""
-        return DETAIL_W - 2 * SIDE - 4
+        """The pictures' width: the panel's inside at the width the page is drawn for (the player's, else
+        DETAIL_W), bar the scrollbar's groove."""
+        return (self._saved_size() or QSize(DETAIL_W, 0)).width() - 2 * SIDE - SCROLLBAR_W - 2
 
     def paintEvent(self, e) -> None:
         _paint_glass(self, self._owner._opacity)
@@ -626,12 +634,46 @@ class DetailWindow(QWidget):
             _exclude_from_capture(self)
         self.update()
 
+    def _saved_size(self) -> QSize | None:
+        """The size the player dragged the window to (game_detail_size), kept inside the screens; None: never."""
+        saved = self._owner._settings["game_detail_size"]
+        if not (isinstance(saved, dict) and isinstance(saved.get("w"), int) and isinstance(saved.get("h"), int)):
+            return None
+        screens = [s.availableGeometry() for s in QGuiApplication.screens()]
+        return mapview.clamp_size(saved["w"], saved["h"], screens, QSize(DETAIL_MIN_W, DETAIL_MIN_H))
+
     def _fit(self) -> None:
-        """The window's height follows its body up to the cap; past it, the body scrolls."""
-        inner = DETAIL_W - 2 * SIDE
-        head = self._need(self._head, inner)
-        body = self._need(self._rows_lay, inner - 2)     # the scrollbar's groove eats a little of it
-        self.setFixedHeight(min(DETAIL_H, TOP + BOTTOM + 8 + head + body))
+        """The player's size, when they resized it (the body scrolls inside); else DETAIL_W wide and as tall as
+        the page up to the cap, past it the body scrolls."""
+        size = self._saved_size()
+        if size is None:
+            inner = DETAIL_W - 2 * SIDE
+            head = self._need(self._head, inner)
+            body = self._need(self._rows_lay, inner - 2)     # the scrollbar's groove eats a little of it
+            size = QSize(DETAIL_W, max(DETAIL_MIN_H, min(DETAIL_H, TOP + BOTTOM + 8 + head + body)))
+        self._fit_size = size
+        if self.size() != size:
+            self.resize(size)
+
+    def resizeEvent(self, e) -> None:
+        """The player dragging an edge: kept once it settles (_resized). The window's own sizing (_fit), and the
+        resize Qt sends when it first shows, are not theirs."""
+        if self.isVisible() and e.size() != self._fit_size:
+            self._sized.start()
+        super().resizeEvent(e)
+
+    def _resized(self) -> None:
+        """A drag settled: its size kept, the page drawn again at the new width (its pictures fill it, the scroll
+        kept), and docked beside the search again (a left-edge drag pulled its right side off the search)."""
+        self._owner._settings["game_detail_size"] = {"w": self.width(), "h": self.height()}
+        self._fit_size = self.size()
+        if self._stack:
+            bar = self._scroll.verticalScrollBar()
+            at = bar.value()
+            self._draw()
+            bar.setValue(at)
+        if self.isVisible():
+            self.dock()
 
     @staticmethod
     def _need(item, width: int) -> int:

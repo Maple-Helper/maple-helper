@@ -311,6 +311,42 @@ def test_the_next_page_is_measured_at_once_never_folded_to_the_header(win, qapp,
     assert d.height() == first
 
 
+def test_the_page_window_keeps_the_size_the_player_drags_it_to(win, qapp, settings, clean_location, graph, monkeypatch):
+    """It opens fitted to its page; a drag of its edges is kept (game_detail_size) once it settles, its pictures
+    drawn again at the new width, and every page after, and the next session's, opens at that size."""
+    from PySide6.QtCore import QSize
+
+    from maplehelper import gamelookup
+    from maplehelper.ui import gamesearch, mapview
+    monkeypatch.setattr(gamelookup, "map_monsters", lambda kb, key: [])
+    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True: gamelookup.Way(here=None, legs=(), known=False))
+    widths = []
+    real = mapview.route_picture
+    monkeypatch.setattr(mapview, "route_picture",
+                        lambda path, spot=None, npc=False, you=None, cap_w=0: widths.append(cap_w) or real(path))
+    win.open("monster")
+    win._box.setText("snail")
+    pump(qapp, 200)
+    win._rows[0].clicked.emit()
+    d = win._detail
+    assert d.width() == gamesearch.DETAIL_W and settings["game_detail_size"] is None    # shown: not the player's size
+    pump(qapp, 500)
+    assert settings["game_detail_size"] is None
+    d.resize(420, 600)                                  # the player drags an edge
+    pump(qapp, 500)                                     # the drag settles
+    assert settings["game_detail_size"] == {"w": 420, "h": 600}
+    widths.clear()
+    _links(d)[0].clicked.emit()                         # the next page: the player's size, pictures at its width
+    assert d.size() == QSize(420, 600) and len(widths) == 1
+    # the picture grew with the drag, and still fits beside the scrollbar (past it, a long page was clipped under it)
+    assert widths[0] > gamesearch.DETAIL_W - 2 * gamesearch.SIDE
+    assert widths[0] + gamesearch.SCROLLBAR_W <= d.width() - 2 * gamesearch.SIDE
+    win.hide()
+    win.open("monster")
+    win._rows[0].clicked.emit()                         # opened again: still their size
+    assert d.size() == QSize(420, 600)
+
+
 def test_an_item_page_lists_droppers_and_sellers_and_a_dropper_opens_the_monster(
         win, qapp, kb, clean_location, graph, monkeypatch):
     from maplehelper import gamelookup
