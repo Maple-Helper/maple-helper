@@ -16,6 +16,34 @@ def qapp():
     return QApplication.instance() or QApplication([])
 
 
+def test_a_background_emit_reaches_the_bridge_only_on_the_gui_thread(qapp):
+    """A thread emitting on a bridge while the GUI thread deleted it read a half-freed C++ object: an access
+    violation that killed CI's test runs (test_dialogs_provider, 2026-10-08 to 10-10). The thread's emit now goes
+    through a relay that lives as long as the app: the bridge's signal is touched only on the GUI thread, where it is
+    alive or already deleted (dropped), never mid-delete."""
+    from PySide6.QtCore import QCoreApplication
+
+    from maplehelper.ui import dialogs
+
+    class Signal:                       # stands in for a bridge's signal: records which thread touches it
+        def __init__(self, gone=False):
+            self.calls, self.gone = [], gone
+
+        def emit(self, *args):
+            self.calls.append((args, threading.current_thread() is threading.main_thread()))
+            if self.gone:
+                raise RuntimeError("Internal C++ object already deleted.")
+
+    live, gone = Signal(), Signal(gone=True)
+    th = threading.Thread(target=lambda: (dialogs._emit(live, {"x": 1}), dialogs._emit(gone)))
+    th.start()
+    th.join(5)
+    assert live.calls == [] and gone.calls == []              # nothing touched on the thread
+    QCoreApplication.processEvents()
+    assert live.calls == [(({"x": 1},), True)]                 # on the GUI thread
+    assert gone.calls == [((), True)]                          # there too, and its deleted bridge dropped quietly
+
+
 @pytest.fixture
 def gate(qapp, monkeypatch):
     """Every provider call blocks until the test opens the gate: the check is still running when the dialog goes."""
