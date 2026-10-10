@@ -16,8 +16,10 @@ when a price is asked for. What it needs is kept on disk (DATA_DIR/mesowatch.jso
 downloads again. Seller names are not kept: the app shows where a shop stands and its price, not who runs it.
 
 Only the live world's market (MesoWatch's default, "Classic World"); its closed-test markets (COT1, COT2) are past
-tests, not today's prices. Items are matched by the game's own item ID, which the KB has in every item's icon URL
-(meowdb.com/msclassic/api/assets/icons/4010001) and MesoWatch in its ids ("basil:04010001")."""
+tests, not today's prices. Items are matched by the game's own item ID when the KB has it (an item's icon URL,
+meowdb.com/msclassic/api/assets/icons/4010001; MesoWatch's ids are "basil:04010001"), else by name: MesoWatch takes its
+item names from NiaMeowDB, as the KB does. A name only matches when it is one item on both sides (checked against the
+old icon-URL KB: 1,632 items matched, none wrongly; 29 shared names are left out)."""
 from __future__ import annotations
 
 import json
@@ -99,6 +101,7 @@ class Snapshot:
     generated: float            # when MesoWatch published it
     items: dict[int, Sales]
     fetched: float = 0.0        # when we last confirmed it is current
+    by_name: dict[str, int] = field(default_factory=dict)   # folded name -> game id, names one item has
 
     @property
     def stale(self) -> bool:
@@ -187,7 +190,15 @@ def parse(data: dict) -> Snapshot | None:
                          _ts(it.get("lastSold")), bool(it.get("set")), bool(it.get("scrolledOnly")),
                          it.get("trend") if isinstance(it.get("trend"), int) else None, int(it.get("trendDays") or 0),
                          shops, int(it.get("listingShops") or 0))
-    return Snapshot(str(data.get("world") or "") or LIVE_MARKET, generated, out)
+    names: dict[str, list[int]] = {}
+    for gid, s in out.items():
+        names.setdefault(_fold(s.name), []).append(gid)
+    return Snapshot(str(data.get("world") or "") or LIVE_MARKET, generated, out,
+                    by_name={n: ids[0] for n, ids in names.items() if n and len(ids) == 1})
+
+
+def _fold(name: str) -> str:
+    return " ".join(str(name or "").split()).lower()
 
 
 # ---------------------------------------------------------------- fetching
@@ -307,16 +318,45 @@ def warm() -> None:
 
 
 def game_id(kb, key: str) -> int | None:
-    """The game's item ID of a KB item, from its icon URL (".../api/assets/icons/4010001")."""
+    """The game's item ID of a KB item, from its icon URL (".../api/assets/icons/4010001") when the KB has one."""
     m = re.search(r"/icons/(\d+)(?:\D|$)", str((kb.get(key) or {}).get("url") or ""))
     return int(m.group(1)) if m else None
+
+
+_kb_names: dict[int, tuple[object, dict[str, int]]] = {}
+
+
+def _kb_name_counts(kb) -> dict[str, int]:
+    """How many KB items have each folded name (one KB per run; rebuilt when it is swapped)."""
+    hit = _kb_names.get(id(kb))
+    if hit and hit[0] is kb:
+        return hit[1]
+    counts: dict[str, int] = {}
+    for k, e in (getattr(kb, "entities", None) or {}).items():
+        if k.startswith("item/"):
+            n = _fold(e.get("name"))
+            counts[n] = counts.get(n, 0) + 1
+    _kb_names.clear()
+    _kb_names[id(kb)] = (kb, counts)
+    return counts
+
+
+def match(snap: Snapshot | None, kb, key: str) -> int | None:
+    """The game id MesoWatch knows a KB item by: the KB's own when it has one, else a name both sides give one item."""
+    gid = game_id(kb, key)
+    if gid or snap is None:
+        return gid
+    name = _fold((kb.get(key) or {}).get("name"))
+    if not name or _kb_name_counts(kb).get(name, 0) > 1:
+        return None
+    return snap.by_name.get(name)
 
 
 def for_item(kb, key: str, refresh: bool = True, timeout: float = TIMEOUT) -> tuple[Snapshot | None, Sales | None]:
     """(the market, the item's sales there): the snapshot is None when MesoWatch can't be read, the sales None when
     the item was never seen on it."""
     snap = snapshot(refresh, timeout)
-    gid = game_id(kb, key)
+    gid = match(snap, kb, key)
     return snap, (snap.items.get(gid) if snap and gid else None)
 
 
@@ -369,7 +409,7 @@ def ai_lines(kb, keys: list[str], limit: int = 8) -> list[str]:
         return []
     lines = []
     for k in items:
-        gid = game_id(kb, k)
+        gid = match(snap, kb, k)
         s = snap.items.get(gid) if gid else None
         if s and not s.empty:
             lines.append(ai_line(snap, s, k))

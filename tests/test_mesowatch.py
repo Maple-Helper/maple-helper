@@ -41,11 +41,12 @@ def index_doc(updated=NOW):
 
 
 class FakeKB:
-    def __init__(self, urls):
-        self.urls = urls
+    def __init__(self, urls, names=None):
+        self.urls, self.names = urls, names or {}
+        self.entities = {k: {"name": self.names.get(k, k)} for k in {**urls, **self.names}}
 
     def get(self, key):
-        return {"name": key, "url": self.urls[key]} if key in self.urls else None
+        return {"name": self.names.get(key, key), "url": self.urls.get(key, "")} if key in self.entities else None
 
 
 KB = FakeKB({"item/414": "https://meowdb.com/msclassic/api/assets/icons/4010001",
@@ -192,3 +193,14 @@ def test_the_prompt_carries_the_sales_of_a_named_item(kb, site, monkeypatch):
     mesowatch.snapshot()
     p = brain.build_prompt("how much is a Red Potion?", None, None, kb, has_screenshot=False)
     assert "Free Market sales (MesoWatch" in p and "usually sells for 375 mesos" in p
+
+
+def test_a_kb_without_game_ids_matches_by_a_name_both_sides_give_one_item(site):
+    """The published KB's item URLs are the item's page (meowdb.com/msclassic/item-db/414), with no game id."""
+    page = "https://meowdb.com/msclassic/item-db/"
+    kb = FakeKB({"item/414": page + "414", "item/541": page + "541", "item/1": page + "1", "item/2": page + "2"},
+                {"item/414": "Iron Ore", "item/541": "gladius", "item/1": "Arrow for Bow", "item/2": "Arrow for Bow"})
+    snap, ore = mesowatch.for_item(kb, "item/414")
+    assert ore.game_id == 4010001 and mesowatch.match(snap, kb, "item/541") == 1302008      # case and spaces folded
+    assert mesowatch.match(snap, kb, "item/1") is None                    # two KB items by that name: no guess
+    assert [x.split(" [")[0] for x in mesowatch.ai_lines(kb, ["item/414"])[1:]] == ["- Iron Ore"]

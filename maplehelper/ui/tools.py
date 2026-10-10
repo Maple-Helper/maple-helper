@@ -2761,8 +2761,7 @@ class ToolsDialog(GlassDialog):
         # MesoWatch's terms: a visible credit and link wherever its prices show (the chip, and this)
         mw = QPushButton(self._p(t("price_mw_open")), objectName="Link")
         mw.setCursor(Qt.PointingHandCursor)
-        mw.clicked.connect(lambda _=False, g=mesowatch.game_id(self.kb, key): __import__("webbrowser").open(
-            mesowatch.item_url(g)))
+        mw.clicked.connect(lambda _=False: __import__("webbrowser").open(mesowatch.item_url(self._mw_id)))
         col.addWidget(mw, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
         # who drops it (Farm), the way to the cheapest shop
         acts = [("go_get", lambda n=name: self._go_farm_item(n))] if self.kb.droppers.get(key) else []
@@ -2773,6 +2772,7 @@ class ToolsDialog(GlassDialog):
         self.price_box.addWidget(card)
         self._price_for = name
         self._price_key = key
+        self._mw_id = None              # the item's id on MesoWatch, once the lookup matched it (_on_mesowatch)
         self._fm_lookup(name, item_id)
         self._mw_lookup(key)
 
@@ -2796,6 +2796,7 @@ class ToolsDialog(GlassDialog):
         key, (snap, sales) = result
         if key != getattr(self, "_price_key", None) or not hasattr(self, "mw_label"):
             return                      # an older lookup: the player picked another item since
+        self._mw_id = sales.game_id if sales else None
         text, more = self._mw_lines(snap, sales)
         seen = set(getattr(self, "_card_seen", ()))
         try:
@@ -4323,7 +4324,7 @@ class ToolsDialog(GlassDialog):
                 snap = None
             sold = {}
             for k in keys:
-                gid = mesowatch.game_id(self.kb, k) if snap else None
+                gid = mesowatch.match(snap, self.kb, k) if snap else None
                 price = mesowatch.solid_price(snap.items.get(gid)) if gid else None
                 if isinstance(price, int) and price > 0:
                     sold[k] = price
