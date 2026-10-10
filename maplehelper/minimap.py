@@ -1064,10 +1064,13 @@ class Locator:
                 self._collapsed = True
                 return got, None
         self._collapsed = False
-        kept = [(t, b) for t, yc, b in rows
+        kept = [(t, yc, b) for t, yc, b in rows
                 if t.strip() and not is_chrome(t, yc, height) and (panel_y0 < 40 or b <= panel_y0 + 8)]
         if not kept:
             return None
+        anchored = self._street_anchored(kept, streets)
+        if anchored is not None:
+            return anchored
         if len(kept) == 1 and self._prev in self._graph.known:
             # the street line read alone (the map line under it missed): "Victoria Road" is a map's name too, and
             # the player seemed to jump there and back every few seconds (live, 2026-10-08). The known map's own
@@ -1077,7 +1080,27 @@ class Locator:
             if _street_ok(only, here.street) and not _street_ok(only, self._graph.name(self._prev)):
                 return None
         street = kept[-2][0] if len(kept) > 1 else None
-        return (kept[-1][0], street), max(b for _, b in kept)
+        return (kept[-1][0], street), max(b for _, _, b in kept)
+
+    def _street_anchored(self, kept: list[tuple[str, float, float]], streets: list[str]
+                         ) -> tuple[tuple[str, str], float] | None:
+        """The header as the game lays it out: a known street's line, the map's line right under it (its pieces
+        on one line joined: OCR split 'Henesys Hunting' 'Ground'). Text further down is the map's own (an NPC's
+        label, a player's name), never the map line: with the panel undetected every line counted as header and
+        the last one down won, so a read named 'aarch' and the player's dot came and went (Henesys, live
+        2026-10-10). None when no street line has a line close under it."""
+        names = {s for s in streets if s}
+        for i, (t, yc, b) in enumerate(kept[:-1]):
+            if not any(_street_ok(t, s) for s in names):
+                continue
+            half = max(b - yc, 1.0)
+            line = [r for r in kept[i + 1:] if r[1] - yc <= 3.5 * half]
+            if not line:
+                continue
+            first = line[0][1]
+            line = [r for r in line if abs(r[1] - first) <= half / 2]
+            return (" ".join(r[0].strip() for r in line), t), max(r[2] for r in line)
+        return None
 
     def _read_text(self, arr: np.ndarray, panel_y0: int) -> tuple[str, str | None] | None:
         """The header's (map line, street line): the learned header crop first (a small strip), the whole box when
@@ -1433,10 +1456,12 @@ class Locator:
 
     def _dot(self, arr: np.ndarray, hit: _Hit) -> tuple[float, float] | None:
         """The yellow player dot's centre as fractions of the KB picture, None when not seen. Only the matched
-        rectangle is looked at (the title text is yellowish too). A blob the art cannot explain is the player; one
-        the art half-covers is art — unless it is big and far brighter (the game's dot painted over yellow lava,
-        which a small bright speck can never be). Anything dimmer or ambiguous is left unseen. With a cropped view
-        the matched rectangle hangs off the panel: the fractions still count over the whole picture."""
+        rectangle's part that shows the map is looked at (_shown): a cropped view's picture reaches up under the
+        window's header, whose yellow map emblem then read as the player, far above them (The Forest South of
+        Ellinia, live 2026-10-10). A blob the art cannot explain is the player; one the art half-covers is art —
+        unless it is big and far brighter (the game's dot painted over yellow lava, which a small bright speck can
+        never be). Anything dimmer or ambiguous is left unseen. With a cropped view the matched rectangle hangs off
+        the panel: the fractions still count over the whole picture."""
         pic = self._pic(hit.mid)
         if pic is None:
             return None
@@ -1451,6 +1476,13 @@ class Locator:
         yellow = (rs[:, :, 0] >= _ART_YELLOW) & (rs[:, :, 1] >= _ART_YELLOW) & (rs[:, :, 2] <= _ART_YELLOW)
         mask = (region[:, :, 0] >= _DOT_R) & (region[:, :, 1] >= _DOT_G) & (region[:, :, 2] <= _DOT_B)
         ox, oy = max(hit.x, 0), max(hit.y, 0)
+        bx, by = self._origin
+        sx0, sy0, sx1, sy1 = self._shown
+        if sx1 > sx0 and sy1 > sy0:
+            # the shown area in region pixels: everything outside it (the header, the frame) is no map
+            keep = np.zeros_like(mask)
+            keep[max(0, sy0 - by - oy):max(0, sy1 - by - oy), max(0, sx0 - bx - ox):max(0, sx1 - bx - ox)] = True
+            mask &= keep
         for one in sorted(_blobs(mask), key=len, reverse=True):
             if not _DOT_MIN <= len(one) <= _DOT_MAX:
                 continue

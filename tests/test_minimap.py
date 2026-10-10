@@ -305,6 +305,25 @@ def test_second_read_rechecks_the_lock(graph, monkeypatch):
     assert calls and fourth == first
 
 
+@needs_kb
+@pytest.mark.parametrize("rows,expected", [
+    # Henesys with the panel undetected: the map's own labels read too, the last one down ("aarch") won (live)
+    ([("WORLD", 32.5, 43.0), ("mInI mAP", 33.0, 43.0), ("Victoria Road", 78.0, 92.0), ("Henesys", 107.5, 124.0),
+      ("aarch", 343.0, 357.0)], ("Henesys", "Victoria Road")),
+    # the map line read in two pieces on one line: joined
+    ([("WORLD", 33.0, 45.0), ("Victoria Road", 77.25, 92.0), ("Henesys Hunting", 107.0, 123.0),
+      ("Ground", 107.0, 119.0), ("Stick", 248.0, 264.0)], ("Henesys Hunting Ground", "Victoria Road")),
+    # no street line read: the last line down, as before
+    ([("MINI MAP", 21.0, 27.0), ("Perion", 78.0, 89.0)], ("Perion", None)),
+])
+def test_the_map_line_is_the_one_under_the_street(graph, rows, expected):
+    """The header is the street's line with the map's under it; text further down (an NPC's label, a player's name)
+    is the map, never its name: reads named 'aarch' and the player's dot came and went (Henesys, live 2026-10-10)."""
+    from maplehelper.minimap import Locator
+    got = Locator(graph)._header(rows, 444, 0)
+    assert got is not None and got[0] == expected
+
+
 # ------------------------------------------------------- name resolution
 
 
@@ -488,3 +507,14 @@ def test_live_busy_construction_site_places_the_dot(graph):
     here = Locator(graph).locate(_box("minimap_construction_busy_live.png"))
     assert here is not None and here.map == "010003010"
     assert here.spot == pytest.approx((0.78, 0.65), abs=0.04)
+
+
+@needs_kb
+def test_live_header_emblem_is_not_the_player_dot(graph):
+    """The Forest South of Ellinia, see-through and scrolled to its bottom: the picture's top reaches up under the
+    window's header, where the map's round yellow emblem read as the player's dot, far above where they stood
+    (live, 2026-10-10). Only the part showing the map is looked at: the dot is the one by the bottom-left portal."""
+    from maplehelper.minimap import Locator
+    here = Locator(graph).locate(_box("minimap_forest_south_emblem_live.png"))
+    assert here is not None and here.map == "010002030"
+    assert here.spot == pytest.approx((0.127, 0.885), abs=0.03)
