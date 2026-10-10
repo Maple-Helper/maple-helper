@@ -357,6 +357,48 @@ def test_an_item_nothing_drops_or_sells_says_so(win, qapp, clean_location, graph
     assert _texts(win._detail) == ["No known drops or shops"]     # the fixture KB gives Red Potion no type line
 
 
+def test_safe_to_sell_says_keep_with_what_needs_it_or_safe_with_the_npc_price(
+        win, qapp, clean_location, graph, monkeypatch):
+    """Safe to sell?: an item on NiaMeowDB's list is one to keep, its quests and recipes listed; off it, safe, at
+    the NPC price of its own page; a KB without the list never says "safe"."""
+    from types import SimpleNamespace
+
+    from maplehelper import market, sitedata
+    need = sitedata.SellNeeds("item/2000000", "Red Potion", 25,
+                              (("quest/1", "Potion Run", 3, False), ("quest/2", "Daily Brew", 1, True)),
+                              (("Alchemy", "Elixir", 2),), ("Al", "Bree"))
+    now = {"list": sitedata.SellList("2026-10-10", {"item/2000000": need})}
+    monkeypatch.setattr(sitedata, "sell_list", lambda kb: now["list"])
+    monkeypatch.setattr(market, "npc_prices", lambda kb, key: SimpleNamespace(sell_back=12))
+    win.open("sell")
+    assert win._title.text() == "Safe to sell?"
+    win._box.setText("red")
+    pump(qapp, 200)
+    assert win._rows[0].sub.text() == "Keep · quests: 2 · recipes: 1"
+    win._rows[0].clicked.emit()
+    d = win._detail
+    assert d._stack == [("sell", "item/2000000")] and d.title.text() == "Red Potion"
+    assert _texts(d) == ["Keep it: a current quest or crafting recipe still needs it", "An NPC pays 25 mesos",
+                         "Quests that need it", "Recipes that use it", "NPC shops that sell it",
+                         "From NiaMeowDB's Safe to Sell? list, 2026-10-10"]
+    assert [(r.name.text(), r.sub.text() if r.sub else "") for r in _links(d)] == [
+        ("Potion Run", "×3"), ("Daily Brew", "×1 · repeatable"), ("Elixir", "Alchemy · ×2"),
+        ("Al, Bree", "You can buy it back (shop access may vary)"), ("Who drops and sells it", "")]
+    _links(d)[-1].clicked.emit()                        # its item page, ‹ Back to the verdict
+    assert d._stack == [("sell", "item/2000000"), ("item", "item/2000000")]
+    now["list"] = sitedata.SellList("2026-10-10", {})   # nothing needs it any more
+    win._run()
+    assert win._rows[0].sub.text() == "Safe to sell · 12 mesos"
+    win._rows[0].clicked.emit()
+    assert _texts(d) == ["Safe to sell: no current quest or crafting recipe needs it", "An NPC pays 12 mesos",
+                         "From NiaMeowDB's Safe to Sell? list, 2026-10-10"]
+    now["list"] = None                                  # a KB from before the list
+    win._run()
+    assert win._rows[0].sub is None
+    win._rows[0].clicked.emit()
+    assert _texts(d) == ["The Safe to sell? list isn't in your database yet. It comes with the next update."]
+
+
 def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, clean_location, graph, monkeypatch):
     from maplehelper import gamelookup
     from maplehelper.ui.location import LOCATION
@@ -384,7 +426,7 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     clean_location.set(_here("999999999", (0.5, 0.5)))  # another map: the ring goes, the way from there shown
     assert LOCATION.guide is None
     assert _texts(d) == [f"{name} is on Fake Town", "The way from here on foot",
-                         "No way on foot from your map is known. Try the toolbar's Cabs & teleports"]
+                         "No way on foot from your map is known. Try the toolbar's Cabs & Teleports"]
     clean_location.set(_here(MID, (0.5, 0.5)))          # back on it: the map's own page says so
     d.open_view("map", f"map/{MID}")
     assert _texts(d) == ["Fake Street", "You're on this map"] and LOCATION.guide is None
@@ -411,7 +453,7 @@ def test_an_npc_elsewhere_shows_the_way_there_line_by_line(win, qapp, kb, clean_
 
     def says(legs):
         return [mapview.route_says(t, graph, leg).replace("**", "") for leg in legs]
-    # the toolbar's Cabs & teleports off (the default): on foot
+    # the toolbar's Cabs & Teleports off (the default): on foot
     assert _texts(d) == [f"{_kb_name(kb, 'npc/3')} is on Far Map", "The way from here on foot", *says(walk)]
     # the steps' **bold** names are drawn bold, never shown as asterisks (offscreen render, 2026-10-10)
     assert all("**" not in w.text() for w in d._rows if hasattr(w, "text"))

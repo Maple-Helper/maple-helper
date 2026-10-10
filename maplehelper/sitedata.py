@@ -2,7 +2,8 @@
 
 - skill_changes.json: the skills that changed between two builds ("COT1" -> "COT2"), field by field at max level;
 - pets.json: every pet's lifespan, hunger rate, commands to Lv 30 and whether the Cash Shop sells it now;
-- tiers.json: the class tier list, a benchmark of community level-70 builds (community opinion, tagged so).
+- tiers.json: the class tier list, a benchmark of community level-70 builds (community opinion, tagged so);
+- safe_to_sell.json: the Safe to Sell? list, every item a current quest or crafting recipe needs.
 
 Nothing here names a build: the labels come from the file, so when MeowDB compares COT2 with Launch the chips
 read "Changed in Launch" by themselves. A 3rd-job skill stays out while availability.py says 3rd job isn't out.
@@ -15,7 +16,7 @@ from dataclasses import dataclass
 
 from . import availability, bidi, sources
 
-SKILL_CHANGES, PETS, TIERS = "skill_changes.json", "pets.json", "tiers.json"
+SKILL_CHANGES, PETS, TIERS, SAFE_TO_SELL = "skill_changes.json", "pets.json", "tiers.json", "safe_to_sell.json"
 # the jobs a later job grew out of, for a character's whole skill line (plan.JOB_BEFORE one step further back)
 _JOB_BEFORE = {"Crusader": "Fighter", "White Knight": "Page", "Dragon Knight": "Spearman", "F/P Mage": "F/P Wizard",
                "I/L Mage": "I/L Wizard", "Priest": "Cleric", "Ranger": "Hunter", "Sniper": "Crossbowman",
@@ -384,3 +385,59 @@ def ai_tier_lines(kb, rows: list[TierRow] | None = None) -> list[str]:
         cells = "; ".join(f"{c} {v.get('grade') or '-'} {v.get('value')}" for c, v in r.cells.items())
         lines.append(f"- {r.name} ({r.line}): {cells}")
     return lines
+
+
+# ---------------------------------------------------------------- safe to sell
+
+@dataclass(frozen=True)
+class SellNeeds:
+    """An item on the Safe to Sell? list: what still needs it, so it's one to keep."""
+    key: str
+    name: str
+    price: int                                   # what an NPC pays for one (0: the list has no price)
+    quests: tuple[tuple[str, str, int, bool], ...]   # (quest key, name, how many, repeatable)
+    recipes: tuple[tuple[str, str, int], ...]        # (discipline, recipe, how many)
+    shops: tuple[str, ...]                       # NPC shops whose recorded stock has it (it can be bought back)
+
+
+@dataclass(frozen=True)
+class SellList:
+    generated: str                               # the day NiaMeowDB made the list ("2026-10-10")
+    needs: dict                                  # item key -> SellNeeds
+
+
+def sell_list(kb) -> SellList | None:
+    """The Safe to Sell? list over this KB's items, or None when the KB has no list (one from before it was
+    scraped). A row is found by its item id while the KB's item there has the row's name; else by the name alone
+    (the site picks one id when two items share a name), a row whose item the KB lacks left out."""
+    data = _file(kb, SAFE_TO_SELL)
+    rows = data.get("rows")
+    if not isinstance(rows, list):
+        return None
+    memo = kb.__dict__.setdefault("_sitedata", {}) if hasattr(kb, "__dict__") else {}
+    seen = memo.get("_sell_list")
+    if seen is not None and seen[0] is data:
+        return seen[1]
+    by_name: dict[str, str] = {}
+    for k, e in kb.entities.items():
+        if e.get("category") == "item":
+            by_name.setdefault(str(e.get("name") or "").strip().lower(), k)
+    needs: dict[str, SellNeeds] = {}
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        name = str(r.get("name") or "").strip()
+        key = r.get("key")
+        if str((kb.get(key) or {}).get("name") or "").strip().lower() != name.lower():
+            key = by_name.get(name.lower())
+        if not key or key in needs:
+            continue
+        quests = tuple((str(q.get("key") or ""), str(q.get("name") or ""), int(q.get("qty") or 0),
+                        bool(q.get("repeatable"))) for q in r.get("quests") or [] if isinstance(q, dict))
+        recipes = tuple((str(x.get("discipline") or ""), str(x.get("recipe") or ""), int(x.get("count") or 0))
+                        for x in r.get("recipes") or [] if isinstance(x, dict))
+        needs[key] = SellNeeds(key, name, int(r.get("price") or 0), quests, recipes,
+                               tuple(str(s) for s in r.get("shops") or []))
+    out = SellList(str(data.get("generated") or ""), needs)
+    memo["_sell_list"] = (data, out)
+    return out

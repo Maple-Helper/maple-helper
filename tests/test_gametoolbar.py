@@ -77,7 +77,8 @@ def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
     w.refresh()
     seen = []
     w.rides_toggled.connect(lambda: seen.append(s["game_rides"]))
-    assert w._rides.text() == "Cabs & teleports" and w._rides.isChecked() is False and s["game_rides"] is False
+    # "&&" shows as "&": a lone "&" was Qt's shortcut mark, the label read "Cabs _Teleports" (render, 2026-10-10)
+    assert w._rides.text() == "Cabs && Teleports" and w._rides.isChecked() is False and s["game_rides"] is False
     w._rides.click()
     w._rides.click()
     assert seen == [True, False]
@@ -88,7 +89,8 @@ def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
 
 # ------------------------------------------------------------ the searches
 
-@pytest.mark.parametrize("kind,text", [("monster", "Monsters"), ("npc", "NPCs"), ("item", "Items")])
+@pytest.mark.parametrize("kind,text", [("monster", "Monsters"), ("npc", "NPCs"), ("item", "Items"),
+                                       ("sell", "Safe to sell?")])
 def test_each_search_button_names_its_search(bar, kind, text):
     w, _ = bar
     assert w._search[kind].text() == text

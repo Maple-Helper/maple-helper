@@ -1,9 +1,11 @@
 """The in-game toolbar's search window (ui/gametoolbar.py opens it): the KB's monsters, NPCs and items, typed
 down to a row. A click opens the thing's own page in the detail window docked beside the search — an NPC: where
 it stands and the way there; a monster: where it lives; an item: who drops and who sells it; a map: its
-monsters — with a way back through what was opened. The search is the one window over the game that takes the
-keyboard (the player is typing in it); the detail never does; Esc or the ✕ hides it, and the minimap reads
-never see either. The search itself is plain data: Hit / search / monster_maps need no Qt."""
+monsters — with a way back through what was opened. The Safe to sell? search lists the same items, each with
+whether it's safe to sell (NiaMeowDB's list of what current quests and recipes need, sitedata.sell_list), and opens
+what needs it. The search is the one window over the game that takes the keyboard (the player is typing in it);
+the detail never does; Esc or the ✕ hides it, and the minimap reads never see either. The search itself is plain
+data: Hit / search / monster_maps need no Qt."""
 from __future__ import annotations
 
 import re
@@ -14,7 +16,7 @@ from PySide6.QtGui import QGuiApplication, QPixmap
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QToolButton,
                                QVBoxLayout, QWidget)
 
-from .. import availability, bidi, combat, gamelookup, routes, sitedata, tables
+from .. import availability, bidi, combat, gamelookup, market, routes, sitedata, tables
 from ..i18n import I18n
 from ..kb import KnowledgeBase, memo
 from ..store import Settings
@@ -24,7 +26,7 @@ from .location import LOCATION
 from .npcoverlay import (BOTTOM, FILL1, FILL2, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TEXT, TOP,
                          _Header, _exclude_from_capture, _flags, _paint_glass, direction, dock_beside)
 
-KINDS = ("monster", "npc", "item")   # the three searches the toolbar offers
+KINDS = ("monster", "npc", "item", "sell")   # the searches the toolbar offers ("sell": the items, safe to sell?)
 MIN_W, MIN_H = 260, 300             # the smallest the player can drag the window to
 DEFAULT_W, DEFAULT_H = 320, 420     # what opens under the toolbar before it is ever resized
 GAP = 8                             # between the toolbar and the window that opens under it
@@ -130,7 +132,8 @@ _BUILDERS = {"monster": _monster_hits, "npc": _npc_hits, "item": _item_hits}
 def _source(kb, kind: str) -> list[Hit]:
     """One kind's every row, built once per KB (a keystroke only ranks them; the item list alone reads ~650
     pages). A list made while the KB's tables weren't ready (still building at start-up) isn't kept: it would have
-    left every NPC without its map for the whole session."""
+    left every NPC without its map for the whole session. Safe to sell? searches the items' own list."""
+    kind = "item" if kind == "sell" else kind
     cache = memo(kb, "_game_search")
     if kind not in cache:
         hits = _BUILDERS[kind](kb)
@@ -157,6 +160,24 @@ def search(kb, kind: str, query: str, limit: int = 50) -> tuple[list[Hit], int]:
         ranked[0 if low == q else 1 if low.startswith(q) else 2].append(hit)
     hits = [h for bucket in ranked for h in sorted(bucket, key=lambda h: (_fold(h.name), h.name))]
     return hits[:max(0, int(limit))], len(hits)
+
+
+def sell_verdict(t, kb, key: str) -> str:
+    """A Safe to sell? row's grey line: "Keep · quests 2 · recipes 1" for an item on NiaMeowDB's list, "Safe to
+    sell · 12 mesos" (an NPC's price, when one is known) off it, "" while the KB has no list."""
+    sl = sitedata.sell_list(kb)
+    if sl is None:
+        return ""
+    need = sl.needs.get(key)
+    if need is not None:
+        parts = [t("sell_keep_word")]
+        if need.quests:
+            parts.append(t("sell_quests_n", n=len(need.quests)))
+        if need.recipes:
+            parts.append(t("sell_recipes_n", n=len(need.recipes)))
+        return " · ".join(parts)
+    price = market.npc_prices(kb, key).sell_back
+    return " · ".join([t("sell_safe_word")] + ([t("lk_price", n=f"{price:,}")] if price else []))
 
 
 def monster_maps(kb, key: str) -> list[tuple[str, str, str, int]]:
@@ -193,15 +214,16 @@ class _SearchBox(QLineEdit):
 
 
 class _Row(QFrame):
-    """One clickable line of the list: a bold-ish name over a muted grey one (its type, where it stands, how
-    many spawn), in the colours of the NPCs window's rows."""
+    """One line of the list: a bold-ish name over a muted grey one (its type, where it stands, how many spawn), in
+    the colours of the NPCs window's rows; clickable=False: a fact in the same look (a quest that needs an item)."""
 
     clicked = Signal()
 
-    def __init__(self, name: str, sub: str, tip: str = ""):
+    def __init__(self, name: str, sub: str, tip: str = "", clickable: bool = True):
         super().__init__(objectName="Row")
-        self.setAttribute(Qt.WA_Hover, True)          # its QSS :hover
-        self.setCursor(Qt.PointingHandCursor)
+        if clickable:
+            self.setAttribute(Qt.WA_Hover, True)          # its QSS :hover
+            self.setCursor(Qt.PointingHandCursor)
         if tip:
             self.setToolTip(tip)
             self.setAccessibleName(tip)
@@ -299,7 +321,7 @@ class DetailWindow(QWidget):
             self.show_beside()
 
     def redraw(self) -> None:
-        """The view drawn again — the language, the KB or the cabs & teleports switch changed under it."""
+        """The view drawn again — the language, the KB or the Cabs & Teleports switch changed under it."""
         if self._stack:
             self._draw()
 
@@ -310,7 +332,7 @@ class DetailWindow(QWidget):
         self._clear_body()
         kind, key = self._stack[-1]
         body = {"npc": self._npc_body, "monster": self._monster_body,
-                "item": self._item_body, "map": self._map_body}.get(kind)
+                "item": self._item_body, "map": self._map_body, "sell": self._sell_body}.get(kind)
         if body is not None:
             body(key)
         self._fit()
@@ -393,6 +415,45 @@ class DetailWindow(QWidget):
                 row.clicked.connect(lambda _=False, k=s.key: self.push("npc", k))
                 self._add(row)
             self._more(len(sell))
+
+    def _sell_body(self, key: str) -> None:
+        """Safe to sell?: the verdict by NiaMeowDB's list (on it: a current quest or recipe needs it), what an NPC
+        pays, then each quest and recipe that needs it, the NPC shops that sell it back, and a way to its item
+        page. A KB without the list says so, never "safe"."""
+        o = self._owner
+        t, kb, rtl = o.t, o._kb, o.t.rtl
+        self._set_head(key, self._name(key))
+        sl = sitedata.sell_list(kb)
+        if sl is None:
+            self._line(t("sell_no_list"), muted=True)
+            return
+        need = sl.needs.get(key)
+        self._line(t("sell_keep_line" if need else "sell_safe_line"))
+        price = (need.price if need else 0) or market.npc_prices(kb, key).sell_back
+        self._line(t("sell_npc_pays", n=f"{price:,}") if price else t("sell_no_npc_price"), muted=True)
+        if need and need.quests:
+            self._heading(t("sell_quests_heading"))
+            for _qkey, name, qty, repeat in need.quests[:SRC_CAP]:
+                many = t("sell_qty", n=qty) if qty else ""
+                sub = " · ".join(x for x in (many, t("sell_repeat") if repeat else "") if x)
+                self._add(_Row(bidi.ltr_name(name, rtl), bidi.plain(sub, rtl) if sub else "", clickable=False))
+            self._more(len(need.quests))
+        if need and need.recipes:
+            self._heading(t("sell_recipes_heading"))
+            for discipline, recipe, count in need.recipes[:SRC_CAP]:
+                many = t("sell_qty", n=count) if count else ""
+                sub = " · ".join(x for x in (discipline, many) if x)
+                self._add(_Row(bidi.ltr_name(recipe, rtl), bidi.plain(sub, rtl) if sub else "", clickable=False))
+            self._more(len(need.recipes))
+        if need and need.shops:
+            self._heading(t("sell_shops_heading"))
+            self._add(_Row(bidi.ltr_name(", ".join(need.shops), rtl), bidi.plain(t("sell_rebuy"), rtl),
+                           clickable=False))
+        row = _Row(bidi.plain(t("sell_open_item"), rtl), "", t("search_item_open"))
+        row.clicked.connect(lambda _=False: self.push("item", key))
+        self._add(row)
+        if sl.generated:
+            self._line(t("sell_credit", date=sl.generated), muted=True)
 
     def _map_body(self, key: str) -> None:
         """The map's page: its street and its picture (the player's blue dot on it, while they're there),
@@ -704,7 +765,7 @@ class GameSearch(EdgeResize, QWidget):
         self._run()      # every list is read again (each one is built once per KB)
 
     def rides_changed(self) -> None:
-        """The toolbar's cabs & teleports switch flipped: the way on the page shown is found again."""
+        """The toolbar's Cabs & Teleports switch flipped: the way on the page shown is found again."""
         self._detail.redraw()
 
     def apply_language(self, t: I18n) -> None:
@@ -751,10 +812,12 @@ class GameSearch(EdgeResize, QWidget):
 
     def _rebuild_rows(self) -> None:
         t, rtl = self.t, self.t.rtl
-        tip = {"npc": t("search_npc_open"), "item": t("search_item_open")}.get(self._kind, "")
+        tip = {"npc": t("search_npc_open"), "item": t("search_item_open"),
+               "sell": t("search_sell_open")}.get(self._kind, "")
         self._clear_rows()
         for hit in self._hits:
-            row = _Row(bidi.ltr_name(hit.name, rtl), bidi.plain(hit.sub, rtl) if hit.sub else "", tip)
+            sub = sell_verdict(t, self._kb, hit.key) if self._kind == "sell" else hit.sub
+            row = _Row(bidi.ltr_name(hit.name, rtl), bidi.plain(sub, rtl) if sub else "", tip)
             row.clicked.connect(lambda _=False, h=hit: self._picked(h))
             self._add(row)
 

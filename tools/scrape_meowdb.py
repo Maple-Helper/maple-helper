@@ -7,7 +7,7 @@ support so a re-run only fetches what is missing.
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
     index.json                   compact index: id, name, category, url, image, props
-    skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
+    skill_changes.json, pets.json, tiers.json, safe_to_sell.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
     news.json, img/news/         the news and their pictures (tools/scrape_news.py)
     routes.json                 every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)

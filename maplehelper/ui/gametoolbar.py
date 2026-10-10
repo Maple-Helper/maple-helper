@@ -35,7 +35,7 @@ from .regionpick import from_capture
 
 SIDE, TOP, BOTTOM = SHADOW + 12, SHADOW + 8, SHADOW + 8    # content margins, past the glass's shadow rim
 GRIP = "⋮⋮"                                               # the drag handle's dots
-KINDS = {"monster": "tb_monsters", "npc": "tb_npcs", "item": "tb_items"}   # each search button, and its i18n key
+KINDS = {"monster": "tb_monsters", "npc": "tb_npcs", "item": "tb_items", "sell": "tb_sell"}  # search buttons, i18n keys
 QSS = f"""
 #Grip {{ color: {MUTED}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
@@ -144,7 +144,7 @@ class GameToolbar(QWidget):
         for kind, key in KINDS.items():
             self._search[kind].setText(bidi.plain(t(key), rtl))
             self._search[kind].setToolTip(t(key + "_tip"))
-        self._rides.setText(bidi.plain(t("tb_rides"), rtl))
+        self._rides.setText(bidi.plain(t("tb_rides"), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
         self._rides.setToolTip(t("tb_rides_tip"))
         self._close.setAccessibleName(t("tb_close"))
         self._close.setToolTip(t("tb_close"))

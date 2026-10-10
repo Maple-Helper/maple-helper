@@ -300,10 +300,14 @@ class MapleHelperApp:
         search.open(kind)
 
     def _game_rides_toggled(self) -> None:
-        """The toolbar's Cabs & teleports switch: a way already shown in the search's detail page follows it."""
+        """The toolbar's Cabs & Teleports switch: a way already shown follows it, in the search's detail page and
+        in the ◎ where-is-it window."""
         search = getattr(self, "game_search", None)
         if search is not None:
             search.rides_changed()
+        where = self.__dict__.get("_windows", {}).get("map")
+        if where is not None and where.isVisible() and where.key:
+            where.show_map(where.key)
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
