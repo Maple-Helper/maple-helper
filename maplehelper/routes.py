@@ -24,9 +24,10 @@ from . import availability
 
 ROUTES_FILE = "routes.json"
 FOUND_MAX = 4096                # Graph.find's remembered texts (names; the AI's free text can't grow it for ever)
-# the game marks a portal on its minimap this far (map units) above the portal's own point: its blue rings sat 12-15
-# screen px over the projected point on four live captures, 122-130 map units every time (hidden_spots)
-PORTAL_MARK_RISE = 125
+# the hidden-portal dots sit this far (map units) above the portal's own point. The game's own blue portal rings sit
+# 122-130 map units up on four live captures; dots that high read too high in game (the owner's, 2026-10-09: "a hair"
+# lower), so they sit a little under the rings (hidden_spots)
+PORTAL_MARK_RISE = 100
 # what a step costs in the search: a short walk beats a cab ride, a long one doesn't
 COST = {"portal": 1, "npc": 2, "boat": 3, "taxi": 4}
 PAID = ("taxi", "boat")         # steps a player pays mesos for (how many only when a guide says: Leg.fare)
@@ -327,8 +328,8 @@ class Graph:
 
     def hidden_spots(self, mid: str) -> list[tuple[float, float]]:
         """The map's invisible teleports (press-up and touch portals the game's minimap never draws), each a spot on
-        its minimap picture where the game would mark a portal: PORTAL_MARK_RISE above the portal's own point. [] for
-        a map the graph doesn't have, or one with no picture."""
+        its minimap picture PORTAL_MARK_RISE above the portal's own point (just under where the game rings a visible
+        portal). [] for a map the graph doesn't have, or one with no picture."""
         if mid not in self.maps:
             return []
         return [s for s in (self._spot(mid, {"x": p.get("x") or 0, "y": (p.get("y") or 0) - PORTAL_MARK_RISE})

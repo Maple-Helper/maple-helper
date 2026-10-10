@@ -150,34 +150,6 @@ def test_the_locked_scale_rechecks_under_the_first_lock_bar(graph, monkeypatch):
 
 
 @needs_kb
-def test_the_games_portal_rings_sit_where_hidden_portals_are_drawn(loc, graph):
-    """The game marks its visible portals PORTAL_MARK_RISE above their points: Perion's blue rings sit there (live),
-    where the hidden-portal dots are drawn too (Graph.hidden_spots raises them the same)."""
-    import json
-
-    from maplehelper.minimap import _blobs
-    from maplehelper.routes import PORTAL_MARK_RISE
-    box = _box("minimap_perion_live.png")
-    here = loc.locate(box)
-    a = np.asarray(box).astype(int)
-    ring = (a[..., 2] > 140) & (a[..., 0] < 120) & ((a[..., 2] - a[..., 0]) > 60)
-    rings = [(np.mean([x for _, x in b]), np.mean([y for y, _ in b])) for b in _blobs(ring) if len(b) >= 15]
-    data = json.loads((REAL_KB / "routes.json").read_text(encoding="utf-8"))
-    perion = next(m for m in data["maps"] if m["id"] == "010004000")
-    checked = 0
-    for p in perion["portals"]:
-        at = here.view.at(graph._spot("010004000", {"x": p["x"], "y": p["y"] - PORTAL_MARK_RISE}))
-        if at is None or not 0 <= at[1] < box.height:
-            continue                                    # outside the part of the map the window shows
-        near = min(rings, key=lambda r: (r[0] - at[0]) ** 2 + (r[1] - at[1]) ** 2)
-        if abs(near[0] - at[0]) > 6:
-            continue                                    # a portal the game draws no ring for here
-        assert abs(near[1] - at[1]) <= 2.5, p["name"]
-        checked += 1
-    assert checked >= 3
-
-
-@needs_kb
 def test_live_collapsed_window_in_a_building(loc):
     """Inside a building the game folds the window to one title line, 'Victoria Road : Warriors' Sanctuary', over
     the game itself: the map from that line (up where the title bar's furniture is dropped), no spot (no map
