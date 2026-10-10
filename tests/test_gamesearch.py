@@ -24,6 +24,26 @@ def settings(isolated_store):
     return isolated_store.Settings()
 
 
+@pytest.fixture(scope="module")
+def _own_kb(tmp_path_factory) -> Path:
+    """This file's own copy of the fixture KB, without the tables any build writes (they are built here once):
+    the shared folder's tables are built by every test worker at once, and on Windows a worker replacing a table
+    another one has open fails its build and reads nothing (CI, 2026-10-10: every map of Snail missing)."""
+    import shutil
+
+    from maplehelper import tables
+    dst = tmp_path_factory.mktemp("gamesearch") / "kb"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "kb", dst,
+                    ignore=shutil.ignore_patterns(*tables.GENERATED, "*.tmp"))
+    return dst
+
+
+@pytest.fixture
+def kb(_own_kb):
+    from maplehelper.kb import KnowledgeBase
+    return KnowledgeBase(_own_kb)
+
+
 def pump(qapp, ms):
     """Wait out a debounce (the typing, the geometry) the way a live event loop would."""
     end = time.monotonic() + ms / 1000
