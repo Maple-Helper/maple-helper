@@ -21,11 +21,31 @@ log = logging.getLogger("maplehelper")
 
 
 @dataclass(frozen=True)
+class View:
+    """Where a map's KB picture lies in the drawn box, in box pixels: its top-left (negative when a cropped view
+    cuts it off) and scaled size, and the content panel it shows through (x0, y0, x1, y1, exclusive)."""
+    x: int
+    y: int
+    w: int
+    h: int
+    panel: tuple[int, int, int, int]
+
+    def at(self, spot: tuple[float, float]) -> tuple[float, float] | None:
+        """A spot on the picture (fractions of its size, as routes.Leg.spot) in box pixels; None when the window
+        doesn't show that part of the map."""
+        bx, by = self.x + spot[0] * self.w, self.y + spot[1] * self.h
+        x0, y0, x1, y1 = self.panel
+        return (bx, by) if x0 <= bx < x1 and y0 <= by < y1 else None
+
+
+@dataclass(frozen=True)
 class Here:
     """Where the player is: a routes.Graph map id, and the yellow dot's spot on that map's minimap picture as
-    fractions of its size (as routes.Leg.spot), None when the dot wasn't seen."""
+    fractions of its size (as routes.Leg.spot), None when the dot wasn't seen. `view`: where the picture lay in the
+    box on this read (what draws on the game's minimap), None when it didn't align."""
     map: str
     spot: tuple[float, float] | None = None
+    view: View | None = None
 
 
 #: The one known map's picture only counts as aligned when it matches this well (normalized cross-correlation,
@@ -63,6 +83,7 @@ _OCR_PARAMS = {
 }
 _COV_MAX = 160   # the single-map alignment tries its trial scales shrunken (longest side); the best is refined
                 # full-size, where the dot is placed
+_LADDER = 1.08     # the trial scales above fitting climb by this much a rung (see Locator._trial_scales)
 _MIN_SIDE = 8       # a match smaller than this is noise, not a minimap ...
 _MIN_AREA = 0.05    # ... and so is one this small next to the panel (the panel is cut around the map, not the town)
 _OV = 2.5   # how much bigger than the panel the scaled picture may be (a cropped live view shows only part of the
@@ -73,6 +94,8 @@ _PANEL_SMALL = 170   # the surround fill that finds the content panel runs this 
 _PANEL_STEP = 16  # a colour step this big stops the fill: frames and title edges are far steeper, their insides far
                   # flatter, so the fill covers margins, title and frame but never the map itself (even the 1px
                   # synthetic outline blurred down: black art against the dark margin still steps ~28 there)
+_TITLE_SEED = 0.04   # ... and starts from this top share of the box too: the title bar (MINI MAP, WORLD), which sits
+                     # above every header (that starts at ~17% of the box) whichever way the box was drawn
 _BG_SAT = 36      # the panel background colour is the median of pixels flatter than this (max-min across channels):
                   # the dark backdrop, not the art or the markers
 _BG_LIGHT = 120   # ... unless that median reads this bright or brighter while this share of the panel is darker:
@@ -224,35 +247,67 @@ def _fast_len(n: int) -> int:
         n += 1
 
 
-def _ncc(image: np.ndarray, templ: np.ndarray) -> tuple[float, int, int] | None:
-    """Where the small picture sits inside the big one (normalized cross-correlation through the FFT): the best
-    score with its panel offset. None when the template doesn't fit or is flat (a blank picture matches anywhere)."""
+def _window_sums(a: np.ndarray, y0, y1, x0, x1) -> np.ndarray:
+    """The sum of `a` over every window [y0:y1, x0:x1] (broadcast arrays of bounds), in four lookups each."""
+    ii = np.zeros((a.shape[0] + 1, a.shape[1] + 1), dtype=np.float64)
+    ii[1:, 1:] = a.cumsum(axis=0).cumsum(axis=1)
+    return ii[y1, x1] - ii[y0, x1] - ii[y1, x0] + ii[y0, x0]
+
+
+def _masked_scores(image: np.ndarray, valid: np.ndarray, templ: np.ndarray, oy: np.ndarray, ox: np.ndarray
+                   ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The NCC of the template placed with its top-left at every (oy, ox) (column and row arrays; placements may
+    hang off any edge), counting only the image's valid pixels: the game's markers (other players' red dots, NPC
+    pills, portal rings) are no part of the art, and painting them as backdrop instead dragged a crowded town's
+    true placement under the bar (Kerning City, live). Also the counted pixels and both sides' variance sums per
+    placement, for the caller's guards."""
+    H, W = image.shape
+    h, w = templ.shape
+    v = valid.astype(np.float64)
+    img = image.astype(np.float64) * v
+    tm = templ.astype(np.float64)
+    y0, y1 = np.clip(oy, 0, H), np.clip(oy + h, 0, H)
+    x0, x1 = np.clip(ox, 0, W), np.clip(ox + w, 0, W)
+    n = _window_sums(v, y0, y1, x0, x1)
+    si = _window_sums(img, y0, y1, x0, x1)
+    qi = _window_sums(img * img, y0, y1, x0, x1)
+    size = (_fast_len(H + h - 1), _fast_len(W + w - 1))
+    fv, fi = np.fft.rfft2(v, s=size), np.fft.rfft2(img, s=size)
+    ft, ft2 = np.conj(np.fft.rfft2(tm, s=size)), np.conj(np.fft.rfft2(tm * tm, s=size))
+    at = (oy % size[0], ox % size[1])
+    cc = np.fft.irfft2(fi * ft, s=size)[at]      # the overlap's sum of products at every placement ...
+    st = np.fft.irfft2(fv * ft, s=size)[at]      # ... and the template's sums over the valid pixels it covers
+    qt = np.fft.irfft2(fv * ft2, s=size)[at]
+    n1 = np.maximum(n, 1)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        num = cc - si * st / n1
+        vi = qi - si * si / n1
+        vt = qt - st * st / n1
+        denom = np.sqrt(np.maximum(vi, 0.0) * np.maximum(vt, 0.0))
+        scores = np.divide(num, denom, out=np.full_like(cc, -2.0), where=denom > 1e-9)
+    return scores, n, vi, vt
+
+
+def _ncc(image: np.ndarray, templ: np.ndarray, valid: np.ndarray) -> tuple[float, int, int] | None:
+    """Where the small picture sits inside the big one (normalized cross-correlation through the FFT, over the
+    image's valid pixels): the best score with its panel offset. None when the template doesn't fit or is flat (a
+    blank picture matches anywhere)."""
     h, w = templ.shape
     H, W = image.shape
     if h > H or w > W:
         return None
-    t = templ.astype(np.float32)
-    t -= float(t.mean())
-    if float(np.dot(t.ravel(), t.ravel())) <= 1e-9:
-        return None
-    size = (_fast_len(H + h - 1), _fast_len(W + w - 1))
-    corr = np.fft.irfft2(np.fft.rfft2(image, s=size) * np.conj(np.fft.rfft2(t, s=size)), s=size)
-    corr = corr[: H - h + 1, : W - w + 1]
-    img = image.astype(np.float64)
-    box = np.zeros((H + 1, W + 1), dtype=np.float64)
-    box[1:, 1:] = img.cumsum(axis=0).cumsum(axis=1)         # adds up any window in four lookups
-    sums = box[h:, w:] - box[:-h, w:] - box[h:, :-w] + box[:-h, :-w]
-    box[1:, 1:] = (img * img).cumsum(axis=0).cumsum(axis=1)
-    sumsq = box[h:, w:] - box[:-h, w:] - box[h:, :-w] + box[:-h, :-w]
-    n = h * w
-    denom = np.sqrt(np.maximum(sumsq - sums * sums / n, 0.0) * float(np.dot(t.ravel(), t.ravel())))
-    with np.errstate(divide="ignore", invalid="ignore"):
-        scores = np.divide(corr, denom, out=np.zeros_like(corr), where=denom > 1e-9)
+    oy = np.arange(0, H - h + 1)[:, None]
+    ox = np.arange(0, W - w + 1)[None, :]
+    scores, n, vi, vt = _masked_scores(image, valid, templ, oy, ox)
+    n1 = np.maximum(n, 1)
+    scores = np.where((n >= _OVERLAP_MIN * h * w) & (vi > n1) & (vt > n1), scores, -2.0)
     y, x = divmod(int(np.argmax(scores)), scores.shape[1])
+    if float(scores[y, x]) <= -1.0:
+        return None
     return float(scores[y, x]), x, y
 
 
-def _ncc_over(image: np.ndarray, templ: np.ndarray) -> tuple[float, int, int] | None:
+def _ncc_over(image: np.ndarray, templ: np.ndarray, valid: np.ndarray) -> tuple[float, int, int] | None:
     """Where the template sits on the image when it may hang off any edge (a cropped view: the scaled picture is
     bigger than the panel, so the panel is a sub-window of it). The best score with the template's top-left in
     image pixels (negative when cut off); None when no placement overlaps enough to be a view."""
@@ -271,40 +326,11 @@ def _ncc_over(image: np.ndarray, templ: np.ndarray) -> tuple[float, int, int] | 
     ox = ox_all[ok_x][None, :]          # that can still pass the overlap guards (a cropped view sits well inside)
     oh = oh_all[ok_y][:, None]
     ow = ow_all[ok_x][None, :]
-    n = oh * ow
-    y0 = np.clip(oy, 0, H)
-    y1 = np.clip(oy + h, 0, H)
-    x0 = np.clip(ox, 0, W)
-    x1 = np.clip(ox + w, 0, W)
-    img = image.astype(np.float64)
-    tm = templ.astype(np.float64)
-    ii = np.zeros((H + 1, W + 1), dtype=np.float64)      # window sums over any overlap in four lookups ...
-    ii[1:, 1:] = img.cumsum(axis=0).cumsum(axis=1)
-    iq = np.zeros((H + 1, W + 1), dtype=np.float64)
-    iq[1:, 1:] = (img * img).cumsum(axis=0).cumsum(axis=1)
-    ti = np.zeros((h + 1, w + 1), dtype=np.float64)
-    ti[1:, 1:] = tm.cumsum(axis=0).cumsum(axis=1)
-    tq = np.zeros((h + 1, w + 1), dtype=np.float64)
-    tq[1:, 1:] = (tm * tm).cumsum(axis=0).cumsum(axis=1)
-    ty0, tx0 = y0 - oy, x0 - ox
-    ty1, tx1 = y1 - oy, x1 - ox
-    si = ii[y1, x1] - ii[y0, x1] - ii[y1, x0] + ii[y0, x0]
-    qi = iq[y1, x1] - iq[y0, x1] - iq[y1, x0] + iq[y0, x0]
-    st = ti[ty1, tx1] - ti[ty0, tx1] - ti[ty1, tx0] + ti[ty0, tx0]
-    qt = tq[ty1, tx1] - tq[ty0, tx1] - tq[ty1, tx0] + tq[ty0, tx0]
-    size = (_fast_len(H + h - 1), _fast_len(W + w - 1))
-    corr = np.fft.irfft2(np.fft.rfft2(image, s=size) * np.conj(np.fft.rfft2(templ, s=size)), s=size)
-    cc = corr[oy % size[0], ox % size[1]]     # the overlap's sum of products at every placement
-    with np.errstate(divide="ignore", invalid="ignore"):
-        n1 = np.maximum(n, 1)
-        num = cc - si * st / n1
-        vi = qi - si * si / n1
-        vt = qt - st * st / n1
-        denom = np.sqrt(np.maximum(vi, 0.0) * np.maximum(vt, 0.0))
-        scores = np.divide(num, denom, out=np.full_like(cc, -2.0), where=denom > 1e-9)
-    valid = ((oh >= _MIN_SIDE) & (ow >= _MIN_SIDE) & (n >= _OVERLAP_MIN * min(H * W, h * w))
-             & (vi > n1) & (vt > n1))   # both sides must actually vary (a flat backdrop against a flat backdrop
-    scores = np.where(valid, scores, -2.0)   # divides rounding dust by rounding dust, scoring in the hundreds)
+    scores, n, vi, vt = _masked_scores(image, valid, templ, oy, ox)
+    n1 = np.maximum(n, 1)
+    valid_at = ((oh >= _MIN_SIDE) & (ow >= _MIN_SIDE) & (oh * ow >= need) & (n >= _OVERLAP_MIN * oh * ow)
+                & (vi > n1) & (vt > n1))   # both sides must actually vary (a flat backdrop against a flat backdrop
+    scores = np.where(valid_at, scores, -2.0)   # divides rounding dust by rounding dust, scoring in the hundreds)
     i, j = divmod(int(np.argmax(scores)), scores.shape[1])
     if float(scores[i, j]) <= -1.0:
         return None
@@ -339,8 +365,10 @@ def _detect_panel(arr: np.ndarray) -> tuple[int, int, int, int]:
     """The minimap content panel inside the drawn box (x0, y0, x1, y1, exclusive): the box holds the window's title
     bar, header and frame around the map, and a cropped live view needs them gone before matching. A flood fill
     from the border through smoothly connected colours covers margins, title and frame but stops at the frame's
-    steep edge; the biggest remaining hole is the panel, snapped back out to its frame lines. The whole box when
-    the fill barely spreads (no surround: noise, or art drawn edge to edge)."""
+    steep edge; the biggest remaining hole is the panel, snapped back out to its frame lines. The fill also starts
+    from the box's top rows (the window's title bar): a box drawn a little outside the window has the game's scene
+    on its border, whose step onto the window's dark outline no fill crosses, and the whole box came back (Kerning
+    City, live). The whole box when the fill barely spreads (no surround: noise, or art drawn edge to edge)."""
     H, W, _ = arr.shape
     q = max(1, min(4, round(max(H, W) / _PANEL_SMALL)))
     sw, sh = max(1, W // q), max(1, H // q)
@@ -348,6 +376,7 @@ def _detect_panel(arr: np.ndarray) -> tuple[int, int, int, int]:
                        else Image.fromarray(arr).resize((sw, sh), Image.BILINEAR)).astype(np.int16)
     grown = np.zeros((sh, sw), dtype=bool)
     grown[0, :] = grown[-1, :] = grown[:, 0] = grown[:, -1] = True
+    grown[:max(1, round(_TITLE_SEED * sh)), :] = True
     gaps = []   # the passable steps per direction, computed once: the loop below is then boolean ops only
     for ay, ax in ((1, 0), (-1, 0), (0, 1), (0, -1)):
         rolled = np.roll(small, (ay, ax), (0, 1))
@@ -519,6 +548,7 @@ class Locator:
         self._locked: tuple[str, float, int, int] | None = None
         self._prev: str | None = None
         self._panel: tuple[int, int, tuple[int, int, int, int]] | None = None
+        self._origin = (0, 0)           # the last panel view's top-left in the box (where a hit's offsets count from)
         self._comp_cache: dict[tuple[str, int, int, int], np.ndarray] = {}
         self._ocr: object | None = None
         self._ocr_lock = threading.Lock()
@@ -536,17 +566,21 @@ class Locator:
         self._last_key = None
         self._last_mid = None
 
-    def _panel_view(self, arr: np.ndarray, fresh: bool) -> tuple[np.ndarray, tuple[int, int, int], np.ndarray]:
-        """The content panel with its background colour and its marker-inpainted grey shape: the correlation works
-        on the inpainted shape (markers would fight the art), the dot finder on the raw panel. The detected frame
-        is reused while the box keeps its size; a fresh detection runs when it changes and when alignment fails."""
+    def _panel_view(self, arr: np.ndarray, fresh: bool
+                    ) -> tuple[np.ndarray, tuple[int, int, int], np.ndarray, np.ndarray]:
+        """The content panel with its background colour, its grey shape and which of its pixels are art (not the
+        game's markers): the correlation counts only those (markers would fight the art), the dot finder looks at
+        the raw panel. The detected frame is reused while the box keeps its size; a fresh detection runs when it
+        changes and when alignment fails."""
         H, W, _ = arr.shape
         if fresh or self._panel is None or self._panel[0] != W or self._panel[1] != H:
             self._panel = (W, H, _detect_panel(arr))
         x0, y0, x1, y1 = self._panel[2]
         panel = arr[y0:y1, x0:x1]
+        self._origin = (x0, y0)
         if min(panel.shape[0], panel.shape[1]) < _MIN_SIDE:
             panel = arr
+            self._origin = (0, 0)
         flat = panel.reshape(-1, 3).astype(np.int16)
         sat = flat.max(axis=1) - flat.min(axis=1)
         base = flat[sat <= _BG_SAT]
@@ -557,48 +591,43 @@ class Locator:
             if len(dark) >= _BG_DARK_FRAC * len(flat):
                 bg = np.median(dark, axis=0)
                 bg_rgb = (int(bg[0]), int(bg[1]), int(bg[2]))
-        bgL = 0.299 * bg_rgb[0] + 0.587 * bg_rgb[1] + 0.114 * bg_rgb[2]
         grey = np.asarray(Image.fromarray(panel).convert("L"), dtype=np.float32)
-        clean = grey.copy()
-        clean[_marker_mask(panel)] = bgL
-        return panel, bg_rgb, clean
+        return panel, bg_rgb, grey, ~_marker_mask(panel)
 
     @staticmethod
-    def _shrunk(panel: np.ndarray, mask: np.ndarray, bgL: float, max_side: int
-                ) -> tuple[np.ndarray, float]:
-        """This shrunken panel stage, its marker mask downscaled along (markers blur away when shrunk, so the
-        full-size mask decides) and inpainted with the background."""
+    def _shrunk(panel: np.ndarray, valid: np.ndarray, max_side: int) -> tuple[np.ndarray, np.ndarray, float]:
+        """This shrunken panel stage with its art pixels downscaled along (markers blur away when shrunk, so the
+        full-size mask decides)."""
         ph, pw = panel.shape[0], panel.shape[1]
         k = min(1.0, max_side / max(pw, ph))
         size = (max(1, round(pw * k)), max(1, round(ph * k)))
         grey = np.asarray(Image.fromarray(panel).resize(size, Image.BILINEAR).convert("L"), dtype=np.float32)
-        small_mask = np.asarray(Image.fromarray(mask).resize(size, Image.NEAREST), dtype=bool)
-        grey[small_mask] = bgL
-        return grey, k
+        small_valid = np.asarray(Image.fromarray(valid).resize(size, Image.NEAREST), dtype=bool)
+        return grey, small_valid, k
 
     def locate(self, img: Image.Image) -> Here | None:
-        """The map the box shows, with the yellow dot's spot (fractions of the KB picture); None when the box shows
-        no recognizable header text. The map always comes from the title: a box whose text won't resolve is never
-        guessed from pictures. A known map whose picture won't align (or which has none) still returns, with a
-        None spot."""
+        """The map the box shows, with the yellow dot's spot (fractions of the KB picture) and where the picture lies
+        in the box; None when the box shows no recognizable header text. The map always comes from the title: a box
+        whose text won't resolve is never guessed from pictures. A known map whose picture won't align (or which has
+        none) still returns, with a None spot and view."""
         if img is None or min(img.size) < _MIN_SIDE:
             return None
         arr = np.asarray(img.convert("RGB"))
-        panel, bg, clean = self._panel_view(arr, self._locked is None)
+        panel, bg, grey, valid = self._panel_view(arr, self._locked is None)
         panel_y0 = self._panel[2][1] if self._panel is not None else 0
         text = self._read_text(arr, panel_y0)
         if text is None:
             return None
-        mid = self._resolve_text(text[0], text[1], panel, bg)
+        mid = self._resolve_text(text[0], text[1], panel, bg, valid)
         if mid is None:
             return None
         self._prev = mid
         if self._collapsed or self._pic(mid) is None:
             return Here(mid, None)          # a folded window shows no map to place the dot on
-        hit = self._align(panel, clean, bg, mid)
+        hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
-            panel, bg, clean = self._panel_view(arr, True)
-            hit = self._align(panel, clean, bg, mid)
+            panel, bg, grey, valid = self._panel_view(arr, True)
+            hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
             return Here(mid, None)
         return self._remember(hit, panel)
@@ -691,8 +720,8 @@ class Locator:
             self._header_rows = min(H, max(int(got[1]) + _HEADER_PAD, 1))
         return got[0]
 
-    def _resolve_text(self, map_text: str, street: str | None, panel: np.ndarray, bg: tuple[int, int, int]
-                      ) -> str | None:
+    def _resolve_text(self, map_text: str, street: str | None, panel: np.ndarray, bg: tuple[int, int, int],
+                      valid: np.ndarray) -> str | None:
         """The header's map id: the last header text reuses its map (resolving walks every map name), except across
         same-name ties, whose picture scores are re-read every time. The tie-break order lives in resolve_name;
         the locator only adds the picture scores for it."""
@@ -700,7 +729,7 @@ class Locator:
         cands = _candidates_for(self._graph, map_text, street)
         if len(cands) > 1:
             self._last_key, self._last_mid = key, resolve_name(
-                self._graph, map_text, street, self._prev, self._tie_scores(panel, bg, cands))
+                self._graph, map_text, street, self._prev, self._tie_scores(panel, valid, bg, cands))
             return self._last_mid
         if key != self._last_key:
             self._last_key = key
@@ -755,13 +784,14 @@ class Locator:
 
     # --------------------------------------------------------------- alignment
 
-    def _match(self, img: np.ndarray, mid: str, scale: float, bg: tuple[int, int, int], k: float = 1.0
-               ) -> _Hit | None:
+    def _match(self, img: np.ndarray, valid: np.ndarray, mid: str, scale: float, bg: tuple[int, int, int],
+               k: float = 1.0) -> _Hit | None:
         """This map at exactly this scale on this panel (full-size for the recheck and the refinement, shrunken
         for the coarse trials): None when it cannot be a view of the panel. A picture that fits slides over the
         panel; a bigger one (a cropped live view) has the panel slide over it instead — either way the score is
         the NCC over their overlap, blended towards how much of the panel it explains (a small patch matching a
-        corner at 0.8 is a fluke; the true view covers the panel and keeps its score)."""
+        corner at 0.8 is a fluke; the true view covers the panel and keeps its score). Only the panel's art pixels
+        count (`valid`: the game's markers left out)."""
         pic = self._pic(mid)
         if pic is None:
             return None
@@ -779,12 +809,12 @@ class Locator:
         if sw <= W and sh <= H:
             if sw * sh < _MIN_AREA * W * H:
                 return None
-            found = _ncc(img, templ)
+            found = _ncc(img, templ, valid)
             cover = sw * sh / (W * H)
         else:
             if min(W, sw) * min(H, sh) < _OVERLAP_MIN * min(W * H, sw * sh):
                 return None
-            found = _ncc_over(img, templ)
+            found = _ncc_over(img, templ, valid)
             if found is not None:
                 cover = ((min(W, found[1] + sw) - max(0, found[1]))
                          * (min(H, found[2] + sh) - max(0, found[2])) / (W * H))
@@ -796,9 +826,10 @@ class Locator:
 
     def _trial_scales(self, mid: str, W: int, H: int) -> list[float]:
         """The trial scales for this one map on this panel. A full view sits at its largest fitting scale; a
-        cropped live view sits above fitting (the panel is a sub-window of the scaled picture), so a 1.25 ladder
-        climbs from fitting to the overhang cap — some rung always lands within ~12% of the player's scale, inside
-        the refinement's pull."""
+        cropped live view sits above fitting (the panel is a sub-window of the scaled picture), so a ladder climbs
+        from fitting to the overhang cap — some rung always lands within ~4% of the player's scale, inside the
+        shrunken peak (a crowded live view's spans only ±5%: Kerning City's x2.0 scored 0.32 and 0.27 at the old
+        x1.25 rungs either side, and never locked)."""
         pic = self._pic(mid)
         if pic is None:
             return []
@@ -813,41 +844,41 @@ class Locator:
             for s in (fit / 1.12, fit * 1.12):
                 if 0.5 <= s <= 3.0:
                     out.append(s)
-        s = max(fit, 0.5) * 1.25
+        s = max(fit, 0.5) * _LADDER
         while s <= cap:
             out.append(s)
-            s *= 1.25
+            s *= _LADDER
         return out
 
-    def _coarse_best(self, small: np.ndarray, bg: tuple[int, int, int], k: float, W: int, H: int, mid: str
-                     ) -> _Hit | None:
+    def _coarse_best(self, small: np.ndarray, valid: np.ndarray, bg: tuple[int, int, int], k: float, W: int,
+                     H: int, mid: str) -> _Hit | None:
         """This map's best placing on the shrunken panel over its trial scales (offsets thrown away)."""
         best: _Hit | None = None
         for s in self._trial_scales(mid, W, H):
-            hit = self._match(small, mid, s, bg, k)
+            hit = self._match(small, valid, mid, s, bg, k)
             if hit is not None and (best is None or hit.score > best.score):
                 best = hit
         return best
 
-    def _align(self, panel: np.ndarray, clean: np.ndarray, bg: tuple[int, int, int], mid: str) -> _Hit | None:
+    def _align(self, panel: np.ndarray, grey: np.ndarray, valid: np.ndarray, bg: tuple[int, int, int], mid: str
+               ) -> _Hit | None:
         """This known map's placing on the panel, None when its picture won't fit (the map still stands: the
         caller returns it with a None spot). The locked scale rechecks first — a steady read costs one comparison;
-        else the trial scales run shrunken (markers masked out, as in the panel view) and the best refines
+        else the trial scales run shrunken (markers left out, as in the panel view) and the best refines
         full-size around itself."""
         if self._locked is not None and self._locked[0] == mid:
-            hit = self._match(clean, mid, self._locked[1], bg)
+            hit = self._match(grey, valid, mid, self._locked[1], bg)
             if hit is not None and hit.score >= _ALIGN_MIN:
                 return hit
-        H, W = clean.shape
-        bgL = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]
-        small, k = self._shrunk(panel, _marker_mask(panel), bgL, _COV_MAX)
-        coarse = self._coarse_best(small, bg, k, W, H, mid)
+        H, W = grey.shape
+        small, small_valid, k = self._shrunk(panel, valid, _COV_MAX)
+        coarse = self._coarse_best(small, small_valid, bg, k, W, H, mid)
         if coarse is None:
             return None
         best: _Hit | None = None
         for i in range(7):    # ±12% around the coarse scale: the ladder lands inside it, the peak is broad
             s = min(3.0, max(0.5, coarse.scale * (0.88 + i * (0.24 / 6))))
-            hit = self._match(clean, mid, s, bg)
+            hit = self._match(grey, valid, mid, s, bg)
             if hit is not None and (best is None or hit.score > best.score):
                 best = hit
         if best is None:
@@ -860,28 +891,31 @@ class Locator:
             if i == 0:
                 continue
             s = min(3.0, max(0.5, around * (1 + i * 0.01)))
-            hit = self._match(clean, mid, s, bg)
+            hit = self._match(grey, valid, mid, s, bg)
             if hit is not None and hit.score > best.score:
                 best = hit
         if best.score < _ALIGN_MIN:
             return None
         return best
 
-    def _tie_scores(self, panel: np.ndarray, bg: tuple[int, int, int], mids: list[str]) -> dict[str, float]:
+    def _tie_scores(self, panel: np.ndarray, valid: np.ndarray, bg: tuple[int, int, int], mids: list[str]
+                    ) -> dict[str, float]:
         """Each tied same-name map's coarse fit on this panel, for resolve_name's picture tie-break."""
         H, W = panel.shape[0], panel.shape[1]
-        bgL = 0.299 * bg[0] + 0.587 * bg[1] + 0.114 * bg[2]
-        small, k = self._shrunk(panel, _marker_mask(panel), bgL, _COV_MAX)
+        small, small_valid, k = self._shrunk(panel, valid, _COV_MAX)
         out = {}
         for mid in mids:
-            hit = self._coarse_best(small, bg, k, W, H, mid)
+            hit = self._coarse_best(small, small_valid, bg, k, W, H, mid)
             out[mid] = hit.score if hit is not None else 0.0
         return out
 
-
     def _remember(self, hit: _Hit, arr: np.ndarray) -> Here:
         self._locked = (hit.mid, hit.scale, hit.x, hit.y)
-        return Here(hit.mid, self._dot(arr, hit))
+        art = self._pic(hit.mid)[1]
+        ox, oy = self._origin
+        view = View(ox + hit.x, oy + hit.y, max(1, round(art.shape[1] * hit.scale)),
+                    max(1, round(art.shape[0] * hit.scale)), (ox, oy, ox + arr.shape[1], oy + arr.shape[0]))
+        return Here(hit.mid, self._dot(arr, hit), view)
 
     # ------------------------------------------------------------ player dot
 

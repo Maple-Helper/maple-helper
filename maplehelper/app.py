@@ -194,6 +194,10 @@ class MapleHelperApp:
         from .ui.minimapscan import MinimapScanner
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
+        # blue dots on the game's minimap where its invisible teleports are, from those reads (ui/portaldots.py)
+        from .ui.portaldots import PortalDots
+        self.portal_dots = PortalDots(self.kb, self.settings)
+        self.portal_dots.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
@@ -736,6 +740,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # the scan interval (or nothing) changed: pick it up, no restart needed
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # the hidden-portal dots switched on or off
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
@@ -1130,6 +1137,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.set_kb(self.kb)     # its locator is rebuilt from the new KB on the next read
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.set_kb(self.kb)        # the new KB's hidden portals
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as

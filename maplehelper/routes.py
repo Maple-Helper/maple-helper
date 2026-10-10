@@ -73,6 +73,7 @@ class MapInfo:
     continent: str
     minimap: list | None
     npcs: list[dict]
+    hidden: list[dict] = field(default_factory=list)    # its invisible teleports ({"name", "x", "y"}), see hidden_spots
 
 
 class Graph:
@@ -97,7 +98,7 @@ class Graph:
             # routes.json's name, trimmed ("A Hill West of Henesys " made "to A Hill West of Henesys .")
             self.maps[mid] = MapInfo(mid, (m.get("name") or "").strip() or kb.get(key)["name"], m.get("street") or "",
                                      bool(m.get("town")), "" if cont == availability.NO_CONTINENT else cont,
-                                     m.get("minimap"), list(m.get("npcs") or []))
+                                     m.get("minimap"), list(m.get("npcs") or []), list(m.get("hidden") or []))
         self.edges: dict[str, list[Leg]] = {mid: [] for mid in self.maps}
         for mid, m in raw.items():
             seen = set()
@@ -320,6 +321,13 @@ class Graph:
         npc = next((n for n in self.maps[mid].npcs if str(n.get("id")) == slug), None)
         spot = self._spot(mid, npc) if npc else None
         return (mid, spot) if spot else None
+
+    def hidden_spots(self, mid: str) -> list[tuple[float, float]]:
+        """The map's invisible teleports (press-up and touch portals the game's minimap never draws), each a spot on
+        its minimap picture. [] for a map the graph doesn't have, or one with no picture."""
+        if mid not in self.maps:
+            return []
+        return [s for s in (self._spot(mid, p) for p in self.maps[mid].hidden) if s is not None]
 
 
 def side(spot: tuple[float, float] | None) -> str:

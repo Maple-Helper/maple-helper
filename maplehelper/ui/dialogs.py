@@ -1218,6 +1218,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
                                              "scan_every_10")])   # (SCAN_CHOICES, in order)
         self.scan.setCurrentIndex(SCAN_CHOICES.index(scan_value))
         sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
+        self.hidden_portals = Switch(settings["minimap_hidden_portals"])
+        sec.add_row(t("minimap_hidden_portals"), self.hidden_portals, hint=t("minimap_hidden_portals_hint"))
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1828,6 +1830,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
             "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
+            "minimap_hidden_portals": self.hidden_portals.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

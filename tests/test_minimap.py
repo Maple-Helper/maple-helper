@@ -74,6 +74,24 @@ def test_live_kerning_city_without_the_dot_in_view(loc):
 
 
 @needs_kb
+def test_live_kerning_city_crowded_drawn_wide_places_the_dot_and_the_view(loc):
+    """Kerning City drawn a little outside the window (the game's scene on the box's border) and crowded with other
+    players' red dots: the panel is found from the title bar down, the markers are left out of the matching, and
+    the picture aligns. The player stands on the hidden portal to The Swamp of Despair (mid00): projected through
+    the read's view, it lands on the yellow dot, which is what the blue hidden-portal dots are drawn from."""
+    here = loc.locate(_box("minimap_kerning_hidden_portal_live.png"))
+    assert here is not None and here.map == "010003000"
+    assert here.spot == pytest.approx((0.318, 0.862), abs=0.02)
+    v = here.view
+    assert v is not None and v.panel[1] > 100           # the panel under the header, not the whole box
+    portal = v.at(loc._graph._spot("010003000", {"x": -849, "y": 373}))
+    player = v.at(here.spot)
+    assert portal is not None and player is not None
+    assert abs(portal[0] - player[0]) <= 4 and abs(portal[1] - player[1]) <= 4
+    assert v.at((0.98, 0.5)) is None                    # the map's east end is outside the cropped window
+
+
+@needs_kb
 def test_live_collapsed_window_in_a_building(loc):
     """Inside a building the game folds the window to one title line, 'Victoria Road : Warriors' Sanctuary', over
     the game itself: the map from that line (up where the title bar's furniture is dropped), no spot (no map
