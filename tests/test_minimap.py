@@ -120,13 +120,17 @@ def test_follow_tracks_the_scroll_and_drops_another_map(graph):
     ("minimap_forest_of_wisdom_live.png", "010002020", (54, 58), 252),
     # the box cuts the window off on the right: the panel runs to that edge (the fill left that side open)
     ("minimap_forest_south_cut_live.png", "010002030", (8, 147), 414),
+    # a dense scene behind the map: the right placing scores only 0.34 (wrong maps reached 0.61 on other captures)
+    # but stands 0.13 clear of any other placing; the score bar (0.35) hid the dots here, and the cold scale search
+    # by score picked x0.8 over the true x2.0 (live)
+    ("minimap_forest_south_dense_live.png", "010002030", (9, 77), 412),
 ])
 def test_a_see_through_minimap_is_placed_and_followed_by_its_colours(graph, fixture, mid, at, width):
     """The Ellinia forests' minimaps are drawn see-through over the game's own scene: the grey shape matched 0.14 to
     0.16 where they truly lay (the bar is 0.5), so they never placed and showed no hidden-portal dots (live). The
     picture's colours, compared only where it draws, place them; the follow then tracks them as the minimap scrolls
     sideways and up and down (jumping and climbing scroll a tall map: the dots drifted, live), and loses them on a
-    black loading screen."""
+    black loading screen or another map's minimap (a teleport)."""
     from PIL import Image
 
     from maplehelper.minimap import Locator
@@ -145,6 +149,9 @@ def test_a_see_through_minimap_is_placed_and_followed_by_its_colours(graph, fixt
         assert (v.x, v.y) == pytest.approx((here.view.x + dx, here.view.y + dy), abs=1.0), (dx, dy)
         loc.follow(box)
     assert loc.follow(Image.new("RGB", box.size)) == (mid, None)
+    loc.follow(box)
+    other = _box("minimap_perion_live.png").resize(box.size)
+    assert loc.follow(other) == (mid, None)
 
 
 @needs_kb

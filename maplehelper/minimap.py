@@ -97,9 +97,13 @@ _OVERLAP_MIN = 0.5    # ... while still covering this much of the smaller side: 
 _FOLLOW_MIN = 0.35  # Locator.follow keeps the locked map while it matches this well at half size: the right map read
                     # 0.53-0.56 on a crowded live Kerning City, other maps' minimaps 0.13 at most, a loading screen none
 _FOLLOW_NEAR = 24   # ... preferring a placing this close (box pixels) to the last one (a brick wall repeats itself)
-_SEE_MIN = 0.35      # a see-through match (Locator._see_match) places the map from this score ... the right placing
-                     # read 0.40-0.55 on two live see-through forests, any other placing or map 0.37 at most
-_SEE_MARGIN = 0.08   # ... and this far above the best placing more than _SEE_APART away (a repeating forest)
+_SEE_MIN = 0.25      # a see-through match (Locator._see_match) places the map only above this score (garbage below)
+_SEE_MARGIN = 0.10   # ... and standing this far above the best placing more than _SEE_APART away. The margin decides,
+                     # not the score: a wrong map scored up to 0.61 on live captures (a dense scene behind matches
+                     # anything) with a margin of 0.08 at most, while the right map stayed 0.33-0.35 on a 40 s live
+                     # recording of The Forest South of Ellinia, its margin never under 0.12. A bar on the score
+                     # there flickered the dots on and off where the player stood
+_SEE_TIE = 0.03      # follow: the placing nearest the last one wins over the best anywhere this close to it
 _SEE_APART = 12      # (box pixels)
 _SEE_SIDE = 160      # the see-through scale sweep runs this small (longest side), refined at half size
 _PANEL_SMALL = 170   # the surround fill that finds the content panel runs this small (longest side): a blurred 1px
@@ -757,13 +761,16 @@ class Locator:
         oy = np.arange(-(sh - 1), H)[:, None]
         ox = np.arange(-(sw - 1), W)[None, :]
         scores = _see_scores(small, small_valid, small_art, oy, ox)
+        i, j = divmod(int(np.argmax(scores)), scores.shape[1])
         pick = scores
         if near is not None:
+            # the nearest placing when it is as good as the best anywhere (a repeating forest has twins); never a
+            # weaker one nearby over the true one farther off (a fast scroll leaves the near window)
             close = (np.abs(oy - near[1] * k) <= _FOLLOW_NEAR * k) & (np.abs(ox - near[0] * k) <= _FOLLOW_NEAR * k)
-            pick = np.where(close, scores, -2.0)
-            if float(pick.max()) < _SEE_MIN:
-                pick = scores
-        i, j = divmod(int(np.argmax(pick)), pick.shape[1])
+            local = np.where(close, scores, -2.0)
+            if float(local.max()) >= float(scores[i, j]) - _SEE_TIE:
+                pick = local
+                i, j = divmod(int(np.argmax(pick)), pick.shape[1])
         best = float(pick[i, j])
         far = (np.abs(oy - oy[i, 0]) > _SEE_APART * k) | (np.abs(ox - ox[0, j]) > _SEE_APART * k)
         rest = float(np.where(far, scores, -2.0).max())
@@ -791,7 +798,9 @@ class Locator:
         """This map placed see-through when its grey shape won't align (the Ellinia forests are drawn over the game's
         own scene: Wisdom's art read 0.14 where it lay, against the bar of 0.5, and showed no hidden-portal dots).
         The last placed scale is tried first (the game's minimap zoom is the same from map to map); else the scales
-        are swept shrunken, the best refined in 1% steps at twice that size, then placed full size."""
+        are swept shrunken, and the four best by score and the four best by margin are each refined at half size,
+        the most distinct (the highest margin) placed full size. By score alone a dense scene behind the map picked
+        a wrong scale (x0.8 outscored the true x2.0 on The Forest South of Ellinia, live)."""
         if self._pic(mid) is None:
             return None
         if self._scale_prior is not None:
@@ -800,27 +809,31 @@ class Locator:
                 return hit
         ph, pw = panel.shape[0], panel.shape[1]
         k = min(1.0, _SEE_SIDE / max(pw, ph))
-        best: tuple[float, float] | None = None
+        coarse: list[tuple[float, float, float]] = []
         s = 0.8
         while s <= 3.0:
             got = self._see_match(panel, valid, mid, s, k)
-            if got is not None and (best is None or got[0] > best[0]):
-                best = (got[0], s)
+            if got is not None:
+                coarse.append((got[0], got[3], s))
             s *= 1.05
+        if not coarse:
+            return None
+        cands = ({c[2] for c in sorted(coarse, key=lambda c: -c[0])[:4]}
+                 | {c[2] for c in sorted(coarse, key=lambda c: -c[1])[:4]})
+        k2 = min(1.0, max(k, 0.5))
+        best: tuple[float, float] | None = None              # (margin, scale)
+        for c in sorted(cands):
+            for f in (0.97, 0.985, 1.0, 1.015, 1.03):
+                got = self._see_match(panel, valid, mid, c * f, k2)
+                if got is not None and (best is None or got[3] > best[0]):
+                    best = (got[3], c * f)
         if best is None:
             return None
-        k2 = min(1.0, max(k, 0.5))
-        around = best[1]
-        for i in range(-4, 5):
-            s = around * (1 + i * 0.01)
-            got = self._see_match(panel, valid, mid, s, k2)
-            if got is not None and got[0] > best[0]:
-                best = (got[0], s)
         # ... and the neighbouring scales once at full size: at half size two scales 1% apart can tie, 2 px apart
         found = None
         for s in (best[1] * 0.99, best[1], best[1] * 1.01):
             got = self._see_match(panel, valid, mid, s, 1.0)
-            if got is not None and (found is None or got[0] > found[1][0]):
+            if got is not None and (found is None or got[3] > found[1][3]):
                 found = (s, got)
         return self._see_hit(mid, found[0], found[1]) if found is not None else None
 
@@ -1150,7 +1163,7 @@ class Locator:
             ph, pw = panel.shape[0], panel.shape[1]
             k = min(1.0, max(_MIN_SIDE, round(max(pw, ph) / 2)) / max(pw, ph))
             got = self._see_match(panel, ~_marker_mask(panel), mid, scale, k, near=(lx, ly))
-            placed = (None if got is None or got[0] < _SEE_MIN
+            placed = (None if got is None or got[0] < _SEE_MIN or got[3] < _SEE_MARGIN
                       else (round(2 * got[1]) / 2, round(2 * got[2]) / 2))
         if placed is None:
             return mid, None
