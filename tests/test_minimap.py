@@ -116,6 +116,41 @@ def test_follow_tracks_the_scroll_and_drops_another_map(graph):
 
 
 @needs_kb
+def test_a_see_through_minimap_is_placed_by_the_games_markers(graph):
+    """The Forest of Wisdom's minimap is drawn see-through over the game's scene: its art matched at 0.14 where it
+    truly lay (the bar is 0.5), so it never aligned and showed no hidden-portal dots (live). Its two blue portal
+    rings place it instead, and the yellow dot is found on it; the follow then tracks those rings as the minimap
+    scrolls, and loses them on a black loading screen."""
+    from PIL import Image
+
+    from maplehelper.minimap import Locator
+    loc = Locator(graph)
+    box = _box("minimap_forest_of_wisdom_live.png")
+    here = loc.locate(box)
+    assert here is not None and here.map == "010002020" and here.view is not None
+    assert (here.view.x, here.view.y) == pytest.approx((52, 56), abs=2)
+    assert here.view.w == pytest.approx(254, abs=4)
+    assert here.spot == pytest.approx((0.67, 0.47), abs=0.02)
+    # its hidden portals land on the picture now (up10, the tree trunk right of the start, MeowDB's map data)
+    assert here.view.at(graph._spot("010002020", {"x": 478, "y": 208})) is not None
+    arr = np.asarray(box).copy()
+    x0, y0, x1, y1 = here.view.panel
+    arr[y0:y1, x0:x1] = np.roll(arr[y0:y1, x0:x1], 10, axis=1)
+    mid, v = loc.follow(Image.fromarray(arr))
+    assert mid == "010002020" and v.x == pytest.approx(here.view.x + 10, abs=1.0)
+    assert loc.follow(Image.new("RGB", box.size)) == ("010002020", None)
+
+
+@needs_kb
+def test_a_map_off_the_routes_is_still_named(graph):
+    """A map the KB says is not in the game is never on a route, but the player standing on it is still read
+    there: the reader names every map the KB has (it said nothing and kept the last map, live)."""
+    from maplehelper.minimap import resolve_name
+    off = next(mid for mid, m in graph.known.items() if mid not in graph.maps and m.name == "Forgotten Hollow")
+    assert resolve_name(graph, "Forgotten Hollow", "Shallow Passage") == off
+
+
+@needs_kb
 def test_a_read_that_fails_to_align_its_own_map_keeps_the_follow(graph, monkeypatch):
     """Mid-walk on a crowded map a read can name the map yet not align its picture: the follow went with it, and
     the hidden-portal dots froze where the last good read left them while the minimap scrolled on (live). The same
@@ -127,6 +162,7 @@ def test_a_read_that_fails_to_align_its_own_map_keeps_the_follow(graph, monkeypa
     box = _box("minimap_kerning_hidden_portal_live.png")
     first = loc.locate(box)
     monkeypatch.setattr(loc, "_align", lambda *a: None)
+    monkeypatch.setattr(loc, "_anchor", lambda *a, **k: None)     # neither the art nor the markers place it
     assert loc.locate(box) == Here("010003000", None)
     mid, v = loc.follow(Image.fromarray(np.roll(np.asarray(box), 6, axis=1)))
     assert mid == "010003000" and v.x == pytest.approx(first.view.x + 6, abs=1.0)
@@ -321,8 +357,10 @@ def test_map_without_a_picture_keeps_the_map(graph):
 
     from maplehelper.minimap import Here, Locator
     from maplehelper.routes import MapInfo
+    info = MapInfo("999", "Testville", "Test Street", True, "", None, [])
     stub = SimpleNamespace(
-        maps={"999": MapInfo("999", "Testville", "Test Street", True, "", None, [])},
+        maps={"999": info},
+        known={"999": info},
         edges={},
         minimap=lambda mid: None,
     )

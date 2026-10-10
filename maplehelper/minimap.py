@@ -97,6 +97,10 @@ _OVERLAP_MIN = 0.5    # ... while still covering this much of the smaller side: 
 _FOLLOW_MIN = 0.35  # Locator.follow keeps the locked map while it matches this well at half size: the right map read
                     # 0.53-0.56 on a crowded live Kerning City, other maps' minimaps 0.13 at most, a loading screen none
 _FOLLOW_NEAR = 24   # ... preferring a placing this close (box pixels) to the last one (a brick wall repeats itself)
+_MARKS_MIN = 2         # Locator._anchor places a map by the game's markers only with this many agreeing
+_MARK_PX = (12, 400)   # a marker blob's size in pixels (a ring ~136 and a pill ~96 at x2): smaller is a speck,
+                       # bigger a patch of the scene showing through a see-through minimap
+_MARK_NEAR = 60        # Locator.follow on markers: the new placing within this of the last (box pixels)
 _PANEL_SMALL = 170   # the surround fill that finds the content panel runs this small (longest side): a blurred 1px
                       # outline still blocks the fill there, while quarter-scale would ramp it into a passable slope
 _PANEL_STEP = 16  # a colour step this big stops the fill: frames and title edges are far steeper, their insides far
@@ -145,9 +149,9 @@ def _ratio(a: str, b: str) -> float:
 
 
 def _deterministic(graph, mids: list[str]) -> str:
-    """One map id from several sharing a name, without looking at any picture: the town first, then the one with
-    the most ways out, then the id — the same order routes.exact picks."""
-    return min(mids, key=lambda m: (not graph.maps[m].town, -len(graph.edges.get(m, ())), m))
+    """One map id from several sharing a name, without looking at any picture: one in the game first (the KB's open
+    maps), then the town, then the one with the most ways out, then the id — the same order routes.exact picks."""
+    return min(mids, key=lambda m: (m not in graph.maps, not graph.known[m].town, -len(graph.edges.get(m, ())), m))
 
 
 def _candidates_for(graph, map_text: str, street_text: str | None = None) -> list[str]:
@@ -156,12 +160,12 @@ def _candidates_for(graph, map_text: str, street_text: str | None = None) -> lis
     clear margin. Shared with the locator, which adds the picture tie-break on top."""
     if not map_text or not map_text.strip():
         return []
-    exact = [mid for mid, m in graph.maps.items() if _plain(m.name) == _plain(map_text)]
+    exact = [mid for mid, m in graph.known.items() if _plain(m.name) == _plain(map_text)]
     if exact:
         cands = exact
     else:
         best: dict[str, float] = {}
-        for m in graph.maps.values():
+        for m in graph.known.values():
             s = _ratio(map_text, m.name)
             if m.name not in best or s > best[m.name]:
                 best[m.name] = s
@@ -170,9 +174,9 @@ def _candidates_for(graph, map_text: str, street_text: str | None = None) -> lis
             return []
         if len(ranked) > 1 and ranked[0][1] - ranked[1][1] < _NAME_MARGIN:
             return []
-        cands = [mid for mid, m in graph.maps.items() if m.name == ranked[0][0]]
+        cands = [mid for mid, m in graph.known.items() if m.name == ranked[0][0]]
     if len(cands) > 1 and street_text and street_text.strip():
-        on_street = [mid for mid in cands if _street_ok(street_text, graph.maps[mid].street)]
+        on_street = [mid for mid in cands if _street_ok(street_text, graph.known[mid].street)]
         if on_street:
             cands = on_street
     return cands
@@ -507,6 +511,107 @@ def _marker_mask(arr: np.ndarray) -> np.ndarray:
     return red | green | blue | yellow | cyan
 
 
+def _markers(panel: np.ndarray) -> dict[str, np.ndarray]:
+    """The game's own markers on the panel, their centres by kind: "portal" (the blue rings) and "npc" (the green
+    pills). Only compact blobs of a marker's size count: a see-through minimap shows the game's scene, whose leaves
+    and sky can pass the colour test in patches, never as small round blobs."""
+    rgb = panel.astype(np.int16)
+    R, G, B = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+    masks = {"portal": (B > 140) & (R < 120) & ((B - R) > 60), "npc": (G > 150) & (R < 100) & (B < 100)}
+    out = {}
+    for kind, mask in masks.items():
+        found = []
+        for blob in _blobs(mask):
+            if not _MARK_PX[0] <= len(blob) <= _MARK_PX[1]:
+                continue
+            ys = np.fromiter((y for y, _ in blob), dtype=np.float64, count=len(blob))
+            xs = np.fromiter((x for _, x in blob), dtype=np.float64, count=len(blob))
+            w, h = xs.max() - xs.min() + 1, ys.max() - ys.min() + 1
+            if max(w, h) <= 2.5 * min(w, h) and len(blob) >= 0.3 * w * h:
+                found.append((xs.mean(), ys.mean()))
+        out[kind] = np.asarray(found, dtype=np.float64).reshape(-1, 2)
+    return out
+
+
+def _fit_marks(found: dict[str, np.ndarray], known: dict[str, np.ndarray], prior: float | None, fixed: bool,
+               near: tuple[float, float] | None, size: tuple[int, int]) -> tuple[float, float, float, int] | None:
+    """The scale and offset that lay the known markers (picture pixels, by kind) onto the found ones (panel
+    pixels): (scale, x, y, how many agree), None with fewer than _MARKS_MIN agreeing or too few of those in view.
+    Scales come from pairs of markers of a kind (no rotation: the vector between two found ones is the scaled
+    vector between two known ones), plus the prior; with `fixed`, the prior only. `near`: only offsets this close
+    to it (follow)."""
+    kinds = [k for k in known if len(found.get(k, ())) and len(known[k])]
+    if not kinds:
+        return None
+    scales: list[float] = [prior] if prior else []
+    if not fixed:
+        votes: dict[float, int] = {}
+        for k in kinds:
+            D, K = found[k], known[k]
+            if len(D) < 2 or len(K) < 2:
+                continue
+            i, j = np.triu_indices(len(D), 1)
+            a, b = np.triu_indices(len(K), 1)
+            dd = (D[j] - D[i])[:, None, :]
+            kk = (K[b] - K[a])[None, :, :]
+            k2 = (kk * kk).sum(axis=2)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                s = (dd * kk).sum(axis=2) / k2
+            resid = np.linalg.norm(dd - s[:, :, None] * kk, axis=2)
+            ok = (k2 > 16) & (s > 0.8) & (s < 3.2) & (resid < 2 * np.maximum(3.0, 2.0 * np.nan_to_num(s)))
+            for v in np.round(s[ok], 2):
+                votes[float(v)] = votes.get(float(v), 0) + 1
+        scales += [v for v, _ in sorted(votes.items(), key=lambda kv: -kv[1])[:8]]
+    if not scales:
+        return None
+    best = None
+    for s in dict.fromkeys(scales):
+        tol = max(3.0, 2.0 * s)
+        offsets = np.concatenate([(found[k][:, None, :] - s * known[k][None, :, :]).reshape(-1, 2) for k in kinds])
+        if near is not None:
+            offsets = offsets[np.abs(offsets - np.asarray(near)).max(axis=1) <= _MARK_NEAR]
+        if not len(offsets):
+            continue
+        count = np.zeros(len(offsets), dtype=int)
+        for k in kinds:
+            proj = s * known[k][None, :, :] + offsets[:, None, :]
+            dist = np.linalg.norm(proj[:, :, None, :] - found[k][None, None, :, :], axis=3).min(axis=2)
+            count += (dist < tol).sum(axis=1)
+        i = int(np.argmax(count))
+        n = int(count[i])
+        rank = (n, -(abs(s - prior) if prior else 0.0))
+        if best is None or rank > best[0]:
+            best = (rank, s, offsets[i])
+    if best is None:
+        return None
+    _, s, off = best
+    # refine the offset (and the scale, unless fixed, with three or more spread out) on the agreeing pairs
+    tol = max(3.0, 2.0 * s)
+    pairs = []
+    for k in kinds:
+        proj = s * known[k] + off
+        dist = np.linalg.norm(proj[:, None, :] - found[k][None, :, :], axis=2)
+        for m, d in enumerate(dist.argmin(axis=1)):
+            if dist[m, d] < tol:
+                pairs.append((known[k][m], found[k][d]))
+    if len(pairs) < _MARKS_MIN:
+        return None
+    K = np.asarray([p[0] for p in pairs])
+    D = np.asarray([p[1] for p in pairs])
+    if not fixed and len(pairs) >= 3 and np.ptp(K, axis=0).max() > 20:
+        kc, dc = K - K.mean(axis=0), D - D.mean(axis=0)
+        s = float((kc * dc).sum() / (kc * kc).sum())
+    off = (D - s * K).mean(axis=0)
+    # most of the markers that fall in view must agree (other players' pills can hide a few, never most)
+    W, H = size
+    in_view = sum(int(((s * known[k][:, 0] + off[0] >= 0) & (s * known[k][:, 0] + off[0] < W)
+                       & (s * known[k][:, 1] + off[1] >= 0) & (s * known[k][:, 1] + off[1] < H)).sum())
+                  for k in kinds)
+    if len(pairs) < max(_MARKS_MIN, 0.4 * in_view):
+        return None
+    return s, float(off[0]), float(off[1]), len(pairs)
+
+
 def _art_blob(yellow: np.ndarray, art_rs: np.ndarray, region: np.ndarray, ys: np.ndarray, xs: np.ndarray
               ) -> tuple[float, float]:
     """How much of this yellow blob the KB art explains: its best overlap with the art's yellow over small shifts
@@ -569,6 +674,8 @@ class Locator:
         # each aligned read; its own lock, as follow() runs on another thread than locate()
         self._follow: tuple | None = None
         self._follow_lock = threading.Lock()
+        self._by_marks = False          # the lock came from the game's markers (see _anchor), not the art
+        self._scale_prior: float | None = None   # the last placed scale: the game's minimap zoom, the same map to map
 
     def reset(self) -> None:
         """Forget the remembered map, scale and header: the next locate() reads the whole box again."""
@@ -639,14 +746,47 @@ class Locator:
         if self._collapsed or self._pic(mid) is None:
             self._unfollow(mid)
             return Here(mid, None)          # a folded window shows no map to place the dot on
-        hit = self._align(panel, grey, valid, bg, mid)
+        hit, by_marks = None, False
+        if self._by_marks and self._locked is not None and self._locked[0] == mid:
+            hit = self._anchor(panel, mid)              # a see-through minimap: its markers again, not the art first
+            by_marks = hit is not None
+        if hit is None:
+            hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
             panel, bg, grey, valid = self._panel_view(arr, True)
             hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
+            hit = self._anchor(panel, mid)
+            by_marks = hit is not None
+        if hit is None:
             self._unfollow(mid)
             return Here(mid, None)
+        self._by_marks = by_marks
         return self._remember(hit, panel, bg)
+
+    def _known_marks(self, mid: str) -> dict[str, np.ndarray]:
+        """The game's own markers on this map's picture (routes.Graph.marks), in picture pixels, by kind."""
+        art = self._pic(mid)[1]
+        out: dict[str, list] = {}
+        for kind, fx, fy in self._graph.marks(mid):
+            out.setdefault(kind, []).append((fx * art.shape[1], fy * art.shape[0]))
+        return {k: np.asarray(v, dtype=np.float64) for k, v in out.items()}
+
+    def _anchor(self, panel: np.ndarray, mid: str, near: tuple[float, float] | None = None,
+                scale: float | None = None) -> _Hit | None:
+        """This map placed by the game's own markers instead of its art: the blue portal rings and the green NPC
+        pills sit at known spots, wherever the picture is. Some minimaps are drawn see-through over the game's
+        scene (The Forest of Wisdom: the art scored 0.14 where it truly lay, the bar is 0.5), and only the markers
+        still say where the map is. None with fewer than _MARKS_MIN markers agreeing."""
+        known = self._known_marks(mid)
+        if sum(len(v) for v in known.values()) < _MARKS_MIN:
+            return None
+        found = _fit_marks(_markers(panel), known, scale or self._scale_prior, scale is not None, near,
+                           (panel.shape[1], panel.shape[0]))
+        if found is None:
+            return None
+        s, x, y, n = found
+        return _Hit(mid, float(n), s, round(x), round(y))
 
     def _unfollow(self, mid: str) -> None:
         """A read named this map but placed no picture: follow() stops tracking another map's (a teleport). Its own
@@ -701,7 +841,7 @@ class Locator:
         the map line is the last one down, the street the one over it. Also the header's bottom row, which the next
         reads crop to (None for a folded title: unfolded, the header sits much lower). None when no header line
         stays. Sets self._collapsed for the read."""
-        streets = [m.street for m in self._graph.maps.values()]
+        streets = [m.street for m in self._graph.known.values()]
         for t, yc, _b in rows:
             got = collapsed_title(t, streets) if yc < _TOP_BAND * height else None
             if got is not None and _candidates_for(self._graph, *got):
@@ -712,11 +852,11 @@ class Locator:
                 if t.strip() and not is_chrome(t, yc, height) and (panel_y0 < 40 or b <= panel_y0 + 8)]
         if not kept:
             return None
-        if len(kept) == 1 and self._prev in self._graph.maps:
+        if len(kept) == 1 and self._prev in self._graph.known:
             # the street line read alone (the map line under it missed): "Victoria Road" is a map's name too, and
             # the player seemed to jump there and back every few seconds (live, 2026-10-08). The known map's own
             # street is never taken for a map name; the next read gets both lines.
-            here = self._graph.maps[self._prev]
+            here = self._graph.known[self._prev]
             only = kept[0][0]
             if _street_ok(only, here.street) and not _street_ok(only, self._graph.name(self._prev)):
                 return None
@@ -934,6 +1074,7 @@ class Locator:
 
     def _remember(self, hit: _Hit, arr: np.ndarray, bg: tuple[int, int, int]) -> Here:
         self._locked = (hit.mid, hit.scale, hit.x, hit.y)
+        self._scale_prior = hit.scale
         art = self._pic(hit.mid)[1]
         ox, oy = self._origin
         rect = (ox, oy, ox + arr.shape[1], oy + arr.shape[0])
@@ -941,30 +1082,49 @@ class Locator:
                     max(1, round(art.shape[0] * hit.scale)), rect)
         box = (self._panel[0], self._panel[1]) if self._panel is not None else (0, 0)
         with self._follow_lock:
-            self._follow = (hit.mid, hit.scale, float(hit.x), float(hit.y), bg, rect, box)
+            self._follow = (hit.mid, hit.scale, float(hit.x), float(hit.y), bg, rect, box, self._by_marks)
         return Here(hit.mid, self._dot(arr, hit), view)
 
     def follow(self, img: Image.Image) -> tuple[str, View | None] | None:
         """Where the last aligned map's picture lies in the box now, without reading the title: the game scrolls a
         cropped minimap as the player walks, and a whole read (the OCR, then the alignment) every second made
         anything drawn over it jump. The locked map at its locked scale is matched at half size (~15 ms), nearest
-        the last placing first, then anywhere in the panel (a hidden passage moves the view far at once).
-        (map, view), with a None view when the picture no longer matches (another map, the loading screen); None
-        when no read has aligned a map yet."""
+        the last placing first, then anywhere in the panel (a hidden passage moves the view far at once); a map
+        placed by the game's markers (a see-through minimap), or whose art no longer matches, is followed by its
+        markers near the last placing. (map, view), with a None view when neither finds it (another map, the loading
+        screen); None when no read has aligned a map yet."""
         with self._follow_lock:
             snap = self._follow
         if snap is None:
             return None
-        mid, scale, lx, ly, bg, rect, box = snap
+        mid, scale, lx, ly, bg, rect, box, by_marks = snap
         if img is None or img.size != box:
             return mid, None
         x0, y0, x1, y1 = rect
         panel = np.asarray(img.convert("RGB"))[y0:y1, x0:x1]
+        placed = None if by_marks else self._follow_art(panel, mid, scale, lx, ly, bg)
+        if placed is None:
+            found = _fit_marks(_markers(panel), self._known_marks(mid), scale, True, (lx, ly),
+                               (panel.shape[1], panel.shape[0]))
+            placed = None if found is None else (round(2 * found[1]) / 2, round(2 * found[2]) / 2)
+        if placed is None:
+            return mid, None
+        x, y = placed
+        with self._follow_lock:
+            if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
+                self._follow = (mid, scale, x, y, bg, rect, box, by_marks)
+        art = self._pic(mid)[1]
+        return mid, View(x0 + x, y0 + y, max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)),
+                         rect)
+
+    def _follow_art(self, panel: np.ndarray, mid: str, scale: float, lx: float, ly: float,
+                    bg: tuple[int, int, int]) -> tuple[float, float] | None:
+        """follow()'s art match: the picture's top-left in the panel to half a pixel, None below _FOLLOW_MIN."""
         ph, pw = panel.shape[0], panel.shape[1]
         small, valid, k = self._shrunk(panel, ~_marker_mask(panel), max(_MIN_SIDE, round(max(pw, ph) / 2)))
         templ = self._comp(mid, scale, bg, k)
         if templ is None or not bool(valid.any()):
-            return mid, None
+            return None
         H, W = small.shape
         h, w = templ.shape
         need = _OVERLAP_MIN * min(H * W, h * w)
@@ -974,7 +1134,7 @@ class Locator:
         ow_all = np.minimum(W, ox_all + w) - np.maximum(0, ox_all)
         ok_y, ok_x = oh_all * min(W, w) >= need, ow_all * min(H, h) >= need   # (only these can pass the guard)
         if not bool(ok_y.any()) or not bool(ok_x.any()):
-            return mid, None
+            return None
         oy, ox = oy_all[ok_y][:, None], ox_all[ok_x][None, :]
         oh, ow = oh_all[ok_y][:, None], ow_all[ok_x][None, :]
         scores, n, vi, vt = _masked_scores(small, valid, templ, oy, ox)
@@ -987,7 +1147,7 @@ class Locator:
             pick = scores
         i, j = divmod(int(np.argmax(pick)), pick.shape[1])
         if float(pick[i, j]) < _FOLLOW_MIN:
-            return mid, None
+            return None
 
         def sub(a: float, b: float, c: float) -> float:
             """The peak's sub-pixel offset from three neighbouring scores (a parabola through them)."""
@@ -998,14 +1158,7 @@ class Locator:
         fx = sub(pick[i, j - 1], pick[i, j], pick[i, j + 1]) if 0 < j < pick.shape[1] - 1 else 0.0
         # to half a pixel: the peak's sub-pixel fit wobbles by hundredths while nothing moves, and every wobble was
         # a "moved" signal and a repaint
-        x = round(2 * (float(ox[0, j]) + float(fx)) / k) / 2
-        y = round(2 * (float(oy[i, 0]) + float(fy)) / k) / 2
-        with self._follow_lock:
-            if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
-                self._follow = (mid, scale, x, y, bg, rect, box)
-        art = self._pic(mid)[1]
-        return mid, View(x0 + x, y0 + y, max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)),
-                         rect)
+        return (round(2 * (float(ox[0, j]) + float(fx)) / k) / 2, round(2 * (float(oy[i, 0]) + float(fy)) / k) / 2)
 
     # ------------------------------------------------------------ player dot
 
