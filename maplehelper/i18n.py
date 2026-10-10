@@ -403,6 +403,7 @@ STRINGS = {
     "sec_appearance": {"he": "תצוגה", "en": "Display"},
     "sec_audio": {"he": "שמע", "en": "Audio"},
     "sec_answers": {"he": "תשובות", "en": "Answers"},
+    "sec_minimap": {"he": "מיני-מפה", "en": "Minimap"},
     "sec_system": {"he": "פרטיות ומערכת", "en": "Privacy & system"},
     "sec_data": {"he": "נתונים", "en": "Data"},
     "sec_ai": {"he": "חשבון AI", "en": "AI account"},

@@ -1203,7 +1203,11 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("answer_length"), self.length)
         self.instant = Switch(settings["instant_answers"])
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
-        # how often the minimap box is read (where the player is, under the level on the character card)
+        lay.addWidget(sec)
+
+        # the minimap: how often its box is read (where the player is, under the level on the character card), and
+        # the hidden-portal dots drawn over it
+        sec = Section(t("sec_minimap"), rtl)
         # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
         try:
             scan_value = float(settings["minimap_scan_interval"])
