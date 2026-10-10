@@ -771,6 +771,7 @@ class Locator:
         self._ocr_lock = threading.Lock()
         self._ocr_failed = False
         self._header_rows: int | None = None
+        self._text_bottom: float | None = None   # the last read header's bottom in the box (no map above it)
         self._last_key: tuple | None = None
         self._last_mid: str | None = None
         self._collapsed = False         # the last read header was a folded window's one-line title (no map shown)
@@ -1104,13 +1105,16 @@ class Locator:
 
     def _read_text(self, arr: np.ndarray, panel_y0: int) -> tuple[str, str | None] | None:
         """The header's (map line, street line): the learned header crop first (a small strip), the whole box when
-        that yields no header (a redrawn box heals the crop)."""
+        that yields no header (a redrawn box heals the crop). Keeps the header's bottom (self._text_bottom, box
+        pixels): no map shows above it, whatever the panel detection made of the box."""
         H = arr.shape[0]
+        self._text_bottom = None
         if self._header_rows is not None:
             rows = self._ocr_rows(arr[:max(_MIN_SIDE, min(H, self._header_rows))])
             if rows is not None:
                 got = self._header(rows, H, panel_y0)
                 if got is not None:
+                    self._text_bottom = got[1]
                     return got[0]
         rows = self._ocr_rows(arr)
         if rows is None:
@@ -1118,6 +1122,7 @@ class Locator:
         got = self._header(rows, H, panel_y0)
         if got is None:
             return None
+        self._text_bottom = got[1]
         if got[1] is not None:
             self._header_rows = min(H, max(int(got[1]) + _HEADER_PAD, 1))
         return got[0]
@@ -1324,6 +1329,11 @@ class Locator:
         ox, oy = self._origin
         rect = (ox, oy, ox + arr.shape[1], oy + arr.shape[0])
         shown = self._shown
+        if self._text_bottom is not None and shown[3] > shown[1]:
+            # the map shows only under the header: a panel detected over the whole window took in its header, where
+            # the orange WORLD button read as the player's dot, half the map away from them (Ellinia, live 2026-10-10)
+            shown = (shown[0], min(shown[3] - 1, max(shown[1], int(self._text_bottom) + 1)), shown[2], shown[3])
+            self._shown = shown
         view = View(ox + hit.x, oy + hit.y, max(1, round(art.shape[1] * hit.scale)),
                     max(1, round(art.shape[0] * hit.scale)), shown)
         box = (self._panel[0], self._panel[1]) if self._panel is not None else (0, 0)

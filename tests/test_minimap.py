@@ -518,3 +518,14 @@ def test_live_header_emblem_is_not_the_player_dot(graph):
     here = Locator(graph).locate(_box("minimap_forest_south_emblem_live.png"))
     assert here is not None and here.map == "010002030"
     assert here.spot == pytest.approx((0.127, 0.885), abs=0.03)
+
+
+@needs_kb
+def test_live_world_button_is_not_the_player_dot(graph):
+    """Ellinia, its panel detected over the whole window: the header's orange WORLD button read as the player's dot,
+    at the map's right edge halfway up while they stood bottom-left (live, 2026-10-10). No map shows above the
+    header: the dot is the one bottom-left."""
+    from maplehelper.minimap import Locator
+    here = Locator(graph).locate(_box("minimap_ellinia_world_button_live.png"))
+    assert here is not None and here.map == "010002000"
+    assert here.spot == pytest.approx((0.31, 0.87), abs=0.03)
