@@ -26,8 +26,8 @@ ROUTES_FILE = "routes.json"
 FOUND_MAX = 4096                # Graph.find's remembered texts (names; the AI's free text can't grow it for ever)
 # the hidden-portal dots sit this far (map units) above the portal's own point. The game's own blue portal rings sit
 # 122-130 map units up on four live captures; dots that high read too high in game, and the owner set them lower in
-# game (2026-10-09: 125, then 100, then 75; 25 units is ~3 screen px at a x2 minimap) (hidden_spots)
-PORTAL_MARK_RISE = 75
+# game (2026-10-09: 125, then 100, 75, 50; 25 units is ~3 screen px at a x2 minimap) (hidden_spots)
+PORTAL_MARK_RISE = 50
 # what a step costs in the search: a short walk beats a cab ride, a long one doesn't
 COST = {"portal": 1, "npc": 2, "boat": 3, "taxi": 4}
 PAID = ("taxi", "boat")         # steps a player pays mesos for (how many only when a guide says: Leg.fare)
