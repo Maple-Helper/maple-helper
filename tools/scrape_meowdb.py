@@ -7,7 +7,7 @@ support so a re-run only fetches what is missing.
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
     index.json                   compact index: id, name, category, url, image, props
-    skill_changes.json, pets.json, tiers.json   the list pages (tools/meowdb_sections.py)
+    skill_changes.json, pets.json, tiers.json, safe_to_sell.json   the list pages (tools/meowdb_sections.py)
     img/<category>/<slug>.png    entity images (monster sprites, item icons, ...)
     news.json, img/news/         the news and their pictures (tools/scrape_news.py)
     routes.json                 every map's portals and NPCs, and the taxi towns (maplehelper/routes.py)
@@ -426,10 +426,27 @@ MAPS_DATA = f"{BASE}/_data/maps.json"
 PATHFINDER = f"{BASE}/msclassic/pathfinder"
 _MAP_ID = re.compile(r"^\d{9}$")
 _ID_LIST = re.compile(r'\[(?:"\d{9}",)+"\d{9}"\]')
+# the game's portal kinds (the map data's "type"): 2 is drawn on the minimap (the blue ring), 1 is invisible (stand on it
+# and press up) and 3 is a touch teleport (walk or fall into it); the app draws the invisible ones on the game's minimap
+HIDDEN_PORTAL_TYPES = (1, 3)
 
 
-def routes_data(maps: list[dict], taxi: list[str]) -> dict:
-    """What the app routes with, from the site's map data: ids, names, portals and NPCs with their minimap spots."""
+def hidden_portals(m: dict) -> list[dict]:
+    """The map's invisible teleports, to other maps and within it (the hidden passages: "hide01" to "hide01_1"), each
+    once per spot."""
+    out, seen = [], set()
+    for p in [*(m.get("portals") or []), *(m.get("intraPortals") or [])]:
+        x, y = p.get("x") or 0, p.get("y") or 0
+        if p.get("type") in HIDDEN_PORTAL_TYPES and (x, y) not in seen:
+            seen.add((x, y))
+            out.append({"name": p.get("name") or "", "x": x, "y": y})
+    return out
+
+
+def routes_data(maps: list[dict], taxi: list[str], scenes: dict[str, list] | None = None) -> dict:
+    """What the app routes with, from the site's map data: ids, names, portals and NPCs with their minimap spots, and
+    the invisible teleports it marks on the game's minimap. `scenes`: for maps with no minimap, the frame of their
+    room picture ([width, height, x offset, y offset], scene_frame), kept as "scene"."""
     out, ids = [], {str(m.get("id") or "") for m in maps}
     for m in maps:
         mid = str(m.get("id") or "")
@@ -442,11 +459,48 @@ def routes_data(maps: list[dict], taxi: list[str]) -> dict:
                    for p in m.get("portals") or [] if str(p.get("toMapId") or "") in ids and p["toMapId"] != mid]
         npcs = [{"id": str(n.get("id")), "name": n.get("name") or "", "x": n.get("x") or 0, "y": n.get("y") or 0}
                 for n in m.get("npcs") or [] if n.get("id")]
-        out.append({"id": mid, "name": m.get("name") or mid, "street": m.get("streetName") or "",
-                    "region": m.get("region") or "", "town": bool(m.get("isTown")), "return": m.get("returnMap") or "",
-                    "minimap": mm, "portals": portals, "npcs": npcs})
+        row = {"id": mid, "name": m.get("name") or mid, "street": m.get("streetName") or "",
+               "region": m.get("region") or "", "town": bool(m.get("isTown")), "return": m.get("returnMap") or "",
+               "minimap": mm, "portals": portals, "npcs": npcs, "hidden": hidden_portals(m)}
+        if mm is None and (scenes or {}).get(mid):
+            row["scene"] = scenes[mid]
+        out.append(row)
     out.sort(key=lambda m: m["id"])
     return {"source": "NiaMeowDB (meowdb.com) map data, as its Pathfinder reads it", "taxi": taxi, "maps": out}
+
+
+# A map with no minimap (a shop, the hospital) has its whole room as its picture: the site's full render, framed by
+# the map's view rectangle ("vr": left, top, right, bottom in map units) in its terrain file. That frame places the
+# room's NPCs on the picture (the map page's own NPC markers use it), where the game itself folds the minimap.
+MAP_TERRAIN = f"{BASE}/_data/map-terrain/{{id}}.json"
+
+
+def scene_frame(terrain: dict | None) -> list | None:
+    """A terrain file's view rectangle as [width, height, x offset, y offset], the shape of a minimap frame; None
+    without a usable one."""
+    vr = (terrain or {}).get("vr")
+    if not (isinstance(vr, list) and len(vr) == 4 and all(isinstance(v, (int, float)) for v in vr)):
+        return None
+    left, top, right, bottom = vr
+    return [right - left, bottom - top, -left, -top] if right > left and bottom > top else None
+
+
+def scene_frames(maps: list[dict]) -> dict[str, list]:
+    """The room frame of every map with NPCs and no minimap (about 40), one terrain file each."""
+    out = {}
+    for m in maps:
+        mid = str(m.get("id") or "")
+        if not _MAP_ID.match(mid) or m.get("hasMinimapImage") or not m.get("npcs"):
+            continue
+        raw = fetch(MAP_TERRAIN.format(id=mid))
+        time.sleep(DELAY_SECONDS)
+        try:
+            frame = scene_frame(json.loads(raw)) if raw else None
+        except json.JSONDecodeError:
+            frame = None
+        if frame:
+            out[mid] = frame
+    return out
 
 
 def taxi_towns(map_ids: set[str]) -> list[str] | None:
@@ -491,7 +545,7 @@ def scrape_routes() -> int:
     if taxi is None:
         taxi = [t for t in old.get("taxi") or [] if t in ids]
         print("routes: taxi towns not read from the Pathfinder, keeping", taxi)
-    data = routes_data(maps, taxi)
+    data = routes_data(maps, taxi, scene_frames(maps))
     if data == old:
         return 0
     write_routes(path, data)

@@ -194,6 +194,25 @@ class MapleHelperApp:
         from .ui.minimapscan import MinimapScanner
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
+        # blue dots on the game's minimap where its invisible teleports are, from those reads (ui/portaldots.py)
+        from .ui.portaldots import PortalDots
+        self.portal_dots = PortalDots(self.kb, self.settings)
+        self.portal_dots.refresh()
+        # the "NPCs on this map" window over the game itself (ui/npcoverlay.py), shown from its own setting; the
+        # guide it sets is what the ring above draws on the game's minimap
+        from .ui.npcoverlay import NpcOverlay
+        self.npc_overlay = NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        self.npc_overlay.refresh()
+        # the little bar over the game (ui/gametoolbar.py): its NPCs-here button flips the window above, its
+        # search buttons open the monster/NPC/item search (ui/gamesearch.py) — made on the first ask, so a start
+        # in the tray builds none of it
+        from .ui.gametoolbar import GameToolbar
+        self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
+        self.game_toolbar.npc_toggled.connect(self.npc_overlay.refresh)
+        self.npc_overlay.closed.connect(self.game_toolbar.refresh)
+        self.game_toolbar.search_requested.connect(self._open_game_search)
+        self.game_toolbar.rides_toggled.connect(self._game_rides_toggled)
+        self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
@@ -267,6 +286,28 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         QTimer.singleShot(300, self.overlay.start_tour)
+
+    def _open_game_search(self, kind: str) -> None:
+        """A toolbar search button: the search window (ui/gamesearch.py) is made on the first ask and opened in
+        that mode, under the bar until the player has placed it themselves."""
+        search = getattr(self, "game_search", None)
+        if search is None:
+            from .ui.gamesearch import GameSearch
+            search = self.game_search = GameSearch(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+            search.mode_changed.connect(self.game_toolbar.set_search_mode)
+        if not isinstance(self.settings["game_search_geom"], dict):
+            search.place_under(self.game_toolbar.frameGeometry())
+        search.open(kind)
+
+    def _game_rides_toggled(self) -> None:
+        """The toolbar's Cabs & Teleports switch: a way already shown follows it, in the search's detail page and
+        in the ◎ where-is-it window."""
+        search = getattr(self, "game_search", None)
+        if search is not None:
+            search.rides_changed()
+        where = self.__dict__.get("_windows", {}).get("map")
+        if where is not None and where.isVisible() and where.key:
+            where.show_map(where.key)
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -531,6 +572,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # (also resets the locator's lock onto the new box)
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # over the new box at once: its first read may equal the last and signal nothing
 
     def _end_minimap_pick(self):
         picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None
@@ -713,6 +757,15 @@ class MapleHelperApp:
                 # link kept the dark theme's faint orange on white)
                 self.overlay.setStyleSheet(self.style())
                 self.overlay.apply_language()
+                npc = getattr(self, "npc_overlay", None)
+                if npc is not None:
+                    npc.apply_language(I18n(self.settings["language"] or "he"))   # its texts follow the switch
+                game = getattr(self, "game_toolbar", None)
+                if game is not None:
+                    game.apply_language(I18n(self.settings["language"] or "he"))    # the bar's texts too
+                search = getattr(self, "game_search", None)
+                if search is not None:
+                    search.apply_language(I18n(self.settings["language"] or "he"))
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -736,6 +789,27 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # the scan interval (or nothing) changed: pick it up, no restart needed
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # the hidden-portal dots switched on or off
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.refresh()          # the NPCs-on-this-map window switched on or off
+        game = getattr(self, "game_toolbar", None)
+        if game is not None:
+            game.refresh()         # the bar over the game switched on or off (its button follows the window)
+        self._apply_overlay_capture()
+
+    def _apply_overlay_capture(self) -> None:
+        """Settings' "Show the overlays in screenshots": every window over the game that exists takes it now (each
+        also takes it whenever it shows), not on the next restart."""
+        from .ui.npcoverlay import set_capturable
+        search = getattr(self, "game_search", None)
+        npc = getattr(self, "npc_overlay", None)
+        for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
+                  getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None)):
+            if w is not None:
+                set_capturable(w, self.settings)
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
@@ -1130,6 +1204,15 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.set_kb(self.kb)     # its locator is rebuilt from the new KB on the next read
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.set_kb(self.kb)        # the new KB's hidden portals
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.set_kb(self.kb)        # the new KB's NPC lists
+        search = getattr(self, "game_search", None)
+        if search is not None:
+            search.set_kb(self.kb)     # the new KB's monster/NPC/item search
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as

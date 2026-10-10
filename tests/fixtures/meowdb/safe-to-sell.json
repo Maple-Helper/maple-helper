@@ -1,0 +1,1954 @@
+{
+ "generated": "2026-10-10",
+ "counts": {
+  "derived": 269,
+  "total": 258,
+  "quest": 197,
+  "crafting": 107,
+  "both": 46,
+  "questOnly": 151,
+  "craftOnly": 61,
+  "buyable": 29,
+  "excludedJobItems": 8,
+  "excludedNoPrice": 3
+ },
+ "ambiguous": [
+  {
+   "name": "Dances with Balrog's Letter",
+   "ids": [
+    451,
+    2694
+   ],
+   "chose": 451
+  },
+  {
+   "name": "Hero's Gladius",
+   "ids": [
+    465,
+    556
+   ],
+   "chose": 556
+  }
+ ],
+ "unresolved": [],
+ "droppedNoPrice": [
+  "Glowing Mushroom",
+  "Luminous Magical Resonance",
+  "Rotten Root Fragment"
+ ],
+ "rows": [
+  {
+   "name": "Arrows for Bows",
+   "itemId": 209,
+   "iconKey": "2060000",
+   "type": "Use",
+   "price": 0,
+   "buyable": [
+    {
+     "shop": "Arturo",
+     "price": 1
+    },
+    {
+     "shop": "Dr. Faymus",
+     "price": 1
+    },
+    {
+     "shop": "Edel the Fairy",
+     "price": 1
+    },
+    {
+     "shop": "Glibber",
+     "price": 1
+    },
+    {
+     "shop": "Hana",
+     "price": 1
+    },
+    {
+     "shop": "Len the Fairy",
+     "price": 1
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Arrows for Crossbows",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Blue Mushroom Cap",
+   "itemId": 363,
+   "iconKey": "4000016",
+   "type": "Etc",
+   "price": 19,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Jane and the Mushroom",
+     "id": "10002",
+     "qty": 15,
+     "repeatable": false
+    },
+    {
+     "name": "Pia and the Blue Mushroom",
+     "id": "10104",
+     "qty": 20,
+     "repeatable": false
+    },
+    {
+     "name": "Maya's First Collection",
+     "id": "10115",
+     "qty": 20,
+     "repeatable": false
+    },
+    {
+     "name": "Talking to Stan",
+     "id": "10301",
+     "qty": 15,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Henesys",
+     "id": "506025",
+     "qty": 30,
+     "repeatable": true
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Basic Archer Gloves",
+     "count": 15,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Blue Duo",
+     "count": 15,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Metal Wand",
+     "count": 30,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "A Gift for JM",
+   "itemId": 3126,
+   "iconKey": "4031128",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "One More Debt to Repay",
+     "id": "506145",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "A Gift for Nella",
+   "itemId": 3125,
+   "iconKey": "4031127",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Too Shy to Say It Himself",
+     "id": "506143",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Adamantium Arrows for Bows",
+   "itemId": 212,
+   "iconKey": "2060003",
+   "type": "Use",
+   "price": 3,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Mithril Arrows for Crossbows",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Adamantium Ingot",
+   "itemId": 423,
+   "iconKey": "4010103",
+   "type": "Etc",
+   "price": 300,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "A Request from Sergeant Bravo",
+     "id": "12104",
+     "qty": 4,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Adamantium Tower Shield",
+     "count": 10,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Adamantium Knuckle",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Brown Jangoon Shoes",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Adamantium Igor",
+     "count": 2,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Adamantium Guards",
+     "count": 3,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Adamantium Avarice",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Adamantium Arrows for Bows",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Adamantium Ore",
+   "itemId": 416,
+   "iconKey": "4010003",
+   "type": "Etc",
+   "price": 60,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Adamantium Ingot",
+     "count": 5
+    }
+   ]
+  },
+  {
+   "name": "Alex's Gift Sack",
+   "itemId": 3124,
+   "iconKey": "4031126",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "A Lost Thank-You",
+     "id": "506142",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Alligator Skin Pouch",
+   "itemId": 516,
+   "iconKey": "4031078",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Icarus and the Balloon",
+     "id": "10318",
+     "qty": 10,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Amethyst",
+   "itemId": 330,
+   "iconKey": "4020101",
+   "type": "Etc",
+   "price": 1000,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Purple Morrican",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Purple Salt Shoes",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Purple Goldwind Shoes",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Purple Goni Shoes",
+     "count": 8,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Wizard Staff",
+     "count": 2,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Arc Staff",
+     "count": 4,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Shoes Speed Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Amethyst Ore",
+   "itemId": 321,
+   "iconKey": "4020001",
+   "type": "Etc",
+   "price": 200,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Arcforge",
+     "recipe": "Amethyst",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Ancient Scroll",
+   "itemId": 435,
+   "iconKey": "4001007",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "What Pia Borrowed",
+     "id": "10121",
+     "qty": 1,
+     "repeatable": false
+    },
+    {
+     "name": "Reawakening the Gladius",
+     "id": "10403",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Animal Fossil",
+   "itemId": 506,
+   "iconKey": "4031068",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Searching for Fossils",
+     "id": "10405",
+     "qty": 12,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Animal Fur Bundle",
+   "itemId": 409,
+   "iconKey": "4000062",
+   "type": "Etc",
+   "price": 10,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Processed Cloth",
+     "count": 5
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Spool of Thread",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Apple",
+   "itemId": 236,
+   "iconKey": "2010001",
+   "type": "Use",
+   "price": 2,
+   "buyable": [
+    {
+     "shop": "Arturo",
+     "price": 20
+    },
+    {
+     "shop": "Dr. Faymus",
+     "price": 20
+    },
+    {
+     "shop": "Edel the Fairy",
+     "price": 20
+    },
+    {
+     "shop": "Len the Fairy",
+     "price": 20
+    },
+    {
+     "shop": "Lucy",
+     "price": 20
+    },
+    {
+     "shop": "Luna",
+     "price": 20
+    }
+   ],
+   "quests": [
+    {
+     "name": "Bruce's Cooking Ingredients",
+     "id": "506038",
+     "qty": 3,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Aquamarine",
+   "itemId": 331,
+   "iconKey": "4020102",
+   "type": "Etc",
+   "price": 200,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Lemona",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Blue Morrican",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Ocean Mesana",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Blue Magic Shoes",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Mountain Crossbow",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Blue Silky Boots",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Blue White-Lined Boots",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Aqua Brace",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Blue Pierre Shoes",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Mithril Wand",
+     "count": 4,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Shoes Jump Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Aquamarine Ore",
+   "itemId": 322,
+   "iconKey": "4020002",
+   "type": "Etc",
+   "price": 40,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Arcforge",
+     "recipe": "Aquamarine",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Arcon's Blood",
+   "itemId": 448,
+   "iconKey": "4031010",
+   "type": "Etc",
+   "price": 0,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Getting Arcon's Blood",
+     "id": "10110",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Arrows for Crossbows",
+   "itemId": 213,
+   "iconKey": "2061000",
+   "type": "Use",
+   "price": 0,
+   "buyable": [
+    {
+     "shop": "Arturo",
+     "price": 1
+    },
+    {
+     "shop": "Dr. Faymus",
+     "price": 1
+    },
+    {
+     "shop": "Edel the Fairy",
+     "price": 1
+    },
+    {
+     "shop": "Glibber",
+     "price": 1
+    },
+    {
+     "shop": "Hana",
+     "price": 1
+    },
+    {
+     "shop": "Len the Fairy",
+     "price": 1
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Arrows for Bows",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Arwen's Glass Shoe",
+   "itemId": 428,
+   "iconKey": "4001000",
+   "type": "Etc",
+   "price": 250,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Arwen and the Glass Shoe",
+     "id": "10200",
+     "qty": 1,
+     "repeatable": true
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Athena Pierce's Box",
+   "itemId": 3121,
+   "iconKey": "4031123",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "A Box Hidden Long Ago",
+     "id": "506057",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Athena Pierce's Letter",
+   "itemId": 453,
+   "iconKey": "4031015",
+   "type": "Etc",
+   "price": 0,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Finding the Instructor (Bowman)",
+     "id": "20201",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Ayan's Letter",
+   "itemId": 515,
+   "iconKey": "4031077",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "I Need to Find My Daughter 2",
+     "id": "10125",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Ayan's Toy Sword",
+   "itemId": 514,
+   "iconKey": "4031076",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "I Need to Find My Daughter 1",
+     "id": "10124",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Black Crystal",
+   "itemId": 337,
+   "iconKey": "4020108",
+   "type": "Etc",
+   "price": 2500,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "What Pia Borrowed",
+     "id": "10121",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Dark Briggon",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Dark Trigger",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Dark Knuckle",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Emerald Hildon Boots",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Hildon Boots",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Orihalcon Hildon Boots",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Gold Hildon Boots",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Dark Guardian",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Dark Avarice",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Dark Slain",
+     "count": 6,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Dark Mesana",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Black Lutia",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Dark Noel",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Black Justice Cape",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Dark Arten",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Dark Penance",
+     "count": 8,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Vaulter 2000",
+     "count": 2,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Dark Savata",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Black Marker",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Dark Brace",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Dark Cleave",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Earring STR Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Earring DEX Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Earring INT Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Earring LUK Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    },
+    {
+     "discipline": "Arcforge",
+     "recipe": "Gloves Crit. Rate Scroll: Lesser",
+     "count": 3,
+     "catalyst": "Scroll Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Black Crystal Ore",
+   "itemId": 328,
+   "iconKey": "4020008",
+   "type": "Etc",
+   "price": 500,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Arcforge",
+     "recipe": "Black Crystal",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Black Dye",
+   "itemId": 315,
+   "iconKey": "4003010",
+   "type": "Etc",
+   "price": 250,
+   "buyable": [
+    {
+     "shop": "Arturo",
+     "price": 1000
+    },
+    {
+     "shop": "Dr. Faymus",
+     "price": 1000
+    },
+    {
+     "shop": "Edel the Fairy",
+     "price": 1000
+    },
+    {
+     "shop": "Hana",
+     "price": 1000
+    },
+    {
+     "shop": "Len the Fairy",
+     "price": 1000
+    },
+    {
+     "shop": "Luna",
+     "price": 1000
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Red Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Sky Blue Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Yellow Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Black Feather",
+   "itemId": 471,
+   "iconKey": "4031033",
+   "type": "Etc",
+   "price": 1000,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Luke the Security Guy's Wish to Travel",
+     "id": "10114",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Blackbull's Deed to the Land",
+   "itemId": 434,
+   "iconKey": "4001006",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Building a New House For Blackbull",
+     "id": "10401",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Blue Dye",
+   "itemId": 319,
+   "iconKey": "4003014",
+   "type": "Etc",
+   "price": 250,
+   "buyable": [
+    {
+     "shop": "Arturo",
+     "price": 1000
+    },
+    {
+     "shop": "Dr. Faymus",
+     "price": 1000
+    },
+    {
+     "shop": "Edel the Fairy",
+     "price": 1000
+    },
+    {
+     "shop": "Hana",
+     "price": 1000
+    },
+    {
+     "shop": "Len the Fairy",
+     "price": 1000
+    },
+    {
+     "shop": "Luna",
+     "price": 1000
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Ice Jeans",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Sandblasted Jeans",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Red Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Sky Blue Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Yellow Starry Bandana",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "The Yellow Relaxer",
+     "count": 1
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "The Red Relaxer",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "Blue Snail Shell",
+   "itemId": 349,
+   "iconKey": "4000002",
+   "type": "Etc",
+   "price": 2,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Biggs's Collection of Items",
+     "id": "1011",
+     "qty": 10,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Henesys",
+     "id": "506019",
+     "qty": 30,
+     "repeatable": true
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Tailoring",
+     "recipe": "Blue Bandana",
+     "count": 10,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Tailoring",
+     "recipe": "Blue Apprentice Hat",
+     "count": 10,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "War Bow",
+     "count": 30,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Blue Viola",
+   "itemId": 481,
+   "iconKey": "4031043",
+   "type": "Etc",
+   "price": 1000,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "[Deep Forest of Patience] John's Present",
+     "id": "10007",
+     "qty": 20,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Broken Mirror Glass",
+   "itemId": 445,
+   "iconKey": "4031007",
+   "type": "Etc",
+   "price": 0,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Stranger's Request",
+     "id": "10309",
+     "qty": 20,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Broken Wooden Bow",
+   "itemId": 3122,
+   "iconKey": "4031124",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "A Worn-Out Bow",
+     "id": "506058",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Bronze Arrows for Bows",
+   "itemId": 210,
+   "iconKey": "2060001",
+   "type": "Use",
+   "price": 1,
+   "buyable": [
+    {
+     "shop": "Raymond",
+     "price": 2
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Bronze Arrows for Crossbows",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Bronze Arrows for Crossbows",
+   "itemId": 214,
+   "iconKey": "2061001",
+   "type": "Use",
+   "price": 1,
+   "buyable": [
+    {
+     "shop": "Raymond",
+     "price": 2
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Bronze Arrows for Bows",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Bronze Crusader Helm",
+   "itemId": 873,
+   "iconKey": "1002165",
+   "type": "Equip",
+   "price": 6600,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Silver Crusader Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Crusader Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Football Helmet",
+   "itemId": 762,
+   "iconKey": "1002054",
+   "type": "Equip",
+   "price": 1200,
+   "buyable": [
+    {
+     "shop": "Harry",
+     "price": 3600
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Steel Football Helmet",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Football Helmet",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Full Helm",
+   "itemId": 743,
+   "iconKey": "1002035",
+   "type": "Equip",
+   "price": 900,
+   "buyable": [
+    {
+     "shop": "Harry",
+     "price": 1800
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Steel Full Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Full Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Guardian",
+   "itemId": 692,
+   "iconKey": "1472011",
+   "type": "Equip",
+   "price": 9000,
+   "buyable": [
+    {
+     "shop": "Scott",
+     "price": 36000
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Silver Guardian",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Dark Guardian",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Helmet",
+   "itemId": 737,
+   "iconKey": "1002029",
+   "type": "Equip",
+   "price": 700,
+   "buyable": [
+    {
+     "shop": "Harry",
+     "price": 1400
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Steel Helmet",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Helmet",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Igor",
+   "itemId": 685,
+   "iconKey": "1472004",
+   "type": "Equip",
+   "price": 4500,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Steel Igor",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Adamantium Igor",
+     "count": 1,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Ingot",
+   "itemId": 420,
+   "iconKey": "4010100",
+   "type": "Etc",
+   "price": 100,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Mr. Thunder in Need of an Apprentice",
+     "id": "80011",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Black Cat Gloves",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Bronze Pride",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Bronze Missel",
+     "count": 6,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Screw",
+     "count": 1
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Saw",
+     "count": 2,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Bronze Igor",
+     "count": 2,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Steel Guards",
+     "count": 3,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Bronze Guardian",
+     "count": 4,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Steel Avarice",
+     "count": 4,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Sai",
+     "count": 5,
+     "catalyst": "One-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "The Rising",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Golden Mole",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "The Nine Dragons",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Weaponcrafting",
+     "recipe": "Steel Slain",
+     "count": 5,
+     "catalyst": "Two-Handed Weapon Crafting Catalyst"
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Bronze Arrows for Bows",
+     "count": 1
+    },
+    {
+     "discipline": "Woodcrafting",
+     "recipe": "Bronze Arrows for Crossbows",
+     "count": 1
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Brown Duo",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Bronze Mischief",
+     "count": 2,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Bronze Wolfskin",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Brown Jack Boots",
+     "count": 3,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Brown Hunter Boots",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Bronze Chain Boots",
+     "count": 4,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Bronze Scaler",
+     "count": 5,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Koif",
+   "itemId": 724,
+   "iconKey": "1002016",
+   "type": "Equip",
+   "price": 600,
+   "buyable": [
+    {
+     "shop": "Harry",
+     "price": 1200
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Metal Koif",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Koif",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Missel",
+   "itemId": 1463,
+   "iconKey": "1082028",
+   "type": "Equip",
+   "price": 3600,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Steel Missel",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Orihalcon Missel",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Ore",
+   "itemId": 413,
+   "iconKey": "4010000",
+   "type": "Etc",
+   "price": 20,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Silas Irons in Need of an Apprentice",
+     "id": "80008",
+     "qty": 5,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Bronze Ingot",
+     "count": 5
+    }
+   ]
+  },
+  {
+   "name": "Bronze Pride",
+   "itemId": 809,
+   "iconKey": "1002101",
+   "type": "Equip",
+   "price": 1800,
+   "buyable": [],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Steel Pride",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Golden Pride",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bronze Viking Helm",
+   "itemId": 765,
+   "iconKey": "1002057",
+   "type": "Equip",
+   "price": 1200,
+   "buyable": [
+    {
+     "shop": "Harry",
+     "price": 3600
+    }
+   ],
+   "quests": [],
+   "recipes": [
+    {
+     "discipline": "Smithing",
+     "recipe": "Iron Viking Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Smithing",
+     "recipe": "Mithril Viking Helm",
+     "count": 1,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Bruce's Special Cake",
+   "itemId": 2716,
+   "iconKey": "4031112",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "A Father's Love for His Daughter",
+     "id": "506039",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Bubbling's Huge Bubble",
+   "itemId": 361,
+   "iconKey": "4000014",
+   "type": "Etc",
+   "price": 15,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Maya's Second Collection",
+     "id": "10116",
+     "qty": 20,
+     "repeatable": false
+    },
+    {
+     "name": "Second Material Delivery for Building a New House",
+     "id": "10207",
+     "qty": 30,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Kerning City",
+     "id": "506124",
+     "qty": 30,
+     "repeatable": true
+    },
+    {
+     "name": "Making the Medicine",
+     "id": "506138",
+     "qty": 10,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Cerebes Tooth",
+   "itemId": 2647,
+   "iconKey": "4000130",
+   "type": "Etc",
+   "price": 72,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Nick's Ring",
+     "id": "12142",
+     "qty": 100,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Charm of the Undead",
+   "itemId": 367,
+   "iconKey": "4000020",
+   "type": "Etc",
+   "price": 24,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Arcon's Blood?",
+     "id": "10109",
+     "qty": 40,
+     "repeatable": false
+    },
+    {
+     "name": "Stranger's Identity",
+     "id": "10310",
+     "qty": 25,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Henesys",
+     "id": "506027",
+     "qty": 30,
+     "repeatable": true
+    },
+    {
+     "name": "Donating to Kerning City",
+     "id": "506127",
+     "qty": 30,
+     "repeatable": true
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Chief Stan's Hammer",
+   "itemId": 2721,
+   "iconKey": "4031117",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Memories of Youth",
+     "id": "506044",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Chief Stan's Letter",
+   "itemId": 2696,
+   "iconKey": "4031092",
+   "type": "Etc",
+   "price": 0,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Chief Stan's Reply",
+     "id": "80027",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Clang Claw",
+   "itemId": 387,
+   "iconKey": "4000040",
+   "type": "Etc",
+   "price": 49,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Special Taste of Florina Beach III",
+     "id": "10702",
+     "qty": 60,
+     "repeatable": false
+    },
+    {
+     "name": "Special Taste of Florina Beach IV",
+     "id": "10703",
+     "qty": 10,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Brown Steel-Tip Boots",
+     "count": 50,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  },
+  {
+   "name": "Coconut",
+   "itemId": 408,
+   "iconKey": "4000061",
+   "type": "Etc",
+   "price": 10,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Special Taste of Florina Beach I",
+     "id": "10700",
+     "qty": 10,
+     "repeatable": false
+    },
+    {
+     "name": "Special Taste of Florina Beach II",
+     "id": "10701",
+     "qty": 15,
+     "repeatable": false
+    },
+    {
+     "name": "Special Taste of Florina Beach III",
+     "id": "10702",
+     "qty": 30,
+     "repeatable": false
+    },
+    {
+     "name": "Special Taste of Florina Beach IV",
+     "id": "10703",
+     "qty": 10,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Cold Eye Tail",
+   "itemId": 381,
+   "iconKey": "4000034",
+   "type": "Etc",
+   "price": 41,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Maya's Third Collection",
+     "id": "10117",
+     "qty": 30,
+     "repeatable": false
+    },
+    {
+     "name": "Last Material Delivery for Building a New House",
+     "id": "10209",
+     "qty": 30,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Henesys",
+     "id": "506033",
+     "qty": 30,
+     "repeatable": true
+    },
+    {
+     "name": "Donating to Kerning City",
+     "id": "506134",
+     "qty": 30,
+     "repeatable": true
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Cracked Black Crystal",
+   "itemId": 2701,
+   "iconKey": "4031097",
+   "type": "Etc",
+   "price": 1,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "The Cracked Black Crystal",
+     "id": "12115",
+     "qty": 1,
+     "repeatable": false
+    }
+   ],
+   "recipes": []
+  },
+  {
+   "name": "Croco Skin",
+   "itemId": 388,
+   "iconKey": "4000041",
+   "type": "Etc",
+   "price": 52,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "Taking Out the Alligators 2",
+     "id": "10413",
+     "qty": 50,
+     "repeatable": false
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Processed Leather",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "name": "Curse Eye Tail",
+   "itemId": 374,
+   "iconKey": "4000027",
+   "type": "Etc",
+   "price": 33,
+   "buyable": [],
+   "quests": [
+    {
+     "name": "First Material Delivery for Building a New House",
+     "id": "10206",
+     "qty": 30,
+     "repeatable": false
+    },
+    {
+     "name": "Secret to Unagi Special",
+     "id": "10503",
+     "qty": 50,
+     "repeatable": false
+    },
+    {
+     "name": "Donating to Henesys",
+     "id": "506031",
+     "qty": 30,
+     "repeatable": true
+    }
+   ],
+   "recipes": [
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Green Hunter Boots",
+     "count": 30,
+     "catalyst": "Armor Crafting Catalyst"
+    },
+    {
+     "discipline": "Leatherworking",
+     "recipe": "Green Silky Boots",
+     "count": 35,
+     "catalyst": "Armor Crafting Catalyst"
+    }
+   ]
+  }
+ ]
+}
