@@ -36,10 +36,10 @@ def env(qapp, isolated_store, kb, monkeypatch):
 @pytest.fixture
 def clean_location():
     from maplehelper.ui.location import LOCATION
-    old_here, old_state = LOCATION.here, LOCATION.state
-    LOCATION.here, LOCATION.state = None, ""
+    old = LOCATION.here, LOCATION.state, LOCATION.follow
+    LOCATION.here, LOCATION.state, LOCATION.follow = None, "", None
     yield LOCATION
-    LOCATION.here, LOCATION.state = old_here, old_state
+    LOCATION.here, LOCATION.state, LOCATION.follow = old
 
 
 def _make_scanner(s, kb):
@@ -254,6 +254,58 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
         assert sc._cooldown_until == 0.0
         sc._tick()
         assert started == [1, 1]
+    finally:
+        sc.stop()
+
+
+def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_location, qapp, monkeypatch):
+    """The fast follow runs only while the dots have something to show (the setting on, hidden portals on the
+    map). Its answers reach LOCATION.follow; losing the picture (a teleport) starts a whole read at once, once per
+    loss, not every 100 ms while the loading screen lasts."""
+    from types import SimpleNamespace
+
+    from maplehelper.minimap import Here, View
+    s, _, kb = env
+    sc = _make_scanner(s, kb)
+    try:
+        s["minimap_region"] = dict(BOX)
+        sc.restart()
+        assert sc._follow_timer.isActive()
+        spots = {"010003000": [(0.5, 0.5)]}
+        sc._locator = _Locator(None)
+        sc._graph = SimpleNamespace(hidden_spots=lambda m: spots.get(m, []), name=lambda m: m)
+        started = []
+
+        class FakeThread:
+            def __init__(self, target=None, args=(), **k):
+                self.target = target
+
+            def start(self):
+                started.append(self.target.__name__)
+
+        monkeypatch.setattr(threading, "Thread", FakeThread)
+        clean_location.set(Here("100000000", None))         # no hidden portals here: no follow
+        sc._follow_tick()
+        assert started == []
+        clean_location.set(Here("010003000", None))
+        s["minimap_hidden_portals"] = False
+        sc._follow_tick()
+        assert started == []
+        s["minimap_hidden_portals"] = True
+        sc._follow_tick()
+        sc._follow_tick()                                   # still going: no second one
+        assert started == ["_follow"]
+        sc._following = False
+        view = View(1, 2, 30, 40, (0, 0, 100, 50))
+        sc._on_followed(("010003000", view))
+        assert clean_location.follow == ("010003000", view) and started == ["_follow"]
+        sc._on_followed(("010003000", None))                 # lost: one whole read now
+        sc._on_followed(("010003000", None))
+        assert clean_location.follow == ("010003000", None) and started == ["_follow", "_read"]
+        sc._reading = False
+        sc._on_followed(("010003000", view))                 # found again, then lost again: another read
+        sc._on_followed(("010003000", None))
+        assert started == ["_follow", "_read", "_read"]
     finally:
         sc.stop()
 

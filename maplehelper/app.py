@@ -535,6 +535,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # (also resets the locator's lock onto the new box)
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # over the new box at once: its first read may equal the last and signal nothing
 
     def _end_minimap_pick(self):
         picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None

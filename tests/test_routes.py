@@ -82,15 +82,15 @@ def test_only_maps_in_the_game_are_on_the_graph(world):
 
 
 def test_hidden_portals_are_spots_on_the_minimap(world):
-    """A map's invisible teleports as spots on its minimap picture; one off the picture, a map without any and a
-    map not in the game give none."""
+    """A map's invisible teleports as spots on its minimap picture, raised to where the game marks a portal
+    (PORTAL_MARK_RISE above its point); one off the picture, a map without any and a map not in the game give none."""
     kb, _ = world
     data = {"maps": [{**_map(HENESYS, "Henesys", town=True),
                       "hidden": [{"name": "hide01", "x": 0, "y": 0}, {"name": "far", "x": 5000, "y": 0}]},
                      _map(PERION, "Perion", town=True),
                      {**_map(ORBIS, "Orbis", town=True), "hidden": [{"name": "h", "x": 0, "y": 0}]}]}
     g = routes.Graph(kb, data)
-    assert g.hidden_spots(HENESYS) == [(0.5, 0.5)]
+    assert g.hidden_spots(HENESYS) == [(0.5, (400 - routes.PORTAL_MARK_RISE) / 800)]
     assert g.hidden_spots(PERION) == [] and g.hidden_spots(ORBIS) == []
 
 

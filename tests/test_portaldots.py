@@ -20,10 +20,10 @@ def qapp():
 @pytest.fixture
 def clean_location():
     from maplehelper.ui.location import LOCATION
-    old_here, old_state = LOCATION.here, LOCATION.state
-    LOCATION.here, LOCATION.state = None, ""
+    old = LOCATION.here, LOCATION.state, LOCATION.follow
+    LOCATION.here, LOCATION.state, LOCATION.follow = None, "", None
     yield LOCATION
-    LOCATION.here, LOCATION.state = old_here, old_state
+    LOCATION.here, LOCATION.state, LOCATION.follow = old
 
 
 @pytest.fixture
@@ -36,6 +36,7 @@ def dots(qapp, isolated_store, kb, clean_location, monkeypatch):
     w = portaldots.PortalDots(kb, s)
     yield w, s, clean_location
     clean_location.changed.disconnect(w.refresh)
+    clean_location.followed.disconnect(w.refresh)
     w.close()
 
 
@@ -80,6 +81,28 @@ def test_nothing_to_place_hides_the_dots(dots, change):
     else:
         loc.set(_here("100000000"))
     assert not w.isVisible() and w._dots == []
+
+
+def test_the_follow_moves_the_dots_between_reads_and_a_lost_one_hides_them(dots):
+    """The fast follow is newer than the read: the dots move with it (the minimap scrolled 5 px left); a follow
+    that lost the picture (the loading screen) or sees another map (a teleport not yet confirmed by the reads) hides
+    them at once, while the read still names the old map."""
+    from PySide6.QtCore import QPointF
+
+    from maplehelper.minimap import View
+    w, _, loc = dots
+    loc.set(_here())
+    assert w._dots[0] == QPointF(60, 45)
+    loc.set_follow(("010003000", View(5, 20, 100, 50, (0, 0, 200, 200))))
+    assert w.isVisible() and w._dots[0] == QPointF(55, 45)
+    loc.set(_here())                                    # an older read landing after it: the follow still counts
+    assert w._dots[0] == QPointF(55, 45)
+    loc.set_follow(("010003000", None))
+    assert not w.isVisible()
+    loc.set_follow(("010003000", View(5, 20, 100, 50, (0, 0, 200, 200))))
+    assert w.isVisible()
+    loc.set_follow(("100000000", View(5, 20, 100, 50, (0, 0, 200, 200))))
+    assert not w.isVisible()
 
 
 def test_the_switch_is_on_by_default_and_saves(qapp, isolated_store, kb, monkeypatch):

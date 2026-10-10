@@ -3,7 +3,11 @@
 A QTimer ticks on the GUI thread; the read itself (the screenshot, then reading the minimap's title for the map
 and aligning its picture for the dot) runs on a worker thread, so the chat never freezes on it. The answer comes
 back through a signal, and the chat's character card and the map windows read it from ui/location.LOCATION. No box
-drawn yet: nothing runs."""
+drawn yet: nothing runs.
+
+Between reads, while the hidden-portal dots have something to show, a fast follow (every FOLLOW_MS, no OCR) tracks
+where the aligned map's picture lies as the game scrolls the minimap, and says at once when it stops matching (a
+teleport, the loading screen): LOCATION.followed. That loss starts a whole read right away."""
 from __future__ import annotations
 
 import logging
@@ -24,6 +28,7 @@ MIN_INTERVAL = 0.2      # s: faster only burned CPU rereading the same picture
 MAX_INTERVAL = 60.0     # s: slower, and the "where you are" line went stale
 DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
 CONFIRM = 2             # reads in a row that must name a new map before the player counts as moved
+FOLLOW_MS = 100         # the fast follow's period: ~15 ms of matching each, so the dots move with the minimap's scroll
 
 
 class MinimapScanner(QObject):
@@ -36,6 +41,7 @@ class MinimapScanner(QObject):
 
     _found = Signal(object)       # Here | None: a read's answer, from the worker thread
     _failed = Signal(str)         # a read's error as text ("Kind: message"), from the worker thread
+    _followed = Signal(object)    # a fast follow's answer: (map, View | None) | None, from the worker thread
 
     def __init__(self, kb: KnowledgeBase, settings: Settings, parent=None):
         super().__init__(parent)
@@ -46,6 +52,10 @@ class MinimapScanner(QObject):
         self._region: dict | None = None
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._tick)
+        self._follow_timer = QTimer(self)
+        self._follow_timer.timeout.connect(self._follow_tick)
+        self._following = False               # a fast follow is running (under _guard, like _reading)
+        self._follow_lost = False             # the last follow lost the picture (one whole read per loss)
         self._guard = threading.Lock()
         self._reading = False
         self._cooldown_until = 0.0    # monotonic deadline before the next read (0: no backoff)
@@ -56,6 +66,7 @@ class MinimapScanner(QObject):
         self._miss_logged = False             # the current run of misses was logged once already
         self._found.connect(self._deliver)
         self._failed.connect(self._complain)
+        self._followed.connect(self._on_followed)
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         """A KB update: the locator is rebuilt from it on the next read."""
@@ -80,16 +91,20 @@ class MinimapScanner(QObject):
         self._cooldown_until = 0.0     # a new box or interval: read right away, don't keep an old backoff
         self._miss_since = None
         self._pending = (None, 0)
+        LOCATION.set_follow(None)
         if self._region is None:
             self._timer.stop()
+            self._follow_timer.stop()
             LOCATION.set(None)
             LOCATION.set_state("")
             return
         self._timer.start(int(self._interval() * 1000))
+        self._follow_timer.start(FOLLOW_MS)
 
     def stop(self) -> None:
         """No read while the app goes (a read on its way finishes on its own)."""
         self._timer.stop()
+        self._follow_timer.stop()
 
     @staticmethod
     def _valid(region) -> bool:
@@ -139,6 +154,44 @@ class MinimapScanner(QObject):
         with self._guard:
             self._reading = False
         self._found.emit(here)
+
+    def _wants_follow(self) -> bool:
+        """The fast follow only runs while the hidden-portal dots have something to show: the setting on, and the
+        player's map has hidden portals."""
+        here = LOCATION.here
+        return bool(here is not None and self._graph is not None and self._settings["minimap_hidden_portals"]
+                    and self._graph.hidden_spots(here.map))
+
+    def _follow_tick(self) -> None:
+        if self._region is None or self._locator is None or not self._wants_follow():
+            return
+        with self._guard:
+            if self._following:
+                return          # the last follow is still going: skip this tick
+            self._following = True
+        threading.Thread(target=self._follow, args=(self._locator, dict(self._region)), daemon=True).start()
+
+    def _follow(self, locator, region: dict) -> None:
+        try:
+            got = locator.follow(capture.grab_image(region["x"], region["y"], region["w"], region["h"]))
+        except Exception as e:      # noqa: BLE001 - a bad follow is no answer; the reads go on
+            log.debug("minimap follow failed: %r", e)
+            got = None
+        with self._guard:
+            self._following = False
+        self._followed.emit(got)
+
+    def _on_followed(self, got) -> None:
+        """A fast follow's answer, back on the GUI thread. Losing the picture starts a whole read at once (once per
+        loss): it is what names the map the player arrived on."""
+        if got is None or self._region is None:
+            return
+        LOCATION.set_follow(got)
+        lost = got[1] is None
+        if lost and not self._follow_lost:
+            self._cooldown_until = 0.0
+            self._tick()
+        self._follow_lost = lost
 
     def _grace(self) -> float:
         """How long a known map outlives reads that find no title: max(3 s, 3 reads). A single frame can hide it

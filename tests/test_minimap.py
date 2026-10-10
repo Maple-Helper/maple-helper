@@ -92,6 +92,58 @@ def test_live_kerning_city_crowded_drawn_wide_places_the_dot_and_the_view(loc):
 
 
 @needs_kb
+def test_follow_tracks_the_scroll_and_drops_another_map(graph):
+    """Between reads the locked picture is followed without OCR: the minimap scrolled sideways moves the view by as
+    much (to a pixel); another map's minimap or the black loading screen in the box is lost at once (None view);
+    nothing aligned yet is no answer."""
+    from PIL import Image
+
+    from maplehelper.minimap import Locator
+    loc = Locator(graph)
+    box = _box("minimap_kerning_hidden_portal_live.png")
+    assert loc.follow(box) is None
+    here = loc.locate(box)
+    arr = np.asarray(box)
+    for dx in (-7, 3, 11):
+        mid, v = loc.follow(Image.fromarray(np.roll(arr, dx, axis=1)))
+        assert mid == "010003000" and v is not None
+        assert v.x == pytest.approx(here.view.x + dx, abs=1.0) and v.y == pytest.approx(here.view.y, abs=1.0)
+        loc.follow(box)                                 # back where the read placed it
+    other = _box("minimap_perion_live.png").resize(box.size)
+    assert loc.follow(other) == ("010003000", None)
+    assert loc.follow(Image.new("RGB", box.size)) == ("010003000", None)
+    assert loc.follow(box)[1] is not None               # the map back in view: followed again
+
+
+@needs_kb
+def test_the_games_portal_rings_sit_where_hidden_portals_are_drawn(loc, graph):
+    """The game marks its visible portals PORTAL_MARK_RISE above their points: Perion's blue rings sit there (live),
+    where the hidden-portal dots are drawn too (Graph.hidden_spots raises them the same)."""
+    import json
+
+    from maplehelper.minimap import _blobs
+    from maplehelper.routes import PORTAL_MARK_RISE
+    box = _box("minimap_perion_live.png")
+    here = loc.locate(box)
+    a = np.asarray(box).astype(int)
+    ring = (a[..., 2] > 140) & (a[..., 0] < 120) & ((a[..., 2] - a[..., 0]) > 60)
+    rings = [(np.mean([x for _, x in b]), np.mean([y for y, _ in b])) for b in _blobs(ring) if len(b) >= 15]
+    data = json.loads((REAL_KB / "routes.json").read_text(encoding="utf-8"))
+    perion = next(m for m in data["maps"] if m["id"] == "010004000")
+    checked = 0
+    for p in perion["portals"]:
+        at = here.view.at(graph._spot("010004000", {"x": p["x"], "y": p["y"] - PORTAL_MARK_RISE}))
+        if at is None or not 0 <= at[1] < box.height:
+            continue                                    # outside the part of the map the window shows
+        near = min(rings, key=lambda r: (r[0] - at[0]) ** 2 + (r[1] - at[1]) ** 2)
+        if abs(near[0] - at[0]) > 6:
+            continue                                    # a portal the game draws no ring for here
+        assert abs(near[1] - at[1]) <= 2.5, p["name"]
+        checked += 1
+    assert checked >= 3
+
+
+@needs_kb
 def test_live_collapsed_window_in_a_building(loc):
     """Inside a building the game folds the window to one title line, 'Victoria Road : Warriors' Sanctuary', over
     the game itself: the map from that line (up where the title bar's furniture is dropped), no spot (no map
@@ -247,6 +299,7 @@ def test_no_header_text_is_no_map_even_with_matching_art(loc, monkeypatch):
 def test_unalignable_picture_keeps_the_map(graph):
     """The title names Perion but the panel is flat grey: the map stands, with a None spot."""
     from PIL import Image
+
     from maplehelper.minimap import Here, Locator
     loc = Locator(graph)
     loc._ocr_rows = lambda view: [("Perion", 60.0, 70.0)]
@@ -257,7 +310,9 @@ def test_unalignable_picture_keeps_the_map(graph):
 def test_map_without_a_picture_keeps_the_map(graph):
     """A known map with no KB picture: the title still names it, with a None spot."""
     from types import SimpleNamespace
+
     from PIL import Image
+
     from maplehelper.minimap import Here, Locator
     from maplehelper.routes import MapInfo
     stub = SimpleNamespace(
@@ -275,7 +330,9 @@ def test_dead_engine_is_no_answer_and_logs_once(graph, monkeypatch, caplog):
     """RapidOCR won't load: reads are None, and the warning fires once no matter how many reads."""
     import logging
     import sys
+
     from PIL import Image
+
     from maplehelper.minimap import Locator
     monkeypatch.setitem(sys.modules, "rapidocr", None)
     loc = Locator(graph)
@@ -291,6 +348,7 @@ def test_engine_is_one_thread_and_never_upscales(monkeypatch):
     core for ~1 s per read (the scanner reads every second) and blew a header strip up to 736 px tall."""
     import sys
     import types
+
     from maplehelper.minimap import Locator
     made = []
     fake = types.ModuleType("rapidocr")

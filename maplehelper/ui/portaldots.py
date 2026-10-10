@@ -1,7 +1,9 @@
 """Blue dots on the game's own minimap where the map's invisible teleports are (press-up and touch portals the game
-never draws): a click-through window laid over the minimap box the player drew, placed from each minimap read
-(ui/location.LOCATION: the map, and where its KB picture lies in the box). Hidden whenever there is nothing to place
-(no box, the setting off, no read, a picture that didn't align, or no hidden portal in view)."""
+never draws): a click-through window laid over the minimap box the player drew. The map comes from each minimap read
+(ui/location.LOCATION.here), where its picture lies in the box from the fast follow between reads (LOCATION.follow:
+the dots move with the minimap's scroll, and go the moment the picture stops matching, a teleport or the loading
+screen). Hidden whenever there is nothing to place (no box, the setting off, no read, a picture that doesn't match,
+or no hidden portal in view)."""
 from __future__ import annotations
 
 import logging
@@ -41,21 +43,28 @@ class PortalDots(QWidget):
         self._ratio = 1.0
         self._excluded = False
         LOCATION.changed.connect(self.refresh)
+        LOCATION.followed.connect(self.refresh)
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         self._kb = kb
         self.refresh()
 
-    def refresh(self, _here: object = None) -> None:
-        """Place the dots from the latest read (a Qt slot too: LOCATION's signal carries what it re-reads)."""
+    def refresh(self, _what: object = None) -> None:
+        """Place the dots from the latest read and follow (a Qt slot too: LOCATION's signals carry what it re-reads)."""
         region = self._settings["minimap_region"]
         here = LOCATION.here
-        if (not self._settings["minimap_hidden_portals"] or not isinstance(region, dict)
-                or here is None or here.view is None):
+        if not self._settings["minimap_hidden_portals"] or not isinstance(region, dict) or here is None:
+            self._clear()
+            return
+        follow = LOCATION.follow
+        # the follow is newer than any read (a read's picture is half a second old when it lands); one of another
+        # map means the box shows that one now, not the player's known map
+        view = here.view if follow is None else follow[1] if follow[0] == here.map else None
+        if view is None:
             self._clear()
             return
         spots = routes.of(self._kb).hidden_spots(here.map)
-        at = [p for p in (here.view.at(s) for s in spots) if p is not None]
+        at = [p for p in (view.at(s) for s in spots) if p is not None]
         if not at:
             self._clear()
             return

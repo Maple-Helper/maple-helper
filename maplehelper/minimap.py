@@ -23,9 +23,10 @@ log = logging.getLogger("maplehelper")
 @dataclass(frozen=True)
 class View:
     """Where a map's KB picture lies in the drawn box, in box pixels: its top-left (negative when a cropped view
-    cuts it off) and scaled size, and the content panel it shows through (x0, y0, x1, y1, exclusive)."""
-    x: int
-    y: int
+    cuts it off; fractional from the fast follow) and scaled size, and the content panel it shows through (x0, y0,
+    x1, y1, exclusive)."""
+    x: float
+    y: float
     w: int
     h: int
     panel: tuple[int, int, int, int]
@@ -89,6 +90,9 @@ _MIN_AREA = 0.05    # ... and so is one this small next to the panel (the panel 
 _OV = 2.5   # how much bigger than the panel the scaled picture may be (a cropped live view shows only part of the
             # map: the panel is a sub-window of the scaled picture, up to this far per side)
 _OVERLAP_MIN = 0.5    # ... while still covering this much of the smaller side: less is a corner touching, not a view
+_FOLLOW_MIN = 0.35  # Locator.follow keeps the locked map while it matches this well at half size: the right map read
+                    # 0.53-0.56 on a crowded live Kerning City, other maps' minimaps 0.13 at most, a loading screen none
+_FOLLOW_NEAR = 24   # ... preferring a placing this close (box pixels) to the last one (a brick wall repeats itself)
 _PANEL_SMALL = 170   # the surround fill that finds the content panel runs this small (longest side): a blurred 1px
                       # outline still blocks the fill there, while quarter-scale would ramp it into a passable slope
 _PANEL_STEP = 16  # a colour step this big stops the fill: frames and title edges are far steeper, their insides far
@@ -557,6 +561,10 @@ class Locator:
         self._last_key: tuple | None = None
         self._last_mid: str | None = None
         self._collapsed = False         # the last read header was a folded window's one-line title (no map shown)
+        # what follow() tracks between reads: (map, scale, x, y, panel bg, panel rect in the box, box size), set by
+        # each aligned read; its own lock, as follow() runs on another thread than locate()
+        self._follow: tuple | None = None
+        self._follow_lock = threading.Lock()
 
     def reset(self) -> None:
         """Forget the remembered map, scale and header: the next locate() reads the whole box again."""
@@ -565,6 +573,8 @@ class Locator:
         self._header_rows = None
         self._last_key = None
         self._last_mid = None
+        with self._follow_lock:
+            self._follow = None
 
     def _panel_view(self, arr: np.ndarray, fresh: bool
                     ) -> tuple[np.ndarray, tuple[int, int, int], np.ndarray, np.ndarray]:
@@ -623,14 +633,21 @@ class Locator:
             return None
         self._prev = mid
         if self._collapsed or self._pic(mid) is None:
+            self._unfollow()
             return Here(mid, None)          # a folded window shows no map to place the dot on
         hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
             panel, bg, grey, valid = self._panel_view(arr, True)
             hit = self._align(panel, grey, valid, bg, mid)
         if hit is None:
+            self._unfollow()
             return Here(mid, None)
-        return self._remember(hit, panel)
+        return self._remember(hit, panel, bg)
+
+    def _unfollow(self) -> None:
+        """A read named a map but placed no picture: follow() has nothing of this map to track."""
+        with self._follow_lock:
+            self._follow = None
 
     # ------------------------------------------------------------------ OCR
 
@@ -909,13 +926,80 @@ class Locator:
             out[mid] = hit.score if hit is not None else 0.0
         return out
 
-    def _remember(self, hit: _Hit, arr: np.ndarray) -> Here:
+    def _remember(self, hit: _Hit, arr: np.ndarray, bg: tuple[int, int, int]) -> Here:
         self._locked = (hit.mid, hit.scale, hit.x, hit.y)
         art = self._pic(hit.mid)[1]
         ox, oy = self._origin
+        rect = (ox, oy, ox + arr.shape[1], oy + arr.shape[0])
         view = View(ox + hit.x, oy + hit.y, max(1, round(art.shape[1] * hit.scale)),
-                    max(1, round(art.shape[0] * hit.scale)), (ox, oy, ox + arr.shape[1], oy + arr.shape[0]))
+                    max(1, round(art.shape[0] * hit.scale)), rect)
+        box = (self._panel[0], self._panel[1]) if self._panel is not None else (0, 0)
+        with self._follow_lock:
+            self._follow = (hit.mid, hit.scale, float(hit.x), float(hit.y), bg, rect, box)
         return Here(hit.mid, self._dot(arr, hit), view)
+
+    def follow(self, img: Image.Image) -> tuple[str, View | None] | None:
+        """Where the last aligned map's picture lies in the box now, without reading the title: the game scrolls a
+        cropped minimap as the player walks, and a whole read (the OCR, then the alignment) every second made
+        anything drawn over it jump. The locked map at its locked scale is matched at half size (~15 ms), nearest
+        the last placing first, then anywhere in the panel (a hidden passage moves the view far at once).
+        (map, view), with a None view when the picture no longer matches (another map, the loading screen); None
+        when no read has aligned a map yet."""
+        with self._follow_lock:
+            snap = self._follow
+        if snap is None:
+            return None
+        mid, scale, lx, ly, bg, rect, box = snap
+        if img is None or img.size != box:
+            return mid, None
+        x0, y0, x1, y1 = rect
+        panel = np.asarray(img.convert("RGB"))[y0:y1, x0:x1]
+        ph, pw = panel.shape[0], panel.shape[1]
+        small, valid, k = self._shrunk(panel, ~_marker_mask(panel), max(_MIN_SIDE, round(max(pw, ph) / 2)))
+        templ = self._comp(mid, scale, bg, k)
+        if templ is None or not bool(valid.any()):
+            return mid, None
+        H, W = small.shape
+        h, w = templ.shape
+        need = _OVERLAP_MIN * min(H * W, h * w)
+        oy_all = np.arange(-(h - 1), H)
+        ox_all = np.arange(-(w - 1), W)
+        oh_all = np.minimum(H, oy_all + h) - np.maximum(0, oy_all)
+        ow_all = np.minimum(W, ox_all + w) - np.maximum(0, ox_all)
+        ok_y, ok_x = oh_all * min(W, w) >= need, ow_all * min(H, h) >= need   # (only these can pass the guard)
+        if not bool(ok_y.any()) or not bool(ok_x.any()):
+            return mid, None
+        oy, ox = oy_all[ok_y][:, None], ox_all[ok_x][None, :]
+        oh, ow = oh_all[ok_y][:, None], ow_all[ok_x][None, :]
+        scores, n, vi, vt = _masked_scores(small, valid, templ, oy, ox)
+        n1 = np.maximum(n, 1)
+        scores = np.where((oh * ow >= need) & (n >= _OVERLAP_MIN * oh * ow) & (vi > n1) & (vt > n1), scores, -2.0)
+        near = _FOLLOW_NEAR * k
+        close = (np.abs(oy - ly * k) <= near) & (np.abs(ox - lx * k) <= near)
+        pick = np.where(close, scores, -2.0)
+        if float(pick.max()) < _FOLLOW_MIN:
+            pick = scores
+        i, j = divmod(int(np.argmax(pick)), pick.shape[1])
+        if float(pick[i, j]) < _FOLLOW_MIN:
+            return mid, None
+
+        def sub(a: float, b: float, c: float) -> float:
+            """The peak's sub-pixel offset from three neighbouring scores (a parabola through them)."""
+            d = a - 2 * b + c
+            return 0.0 if d >= 0 or min(a, c) <= -1.0 else max(-0.5, min(0.5, 0.5 * (a - c) / d))
+
+        fy = sub(pick[i - 1, j], pick[i, j], pick[i + 1, j]) if 0 < i < pick.shape[0] - 1 else 0.0
+        fx = sub(pick[i, j - 1], pick[i, j], pick[i, j + 1]) if 0 < j < pick.shape[1] - 1 else 0.0
+        # to half a pixel: the peak's sub-pixel fit wobbles by hundredths while nothing moves, and every wobble was
+        # a "moved" signal and a repaint
+        x = round(2 * (float(ox[0, j]) + float(fx)) / k) / 2
+        y = round(2 * (float(oy[i, 0]) + float(fy)) / k) / 2
+        with self._follow_lock:
+            if self._follow is snap:                    # a read meanwhile re-locked: its placing wins
+                self._follow = (mid, scale, x, y, bg, rect, box)
+        art = self._pic(mid)[1]
+        return mid, View(x0 + x, y0 + y, max(1, round(art.shape[1] * scale)), max(1, round(art.shape[0] * scale)),
+                         rect)
 
     # ------------------------------------------------------------ player dot
 
