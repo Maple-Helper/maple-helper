@@ -76,6 +76,7 @@ class GameToolbar(QWidget):
 
     search_requested = Signal(str)     # which search to open: "monster" | "npc" | "item"
     npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
+    rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
 
     def __init__(self, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -115,6 +116,12 @@ class GameToolbar(QWidget):
             b.clicked.connect(lambda _=False, k=kind: self.search_requested.emit(k))
             self._search[kind] = b
             row.addWidget(b)
+        # the way to a found NPC or map: with cabs and NPC teleports, or on foot (the owner's, 2026-10-10)
+        self._rides = QPushButton(checkable=True)
+        self._rides.setCursor(Qt.PointingHandCursor)
+        self._rides.setFocusPolicy(Qt.NoFocus)
+        self._rides.clicked.connect(self._rides_clicked)
+        row.addWidget(self._rides)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
@@ -137,6 +144,8 @@ class GameToolbar(QWidget):
         for kind, key in KINDS.items():
             self._search[kind].setText(bidi.plain(t(key), rtl))
             self._search[kind].setToolTip(t(key + "_tip"))
+        self._rides.setText(bidi.plain(t("tb_rides"), rtl))
+        self._rides.setToolTip(t("tb_rides_tip"))
         self._close.setAccessibleName(t("tb_close"))
         self._close.setToolTip(t("tb_close"))
         self.adjustSize()
@@ -147,6 +156,11 @@ class GameToolbar(QWidget):
         """The checkable button is the setting: the window itself follows the flip (npc_toggled)."""
         self._settings["npc_overlay"] = self._npcs.isChecked()
         self.npc_toggled.emit()
+
+    def _rides_clicked(self, _=False) -> None:
+        """Cabs and NPC teleports in the way shown, or on foot: the button is the setting."""
+        self._settings["game_rides"] = self._rides.isChecked()
+        self.rides_toggled.emit()
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: the setting off (the Settings switch follows), the bar hidden until it's switched back on."""
@@ -218,6 +232,7 @@ class GameToolbar(QWidget):
         except (TypeError, ValueError):
             self._opacity = OPACITY_DEFAULT
         self._npcs.setChecked(bool(self._settings["npc_overlay"]))
+        self._rides.setChecked(bool(self._settings["game_rides"]))
         if not self._settings["game_toolbar"]:
             if self.isVisible():
                 self.hide()

@@ -99,11 +99,12 @@ def npc_place(kb, key: str, here_map: str | None = None) -> Place | None:
     return Place(mid, g.name(mid), _street(g, mid), g.picture_spot(mid, npc) if npc else None)
 
 
-def way_to(kb, here_map: str | None, to_map: str) -> Way:
-    """The routes.of(kb).route(here, to) as a Way: unknown here or no route is known False with no legs."""
+def way_to(kb, here_map: str | None, to_map: str, rides: bool = True) -> Way:
+    """The routes.of(kb).route(here, to) as a Way: unknown here or no route is known False with no legs.
+    rides=False: on foot (no cab, no NPC teleport; a boat still, a sea has no other way across)."""
     if here_map is None:
         return Way(None, (), False)
-    r = routes.of(kb).route(here_map, to_map)
+    r = routes.of(kb).route(here_map, to_map, taxi=rides, teleport=rides)
     if r is None:
         return Way(here_map, (), False)
     return Way(here_map, tuple(r.legs), True)

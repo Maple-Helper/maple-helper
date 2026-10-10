@@ -224,8 +224,10 @@ class Graph:
 
     # ------------------------------------------------------------ routing
 
-    def route(self, start: str, end: str, taxi: bool = True) -> Route | None:
-        """The cheapest way (COST per step) from one map to another; taxi=False walks (no cab fare)."""
+    def route(self, start: str, end: str, taxi: bool = True, teleport: bool = True) -> Route | None:
+        """The cheapest way (COST per step) from one map to another; taxi=False walks (no cab fare), teleport=False
+        leaves out the NPCs who take you somewhere ("Want to head over to Florina Beach?"). Boats always count:
+        a sea has no other way across."""
         if start not in self.maps or end not in self.maps:
             return None
         if start == end:
@@ -241,7 +243,7 @@ class Graph:
             if cost > best.get(here, cost):
                 continue
             for leg in self.edges[here]:
-                if leg.kind == "taxi" and not taxi:
+                if (leg.kind == "taxi" and not taxi) or (leg.kind == "npc" and not teleport):
                     continue
                 c = cost + COST[leg.kind]
                 if c < best.get(leg.to, c + 1):

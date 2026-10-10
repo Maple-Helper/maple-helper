@@ -179,6 +179,7 @@ DEFAULT_SETTINGS = {
     "game_toolbar": True,         # the small bar over the game: the NPCs-here window, monster/NPC/item search (ui/gametoolbar.py)
     "game_toolbar_pos": None,     # where the player left the bar: {"x","y"}; None: above the minimap box
     "game_search_geom": None,     # where the player left the search window: {"x","y","w","h"}; None: under the bar
+    "game_rides": False,          # the toolbar's Cabs & teleports switch: the way to a found NPC/map takes them, or walks
 }
 
 

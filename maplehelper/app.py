@@ -211,6 +211,7 @@ class MapleHelperApp:
         self.game_toolbar.npc_toggled.connect(self.npc_overlay.refresh)
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
         self.game_toolbar.search_requested.connect(self._open_game_search)
+        self.game_toolbar.rides_toggled.connect(self._game_rides_toggled)
         self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
@@ -297,6 +298,12 @@ class MapleHelperApp:
         if not isinstance(self.settings["game_search_geom"], dict):
             search.place_under(self.game_toolbar.frameGeometry())
         search.open(kind)
+
+    def _game_rides_toggled(self) -> None:
+        """The toolbar's Cabs & teleports switch: a way already shown in the search's detail page follows it."""
+        search = getattr(self, "game_search", None)
+        if search is not None:
+            search.rides_changed()
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""

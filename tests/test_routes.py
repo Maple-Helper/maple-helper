@@ -81,6 +81,15 @@ def test_only_maps_in_the_game_are_on_the_graph(world):
     assert g.route(HENESYS, ORBIS) is None and g.find("Orbis") is None and g.not_in_game("Orbis")
 
 
+def test_on_foot_leaves_out_npc_teleports_but_keeps_boats(world):
+    """The game toolbar's Cabs & teleports off: no cab, no NPC trip (Pason to Florina Beach); a sea has no other way
+    across, so Shanks' boat still counts."""
+    kb, g = world
+    assert _path(g, g.route(HENESYS, FLORINA)) == [("npc", "Florina Beach")]
+    assert g.route(HENESYS, FLORINA, taxi=False, teleport=False) is None
+    assert _path(g, g.route(SOUTHPERRY, HENESYS, taxi=False, teleport=False)) == [("boat", "Henesys")]
+
+
 def test_hidden_portals_are_spots_on_the_minimap(world):
     """A map's invisible teleports as spots on its minimap picture, raised PORTAL_MARK_RISE above their points; one
     off the picture and a map without any give none."""

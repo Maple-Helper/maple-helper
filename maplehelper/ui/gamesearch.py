@@ -299,7 +299,7 @@ class DetailWindow(QWidget):
             self.show_beside()
 
     def redraw(self) -> None:
-        """The view drawn again — the language or the KB changed under it."""
+        """The view drawn again — the language, the KB or the cabs & teleports switch changed under it."""
         if self._stack:
             self._draw()
 
@@ -420,14 +420,17 @@ class DetailWindow(QWidget):
 
     def _way(self, to_map: str) -> None:
         """The way from the player's map to this one, a line per step; already there, no way known, or their
-        map not read yet."""
+        map not read yet. On foot, or with cabs and NPC teleports when the toolbar's switch says so
+        (settings["game_rides"])."""
         o = self._owner
         t = o.t
         here = LOCATION.here
-        way = gamelookup.way_to(o._kb, here.map if here is not None else None, to_map)
-        self._heading(t("lk_way"))
+        rides = bool(o._settings["game_rides"])
+        way = gamelookup.way_to(o._kb, here.map if here is not None else None, to_map, rides=rides)
+        self._heading(t("lk_way_rides" if rides else "lk_way_walk"))
         if not way.known:
-            self._line(t("lk_way_unknown_here" if way.here is None else "lk_way_none"), muted=True)
+            key = "lk_way_unknown_here" if way.here is None else "lk_way_none" if rides else "lk_way_none_walk"
+            self._line(t(key), muted=True)
         elif not way.legs:
             self._line(t("lk_here"), muted=True)
         else:
@@ -699,6 +702,10 @@ class GameSearch(EdgeResize, QWidget):
         self._kb = kb
         self._detail.redraw()     # the page shown is drawn again: its names and places may all have moved
         self._run()      # every list is read again (each one is built once per KB)
+
+    def rides_changed(self) -> None:
+        """The toolbar's cabs & teleports switch flipped: the way on the page shown is found again."""
+        self._detail.redraw()
 
     def apply_language(self, t: I18n) -> None:
         self.t = t

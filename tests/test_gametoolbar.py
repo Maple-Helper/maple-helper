@@ -71,6 +71,21 @@ def test_refresh_keeps_the_button_in_step_with_the_setting(bar):
     assert w._npcs.isChecked() is False
 
 
+def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
+    """Off on a new install: the way to a found NPC walks until the player turns cabs and NPC teleports on."""
+    w, s = bar
+    w.refresh()
+    seen = []
+    w.rides_toggled.connect(lambda: seen.append(s["game_rides"]))
+    assert w._rides.text() == "Cabs & teleports" and w._rides.isChecked() is False and s["game_rides"] is False
+    w._rides.click()
+    w._rides.click()
+    assert seen == [True, False]
+    s["game_rides"] = True              # a setting kept from last time: the button opens on
+    w.refresh()
+    assert w._rides.isChecked() is True
+
+
 # ------------------------------------------------------------ the searches
 
 @pytest.mark.parametrize("kind,text", [("monster", "Monsters"), ("npc", "NPCs"), ("item", "Items")])

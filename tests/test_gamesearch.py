@@ -267,7 +267,7 @@ def test_a_map_row_opens_the_maps_page_and_back_returns(win, qapp, clean_locatio
     from maplehelper import gamelookup
     monkeypatch.setattr(gamelookup, "map_monsters",
                         lambda kb, key: [("monster/2230104", "Stump", 15, 3)] if key == f"map/{GARDEN}" else [])
-    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to: gamelookup.Way(here=None, legs=(), known=False))
+    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True: gamelookup.Way(here=None, legs=(), known=False))
     win.open("monster")
     win._box.setText("snail")
     pump(qapp, 200)
@@ -278,7 +278,7 @@ def test_a_map_row_opens_the_maps_page_and_back_returns(win, qapp, clean_locatio
     _links(d)[0].clicked.emit()                         # Snail Garden: the map's own page
     assert d._stack == [("monster", snail), ("map", f"map/{GARDEN}")]
     assert d.back.isVisible() and d.title.text() == "Snail Garden"
-    assert _texts(d) == ["Victoria Road", "The way from here",
+    assert _texts(d) == ["Victoria Road", "The way from here on foot",
                          "Your map isn't known yet, so there's no way from here"]
     assert [(r.name.text(), r.sub.text(), r.toolTip()) for r in _links(d)] == [
         ("Stump", "Lv. 15 · 3 on the map", "Click to see this monster")]
@@ -298,7 +298,7 @@ def test_the_next_page_is_measured_at_once_never_folded_to_the_header(win, qapp,
     from maplehelper import gamelookup
     monkeypatch.setattr(gamelookup, "map_monsters",
                         lambda kb, key: [("monster/2230104", "Stump", 15, 3)] if key == f"map/{GARDEN}" else [])
-    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to: gamelookup.Way(here=None, legs=(), known=False))
+    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True: gamelookup.Way(here=None, legs=(), known=False))
     win.open("monster")
     win._box.setText("snail")
     pump(qapp, 200)
@@ -364,7 +364,8 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     monkeypatch.setattr(gamelookup, "npc_place",
                         lambda kb, key, here_map=None: gamelookup.Place(MID, "Fake Town", "Fake Street", spot))
     monkeypatch.setattr(gamelookup, "map_monsters", lambda kb, key: [])
-    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to: gamelookup.Way(here="999999999", legs=(), known=False))
+    monkeypatch.setattr(gamelookup, "way_to",
+                        lambda kb, here, to, rides=True: gamelookup.Way(here="999999999", legs=(), known=False))
     clean_location.set(_here(MID, (0.5, 0.5)))
     win.open("npc")
     win._detail.open_view("npc", "npc/3")
@@ -382,7 +383,8 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     assert LOCATION.guide == (MID, spot, "npc/3")
     clean_location.set(_here("999999999", (0.5, 0.5)))  # another map: the ring goes, the way from there shown
     assert LOCATION.guide is None
-    assert _texts(d) == [f"{name} is on Fake Town", "The way from here", "No way from your map is known"]
+    assert _texts(d) == [f"{name} is on Fake Town", "The way from here on foot",
+                         "No way on foot from your map is known. Try the toolbar's Cabs & teleports"]
     clean_location.set(_here(MID, (0.5, 0.5)))          # back on it: the map's own page says so
     d.open_view("map", f"map/{MID}")
     assert _texts(d) == ["Fake Street", "You're on this map"] and LOCATION.guide is None
@@ -394,22 +396,34 @@ def test_an_npc_elsewhere_shows_the_way_there_line_by_line(win, qapp, kb, clean_
     from maplehelper.routes import Leg
     from maplehelper.ui import mapview
     from maplehelper.ui.location import LOCATION
-    legs = (Leg(MID, FAR, "portal", "the door", spot=(0.9, 0.5)),
-            Leg(FAR, "010020002", "npc", "Bart", npc="npc/9", spot=(0.1, 0.5)))
+    walk = (Leg(MID, FAR, "portal", "the door", spot=(0.9, 0.5)),)
+    ride = (Leg(MID, "010020002", "taxi", "Regular Cab", npc="npc/8", spot=(0.2, 0.5)),
+            Leg("010020002", FAR, "npc", "Bart", npc="npc/9", spot=(0.1, 0.5)))
     monkeypatch.setattr(gamelookup, "npc_place",
                         lambda kb, key, here_map=None: gamelookup.Place(FAR, "Far Map", "Far Street", (0.5, 0.5)))
-    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to: gamelookup.Way(here=MID, legs=legs, known=True))
+    monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True:
+                        gamelookup.Way(here=MID, legs=ride if rides else walk, known=True))
     clean_location.set(_here(MID, (0.5, 0.5)))
     win.open("npc")
     win._detail.open_view("npc", "npc/3")
     d = win._detail
     t = I18n("en")
-    assert _texts(d) == [f"{_kb_name(kb, 'npc/3')} is on Far Map", t("lk_way"),
-                         mapview.route_says(t, graph, legs[0]).replace("**", ""),
-                         mapview.route_says(t, graph, legs[1]).replace("**", "")]
+
+    def says(legs):
+        return [mapview.route_says(t, graph, leg).replace("**", "") for leg in legs]
+    # the toolbar's Cabs & teleports off (the default): on foot
+    assert _texts(d) == [f"{_kb_name(kb, 'npc/3')} is on Far Map", "The way from here on foot", *says(walk)]
     # the steps' **bold** names are drawn bold, never shown as asterisks (offscreen render, 2026-10-10)
     assert all("**" not in w.text() for w in d._rows if hasattr(w, "text"))
     assert LOCATION.guide is None                      # never ringed: it isn't where the player is
+    # switched on: the page shown finds the way again, by cab and NPC teleport; off again, back on foot
+    win._settings["game_rides"] = True
+    win.rides_changed()
+    assert _texts(d) == [f"{_kb_name(kb, 'npc/3')} is on Far Map", "The way from here by cab and teleport",
+                         *says(ride)]
+    win._settings["game_rides"] = False
+    win.rides_changed()
+    assert _texts(d)[1:] == ["The way from here on foot", *says(walk)]
 
 
 def test_switching_modes_keeps_each_ones_query(win, qapp):
