@@ -304,3 +304,15 @@ def test_a_newer_market_moves_the_version_and_brings_the_sellers_pictures(site, 
     assert mesowatch.face_file(snap, "Nobody") is None and mesowatch.face_file(snap, "bad") is None
     hat = snap.items[1007145]
     assert hat.category == "Cash Shop" and hat.first_day == "2026-10-08"
+
+
+def test_the_index_a_second_after_the_file_is_the_same_publish(site, monkeypatch):
+    """MesoWatch's index stamps a publish a second or so after the file's own generated_at (09:28:23 / 09:28:22,
+    seen live): that is no newer market, so the market file isn't asked for again."""
+    mesowatch.snapshot()
+    monkeypatch.setattr(mesowatch, "_checked", 0.0)
+    mesowatch._snap.fetched = 0
+    site["index"] = index_doc("2026-10-10T07:47:37+00:00")          # NOW + 1 second
+    site["calls"].clear()
+    mesowatch.snapshot()
+    assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL]

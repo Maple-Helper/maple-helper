@@ -48,6 +48,7 @@ FACES_URL = SITE + "data/shopmap/" + urllib.parse.quote(LIVE_MARKET) + ".json"
 FACE_BASE = SITE + "data/shopmap/sellers/" + urllib.parse.quote(LIVE_MARKET) + "/"
 REFRESH_SECONDS = 15 * 60                    # a check every 15 minutes (the site publishes about every 12)
 RETRY_SECONDS = 300                          # after a failed check
+SAME_PUBLISH_SECONDS = 60                    # the index's time and the file's own differ by a second or so
 STALE_SECONDS = 3 * 24 * 3600                # older than this, the numbers are not shown at all
 TREND_DAYS = 7                               # the trend is read over the last week's daily medians
 TREND_MIN_SOLD = 3                           # a day with fewer sales is too thin to measure a trend from
@@ -360,7 +361,9 @@ def _check(timeout: float) -> None:
         return                          # no live market published (yet): nothing to show
     world = str(entry.get("label") or LIVE_MARKET)
     updated = _ts(entry.get("updated"))
-    if _snap is not None and updated is not None and updated <= _snap.generated:
+    # (the index's time is the publish's, a second or so after the file's own "generated_at": a live watch saw
+    # 09:28:23 against 09:28:22, and every check asked for the market file again; ETag answered 304, but still)
+    if _snap is not None and updated is not None and updated <= _snap.generated + SAME_PUBLISH_SECONDS:
         _snap.world = world
         _snap.fetched = time.time()
         _failed = False
