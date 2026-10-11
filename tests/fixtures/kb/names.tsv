@@ -1,0 +1,20 @@
+key	category	name	type
+monster/100100	monster	Snail	
+monster/100101	monster	Blue Snail	
+monster/130101	monster	Red Snail	
+monster/1210100	monster	Pig	
+monster/5130104	monster	Axe Stump	
+item/2000000	item	Red Potion	
+map/100000000	map	Henesys	
+npc/1012100	npc	Athena Pierce	
+quest/1000	quest	Mai's First Training	
+skill/warrior__power-strike	skill	Power Strike	
+class/warrior	class	Warrior	
+guide/leveling	guide	Leveling Guide	
+shop/henesys__potion-shop	shop	Henesys Potion Shop	
+crafting/ellinia__staff	crafting	Staff Crafting	
+formula/exp	formula	EXP Formula	
+map/100000001	map	Henesys Hunting Ground I	
+map/100000002	map	Henesys Hunting Ground II	
+map/100000003	map	Snail Garden	
+guide/maplestory-classic-worlds-release-date	guide	MapleStory Classic World Release Date	

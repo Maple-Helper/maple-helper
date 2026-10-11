@@ -145,6 +145,7 @@ COMMUNITY_MIN_SCORE = 1
 # --- the shorter forms a player writes a name in (a question only: an answer writes names exactly)
 # the categories whose names have them (a quest's or a guide's name is a sentence, nobody shortens it)
 SHORT_FORM_CATEGORIES = ("item", "npc", "map", "monster", "skill", "class")
+FAMILY_SHARE = 0.75     # a name most of a word's family starts with is what the word alone means (_family_root)
 SHORT_FROM = 4         # letters a one-word short form needs ("ilbi", "lith"; "jr" or "red" is no name)
 # English words that are the first word of exactly one KB name: "work" is no Work Gloves, "summer" no Summer Store
 # Permit. A word the KB's quest and guide pages write in lower case is an everyday word too (_prose_words), this
@@ -568,8 +569,9 @@ class KnowledgeBase:
         names: dict[str, str] = {}             # folded name without possessives -> key
         exact = {n for n, _, _ in self._names} | {f for f, _, _ in self._short_forms}
         for key, e in self.entities.items():
-            if key.partition("/")[0] in SHORT_FORM_CATEGORIES and key not in self._common_npcs and e.get("name"):
-                names.setdefault(_fold(_no_possessive(_name_norm(e["name"]))), key)
+            folded = _fold(_no_possessive(_name_norm(e.get("name") or "")))
+            if key.partition("/")[0] in SHORT_FORM_CATEGORIES and key not in self._common_npcs and folded:
+                names.setdefault(folded, key)      # (an NPC named "????" folds to nothing: no name)
         families: dict[str, list[list[str]]] = {}
         for n in names:
             words = n.split()
@@ -585,9 +587,25 @@ class KnowledgeBase:
                     break
                 common.append(col[0])
             head = " ".join(common)
-            if (len(fam) == 1 or head in names) and not self._common_word(word):
+            if len(fam) > 1 and head not in names:
+                head = self._family_root(fam, names)
+            if (len(fam) == 1 or head and head in names) and not self._common_word(word):
                 out[word] = names[head] if len(fam) > 1 else names[" ".join(fam[0])]
         return out
+
+    @staticmethod
+    def _family_root(fam: list[list[str]], names: dict[str, str]) -> str:
+        """The name most of a word's family starts with, when one does: "kerning" still means Kerning City once the
+        KB has a "Kerning Engineering School Uniform" beside Kerning City and its ~20 shops and maps (2026-10-11,
+        the nightly's recall check). A name that starts at least FAMILY_SHARE of the family; else "" (no one)."""
+        joined = [" ".join(w) for w in fam]
+        best = ""
+        for root in sorted({j for j in joined if j in names}, key=len):
+            share = sum(1 for j in joined if j == root or j.startswith(root + " ")) / len(joined)
+            if share >= FAMILY_SHARE:
+                best = root
+                break
+        return best
 
     def _occurrence(self, hay: str, name: str, key: str, taken: list[tuple[int, int]]) -> tuple[int, int] | None:
         """The first place `name` stands in `hay` (" word word ... ") outside the spans already taken, as a

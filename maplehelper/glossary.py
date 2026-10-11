@@ -17,16 +17,18 @@ from .store import ASSETS
 GLOSSARY = "maplestory-classic-glossary"
 
 # term shown in the app -> the glossary entry it uses (or an app definition below).
-# Everyday words players already know (Lv., EXP) get no "?" (the player asked for that)
+# Everyday words players already know (Lv., EXP, and mesos: the owner, 2026-10-11) get no "?" (the player asked for that)
 TERMS = {
     "HP": "HP / MP", "MP": "HP / MP", "ACC": "ACC", "Accuracy": "ACC", "Avoid": "Avoid",
     "AVOID": "Avoid", "P.DEF": "P.DEF", "PDEF": "P.DEF", "M.DEF": "M.DEF", "MDEF": "M.DEF",
     "W.ATK": "WATK / W.ATK", "WATK": "WATK / W.ATK", "M.ATK": "Magic / MATK", "AP": "AP", "SP": "SP",
     "STR": "STR / DEX / INT / LUK", "DEX": "STR / DEX / INT / LUK", "INT": "STR / DEX / INT / LUK",
-    "LUK": "STR / DEX / INT / LUK", "mesos": "mesos", "NPC": "NPC", "Free Market": "FM", "KPQ": "kPQ",
+    "LUK": "STR / DEX / INT / LUK", "NPC": "NPC", "Free Market": "FM", "KPQ": "kPQ",
     "KS": "KS", "Citizenship": "Citizenship", "grind": "grind", "buff": "buff",
     "Booster": "booster", "Mastery": "mastery", "Critical Rate": "crit", "scroll": "scroll", "mob": "mob",
     "catalyst": "catalyst", "Training Advisor": "Training Advisor",
+    # MesoWatch's typical sale (the price card, the market details window): what the price is, a median
+    "מחיר מכירה רגיל": "usual sale price", "usual sale price": "usual sale price",
 }
 
 # clearer or missing definitions, written for the app
@@ -70,6 +72,10 @@ APP = {
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
             "Level: of your character or a monster. Every level up gives AP and SP."),
     "mob": ("מפלצת (קיצור של mobile). \"מובים\" = מפלצות.", "A monster (short for mobile)."),
+    "usual sale price": ("החציון של המכירות ש-MesoWatch ראו: חצי מהמכירות היו זולות ממנו וחצי יקרות ממנו. מכירה חריגה "
+                         "אחת, זולה מאוד או יקרה מאוד, לא מזיזה אותו, ולכן הוא משקף את המחיר שבאמת משלמים.",
+                         "The median of the sales MesoWatch saw: half sold for less, half for more. One odd sale, very "
+                         "cheap or very dear, doesn't move it, so it shows what players really pay."),
     "catalyst": ("ה-mesos שמשלמים כדי ליצור את הפריט, מעבר לחומרים.", "The mesos paid to craft, on top of the materials."),
     # the book's lines point to website tools ("try the scroll simulator", "see the damage formula guide") or are
     # fragments; these say the same in full, with nothing the app doesn't have

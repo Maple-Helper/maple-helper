@@ -1,0 +1,5 @@
+map	key	street	region	town	lv_min	lv_max	spawn_points	exp_hr	exp_rank	monsters	npcs	connects
+Henesys	map/100000000	Victoria Road	Victoria Island									
+Henesys Hunting Ground I	map/100000001	Victoria Road	Victoria Island							Red Snail; Blue Snail		
+Henesys Hunting Ground II	map/100000002	Victoria Road	Victoria Island							Pig; Axe Stump; Red Snail		
+Snail Garden	map/100000003	Victoria Road	Victoria Island							Red Snail; Snail		

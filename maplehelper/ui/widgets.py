@@ -942,6 +942,7 @@ class _ItemRequests(QObject):
 
 
 ITEM_REQUESTS = _ItemRequests()
+MARKET_REQUESTS = _ItemRequests()     # an item's Free Market details (MesoWatch): the app opens that window
 
 
 def item_details_button(key: str, t, size: int | None = None):

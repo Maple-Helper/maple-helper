@@ -197,7 +197,9 @@ class Graph:
 
     def _says(self, npc_key: str) -> str:
         page = self.kb.page(npc_key)
-        m = re.search(r"^What .+ Says\s*$", page, re.M)
+        # "What Pason Says", or since NiaMeowDB's 2026-10 pages, for an NPC with idle lines only, "NPC Idle Chatter"
+        # ("Idle chatter" before): Pason's "Want to head over to Florina Beach?" moved under it
+        m = re.search(r"^(?:What .+ Says|(?:NPC )?Idle [Cc]hatter)\s*$", page, re.M)
         if not m:
             return ""
         rest = page[m.end():]

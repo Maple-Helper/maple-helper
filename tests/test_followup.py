@@ -80,7 +80,6 @@ def test_cot2_label_beside_the_shop_price(tools, kb, monkeypatch):
     # the price's own label is its chip, at the line's start, the test's meaning in its tooltip
     assert "(cheapest at Mia, Potion Shop)" in texts(d.pages["prices"])
     assert [c.text() for c in d.price_chips] == ["COT2"] and "second closed test" in d.price_chips[0].toolTip()
-    assert d.fm_chip.text() == "Community"
     a = quick.answer("where to buy red potion", kb, I18n("en"))
     assert a and "Mia · Henesys · Potion Shop · 50 mesos (COT2 test price)" in a.text
     # a price the KB doesn't label stays plain

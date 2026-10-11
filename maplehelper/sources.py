@@ -27,7 +27,9 @@ OFFICIAL = "official"
 MEOWDB = "MeowDB"
 REFERENCE = "reference"        # a historical reference table (the EXP guide's levels 50+)
 CLOSED_TEST = "closed_test"    # a value the KB marks "(closed test)" without naming the build (a pet's lifespan)
-FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE, CLOSED_TEST)
+MESOWATCH = "MesoWatch"       # Free Market sales seen in players' shops on public streams (mesowatch.py): community
+OSMS = "OSMS"                 # the game client's own Cash Shop list, datamined by OSMS Data Explorer (osms.py)
+FIXED = (MSEA, COMMUNITY, OFFICIAL, MEOWDB, REFERENCE, CLOSED_TEST, MESOWATCH, OSMS)
 
 # readable names for the build labels the KB uses or is likely to (an unknown one is shown as written)
 BUILD_NAMES = {
@@ -39,7 +41,9 @@ BUILD_NAMES = {
     "Live": {"he": "המשחק החי", "en": "Live"},
 }
 
-_HISTORY = re.compile(r"^updated in (?P<label>.+?) ▾ ?(?P<rest>.*)$")
+# "updated in COT2 ▾ Stat | COT1 | COT2 | Change", and since the game's launch values (NiaMeowDB, 2026-10-11)
+# "updated at launch ▾ Test 2 ACC 78 to 79, ..." with its table on the next line ("Stat | COT2 | Launch | Change")
+_HISTORY = re.compile(r"^updated (?:in|at) (?P<label>.+?) ▾ ?(?P<rest>.*)$")
 _TABLE = re.compile(r"^Stat \| (?P<old>.+?) \| (?P<new>.+?) \| Change\s*$")
 # "COT2 prices", "COT2 prices Citizen of Honor +", "COT2 prices full shop page →"; never "Free Market Prices"
 # a label line, not a sentence: bare, with a citizen grade ("... +") or a link ("... →"); "Buyable-ingredient
@@ -54,7 +58,9 @@ _CLOSED_PRICE = re.compile(r"^Closed-test price\b(?P<rest>.*)$")
 _EXP_REFERENCE = re.compile(r"Levels (\d+) to (\d+) reproduce a historical reference")
 # the Free Market's player price reports on an item page; NiaMeowDB renamed the section on 2026-10-04 ("Community price
 # check" became "Free Market / Player reported ... Saw it in a shop? Add a price"), and the nightly test stopped the KB
-FM_REPORTS = ("Community price check", "Player reported", "Saw it in a shop? Add a price")
+# (and on 2026-10-11 "Saw it in a shop, or sold one? Add a shop price · Add a sold price")
+FM_REPORTS = ("Community price check", "Player reported", "Saw it in a shop? Add a price",
+              "Saw it in a shop, or sold one? Add a shop price · Add a sold price")
 _MSEA_DROPS = re.compile(r"^MSEA reference drops$", re.I)
 EXP_GUIDE = "guide/exp-table-level-1-to-100"
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
@@ -93,6 +99,12 @@ def _body(text: str) -> list[str]:
 
 # ---------------------------------------------------------------- change history (stats)
 
+def _label(raw: str) -> str:
+    """A build label as the KB's tables write it: "launch" (the heading's word) is the tables' "Launch"."""
+    raw = raw.strip()
+    return raw[:1].upper() + raw[1:] if raw.islower() else raw
+
+
 def history(text: str) -> Stamp | None:
     """The page's newest build and its changes, from its "Change history" block. With more than one block
     ("updated in Launch ▾ Stat | COT2 | Launch" and an older "updated in COT2 ▾ ..."), the newest is the label
@@ -103,11 +115,13 @@ def history(text: str) -> Stamp | None:
         m = _HISTORY.match(ln)
         if not m:
             continue
-        label, rows, before = m.group("label").strip(), [], ""
-        tm = _TABLE.match(m.group("rest"))
+        label, rows, before = _label(m.group("label")), [], ""
+        tm, first = _TABLE.match(m.group("rest")), i + 1
+        if not tm and i + 1 < len(lines):           # the launch blocks: a note after the arrow, the table below
+            tm, first = _TABLE.match(lines[i + 1]), i + 2
         if tm:
             before, label = tm.group("old").strip(), tm.group("new").strip() or label
-            for row in lines[i + 1:]:
+            for row in lines[first:]:
                 cols = [c.strip() for c in row.split(" | ")]
                 if len(cols) != 4 or _HISTORY.match(row):       # (the next build's header splits in four too)
                     break
@@ -220,7 +234,7 @@ def build_labels(kb) -> set[str]:
         for ln in _body(kb.page(key)):
             m = _HISTORY.match(ln)
             if m:
-                found.add(m.group("label").strip())
+                found.add(_label(m.group("label")))
                 t = _TABLE.match(m.group("rest"))
                 if t:
                     found |= {t.group("old").strip(), t.group("new").strip()}
@@ -360,7 +374,9 @@ AI_NAMES = {MSEA: "MSEA reference (old MapleSEA, not confirmed for Classic)",
             OFFICIAL: "official (Nexon)",
             MEOWDB: "MeowDB (no build label)",
             REFERENCE: "historical reference table (an estimate until verified)",
-            CLOSED_TEST: "closed-test value (not confirmed for launch)"}
+            CLOSED_TEST: "closed-test value (not confirmed for launch)",
+            MESOWATCH: "MesoWatch (community: Free Market sales read from public streams)",
+            OSMS: "OSMS Data Explorer (the game client's Cash Shop list)"}
 
 
 def ai_name(source: str) -> str:

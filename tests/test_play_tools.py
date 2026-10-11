@@ -165,8 +165,11 @@ def test_crafting_recipes_by_profession_level():
     # the EXP to the next level is the current level's (pages/formula/leveling.md "1 | 50 | 0 | 10"), and
     # Smithing 8 still has a next level though the efficiency page has no "Lv. 9" block (audit GAM-1)
     assert crafting.next_level(kb, "smithing", 1) == (2, 50, 10)
-    assert crafting.next_level(kb, "smithing", 8) == (9, 1187, 45)
-    assert crafting.next_level(kb, "smithing", 10) is None
+    # the cap is the KB's ("Crafting currently caps at level 8" since 2026-10-11; 10 before): the last level has no next
+    table = crafting.exp_table(kb)
+    top = max(table)
+    assert crafting.next_level(kb, "smithing", top - 1) == (top, table[top - 1][0], table[top][1])
+    assert crafting.next_level(kb, "smithing", top) is None
 
 
 @needs_kb

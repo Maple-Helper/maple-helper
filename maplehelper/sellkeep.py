@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from . import farm, market
+from . import farm, market, sources
 
 # the page's "JOB Mage" means a Magician (jobs.py's class name)
 _JOB_WORD = {"Mage": "Magician"}
@@ -24,6 +24,7 @@ class Verdict:
     slot: int = 0        # the inventory slot, 1-based
     picture: bytes = b""  # the icon as the game showed it (an item the read couldn't name)
     fm: int = 0          # the usual Free Market price, by the players' reports on NiaMeowDB
+    fm_src: str = ""     # "MesoWatch" when fm is MesoWatch's usual sold price (no NiaMeowDB report had one)
 
 
 def _wear(kb, key: str) -> tuple[int, list[str]] | None:
@@ -134,11 +135,14 @@ def for_market(kb, verdicts: list[Verdict]) -> list[str]:
     return keys
 
 
-def with_market(verdicts: list[Verdict], usual: dict[str, int]) -> list[Verdict]:
-    """An item the Free Market usually pays more for than an NPC: sell it there (usual: key -> the site's usual
-    price over its window). No report: as it was."""
+def with_market(verdicts: list[Verdict], usual: dict[str, int], sold: dict[str, int] | None = None) -> list[Verdict]:
+    """An item the Free Market usually pays more for than an NPC: sell it there (usual: key -> NiaMeowDB's usual
+    reported price over its window; sold: key -> MesoWatch's usual sold price, for an item without a report). No
+    price from either: as it was."""
+    sold = sold or {}
     for v in verdicts:
-        price = usual.get(v.key) or 0
+        src = "" if usual.get(v.key) else sources.MESOWATCH if sold.get(v.key) else ""
+        price = usual.get(v.key) or sold.get(v.key) or 0
         if v.kind in ("sell", "no_price") and price > v.price:
-            v.kind, v.fm = "fm", price
+            v.kind, v.fm, v.fm_src = "fm", price, src
     return _sorted(verdicts)

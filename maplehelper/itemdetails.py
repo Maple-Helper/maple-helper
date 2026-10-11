@@ -15,6 +15,8 @@ _BYLINE = re.compile(r"^(.+?) ((?:[A-Z][a-z]{2} \d{1,2}, \d{4})|(?:\d+[smhd] ago
 # the page's sections after the notes: where they end
 _AFTER_NOTES = ("Observed Stat Rolls", "Dropped By", "Needed By", "Stacking & conflicts", "Animations", "Cash Shop",
                 "MSEA Reference Drops", "Free Market", "Where to buy", "Recipes", "Quests", "Change history")
+# the notes' heading: "Nia Notes" since NiaMeowDB's 2026-10-11 pages, "Meow Notes" before
+NOTES_HEADS = ("Nia Notes", "Meow Notes")
 NOTE_MIN = 40               # a line this short isn't a note's text (a heading, a label, a list's name)
 # where the stat lines under the header end: the gender / trade line, or the page's next block
 _STATS_END = ("Male", "Female", "Tradeable", "Untradeable", "Weapon Details", "Worn on", "Try on avatar")
@@ -75,9 +77,10 @@ def needed_by(kb, key: str) -> tuple[list[dict], list[dict]]:
 
 
 def _notes(lines: list[str]) -> tuple[list[str], list[Post]]:
-    if "Meow Notes" not in lines:
+    head = next((h for h in NOTES_HEADS if h in lines), None)
+    if head is None:
         return [], []
-    i = lines.index("Meow Notes") + 1
+    i = lines.index(head) + 1
     about: list[str] = []
     while i < len(lines) and lines[i] != "M" and lines[i] not in _AFTER_NOTES and len(lines[i]) >= NOTE_MIN:
         about.append(lines[i])
