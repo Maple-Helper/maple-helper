@@ -85,6 +85,7 @@ def test_the_details_window_shows_mesowatchs_card(app, monkeypatch, lang):
     d.site.click()
     assert opened == ["https://meso.watch/?item=cash:01007145"]
     d.close()
+    d.deleteLater()           # (no window left behind for the next tests to restyle)
 
 
 def test_a_sellers_picture_replaces_the_initial(app, monkeypatch, tmp_path):
@@ -106,6 +107,7 @@ def test_a_sellers_picture_replaces_the_initial(app, monkeypatch, tmp_path):
     assert tagged.text() == "" and not tagged.pixmap().isNull()
     assert d._avatars["Countdown"][0].text() == "C"
     d.close()
+    d.deleteLater()           # (no window left behind for the next tests to restyle)
 
 
 def test_an_item_nobody_sold_says_so(app, monkeypatch):
@@ -122,6 +124,7 @@ def test_an_item_nobody_sold_says_so(app, monkeypatch):
     d.show_item("item/414")
     assert any("couldn't reach" in w.text().lower() for w in d.findChildren(QLabel))
     d.close()
+    d.deleteLater()           # (no window left behind for the next tests to restyle)
 
 
 def pump(app, until, ms=3000):
@@ -149,6 +152,7 @@ def test_an_open_window_follows_a_newer_market(app, monkeypatch):
     d._follow()
     assert shown == ["item/3198"] and d.tabs.value() == "sold"
     d.close()
+    d.deleteLater()           # (no window left behind for the next tests to restyle)
 
 
 def test_a_sellers_picture_is_the_whole_character(app, tmp_path):
@@ -227,6 +231,7 @@ def test_the_shop_lays_out_the_games_cash_shop(app, monkeypatch, lang):
     page._poll()
     assert loads == [1]
     page.timer.stop()
+    page.deleteLater()
 
 
 def test_the_app_keeps_both_live_sources_fresh_by_itself(app, monkeypatch):
@@ -264,7 +269,7 @@ def test_a_new_publish_reaches_what_is_open_by_itself(app, monkeypatch, tmp_path
     monkeypatch.setattr(mesowatch, "_file", lambda: tmp_path / "mw.json")
     monkeypatch.setattr(mesowatch, "face_file", lambda snap_, who, timeout=10: None)
     now = time.time()
-    site = {"price": 229000.0, "at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now - 60))}
+    site = {"price": 229000.0, "at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now - 600))}  # 10 min ago
 
     def doc():
         return {"version": 1, "market": "Classic World", "preview": False, "generated_at": site["at"],
@@ -292,3 +297,4 @@ def test_a_new_publish_reaches_what_is_open_by_itself(app, monkeypatch, tmp_path
     d._follow()                                          # the window's own poll (every minute)
     assert any("251,000" in w.text() for w in d.findChildren(QLabel))
     d.close()
+    d.deleteLater()           # (no window left behind for the next tests to restyle)
