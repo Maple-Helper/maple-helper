@@ -249,8 +249,11 @@ class MapleHelperApp:
         # opens; in the background, the copy on disk shows meanwhile), then every 15 minutes, so a price or an answer
         # is never far behind its site (mesowatch.py: a 1 KB index decides, the market file comes compressed and only
         # when it changed)
-        from . import mesowatch
+        from . import mesowatch, osms
         mesowatch.warm()
+        osms.warm()             # the Cash Shop list (the Shop page): at start, then hourly (ohmi's terms)
+        self._osms_timer = QTimer(interval=osms.REFRESH_SECONDS * 1000, timeout=osms.warm)
+        self._osms_timer.start()
         self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)
         self._mesowatch_timer.start()
         if BACKGROUND_ARG in sys.argv[1:]:

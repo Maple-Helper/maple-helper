@@ -55,7 +55,8 @@ SHOPS_KEPT = 8                               # as many as MesoWatch publishes pe
 RECENT_KEPT = 10                             # an item's newest sales kept (the details window's list)
 HISTORY_KEPT = 30                            # daily medians kept (its over-time chart)
 TIMEOUT = 30
-SLIM_VERSION = 5                             # 2: recent sales, listings, Cash Shop items; 3: sellers, history; 4: category; 5: icon
+SLIM_VERSION = 6                             # 2: recent sales, listings, Cash Shop items; 3: sellers, history; 4: category;
+                                             # 6: crate odds
 CATEGORIES = ("Equips", "Weapons", "Scrolls", "Use", "Etc", "Stars", "Cash Shop")   # MesoWatch's tabs, in its order
 
 log = logging.getLogger(__name__)
@@ -129,7 +130,7 @@ class Sales:
     nx: int | None = None       # its Cash Shop price
     history: list[Day] = field(default_factory=list)      # daily medians, oldest first
     category: str = ""          # MesoWatch's tab: "Equips", "Weapons", "Scrolls", "Use", "Etc", "Stars", "Cash Shop"
-    icon: str = ""              # its icon under MesoWatch's data/ ("icons/cash-01007145.png"), for an item the KB lacks
+    crate_odds: float | None = None     # its chance in the Founder's Mystery Fashion Crate, percent (Nexon's rates)
 
     @property
     def first_day(self) -> str:
@@ -221,8 +222,10 @@ def slim(doc: dict, world: str = "", faces: dict | None = None) -> dict:
     for it in doc.get("items") or []:
         if not isinstance(it, dict) or game_id_of(it.get("id")) is None:
             continue
-        if not it.get("sold") and not it.get("listings"):
-            continue                    # nothing seen: an item without a price or a shop
+        cash = it.get("cash") if isinstance(it.get("cash"), dict) else None
+        odds = cash.get("crateOdds") if cash else None
+        if not it.get("sold") and not it.get("listings") and not isinstance(odds, (int, float)):
+            continue                    # nothing seen and not in the crate: no price, no shop
         shops = []
         for s in (it.get("listings") or [])[:SHOPS_KEPT]:
             if isinstance(s, dict) and _num(s.get("price")):
@@ -230,10 +233,8 @@ def slim(doc: dict, world: str = "", faces: dict | None = None) -> dict:
                               "qty": s.get("qty"), "stock": s.get("stock"), "seen": s.get("lastSeen"),
                               "seller": str(s.get("seller") or "")})
         tr, days = trend(it.get("history") or [])
-        cash = it.get("cash") if isinstance(it.get("cash"), dict) else None
-        icon = str(it.get("icon") or "")
         items.append({"id": it["id"], "name": it.get("name") or "", "category": str(it.get("category") or ""),
-                      "icon": icon if re.fullmatch(r"icons/[\w.-]+\.png", icon) else "",
+                      "crate": odds if isinstance(odds, (int, float)) else None,
                       "price": it.get("price"), "p25": it.get("p25"),
                       "p75": it.get("p75"), "sold": it.get("sold") or 0, "lowData": bool(it.get("lowData", True)),
                       "ask": it.get("askMedian"), "asks": it.get("asks") or 0, "lastSold": it.get("lastSold"),
@@ -285,7 +286,7 @@ def parse(data: dict) -> Snapshot | None:
                          _num(sum(last3) / len(last3)) if len(last3) == 3 else None,
                          cash is not None, cash.get("onSale") if cash and isinstance(cash.get("onSale"), bool) else None,
                          _num(cash.get("nx")) if cash else None, history, str(it.get("category") or ""),
-                         str(it.get("icon") or ""))
+                         it.get("crate") if isinstance(it.get("crate"), (int, float)) else None)
     names: dict[str, list[int]] = {}
     for gid, s in out.items():
         names.setdefault(_fold(s.name), []).append(gid)
@@ -433,36 +434,12 @@ def version() -> int:
     return _version
 
 
-def icon_file(s: Sales | None, timeout: float = 10) -> Path | None:
-    """The item's icon as MesoWatch publishes it, on disk (fetched once, kept in DATA_DIR/mesowatch_icons): for an
-    item the KB has no picture of. Blocking: call it off the UI thread."""
-    name = s.icon if s else ""
-    if not name or not re.fullmatch(r"icons/[\w.-]+\.png", name):
-        return None
-    folder = _file().parent / "mesowatch_icons"
-    path = folder / name.split("/", 1)[1]
-    if path.exists():
-        return path
-    try:
-        status, body, _ = _request(SITE + "data/" + name, timeout=timeout)
-        if status != 200 or not body:
-            return None
-        folder.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(".tmp")
-        tmp.write_bytes(body)
-        tmp.replace(path)
-        return path
-    except Exception:          # noqa: BLE001 - offline: no picture
-        return None
-
-
-def cash_shop(snap: Snapshot | None) -> list[Sales]:
-    """What the Cash Shop sells now, as MesoWatch knows it from the game's own Cash Shop list (the owner chose it,
-    2026-10-11: live items and real NX prices). Only items MesoWatch saw on the market are in its file, so an item
-    nobody traded yet can be missing; an item the Cash Shop stopped selling drops out with the next refresh."""
+def crate(snap: Snapshot | None) -> list[Sales]:
+    """What the Founder's Mystery Fashion Crate can give, each with its chance (MesoWatch's crate odds, Nexon's published
+    rates), likeliest first."""
     if snap is None:
         return []
-    return [s for s in snap.items.values() if s.cash and s.cash_on_sale]
+    return sorted((s for s in snap.items.values() if s.crate_odds), key=lambda s: (-s.crate_odds, s.name))
 
 
 def snapshot(refresh: bool = True, timeout: float = TIMEOUT) -> Snapshot | None:

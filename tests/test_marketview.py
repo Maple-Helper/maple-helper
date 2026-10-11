@@ -166,58 +166,64 @@ def test_a_sellers_picture_is_the_whole_character(app, tmp_path):
 
 
 @pytest.mark.parametrize("lang", ["en", "he"])
-def test_the_shop_lists_what_the_cash_shop_sells_now(app, monkeypatch, lang):
+def test_the_shop_lays_out_the_games_cash_shop(app, monkeypatch, lang):
     from PySide6.QtCore import QEvent, QPointF, Qt
     from PySide6.QtGui import QMouseEvent
     from PySide6.QtWidgets import QLabel, QWidget
 
+    from maplehelper import osms
     from maplehelper.i18n import I18n
-    from maplehelper.ui.shoppage import ShopPage, ShopRow
+    from maplehelper.ui.shoppage import CrateTile, ShopPage, ShopRow
     from maplehelper.ui.widgets import ITEM_REQUESTS
-    now = time.time()
-    snap = market(now)
-    hat_ = snap.items[1007145]
-    hat_.cash_on_sale = True                       # in the Cash Shop now
-    snap.items[5150000] = mesowatch.Sales(5150000, "Mystery Hair Coupon", 900, sold=30, cash=True, cash_on_sale=True,
-                                          nx=5500, category="Cash Shop")
-    snap.items[5000000] = mesowatch.Sales(5000000, "Gone Hat", 900, sold=3, cash=True, cash_on_sale=False, nx=100,
-                                          category="Cash Shop")
-    hat_.nx = 3500
-    kb = FakeKB({"item/3198": "Black Cat Beanie", "item/1511": "Mystery Hair Coupon"})
-    kb.entities["item/3198"]["type"] = "Cash Equip / Cash Hat"
-    kb.entities["item/1511"]["type"] = "Cash / Coupon"
-    snap.by_name.update({"mystery hair coupon": 5150000})
+    items = [osms.Item(1007098, "Kuniragi Hat", "Equipment", "Hat", 1200, days=10),
+             osms.Item(1007039, "Goggled Black Cap", "Equipment", "Hat", 900, days=10),
+             osms.Item(5150000, "Mystery Hair Coupon", "Coupon", "", 5500, days=14, description="Random hair."),
+             osms.Item(5070000, "Megaphone", "Megaphone", "", 350, days=90),
+             osms.Item(5000000, "Brown Kitty", "Pet", "", 3500),
+             osms.Item(5222001, "Founder's Mystery Fashion Crate", "Other", "", 3500, days=7)]
+    snap = market(time.time())
+    snap.items[1022047] = mesowatch.Sales(1022047, "Black Sunglasses", crate_odds=1.0)
+    snap.items[1002723] = mesowatch.Sales(1002723, "Patissier Hat", crate_odds=3.0)
+    monkeypatch.setattr(osms, "items", lambda refresh=True, timeout=30: items)
+    monkeypatch.setattr(osms, "thumbnail_file", lambda item, timeout=10: None)
     monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: snap)
-    monkeypatch.setattr(mesowatch, "icon_file", lambda s, timeout=10: None)
+    kb = FakeKB({"item/1560": "Kuniragi Hat", "item/1511": "Mystery Hair Coupon"})
+    kb.entities["item/1560"]["type"] = "Cash Equip / Cash Hat"
     pets = QWidget()
     page = ShopPage(kb, I18n(lang), pets=pets)
-    pump(app, lambda: page.snap is not None)
+    pump(app, lambda: page._loaded)
 
-    def rows():
+    def rows(kind=ShopRow):
         return [page.list.itemAt(i).widget() for i in range(page.list.count())
-                if isinstance(page.list.itemAt(i).widget(), ShopRow)]
-    # only what the Cash Shop sells now (the gone hat is not listed), with its NX
-    assert sorted(r.key for r in rows()) == ["item/1511", "item/3198"]
+                if isinstance(page.list.itemAt(i).widget(), kind)]
+    # Fashion > Hats, cheapest first, with NX and how long it lasts
+    assert (page.tab, page.section) == ("fashion", "hats")
+    assert [r.item.name for r in rows()] == ["Goggled Black Cap", "Kuniragi Hat"]
     texts = " ".join(w.text() for r in rows() for w in r.findChildren(QLabel))
-    assert "5,500 NX" in texts and "3,500 NX" in texts and "Gone Hat" not in texts
-    page.sort.group.buttons()[2].click()                # priciest first
-    assert [r.key for r in rows()] == ["item/1511", "item/3198"]
-    page.pick("wear")
-    assert [r.key for r in rows()] == ["item/3198"]
-    page.pick("coupons")
-    (row,) = rows()
+    assert "1,200 NX" in texts and "900 NX" in texts and "10" in texts
+    page.pick("beauty")                                  # Hairstyles: the hair coupon
+    assert [r.item.name for r in rows()] == ["Mystery Hair Coupon"]
     asked = []
     ITEM_REQUESTS.requested.connect(asked.append)
-    row.mousePressEvent(QMouseEvent(QEvent.MouseButtonPress, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
-                                    Qt.LeftButton, Qt.NoModifier))
+    rows()[0].mousePressEvent(QMouseEvent(QEvent.MouseButtonPress, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
+                                          Qt.LeftButton, Qt.NoModifier))
     ITEM_REQUESTS.requested.disconnect(asked.append)
     assert asked == ["item/1511"]
-    page.pick("pets")
+    page.pick("utility", "social")
+    assert [r.item.name for r in rows()] == ["Megaphone"]
+    # Special: the crate, and what it can give with its chance, likeliest first
+    page.pick("special")
+    assert [r.item.name for r in rows()] == ["Founder's Mystery Fashion Crate"]
+    tiles = page.list.itemAt(page.list.count() - 1).widget().findChildren(CrateTile)
+    assert len(tiles) == 2 and "3%" in " ".join(w.text() for w in tiles[0].findChildren(QLabel))
+    page.pick("pets", "guide")                           # the pets guide, the old Pets page
     assert page.stack.currentWidget() is pets
-    # a newer list (the 15-minute refresh): read again
+    page.pick("pets")
+    assert [r.item.name for r in rows()] == ["Brown Kitty"]
+    assert "OSMS Data Explorer by ohmi" in page.credit.text() and osms.SITE in page.credit.text()
     loads = []
     monkeypatch.setattr(page, "load", lambda: loads.append(1))
-    monkeypatch.setattr(mesowatch, "version", lambda: page._version + 1)
+    monkeypatch.setattr(osms, "version", lambda: page._versions[0] + 1)
     page._poll()
     assert loads == [1]
     page.timer.stop()

@@ -223,7 +223,7 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   - **Item price:** NPC buy and sell prices, and what the item actually sells for on the Free Market: completed shop sales MesoWatch read from public streams (the usual price, the last sale and the sale count, with a button to the item's full Free Market card).
   - **Sell or keep:** open your inventory and the app names each item and says whether to keep it (a quest, a recipe, gear you can wear, a starred item) or sell it to an NPC or on the Free Market, and for how much. No AI: straight from the database.
   - **How to get there:** the way from your map to any map, monster or NPC, with taxis and boats.
-  - **Cash Shop:** what the Cash Shop sells right now and for how many NX (the game's Cash Shop list, via MesoWatch), by tab, each item with what it does; refreshed every 15 minutes, so items that come and go follow by themselves.
+  - **Cash Shop:** what the game's Cash Shop sells right now and for how many NX, in the game's own tabs (Special, Fashion, Beauty, Pets, Utility) and their sections, each item with what it does and how long it lasts, and what the Founder's Mystery Fashion Crate can give with each item's chance. From the game client's own list (OSMS Data Explorer) and MesoWatch, updating by itself.
   - **Free Market details:** from an item's price, its full card in a side window: the usual sale price (the median), the last sale, the last 3 sales' average, where to buy it (the shops seen selling it, cheapest first, with the owner's character) and the newest sales.
   - **Pets** (a tab of the Cash Shop page): lifespan, hunger, commands to level 30 and the fastest command at each stage, Cash Shop prices, and the pet skills.
 - **News:** MapleStory Classic news with the full articles in the app, in English and Hebrew.
@@ -351,6 +351,7 @@ For a small knowledge-base download during development, limit the scraper to fiv
 
 - Game data and images: [NiaMeowDB](https://meowdb.com), used with permission. Game assets belong to their rights holders.
 - Free Market sale prices: [MesoWatch](https://meso.watch), used with written permission.
+- Cash Shop data: [OSMS Data Explorer](https://osmsdataexplorer.com) by ohmi, used with permission.
 - Font: [Rubik](https://fonts.google.com/specimen/Rubik), distributed under the [SIL Open Font License](assets/fonts/OFL.txt).
 - Speech recognition: [ivrit.ai](https://huggingface.co/ivrit-ai) Whisper models.
 - MapleStory Classic World is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.

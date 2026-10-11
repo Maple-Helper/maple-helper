@@ -73,7 +73,7 @@ def no_real_world():
     import shutil
     import socket
 
-    from maplehelper import market, mesowatch, serverstatus
+    from maplehelper import market, mesowatch, osms, serverstatus
     from maplehelper.providers import codex
 
     mp = pytest.MonkeyPatch()
@@ -88,6 +88,7 @@ def no_real_world():
     def offline(*a, **k):
         raise OSError("tests must not reach meso.watch")
     mp.setattr(mesowatch, "_request", offline)
+    mp.setattr(osms, "_request", offline)
     # the chat's server-status dot (live from MeowDB): "can't reach it", without asking
     mp.setattr(serverstatus, "fetch", lambda timeout=8: None)
 
