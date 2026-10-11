@@ -90,7 +90,7 @@ def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
 # ------------------------------------------------------------ the searches
 
 @pytest.mark.parametrize("kind,text", [("monster_npc", "Monsters & NPCs"), ("map", "Maps"), ("item", "Items"),
-                                       ("sell", "Safe to sell?")])
+                                       ("sell", "Safe To Sell")])
 def test_each_search_button_names_its_search(bar, kind, text):
     w, _ = bar
     assert w._search[kind].text().replace("&&", "&") == text      # ("&&": Qt shows one "&", not a shortcut)
@@ -120,7 +120,7 @@ def test_the_loot_log_button_is_the_loot_windows_setting(bar):
     w, s = bar
     seen = []
     w.loot_toggled.connect(lambda: seen.append(s["loot_overlay"]))
-    assert w._loot.text() == "Loot log" and not w._loot.isChecked()
+    assert w._loot.text() == "Loot Log" and not w._loot.isChecked()
     w._loot.click()
     assert seen == [True] and s["loot_overlay"] is True
     w._loot.click()
@@ -143,7 +143,7 @@ def test_apply_language_retexts_and_mirrors(bar):
     assert w._npcs.text() == bidi.plain("דמויות כאן", True)
     assert w.layoutDirection() == Qt.RightToLeft
     w.apply_language(I18n("en"))
-    assert w._npcs.text() == "NPCs here" and w.layoutDirection() == Qt.LeftToRight
+    assert w._npcs.text() == "NPCs Here" and w.layoutDirection() == Qt.LeftToRight
 
 
 # ------------------------------------------------------------ its place on the screen

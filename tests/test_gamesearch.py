@@ -407,7 +407,7 @@ def test_safe_to_sell_says_keep_with_what_needs_it_or_safe_with_the_npc_price(
     monkeypatch.setattr(sitedata, "sell_list", lambda kb: now["list"])
     monkeypatch.setattr(market, "npc_prices", lambda kb, key: SimpleNamespace(sell_back=12))
     win.open("sell")
-    assert win._title.text() == "Safe to sell?"
+    assert win._title.text() == "Safe To Sell"
     win._box.setText("red")
     pump(qapp, 200)
     assert win._rows[0].sub.text() == "Keep · quests: 2 · recipes: 1"
@@ -432,7 +432,7 @@ def test_safe_to_sell_says_keep_with_what_needs_it_or_safe_with_the_npc_price(
     win._run()
     assert win._rows[0].sub is None
     win._rows[0].clicked.emit()
-    assert _texts(d) == ["The Safe to sell? list isn't in your database yet. It comes with the next update."]
+    assert _texts(d) == ["The Safe To Sell list isn't in your database yet. It comes with the next update."]
 
 
 def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, clean_location, graph, monkeypatch):

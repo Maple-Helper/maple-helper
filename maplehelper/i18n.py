@@ -1157,7 +1157,7 @@ STRINGS = {
         "en": "On: screenshots (Windows' own too) show the toolbar, windows and dots over the game, so you can capture "
               "and share them. Off (recommended): they stay out, since the minimap reads and the game shots the AI "
               "gets would see them too."},
-    "npc_overlay_title": {"he": "דמויות במפה", "en": "NPCs here"},
+    "npc_overlay_title": {"he": "דמויות במפה", "en": "NPCs Here"},
     "npc_overlay_none": {"he": "אין דמויות במפה הזו", "en": "No NPCs on this map"},
     "npc_overlay_unknown": {"he": "עוד לא ידוע באיזו מפה אתם", "en": "Your map isn't known yet"},
     "npc_overlay_pick": {"he": "לחצו על דמות כדי להגיע אליה", "en": "Click an NPC to be guided to it"},
@@ -1181,9 +1181,9 @@ STRINGS = {
     "game_toolbar": {"he": "סרגל כלים במשחק", "en": "In-game toolbar"},
     "game_toolbar_hint": {"he": "סרגל קטן מעל המשחק: חלון הדמויות במפה, חיפוש מפלצות ודמויות, מפות וחפצים, בטוח למכור?, "
                                 "מוניות וטלפורטים ויומן השלל.",
-                          "en": "A small bar over the game: the NPCs-here window, searches for monsters and NPCs, maps "
-                                "and items, Safe to sell?, Cabs & Teleports and the loot log."},
-    "tb_npcs_here": {"he": "דמויות כאן", "en": "NPCs here"},
+                          "en": "A small bar over the game: the NPCs Here window, searches for monsters and NPCs, maps "
+                                "and items, Safe To Sell, Cabs & Teleports and the Loot Log."},
+    "tb_npcs_here": {"he": "דמויות כאן", "en": "NPCs Here"},
     "tb_npcs_here_tip": {"he": "הצגה או הסתרה של חלון הדמויות במפה שלכם", "en": "Show or hide the NPCs on your map"},
     "tb_monster_npc": {"he": "מפלצות ודמויות", "en": "Monsters & NPCs"},
     "tb_monster_npc_tip": {"he": "חיפוש מפלצת או דמות, ואיפה היא נמצאת", "en": "Find a monster or an NPC, and where it is"},
@@ -1191,15 +1191,15 @@ STRINGS = {
     "tb_maps_tip": {"he": "כל המפות במשחק, עם חיפוש: איך מגיעים ומי חי שם", "en": "Every map in the game, with a search: the way there and what lives there"},
     "tb_items": {"he": "חפצים", "en": "Items"},
     "tb_items_tip": {"he": "חיפוש חפץ ומי מפיל אותו", "en": "Find an item and who drops it"},
-    "tb_sell": {"he": "בטוח למכור?", "en": "Safe to sell?"},
+    "tb_sell": {"he": "בטוח למכור?", "en": "Safe To Sell"},
     "tb_sell_tip": {"he": "חיפוש חפץ: האם קווסט או מתכון עדיין צריכים אותו לפני שמוכרים",
                     "en": "Find an item: does a quest or recipe still need it before you sell it"},
     "tb_rides": {"he": "מוניות וטלפורטים", "en": "Cabs & Teleports"},
     "tb_rides_tip": {"he": "דלוק: הדרך לדמות או למפה עוברת במוניות ובדמויות שמשגרות. כבוי: ברגל",
                      "en": "On: the way to an NPC or map takes cabs and NPC teleports. Off: on foot"},
-    "tb_loot": {"he": "יומן שלל", "en": "Loot log"},
+    "tb_loot": {"he": "יומן שלל", "en": "Loot Log"},
     "tb_loot_tip": {"he": "חלון יומן השלל מעל המשחק: EXP, mesos ופריטים מהודעות האיסוף, עם התחלה, עצירה ואיפוס. הפירוט: כלי משחק > יומן שלל",
-                    "en": "The loot log's window over the game: EXP, mesos and items from the pickup messages, with Start, Stop and Reset. Details: Play tools > Loot log"},
+                    "en": "The Loot Log window over the game: EXP, mesos and items from the pickup messages, with Start, Stop and Reset. Details: Play tools > Loot Log"},
     "tb_move": {"he": "גררו כדי להזיז", "en": "Drag to move"},
     "tb_close": {"he": "הסתרת הסרגל (אפשר להחזיר בהגדרות > מיני-מפה)",
                  "en": "Hide the toolbar (Settings > Minimap brings it back)"},
@@ -1213,7 +1213,7 @@ STRINGS = {
     "search_map_ph": {"he": "חיפוש מפה…", "en": "Search maps…"},
     "search_map_open": {"he": "לחצו לתמונת המפה, לדרך אליה ולמפלצות שבה", "en": "Click for the map's picture, the way there and its monsters"},
     "search_item_ph": {"he": "שם החפץ…", "en": "Item name…"},
-    "search_sell_title": {"he": "בטוח למכור?", "en": "Safe to sell?"},
+    "search_sell_title": {"he": "בטוח למכור?", "en": "Safe To Sell"},
     "search_sell_ph": {"he": "שם החפץ…", "en": "Item name…"},
     "search_type_more": {"he": "הקלידו לפחות 2 אותיות", "en": "Type at least 2 letters"},
     "search_none": {"he": "לא נמצא דבר עבור „{q}”", "en": "Nothing found for “{q}”"},
@@ -1223,7 +1223,7 @@ STRINGS = {
     "search_monster_open": {"he": "לחצו לנתונים שלה ולמפות שבהן היא חיה", "en": "Click for its stats and the maps it lives on"},
     "search_item_open": {"he": "לחצו לפרטים ולמי שמפיל אותו", "en": "Click for its details and who drops it"},
     "search_sell_open": {"he": "לחצו כדי לראות מי צריך אותו", "en": "Click to see what needs it"},
-    # Safe to sell? (NiaMeowDB's list of what current quests and recipes need, sitedata.sell_list)
+    # Safe To Sell (NiaMeowDB's list of what current quests and recipes need, sitedata.sell_list)
     "sell_keep_word": {"he": "לשמור", "en": "Keep"},
     "sell_safe_word": {"he": "בטוח למכור", "en": "Safe to sell"},
     "sell_quests_n": {"he": "קווסטים: {n}", "en": "quests: {n}"},
@@ -1233,7 +1233,7 @@ STRINGS = {
     "sell_safe_line": {"he": "בטוח למכור: אף קווסט או מתכון שקיימים עכשיו לא צריכים אותו",
                        "en": "Safe to sell: no current quest or crafting recipe needs it"},
     "sell_no_list": {"he": "רשימת \"בטוח למכור\" עוד לא במאגר שלכם. היא תגיע עם עדכון המאגר הבא.",
-                     "en": "The Safe to sell? list isn't in your database yet. It comes with the next update."},
+                     "en": "The Safe To Sell list isn't in your database yet. It comes with the next update."},
     "sell_npc_pays": {"he": "NPC קונה ב-{n} mesos", "en": "An NPC pays {n} mesos"},
     "sell_no_npc_price": {"he": "אין מחיר NPC במאגר", "en": "No NPC price in the database"},
     "sell_quests_heading": {"he": "קווסטים שצריכים אותו", "en": "Quests that need it"},
@@ -1806,8 +1806,8 @@ STRINGS = {
     "farm_need_recipe_tip": {"he": "חומר למתכון {name}", "en": "An ingredient of {name}"},
     "farm_need_wish": {"he": "במעקב ⭐", "en": "Tracked ⭐"},
     "farm_worth_none": {"he": "אין במאגר מפלצות בטווח הזה עם דרופים שיש להם מחיר.", "en": "No monster in this range has drops with a price in the database."},
-    # play tools: the loot log (lootlog.py, ui/lootscan.py, the Loot log tab)
-    "tool_loot": {"he": "יומן שלל", "en": "Loot log"},
+    # play tools: the loot log (lootlog.py, ui/lootscan.py, the Loot Log tab)
+    "tool_loot": {"he": "יומן שלל", "en": "Loot Log"},
     "loot_intro": {"he": "**כל מה שאספתם, נספר לבד.** המשחק כותב כל רווח בפינה הימנית התחתונה, מימין לסרגל הסקילים: "
                          "\"You received EXP\", \"You have gained mesos\", \"Leaf x1 earned\". Maple Helper קורא את ההודעות האלה במחשב שלכם "
                          "(בלי AI ובלי לגעת במשחק) וסופר:\n• **EXP** ו-**mesos**, וכמה לשעה\n• כל **פריט** שאספתם, וכמה ה-NPC משלם עליו",
@@ -1861,7 +1861,7 @@ STRINGS = {
     "loot_feed_mesos": {"he": "{n} mesos", "en": "+{n} mesos"},
     "loot_overlay": {"he": "להציג על המשחק", "en": "Show on the game"},
     "loot_overlay_hint": {"he": "חלון קטן ושקוף מעל המשחק, כמו חלון הדמויות במפה, עם התחלה, עצירה, איפוס ומזעור. נפתח כשיומן מתחיל; גוררים אותו בכותרת, וה-✕ מסתיר אותו.",
-                          "en": "A small see-through window over the game, like the NPCs here window, with Start, Stop, Reset and minimize. It opens when a log starts; drag it by its title, its ✕ hides it."},
+                          "en": "A small see-through window over the game, like the NPCs Here window, with Start, Stop, Reset and minimize. It opens when a log starts; drag it by its title, its ✕ hides it."},
     "loot_overlay_idle": {"he": "היומן לא רץ", "en": "The log isn't running"},
     "loot_card_exp": {"he": "EXP", "en": "EXP"},
     "loot_card_mesos": {"he": "mesos", "en": "Mesos"},
@@ -1869,7 +1869,7 @@ STRINGS = {
     "loot_card_rate": {"he": "{n} · {h} לשעה", "en": "{n} · {h}/h"},
     "loot_card_worth": {"he": "{n} · שווי {v}", "en": "{n} · worth {v}"},
     "loot_card_close": {"he": "הסתרת החלון (היומן ממשיך לספור; הכפתור יומן שלל בסרגל מחזיר אותו)",
-                        "en": "Hide the window (the log keeps counting; the bar's Loot log button brings it back)"},
+                        "en": "Hide the window (the log keeps counting; the bar's Loot Log button brings it back)"},
     "loot_card_stop": {"he": "עצירה", "en": "Stop"},
     "loot_card_stop_tip": {"he": "סיום היומן: הסיכום נשמר ביומנים האחרונים ונשאר כאן לקריאה",
                            "en": "End the log: its totals are saved in Recent logs and stay here to read"},

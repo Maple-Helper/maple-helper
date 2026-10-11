@@ -173,7 +173,7 @@ def test_it_lists_the_maps_npcs_and_asks_for_a_pick(overlay):
     w, _, loc = overlay
     loc.set(_here())
     assert [r.text() for r in w._rows] == ["Al", "bob", "Cara"]
-    assert w._title.text() == "NPCs here · Fake Town"
+    assert w._title.text() == "NPCs Here · Fake Town"
     assert w._status.text() == "Click an NPC to be guided to it"
 
 
