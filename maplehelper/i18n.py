@@ -391,6 +391,7 @@ STRINGS = {
     # tray / settings
     "tray_open": {"he": "פתיחת הצ'אט", "en": "Open chat"},
     "tray_settings": {"he": "הגדרות", "en": "Settings"},
+    "tray_toolbar": {"he": "סרגל כלים במשחק", "en": "In-game toolbar"},
     "tray_quit": {"he": "יציאה", "en": "Quit"},
     "settings": {"he": "הגדרות", "en": "Settings"},
     "language": {"he": "שפה", "en": "Language"},

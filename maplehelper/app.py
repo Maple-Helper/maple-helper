@@ -522,6 +522,12 @@ class MapleHelperApp:
         a_quit = QAction(t("tray_quit"), menu, triggered=self.qapp.quit)
         menu.addAction(a_show)
         menu.addAction(a_set)
+        # the bar over the game, on or off from here too (its ✕ hides it; Settings > Minimap was the only way back)
+        a_bar = QAction(bidi.plain(t("tray_toolbar"), t.rtl), menu, checkable=True)
+        a_bar.toggled.connect(self._toolbar_from_tray)
+        menu.aboutToShow.connect(lambda: a_bar.setChecked(bool(self.settings["game_toolbar"])))
+        menu.addAction(a_bar)
+        self._tray_bar = a_bar
         if getattr(self, "pending_installer", None):
             a_upd = QAction(t("update_now_tray", version=updater.installer_version(self.pending_installer)), menu,
                             triggered=self.update_now)
@@ -536,6 +542,15 @@ class MapleHelperApp:
         self.tray.show()
         self._tray_menu = menu
         self._add_announced_item()
+
+    def _toolbar_from_tray(self, on: bool) -> None:
+        """The tray's "In-game toolbar": the bar's setting, and the bar follows at once."""
+        if bool(self.settings["game_toolbar"]) == on:
+            return                  # the menu only showed the setting as it is
+        self.settings["game_toolbar"] = on
+        bar = getattr(self, "game_toolbar", None)
+        if bar is not None:
+            bar.refresh()
 
     def open_settings(self):
         def make():
