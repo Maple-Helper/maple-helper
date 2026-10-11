@@ -13,7 +13,7 @@ import sys
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi
 from ..i18n import I18n
@@ -32,6 +32,7 @@ from .npcoverlay import (
     OPACITY_MAX,
     OPACITY_MIN,
     OPACITY_STEPS,
+    PANEL,
     TEXT,
     TINTS,
     _flags,
@@ -48,6 +49,9 @@ GRIP = "⋮⋮"                                               # the drag handle'
 FLOW_GAP = 6                                              # between the buttons, and between the rows they wrap into
 # the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
 WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
+# the Tools button's menu: straight to these Tools window tabs (one click from the game, each tool still in one
+# place: the owner, 2026-10-11), then the whole window
+QUICK = ("prices", "route", "scrolls", "gear", "crafting", "quests", "farm", "loot")
 # icons mode: each button's emoji, by its i18n key (Segoe UI Emoji draws them in colour on Windows)
 ICONS = {"tb_npcs_here": "\U0001F4AC", "tb_monsters": "\U0001F47E", "tb_loot": "\U0001F4DC",
          "tb_tools": "\U0001F6E0\uFE0F"}
@@ -288,7 +292,7 @@ class GameToolbar(EdgeResize, QWidget):
     see it. Its place is kept in game_toolbar_pos, its width in game_toolbar_width."""
 
     window_toggled = Signal(str)       # a WINDOWS setting flipped ("npc_overlay" | "monster_overlay" | "loot_overlay")
-    tools_requested = Signal()         # the Tools button: the app's Tools window opens
+    tools_requested = Signal(str)      # the Tools menu: the app's Tools window opens on that tab ("": its own)
     look_changed = Signal()            # a ⚙ panel choice: every window over the game re-styles and repaints
 
     def __init__(self, settings: Settings, t: I18n):
@@ -331,7 +335,8 @@ class GameToolbar(EdgeResize, QWidget):
         self._tools = QPushButton()
         self._tools.setCursor(Qt.PointingHandCursor)
         self._tools.setFocusPolicy(Qt.NoFocus)
-        self._tools.clicked.connect(lambda _=False: self.tools_requested.emit())
+        self._tools.clicked.connect(self._tools_clicked)
+        self._menu = QMenu(self)
         self._flow.addWidget(self._tools)
         # the ⚙: the panel with the colours, the icons mode and the transparency; then the ✕
         self._gear = QToolButton(objectName="Gear", text=theme.SYMBOL_ICONS["settings"])
@@ -350,6 +355,21 @@ class GameToolbar(EdgeResize, QWidget):
         _paint_glass(self, self._opacity)
 
     # ------------------------------------------------------------ text (all of it, for apply_language)
+
+    def _tools_clicked(self, _=False) -> None:
+        """The Tools button: its menu of tabs, under it (popup, not exec: nothing waits on it, the game goes on)."""
+        t, rtl, m = self.t, self.t.rtl, self._menu
+        m.clear()
+        m.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+        m.setStyleSheet(f"QMenu {{ background: rgb{PANEL}; color: {TEXT}; border: 1px solid {FILL2}; border-radius: 8px;"
+                        f" padding: 4px; }} QMenu::item {{ padding: 5px 14px; border-radius: 6px; }}"
+                        f" QMenu::item:selected {{ background: {FILL2}; }} QMenu::separator {{ height: 1px;"
+                        f" background: {FILL1}; margin: 4px 6px; }}")
+        for page in QUICK:
+            m.addAction(bidi.plain(t("tool_" + page), rtl), lambda p=page: self.tools_requested.emit(p))
+        m.addSeparator()
+        m.addAction(bidi.plain(t("tb_tools_all"), rtl), lambda: self.tools_requested.emit(""))
+        m.popup(self._tools.mapToGlobal(QPoint(0, self._tools.height())))
 
     def _buttons(self):
         """Every button on the bar with its i18n key: the texts, tooltips and icons follow the language."""

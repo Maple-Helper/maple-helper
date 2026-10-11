@@ -83,12 +83,19 @@ def test_each_window_button_is_its_windows_setting(bar, key):
     assert [k for k, b in w._windows.items() if b.isChecked()] == [key]
 
 
-def test_the_tools_button_asks_for_the_tools_window(bar):
+def test_the_tools_button_opens_a_menu_of_tabs_then_the_whole_window(bar):
+    """One click from the game to a Tools tab (the owner, 2026-10-11); the last entry opens the window as it is."""
+    from maplehelper.ui import gametoolbar
     w, _ = bar
     seen = []
-    w.tools_requested.connect(lambda: seen.append(True))
+    w.tools_requested.connect(seen.append)
     w._tools.click()
-    assert seen == [True] and not w._tools.isCheckable()
+    acts = [a for a in w._menu.actions() if not a.isSeparator()]
+    assert len(acts) == len(gametoolbar.QUICK) + 1 and not w._tools.isCheckable()
+    acts[gametoolbar.QUICK.index("gear")].trigger()
+    acts[-1].trigger()
+    assert seen == ["gear", ""]
+    w._menu.hide()
 
 
 def test_the_x_turns_the_setting_off_and_hides(bar):

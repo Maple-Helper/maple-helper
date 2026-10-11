@@ -214,7 +214,7 @@ class MapleHelperApp:
         from .ui.gametoolbar import GameToolbar
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
         self.game_toolbar.window_toggled.connect(self._game_window_toggled)
-        self.game_toolbar.tools_requested.connect(lambda: self.show_tools())
+        self.game_toolbar.tools_requested.connect(self._tools_from_bar)
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
         self.monster_overlay.closed.connect(self.game_toolbar.refresh)
         self.game_toolbar.look_changed.connect(self._overlay_look_changed)
@@ -1075,6 +1075,13 @@ class MapleHelperApp:
             dlg.add_character_requested.connect(lambda: (self.add_character(), self.on_profile_changed()))
             return dlg
         return self.open_window("tools", make)
+
+    def _tools_from_bar(self, page: str) -> None:
+        """The bar's Tools menu: the Tools window on that tab ("": as it opens), the open one switching to it."""
+        from .ui.tools import PAGES
+        dlg = self.show_tools(page) if page else self.show_tools()
+        if page in PAGES and dlg is not None and hasattr(dlg, "show_page"):
+            dlg.show_page(PAGES.index(page))
 
     def show_news_page(self):
         """The News window: the megaphone in the chat's header, or the news strip tapped."""

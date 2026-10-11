@@ -2791,6 +2791,20 @@ class ToolsDialog(GlassDialog):
             chips = source_tags(t, srcs, stamp)
             self.price_chips += chips
             col.addLayout(chip_row(chips, self._label(text, "RowLabel", seen=seen), lead=True))
+        # Safe to sell?, one item at a time with no inventory read (the owner, 2026-10-11): NiaMeowDB's list names
+        # what a current quest or recipe still needs (keep it); a KB without the list says nothing, never "safe"
+        sell = sitedata.sell_list(self.kb)
+        if sell is not None:
+            need = sell.needs.get(key)
+            if need:
+                what = ([t("sell_quests_n", n=len(need.quests))] if need.quests else []) + \
+                       ([t("sell_recipes_n", n=len(need.recipes))] if need.recipes else [])
+                verdict = self._label(t("price_keep", what=", ".join(what)), "RowLabel", seen=seen)
+                verdict.setToolTip("\n".join([q[1] for q in need.quests[:10]] + [r[1] for r in need.recipes[:10]]))
+            else:
+                verdict = self._label(t("price_safe"), "RowLabel", seen=seen)
+            self.price_sell = verdict
+            col.addLayout(chip_row([source_tag(t, sources.MEOWDB)], verdict, lead=True))
         self.fm_label = self._label(t("price_fm_loading"), "RowLabel", seen=set(seen))
         self.fm_chip = source_tag(t, sources.COMMUNITY)
         col.addLayout(chip_row([self.fm_chip], self.fm_label, lead=True))
