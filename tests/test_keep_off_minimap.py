@@ -27,20 +27,20 @@ def test_a_bar_dragged_onto_the_minimap_box_stops_at_its_edge(qapp, isolated_sto
         w.move(320, 220)                                            # its panel right on the box
         box = npcoverlay.minimap_box(s)
         assert not npcoverlay._panel(w).intersects(box)
-        w.move(40, 40)                                              # well away: left as it is
-        assert w.pos() == QPoint(40, 40)
+        w.move(40, 40)                                              # well away: only kept on the screen
+        assert w.pos() == npcoverlay._on_screen(w, QPoint(40, 40))
     finally:
         w.close()
 
 
 def test_without_a_box_nothing_moves(qapp, isolated_store):
-    from maplehelper.ui import gametoolbar
+    from maplehelper.ui import gametoolbar, npcoverlay
     s = isolated_store.Settings()
     w = gametoolbar.GameToolbar(s, I18n("en"))
     try:
         w.refresh()
         w.move(320, 220)
-        assert w.pos() == QPoint(320, 220)
+        assert w.pos() == npcoverlay._on_screen(w, QPoint(320, 220))     # only kept on the screen (a narrow one: macOS)
     finally:
         w.close()
 

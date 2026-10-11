@@ -384,7 +384,11 @@ def test_real_kb_plan_for_the_sample_character():
     assert farm["Leather"].farm > 0  # the level-up recipe's own raw mat
     assert all(f.droppers or f.sellers for f in p.farm if f.farm > 0)  # every farmed mat says where it comes from
     rows = {r.name: r for r in craftplan.craftable(kb, c)}
-    assert rows["Mithril Wand"].save == 22000 - 7900
+    # what crafting saves is the shop's price less the craft's own cost, whatever the KB's shops say today (a
+    # launch-values KB took the wand off the shop it was in: then nothing to compare with)
+    r = rows["Mithril Wand"]
+    assert r.save == (r.buy - r.cost if r.buy is not None else None)
+    assert all(x.save == (x.buy - x.cost if x.buy is not None else None) for x in rows.values())
 
 
 # ---------------------------------------------------------------- the Crafting page's Craft plan tab
