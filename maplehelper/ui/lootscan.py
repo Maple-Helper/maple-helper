@@ -11,7 +11,6 @@ it, also goes into the loot database for good (lootdb.py)."""
 from __future__ import annotations
 
 import logging
-import sqlite3
 import sys
 import threading
 import time
@@ -215,8 +214,8 @@ class LootScanner(QObject):
                 e.saved = True
             if lg.ended is not None:
                 lootdb.end_log(lg.db_id, lg.ended)
-        except sqlite3.Error as e:
-            self._complain(f"loot database: {e}")
+        except Exception as e:  # noqa: BLE001 - a missed save keeps the pickups for the next try (also at quit)
+            self._complain(f"loot database: {type(e).__name__}: {e}")
 
     # ---------------------------------------------------------------- reading
 
