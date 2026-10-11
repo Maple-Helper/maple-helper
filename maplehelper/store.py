@@ -186,6 +186,10 @@ DEFAULT_SETTINGS = {
     "loot_overlay": False,        # the loot log's window over the game (ui/lootoverlay.py); a log starting turns it on
     "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
     "loot_overlay_folded": False,  # ... folded to its title row (its – button)
+    "scroll_planner": False,      # the scroll planner's window over the game (ui/scrollplanner.py): the bar's Scrolls button
+    "scroll_planner_geom": None,  # ... where the player left it: {"x","y","w","h"}; None: under the bar
+    "gear_advisor": False,        # the gear upgrade advisor's window over the game (ui/gearadvisor.py): the bar's Gear button
+    "gear_advisor_geom": None,    # ... where the player left it: {"x","y","w","h"}; None: under the bar
 }
 
 
@@ -274,6 +278,9 @@ class Character:
     name_seen: bool = False  # the name was read off the HUD once: from then on only that exact name is this character
     crafts: dict = field(default_factory=dict)        # crafting profession -> its level
     cycle_done: dict = field(default_factory=dict)    # a daily / weekly quest marked done -> when (it comes back)
+    gear: dict = field(default_factory=dict)          # equip slot ("Hat", "One-Handed Sword"...) -> KB key of the item worn
+    ap: dict = field(default_factory=dict)            # the player's STR / DEX / INT / LUK as they typed them ("str": 35)
+    gender: str = ""                                  # "Male" | "Female" as the player picked it ("" not said): gender-only gear
     updated_at: float = field(default_factory=time.time)
 
     @property

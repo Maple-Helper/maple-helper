@@ -206,7 +206,7 @@ class MapleHelperApp:
         # the little bar over the game (ui/gametoolbar.py): its NPCs-here button flips the window above, its
         # search buttons open the monster/NPC/item search (ui/gamesearch.py) — made on the first ask, so a start
         # in the tray builds none of it
-        from .ui.gametoolbar import GameToolbar
+        from .ui.gametoolbar import TOOLS, GameToolbar
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
         self.game_toolbar.npc_toggled.connect(self.npc_overlay.refresh)
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
@@ -229,6 +229,13 @@ class MapleHelperApp:
         self.game_toolbar.loot_toggled.connect(self.loot_overlay.sync)
         self.loot_overlay.closed.connect(self.game_toolbar.refresh)
         self.loot_scanner.changed.connect(self.game_toolbar.refresh)     # a log starting opens it: the button follows
+        # the bar's Scrolls and Gear buttons: the scroll planner's and the gear advisor's windows (ui/scrollplanner.py,
+        # ui/gearadvisor.py), made on the first ask, or now when the app last closed with one open
+        self._tool_windows: dict = {}
+        self.game_toolbar.tool_toggled.connect(self._tool_toggled)
+        for key in TOOLS:
+            if self.settings[key]:
+                self._tool_toggled(key)
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -313,6 +320,43 @@ class MapleHelperApp:
         if not isinstance(self.settings["game_search_geom"], dict):
             search.place_under(self.game_toolbar.frameGeometry())
         search.open(kind)
+
+    def _tool_window(self, key: str):
+        """The scroll planner's or gear advisor's window, made on the first ask."""
+        w = self._tool_windows.get(key)
+        if w is None:
+            t = I18n(self.settings["language"] or "he")
+            if key == "scroll_planner":
+                from .ui.scrollplanner import ScrollPlanner
+                w = ScrollPlanner(self.kb, self.settings, self.profiles, t)
+            else:
+                from .ui.gearadvisor import GearAdvisor
+                w = GearAdvisor(self.kb, self.settings, self.profiles, t)
+                w.scroll_requested.connect(self._plan_scrolls)
+            w.closed.connect(self.game_toolbar.refresh)          # its ✕: the bar's button goes off
+            self._tool_windows[key] = w
+        return w
+
+    def _place_tool(self, key: str, w) -> None:
+        """A tool window about to show: under the bar until the player has placed it themselves."""
+        if not w.isVisible() and not isinstance(self.settings[key + "_geom"], dict):
+            w.place_under(self.game_toolbar.frameGeometry())
+
+    def _tool_toggled(self, key: str) -> None:
+        """The bar's Scrolls or Gear button flipped its window's setting: the window follows."""
+        w = self._tool_window(key) if self.settings[key] else self._tool_windows.get(key)
+        if w is None:
+            return
+        if self.settings[key]:
+            self._place_tool(key, w)
+        w.refresh()
+
+    def _plan_scrolls(self, key: str) -> None:
+        """The gear advisor's "Plan scrolls" on an item: the scroll planner opens on it, its bar button lit."""
+        planner = self._tool_window("scroll_planner")
+        self._place_tool("scroll_planner", planner)
+        planner.open_item(key)
+        self.game_toolbar.refresh()
 
     def _game_rides_toggled(self) -> None:
         """The toolbar's Cabs & Teleports switch: a way already shown follows it, in the search's detail page and
@@ -794,6 +838,8 @@ class MapleHelperApp:
                 loot = getattr(self, "loot_overlay", None)
                 if loot is not None:
                     loot.apply_language(I18n(self.settings["language"] or "he"))
+                for w in self.__dict__.get("_tool_windows", {}).values():
+                    w.apply_language(I18n(self.settings["language"] or "he"))
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -829,6 +875,8 @@ class MapleHelperApp:
         loot = getattr(self, "loot_overlay", None)
         if loot is not None:
             loot.sync()            # the loot log's window at the windows' opacity
+        for w in self.__dict__.get("_tool_windows", {}).values():
+            w.refresh()            # the scroll planner / gear advisor at the windows' opacity
         self._apply_overlay_capture()
 
     def _apply_overlay_capture(self) -> None:
@@ -839,7 +887,7 @@ class MapleHelperApp:
         npc = getattr(self, "npc_overlay", None)
         for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
                   getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None),
-                  getattr(self, "loot_overlay", None)):
+                  getattr(self, "loot_overlay", None), *self.__dict__.get("_tool_windows", {}).values()):
             if w is not None:
                 set_capturable(w, self.settings)
 
@@ -1128,6 +1176,8 @@ class MapleHelperApp:
     def on_profile_changed(self):
         self.grind.sync()          # another character: its own session's minute reads (or none)
         self._tools_call("profile_changed")
+        for w in self.__dict__.get("_tool_windows", {}).values():
+            w.character_changed()      # the gear advisor's level, job and worn gear are the new character's
 
     def show_guides(self, open_key: str | None = None):
         from .ui.guides import GuidesDialog
@@ -1250,6 +1300,8 @@ class MapleHelperApp:
         if loot is not None:
             loot.set_kb(self.kb)        # the item names it matches reads against
             self.loot_overlay.kb = self.kb
+        for w in self.__dict__.get("_tool_windows", {}).values():
+            w.set_kb(self.kb)                # the new KB's equips and scrolls
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1273,6 +1325,8 @@ class MapleHelperApp:
         if loot is not None:
             loot.stop()                     # no loot read while the app goes; the running log is saved
             self.loot_overlay.hide()
+        for w in self.__dict__.get("_tool_windows", {}).values():
+            w.hide()                        # (their setting stays: open again next time)
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

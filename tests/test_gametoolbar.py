@@ -130,6 +130,24 @@ def test_the_loot_log_button_is_the_loot_windows_setting(bar):
     assert w._loot.isChecked()
 
 
+@pytest.mark.parametrize("key,text", [("scroll_planner", "Scrolls"), ("gear_advisor", "Gear")])
+def test_each_tool_button_is_its_windows_setting(bar, key, text):
+    """Scrolls and Gear, after Loot Log: each flips its window's setting and names it in tool_toggled, and refresh
+    follows the setting (the window's ✕ turned it off)."""
+    w, s = bar
+    w.refresh()
+    seen = []
+    w.tool_toggled.connect(lambda k: seen.append((k, s[k])))
+    assert w._tools[key].text() == text and not w._tools[key].isChecked()
+    w._tools[key].click()
+    w._tools[key].click()
+    assert seen == [(key, True), (key, False)]
+    s[key] = True
+    w.refresh()
+    assert w._tools[key].isChecked()
+    assert [k for k in w._tools if w._tools[k].isChecked()] == [key]     # the other one stays off
+
+
 def test_the_x_turns_the_setting_off_and_hides(bar):
     w, s = bar
     w.refresh()
@@ -150,9 +168,13 @@ def test_apply_language_retexts_and_mirrors(bar):
 
 def _spare_x(w):
     """An x the bar fits at on the offscreen screen, whatever its width there (the fonts differ by platform: macOS
-    draws the same buttons wider), so the place the test asks for is never the clamped one."""
+    draws the same buttons wider), so the place the test asks for is never the clamped one. The whole bar (ten
+    buttons, ~885 px) is wider than the 800 px offscreen screen: it is narrowed to half the screen, the place being
+    about its size, not its buttons."""
     from PySide6.QtGui import QGuiApplication
     screen = QGuiApplication.primaryScreen().geometry()
+    if w.width() >= screen.width() - 1:
+        w.setFixedWidth(screen.width() // 2)
     room = screen.width() - w.width()
     assert room > 1
     return screen.left() + room // 2

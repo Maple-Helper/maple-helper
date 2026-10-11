@@ -36,6 +36,8 @@ from .regionpick import from_capture
 SIDE, TOP, BOTTOM = SHADOW + 12, SHADOW + 8, SHADOW + 8    # content margins, past the glass's shadow rim
 GRIP = "⋮⋮"                                               # the drag handle's dots
 KINDS = {"monster_npc": "tb_monster_npc", "map": "tb_maps", "item": "tb_items", "sell": "tb_sell"}  # search buttons, i18n keys
+# the tool windows the bar shows and hides, after the loot log: each button is its window's setting -> its i18n key
+TOOLS = {"scroll_planner": "tb_scrolls", "gear_advisor": "tb_gear"}
 QSS = f"""
 #Grip {{ color: {MUTED}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
@@ -78,6 +80,7 @@ class GameToolbar(QWidget):
     npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
     rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
     loot_toggled = Signal()            # settings["loot_overlay"] flipped: the loot log's window follows
+    tool_toggled = Signal(str)         # a TOOLS setting flipped ("scroll_planner" | "gear_advisor"): its window follows
 
     def __init__(self, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -128,6 +131,15 @@ class GameToolbar(QWidget):
         self._loot.setFocusPolicy(Qt.NoFocus)
         self._loot.clicked.connect(self._loot_clicked)
         row.addWidget(self._loot)
+        # the scroll planner's and gear advisor's windows, each button its window's setting as the loot log's is
+        self._tools: dict[str, QPushButton] = {}
+        for key in TOOLS:
+            b = QPushButton(checkable=True)
+            b.setCursor(Qt.PointingHandCursor)
+            b.setFocusPolicy(Qt.NoFocus)
+            b.clicked.connect(lambda _=False, k=key: self._tool_clicked(k))
+            self._tools[key] = b
+            row.addWidget(b)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
@@ -154,6 +166,9 @@ class GameToolbar(QWidget):
         self._rides.setToolTip(t("tb_rides_tip"))
         self._loot.setText(bidi.plain(t("tb_loot"), rtl))
         self._loot.setToolTip(t("tb_loot_tip"))
+        for key, text in TOOLS.items():
+            self._tools[key].setText(bidi.plain(t(text), rtl))
+            self._tools[key].setToolTip(t(text + "_tip"))
         self._close.setAccessibleName(t("tb_close"))
         self._close.setToolTip(t("tb_close"))
         self.adjustSize()
@@ -174,6 +189,11 @@ class GameToolbar(QWidget):
         """The loot log's window on or off: the button is the setting (its Start, Stop and Reset are in it)."""
         self._settings["loot_overlay"] = self._loot.isChecked()
         self.loot_toggled.emit()
+
+    def _tool_clicked(self, key: str) -> None:
+        """A tool window on or off: the button is its setting (the window follows tool_toggled)."""
+        self._settings[key] = self._tools[key].isChecked()
+        self.tool_toggled.emit(key)
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: the setting off (the Settings switch follows), the bar hidden until it's switched back on."""
@@ -247,6 +267,8 @@ class GameToolbar(QWidget):
         self._npcs.setChecked(bool(self._settings["npc_overlay"]))
         self._rides.setChecked(bool(self._settings["game_rides"]))
         self._loot.setChecked(bool(self._settings["loot_overlay"]))
+        for key, b in self._tools.items():
+            b.setChecked(bool(self._settings[key]))
         if not self._settings["game_toolbar"]:
             if self.isVisible():
                 self.hide()
