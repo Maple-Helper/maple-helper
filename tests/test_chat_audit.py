@@ -596,7 +596,8 @@ def test_mac_menu_bar_click_opens_the_menu_without_toggling_the_chat(monkeypatch
         calls = []
         fake = SimpleNamespace(settings={"language": "en", "hotkey_toggle": "F9"}, qapp=QApplication.instance(),
                                overlay=SimpleNamespace(toggle=lambda c, calls=calls: calls.append("toggle")), capture=None,
-                               show_chat=lambda: None, open_settings=lambda: None, _add_announced_item=lambda: None)
+                               show_chat=lambda: None, open_settings=lambda: None, _add_announced_item=lambda: None,
+                               _toolbar_from_tray=lambda on: None)
         MapleHelperApp.make_tray(fake)
         fake.tray.activated.emit(QSystemTrayIcon.Trigger)
         assert calls == expected
@@ -614,7 +615,8 @@ def test_windows_reopen_where_the_player_was():
         show_history=lambda cid: calls.append(("history", cid)), show_wishlist=lambda cid: calls.append(("wish", cid)))
     fake._character = lambda cid: MapleHelperApp._character(fake, cid)
     reopen = lambda kind, dlg: MapleHelperApp._reopen_call(fake, kind, dlg)  # noqa: E731
-    reopen("tools", SimpleNamespace(stack=SimpleNamespace(currentIndex=lambda: 6)))()
+    from maplehelper.ui.tools import PAGES
+    reopen("tools", SimpleNamespace(stack=SimpleNamespace(currentIndex=lambda: PAGES.index("build"))))()
     reopen("guides", SimpleNamespace(_reading="guide/x"))()
     reopen("patch_notes", SimpleNamespace(entries=["e"], tab="news"))()     # on the tab it was on
     reopen("whats_new", SimpleNamespace(notes=["n"]))()
@@ -884,3 +886,33 @@ def test_a_one_line_answer_has_copy_and_pin_on_its_row():
     long = Bubble("first line\nsecond line", "assistant", True)
     long.add_pin(lambda: None, "pin", "copy", "copied")
     assert long.text_row.count() == 1 and long.layout().count() == 2
+
+
+def test_the_tray_menu_turns_the_bar_over_the_game_on_and_off():
+    """The bar's ✕ hid it with only Settings > Minimap to bring it back: the tray menu has it too (the owner,
+    2026-10-11), ticked as the setting is each time the menu opens."""
+    from types import SimpleNamespace
+
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.app import MapleHelperApp
+    QApplication.instance() or QApplication([])
+    refreshed = []
+    fake = SimpleNamespace(settings={"language": "en", "game_toolbar": False}, qapp=QApplication.instance(),
+                           overlay=SimpleNamespace(toggle=lambda c: None), capture=None, show_chat=lambda: None,
+                           open_settings=lambda: None, _add_announced_item=lambda: None,
+                           game_toolbar=SimpleNamespace(refresh=lambda: refreshed.append(True)))
+    fake._toolbar_from_tray = lambda on: MapleHelperApp._toolbar_from_tray(fake, on)
+    MapleHelperApp.make_tray(fake)
+    try:
+        bar = fake._tray_bar
+        assert bar.text() == "In-game toolbar" and bar.isCheckable()
+        fake._tray_menu.aboutToShow.emit()
+        assert not bar.isChecked()
+        bar.setChecked(True)
+        assert fake.settings["game_toolbar"] is True and refreshed == [True]
+        fake.settings["game_toolbar"] = False             # the bar's ✕, meanwhile
+        fake._tray_menu.aboutToShow.emit()                # the menu shows it as it is, and changes nothing
+        assert not bar.isChecked() and fake.settings["game_toolbar"] is False and refreshed == [True]
+    finally:
+        fake.tray.hide()

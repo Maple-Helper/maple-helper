@@ -1,7 +1,8 @@
 """The region picker's logical → capture coordinate conversion (pure, no widget needed)."""
+import pytest
 from PySide6.QtCore import QRect
 
-from maplehelper.ui.regionpick import to_capture
+from maplehelper.ui.regionpick import from_capture, to_capture
 
 PRIMARY = (QRect(0, 0, 2560, 1440), 1.5)
 SECOND = (QRect(2560, 0, 1920, 1080), 1.0)
@@ -31,6 +32,25 @@ def test_straddling_box_follows_its_centre():
 def test_no_scaling_passes_through():
     assert to_capture(QRect(2600, 100, 200, 150), [PRIMARY, SECOND_SCALED], scale=False) == {
         "x": 2600, "y": 100, "w": 200, "h": 150}
+
+
+# Windows places each screen at its native origin: right of a 3840-px primary at 150% the next one starts at 3840
+BESIDE = (QRect(3840, 0, 1920, 1080), 1.0)
+BESIDE_SCALED = (QRect(3840, 0, 1536, 864), 1.25)
+
+
+@pytest.mark.parametrize("rect,screens", [
+    (QRect(100, 100, 200, 150), [PRIMARY]),
+    (QRect(3900, 100, 200, 150), [PRIMARY, BESIDE]),
+    (QRect(3900, 100, 200, 148), [PRIMARY, BESIDE_SCALED]),
+    (QRect(100, 100, 200, 150), [PRIMARY, BESIDE_SCALED]),
+])
+def test_from_capture_finds_the_drawn_box_again(rect, screens):
+    """The hidden-portal dots' window lies over the box the player drew: capture coordinates back to that same
+    logical box, with that screen's ratio."""
+    box, ratio = from_capture(to_capture(rect, screens), screens)
+    assert box == rect
+    assert ratio == next(r for g, r in screens if g.contains(rect.center()))
 
 
 def test_nothing_cancels_the_picker():

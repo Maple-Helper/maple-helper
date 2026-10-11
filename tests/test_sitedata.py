@@ -30,11 +30,17 @@ def page(name: str) -> str:
     return (PAGES / f"{name}.html").read_text(encoding="utf-8")
 
 
+def sell_json() -> str:
+    """The Safe to Sell? page's own list (/_data/safe-to-sell.json, 2026-10-10), cut to 60 of its 258 rows."""
+    return (PAGES / "safe-to-sell.json").read_text(encoding="utf-8")
+
+
 @pytest.fixture(scope="module")
 def parsed() -> dict:
     return {ms.SKILL_CHANGES: ms.parse_skill_changes(page("skill-changes")),
             ms.PETS: ms.parse_pets(page("pets")),
-            ms.TIERS: ms.parse_tiers(page("tier-list"))}
+            ms.TIERS: ms.parse_tiers(page("tier-list")),
+            ms.SAFE_TO_SELL: ms.parse_safe_to_sell(sell_json())}
 
 
 def add_entries(kb: Path, data: dict) -> None:
@@ -60,7 +66,7 @@ def write(kb: Path, data: dict) -> None:
 
 @pytest.fixture
 def site_kb(kb_copy, parsed):
-    """The fixture KB with the three list pages' files and an entry for every row."""
+    """The fixture KB with the list pages' files and an entry for every row."""
     add_entries(kb_copy, parsed)
     write(kb_copy, parsed)
     return kb_copy
@@ -117,15 +123,37 @@ def test_tier_list_page(parsed):
     assert {r["key"] for r in base} >= {"class/f-p-wizard", "class/i-l-wizard", "class/crossbowman"}
 
 
+def test_safe_to_sell_list(parsed):
+    d = parsed[ms.SAFE_TO_SELL]
+    assert d["generated"] == "2026-10-10" and len(d["rows"]) == 60
+    by = {r["name"]: r for r in d["rows"]}
+    # a crafting material the shops stock too: each shop once, by name; no quest wants it
+    assert by["Arrows for Bows"] == {"key": "item/209", "name": "Arrows for Bows", "type": "Use", "price": 0,
+                                     "shops": ["Arturo", "Dr. Faymus", "Edel the Fairy", "Glibber", "Hana",
+                                               "Len the Fairy"],
+                                     "quests": [], "recipes": [{"discipline": "Woodcrafting",
+                                                                "recipe": "Arrows for Crossbows", "count": 10}]}
+    cap = by["Blue Mushroom Cap"]
+    assert (cap["key"], cap["price"]) == ("item/363", 19)
+    assert cap["quests"][0] == {"key": "quest/10002", "name": "Jane and the Mushroom", "qty": 15, "repeatable": False}
+    assert [q["name"] for q in cap["quests"] if q["repeatable"]] == ["Donating to Henesys"]
+    # the site down, a maintenance page, a new shape: nothing read (the night before's file stays)
+    assert ms.parse_safe_to_sell("<html>Maintenance</html>") == {}
+    assert ms.parse_safe_to_sell('{"rows": "soon"}') == {}
+
+
+
 def test_nightly_scrape_writes_once_and_keeps_a_good_file(tmp_path):
-    pages = {"skill-changes": page("skill-changes"), "pets": page("pets"), "tier-list": page("tier-list")}
+    pages = {"skill-changes": page("skill-changes"), "pets": page("pets"), "tier-list": page("tier-list"),
+             "safe-to-sell.json": sell_json()}
     fetched = []
 
     def fetch(url):
         fetched.append(url)
         return pages[url.rsplit("/", 1)[1]]
-    assert ms.scrape(tmp_path, fetch, delay=0) == 3
-    assert fetched == [f"{ms.BASE}/skill-changes", f"{ms.BASE}/pets", f"{ms.BASE}/tier-list"]      # one at a time
+    assert ms.scrape(tmp_path, fetch, delay=0) == 4
+    assert fetched == [f"{ms.BASE}/skill-changes", f"{ms.BASE}/pets", f"{ms.BASE}/tier-list",
+                       "https://meowdb.com/_data/safe-to-sell.json"]      # one at a time
     assert ms.scrape(tmp_path, fetch, delay=0) == 0          # nothing new: no change counted
     before = (tmp_path / ms.PETS).read_text(encoding="utf-8")
     pages["pets"] = "<html>Maintenance</html>"               # the site down or a new layout
@@ -201,6 +229,22 @@ def test_skill_changes_in_the_app(site_kb):
     # a Fighter's line: the Warrior and Fighter skills, never the Page's same-named Final Attack
     keys = {c.key for c in sitedata.changes_for(kb, "Warrior", "Fighter")}
     assert "skill/warrior__iron-body" in keys and "skill/page__final-attack-sword" not in keys
+
+
+def test_safe_to_sell_in_the_app_finds_items_by_id_then_name(kb_copy):
+    """A KB from before the list has none (never "safe"); a row whose id the KB has under another name is found by
+    its name (the site picks one id when two items share a name), one whose item the KB lacks is left out."""
+    assert sitedata.sell_list(KnowledgeBase(kb_copy)) is None
+    write(kb_copy, {ms.SAFE_TO_SELL: {"generated": "2026-10-10", "rows": [
+        {"key": "item/2000000", "name": "Ghost Lantern", "price": 5, "shops": [], "quests": [], "recipes": []},
+        {"key": "item/999", "name": "Red Potion", "price": 25, "shops": ["Al"],
+         "quests": [{"key": "quest/1", "name": "Potion Run", "qty": 3, "repeatable": True}],
+         "recipes": [{"discipline": "Alchemy", "recipe": "Elixir", "count": 2}]}]}})
+    sl = sitedata.sell_list(KnowledgeBase(kb_copy))
+    assert sl.generated == "2026-10-10" and list(sl.needs) == ["item/2000000"]
+    assert sl.needs["item/2000000"] == sitedata.SellNeeds("item/2000000", "Red Potion", 25,
+                                                          (("quest/1", "Potion Run", 3, True),),
+                                                          (("Alchemy", "Elixir", 2),), ("Al",))
 
 
 def test_third_job_skills_stay_hidden_until_3rd_job_is_out(site_kb):
@@ -387,7 +431,8 @@ def test_real_class_tables_split_by_the_kbs_weapon_types():
 
 
 def test_a_half_read_list_page_keeps_the_previous_file(tmp_path, monkeypatch):
-    pages = {"skill-changes": page("skill-changes"), "pets": page("pets"), "tier-list": page("tier-list")}
+    pages = {"skill-changes": page("skill-changes"), "pets": page("pets"), "tier-list": page("tier-list"),
+             "safe-to-sell.json": sell_json()}
     fetch = lambda url: pages[url.rsplit("/", 1)[1]]  # noqa: E731
     ms.scrape(tmp_path, fetch, delay=0)
     before = (tmp_path / ms.PETS).read_text(encoding="utf-8")

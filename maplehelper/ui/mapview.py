@@ -13,7 +13,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollA
 from .. import bidi, routes
 from ..i18n import I18n
 from . import theme
-from .controls import rtl_buttons
+from .controls import Switch, rtl_buttons
 from .glass import SHADOW, EdgeResize, GlassDialog
 from .location import LOCATION
 from .patchnotes import gutter
@@ -165,9 +165,10 @@ class WayFromHere:
     tail: tuple = ()                   # Spot cards after the arrival (a door, a quest's turn-in)
 
 
-def way_from_here(kb, key: str, here_map: str | None) -> WayFromHere | None:
+def way_from_here(kb, key: str, here_map: str | None, taxi: bool = True) -> WayFromHere | None:
     """The way from the player's map to this map, NPC or quest giver, or None for today's entrances view (no live
-    map, the map unknown to the graph, or no way there). Never empty: has_location stays independent of it."""
+    map, the map unknown to the graph, or no way there). Never empty: has_location stays independent of it.
+    taxi=False walks (no cab fare), as the route page's "Take cabs" off."""
     g = routes.of(kb)
     if not here_map or here_map not in g.maps:
         return None
@@ -176,13 +177,13 @@ def way_from_here(kb, key: str, here_map: str | None) -> WayFromHere | None:
         dest = g.of_key(key)
         if not dest:
             return None
-        r = g.route(here_map, dest)
+        r = g.route(here_map, dest, taxi=taxi)
         return WayFromHere(dest, r) if r is not None else None
     if cat == "npc":
         dest = g.of_key(key)
         if not dest:
             return None
-        r = g.route(here_map, dest)
+        r = g.route(here_map, dest, taxi=taxi)
         if r is None:
             return None
         # no minimap of its own (a shop inside): the way ends at its door, whose cards stay as the tail
@@ -197,7 +198,7 @@ def way_from_here(kb, key: str, here_map: str | None) -> WayFromHere | None:
         dest = g.of_key(giver) if giver else None
         if not giver or not dest:
             return None
-        r = g.route(here_map, dest)
+        r = g.route(here_map, dest, taxi=taxi)
         if r is None:
             return None
         tail = [] if g.npc_spot(giver) else list(_npc_spots(kb, g, giver, "quest_where_start"))
@@ -430,6 +431,19 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         self._legend = None                   # the first card's legend of the dots (MapLegend)
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
+        # Take cabs, as on the route page (the same setting): shown while a way from the player's map is
+        # (the generic ways in have no route to change)
+        self.taxi_row = QWidget()
+        trow = QHBoxLayout(self.taxi_row)
+        trow.setContentsMargins(0, 0, 0, 6)
+        trow.addWidget(QLabel(t("route_taxi"), objectName="RowLabel"))
+        trow.addStretch(1)
+        self.taxi = Switch(settings is None or bool(settings["route_taxi"]))
+        self.taxi.setToolTip(t("route_taxi_hint"))
+        self.taxi.toggled.connect(self._taxi_toggled)
+        trow.addWidget(self.taxi)
+        self.taxi_row.hide()
+        outer.addWidget(self.taxi_row)
         self.scroll = scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -455,6 +469,13 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         self._place(chat)
         LOCATION.changed.connect(self._on_location)
         self.finished.connect(lambda *_: self._remember())
+
+    def _taxi_toggled(self, on: bool) -> None:
+        """Take cabs flipped here: kept for every way shown (the route page too), and this way found again."""
+        if self.settings is not None:
+            self.settings["route_taxi"] = bool(on)
+        if self.key:
+            self.show_map(self.key)
 
     def showEvent(self, e):
         super().showEvent(e)
@@ -515,7 +536,9 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         mid = g.of_key(key) if key.startswith("map/") else None
         name = g.name(mid) if mid else (self.kb.get(key) or {}).get("name", key)
         here = LOCATION.here
-        way = way_from_here(self.kb, key, here.map if here else None)
+        taxi = self.settings is None or bool(self.settings["route_taxi"])     # no settings (a test): as before
+        way = way_from_here(self.kb, key, here.map if here else None, taxi)
+        self.taxi_row.setVisible(way is not None)
         if way is None:
             self._here_map = None
             title = "map_where_title" if key.startswith("map/") else "where_title"

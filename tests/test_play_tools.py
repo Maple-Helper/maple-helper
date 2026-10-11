@@ -446,3 +446,35 @@ def test_the_later_tab_says_which_areas_are_not_open_yet(kb):
     from maplehelper import quests
     areas = quests.closed_areas(kb)
     assert all("event" not in a.lower() for a in areas)
+
+
+def test_the_price_card_says_keep_or_safe_to_sell_from_the_list(tmp_path, monkeypatch):
+    """One item, no inventory read: NiaMeowDB's Safe to Sell? list on the price card (the owner, 2026-10-11);
+    a KB without the list says nothing (never "safe")."""
+    import sys
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication(sys.argv)
+    from maplehelper import market, sitedata, store
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.tools import ToolsDialog
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    monkeypatch.setattr(market, "item_market", lambda *a, **k: None)
+    monkeypatch.setattr(market, "free_market", lambda *a, **k: None)
+    kb = KnowledgeBase(REAL_KB)
+    from maplehelper.ui.tools import _item_named
+    key = _item_named(kb, "Red Potion")
+    need = sitedata.SellNeeds(key, "Red Potion", 25, (("quest/1", "A Potion Quest", 5, False),), (), ())
+    lists = {"keep": sitedata.SellList("2026-10-10", {key: need}), "safe": sitedata.SellList("2026-10-10", {}),
+             "none": None}
+    d = ToolsDialog(kb, store.Profiles(), store.Settings(), "en", "", {}, "prices")
+    for kind, want in (("keep", "Keep: still needed (quests: 1)"), ("safe", "Safe to sell: no quest or recipe needs it")):
+        monkeypatch.setattr(sitedata, "sell_list", lambda kb, k=kind: lists[k])
+        d.price_input.setText("Red Potion")
+        d._fill_prices()
+        assert want in d.price_sell.text()
+    assert "A Potion Quest" in d.price_sell.toolTip() or kind == "safe"
+    monkeypatch.setattr(sitedata, "sell_list", lambda kb: None)
+    d.__dict__.pop("price_sell")
+    d._fill_prices()
+    assert "price_sell" not in d.__dict__

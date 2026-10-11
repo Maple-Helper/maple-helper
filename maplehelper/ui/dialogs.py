@@ -2,12 +2,11 @@
 from __future__ import annotations
 
 import logging
-import math
 import re
 import sys
 import threading
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import (QButtonGroup, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
                                QProgressBar, QPushButton,
@@ -66,8 +65,6 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 # at least 100). It matches the bound the saved profile keeps (store._repair), so nothing typed here is
 # changed on the next load.
 LEVEL_FIELD_MAX = 250
-# Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
-SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -330,12 +327,29 @@ class _Bridge(QObject):
     level = Signal(float)          # the microphone test's loudness
 
 
+class _Relay(QObject):
+    """Carries a background thread's emit over to the GUI thread before it touches the bridge. A thread emitting on
+    a bridge while the GUI thread was deleting it (its dialog closed, a test's teardown) read a half-freed C++ object:
+    an access violation, not the RuntimeError a deleted one raises, and it killed CI's test runs on main and on PRs
+    (test_dialogs_provider). The relay lives as long as the app; on the GUI thread a bridge is alive or deleted,
+    never between."""
+    call = Signal(object, object)          # the bridge's signal, its arguments
+
+    @Slot(object, object)
+    def deliver(self, signal, args) -> None:
+        try:
+            signal.emit(*args)
+        except RuntimeError:            # "Internal C++ object already deleted": the dialog closed meanwhile
+            pass
+
+
+_RELAY = _Relay()                   # made on the thread importing this module: the GUI thread
+_RELAY.call.connect(_RELAY.deliver, Qt.QueuedConnection)
+
+
 def _emit(signal, *args) -> None:
     """Emit from a background thread; the dialog (and its bridge) may have closed meanwhile."""
-    try:
-        signal.emit(*args)
-    except RuntimeError:            # "Internal C++ object already deleted"
-        pass
+    _RELAY.call.emit(signal, args)
 
 
 class CharacterForm(QWidget):
@@ -1203,21 +1217,14 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("answer_length"), self.length)
         self.instant = Switch(settings["instant_answers"])
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
-        # how often the minimap box is read (where the player is, under the level on the character card)
-        # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
-        try:
-            scan_value = float(settings["minimap_scan_interval"])
-        except (TypeError, ValueError):
-            scan_value = 1.0
-        if not math.isfinite(scan_value) or scan_value <= 0:
-            scan_value = 1.0
-        # a value from before the choices (or hand-edited) shows as the nearest one (in ratio: 3 s is nearer 2 than 5)
-        scan_value = min(SCAN_CHOICES, key=lambda v: abs(math.log(v / scan_value)))
-        # a pop-up like the microphone's: five segments beside the label pushed the window wider than 470 px
-        self.scan = Select([t(k) for k in ("scan_every_0_5", "scan_every_1", "scan_every_2", "scan_every_5",
-                                             "scan_every_10")])   # (SCAN_CHOICES, in order)
-        self.scan.setCurrentIndex(SCAN_CHOICES.index(scan_value))
-        sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
+        lay.addWidget(sec)
+
+        # the minimap: the bar over the game (its buttons open the NPC and Monsters windows: no second switch here)
+        sec = Section(t("sec_minimap"), rtl)
+        self.game_toolbar = Switch(settings["game_toolbar"])
+        sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
+        # the windows' colours and transparency are the bar's ⚙ panel's alone; how often the minimap is read, the
+        # hidden-portal dots and the overlays in screenshots are fixed, with no setting (the owner, 2026-10-11)
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1827,7 +1834,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "microphone": self._mic_value(),
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
-            "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
+            "game_toolbar": self.game_toolbar.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

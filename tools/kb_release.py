@@ -46,7 +46,8 @@ COMMUNITY_MIN_SCORE = 1
 # needs, the fewest rows a good read has)
 SECTIONS = {"skill_changes.json": ("skills", ("key", "name", "changes"), 10),
             "pets.json": ("pets", ("key", "name", "lifespan", "sold"), 5),
-            "tiers.json": ("rows", ("key", "name", "cells"), 5)}
+            "tiers.json": ("rows", ("key", "name", "cells"), 5),
+            "safe_to_sell.json": ("rows", ("key", "name", "price", "quests", "recipes"), 50)}
 
 # the map connections maplehelper/routes.py finds the way with (tools/scrape_meowdb.py): optional, but never broken
 ROUTES = "routes.json"

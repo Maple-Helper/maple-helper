@@ -1,5 +1,30 @@
 [
  {
+  "version": "0.18.0",
+  "he": [
+   "סרגל כלים קטן מעל המשחק: צ'אט, NPC, מפלצות, יומן שלל וכלים. הוא נראה כמו האפליקציה (בהיר או כהה), ואפשר לשנות לו צבע ושקיפות מכפתור ההגדרות שבו. אפשר להדליק ולכבות אותו גם מהאייקון ליד השעון.",
+   "NPC: כל ה-NPC במפה שלכם, גם בתוך בניינים. לחיצה על NPC מסמנת אותו בטבעת ירוקה על המיני-מפה ומראה לאן ללכת.",
+   "מפלצות: המפלצות שבמפה שלכם, עם רמה, HP, EXP וכמה יש מכל אחת.",
+   "יומן שלל: סופר EXP, mesos ופריטים מהודעות האיסוף במשחק, בלי AI, עם כרטיס קטן מעל המשחק והיסטוריה לפי יום.",
+   "פורטלים נסתרים: נקודות כחולות על המיני-מפה במקומות של טלפורטים בלתי נראים.",
+   "בכלים: \"תכנון סקרולים\" (סיכויים ועלות לכל דרגת סקרול), \"ציוד\" (מה השדרוג הבא שלכם ואיפה משיגים אותו), ו\"תוכנית ייצור\" בתוך \"קראפטינג\".",
+   "מחיר פריט: שורת \"לשמור\" או \"בטוח למכור\", לפי מה שקווסטים ומתכונים עדיין צריכים.",
+   "חלון המסלול מכרטיס בצ'אט: מתג \"לנסוע במונית\", כמו בעמוד \"איך מגיעים\".",
+   "המיני-מפה נקראת כל חצי שנייה, וחלונות שמעל המשחק לא יכולים לכסות אותה. בכל מקום כתוב עכשיו \"סקרול\" ולא \"מגילה\"."
+  ],
+  "en": [
+   "A small toolbar over the game: Chat, NPCs, Monsters, Loot Log and Tools. It looks like Maple Helper (light or dark); its settings button changes its colour and transparency. Turn it on or off from the tray icon too.",
+   "NPCs: every NPC on your map, inside buildings too. Click one to ring it on the minimap and see which way to go.",
+   "Monsters: the monsters on your map, with level, HP, EXP and how many spawn.",
+   "Loot Log: counts EXP, mesos and items from the game's pickup messages, with no AI, with a small card over the game and a history by day.",
+   "Hidden portals: blue dots on the minimap where the invisible teleports are.",
+   "In Tools: Scroll Planner (odds and cost for each scroll grade), Gear (your next upgrade and where to get it), and a Craft plan inside Crafting.",
+   "Item price: a Keep or Safe to sell line, from what quests and recipes still need.",
+   "The route window from a chat card: a Take cabs switch, as on How to get there.",
+   "The minimap is read every half second, and the windows over the game can't cover it."
+  ]
+ },
+ {
   "version": "0.17.0",
   "he": [
    "מחיר פריט: מחירי Free Market אמיתיים, מכירות שבוצעו בפועל בחנויות של שחקנים (MesoWatch): מחיר מכירה רגיל, מכירה אחרונה וכמה מכירות היו. \"כל הפרטים\" פותח חלון עם איפה לקנות (מהזול ליקר, עם הדמות של בעל החנות) ומכירות אחרונות.",

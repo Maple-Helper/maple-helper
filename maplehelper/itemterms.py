@@ -9,9 +9,9 @@ import re
 # the kind's parts ("Equip · Shield", the card's "Etc / Monster Drop")
 KIND_HE = {
     "Equip": "ציוד", "Use": "שימוש", "Etc": "שונות", "Setup": "התקנה", "Cash": "Cash", "Cash Equip": "ציוד Cash",
-    "Scroll": "מגילה", "Arrow": "חצים", "Box": "קופסה", "Buff": "חיזוק", "EXP Coupon": "קופון EXP", "Food": "אוכל",
+    "Scroll": "סקרול", "Arrow": "חצים", "Box": "קופסה", "Buff": "חיזוק", "EXP Coupon": "קופון EXP", "Food": "אוכל",
     "Meso Pouch": "שקיק mesos", "Misc": "שונות", "Pet Food": "אוכל לחיית מחמד", "Potion": "שיקוי",
-    "Quest Item": "פריט קווסט", "Return Scroll": "מגילת חזרה", "Summoning Sack": "שק זימון",
+    "Quest Item": "פריט קווסט", "Return Scroll": "סקרול חזרה", "Summoning Sack": "שק זימון",
     "Throwing Star": "כוכב זריקה", "Crafting Material": "חומר קראפטינג", "Gem": "אבן חן",
     "Monster Drop": "דרופ ממפלצת", "Ore & Mineral": "עפרות ומינרלים", "Stimulator": "מאיץ",
     "One-Handed Sword": "חרב ליד אחת", "Dagger": "פגיון", "One-Handed Axe": "גרזן ליד אחת",

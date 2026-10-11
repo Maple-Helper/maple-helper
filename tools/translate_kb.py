@@ -45,6 +45,8 @@ RULES = """You translate short MapleStory Classic texts from English to Hebrew f
   names (Arthur, Henesys, Blue Snail, Founder's Access). A Hebrew prefix on one takes a hyphen: "ל-Arthur", "ב-Henesys".
 - A level is "רמה" (never "לבל", in any form: "ברמה 10", "מרמה 10", "תקרת הרמות", "הרמה"); levelling is "עליית
   רמות"; money is "mesos" in English letters; numbers stay as they are.
+- A scroll (a gear scroll, a Return Scroll) is "סקרול", plural "סקרולים" (never "מגילה" or "מגילות"); it is
+  masculine: "סקרול טוב", "הסקרול מוסיף", "סקרולי Lesser", "סקרול Chaos".
 - Jobs and classes stay in English too, with a hyphen after a prefix ("ל-Warriors", "ל-Magicians"), never "וריור"
   or "מג'ים"; places too ("Subway", never "סאבוויי"). The app's words: "נזק" (never "דמג'"), "גריינד", "פוטים",
   "אינבנטורי", "Free Market", "קווסט", "דרופ".
@@ -70,7 +72,7 @@ JSON array of {"en", "he"} pairs. For each, fix the Hebrew where it:
 - has a grammar slip: gender or number agreement, a wrong verb form, a broken construct state.
 Keep what the translation rules require: proper nouns in English letters exactly as given (a Hebrew prefix takes a
 hyphen: "ב-Henesys"), jobs and places in English ("ל-Magicians", "Subway"), "רמה" for a level (never "לבל"),
-"נזק" for damage (never "דמג'"), "mesos" in English letters, the numbers, the [[img:...]] tokens, the plural "אתם"
+"נזק" for damage (never "דמג'"), "סקרול" / "סקרולים" for a scroll, masculine (never "מגילה"), "mesos" in English letters, the numbers, the [[img:...]] tokens, the plural "אתם"
 address. A translation that is already right stays exactly as it is.
 Answer with a JSON array of strings only: the final Hebrew, in the order given, one per pair."""
 

@@ -6,7 +6,7 @@
    "p": "[[img:eead4ba441ad89.png]] ל-**Bandit** יש את התוצאה המדומה הכי גבוהה למטרה בודדת ברמה 70, תוך שמירה על הבאף הקצר של Attack Power מ-Steal. **Fighter** תופס מקום שני בנזק למטרה בודדת וראשון נגד קבוצה מלאה ברגע שכוללים את ה-Bleed מ-Axe Mastery. Slash Blast מגריל Bleed בנפרד לכל מטרה שהוא פוגע בה. כל עשרת בילדי הג'וב השני למטה משתמשים בחלוקת הסקילים השמורה המדויקת שלהם נגד מטרה נייחת בלי הגנה פיזית או הגנת קסם."
   },
   {
-   "p": "אנחנו משתמשים בעשרים עותקים של בילדים של **Grummash** בבעלות MeowDB, עשרה לכל דרגה, מקושרים למטה. כל עותק שומר על הציוד וחלוקת הסקילים המקוריים ומקשר למקור של Grummash. התקפות ישירות משתמשות באותו מודל נזק כמו ה-DMG Simulator. הבנצ'מרק הזה ברמה 70 מוסיף את זמן הפעולה הצפוי של Bleed מ-Axe Mastery של Fighter ל-Power Strike ול-Slash Blast, ועוד את הרעל המתמשך של Poison Breath. Slash Blast נותן לכל מטרה הגרלת Bleed ורענון משלה. **ריאלי** משתמש בסקרולי Lesser (100% הצלחה, +1 כל אחד); **מקסימום מגילות** משתמש בבונוס הנוכחי הרשום של כל סקרול Chaos (10% הצלחה; בדרך כלל +4, עם חריגים של +8 Magic Attack, +25 HP/MP, ו-+8/+6 הגנה). כל שורה משתמשת ברמת הסקיל השמורה באותו בילד. לכמה זוגות בילדים יש גם חלוקות SP שונות, אז המעבר בין הדרגות כולל גם שינויי ציוד וגם שינויי SP. כל התקפה ישירה שהושקעה נמצאת בטבלת ה-DPS המלאה."
+   "p": "אנחנו משתמשים בעשרים עותקים של בילדים של **Grummash** בבעלות MeowDB, עשרה לכל דרגה, מקושרים למטה. כל עותק שומר על הציוד וחלוקת הסקילים המקוריים ומקשר למקור של Grummash. התקפות ישירות משתמשות באותו מודל נזק כמו ה-DMG Simulator. הבנצ'מרק הזה ברמה 70 מוסיף את זמן הפעולה הצפוי של Bleed מ-Axe Mastery של Fighter ל-Power Strike ול-Slash Blast, ועוד את הרעל המתמשך של Poison Breath. Slash Blast נותן לכל מטרה הגרלת Bleed ורענון משלה. **ריאלי** משתמש בסקרולי Lesser (100% הצלחה, +1 כל אחד); **מקסימום סקרולים** משתמש בבונוס הנוכחי הרשום של כל סקרול Chaos (10% הצלחה; בדרך כלל +4, עם חריגים של +8 Magic Attack, +25 HP/MP, ו-+8/+6 הגנה). כל שורה משתמשת ברמת הסקיל השמורה באותו בילד. לכמה זוגות בילדים יש גם חלוקות SP שונות, אז המעבר בין הדרגות כולל גם שינויי ציוד וגם שינויי SP. כל התקפה ישירה שהושקעה נמצאת בטבלת ה-DPS המלאה."
   },
   {
    "ul": [
@@ -25,7 +25,7 @@
    "p": "דקה מלאה של קאסטים עם Booster פיזי מתאים איפה שיש לקלאס כזה. Bandit שומר על Steal ומשלם על זמן הרענון וה-MP שלו. Power Strike ו-Slash Blast של Fighter כוללים את זמן הפעולה הצפוי של Bleed מ-Axe Mastery. Slash Blast מגריל Bleed בנפרד לכל מטרה שהוא פוגע בה. Poison Breath מוסיף זרם רעל אחד בזמן פעולה מלא לכל מטרה. ל-F/P, I/L ו-Cleric אין Booster בג'וב השני."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "p": "DPC: נזק לכל קאסט"
@@ -34,7 +34,7 @@
    "p": "לחיצה אחת על הסקיל, כל הפגיעות הישירות ביחד. קאסט של שש פגיעות כמו Savage Blow נספר פעם אחת כאן, וגם שלוש הפגיעות של Holy Arrow. נזק מתמשך (טיקים) נשאר בנפרד מ-DPC."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "p": "DPMP: נזק לכל נקודת MP"
@@ -43,7 +43,7 @@
    "p": "כמה נזק קונים לכל MP שמוציאים. הרוטציה של Bandit כוללת את עלויות הרענון של Steal, אצל Fighter נכלל זמן הפעולה הצפוי של רענון ה-Bleed, ו-Poison Breath משתמש ב-DPM עם זמן פעולה מלא. הסדר כאן לא דומה בכלל לטבלת ה-DPM."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "table": [
@@ -253,7 +253,7 @@
    "p": "דקה מלאה של קאסטים עם Booster פיזי מתאים איפה שיש לקלאס כזה. Bandit שומר על Steal ומשלם על זמן הרענון וה-MP שלו. Power Strike ו-Slash Blast של Fighter כוללים את זמן הפעולה הצפוי של Bleed מ-Axe Mastery. Slash Blast מגריל Bleed בנפרד לכל מטרה שהוא פוגע בה. Poison Breath מוסיף זרם רעל אחד בזמן פעולה מלא לכל מטרה. ל-F/P, I/L ו-Cleric אין Booster בג'וב השני."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "p": "DPC: נזק לכל קאסט, במקסימום המטרות של כל סקיל"
@@ -262,7 +262,7 @@
    "p": "לחיצה אחת על הסקיל, כל הפגיעות הישירות ביחד. קאסט של שש פגיעות כמו Savage Blow נספר פעם אחת כאן, וגם שלוש הפגיעות של Holy Arrow. נזק מתמשך (טיקים) נשאר בנפרד מ-DPC."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "p": "DPMP: נזק לכל נקודת MP"
@@ -271,7 +271,7 @@
    "p": "כמה נזק קונים לכל MP שמוציאים. הרוטציה של Bandit כוללת את עלויות הרענון של Steal, אצל Fighter נכלל זמן הפעולה הצפוי של רענון ה-Bleed, ו-Poison Breath משתמש ב-DPM עם זמן פעולה מלא. הסדר כאן לא דומה בכלל לטבלת ה-DPM."
   },
   {
-   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום מגילות מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
+   "p": "מקור: בילדים ריאליים ובילדים עם מקסימום סקרולים מה-Character Builder של meowdb.com. תודה מיוחדת ל-Grummash על הבילדים."
   },
   {
    "table": [
@@ -388,10 +388,10 @@
    ]
   },
   {
-   "h2": "דירוג DPS של בילדים שמורים עם מקסימום מגילות"
+   "h2": "דירוג DPS של בילדים שמורים עם מקסימום סקרולים"
   },
   {
-   "p": "כל דרגה משתמשת בסקיל הניטרלי למטרה בודדת הכי טוב שהושקע בבילד השמור הזה. ההפרש כולל גם ציוד וגם כל שינוי בחלוקת SP בין שני הבילדים הציבוריים, אז הוא לא מבודד את השפעת מגילות ה-Chaos."
+   "p": "כל דרגה משתמשת בסקיל הניטרלי למטרה בודדת הכי טוב שהושקע בבילד השמור הזה. ההפרש כולל גם ציוד וגם כל שינוי בחלוקת SP בין שני הבילדים הציבוריים, אז הוא לא מבודד את השפעת סקרולי ה-Chaos."
   },
   {
    "table": [
@@ -399,7 +399,7 @@
      "#",
      "קלאס",
      "סקיל ראשי",
-     "DPS מקסימום מגילות",
+     "DPS מקסימום סקרולים",
      "DPS ריאלי",
      "הפרש"
     ],
@@ -590,7 +590,7 @@
    "h2": "כרטיסי בילד: כל קלאס בפירוט"
   },
   {
-   "p": "כל הבילדים למטה ציבוריים. פתחו אחד כדי לשנות מגילה או רמת סקיל. ה-ACC שמוצג בבילדים פיזיים הוא הערך מדף הדמות; השתמשו ב-Accuracy Simulator בשביל מפלצת מסוימת."
+   "p": "כל הבילדים למטה ציבוריים. פתחו אחד כדי לשנות סקרול או רמת סקיל. ה-ACC שמוצג בבילדים פיזיים הוא הערך מדף הדמות; השתמשו ב-Accuracy Simulator בשביל מפלצת מסוימת."
   },
   {
    "h3": "Fighter (2H Axe)"
@@ -598,7 +598,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Fighter Realistic. Chrono, 337 סטט ראשי ו-70 משני, 105 W.ATK, 40 attack power, mastery 10, 14% crit rate ו-+26% crit damage, 140 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Fighter Max-Scrolled. Chrono, 392 סטט ראשי, 141 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Fighter Max-Scrolled. Chrono, 392 סטט ראשי, 141 W.ATK."
    ]
   },
   {
@@ -609,7 +609,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -641,7 +641,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Page Realistic. Gigantic Sledge, 337 סטט ראשי ו-70 משני, 107 W.ATK, 0 attack power, mastery 10, 14% crit rate ו-+26% crit damage, 140 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Page Max-Scrolled. Gigantic Sledge, 399 סטט ראשי, 143 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Page Max-Scrolled. Gigantic Sledge, 399 סטט ראשי, 143 W.ATK."
    ]
   },
   {
@@ -652,7 +652,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -684,7 +684,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Spearman Realistic. Redemption, 337 סטט ראשי ו-70 משני, 107 W.ATK, 0 attack power, mastery 10, 34% crit rate ו-+26% crit damage, 140 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Spearman Max-Scrolled. Redemption, 369 סטט ראשי, 143 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Spearman Max-Scrolled. Redemption, 369 סטט ראשי, 143 W.ATK."
    ]
   },
   {
@@ -695,7 +695,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -727,7 +727,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Hunter Realistic. Golden Hinkel, 338 סטט ראשי ו-72 משני, 103 W.ATK, 0 attack power, mastery 10, 31% crit rate ו-+41% crit damage, 155 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Hunter Max-Scrolled. Red Hinkel, 400 סטט ראשי, 141 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Hunter Max-Scrolled. Red Hinkel, 400 סטט ראשי, 141 W.ATK."
    ]
   },
   {
@@ -738,7 +738,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -790,7 +790,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Crossbowman Realistic. Gross Jaeger, 348 סטט ראשי ו-62 משני, 107 W.ATK, 0 attack power, mastery 10, 29% crit rate ו-+41% crit damage, 157 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Crossbowman Max-Scrolled. Gross Jaeger, 408 סטט ראשי, 143 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Crossbowman Max-Scrolled. Gross Jaeger, 408 סטט ראשי, 143 W.ATK."
    ]
   },
   {
@@ -801,7 +801,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -853,7 +853,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Assassin Realistic. Black Scarab, 337 סטט ראשי ו-74 משני, 82 W.ATK, 20 attack power, mastery 10, 26% crit rate ו-+61% crit damage, 148 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Assassin Max-Scrolled. Black Scarab, 395 סטט ראשי, 124 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Assassin Max-Scrolled. Black Scarab, 395 סטט ראשי, 124 W.ATK."
    ]
   },
   {
@@ -864,7 +864,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -906,7 +906,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Bandit Realistic. Kandine, 343 סטט ראשי ו-69 משני, 100 W.ATK, 0 attack power, mastery 10, 29% crit rate ו-+26% crit damage, 147 ACC.",
-    "**מקסימום מגילות**: MeowDB Lv70 Bandit Max-Scrolled. Kandine, 401 סטט ראשי, 136 W.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Bandit Max-Scrolled. Kandine, 401 סטט ראשי, 136 W.ATK."
    ]
   },
   {
@@ -917,12 +917,12 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
     [
-     "ריאלי: Double Stab (Lv 20) / מקסימום מגילות: Double Stab (Lv 6)",
+     "ריאלי: Double Stab (Lv 20) / מקסימום סקרולים: Double Stab (Lv 6)",
      "ST",
      "2,766",
      "100.0",
@@ -969,7 +969,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 F/P Wizard Realistic. Angel Wings, 352 סטט ראשי ו-65 משני, 336 M.ATK, mastery 0, 9% crit rate ו-+26% crit damage.",
-    "**מקסימום מגילות**: MeowDB Lv70 F/P Wizard Max-Scrolled. Angel Wings, 411 סטט ראשי, 437 M.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 F/P Wizard Max-Scrolled. Angel Wings, 411 סטט ראשי, 437 M.ATK."
    ]
   },
   {
@@ -980,7 +980,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -1052,7 +1052,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 I/L Wizard Realistic. Angel Wings, 352 סטט ראשי ו-65 משני, 336 M.ATK, mastery 0, 9% crit rate ו-+26% crit damage.",
-    "**מקסימום מגילות**: MeowDB Lv70 I/L Wizard Max-Scrolled. Angel Wings, 411 סטט ראשי, 437 M.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 I/L Wizard Max-Scrolled. Angel Wings, 411 סטט ראשי, 437 M.ATK."
    ]
   },
   {
@@ -1063,7 +1063,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],
@@ -1135,7 +1135,7 @@
   {
    "ul": [
     "**ריאלי**: MeowDB Lv70 Cleric Realistic. Angel Wings, 352 סטט ראשי ו-65 משני, 311 M.ATK, mastery 0, 9% crit rate ו-+26% crit damage.",
-    "**מקסימום מגילות**: MeowDB Lv70 Cleric Max-Scrolled. Angel Wings, 411 סטט ראשי, 412 M.ATK."
+    "**מקסימום סקרולים**: MeowDB Lv70 Cleric Max-Scrolled. Angel Wings, 411 סטט ראשי, 412 M.ATK."
    ]
   },
   {
@@ -1146,7 +1146,7 @@
      "DPC",
      "קאסטים בדקה",
      "DPM ריאלי",
-     "DPM מקסימום מגילות",
+     "DPM מקסימום סקרולים",
      "MP שהוצא",
      "DPMP"
     ],

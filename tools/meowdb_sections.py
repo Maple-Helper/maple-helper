@@ -1,8 +1,11 @@
-"""NiaMeowDB's list pages that aren't entity pages: the COT skill changes, the pets and the class tier list.
+"""NiaMeowDB's list pages that aren't entity pages: the COT skill changes, the pets, the class tier list and the
+Safe to Sell? list.
 
-Each is one server-rendered page, read into one JSON file next to index.json (data/kb/skill_changes.json, pets.json,
-tiers.json) that maplehelper/sitedata.py reads. Run by tools/scrape_meowdb.py after the entity pages, every night:
-one request per page, one at a time, a second apart.
+Each is read into one JSON file next to index.json (data/kb/skill_changes.json, pets.json, tiers.json,
+safe_to_sell.json) that maplehelper/sitedata.py reads: the first three from their server-rendered page, the last
+from the JSON file its page loads (/_data/safe-to-sell.json; the page itself only says "Loading the list...").
+Run by tools/scrape_meowdb.py after the entity pages, every night: one request per page, one at a time, a second
+apart.
 
 The Training Advisor is not here: its page holds no recommendations. The browser works them out itself (a damage
 simulation of the guide builds in /_data/training-quick-start.json against every map), and the community's votes
@@ -23,9 +26,11 @@ BASE = "https://meowdb.com/msclassic"
 SKILL_CHANGES = "skill_changes.json"
 PETS = "pets.json"
 TIERS = "tiers.json"
-FILES = (SKILL_CHANGES, PETS, TIERS)
-# below these a page read went wrong (37 skills, 12 pets and 10 classes on 2026-10-04)
-MIN_ROWS = {SKILL_CHANGES: 10, PETS: 5, TIERS: 5}
+SAFE_TO_SELL = "safe_to_sell.json"
+SAFE_TO_SELL_URL = "https://meowdb.com/_data/safe-to-sell.json"     # what meowdb.com/msclassic/item-db/safe-to-sell loads
+FILES = (SKILL_CHANGES, PETS, TIERS, SAFE_TO_SELL)
+# below these a page read went wrong (37 skills, 12 pets and 10 classes on 2026-10-04; 258 items to keep on 2026-10-10)
+MIN_ROWS = {SKILL_CHANGES: 10, PETS: 5, TIERS: 5, SAFE_TO_SELL: 50}
 MIN_KEPT = 0.8      # ...and a read with fewer than this share of the previous file's rows went wrong too
 _RANK = re.compile(r"(\d)(?:st|nd|rd|th) Job", re.I)
 
@@ -196,11 +201,49 @@ def parse_tiers(page: str) -> dict:
             "rows": rows, "builds_by": credit.group(1) if credit else ""}
 
 
+# ---------------------------------------------------------------- safe to sell
+
+def _int(v) -> int:
+    try:
+        return max(0, int(v))
+    except (TypeError, ValueError):
+        return 0
+
+
+def parse_safe_to_sell(text: str) -> dict:
+    """{"generated", "rows": [{key, name, type, price, shops: [name], quests: [{key, name, qty, repeatable}],
+    recipes: [{discipline, recipe, count}]}]}: every item a current quest or crafting recipe needs, with what an NPC
+    pays for it (price) and the NPC shops whose recorded stock has it. An item not on the list is one nothing needs
+    (the site leaves out job items and items no NPC buys). Not JSON, or not the list: {}."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {}
+    if not isinstance(data, dict) or not isinstance(data.get("rows"), list):
+        return {}
+    rows = []
+    for r in data["rows"]:
+        if not isinstance(r, dict) or not r.get("itemId") or not r.get("name"):
+            continue
+        rows.append({
+            "key": f"item/{r['itemId']}", "name": str(r["name"]), "type": str(r.get("type") or ""),
+            "price": _int(r.get("price")),
+            "shops": sorted({str(s["shop"]) for s in r.get("buyable") or [] if isinstance(s, dict) and s.get("shop")}),
+            "quests": [{"key": f"quest/{q['id']}", "name": str(q.get("name") or ""), "qty": _int(q.get("qty")),
+                        "repeatable": bool(q.get("repeatable"))}
+                       for q in r.get("quests") or [] if isinstance(q, dict) and q.get("id")],
+            "recipes": [{"discipline": str(x.get("discipline") or ""), "recipe": str(x.get("recipe") or ""),
+                         "count": _int(x.get("count"))}
+                        for x in r.get("recipes") or [] if isinstance(x, dict) and x.get("recipe")]})
+    return {"source": f"{BASE}/item-db/safe-to-sell", "generated": str(data.get("generated") or ""), "rows": rows}
+
+
 # ---------------------------------------------------------------- the nightly run
 
 PAGES = ((SKILL_CHANGES, "skill-changes", parse_skill_changes, "skills"),
          (PETS, "pets", parse_pets, "pets"),
-         (TIERS, "tier-list", parse_tiers, "rows"))
+         (TIERS, "tier-list", parse_tiers, "rows"),
+         (SAFE_TO_SELL, SAFE_TO_SELL_URL, parse_safe_to_sell, "rows"))
 
 
 def rows_of(name: str, data: dict) -> list:
@@ -211,7 +254,7 @@ def scrape(kb: Path, fetch, delay: float = 1.0) -> int:
     """Fetch and parse each page into its file under `kb`; the number of files whose content changed."""
     changed = 0
     for name, path, parse, _ in PAGES:
-        page = fetch(f"{BASE}/{path}")
+        page = fetch(path if "://" in path else f"{BASE}/{path}")
         time.sleep(delay)
         data = parse(page) if page else {}
         target = kb / name

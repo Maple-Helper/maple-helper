@@ -169,9 +169,24 @@ DEFAULT_SETTINGS = {
     "install_id": "",             # random id for those stats, created on first use
     "presence": True,             # anonymous "the app is running" ping, for player counts (see presence.py)
     "presence_sent": {},          # what that ping last marked as sent: {"ever", "day", "month"}
+    "route_taxi": True,           # ways shown take cabs (Take cabs: the route page and the map window share it)
     "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
     "minimap_region": None,       # the game's minimap on screen, drawn by the player: {"x","y","w","h"} in capture pixels
-    "minimap_scan_interval": 1.0,  # seconds between two reads of the minimap (where the player is)
+    "npc_overlay": False,         # the in-game "NPCs on this map" window over the game (ui/npcoverlay.py)
+    "npc_overlay_geom": None,     # where the player left it: {"x","y","w","h"}; None: beside the minimap box
+    "npc_overlay_opacity": 0.85,  # its background's opacity, 0.3-1.0 (the game shows through)
+    "monster_overlay": False,     # the in-game "Monsters on this map" window over the game (ui/monsteroverlay.py)
+    "monster_overlay_geom": None,  # where the player left it: {"x","y","w","h"}; None: beside the NPCs window's spot
+    "game_toolbar": True,         # the small bar over the game: the NPCs and Monsters windows, the loot log, Tools (ui/gametoolbar.py)
+    "game_toolbar_pos": None,     # where the player left the bar: {"x","y"}; None: above the minimap box
+    "loot_region": None,          # the game's pickup messages on screen, drawn by the player (the loot log reads them)
+    "loot_overlay": False,        # the loot log's window over the game (ui/lootoverlay.py); a log starting turns it on
+    "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
+    "loot_overlay_folded": False,  # ... folded to its title row (its – button)
+    "craft_exp_table": None,      # crafting EXP per level the player measured in game: {"7": 1234}; None: the KB's table
+    "game_toolbar_width": None,   # the width the player dragged the bar to (its buttons wrap into rows); None: one row
+    "overlay_tint": "app",        # the windows over the game: their glass colour (ui/npcoverlay.py TINTS; app: the app's own)
+    "overlay_accent": "app",      # ... and their lit buttons' colour (ui/npcoverlay.py ACCENTS; app: its orange)
 }
 
 
@@ -260,6 +275,12 @@ class Character:
     name_seen: bool = False  # the name was read off the HUD once: from then on only that exact name is this character
     crafts: dict = field(default_factory=dict)        # crafting profession -> its level
     cycle_done: dict = field(default_factory=dict)    # a daily / weekly quest marked done -> when (it comes back)
+    gear: dict = field(default_factory=dict)          # equip slot ("Hat", "One-Handed Sword"...) -> KB key of the item worn
+    ap: dict = field(default_factory=dict)            # the player's STR / DEX / INT / LUK as they typed them ("str": 35)
+    gender: str = ""                                  # "Male" | "Female" as the player picked it ("" not said): gender-only gear
+    craft_bag: dict = field(default_factory=dict)     # crafting advisor: KB item key -> how many the player has
+    craft_pct: dict = field(default_factory=dict)     # ... profession -> its Mastery bar % as the player typed it
+    craft_targets: list = field(default_factory=list)  # ... KB keys of the items the player plans to craft
     updated_at: float = field(default_factory=time.time)
 
     @property
@@ -457,6 +478,10 @@ class Profiles:
         History(cid).clear()
         from .grind import Store as GrindStore
         GrindStore().forget(cid)            # its grind sessions go with it
+        from . import lootdb
+        from . import lootlog
+        lootlog.forget(cid)                 # and its loot logs: a running one stopped, out of loot.json ...
+        lootdb.forget(cid)                  # ... and out of the loot database
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

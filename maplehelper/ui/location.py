@@ -8,15 +8,23 @@ from ..minimap import Here
 
 
 class _Location(QObject):
-    """The latest read. `changed` fires only when it differs (the map, or the player's dot moved)."""
+    """The latest read. `changed` fires only when it differs (the map, or the player's dot moved). `followed` is the
+    fast follow between reads (ui/minimapscan.py): where the last aligned map's picture lies in the box now, as
+    (map, View | None), None when it no longer matches (another map, the loading screen). `guided` is the NPC the
+    player asked to be guided to (ui/npcoverlay.py), as (map, spot on its minimap picture, NPC key) or None; the
+    game-minimap overlay (ui/portaldots.py) rings it."""
 
     changed = Signal(object)          # Here | None
     status = Signal(str)              # "" (no minimap chosen, or found), "unknown" (chosen, not recognized)
+    followed = Signal(object)         # (map, View | None)
+    guided = Signal(object)           # (map, (fx, fy), "npc/<id>") | None
 
     def __init__(self):
         super().__init__()
         self.here: Here | None = None
         self.state = ""
+        self.follow: tuple | None = None
+        self.guide: tuple | None = None
 
     def set(self, here: Here | None) -> None:
         if here != self.here:
@@ -27,6 +35,16 @@ class _Location(QObject):
         if state != self.state:
             self.state = state
             self.status.emit(state)
+
+    def set_follow(self, follow: tuple | None) -> None:
+        if follow != self.follow:
+            self.follow = follow
+            self.followed.emit(follow)
+
+    def set_guide(self, guide: tuple | None) -> None:
+        if guide != self.guide:
+            self.guide = guide
+            self.guided.emit(guide)
 
 
 LOCATION = _Location()

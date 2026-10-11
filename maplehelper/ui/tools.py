@@ -26,11 +26,14 @@ from .widgets import (MARKET_REQUESTS, changed_tag, chip_row, fit_picture, info_
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-# "shop": the Shop page (ui/shoppage.py), what the Cash Shop sells now and for how many NX; the Pets page is a tab
-PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "shop")
+# the gear advisor and the scroll planner beside the build: what to wear next, then how to scroll it (they were
+# windows over the game, opened from its bar; every general tool lives here: the owner); "shop": the Shop page
+# (ui/shoppage.py), what the Cash Shop sells now and for how many NX; the Pets page is a tab
+PAGES = ("train", "exp", "farm", "loot", "quests", "crafting", "town", "build", "gear", "scrolls", "calc", "prices",
+         "more", "route", "shop")
 # the pages that are all about the character: with none, one card that offers to add one takes their place (a live
 # stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
-CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
+CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "gear", "calc")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -402,8 +405,10 @@ class ToolsDialog(GlassDialog):
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
     add_character_requested = Signal()         # no character yet: the chat's "Add character"
+    loot_area_requested = Signal()             # the loot log's "Mark it yourself" (the app draws the box)
 
-    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
+    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train",
+                 loot=None):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tools"), t.rtl)
         self.kb, self.profiles, self.settings = kb, profiles, settings
@@ -415,6 +420,10 @@ class ToolsDialog(GlassDialog):
             self.runner.setParent(self)         # its timer goes with this window
         self.grind = self.runner.store
         self.runner.changed.connect(self.grind_changed)
+        # the loot log's reads and its log: the app's (they go on with this window closed), or its own
+        from .lootscan import LootScanner
+        self.loot = loot if isinstance(loot, LootScanner) else LootScanner(kb, profiles, settings, parent=self)
+        self.loot.changed.connect(self.loot_changed)
         self.setStyleSheet(stylesheet)
         self.fit_screen(580, 800)
         rtl = t.rtl
@@ -503,6 +512,10 @@ class ToolsDialog(GlassDialog):
 
     def closeEvent(self, e):
         self._closed = True
+        if "gear" in self.pages:
+            self.gear_advisor.leave()          # stats typed just before closing: saved, never lost
+        if "crafting" in self.pages:
+            self.craft_advisor.leave()         # ... and the craft plan's numbers
         super().closeEvent(e)
 
     def _build_rest(self) -> None:
@@ -1654,7 +1667,7 @@ class ToolsDialog(GlassDialog):
                 w = self.craft_info.itemAt(i).widget()
                 head = w.findChild(QLabel, "CardName") if w is not None else None
                 if head is not None and bidi.plain(name, False) in head.text():
-                    self.pages["crafting"].ensureWidgetVisible(w, 0, 40)
+                    self.craft_scroll.ensureWidgetVisible(w, 0, 40)
                     return
         # a citizenship quest: on the citizenship page, its town picked, every grade, searched by its name
         cq = next((q for k, e in self.kb.entities.items() if e.get("category") == "quest" and e.get("name") == name
@@ -2199,6 +2212,41 @@ class ToolsDialog(GlassDialog):
     # crafting ------------------------------------------------------------
 
     def _page_crafting(self):
+        # "Crafting": two tabs, the professions (their teacher, quests and recipes, as they were) and the craft plan
+        # (#119's crafting advisor, inside this page rather than a window over the game: the owner, 2026-10-11)
+        t = self.t
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(10)
+        self.craft_tabs = Segmented([(t("craft_tab_recipes"), "recipes"), (t("craft_tab_plan"), "plan")], "recipes",
+                                    t.rtl)
+        self.craft_tabs.set_label(t("craft_tabs_a11y"))
+        outer.addWidget(self.craft_tabs, 0, Qt.AlignHCenter)
+        self.craft_stack = QStackedWidget()
+        outer.addWidget(self.craft_stack, 1)
+        self.craft_scroll = self._craft_recipes_page()
+        self.craft_stack.addWidget(self.craft_scroll)
+        self.craft_stack.addWidget(self._craft_plan_page())
+        self.craft_tabs.changed.connect(self._craft_tab)
+        return page
+
+    def _craft_tab(self, value) -> None:
+        if value != "plan":
+            self.craft_advisor.leave()          # numbers typed just before switching: saved now
+        self.craft_stack.setCurrentIndex(1 if value == "plan" else 0)
+        self._fill_crafting()
+
+    def _craft_plan_page(self):
+        """What to craft, from what's in the bag, in which order (ui/craftadvisor.py, craftplan.py)."""
+        from .craftadvisor import CraftAdvisor
+        sc, lay = scroll_page(self.t.rtl)
+        self.craft_advisor = CraftAdvisor(self.kb, self.settings, self.profiles, self.t)
+        lay.addWidget(self.craft_advisor)
+        lay.addStretch(1)
+        return sc
+
+    def _craft_recipes_page(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
         # the professions live inside this tab's own card, in a lighter style than the main tabs
@@ -2270,6 +2318,9 @@ class ToolsDialog(GlassDialog):
         self._fill_crafting()
 
     def _fill_crafting(self):
+        if self.craft_tabs.value() == "plan":
+            self.craft_advisor.refresh()
+            return
         t, c = self.t, self.c
         clear(self.craft_list)
         clear(self.craft_info)
@@ -2368,6 +2419,7 @@ class ToolsDialog(GlassDialog):
         elif name == "crafting":
             self._craft_level_pick = None
             empty(self.craft_search)
+            self.craft_advisor.leave()         # numbers typed just before leaving: saved now
         elif name == "farm":
             self._farm_mob_pick = None
         elif name == "more":
@@ -2375,6 +2427,10 @@ class ToolsDialog(GlassDialog):
         elif name == "route":
             empty(self.route_to)
             clear(self.route_out)
+        elif name == "gear":
+            self.gear_advisor.leave()          # stats typed just before leaving: saved now
+        elif name == "scrolls":
+            self.scroll_planner.leave()
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -2738,6 +2794,20 @@ class ToolsDialog(GlassDialog):
             chips = source_tags(t, srcs, stamp)
             self.price_chips += chips
             col.addLayout(chip_row(chips, self._label(text, "RowLabel", seen=seen), lead=True))
+        # Safe to sell?, one item at a time with no inventory read (the owner, 2026-10-11): NiaMeowDB's list names
+        # what a current quest or recipe still needs (keep it); a KB without the list says nothing, never "safe"
+        sell = sitedata.sell_list(self.kb)
+        if sell is not None:
+            need = sell.needs.get(key)
+            if need:
+                what = ([t("sell_quests_n", n=len(need.quests))] if need.quests else []) + \
+                       ([t("sell_recipes_n", n=len(need.recipes))] if need.recipes else [])
+                verdict = self._label(t("price_keep", what=", ".join(what)), "RowLabel", seen=seen)
+                verdict.setToolTip("\n".join([q[1] for q in need.quests[:10]] + [r[1] for r in need.recipes[:10]]))
+            else:
+                verdict = self._label(t("price_safe"), "RowLabel", seen=seen)
+            self.price_sell = verdict
+            col.addLayout(chip_row([source_tag(t, sources.MEOWDB)], verdict, lead=True))
         # the Free Market: the sales MesoWatch saw in players' shops (mesowatch.py), its only source here (the owner,
         # 2026-10-11: every item price from MesoWatch; NiaMeowDB's player reports are no longer shown)
         self.mw_label = self._label(t("price_mw_loading"), "RowLabel", seen=set(seen))
@@ -3926,6 +3996,299 @@ class ToolsDialog(GlassDialog):
             self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
         self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))
 
+    # loot log --------------------------------------------------------------
+    # The game's pickup messages ("You received EXP (+21)", "You have gained mesos (+27)", "Leaf x1 earned. (Etc)"),
+    # read on this computer from the box the player drew around them while a log runs (lootlog.py, ui/lootscan.py).
+
+    LOOT_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "picked", "value", "value_h")
+    LOOT_FEED = 8               # the newest counted messages shown under the totals
+
+    def _loot_cid(self) -> str:
+        return self.c.id if self.c else ""
+
+    def _page_loot(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        self._loot_seen: set = set()
+        lay.addWidget(self._label(t("loot_intro"), "ToolHeader", seen=self._loot_seen))
+        area = Section(t("loot_area_title"), t.rtl)
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(8)
+        self.loot_area_state = self._ll("", "RowLabel")
+        bl.addWidget(self.loot_area_state)
+        row = QHBoxLayout()
+        self.loot_pick = QPushButton(self._p(t("loot_pick")), objectName="Secondary")
+        self.loot_pick.setCursor(Qt.PointingHandCursor)
+        self.loot_pick.clicked.connect(self.loot_area_requested.emit)
+        row.addWidget(self.loot_pick)
+        # back to finding them on their own (a drawn box stays put when the game moves or changes size)
+        self.loot_auto = QPushButton(self._p(t("loot_area_auto_again")), objectName="Secondary")
+        self.loot_auto.setCursor(Qt.PointingHandCursor)
+        self.loot_auto.clicked.connect(self._loot_back_to_auto)
+        row.addWidget(self.loot_auto)
+        row.addStretch(1)
+        bl.addLayout(row)
+        area.add_widget(box)
+        lay.addWidget(area)
+
+        sec = Section(t("loot_log_title"), t.rtl)
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.loot_tag = tag("", "TagGood")
+        self.loot_state = self._ll("", "RowLabel")
+        tl.addLayout(chip_row([self.loot_tag], self.loot_state, lead=True))
+        sec.add_widget(top)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.loot_cells = {}
+        for i, key in enumerate(self.LOOT_CELLS):
+            cell = QWidget()
+            cl = self._big("–", self._p(t(f"loot_cell_{key}")), explain=False)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cell.setLayout(cl)
+            grid.addWidget(cell, i // 2, i % 2)
+            grid.setColumnStretch(i % 2, 1)
+            self.loot_cells[key] = (cell, cl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.loot_items = QVBoxLayout(lines)
+        self.loot_items.setContentsMargins(0, 8, 0, 8)
+        self.loot_items.setSpacing(6)
+        sec.add_widget(lines)
+        feed = QWidget()
+        self.loot_feed = QVBoxLayout(feed)
+        self.loot_feed.setContentsMargins(0, 4, 0, 8)
+        self.loot_feed.setSpacing(2)
+        sec.add_widget(feed)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.loot_status = self._ll("", "RowHint")
+        fl.addWidget(self.loot_status)
+        btns = QHBoxLayout()
+        btns.setSpacing(8)
+        self.loot_start = QPushButton(self._p(t("loot_start")), objectName="Primary")
+        self.loot_end = QPushButton(self._p(t("loot_end")), objectName="Secondary")
+        self.loot_start.clicked.connect(lambda: self.loot.start())
+        self.loot_end.clicked.connect(lambda: self.loot.end())
+        for b in (self.loot_start, self.loot_end):
+            b.setCursor(Qt.PointingHandCursor)
+            btns.addWidget(b)
+        btns.addStretch(1)
+        fl.addLayout(btns)
+        sec.add_widget(foot)
+        # its own card over the game while it runs (ui/lootoverlay.py), on by default
+        self.loot_overlay_switch = Switch(bool(self.settings["loot_overlay"]))
+        self.loot_overlay_switch.setAccessibleName(t("loot_overlay"))
+        self.loot_overlay_switch.toggled.connect(self._loot_set_overlay)
+        sec.add_row(t("loot_overlay"), self.loot_overlay_switch, hint=t("loot_overlay_hint"))
+        lay.addWidget(sec)
+
+        rec = Section(t("loot_recent"), t.rtl)
+        rbox = QWidget()
+        self.loot_recent = QVBoxLayout(rbox)
+        self.loot_recent.setContentsMargins(0, 8, 0, 8)
+        self.loot_recent.setSpacing(6)
+        rec.add_widget(rbox)
+        lay.addWidget(rec)
+        lay.addStretch(1)
+        # the clock and the per-hour cells move between reads too
+        self._loot_clock = QTimer(self)
+        self._loot_clock.timeout.connect(self._loot_tick)
+        self._loot_clock.start(5000)
+        return sc
+
+    def _loot_set_overlay(self, on: bool) -> None:
+        self.settings["loot_overlay"] = bool(on)
+        self.loot.changed.emit()            # the app shows or hides the card
+
+    def _loot_back_to_auto(self) -> None:
+        """Forget the drawn box: the messages are found in the game's window again."""
+        self.settings["loot_region"] = None
+        self.loot.restart()
+        self.loot.changed.emit()
+
+    def _ll(self, text: str, obj: str) -> QLabel:
+        """A loot log label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._loot_seen))
+
+    def _ls(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._loot_seen))
+
+    def loot_changed(self):
+        """The loot log counted something, started or ended, or its box was drawn: the page follows, once built."""
+        try:
+            if "loot" in self.pages:
+                self._fill_loot()
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _loot_tick(self):
+        try:
+            if self.isVisible() and self.stack.currentIndex() == PAGES.index("loot"):
+                self._fill_loot()
+        except RuntimeError:
+            pass
+
+    def _loot_cell(self, key: str, value: str, tip: str = ""):
+        cell, label = self.loot_cells[key]
+        label.setText(value)
+        cell.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'loot_cell_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _fill_loot(self):
+        from .. import lootlog
+        t, scan = self.t, self.loot
+        region = scan.region()
+        self._ls(self.loot_area_state, t("loot_area_set", w=region["w"], h=region["h"]) if region
+                 else t("loot_area_auto"))
+        self.loot_pick.setText(self._p(t("loot_pick_again" if region else "loot_pick")))
+        self.loot_auto.setVisible(region is not None)
+        cid = self._loot_cid()
+        lg = scan.log_for(cid)
+        running = scan.running(cid)
+        self.loot_start.setVisible(not running)
+        self.loot_end.setVisible(running)
+        if self.loot_overlay_switch.isChecked() != bool(self.settings["loot_overlay"]):
+            self.loot_overlay_switch.blockSignals(True)             # the card's own "×" turned it off
+            self.loot_overlay_switch.setChecked(bool(self.settings["loot_overlay"]))
+            self.loot_overlay_switch.blockSignals(False)
+        clear(self.loot_items)
+        clear(self.loot_feed)
+        if lg is None:
+            self.loot_tag.hide()
+            self._ls(self.loot_state, t("loot_idle_state"))
+            for k in self.LOOT_CELLS:
+                self._loot_cell(k, "–")
+        else:
+            self.loot_tag.show()
+            self.loot_tag.setObjectName("TagGood" if running else "Tag")
+            self.loot_tag.setText(self._p(t("grind_tag_running" if running else "grind_tag_ended")))
+            self.loot_tag.style().unpolish(self.loot_tag)
+            self.loot_tag.style().polish(self.loot_tag)
+            self._ls(self.loot_state, self._started_ago(lg) if running else
+                      t("grind_ended_state", time=self._clock(lg.seconds())))
+            sm = lootlog.summarize(self.kb, lg)
+            wait = t("loot_tip_wait")
+            self._loot_cell("time", self._p(self._clock(sm.seconds)))
+            self._loot_cell("exp", self._num(sm.exp))
+            self._loot_cell("exp_h", self._num(sm.exp_h), "" if sm.exp_h is not None else wait)
+            self._loot_cell("mesos", self._num(sm.mesos))
+            self._loot_cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else wait)
+            self._loot_cell("picked", self._num(sm.picked))
+            self._loot_cell("value", self._num(sm.value), t("loot_tip_value"))
+            self._loot_cell("value_h", self._num(sm.value_h), t("loot_tip_value") if sm.value_h is not None else wait)
+            self._loot_lines(sm)
+            self._loot_feed_lines(lg)
+        self.loot_items.parentWidget().setVisible(self.loot_items.count() > 0)
+        self.loot_feed.parentWidget().setVisible(self.loot_feed.count() > 0)
+        if running and scan.state in ("no_game", "covered"):
+            status = t(f"loot_{scan.state}")
+        elif scan.state == "no_reader":
+            status = t("loot_no_reader")
+        elif running:
+            status = t("loot_running_hint")
+        else:
+            status = t("loot_idle")
+        self._ls(self.loot_status, status)
+        self._fill_loot_recent(cid)
+
+    def _loot_lines(self, sm):
+        t = self.t
+        if not sm.items:
+            self.loot_items.addWidget(self._ll(t("loot_items_none"), "RowHint"))
+            return
+        self.loot_items.addWidget(self._ll(t("loot_items_head"), "SectionHeader"))
+        for name, n, key, price in sm.items:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            path = self.kb.picture(key) if key else None
+            if path:
+                pic = QLabel()
+                pic.setPixmap(QPixmap(str(path)).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setFixedSize(30, 30)
+                pic.setAlignment(Qt.AlignCenter)
+                row.addWidget(pic)
+            bits = [bidi.ltr_block(name, t.rtl), t("loot_count", n=f"{n:,}")]
+            if price:
+                bits.append(t("farm_loot_value", n=f"{n * price:,}"))
+            row.addWidget(self._ll(" · ".join(bits), "RowLabel"), 1)
+            self.loot_items.addLayout(row)
+        unknown = [bidi.ltr_block(name, t.rtl) for name, _, key, _ in sm.items if not key]
+        if unknown:
+            self.loot_items.addWidget(self._ll(t("loot_unknown", names=", ".join(unknown)), "RowHint"))
+
+    def _loot_feed_lines(self, lg):
+        t = self.t
+        evs = lg.events[-self.LOOT_FEED:]
+        if not evs:
+            return
+        self.loot_feed.addWidget(self._ll(t("loot_feed_head"), "SectionHeader"))
+        for e in reversed(evs):
+            when = time.strftime("%H:%M:%S", time.localtime(e.t))
+            if e.kind == "item":
+                what = t("loot_feed_item", name=bidi.ltr_block(e.name, t.rtl), n=f"{e.amount:,}")
+            else:
+                what = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
+            self.loot_feed.addWidget(self._ll(f"{what} · {bidi.ltr_block(when, t.rtl)}", "RowHint"))
+
+    def _fill_loot_recent(self, cid: str):
+        t = self.t
+        clear(self.loot_recent)
+        rows = self.loot.store.recent(cid)
+        if not rows:
+            self.loot_recent.addWidget(self._ll(t("loot_recent_none"), "RowHint"))
+            return
+        for r in rows[:10]:
+            when = time.strftime("%d/%m %H:%M", time.localtime(r.get("start") or 0))
+            bits = [bidi.ltr_block(when, t.rtl), self._clock(r.get("seconds")),
+                    t("loot_recent_exp", n=f"{r.get('exp') or 0:,}"), t("loot_recent_mesos", n=f"{r.get('mesos') or 0:,}"),
+                    t("loot_recent_items", n=f"{r.get('picked') or 0:,}")]
+            self.loot_recent.addWidget(self._ll(" · ".join(bits), "RowLabel"))
+
+    # gear upgrades and the scroll planner -----------------------------------
+
+    def _page_gear(self):
+        """What the character wears per slot and what the KB says beats it (ui/gearadvisor.py)."""
+        from .gearadvisor import GearAdvisor
+        sc, lay = scroll_page(self.t.rtl)
+        lay.addWidget(self._label(self.t("ga_title"), "ToolHeader"))
+        self.gear_advisor = GearAdvisor(self.kb, self.profiles, self.t)
+        self.gear_advisor.scroll_requested.connect(self.plan_scrolls)
+        lay.addWidget(self.gear_advisor)
+        lay.addStretch(1)
+        return sc
+
+    def _fill_gear(self):
+        self.gear_advisor.refresh()
+
+    def _page_scrolls(self):
+        """Every grade of scroll for a piece of gear, side by side: the odds and the costs (ui/scrollplanner.py)."""
+        from .scrollplanner import ScrollPlanner
+        sc, lay = scroll_page(self.t.rtl)
+        lay.addWidget(self._label(self.t("sp_title"), "ToolHeader"))
+        self.scroll_planner = ScrollPlanner(self.kb, self.profiles, self.t)
+        lay.addWidget(self.scroll_planner)
+        lay.addStretch(1)
+        return sc
+
+    def _fill_scrolls(self):
+        self.scroll_planner.refresh()
+
+    def plan_scrolls(self, key: str) -> None:
+        """The gear advisor's "Plan scrolls" on an item: the Scrolls page, open on it."""
+        self.show_page(PAGES.index("scrolls"))
+        self.scroll_planner.open_item(key)
+        self.pages["scrolls"].verticalScrollBar().setValue(0)
+
     # quick checks --------------------------------------------------------
 
     def _page_more(self):
@@ -4284,8 +4647,10 @@ class ToolsDialog(GlassDialog):
         for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
             picker.setMinimumWidth(280)
             sec.add_row(t(label), picker)
-        self.route_taxi = Switch(True)
-        # a way already shown follows the switch; before one is asked for, nothing yet
+        self.route_taxi = Switch(bool(self.settings["route_taxi"]))
+        # a way already shown follows the switch; before one is asked for, nothing yet. Kept, and shared with the
+        # map window's own switch (a card's ◎): one choice for every way shown
+        self.route_taxi.toggled.connect(lambda on: self.settings.__setitem__("route_taxi", bool(on)))
         self.route_taxi.toggled.connect(lambda *_: self.route_out.count() > 1 and self._find_route())
         sec.add_row(t("route_taxi"), self.route_taxi, hint=t("route_taxi_hint"))
         go = QPushButton(self._p(t("route_go")), objectName="Primary")

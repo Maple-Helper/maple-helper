@@ -194,7 +194,47 @@ class MapleHelperApp:
         from .ui.minimapscan import MinimapScanner
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
+        # blue dots on the game's minimap where its invisible teleports are, from those reads (ui/portaldots.py)
+        from .ui.portaldots import PortalDots
+        self.portal_dots = PortalDots(self.kb, self.settings)
+        self.portal_dots.refresh()
+        # the "NPCs on this map" window over the game itself (ui/npcoverlay.py), shown from its own setting; the
+        # guide it sets is what the ring above draws on the game's minimap. Before any of the windows over the
+        # game are made: the glass they all paint is taken from the settings (the ⚙ panel re-takes it live).
+        from .ui import npcoverlay
+        npcoverlay.apply_look(self.settings)
+        self.npc_overlay = npcoverlay.NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        self.npc_overlay.refresh()
+        # ... and the monsters on it, in the same panel (ui/monsteroverlay.py)
+        from .ui.monsteroverlay import MonsterOverlay
+        self.monster_overlay = MonsterOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        self.monster_overlay.refresh()
+        # the little bar over the game (ui/gametoolbar.py): its buttons flip the windows over the game, and Tools
+        # opens the app's own Tools window (everything not about where the player stands lives there)
+        from .ui.gametoolbar import GameToolbar
+        self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
+        self.game_toolbar.window_toggled.connect(self._game_window_toggled)
+        self.game_toolbar.tools_requested.connect(self._tools_from_bar)
+        self.game_toolbar.chat_requested.connect(self.show_chat)
+        self.npc_overlay.closed.connect(self.game_toolbar.refresh)
+        self.monster_overlay.closed.connect(self.game_toolbar.refresh)
+        self.game_toolbar.look_changed.connect(self._overlay_look_changed)
+        self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
+        # the loot log: the game's pickup messages read while a log runs (the box the player drew around them), with
+        # its timer as long as the app (ui/lootscan.py)
+        from .ui.lootscan import LootScanner
+        self.loot_scanner = LootScanner(self.kb, self.profiles, self.settings)
+        self.loot_scanner.changed.connect(lambda: self._tools_call("loot_changed"))
+        # ... and its own card over the game while a log runs (not inside a Maple Helper window: ui/lootoverlay.py)
+        from .ui.lootoverlay import LootOverlay
+        self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb,
+                                        I18n(self.settings["language"] or "he"))
+        self.loot_scanner.changed.connect(self.loot_overlay.sync)
+        self.loot_overlay.sync()
+        # the bar over the game's Loot log button shows / hides that window (lit while it shows), as NPCs here does
+        self.loot_overlay.closed.connect(self.game_toolbar.refresh)
+        self.loot_scanner.changed.connect(self.game_toolbar.refresh)     # a log starting opens it: the button follows
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, MARKET_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -269,6 +309,15 @@ class MapleHelperApp:
         if not self.overlay.is_open():
             self.overlay.toggle(self.capture)
         QTimer.singleShot(300, self.overlay.start_tour)
+
+    def _game_window_toggled(self, key: str) -> None:
+        """A bar button flipped its window's setting: that window follows."""
+        if key == "npc_overlay":
+            self.npc_overlay.refresh()
+        elif key == "monster_overlay":
+            self.monster_overlay.refresh()
+        elif key == "loot_overlay":
+            self.loot_overlay.sync()
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -476,6 +525,12 @@ class MapleHelperApp:
         a_quit = QAction(t("tray_quit"), menu, triggered=self.qapp.quit)
         menu.addAction(a_show)
         menu.addAction(a_set)
+        # the bar over the game, on or off from here too (its ✕ hides it; Settings > Minimap was the only way back)
+        a_bar = QAction(bidi.plain(t("tray_toolbar"), t.rtl), menu, checkable=True)
+        a_bar.toggled.connect(self._toolbar_from_tray)
+        menu.aboutToShow.connect(lambda: a_bar.setChecked(bool(self.settings["game_toolbar"])))
+        menu.addAction(a_bar)
+        self._tray_bar = a_bar
         if getattr(self, "pending_installer", None):
             a_upd = QAction(t("update_now_tray", version=updater.installer_version(self.pending_installer)), menu,
                             triggered=self.update_now)
@@ -490,6 +545,15 @@ class MapleHelperApp:
         self.tray.show()
         self._tray_menu = menu
         self._add_announced_item()
+
+    def _toolbar_from_tray(self, on: bool) -> None:
+        """The tray's "In-game toolbar": the bar's setting, and the bar follows at once."""
+        if bool(self.settings["game_toolbar"]) == on:
+            return                  # the menu only showed the setting as it is
+        self.settings["game_toolbar"] = on
+        bar = getattr(self, "game_toolbar", None)
+        if bar is not None:
+            bar.refresh()
 
     def open_settings(self):
         def make():
@@ -509,37 +573,50 @@ class MapleHelperApp:
 
     def pick_minimap(self):
         """The character card's minimap button: draw the box around the game's minimap; the reads start from it."""
+        self._pick_region("minimap_region", "minimap_pick_hint", getattr(self, "minimap_scanner", None))
+
+    def pick_loot_area(self):
+        """The loot log's "Select the messages area": draw the box around the game's pickup messages."""
+        self._pick_region("loot_region", "loot_pick_hint", getattr(self, "loot_scanner", None))
+
+    def _pick_region(self, setting: str, hint: str, scanner):
+        """Draw a box on the game (the chat steps aside meanwhile); it is saved in `setting` and `scanner` restarts
+        on it. One picker at a time."""
         from .ui.regionpick import RegionPicker
-        if getattr(self, "_minimap_picker", None) is not None:
+        if getattr(self, "_region_picker", None) is not None:
             return                  # already picking
         t = I18n(self.settings["language"] or "he")
-        self._minimap_overlay_open = self.overlay.is_open()
-        if self._minimap_overlay_open:
+        self._picker_overlay_open = self.overlay.is_open()
+        if self._picker_overlay_open:
             self.overlay.hide()     # the chat would cover the game the box is drawn on
-        picker = RegionPicker(hint=t("minimap_pick_hint"), rtl=t.rtl)
-        self._minimap_picker = picker
-        picker.picked.connect(self._on_minimap_picked)
+        picker = RegionPicker(hint=t(hint), rtl=t.rtl)
+        self._region_picker = picker
+        picker.picked.connect(lambda rect: self._on_region_picked(rect, setting, scanner))
         picker.start()
 
-    def _on_minimap_picked(self, rect: dict):
-        self._end_minimap_pick()
+    def _on_region_picked(self, rect: dict, setting: str, scanner):
+        self._end_region_pick()
         ok = (isinstance(rect, dict)
               and all(isinstance(rect.get(k), (int, float)) and not isinstance(rect.get(k), bool)
                       for k in ("x", "y", "w", "h"))
               and rect["w"] > 0 and rect["h"] > 0)
         if not ok:
             return                  # not a box: keep whatever was there
-        self.settings["minimap_region"] = {k: int(rect[k]) for k in ("x", "y", "w", "h")}  # saves, like every setting
-        scanner = getattr(self, "minimap_scanner", None)
+        self.settings[setting] = {k: int(rect[k]) for k in ("x", "y", "w", "h")}  # saves, like every setting
         if scanner is not None:
-            scanner.restart()       # (also resets the locator's lock onto the new box)
+            scanner.restart()       # (the minimap's also resets the locator's lock onto the new box)
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # over the new box at once: its first read may equal the last and signal nothing
+        if setting == "loot_region":
+            self._tools_call("loot_changed")
 
-    def _end_minimap_pick(self):
-        picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None
+    def _end_region_pick(self):
+        picker, self._region_picker = getattr(self, "_region_picker", None), None
         if picker is not None:
             picker.close()
-        if getattr(self, "_minimap_overlay_open", False):
-            self._minimap_overlay_open = False
+        if getattr(self, "_picker_overlay_open", False):
+            self._picker_overlay_open = False
             if not self.overlay.isVisible():
                 self.overlay.show()
 
@@ -715,6 +792,18 @@ class MapleHelperApp:
                 # link kept the dark theme's faint orange on white)
                 self.overlay.setStyleSheet(self.style())
                 self.overlay.apply_language()
+                npc = getattr(self, "npc_overlay", None)
+                if npc is not None:
+                    npc.apply_language(I18n(self.settings["language"] or "he"))   # its texts follow the switch
+                mobs = getattr(self, "monster_overlay", None)
+                if mobs is not None:
+                    mobs.apply_language(I18n(self.settings["language"] or "he"))
+                game = getattr(self, "game_toolbar", None)
+                if game is not None:
+                    game.apply_language(I18n(self.settings["language"] or "he"))    # the bar's texts too
+                loot = getattr(self, "loot_overlay", None)
+                if loot is not None:
+                    loot.apply_language(I18n(self.settings["language"] or "he"))
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -738,6 +827,33 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.restart()       # the scan interval (or nothing) changed: pick it up, no restart needed
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.refresh()          # the hidden-portal dots switched on or off
+        from .ui import npcoverlay
+        # the glass every window paints, before they repaint: after style() above, so the default look ("app")
+        # takes the appearance just saved, the windows over the game restyling with the app's own
+        npcoverlay.apply_look(self.settings)
+        self._overlay_look_changed()
+
+    def _overlay_look_changed(self) -> None:
+        """Every window over the game at the colours and transparency the settings give now, not on the next
+        restart: the ⚙ panel's choices (look_changed) and Settings' (on Save: Minimap's, and the app's own
+        appearance, which the default look follows) both land here. Each window re-reads the opacity, re-styles
+        its text, fills and lit buttons in the look's palette and accent, and repaints its glass in the colour
+        _paint_glass takes (the NPCs window's guide with it)."""
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.refresh()          # the NPCs-on-this-map window switched on or off
+        mobs = getattr(self, "monster_overlay", None)
+        if mobs is not None:
+            mobs.refresh()         # ... and the monsters one
+        game = getattr(self, "game_toolbar", None)
+        if game is not None:
+            game.refresh()         # the bar over the game switched on or off (its button follows the window)
+        loot = getattr(self, "loot_overlay", None)
+        if loot is not None:
+            loot.sync()            # the loot log's window at the windows' opacity
 
     def apply_autostart(self):
         if sys.platform == "win32" and not getattr(sys, "frozen", False):
@@ -957,7 +1073,8 @@ class MapleHelperApp:
 
         def make():
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
-                              self.grind, page)
+                              self.grind, page, loot=self.loot_scanner)
+            dlg.loot_area_requested.connect(self.pick_loot_area)
             dlg.sync_requested.connect(self.overlay.sync_profile)
             dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
@@ -967,6 +1084,13 @@ class MapleHelperApp:
             dlg.add_character_requested.connect(lambda: (self.add_character(), self.on_profile_changed()))
             return dlg
         return self.open_window("tools", make)
+
+    def _tools_from_bar(self, page: str) -> None:
+        """The bar's Tools menu: the Tools window on that tab ("": as it opens), the open one switching to it."""
+        from .ui.tools import PAGES
+        dlg = self.show_tools(page) if page else self.show_tools()
+        if page in PAGES and dlg is not None and hasattr(dlg, "show_page"):
+            dlg.show_page(PAGES.index(page))
 
     def show_news_page(self):
         """The News window: the megaphone in the chat's header, or the news strip tapped."""
@@ -1155,6 +1279,19 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.set_kb(self.kb)     # its locator is rebuilt from the new KB on the next read
+        dots = getattr(self, "portal_dots", None)
+        if dots is not None:
+            dots.set_kb(self.kb)        # the new KB's hidden portals
+        npc = getattr(self, "npc_overlay", None)
+        if npc is not None:
+            npc.set_kb(self.kb)        # the new KB's NPC lists
+        mobs = getattr(self, "monster_overlay", None)
+        if mobs is not None:
+            mobs.set_kb(self.kb)       # ... and monster lists
+        loot = getattr(self, "loot_scanner", None)
+        if loot is not None:
+            loot.set_kb(self.kb)        # the item names it matches reads against
+            self.loot_overlay.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1174,6 +1311,10 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.stop()                  # no minimap read while the app goes
+        loot = getattr(self, "loot_scanner", None)
+        if loot is not None:
+            loot.stop()                     # no loot read while the app goes; the running log is saved
+            self.loot_overlay.hide()
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

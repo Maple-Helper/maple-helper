@@ -43,6 +43,24 @@ def to_capture(rect: QRect, screens: list[tuple[QRect, float]], scale: bool = Tr
     }
 
 
+def from_capture(box: dict, screens: list[tuple[QRect, float]], scale: bool = True) -> tuple[QRect, float]:
+    """A capture-coordinates box (as `to_capture` makes it) back to logical pixels, with the devicePixelRatio of the
+    screen holding its centre (capture pixels per logical pixel: 1.0 when unscaled)."""
+    x, y, w, h = int(box["x"]), int(box["y"]), int(box["w"]), int(box["h"])
+    if not scale or not screens:
+        return QRect(x, y, w, h), 1.0
+    cx, cy = x + w / 2, y + h / 2
+    geo, ratio = screens[0]
+    for g, r in screens:
+        o = g.topLeft()
+        if o.x() <= cx < o.x() + g.width() * r and o.y() <= cy < o.y() + g.height() * r:
+            geo, ratio = g, r
+            break
+    o = geo.topLeft()
+    return QRect(round(o.x() + (x - o.x()) / ratio), round(o.y() + (y - o.y()) / ratio),
+                 max(1, round(w / ratio)), max(1, round(h / ratio))), ratio
+
+
 class RegionPicker(QWidget):
     """Frameless stay-on-top overlay covering every screen; drag a box.
 
