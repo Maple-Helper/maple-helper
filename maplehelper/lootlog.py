@@ -2,9 +2,10 @@
 
 The game writes each gain as a line at the bottom right of the play area, right of the skill bar:
 "You received EXP (+21)", "You have gained mesos (+27)", "Leaf x1 earned. (Etc)". A new line appears at the
-bottom and pushes the older ones up a line; each fades out after a few seconds (its right end first). The player
-drags a box around that corner (Settings-free: the loot log page's "Select the messages area"), and while a log
-runs, RapidOCR reads the box every LOOT_INTERVAL seconds.
+bottom and pushes the older ones up a line; each fades out after a few seconds (its right end first). The game's
+interface scales with its window, so the messages sit at the same place in the picture at any size: `auto_box`
+(measured live at 1368x800, 1922x1112 and 2734x1568). The player may draw the box instead (the Loot log page's
+"Mark it yourself"). While a log runs, RapidOCR reads the box twice a second (ui/lootscan.py).
 
 A line stays on screen for several reads, so a read can't simply be added up. `Tracker` keeps the lines it has seen
 with their row (0 = the bottom one) and, for every read, finds how many rows the stack moved up since the last one:
@@ -38,22 +39,47 @@ _PAREN = re.compile(r"[(\[{]\s*(?P<sign>[+t4]?)\s*(?P<num>\d[\d,.]*)\s*[)\]}]")
 # the count after an item's name as OCR reads it: " x1", "x1", "xl", "xd", "xdl", or a lone " d" (the "x1" faded)
 _QTY = re.compile(r"(?:\s+[x×X][\dlIi|dD]{0,3}|[x×X][\dlIi|dD]{1,3}|\s+[\dlIi|dD]{1,3})\s*$")
 _ITEM = re.compile(r"^(?P<name>.+?)\s*[x×X]\s*(?P<n>[\dlIi|]{1,4})\s*\.?\s*[eE]\w*[rn]\w*\b", re.IGNORECASE)
+# where the messages are, as fractions of the game's picture (left, top, right, bottom). Measured at three window
+# sizes: lines from x 0.86 to the right edge, the stack's top line no higher than 0.72 (5 lines), its bottom line's
+# bottom at 0.81-0.82, text 2% of the height. The box leaves room for ~8 lines, and stops short of the chat bubbles
+# above the player ("mesos? This", read at 0.375).
+AUTO_BOX = (0.78, 0.57, 1.0, 0.86)
+
+
+def auto_box(play: tuple[int, int, int, int]) -> dict:
+    """The messages box ({"x","y","w","h"}, capture coordinates) in the game's picture (x, y, w, h)."""
+    x, y, w, h = play
+    left, top, right, bottom = AUTO_BOX
+    x0, y0 = x + round(w * left), y + round(h * top)
+    return {"x": x0, "y": y0, "w": max(1, x + round(w * right) - x0), "h": max(1, y + round(h * bottom) - y0)}
+
+
+# a box shorter than this is enlarged before it is read: on a 1368x800 window the messages are ~17 px tall and the
+# reader missed half of them (41 EXP of the 87 the frames show); enlarged to this height it read all 87, and the
+# bigger windows' counts didn't change
+OCR_MIN_H = 450
 
 
 def ocr_rows(arr: np.ndarray) -> list[tuple[str, float, float]] | None:
-    """(text, y centre, height) of every line read in the box; None when the reader won't load. The text-angle
-    classifier stays off: it turned some message lines upside down ("(g+) sosam paugeb ae nog", seen live)."""
+    """(text, y centre, height) of every line read in the box, in the box's own pixels; None when the reader won't
+    load. The text-angle classifier stays off: it turned some message lines upside down ("(g+) sosam paugeb ae
+    nog", seen live)."""
     from . import hud
     eng = hud._ocr()
     if eng is None:
         return None
+    k = 1.0
+    if 0 < arr.shape[0] < OCR_MIN_H:
+        from PIL import Image
+        k = OCR_MIN_H / arr.shape[0]
+        arr = np.asarray(Image.fromarray(arr).resize((round(arr.shape[1] * k), OCR_MIN_H), Image.LANCZOS))
     with hud._engine_lock:
         found = eng(arr, use_cls=False)
     if found is None or not found.txts:
         return []
     out = []
     for text, box in zip(found.txts, np.asarray(found.boxes).reshape(len(found.txts), -1, 2)):
-        out.append((str(text).strip(), float(box[:, 1].mean()), float(box[:, 1].max() - box[:, 1].min())))
+        out.append((str(text).strip(), float(box[:, 1].mean()) / k, float(box[:, 1].max() - box[:, 1].min()) / k))
     return out
 
 

@@ -59,6 +59,37 @@ def test_other_text_in_the_box_is_no_message(text):
     assert lootlog.parse(text) is None
 
 
+@pytest.mark.parametrize("size,lines", [
+    # each live window size: where its message lines were read (left, top, right, bottom, fractions of the window)
+    ((1368, 800), [(0.863, 0.721, 0.999, 0.820)]),
+    ((1922, 1112), [(0.865, 0.735, 0.999, 0.815)]),
+    ((2734, 1568), [(0.873, 0.734, 0.999, 0.811)]),
+])
+def test_the_messages_box_holds_the_messages_at_every_window_size(size, lines):
+    """Measured live at three window sizes: every message line falls inside the box found for the window, wherever
+    the window is on screen."""
+    w, h = size
+    box = lootlog.auto_box((100, 50, w, h))
+    for left, top, right, bottom in lines:
+        assert box["x"] <= 100 + left * w and 100 + right * w <= box["x"] + box["w"]
+        assert box["y"] <= 50 + top * h and 50 + bottom * h <= box["y"] + box["h"]
+    assert box["y"] > 50 + 0.4 * h          # under the chat bubbles over the player
+
+
+def test_a_small_box_is_enlarged_for_the_reader_and_read_back_in_its_own_pixels(monkeypatch):
+    from maplehelper import hud
+    seen = []
+
+    def engine(arr, use_cls):
+        seen.append(arr.shape)
+        return type("R", (), {"txts": ["You received EXP (+8)"],
+                              "boxes": np.array([[[0, 300], [10, 300], [10, 340], [0, 340]]])})()
+    monkeypatch.setattr(hud, "_ocr", lambda: engine)
+    rows = lootlog.ocr_rows(np.zeros((150, 200, 3), np.uint8))
+    assert seen[0][0] == lootlog.OCR_MIN_H and seen[0][1] == 600
+    assert rows == [("You received EXP (+8)", pytest.approx(320 / 3), pytest.approx(40 / 3))]
+
+
 def test_a_misread_plus_is_no_sure_amount():
     """While a line fades, OCR reads "(+43)" as "(443)": the same message, not 443 EXP."""
     a, b = lootlog.parse("You received EXP (+43)"), lootlog.parse("You received ExP (443h")
@@ -85,6 +116,26 @@ def test_slower_reads_count_the_same(kb, step):
     exp, mesos, items = _replay(kb, _live_reads(), step).totals()
     assert (exp, mesos, {n: v[0] for n, v in items.items()}) == (
         358, 327, {"Firewood": 5, "Snail Shell": 2, "Tree Branch": 2, "Leaf": 2, "Red Snail Shell": 1})
+
+
+@needs_kb
+def test_a_small_window_counts_too(kb):
+    """Live at 1368x800, the box the window gives, enlarged for the reader: 87 EXP, 91 mesos and 3 Red Snail Shells,
+    what the frames show (read at the window's own size, half the messages were missed)."""
+    raw = json.loads((FIX / "loot_reads_small_live.json").read_text(encoding="utf-8"))
+    lg = _replay(kb, {float(t): [tuple(r) for r in rows] for t, rows in raw.items()})
+    exp, mesos, items = lg.totals()
+    assert (exp, mesos, {n: v[0] for n, v in items.items()}) == (87, 91, {"Red Snail Shell": 3})
+
+
+@needs_kb
+def test_a_small_window_frame_reads_every_line():
+    """A 301x232 box of a 1368x800 window: the five clear messages read whole (the faded one on top is left out)."""
+    pytest.importorskip("rapidocr")
+    rows = lootlog.ocr_rows(np.asarray(Image.open(FIX / "loot_small_live.png").convert("RGB")))
+    lines = [ln for r in rows if (ln := lootlog.parse(r[0]))]
+    assert [(ln.kind, ln.name if ln.kind == "item" else ln.amount) for ln in lines] == [
+        ("exp", 10), ("item", "Red Snail Shell"), ("exp", 10), ("exp", 10), ("mesos", 14)]
 
 
 def test_what_is_on_screen_when_the_log_starts_isnt_counted():
