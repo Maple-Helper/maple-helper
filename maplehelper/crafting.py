@@ -136,7 +136,10 @@ def up_to(kb, profession: str, level: int) -> list[Recipe]:
 # ------------------------------------------------------------------ who teaches it, where to work
 
 STATIONS = {"smithing": "Anvil", "weaponcrafting": "Weaponcrafting Station", "tailoring": "Sewing Machine",
-            "woodcrafting": "Woodworking Station", "leatherworking": "Leatherworking Station", "arcforge": "Arcane Station"}
+            "woodcrafting": "Woodcrafting Station", "leatherworking": "Leatherworking Station", "arcforge": "Arcane Station"}
+# a station's other names, tried when the KB has no NPC by the one above: NiaMeowDB renamed the Woodworking Station
+# NPC "Woodcrafting Station" on 2026-10-11 (its item kept the old name), and could go back or rename another
+STATION_ALIASES = {"woodcrafting": ("Woodworking Station",)}
 MASTER_WORD = {"smithing": "Blacksmith", "weaponcrafting": "Weaponcrafter", "tailoring": "Tailor",
                "woodcrafting": "Carpenter", "leatherworking": "Leatherworker", "arcforge": "Arcforger"}
 
@@ -189,7 +192,8 @@ def info(kb, profession: str) -> Info:
                 and e["name"] != out.master_quest]
         if mine:
             _, _, out.start_quest, out.start_level = min(mine, key=lambda m: (m[1], m[0]))
-    out.station = STATIONS.get(profession, "")
+    names = (STATIONS.get(profession, ""), *STATION_ALIASES.get(profession, ()))
+    out.station = next((n for n in names if kb._npc_by_name.get(n.lower())), names[0])
     key = kb._npc_by_name.get(out.station.lower())
     if key:
         lines = [ln.strip() for ln in kb.page(key).splitlines()]

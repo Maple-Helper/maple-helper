@@ -1,0 +1,4 @@
+drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column
+and the players' votes on community drops
+rewards.tsv lists the item rewards of the quests the KB confirms are in the game
+tables 3 schema e21407867ffd inputs 1cec16de581389204608f9f72cf750a4ff928a75

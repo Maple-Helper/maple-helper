@@ -25,7 +25,7 @@ CASES: list[tuple[str, list[str]]] = [
     ("Ilbi vs Subi", ["Ilbi Throwing Stars", "Subi Throwing Stars"]),
     ("how much do ilbi cost", ["Ilbi Throwing Stars"]),
     ("who drops subi throwing stars", ["Subi Throwing Stars"]),
-    ("is arrow bomb worth it for hunter", ["Arrow Bomb: Bow", "Hunter"]),
+    ("is arrow bomb worth it for hunter", ["Arrow Bomb|Arrow Bomb: Bow", "Hunter"]),
     ("steely or ilbis for a lv 30 sin", ["Steely Throwing Knives", "Ilbi Throwing Stars"]),
     ("jr boogie hp", ["Jr. Boogie 1"]),
     ("where do jr balrogs spawn", ["Jr. Balrog"]),
@@ -34,7 +34,7 @@ CASES: list[tuple[str, list[str]]] = [
     ("how do i get to pig beach", ["The Pig Beach"]),
     ("hermit or chief bandit at 70?", ["Hermit skills", "Chief Bandit skills"]),
     ("ranger vs sniper which is better", ["Ranger skills", "Sniper skills"]),
-    ("amazons judgement or arrow bomb", ["Amazon's Judgement", "Arrow Bomb: Bow"]),
+    ("amazons judgement or arrow bomb", ["Amazon's Judgement", "Arrow Bomb|Arrow Bomb: Bow"]),
     ("is lucky seven better than double stab", ["Lucky Seven", "Double Stab"]),
     ("what level is tick tock", ["Tick-Tock"]),
     ("ticktock drops", ["Tick-Tock"]),
@@ -67,7 +67,7 @@ CASES: list[tuple[str, list[str]]] = [
     ("what does shadow partner do", ["Shadow Partner"]),
     ("teleport mp cost", ["Teleport"]),
     ("haste for assassin", ["Haste", "Assassin"]),
-    ("iron arrow for crossbowman", ["Iron Arrow: Crossbow", "Crossbowman"]),
+    ("iron arrow for crossbowman", ["Iron Arrow|Iron Arrow: Crossbow", "Crossbowman"]),
     ("stone golems or dark stone golems", ["Stone Golem", "Dark Stone Golem"]),
     ("where do i buy steely", ["Steely Throwing Knives"]),
     ("red snail shells drop", ["Red Snail Shell"]),
@@ -91,7 +91,7 @@ CASES: list[tuple[str, list[str]]] = [
     ("מה מפיל חזיר בר", ["Wild Boar"]),
     ("כמה חיים יש לג'וניור בלרוג", ["Jr. Balrog"]),
     ("איך מגיעים מהנסיס לסליפיווד", ["Henesys", "Sleepywood"]),
-    ("מה עדיף arrow bomb או amazon's judgement", ["Arrow Bomb: Bow", "Amazon's Judgement"]),
+    ("מה עדיף arrow bomb או amazon's judgement", ["Arrow Bomb|Arrow Bomb: Bow", "Amazon's Judgement"]),
     ("השוואה בין מאנו, מושמום, קינג סליים, ג'וניור בלרוג ובלרוג אדום",
      ["Mano", "Mushmom", "King Slime", "Jr. Balrog", "Crimson Balrog"]),
     ("איפה לעשות גריינד על לופינים", ["Lupin"]),
@@ -175,13 +175,16 @@ def measure(kb, cases=CASES, negatives=NEGATIVES) -> dict:
         keys = kb.find_mentions(q, cap)
         spent += time.perf_counter() - t0
         got = [kb.get(k)["name"] for k in keys]
-        hit = [n for n in want if n in got]
+        # "Arrow Bomb|Arrow Bomb: Bow": either name is the one meant (NiaMeowDB renamed it on 2026-10-11; the
+        # app is tested against the KB players have and the night's new one, which can sit on either side)
+        hit = [n for n in want if any(a in got for a in n.split("|"))]
         expected += len(want)
         found += len(got)
         right += len(hit)
         if len(hit) < len(want):
-            misses[q] = [n for n in want if n not in got]
-        if extra := [n for n in got if n not in want]:
+            misses[q] = [n for n in want if n not in hit]
+        meant = {a for n in want for a in n.split("|")}
+        if extra := [n for n in got if n not in meant]:
             wrong[q] = extra
     return {"recall": right / expected if expected else 1.0, "precision": right / found if found else 1.0,
             "expected": expected, "found": found, "right": right, "misses": misses, "wrong": wrong,

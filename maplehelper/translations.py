@@ -51,7 +51,21 @@ def he(root: Path | None, kind: str, key: str, en: str) -> str | None:
     if not en:
         return None
     for table in (_load(ASSETS / ASSET_DIRS.get(kind, kind) / "he.json"), kb_table(root, kind)):
-        row = table.get(key)
-        if isinstance(row, dict) and str(row.get("en") or "").strip() == en and str(row.get("he") or "").strip():
-            return str(row["he"]).strip()
+        found = made_from(table.get(key), en)
+        if found:
+            return found
+    return None
+
+
+def made_from(row, en: str) -> str | None:
+    """The Hebrew of a row made from `en`: the row's own, or an older version it keeps under "alt" (NiaMeowDB
+    rewrites a text now and then, as on 2026-10-11; the app ships Hebrew for both sides, so a KB from before the
+    rewrite and one from after it both read in Hebrew)."""
+    en = (en or "").strip()
+    if not isinstance(row, dict) or not en:
+        return None
+    for version in [row, *(row.get("alt") or [])]:
+        if isinstance(version, dict) and str(version.get("en") or "").strip() == en \
+                and str(version.get("he") or "").strip():
+            return str(version["he"]).strip()
     return None

@@ -104,11 +104,12 @@ def test_the_hebrew_asset_covers_every_shown_text_made_from_its_english(real_kb)
     rows = json.loads(ASSET.read_text(encoding="utf-8"))
     shown = {k: en for skills in skillbook.book(real_kb).values() for s in skills
              for k, en in skillbook.texts(s).items()}
-    assert len(shown) == 279 and set(rows) == set(shown)
+    from maplehelper.translations import made_from
+    assert len(shown) == 279 and set(shown) <= set(rows)       # (the rows of a skill NiaMeowDB re-keyed stay too)
     names = {s.name for skills in skillbook.book(real_kb).values() for s in skills}
     for key, en in shown.items():
-        he = rows[key]["he"]
-        assert rows[key]["en"] == en, key
+        he = made_from(rows[key], en)      # the row's Hebrew, or the version made from this KB's English ("alt")
+        assert he, key
         assert re.search(r"[א-ת]", he) and not _LEVEL_WORD.search(he), key
         assert sorted(re.findall(r"\d+", en)) == sorted(re.findall(r"\d+", he)), key     # numbers kept
         for name in names:          # a skill named in the English stays in English letters (one-word names
@@ -117,7 +118,7 @@ def test_the_hebrew_asset_covers_every_shown_text_made_from_its_english(real_kb)
         assert not re.search(r"(?:^|\s)[בהוכלמש]{1,2}[A-Za-z]", he), key        # a prefix takes a hyphen: "ב-Heal"
     # the app shows it, and only while the English holds
     s = next(s for s in skillbook.book(real_kb)["Assassin"] if s.name == "Haste")
-    assert skillbook.text(real_kb, s, "desc", "he") == rows[s.key]["he"]
+    assert skillbook.text(real_kb, s, "desc", "he") == made_from(rows[s.key], s.desc)
     assert skillbook.text(real_kb, s, "max", "en") == s.max
     from dataclasses import replace
     rewritten = replace(s, desc=s.desc + " Now stronger.")
@@ -238,8 +239,9 @@ def test_skills_tab_shows_the_characters_job_with_every_part_of_each_skill(tools
                 tags = [bare(t.text()) for t in card.findChildren(QLabel, "Tag")]
                 assert ("רמה מקסימלית " if lang == "he" else "Max Lv. ") + str(s.max_lv) in tags
                 if lang == "he":
-                    assert asset[s.key]["he"].split(" ")[0] in parts["desc"]
-                    assert asset[s.key + "#max"]["he"].split(";")[0] in parts["max"]
+                    from maplehelper.translations import made_from
+                    assert made_from(asset[s.key], s.desc).split(" ")[0] in parts["desc"]
+                    assert made_from(asset[s.key + "#max"], s.max).split(";")[0] in parts["max"]
                     assert parts["max"].startswith(f"ברמה {s.max_lv} (מקסימום):")
                     if s.prereq:
                         assert parts["needs"] == f"דורש {s.prereq[0]} ברמה {s.prereq[1]}"
