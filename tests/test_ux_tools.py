@@ -139,27 +139,6 @@ def test_hit_and_damage_maps_offer_the_way_there(tools):
 
 
 @needs_kb
-def test_an_offline_free_market_offers_to_try_again(tools, monkeypatch):
-    """TOOL-12."""
-    from PySide6.QtWidgets import QPushButton
-
-    from maplehelper import market
-    monkeypatch.setattr(market, "item_market", lambda i: None)
-    monkeypatch.setattr(market, "free_market", lambda n: None)
-    d = tools(page="prices")
-    d.price_input.setText("Red Potion")
-    d._fill_prices()
-    d._on_market(("Red Potion", None))
-    again = [b for i in range(d.fm_more.count()) if (w := d.fm_more.itemAt(i).widget())
-             for b in w.findChildren(QPushButton) if b.text() == "Try again"]
-    assert again
-    looked = []
-    monkeypatch.setattr(d, "_fm_lookup", lambda n, i: looked.append(n))
-    again[0].click()
-    assert looked == ["Red Potion"] and "Free Market" in d.fm_label.text()
-
-
-@needs_kb
 @pytest.mark.parametrize("lang", ["en", "he"])
 def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch, lang):
     import time

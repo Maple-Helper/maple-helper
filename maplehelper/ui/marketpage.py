@@ -65,7 +65,7 @@ class ItemRow(QFrame):
         head = QHBoxLayout()
         head.setSpacing(6)
         name = (page.kb.get(key) or {}).get("name") if key else None
-        title = QLabel(bidi.ltr_name(name or s.name, t.rtl), objectName="CardName")
+        title = QLabel(bidi.ltr_name(name or s.name, t.rtl), objectName="FmName")
         head.addWidget(title, 0)
         if s.first_day and page.is_new(s.first_day):
             head.addWidget(QLabel(bidi.plain(t("fm_new"), t.rtl), objectName="TagAccent"), 0)
@@ -75,7 +75,7 @@ class ItemRow(QFrame):
         col.addLayout(head)
         desc = page.describe(key)
         if desc:
-            lb = QLabel(desc, objectName="CardSub")
+            lb = QLabel(desc, objectName="FmText")
             lb.setWordWrap(True)
             lb.setAlignment(page.align)
             col.addWidget(lb)
@@ -94,7 +94,7 @@ class ItemRow(QFrame):
         if s.cash and s.cash_on_sale is not None:
             bits.append(t("fm_cash_on") if s.cash_on_sale else t("fm_cash_off"))
         if bits:
-            sub = QLabel(bidi.plain(" · ".join(bits), t.rtl), objectName="CardSub")
+            sub = QLabel(bidi.plain(" · ".join(bits), t.rtl), objectName="FmText")
             sub.setAlignment((Qt.AlignLeft if t.rtl else Qt.AlignRight) | Qt.AlignAbsolute)
             end.addWidget(sub)
         row.addLayout(end, 0)
@@ -115,12 +115,17 @@ class MarketPage(QWidget):
         self.snap, self.keys, self._desc = None, {}, {}
         self.category, self.shown, self._version = "Equips", PAGE_ROWS, -1
         from . import theme
-        self.setStyleSheet(f"#FmPrice {{ font-size: 15px; font-weight: 700; color: {theme.P()['text']}; }}")
+        c = theme.P()
+        # no small text (the owner): descriptions, counts and the status at the body size
+        self.setStyleSheet(f"#FmPrice {{ font-size: 16px; font-weight: 700; color: {c['text']}; }}"
+                           f"#FmText {{ font-size: 14px; color: {c['muted']}; }}"
+                           f"#FmName {{ font-size: 15px; font-weight: 600; color: {c['text']}; }}"
+                           "#TagAccent, #TagWarn { font-size: 13px; padding: 3px 9px; }")
         lay = QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(10)
         top = QHBoxLayout()
-        intro = QLabel(bidi.plain(t("fm_intro"), t.rtl), objectName="ToolHeader")
+        intro = QLabel(bidi.plain(t("fm_intro"), t.rtl), objectName="FmText")
         intro.setWordWrap(True)
         intro.setAlignment(self.align)
         top.addWidget(intro, 1)
@@ -157,7 +162,7 @@ class MarketPage(QWidget):
         self.sort.changed.connect(lambda *_: self._refill(reset=True))
         tools.addWidget(self.sort, 0)
         ml.addLayout(tools)
-        self.status = QLabel(bidi.plain(t("fm_loading"), t.rtl), objectName="RowHint")
+        self.status = QLabel(bidi.plain(t("fm_loading"), t.rtl), objectName="FmText")
         self.status.setAlignment(self.align)
         ml.addWidget(self.status)
         self.list = QVBoxLayout()
@@ -293,7 +298,7 @@ class MarketPage(QWidget):
         for s in items[:self.shown]:
             self.list.addWidget(ItemRow(self, s, self.keys.get(s.game_id)))
         if not items:
-            empty = QLabel(bidi.plain(t("fm_empty"), t.rtl), objectName="RowHint")
+            empty = QLabel(bidi.plain(t("fm_empty"), t.rtl), objectName="FmText")
             empty.setAlignment(self.align)
             self.list.addWidget(empty)
         left = len(items) - self.shown

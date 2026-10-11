@@ -1,20 +1,18 @@
 """The Free Market details window: everything MesoWatch knows about one item's sales, laid out like MesoWatch's own
-item card (meso.watch): the typical sale, a chart of the sales (their spread, or the daily medians over time), the
-last sale, the last three's average and the sale count, then where to buy it (the shops seen listing it, cheapest
+item card (meso.watch): the usual sale price, the last sale, the last three's average and the sale count, then
+where to buy it (the shops seen listing it, cheapest
 first, with their owner's name: that is how a player finds the shop) and the newest sales.
 
 The price card in the Play tools keeps the short version and opens this beside the tools window, then wherever the
 player last left it (one window: another item's button shows that item here)."""
 from __future__ import annotations
 
-import math
 import threading
 
-from PySide6.QtCore import QPointF, QRect, QRectF, Qt, Signal
-from PySide6.QtGui import (QColor, QFont, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen,
+from PySide6.QtCore import QPointF, QRect, QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import (QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen,
                            QPixmap, QRadialGradient)
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget)
 
 from .. import bidi, mesowatch, sources
 from ..i18n import I18n
@@ -26,22 +24,11 @@ from .patchnotes import gutter
 from .widgets import fit_picture, source_tag
 
 POS_SETTING = "market_window_pos"     # where the player last left the window: {"x", "y"}
+AVATAR = 40                           # a seller's picture, px
+POLL_MS = 60 * 1000                   # how often an open window looks for a newer market (the refresh: 15 minutes)
 WIDTH, MAX_HEIGHT = 460, 820
 SHOPS_SHOWN = 8
 SALES_SHOWN = 10
-
-
-def compact(n) -> str:
-    """229000 -> "229K", 1080000 -> "1.08M", 0.75 -> "0.75": the chart's axis and marks, as MesoWatch writes them."""
-    if n is None:
-        return ""
-    if n >= 1_000_000:
-        v = f"{n / 1_000_000:.2f}".rstrip("0").rstrip(".")
-        return f"{v}M"
-    if n >= 1000:
-        v = f"{n / 1000:.1f}".rstrip("0").rstrip(".") if n < 10_000 else f"{round(n / 1000)}"
-        return f"{v}K"
-    return f"{n:g}" if isinstance(n, float) else str(n)
 
 
 def mesos(n) -> str:
@@ -95,25 +82,29 @@ def coin_label(px: int = 16) -> QLabel:
     return lb
 
 
-def face_pixmap(path, px: int = 34) -> QPixmap | None:
-    """A seller's character (MesoWatch's picture of the whole character) cut to the head and shoulders, in a
-    round frame as MesoWatch shows it."""
+def face_pixmap(path, px: int = AVATAR) -> QPixmap | None:
+    """A seller's whole character (MesoWatch's picture of it, never cut), fitted into a round, softly tinted frame as
+    MesoWatch shows it."""
     img = QImage(str(path))
     if img.isNull():
         return None
-    side = min(img.width(), img.height())
-    head = img.copy(QRect((img.width() - side) // 2, 0, side, side))     # the top square: the head
     ratio = 2
-    out = QPixmap(px * ratio, px * ratio)
+    size = px * ratio
+    out = QPixmap(size, size)
     out.fill(Qt.transparent)
     p = QPainter(out)
     p.setRenderHint(QPainter.Antialiasing)
-    p.setRenderHint(QPainter.SmoothPixmapTransform, False)       # pixel art stays crisp
-    clip = QPainterPath()
-    clip.addEllipse(QRectF(0, 0, px * ratio, px * ratio))
+    p.setRenderHint(QPainter.SmoothPixmapTransform)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor(255, 149, 51, 38))
+    p.drawEllipse(QRectF(0, 0, size, size))
+    clip = QPainterPath()       # a picture with its own background stays round too; the figure is whole inside
+    clip.addEllipse(QRectF(0, 0, size, size))
     p.setClipPath(clip)
-    p.fillRect(out.rect(), QColor(255, 149, 51, 40))
-    p.drawImage(QRectF(px * ratio * 0.08, px * ratio * 0.06, px * ratio * 0.84, px * ratio * 0.84), head)
+    room = size * 0.86                           # the whole figure inside the circle, its height or width filling it
+    scale = min(room / img.width(), room / img.height())
+    w, h = img.width() * scale, img.height() * scale
+    p.drawImage(QRectF((size - w) / 2, (size - h) / 2, w, h), img)
     p.end()
     out.setDevicePixelRatio(ratio)
     return out
@@ -128,202 +119,6 @@ def price_box(text: str, name: str, px: int, rtl: bool) -> QHBoxLayout:
     lb = QLabel(text, objectName=name)
     row.addWidget(lb, 0, Qt.AlignVCenter)
     return row
-
-
-# ---------------------------------------------------------------- the chart
-
-def density(values: list[float], lo: float, hi: float, steps: int = 120) -> list[tuple[float, float]]:
-    """A smooth curve of where the sale prices fall (a Gaussian kernel density, Silverman's bandwidth): MesoWatch's
-    spread chart. [(price, height 0-1)] from lo to hi."""
-    vals = [v for v in values if v is not None]
-    if not vals or hi <= lo:
-        return []
-    n = len(vals)
-    mean = sum(vals) / n
-    sd = math.sqrt(sum((v - mean) ** 2 for v in vals) / n) if n > 1 else 0.0
-    bw = max(1.06 * sd * n ** -0.2, (hi - lo) / 40)
-    pts = []
-    for i in range(steps + 1):
-        x = lo + (hi - lo) * i / steps
-        pts.append((x, sum(math.exp(-0.5 * ((x - v) / bw) ** 2) for v in vals)))
-    top = max(y for _, y in pts) or 1
-    return [(x, y / top) for x, y in pts]
-
-
-class SalesChart(QWidget):
-    """MesoWatch's chart, drawn here: "spread" (where the sales fall, the middle half shaded, the typical sale
-    marked, each sale a dot and each asking price a ring) or "time" (the daily median with its low-high band)."""
-
-    def __init__(self, t, sales: mesowatch.Sales):
-        super().__init__()
-        self.t, self.s, self.mode = t, sales, "spread"
-        self.setMinimumHeight(210)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setLayoutDirection(Qt.LeftToRight)       # an axis of prices reads left to right in Hebrew too
-
-    def set_mode(self, mode: str) -> None:
-        self.mode = mode
-        self.update()
-
-    def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        try:
-            (self._time if self.mode == "time" else self._spread)(p)
-        finally:
-            p.end()
-
-    # colors from the theme: the brand orange for the sales, the text colors for the axes
-    def _colors(self):
-        c = theme.P()
-        return theme.qcolor(theme.ORANGE), theme.qcolor(c["muted"]), theme.qcolor(c["faint"]), theme.qcolor(c["hair"])
-
-    def _font(self, px: int, bold: bool = False) -> QFont:
-        f = QFont(self.font())
-        f.setPixelSize(px)
-        f.setBold(bold)
-        return f
-
-    def _spread(self, p: QPainter) -> None:
-        orange, muted, faint, hair = self._colors()
-        s = self.s
-        sales = [r.price for r in s.recent if r.price]
-        asks = [x.price for x in s.shops if x.price]
-        everything = sales + asks + [v for v in (s.p25, s.p75, s.price) if v]
-        if not everything:
-            self._empty(p)
-            return
-        top = sorted(everything)[max(0, math.ceil(len(everything) * 0.97) - 1)]   # one wild ask doesn't squash it
-        hi = max(top, s.p75 or 0, s.price or 0) * 1.12
-        lo = 0.0
-        w, h = self.width(), self.height()
-        left, right, plot_top, plot_bottom = 50, w - 10, 22, h - 74     # the rows' names left of the plot
-
-        def x_of(v: float) -> float:
-            return left + (min(v, hi) - lo) / (hi - lo) * (right - left)
-        curve = density(sales or everything, lo, hi)
-        # the middle half, then the curve over it
-        if s.p25 and s.p75:
-            band = QColor(orange)
-            band.setAlpha(60)
-            p.fillRect(QRectF(x_of(s.p25), plot_top, max(2.0, x_of(s.p75) - x_of(s.p25)), plot_bottom - plot_top), band)
-        if curve:
-            path = QPainterPath(QPointF(x_of(curve[0][0]), plot_bottom))
-            for x, y in curve:
-                path.lineTo(QPointF(x_of(x), plot_bottom - y * (plot_bottom - plot_top) * 0.92))
-            path.lineTo(QPointF(x_of(curve[-1][0]), plot_bottom))
-            fill = QColor(orange)
-            fill.setAlpha(38)
-            p.fillPath(path, fill)
-            p.setPen(QPen(orange, 2))
-            line = QPainterPath(QPointF(x_of(curve[0][0]), plot_bottom - curve[0][1] * (plot_bottom - plot_top) * 0.92))
-            for x, y in curve[1:]:
-                line.lineTo(QPointF(x_of(x), plot_bottom - y * (plot_bottom - plot_top) * 0.92))
-            p.drawPath(line)
-        p.setPen(QPen(hair, 1))
-        p.drawLine(QPointF(left, plot_bottom), QPointF(right, plot_bottom))
-        # the typical sale
-        if s.price:
-            x = x_of(s.price)
-            pen = QPen(orange, 1.5, Qt.DashLine)
-            p.setPen(pen)
-            p.drawLine(QPointF(x, plot_top - 4), QPointF(x, plot_bottom))
-            p.setFont(self._font(11, True))
-            label = f"{self.t('mw_typical')} {bidi.LRI}{compact(s.price)}{bidi.PDI}"
-            tw = p.fontMetrics().horizontalAdvance(label)
-            p.drawText(QRectF(min(max(x - tw / 2, left), right - tw), 2, tw + 2, 16), Qt.AlignCenter, label)
-        # a dot per sale, a ring per asking price, on their own rows under the curve
-        rows = ((self.t("mw_sales_row"), sales, True), (self.t("mw_asks_row"), asks, False))
-        p.setFont(self._font(10))
-        for i, (name, values, filled) in enumerate(rows):
-            y = plot_bottom + 16 + i * 18
-            p.setPen(muted)
-            p.drawText(QRectF(0, y - 8, left - 8, 16), Qt.AlignLeft | Qt.AlignVCenter, name)
-            for v in values:
-                cx = x_of(v)
-                if filled:
-                    dot = QColor(orange)
-                    dot.setAlpha(200)
-                    p.setPen(Qt.NoPen)
-                    p.setBrush(dot)
-                    p.drawEllipse(QPointF(cx, y), 4, 4)
-                else:
-                    p.setBrush(Qt.NoBrush)
-                    p.setPen(QPen(muted, 1.5))
-                    p.drawEllipse(QPointF(cx, y), 4.5, 4.5)
-            p.setBrush(Qt.NoBrush)
-        # the axis: four prices from 0 to the top
-        p.setPen(faint)
-        p.setFont(self._font(10))
-        for i in range(4):
-            v = lo + (hi - lo) * i / 3
-            text = compact(round(v)) if v >= 1 else compact(round(v, 2))
-            x = x_of(v)
-            align = Qt.AlignLeft if i == 0 else Qt.AlignRight if i == 3 else Qt.AlignHCenter
-            rect = QRectF(x - (0 if i == 0 else 60 if i == 3 else 30), h - 18, 60, 16)
-            p.drawText(rect, align | Qt.AlignVCenter, text)
-
-    def _time(self, p: QPainter) -> None:
-        orange, muted, faint, hair = self._colors()
-        days = self.s.history
-        if not days:
-            self._empty(p)
-            return
-        vals = [v for d in days for v in (d.low, d.high, d.median) if v]
-        lo, hi = min(vals) * 0.9, max(vals) * 1.08
-        if hi <= lo:
-            hi = lo + 1
-        w, h = self.width(), self.height()
-        left, right, plot_top, plot_bottom = 44, w - 12, 14, h - 30
-
-        def x_of(i: int) -> float:
-            return (left + right) / 2 if len(days) == 1 else left + i * (right - left) / (len(days) - 1)
-
-        def y_of(v: float) -> float:
-            return plot_bottom - (v - lo) / (hi - lo) * (plot_bottom - plot_top)
-        p.setPen(QPen(hair, 1))
-        for i in range(3):
-            y = plot_top + i * (plot_bottom - plot_top) / 2
-            p.drawLine(QPointF(left, y), QPointF(right, y))
-        p.setPen(faint)
-        p.setFont(self._font(10))
-        for i in range(3):
-            v = hi - i * (hi - lo) / 2
-            p.drawText(QRectF(0, plot_top + i * (plot_bottom - plot_top) / 2 - 8, left - 6, 16),
-                       Qt.AlignRight | Qt.AlignVCenter, compact(round(v)) if v >= 1 else compact(round(v, 2)))
-        # the low-high band, the median line, a dot per day sized by its sales
-        band = QPainterPath()
-        ups = [QPointF(x_of(i), y_of(d.high or d.median)) for i, d in enumerate(days)]
-        downs = [QPointF(x_of(i), y_of(d.low or d.median)) for i, d in enumerate(days)]
-        band.moveTo(ups[0])
-        for q in ups[1:]:
-            band.lineTo(q)
-        for q in reversed(downs):
-            band.lineTo(q)
-        band.closeSubpath()
-        fill = QColor(orange)
-        fill.setAlpha(45)
-        p.fillPath(band, fill)
-        p.setPen(QPen(orange, 2.2))
-        line = QPainterPath(QPointF(x_of(0), y_of(days[0].median)))
-        for i, d in enumerate(days[1:], 1):
-            line.lineTo(QPointF(x_of(i), y_of(d.median)))
-        p.drawPath(line)
-        most = max(d.sold for d in days) or 1
-        p.setPen(Qt.NoPen)
-        p.setBrush(orange)
-        for i, d in enumerate(days):
-            p.drawEllipse(QPointF(x_of(i), y_of(d.median)), 2.5 + 3 * d.sold / most, 2.5 + 3 * d.sold / most)
-        p.setBrush(Qt.NoBrush)
-        p.setPen(faint)
-        step = max(1, math.ceil(len(days) / 6))
-        for i in range(0, len(days), step):
-            dd = days[i].date[8:10].lstrip("0") + "." + days[i].date[5:7].lstrip("0")
-            p.drawText(QRectF(x_of(i) - 24, h - 20, 48, 16), Qt.AlignCenter, dd)
-
-    def _empty(self, p: QPainter) -> None:
-        p.setPen(self._colors()[1])
-        p.drawText(self.rect(), Qt.AlignCenter, self.t("mw_no_chart"))
 
 
 # ---------------------------------------------------------------- the window
@@ -367,6 +162,20 @@ class MarketDetailsDialog(GlassDialog):
         self.finished.connect(lambda *_: self._remember())
         self._avatars: dict[str, list[QLabel]] = {}
         self.face_ready.connect(self._on_face)
+        self._version = mesowatch.version()
+        self._poll = QTimer(self, interval=POLL_MS, timeout=self._follow)
+        self._poll.start()
+
+    def _follow(self) -> None:
+        """A newer market came in: the item on screen shows it (the tab and the scroll stay where they were)."""
+        if self.key and mesowatch.version() != self._version:
+            self._version = mesowatch.version()
+            tab = self.tabs.value() if getattr(self, "tabs", None) is not None else None
+            at = self.scroll.verticalScrollBar().value()
+            self.show_item(self.key)
+            if tab and getattr(self, "tabs", None) is not None and tab != self.tabs.value():
+                self.tabs.group.buttons()[0 if tab == "buy" else 1].click()
+            self.scroll.verticalScrollBar().setValue(at)
 
     @staticmethod
     def _style() -> str:
@@ -375,24 +184,24 @@ class MarketDetailsDialog(GlassDialog):
         tile = "rgba(255,255,255,0.05)" if theme.MODE == "dark" else "#FFF8EE"
         return f"""
         #MwName {{ font-size: 19px; font-weight: 700; color: {c['text']}; }}
-        #MwSub {{ font-size: 13px; color: {c['muted']}; }}
+        #MwSub {{ font-size: 14px; color: {c['muted']}; }}
         #MwPrice {{ font-size: 30px; font-weight: 700; letter-spacing: -0.5px; color: {c['text']}; }}
-        #MwPriceLabel {{ font-size: 14px; color: {c['muted']}; }}
-        #MwRange {{ font-size: 13px; color: {c['muted']}; }}
+        #MwPriceLabel {{ font-size: 15px; color: {c['muted']}; }}
+        #MwRange {{ font-size: 14px; color: {c['muted']}; }}
         QFrame#MwTile {{ background: {tile}; border: 1px solid rgba(255,149,51,0.35); border-radius: 12px; }}
-        #MwTileValue {{ font-size: 18px; font-weight: 700; color: {c['text']}; }}
+        #MwTileValue {{ font-size: 19px; font-weight: 700; color: {c['text']}; }}
         #MwTileGlyph {{ font-family: "{theme.ICON_FONT}"; font-size: 15px; color: {ot}; }}
-        #MwTileLabel {{ font-size: 11px; font-weight: 600; letter-spacing: 0.4px; color: {c['muted']}; }}
+        #MwTileLabel {{ font-size: 13px; font-weight: 600; letter-spacing: 0.4px; color: {c['muted']}; }}
         QFrame#MwList {{ background: {c['fill1']}; border: 1px solid {c['hair']}; border-radius: 14px; }}
         QFrame#MwRow {{ background: transparent; border: none; border-bottom: 1px solid {c['hair']}; }}
-        #MwRowName {{ font-size: 15px; font-weight: 600; color: {c['text']}; }}
-        #MwRowSub {{ font-size: 12px; color: {c['muted']}; }}
-        #MwRowPrice {{ font-size: 15px; font-weight: 700; color: {c['text']}; }}
-        #MwRowUnit {{ font-size: 11px; color: {c['muted']}; }}
-        #MwAvatar {{ background: rgba(255,149,51,0.16); color: {ot}; border-radius: 17px; font-size: 14px;
-                     font-weight: 700; min-width: 34px; max-width: 34px; min-height: 34px; max-height: 34px; }}
-        #MwLegend {{ font-size: 12px; color: {c['muted']}; }}
-        #MwFoot {{ font-size: 12px; color: {c['faint']}; }}
+        #MwRowName {{ font-size: 16px; font-weight: 600; color: {c['text']}; }}
+        #MwRowSub {{ font-size: 14px; color: {c['muted']}; }}
+        #MwRowPrice {{ font-size: 16px; font-weight: 700; color: {c['text']}; }}
+        #MwRowUnit {{ font-size: 13px; color: {c['muted']}; }}
+        #MwAvatar {{ background: rgba(255,149,51,0.16); color: {ot}; border-radius: 20px; font-size: 15px;
+                     font-weight: 700; min-width: 40px; max-width: 40px; min-height: 40px; max-height: 40px; }}
+        #TagWarn, #Tag {{ font-size: 13px; padding: 3px 9px; }}
+        #MwFoot {{ font-size: 14px; color: {c['faint']}; }}
         """
 
     # ------------------------------------------------------------ where it opens
@@ -431,14 +240,12 @@ class MarketDetailsDialog(GlassDialog):
         self._avatars = {}
         self._header(key, name, s)
         if snap is None:
-            self._note(t("price_mw_offline"))
+            self._note(t("mw_offline"))
         elif s is None or s.empty:
-            self._note(t("price_mw_none"))
+            self._note(t("mw_none"))
         else:
             self._price(s)
-            self._chart(s)
             self._tiles(s)
-            self._facts(s)
             self._lists(s)
             self._fetch_faces()
             foot = QLabel(bidi.plain(t("price_mw_updated", ago=ago(t, snap.generated)) + f" · {snap.world}", t.rtl),
@@ -449,7 +256,7 @@ class MarketDetailsDialog(GlassDialog):
         self.scroll.verticalScrollBar().setValue(0)
 
     def _note(self, text: str) -> None:
-        lb = QLabel(bidi.plain(text, self.t.rtl), objectName="RowHint")
+        lb = QLabel(bidi.plain(text, self.t.rtl), objectName="DialogBody")
         lb.setWordWrap(True)
         lb.setAlignment(self._align)
         self.lay.addWidget(lb)
@@ -487,6 +294,7 @@ class MarketDetailsDialog(GlassDialog):
         row.setSpacing(8)
         row.addLayout(price_box(mesos(s.price), "MwPrice", 28, t.rtl))
         label = QLabel(bidi.plain(t("mw_typical_sale"), t.rtl), objectName="MwPriceLabel")
+        label.setToolTip(t("mw_typical_tip"))
         row.addWidget(label, 0, Qt.AlignBottom)
         row.addStretch(1)
         if s.low_data:
@@ -498,27 +306,6 @@ class MarketDetailsDialog(GlassDialog):
             rng = QLabel(bidi.plain(t("price_mw_range", low=mesos(s.p25), high=mesos(s.p75)), t.rtl), objectName="MwRange")
             rng.setAlignment(self._align)
             self.lay.addWidget(rng)
-
-    def _chart(self, s) -> None:
-        t = self.t
-        box = QFrame(objectName="MwList")
-        col = QVBoxLayout(box)
-        col.setContentsMargins(12, 10, 12, 10)
-        col.setSpacing(6)
-        top = QHBoxLayout()
-        legend = QLabel(bidi.plain(t("mw_legend"), t.rtl), objectName="MwLegend")
-        top.addWidget(legend, 1)
-        chart = SalesChart(t, s)
-        seg = Segmented([(t("mw_over_time"), "time"), (t("mw_spread"), "spread")], "spread", t.rtl)
-        seg.changed.connect(lambda v: (chart.set_mode(v),
-                                       legend.setText(bidi.plain(t("mw_legend" if v == "spread" else "mw_legend_time"),
-                                                                 t.rtl))))
-        seg.set_label(t("mw_chart"))
-        top.addWidget(seg, 0)
-        col.addLayout(top)
-        col.addWidget(chart)
-        self.chart, self.chart_mode = chart, seg
-        self.lay.addWidget(box)
 
     def _tiles(self, s) -> None:
         t = self.t
@@ -549,31 +336,6 @@ class MarketDetailsDialog(GlassDialog):
             grid.addWidget(tile, 0, (2 - i) if t.rtl else i)
         self.lay.addLayout(grid)
 
-    def _facts(self, s) -> None:
-        """The trend, what shops ask and the Cash Shop, as small tags under the tiles."""
-        t = self.t
-        tags = []
-        if s.trend_pct is not None and s.trend_days:
-            arrow = "▲" if s.trend_pct > 0 else "▼" if s.trend_pct < 0 else "="
-            tags.append((t("price_mw_trend", trend=f"{arrow} {abs(s.trend_pct)}%", days=s.trend_days, n=s.trend_days),
-                         "TagGood" if s.trend_pct > 0 else "TagWarn" if s.trend_pct < 0 else "Tag"))
-        if s.ask:
-            tags.append((t("price_mw_ask", price=mesos(s.ask)), "Tag"))
-        if s.cash and s.cash_on_sale is not None:
-            tags.append((t("price_mw_cash_nx", nx=f"{s.nx:,}") if s.cash_on_sale and s.nx
-                         else t("price_mw_cash_on") if s.cash_on_sale else t("price_mw_cash_off"), "Tag"))
-        if s.scrolled_only:
-            tags.append((t("price_mw_scrolled"), "TagWarn"))
-        if not tags:
-            return
-        from .controls import FlowLayout
-        holder = QWidget()
-        flow = FlowLayout(holder)
-        holder.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
-        for text, kind in tags:
-            flow.addWidget(QLabel(bidi.plain(text, t.rtl), objectName=kind))
-        self.lay.addWidget(holder)
-
     def _lists(self, s) -> None:
         t = self.t
         shops = sorted(s.shops, key=lambda x: x.price)[:SHOPS_SHOWN]
@@ -598,7 +360,7 @@ class MarketDetailsDialog(GlassDialog):
         for r in rows:
             col.addWidget(r)
         if not rows:
-            lb = QLabel(bidi.plain(empty, self.t.rtl), objectName="RowHint")
+            lb = QLabel(bidi.plain(empty, self.t.rtl), objectName="DialogBody")
             lb.setAlignment(self._align)
             lb.setContentsMargins(10, 10, 10, 10)
             col.addWidget(lb)

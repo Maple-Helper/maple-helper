@@ -81,11 +81,7 @@ def test_the_details_window_shows_mesowatchs_card(app, monkeypatch, lang):
     assert d.buy_list.isVisibleTo(d) and not d.sold_list.isVisibleTo(d)
     d.tabs.group.buttons()[1].click()
     assert d.sold_list.isVisibleTo(d) and not d.buy_list.isVisibleTo(d)
-    # the chart draws in both modes
-    d.resize(460, 900)
-    for mode in ("spread", "time"):
-        d.chart.set_mode(mode)
-        assert not d.chart.grab().isNull()
+    assert not hasattr(d, "chart")                       # no charts (the owner)
     d.site.click()
     assert opened == ["https://meso.watch/?item=cash:01007145"]
     d.close()
@@ -120,18 +116,12 @@ def test_an_item_nobody_sold_says_so(app, monkeypatch):
     monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: snap)
     d = MarketDetailsDialog(KB, "en", "", None, None)
     d.show_item("item/414")
-    assert any("hasn't seen" in w.text() for w in d.findChildren(QLabel))
+    note = [w for w in d.findChildren(QLabel) if "hasn't seen" in w.text()]
+    assert note and "**" not in note[0].text() and note[0].objectName() == "DialogBody"      # plain, body size
     monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: None)
     d.show_item("item/414")
-    assert any("couldn't reach" in w.text() for w in d.findChildren(QLabel))
+    assert any("couldn't reach" in w.text().lower() for w in d.findChildren(QLabel))
     d.close()
-
-
-def test_the_compact_axis_numbers():
-    from maplehelper.ui.marketview import compact, density
-    assert [compact(v) for v in (229000, 1080000, 5000, 999, 0.75)] == ["229K", "1.08M", "5K", "999", "0.75"]
-    curve = density([100, 110, 120, 400], 0, 500)
-    assert max(y for _, y in curve) == 1 and curve[0][0] == 0 and curve[-1][0] == 500
 
 
 def pump(app, until, ms=3000):
@@ -196,3 +186,37 @@ def test_a_long_description_is_cut_at_a_word():
     cut = shorten(text, 30)
     assert cut.endswith("…") and len(cut) <= 31 and not cut[:-1].endswith(" ")
     assert shorten("short") == "short"
+
+
+def test_an_open_window_follows_a_newer_market(app, monkeypatch):
+    from maplehelper.ui.marketview import MarketDetailsDialog
+    now = time.time()
+    snap = market(now)
+    monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: snap)
+    monkeypatch.setattr(mesowatch, "face_file", lambda snap_, who, timeout=10: None)
+    d = MarketDetailsDialog(KB, "en", "", None, None)
+    d.show_item("item/3198")
+    d.tabs.group.buttons()[1].click()                   # the player is on "Recent sales"
+    shown = []
+    real = d.show_item
+    monkeypatch.setattr(d, "show_item", lambda key: (shown.append(key), real(key)))
+    d._follow()
+    assert shown == []                                  # nothing newer
+    monkeypatch.setattr(mesowatch, "version", lambda: d._version + 1)
+    d._follow()
+    assert shown == ["item/3198"] and d.tabs.value() == "sold"
+    d.close()
+
+
+def test_a_sellers_picture_is_the_whole_character(app, tmp_path):
+    from PySide6.QtGui import QColor, QImage
+
+    from maplehelper.ui.marketview import face_pixmap
+    img = QImage(34, 66, QImage.Format_ARGB32)
+    img.fill(QColor("#336699"))
+    path = tmp_path / "f.png"
+    img.save(str(path))
+    out = face_pixmap(path, 40).toImage()
+    # the figure's feet are drawn too (the bottom of the picture), not cut to the head
+    blue = [y for y in range(out.height()) if out.pixelColor(out.width() // 2, y).blue() > 120]
+    assert blue and max(blue) > out.height() * 0.85 and min(blue) < out.height() * 0.15

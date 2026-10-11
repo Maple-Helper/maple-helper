@@ -396,28 +396,6 @@ def test_item_market_is_cached_bounded_and_polite(monkeypatch):
     assert market._lookup(5) is None and len(asked) == 1  # unreachable: one request, not three
 
 
-def test_the_prices_page_shows_the_item_market(isolated_store, kb, monkeypatch):
-    from maplehelper.ui.tools import ToolsDialog
-    m = market.parse_item_market(*FILLED)
-    monkeypatch.setattr(market, "item_market", lambda i: m)
-    p = isolated_store.Profiles()
-    p.add("Kiwi", "Thief", "Assassin", 34)
-    for lang, words in (("en", ("usually about", "Cheapest for sale: 1,100", "Trend: ▲ 12% over 9 days",
-                                "Selling x200 at 1,100 each", "Ch 3", "Room 4")),
-                        ("he", ("בדרך כלל בערך", "הכי זול למכירה: 1,100", "מוכרים x200", "ערוץ 3"))):
-        d = ToolsDialog(kb, p, isolated_store.Settings(), lang, "", {}, "prices")
-        name = next(n for n in kb._item_by_name if kb.get(kb._item_by_name[n])["key"].split("/")[1].isdigit())
-        d.price_input.setText(kb.get(kb._item_by_name[name])["name"])
-        d._fill_prices()
-        d._on_market((d._price_for, m))                     # as the lookup thread delivers it
-        text = d.fm_label.text() + " ".join(d.fm_more.itemAt(i).widget().text() for i in range(d.fm_more.count()))
-        text = re.sub("[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", text).replace("\xa0", " ")     # the bidi marks, NBSPs
-        for w in words:
-            assert w in text, (lang, w)
-        d.deleteLater()
-        pump()
-
-
 def test_the_first_kb_with_news_lists_none_as_new(tmp_path):
     import json
     import kb_release

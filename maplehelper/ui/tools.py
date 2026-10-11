@@ -76,7 +76,6 @@ def scroll_page(rtl: bool) -> tuple[QScrollArea, QVBoxLayout]:
 NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
 FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
-SELL_FM_DEADLINE = 20               # seconds the sell check starts new Free Market lookups for
 
 
 def _close(typed: str, name: str) -> bool:
@@ -395,7 +394,6 @@ def route_rows(kb, graph) -> list[tuple[str, str, object]]:
 class ToolsDialog(GlassDialog):
     sync_requested = Signal()                 # read level/EXP/stats from a screenshot (the chat does it)
     grind_sync_requested = Signal()           # the same read for the grind tracker (also mesos, potions, monster)
-    market_ready = Signal(object)             # (item name, Market or None) from the background lookup
     mesowatch_ready = Signal(object)          # (item key, (Snapshot or None, Sales or None)) from MesoWatch
     inventory_ready = Signal(object)          # the inventory slots a sell-or-keep read found (or None: no shot)
     sell_market_ready = Signal(object)        # (read id, key -> usual reported price, key -> usual sold price)
@@ -2660,8 +2658,9 @@ class ToolsDialog(GlassDialog):
         lay.addLayout(self.price_box)
         lay.addWidget(self._label(t("price_hint"), "RowHint", seen=set(self._price_seen)))
         lay.addStretch(1)
-        self.market_ready.connect(self._on_market)
         self.mesowatch_ready.connect(self._on_mesowatch)
+        self._mw_timer = QTimer(self, interval=60 * 1000, timeout=self._mw_poll)
+        self._mw_timer.start()
         return sc
 
     def _fill_prices(self):
@@ -2739,28 +2738,19 @@ class ToolsDialog(GlassDialog):
             chips = source_tags(t, srcs, stamp)
             self.price_chips += chips
             col.addLayout(chip_row(chips, self._label(text, "RowLabel", seen=seen), lead=True))
-        self.fm_label = self._label(t("price_fm_loading"), "RowLabel", seen=set(seen))
-        self.fm_chip = source_tag(t, sources.COMMUNITY)
-        col.addLayout(chip_row([self.fm_chip], self.fm_label, lead=True))
-        # the rest of the item's Free Market (offers, trend, newest listings) under it, once it's in (_on_market)
-        self.fm_more = QVBoxLayout()
-        self.fm_more.setSpacing(4)
-        col.addLayout(self.fm_more)
-        # the sales MesoWatch saw in players' shops (mesowatch.py), beside the reports: both community, neither wins
+        # the Free Market: the sales MesoWatch saw in players' shops (mesowatch.py), its only source here (the owner,
+        # 2026-10-11: every item price from MesoWatch; NiaMeowDB's player reports are no longer shown)
         self.mw_label = self._label(t("price_mw_loading"), "RowLabel", seen=set(seen))
         col.addLayout(chip_row([source_tag(t, sources.MESOWATCH)], self.mw_label, lead=True))
         self.mw_more = QVBoxLayout()
         self.mw_more.setSpacing(4)
         col.addLayout(self.mw_more)
-        slug = key.split("/", 1)[1]
-        item_id = int(slug) if slug.isdigit() else None        # the KB's item ids are NiaMeowDB's
-        web = QPushButton(self._p(t("price_open_site")), objectName="Link")
+        # MesoWatch's credit and link (its terms ask for both wherever its prices show), then its full card
+        web = QPushButton(self._p(t("price_mw_open")), objectName="Link")
         web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
-            market.item_page(i) if i else market.page_url(n)))
+        web.clicked.connect(lambda _=False: __import__("webbrowser").open(mesowatch.item_url(self._mw_id)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
-        # MesoWatch's full card in its own window (chart, where to buy, recent sales; it links to the site: the
-        # credit and link its terms ask for, with the chip here)
+        self.mw_site = web
         mw = QPushButton(self._p(t("price_mw_details")), objectName="Secondary")
         mw.setCursor(Qt.PointingHandCursor)
         mw.clicked.connect(lambda _=False, k=key: MARKET_REQUESTS.requested.emit(k))
@@ -2776,8 +2766,15 @@ class ToolsDialog(GlassDialog):
         self._price_for = name
         self._price_key = key
         self._mw_id = None              # the item's id on MesoWatch, once the lookup matched it (_on_mesowatch)
-        self._fm_lookup(name, item_id)
+        self._mw_version = mesowatch.version()
         self._mw_lookup(key)
+
+    def _mw_poll(self) -> None:
+        """The app's 15-minute refresh brought a newer market: the card on screen shows it."""
+        key = self.__dict__.get("_price_key")
+        if key and mesowatch.version() != self.__dict__.get("_mw_version") and hasattr(self, "mw_label"):
+            self._mw_version = mesowatch.version()
+            self._mw_lookup(key)
 
     def _mw_lookup(self, key: str) -> None:
         """The item's sales on MesoWatch, in the background: the first one of a run may download the market."""
@@ -2806,7 +2803,7 @@ class ToolsDialog(GlassDialog):
             self._set(self.mw_label, text, seen)
             clear(self.mw_more)
             for line in more:
-                self.mw_more.addWidget(self._label(line, "RowHint", seen=seen))
+                self.mw_more.addWidget(self._label(line, "RowLabel", seen=seen))      # as big as the card's lines
         except RuntimeError:
             pass                        # the card was redrawn meanwhile
 
@@ -2829,100 +2826,6 @@ class ToolsDialog(GlassDialog):
         if s.low_data:
             stats.append(t("price_mw_few"))
         return text, [" · ".join(stats)] if stats else []
-
-    def _fm_lookup(self, name: str, item_id: int | None) -> None:
-        """The item's Free Market from MeowDB, in the background (market_ready brings it back)."""
-        import threading
-        self._fm_args = (name, item_id)
-
-        def lookup(n=name, i=item_id):
-            # the item page's own market (usual price, offers, trend, listings) by id; by name for an item
-            # without one. Up to 3 requests of up to 8 s each on a slow connection
-            try:
-                found = market.item_market(i) if i else market.free_market(n)
-            except Exception:      # noqa: BLE001 - an answer the parser didn't expect: "no price" rather than none
-                logging.getLogger(__name__).warning("market lookup failed", exc_info=True)
-                found = None
-            try:
-                self.market_ready.emit((n, found))
-            except RuntimeError:
-                # the window was closed (and deleted) meanwhile: nothing to show it in. Uncaught, this logged a
-                # CRITICAL "uncaught exception in thread" into the log that goes with problem reports
-                pass
-        threading.Thread(target=lookup, daemon=True).start()
-
-    def _on_market(self, result):
-        t = self.t
-        name, m = result
-        if name != getattr(self, "_price_for", None) or not hasattr(self, "fm_label"):
-            return                      # an older lookup, the player picked another item since
-        more: list[str] = []
-        offline = m is None
-        if offline:
-            text = t("price_fm_offline")
-        elif isinstance(m, market.ItemMarket):
-            text, more = self._fm_lines(m)
-        elif not m.count:
-            text = t("price_fm_empty")
-        else:
-            text = t("price_fm", median=f"{m.median:,}", n=m.count, low=f"{m.low:,}", high=f"{m.high:,}")
-        seen = set(getattr(self, "_card_seen", ()))
-        try:
-            self._set(self.fm_label, text, seen)
-            clear(self.fm_more)
-            for line in more:
-                self.fm_more.addWidget(self._label(line, "RowHint", seen=seen))
-            if offline:
-                # the lookup again for the same item: clearing the box and picking it again was the only way (TOOL-12)
-                self.fm_more.addWidget(self._links_box([("price_fm_retry", self._fm_retry)]))
-        except RuntimeError:
-            pass                        # the card was redrawn meanwhile
-
-    def _fm_retry(self) -> None:
-        name, item_id = getattr(self, "_fm_args", (None, None))
-        if not name or name != getattr(self, "_price_for", None):
-            return
-        self._set(self.fm_label, self.t("price_fm_loading"), set(getattr(self, "_card_seen", ())))
-        clear(self.fm_more)
-        self._fm_lookup(name, item_id)
-
-    def _fm_lines(self, m) -> tuple[str, list[str]]:
-        """An item's Free Market in words: the usual price (the line beside the community chip), then the offers
-        now, the trend and volume, and the newest listings (smaller, under it)."""
-        t = self.t
-        if m.empty:
-            return t("price_fm_empty"), []
-        if m.usual:
-            n = m.checks + m.trades
-            head = t("price_fm_usual", price=f"{m.usual:,}", n=n, days=m.window)
-        else:
-            head = t("price_fm_no_usual", days=m.window)
-        more = []
-        offers = []
-        if m.cheapest_sell:
-            offers.append(t("price_fm_cheapest", price=f"{m.cheapest_sell:,}"))
-        if m.best_buy:
-            offers.append(t("price_fm_best_buy", price=f"{m.best_buy:,}"))
-        if m.for_sale:
-            offers.append(t("price_fm_for_sale", n=m.for_sale))
-        if offers:
-            more.append(" · ".join(offers))
-        if m.trend_pct is not None and m.trend_days:
-            arrow = "▲" if m.trend_pct > 0 else "▼" if m.trend_pct < 0 else "="
-            more.append(t("price_fm_trend", trend=f"{arrow} {abs(m.trend_pct)}%", days=m.trend_days, n=m.volume,
-                          window=market.TREND_DAYS))
-        elif m.volume:
-            more.append(t("price_fm_volume", n=m.volume, window=market.TREND_DAYS))
-        if m.listings:
-            more.append(t("price_fm_listings"))
-            for x in m.listings:
-                where = [t("price_fm_ch", n=x.channel)] if x.channel is not None else []
-                if x.room is not None:
-                    where.append(t("price_fm_entrance") if x.room == 0 else t("price_fm_room", n=x.room))
-                bits = [t("price_fm_selling" if x.side == "sell" else "price_fm_buying", n=x.quantity,
-                          price=f"{x.price:,}")] + where + ([market_ago(t, x.created)] if x.created else [])
-                more.append("• " + " · ".join(bits))
-        return head, more
 
     # grind tracker ---------------------------------------------------------
     # A session measured from screenshot reads at Start, Update and End (each read costs the player's AI plan, so
@@ -4299,11 +4202,11 @@ class ToolsDialog(GlassDialog):
         import threading
 
         def look():
-            usual = {}
+            usual = {}      # NiaMeowDB's reports: not asked any more (the owner: item prices from MesoWatch only)
             # MesoWatch's sold prices: one market file for every item (the first of a run may download it)
             try:
                 snap = mesowatch.snapshot()
-            except Exception:      # noqa: BLE001 - no sold prices; NiaMeowDB's reports still come
+            except Exception:      # noqa: BLE001 - no sold prices: the NPC prices stand
                 logging.getLogger(__name__).warning("MesoWatch lookup failed", exc_info=True)
                 snap = None
             sold = {}
@@ -4312,21 +4215,6 @@ class ToolsDialog(GlassDialog):
                 price = mesowatch.solid_price(snap.items.get(gid)) if gid else None
                 if isinstance(price, int) and price > 0:
                     sold[k] = price
-            # a slow connection: no new lookup after SELL_FM_DEADLINE, the cards show what came in by then (each
-            # item is up to 3 requests of 8 s, 30 of them took minutes of "checking", TL2-9)
-            stop = time.monotonic() + SELL_FM_DEADLINE
-            for k in keys:
-                if time.monotonic() > stop:
-                    break
-                slug = k.split("/", 1)[1]
-                if slug.isdigit():
-                    try:
-                        m = market.item_market(int(slug))
-                    except Exception:      # noqa: BLE001 - one item's odd answer: the others still show
-                        logging.getLogger(__name__).warning("market lookup failed", exc_info=True)
-                        m = None
-                    if m is not None and m.usual:
-                        usual[k] = m.usual
             try:
                 self.sell_market_ready.emit((read_id, usual, sold))
             except RuntimeError:
