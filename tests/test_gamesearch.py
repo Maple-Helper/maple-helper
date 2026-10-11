@@ -527,6 +527,32 @@ def test_an_npc_elsewhere_shows_the_way_there_step_by_step_with_each_maps_pictur
     assert _texts(d)[1:] == ["The way from here on foot", *says(walk)]
 
 
+def test_the_maps_are_listed_before_anything_is_typed_and_a_search_narrows_them(win, qapp, kb, monkeypatch):
+    """Maps: the first 50 by name as soon as it opens, with how many more there are; typing narrows them as every
+    search does; each row its street and the levels it is for, and a click opens the map's own page."""
+    from maplehelper import tables
+    from maplehelper.ui import gamesearch
+    rows = [{"key": f"map/{100000000 + i:09d}", "map": f"Field {i:03d}", "street": "Victoria Road",
+             "lv_min": i, "lv_max": i + 5} for i in range(60)]
+    rows.append({"key": "map/100000999", "map": "Henesys", "street": "Victoria Road", "lv_min": None, "lv_max": None})
+    real = tables.rows
+    monkeypatch.setattr(tables, "rows", lambda kb, name, *a, **kw: rows if name == "maps" else real(kb, name, *a, **kw))
+    monkeypatch.setattr(tables, "ready", lambda kb: True)
+    opened = []
+    monkeypatch.setattr(win._detail, "open_view", lambda kind, key: opened.append((kind, key)))
+    win.open("map")
+    assert win._title.text() == "Maps" and win._box.placeholderText() == "Search maps…"
+    assert len(win._rows) == gamesearch.LIMIT == 50
+    assert win._rows[0].name.text() == "Field 000" and win._rows[0].sub.text() == "Victoria Road · Lv. 0–5"
+    assert win._status.text() == "and 11 more — type more to narrow it down"
+    win._box.setText("henesys")
+    pump(qapp, 200)
+    assert [(r.name.text(), r.sub.text()) for r in win._rows] == [("Henesys", "Victoria Road")]
+    assert win._status.text() == ""
+    win._rows[0].clicked.emit()
+    assert opened == [("map", "map/100000999")]
+
+
 def test_switching_modes_keeps_each_ones_query(win, qapp):
     modes = []
     win.open("monster_npc")
@@ -652,3 +678,12 @@ def test_an_item_is_found_with_its_type(real):
     from maplehelper.ui.gamesearch import search
     hits, _ = search(real, "item", "red potion")
     assert hits[0].name == "Red Potion" and hits[0].sub == "Use / Potion"
+
+
+@needs_kb
+def test_the_real_maps_list_opens_at_fifty(real):
+    from maplehelper.ui.gamesearch import search
+    hits, total = search(real, "map", "")
+    assert len(hits) == 50 and total > 200 and all(h.key.startswith("map/") and h.kind == "map" for h in hits)
+    hits, _ = search(real, "map", "henesys hunting")
+    assert hits and all("henesys hunting" in h.name.lower() for h in hits)

@@ -89,7 +89,7 @@ def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
 
 # ------------------------------------------------------------ the searches
 
-@pytest.mark.parametrize("kind,text", [("monster_npc", "Monsters & NPCs"), ("item", "Items"),
+@pytest.mark.parametrize("kind,text", [("monster_npc", "Monsters & NPCs"), ("map", "Maps"), ("item", "Items"),
                                        ("sell", "Safe to sell?")])
 def test_each_search_button_names_its_search(bar, kind, text):
     w, _ = bar
@@ -100,9 +100,10 @@ def test_each_search_button_names_its_search(bar, kind, text):
     assert seen == [kind]
 
 
-def test_monsters_and_npcs_is_one_button(bar):
+def test_the_search_buttons_in_order(bar):
+    """Monsters and NPCs one button, then Maps, Items and Safe to sell?, in that order on the bar."""
     w, _ = bar
-    assert set(w._search) == {"monster_npc", "item", "sell"}
+    assert list(w._search) == ["monster_npc", "map", "item", "sell"]
 
 
 def test_set_search_mode_lights_only_that_button(bar):
@@ -150,24 +151,24 @@ def test_apply_language_retexts_and_mirrors(bar):
 def test_it_opens_just_above_the_drawn_minimap_box(bar):
     from maplehelper.ui import gametoolbar
     w, s = bar
-    s["minimap_region"] = {"x": 100, "y": 100, "w": 200, "h": 200}    # 1:1 on the offscreen screen
-    w.refresh()
-    assert w.pos() == QPoint(100, 100 - w.height() - gametoolbar.GAP)   # its left edge lined up with the box's
+    s["minimap_region"] = {"x": 40, "y": 100, "w": 200, "h": 200}     # 1:1 on the offscreen screen (800 px: the
+    w.refresh()                                                        # bar is wide, so a box near its left edge)
+    assert w.pos() == QPoint(40, 100 - w.height() - gametoolbar.GAP)   # its left edge lined up with the box's
 
 
 def test_the_place_is_kept_when_moved_and_reopened_there(bar):
     w, s = bar
     w.refresh()
-    w.move(90, 70)
+    w.move(40, 70)
     w._remember()                            # the debounced save, as the 400 ms timer would fire it
-    assert s["game_toolbar_pos"] == {"x": 90, "y": 70}
+    assert s["game_toolbar_pos"] == {"x": 40, "y": 70}
     w.hide()
     w.refresh()
-    assert w.pos() == QPoint(90, 70)
+    assert w.pos() == QPoint(40, 70)
 
 
 def test_it_opens_at_a_saved_spot(bar):
     w, s = bar
-    s["game_toolbar_pos"] = {"x": 120, "y": 60}
+    s["game_toolbar_pos"] = {"x": 50, "y": 60}
     w.refresh()
-    assert w.pos() == QPoint(120, 60)
+    assert w.pos() == QPoint(50, 60)

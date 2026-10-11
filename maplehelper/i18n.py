@@ -1179,14 +1179,16 @@ STRINGS = {
     "npc_guide_unplaced": {"he": "המקום של {name} לא ידוע במפה הזו", "en": "Where {name} stands isn't known on this map"},
     # the in-game toolbar (ui/gametoolbar.py)
     "game_toolbar": {"he": "סרגל כלים במשחק", "en": "In-game toolbar"},
-    "game_toolbar_hint": {"he": "סרגל קטן מעל המשחק: חלון הדמויות במפה, חיפוש מפלצות, דמויות וחפצים, בטוח למכור? "
-                                "ומוניות וטלפורטים.",
-                          "en": "A small bar over the game: the NPCs-here window, searches for monsters, NPCs "
-                                "and items, Safe to sell? and Cabs & Teleports."},
+    "game_toolbar_hint": {"he": "סרגל קטן מעל המשחק: חלון הדמויות במפה, חיפוש מפלצות ודמויות, מפות וחפצים, בטוח למכור?, "
+                                "מוניות וטלפורטים ויומן השלל.",
+                          "en": "A small bar over the game: the NPCs-here window, searches for monsters and NPCs, maps "
+                                "and items, Safe to sell?, Cabs & Teleports and the loot log."},
     "tb_npcs_here": {"he": "דמויות כאן", "en": "NPCs here"},
     "tb_npcs_here_tip": {"he": "הצגה או הסתרה של חלון הדמויות במפה שלכם", "en": "Show or hide the NPCs on your map"},
     "tb_monster_npc": {"he": "מפלצות ודמויות", "en": "Monsters & NPCs"},
     "tb_monster_npc_tip": {"he": "חיפוש מפלצת או דמות, ואיפה היא נמצאת", "en": "Find a monster or an NPC, and where it is"},
+    "tb_maps": {"he": "מפות", "en": "Maps"},
+    "tb_maps_tip": {"he": "כל המפות במשחק, עם חיפוש: איך מגיעים ומי חי שם", "en": "Every map in the game, with a search: the way there and what lives there"},
     "tb_items": {"he": "חפצים", "en": "Items"},
     "tb_items_tip": {"he": "חיפוש חפץ ומי מפיל אותו", "en": "Find an item and who drops it"},
     "tb_sell": {"he": "בטוח למכור?", "en": "Safe to sell?"},
@@ -1207,6 +1209,9 @@ STRINGS = {
     "search_monster_npc_ph": {"he": "שם המפלצת או הדמות…", "en": "Monster or NPC name…"},
     "search_is_monster": {"he": "מפלצת", "en": "Monster"},
     "search_is_npc": {"he": "דמות", "en": "NPC"},
+    "search_map_title": {"he": "מפות", "en": "Maps"},
+    "search_map_ph": {"he": "חיפוש מפה…", "en": "Search maps…"},
+    "search_map_open": {"he": "לחצו לתמונת המפה, לדרך אליה ולמפלצות שבה", "en": "Click for the map's picture, the way there and its monsters"},
     "search_item_ph": {"he": "שם החפץ…", "en": "Item name…"},
     "search_sell_title": {"he": "בטוח למכור?", "en": "Safe to sell?"},
     "search_sell_ph": {"he": "שם החפץ…", "en": "Item name…"},

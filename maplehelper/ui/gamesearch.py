@@ -26,9 +26,9 @@ from .location import LOCATION
 from .npcoverlay import (BOTTOM, FILL1, FILL2, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TEXT, TOP,
                          _Header, _flags, _paint_glass, direction, dock_beside, set_capturable)
 
-# the searches the toolbar offers: monsters and NPCs together (each row opens its own page), the items, and "sell"
-# (the items again, safe to sell?)
-KINDS = ("monster_npc", "item", "sell")
+# the searches the toolbar offers: monsters and NPCs together (each row opens its own page), the maps (listed before
+# anything is typed), the items, and "sell" (the items again, safe to sell?)
+KINDS = ("monster_npc", "map", "item", "sell")
 MIN_W, MIN_H = 260, 300             # the smallest the player can drag the window to
 DEFAULT_W, DEFAULT_H = 320, 420     # what opens under the toolbar before it is ever resized
 GAP = 8                             # between the toolbar and the window that opens under it
@@ -133,21 +133,36 @@ def _item_hits(kb) -> list[Hit]:
     return sorted(out.values(), key=lambda h: _fold(h.name))
 
 
-_BUILDERS = {"monster": _monster_hits, "npc": _npc_hits, "item": _item_hits}
+def _map_hits(kb) -> list[Hit]:
+    """Every map the KB's maps table lists (only what it confirms is in the game), the grey line its street and the
+    levels it is for; each map once, by name."""
+    out: dict[str, Hit] = {}
+    for r in tables.rows(kb, "maps"):
+        key, name = str(r.get("key") or ""), str(r.get("map") or "").strip()
+        if not key.startswith("map/") or not name or key in out:
+            continue
+        lo, hi = r.get("lv_min"), r.get("lv_max")
+        levels = f"Lv. {lo}–{hi}" if lo is not None and hi is not None else ""
+        out[key] = Hit(key, name, " · ".join(x for x in (str(r.get("street") or ""), levels) if x), "map")
+    return sorted(out.values(), key=lambda h: (_fold(h.name), h.key))
+
+
+_BUILDERS = {"monster": _monster_hits, "npc": _npc_hits, "item": _item_hits, "map": _map_hits}
+BROWSE = {"map"}        # the kinds listed before anything is typed (the first LIMIT, by name): the rest wait for 2 letters
 
 
 def _source(kb, kind: str) -> list[Hit]:
     """One kind's every row, built once per KB (a keystroke only ranks them; the item list alone reads ~650
     pages). A list made while the KB's tables weren't ready (still building at start-up) isn't kept: it would have
-    left every NPC without its map for the whole session. Safe to sell? searches the items' own list; Monsters &
-    NPCs both lists, each row still opening its own page."""
+    left every NPC without its map, and the maps list empty, for the whole session. Safe to sell? searches the
+    items' own list; Monsters & NPCs both lists, each row still opening its own page."""
     if kind == "monster_npc":
         return _source(kb, "monster") + _source(kb, "npc")
     kind = "item" if kind == "sell" else kind
     cache = memo(kb, "_game_search")
     if kind not in cache:
         hits = _BUILDERS[kind](kb)
-        if kind != "npc" or tables.ready(kb):
+        if kind not in ("npc", "map") or tables.ready(kb):
             cache[kind] = hits
         return hits
     return cache[kind]
@@ -157,9 +172,12 @@ def search(kb, kind: str, query: str, limit: int = 50) -> tuple[list[Hit], int]:
     """Every row of this kind whose name has all the query's words in it — case aside, the words in any order —
     up to `limit` of them, ranked: the exact name, then the names the query starts, then the rest; ties by
     name. The pair's other half is how many matched in all (the "and N more" line). A query under two letters
-    (spaces aside) is still being typed: nothing yet."""
+    (spaces aside) is still being typed: nothing yet — but a BROWSE kind (the maps) lists all of its rows."""
     q = _fold(query or "")
     if len(q.replace(" ", "")) < 2:
+        if kind in BROWSE:
+            rows = _source(kb, kind)
+            return rows[:max(0, int(limit))], len(rows)
         return [], 0
     words = q.split(" ")
     ranked: list[list[Hit]] = [[], [], []]      # the exact name, a name the query starts, the rest
@@ -839,10 +857,10 @@ class GameSearch(EdgeResize, QWidget):
     def _retext_status(self) -> None:
         t, rtl = self.t, self.t.rtl
         q = self._box.text()
-        if len(q.replace(" ", "")) < 2:
+        if len(q.replace(" ", "")) < 2 and self._kind not in BROWSE:
             text = t("search_type_more")
         elif not self._hits:
-            text = t("search_none", q=q)
+            text = t("search_none", q=q) if q.strip() else ""     # (the maps, before the KB's tables are built)
         elif self._total > len(self._hits):
             text = t("search_more", n=self._total - len(self._hits))
         else:
@@ -864,12 +882,12 @@ class GameSearch(EdgeResize, QWidget):
     def _rebuild_rows(self) -> None:
         t, rtl = self.t, self.t.rtl
         tips = {"monster": t("search_monster_open"), "npc": t("search_npc_open"), "item": t("search_item_open"),
-                "sell": t("search_sell_open")}
+                "sell": t("search_sell_open"), "map": t("search_map_open")}
         self._clear_rows()
         for hit in self._hits:
             if self._kind == "sell":
                 sub = sell_verdict(t, self._kb, hit.key)
-            elif hit.kind:
+            elif self._kind == "monster_npc":
                 # a monster and an NPC side by side: which is which, before its level or its map
                 sub = " · ".join(x for x in (t(f"search_is_{hit.kind}"), hit.sub) if x)
             else:
