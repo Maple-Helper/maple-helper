@@ -464,3 +464,26 @@ def test_turning_it_off_from_the_bar_or_settings_lets_the_guide_go(overlay):
     s["npc_overlay"] = False
     w.refresh()
     assert not w.isVisible() and loc.guide is None and w._sel is None
+
+
+def test_the_default_look_follows_the_apps_appearance_live(overlay, monkeypatch):
+    """The default look ("app") is the app's own: light glass and its dark text in the light appearance, dark
+    glass and light text in the dark one. A change of appearance restyles the open window and its guide on the
+    app's restyle (apply_look, then refresh), not on the next start."""
+    from maplehelper.ui import npcoverlay, theme
+    monkeypatch.setattr(theme, "HIGH_CONTRAST", False)
+    w, s, loc = overlay
+    loc.set(_here())
+    try:
+        for mode in ("light", "dark"):
+            s["appearance"] = mode
+            npcoverlay.apply_look(s)
+            w.refresh()
+            c = theme.PALETTES[mode]
+            assert npcoverlay.current_tint() == c["glass"]
+            for sheet in (w.styleSheet(), w._guide.styleSheet()):
+                assert f"#Title {{ color: {c['text']};" in sheet and f"#Status {{ color: {c['muted']};" in sheet
+                assert f"QPushButton {{ background: {c['fill2']}; color: {c['text']};" in sheet
+            assert theme.ORANGE_DEEP in w.styleSheet()               # the app's orange lights the picked row
+    finally:
+        npcoverlay.apply_look({})

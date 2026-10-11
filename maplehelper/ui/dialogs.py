@@ -1264,9 +1264,9 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
         self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
         sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
-        # the colours every window over the game follows, and the bar's icons mode: the ⚙ panel offers the
-        # same choices from the one place (npcoverlay's presets) and applies them at once; here they wait
-        # for Save like everything else in Settings
+        # the colours every window over the game follows ("app" first, the default: the app's own look): the ⚙
+        # panel offers the same choices from the one place (npcoverlay's presets) and applies them at once; here
+        # they wait for Save like everything else in Settings
         tints = list(TINTS)
         self.overlay_tint = Select([t(TINTS[k][0]) for k in tints])
         self.overlay_tint.setCurrentIndex(tints.index(settings["overlay_tint"] if settings["overlay_tint"] in tints
@@ -1277,8 +1277,6 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         self.overlay_accent.setCurrentIndex(accents.index(settings["overlay_accent"] if settings["overlay_accent"] in accents
                                                           else accents[0]))
         sec.add_row(t("tbs_accent"), self.overlay_accent, hint=t("tbs_accent_hint"))
-        self.toolbar_icons = Switch(settings["game_toolbar_icons"])
-        sec.add_row(t("tbs_icons"), self.toolbar_icons, hint=t("tbs_icons_hint"))
         self.overlay_shots = Switch(settings["overlays_in_screenshots"])
         sec.add_row(t("overlays_in_screenshots"), self.overlay_shots, hint=t("overlays_in_screenshots_hint"))
         lay.addWidget(sec)
@@ -1898,7 +1896,6 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
             "overlay_tint": list(TINTS)[max(0, self.overlay_tint.currentIndex())],
             "overlay_accent": list(ACCENTS)[max(0, self.overlay_accent.currentIndex())],
-            "game_toolbar_icons": self.toolbar_icons.isChecked(),
             "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),

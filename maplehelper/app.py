@@ -200,7 +200,7 @@ class MapleHelperApp:
         self.portal_dots.refresh()
         # the "NPCs on this map" window over the game itself (ui/npcoverlay.py), shown from its own setting; the
         # guide it sets is what the ring above draws on the game's minimap. Before any of the windows over the
-        # game are made: the glass tint they all paint is taken from the settings (the ⚙ panel re-takes it live).
+        # game are made: the glass they all paint is taken from the settings (the ⚙ panel re-takes it live).
         from .ui import npcoverlay
         npcoverlay.apply_look(self.settings)
         self.npc_overlay = npcoverlay.NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
@@ -813,14 +813,17 @@ class MapleHelperApp:
         if dots is not None:
             dots.refresh()          # the hidden-portal dots switched on or off
         from .ui import npcoverlay
-        npcoverlay.apply_look(self.settings)     # the tint every window's glass paints, before they repaint
+        # the glass every window paints, before they repaint: after style() above, so the default look ("app")
+        # takes the appearance just saved, the windows over the game restyling with the app's own
+        npcoverlay.apply_look(self.settings)
         self._overlay_look_changed()
 
     def _overlay_look_changed(self) -> None:
-        """Every window over the game at the colours, icons and transparency the settings give now, not on the
-        next restart: the ⚙ panel's choices (look_changed) and Settings > Minimap's (on Save) both land here.
-        Each window re-reads the opacity, re-styles its own lit buttons in the accent, and repaints its glass
-        in the tint _paint_glass takes (the NPCs window's guide with it)."""
+        """Every window over the game at the colours and transparency the settings give now, not on the next
+        restart: the ⚙ panel's choices (look_changed) and Settings' (on Save: Minimap's, and the app's own
+        appearance, which the default look follows) both land here. Each window re-reads the opacity, re-styles
+        its text, fills and lit buttons in the look's palette and accent, and repaints its glass in the colour
+        _paint_glass takes (the NPCs window's guide with it)."""
         npc = getattr(self, "npc_overlay", None)
         if npc is not None:
             npc.refresh()          # the NPCs-on-this-map window switched on or off

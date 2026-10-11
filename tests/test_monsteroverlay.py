@@ -129,12 +129,15 @@ def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
         bar._panel._pick_opacity(0.5)
         bar._panel._pick_tint("forest")
         assert npcoverlay.ACCENTS["purple"][1] in w.styleSheet() and "#Mob" in w.styleSheet()
-        assert npcoverlay.ACCENTS["green"][1] not in w.styleSheet()
+        assert npcoverlay.ACCENTS["app"][1] not in w.styleSheet()
         assert w._opacity == 0.5
         assert npcoverlay.current_tint() == npcoverlay.TINTS["forest"][1]
         assert w._guide.styleSheet() == npcoverlay.qss(s)      # its (never shown) guide in the plain style
+        # a dark tint: the monster rows in its light text, whatever the app's appearance
+        assert f"#Mob {{ background: {npcoverlay.DARK_LOOK['fill1']}; color: {npcoverlay.DARK_LOOK['text']};" \
+            in w.styleSheet()
     finally:
-        npcoverlay.apply_look({"overlay_tint": "dark"})       # module state: the next test paints today's dark
+        npcoverlay.apply_look({})       # module state: the next test paints the default look
         bar.close()
         if bar._panel is not None:
             bar._panel.deleteLater()

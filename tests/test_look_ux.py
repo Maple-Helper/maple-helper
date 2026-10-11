@@ -387,3 +387,27 @@ def test_every_dismiss_x_is_one_glyph_at_one_size(app):
     assert sizes == {12}
     for w in (bar, toast, note, window_close):
         w.deleteLater()
+
+
+@pytest.mark.parametrize("mode", ["light", "dark"])
+def test_the_windows_over_the_game_read_in_the_apps_own_look(mode, monkeypatch):
+    """The default look of the windows over the game ("app") is the app's own glass, text and fills in its
+    appearance: the text >= 4.5:1 on the glass and on a button over it, in light (dark text on light glass) as
+    in dark (light text on dark glass)."""
+    from maplehelper.ui import npcoverlay
+    monkeypatch.setattr(theme, "HIGH_CONTRAST", False)
+    look = npcoverlay.look_palette({"appearance": mode, "overlay_tint": "app"})
+    assert look["glass"] == theme.PALETTES[mode]["glass"]
+    glass = "#{:02x}{:02x}{:02x}".format(*look["glass"])
+    assert _contrast(_flatten(look["text"]), _flatten(glass)) >= 4.5
+    assert _contrast(_flatten(look["text"]), _flatten(look["fill1"], glass)) >= 4.5
+    assert _contrast(_flatten(look["muted"], glass), _flatten(glass)) >= 3
+
+
+def test_a_high_contrast_system_gives_the_overlays_its_palette(monkeypatch):
+    """Windows high contrast on: the default look takes the app's high-contrast colours (theme.P())."""
+    from maplehelper.ui import npcoverlay
+    monkeypatch.setattr(theme, "high_contrast", lambda: "dark")
+    theme.set_mode("light")
+    look = npcoverlay.look_palette({"appearance": "light"})
+    assert look["glass"] == theme.PALETTES["dark"]["glass"] and look["muted"] == theme.P()["muted"]

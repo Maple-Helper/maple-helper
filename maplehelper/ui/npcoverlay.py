@@ -39,23 +39,24 @@ H_NEAR, V_NEAR = 60, 90             # map units: nearer than this aside / above-
 OPACITY_MIN, OPACITY_MAX, OPACITY_DEFAULT = 0.3, 1.0, 0.85
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0x0, 0x11   # Windows 10 2004+: screen captures see / never see the window
 
-# the panel floats over the game, whatever theme the app's own windows are in: its own dark glass and light text
+# the dark glass presets' own look: light text and see-through white fills, whatever theme the app is in
 PANEL = (24, 24, 27)
-TEXT = "#F5F5F7"
-MUTED = "rgba(235,235,245,0.64)"
-FILL1 = "rgba(255,255,255,0.08)"
-FILL2 = "rgba(255,255,255,0.14)"
-SEL_TEXT = "#07230F"                # on the selected row's green, as the NPC's dot is ringed dark green
+DARK_LOOK = {"text": "#F5F5F7", "muted": "rgba(235,235,245,0.64)", "fill1": "rgba(255,255,255,0.08)",
+             "fill2": "rgba(255,255,255,0.14)", "stroke": "rgba(255,255,255,0.14)", "scroll": "rgba(255,255,255,0.25)",
+             "ring": "rgba(255,255,255,0.30)", "rim": (60, 22)}
 
 # the colours every window over the game follows (the bar's ⚙ panel and Settings > Minimap pick them): the
-# glass tints, all dark enough for the light text, and the accents that light a lit or selected button, each
-# with the text colour that reads on it. "dark"/"green" are today's look, the ones a stale setting falls back to.
-TINTS = {"dark": ("tbs_tint_dark", (24, 24, 27)),
+# glass, and the accent that lights a lit or selected button with the text colour that reads on it. "app" (the
+# default of both) is the app's own look — its light or dark glass, text and fills (look_palette), its orange —
+# the rest are dark tints for the light text, and the accents besides. A stale name falls back to "app".
+TINTS = {"app": ("tbs_tint_app", None),
+         "dark": ("tbs_tint_dark", PANEL),
          "midnight": ("tbs_tint_midnight", (17, 24, 43)),
          "forest": ("tbs_tint_forest", (13, 31, 22)),
          "wine": ("tbs_tint_wine", (38, 17, 27)),
          "slate": ("tbs_tint_slate", (36, 39, 44))}
-ACCENTS = {"green": ("tbs_accent_green", "#2E9E5B", "#07230F"),
+ACCENTS = {"app": ("tbs_accent_app", theme.ORANGE_DEEP, theme.ON_ORANGE),
+           "green": ("tbs_accent_green", "#2E9E5B", "#07230F"),
            "blue": ("tbs_accent_blue", "#3D8BD6", "#082138"),
            "purple": ("tbs_accent_purple", "#8265D6", "#180C2C"),
            "orange": ("tbs_accent_orange", "#E08A3C", "#2F1706"),
@@ -74,56 +75,85 @@ def _picked(settings, key: str):
         return None
 
 
-def tint_of(settings) -> tuple[int, int, int]:
-    """The glass fill the settings pick (a name TINTS doesn't know: today's dark)."""
+def app_palette(settings) -> dict:
+    """The app's own colours (theme.PALETTES) in the appearance the settings give: Windows high contrast when it
+    is on (theme.set_mode found it), else settings["appearance"], else the mode the app is styled in now."""
+    if theme.HIGH_CONTRAST:
+        return theme.P()
+    mode = _picked(settings, "appearance")
+    return theme.PALETTES[mode] if mode in theme.PALETTES else theme.P()
+
+
+def look_palette(settings) -> dict:
+    """Every colour a window over the game draws in, for the glass the settings pick: "glass" (the rgb
+    _paint_glass fills), "text", "muted", "fill1" (a button), "fill2" (its hover), "stroke" (a border),
+    "scroll", "ring" (an unchosen swatch's ring) and "rim" (the glass edge's top and side alpha). The "app"
+    glass is the app's own, light or dark as its appearance: its panel colour, text, muted text, and its
+    chips' fills (fill2 a button, fill3 its hover, as its #Chip); a dark tint keeps the light text."""
     name = _picked(settings, "overlay_tint")
     entry = TINTS.get(name) if isinstance(name, str) else None
-    return entry[1] if entry is not None else PANEL
+    if entry is not None and entry[1] is not None:
+        return {**DARK_LOOK, "glass": entry[1]}
+    c = app_palette(settings)
+    light = sum(c["glass"]) > 3 * 128
+    return {"glass": c["glass"], "text": c["text"], "muted": c["muted"], "fill1": c["fill2"], "fill2": c["fill3"],
+            "stroke": c["stroke"], "scroll": c["scroll"], "ring": "rgba(0,0,0,0.25)" if light else DARK_LOOK["ring"],
+            "rim": (c["rim_top"], c["rim"])}
+
+
+def tint_of(settings) -> tuple[int, int, int]:
+    """The glass fill the settings pick (a name TINTS doesn't know: the app's own)."""
+    return look_palette(settings)["glass"]
 
 
 def accent_of(settings) -> tuple[str, str]:
     """The colour that lights a lit or selected button, and the text colour on it (a name ACCENTS doesn't
-    know: today's green)."""
+    know: the app's orange)."""
     name = _picked(settings, "overlay_accent")
-    entry = ACCENTS.get(name) if isinstance(name, str) else None
-    return (entry[1], entry[2]) if entry is not None else (theme.GOOD_TEXT_LIGHT, SEL_TEXT)
+    entry = (ACCENTS.get(name) if isinstance(name, str) else None) or ACCENTS["app"]
+    return entry[1], entry[2]
 
 
-_tint = PANEL       # the tint _paint_glass paints right now: set from the settings by apply_look
+_look = look_palette(None)      # the look _paint_glass paints right now: set from the settings by apply_look
 
 
 def apply_look(settings) -> None:
-    """The one place the windows-over-the-game look follows the settings: the glass tint every _paint_glass
-    paints (the accent each window takes itself in its own style sheet, from accent_of). The app calls this
-    at start and whenever the tint is picked, so every window repaints with none of its own code."""
-    global _tint
-    _tint = tint_of(settings)
+    """The one place the windows-over-the-game look follows the settings: the glass every _paint_glass paints
+    (the text, fills and accent each window takes itself in its own style sheet, from look_palette and
+    accent_of). The app calls this at start, whenever the glass is picked and whenever its own appearance
+    changes, so every window repaints with none of its own code."""
+    global _look
+    _look = look_palette(settings)
 
 
 def current_tint() -> tuple[int, int, int]:
     """The tint _paint_glass is painting (the tests ask; a window never needs it)."""
-    return _tint
+    return _look["glass"]
+
 
 def qss(settings) -> str:
-    """The window's own style at the accent the settings pick: [sel] rows light in it (the rest of the look is
-    every window's). Rebuilt whenever the accent is picked, so a window follows with no code of its own."""
+    """The window's own style at the look the settings pick: its text and fills in the glass's palette, [sel]
+    rows lit in the accent. Rebuilt whenever the look is picked or the app's appearance changes, so a window
+    follows with no code of its own."""
+    c = look_palette(settings)
     accent, on_accent = accent_of(settings)
     return f"""
-#Title {{ color: {TEXT}; font-weight: 600; }}
-#Status {{ color: {MUTED}; }}
-#Inside {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
-#GuideLine {{ color: {TEXT}; }}
-QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
+QLabel {{ color: {c['text']}; }}
+#Title {{ color: {c['text']}; font-weight: 600; }}
+#Status {{ color: {c['muted']}; }}
+#Inside {{ color: {c['muted']}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
+#GuideLine {{ color: {c['text']}; }}
+QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px;
               padding: 6px 10px; text-align: left; }}
-QPushButton:hover {{ background: {FILL2}; }}
+QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton[sel="true"] {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
-QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
+QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
-QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
+QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
 QScrollArea {{ background: transparent; border: none; }}
 #Rows {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
-QScrollBar::handle:vertical {{ background: rgba(255,255,255,0.25); border-radius: 4px; min-height: 30px; }}
+QScrollBar::handle:vertical {{ background: {c['scroll']}; border-radius: 4px; min-height: 30px; }}
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: transparent; }}
 """
@@ -214,13 +244,14 @@ def _paint_glass(w: QWidget, opacity: float) -> None:
     path = QPainterPath()
     path.addRoundedRect(QRectF(w.rect()).adjusted(SHADOW + 0.5, SHADOW + 0.5, -SHADOW - 0.5, -SHADOW - 0.5),
                         RADIUS, RADIUS)
-    fill = QColor(*_tint)
+    fill = QColor(*_look["glass"])
     fill.setAlphaF(opacity)
     p.fillPath(path, fill)
+    top, side = _look["rim"]
     rim = QLinearGradient(0, SHADOW, 0, w.height() - SHADOW)
-    rim.setColorAt(0.0, QColor(255, 255, 255, 60))
-    rim.setColorAt(0.4, QColor(255, 255, 255, 22))
-    rim.setColorAt(1.0, QColor(255, 255, 255, 11))
+    rim.setColorAt(0.0, QColor(255, 255, 255, top))
+    rim.setColorAt(0.4, QColor(255, 255, 255, side))
+    rim.setColorAt(1.0, QColor(255, 255, 255, side // 2))
     p.setPen(QPen(rim, 1))
     p.drawPath(path)
     p.end()

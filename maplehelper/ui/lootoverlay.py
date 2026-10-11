@@ -2,7 +2,7 @@
 and items, each per hour, the latest pickups, and its buttons: Start, or Stop and Reset while a log runs, and in its
 title row a – that folds it to that row and a ✕ that hides it.
 
-It is built like the other windows over the game (the NPCs here window, the searches): the same dark glass at the
+It is built like the other windows over the game (the NPCs here window, the searches): the same glass at the
 opacity the player picked for them (npc_overlay_opacity), the title row that drags it, muted status text and the
 same rounded buttons. It shows while settings["loot_overlay"] is on: the bar's Loot log button and the Loot log
 page's switch flip it, its ✕ turns it off, and a log starting (from anywhere) turns it on. A stopped log stays in
@@ -19,31 +19,34 @@ from .. import bidi, lootlog
 from ..i18n import I18n
 from . import theme
 from .glass import SHADOW
-from .npcoverlay import (BOTTOM, FILL1, FILL2, GEOM_DEBOUNCE_MS, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN,
-                         SIDE, TEXT, TOP, _Header, _flags, _paint_glass, accent_of, set_capturable)
+from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TOP, _Header,
+                         _flags, _paint_glass, accent_of, look_palette, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 4                        # the latest pickups shown under the totals
 STATS = ("exp", "mesos", "items")
 
 def qss(settings) -> str:
-    """The window's own style at the accent the settings pick: the Go button lights in it. Rebuilt whenever
-    the accent is picked (refresh follows it), so the window follows with no more code of its own."""
+    """The window's own style at the look the settings pick: its text and fills in the glass's palette, the Go
+    button lit in the accent. Rebuilt whenever the look is picked or the app's appearance changes (refresh
+    follows it), so the window follows with no more code of its own."""
+    c = look_palette(settings)
     accent, on_accent = accent_of(settings)
     return f"""
-#Title {{ color: {TEXT}; font-weight: 600; }}
-#Status {{ color: {MUTED}; }}
-#Head {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
-#Stat {{ background: {FILL1}; border-radius: 8px; }}
-#StatName {{ color: {MUTED}; }}
-#StatValue {{ color: {TEXT}; font-weight: 600; }}
-#Feed {{ color: {MUTED}; padding: 0 2px; }}
-QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 6px 12px; }}
-QPushButton:hover {{ background: {FILL2}; }}
+QLabel {{ color: {c['text']}; }}
+#Title {{ color: {c['text']}; font-weight: 600; }}
+#Status {{ color: {c['muted']}; }}
+#Head {{ color: {c['muted']}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
+#Stat {{ background: {c['fill1']}; border-radius: 8px; }}
+#StatName {{ color: {c['muted']}; }}
+#StatValue {{ color: {c['text']}; font-weight: 600; }}
+#Feed {{ color: {c['muted']}; padding: 0 2px; }}
+QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px; padding: 6px 12px; }}
+QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton#Go {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
-QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
+QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
-QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
+QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
 """
 
 

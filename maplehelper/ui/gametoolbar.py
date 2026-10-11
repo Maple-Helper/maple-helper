@@ -1,12 +1,12 @@
 """The little bar over the game: only what is about where the player is now — the NPCs and the monsters on their
 map (each button its window's switch), the loot log's window — and a Tools button to the app's own Tools window,
 where everything else lives (one place for each thing: the owner's, 2026-10-11). Like the NPCs window it
-floats over the game: frameless, always on top, never taking the keyboard from it (clicks still work), dark
-glass the minimap reads never see. Its sides are draggable: the buttons wrap into as many rows as the width
-leaves room for, the height following, and the width is kept in game_toolbar_width. The ⚙ beside the ✕ opens
-the panel with the colours of every window over the game, the bar's own icons mode and the transparency
-(_SettingsPanel below). Where the player left it is kept in game_toolbar_pos; with none saved it opens just
-above the drawn minimap box."""
+floats over the game: frameless, always on top, never taking the keyboard from it (clicks still work), in
+glass the minimap reads never see — by default the app's own look, light or dark as its appearance. Its sides
+are draggable: the buttons wrap into as many rows as the width leaves room for, the height following, and the
+width is kept in game_toolbar_width. The ⚙ beside the ✕ opens the panel with the colours of every window over
+the game and the transparency (_SettingsPanel below). Where the player left it is kept in game_toolbar_pos;
+with none saved it opens just above the drawn minimap box."""
 from __future__ import annotations
 
 import sys
@@ -23,23 +23,18 @@ from .controls import FlowLayout
 from .glass import SHADOW, EdgeResize
 from .npcoverlay import (
     ACCENTS,
-    FILL1,
-    FILL2,
     GAP,
     GEOM_DEBOUNCE_MS,
-    MUTED,
     OPACITY_DEFAULT,
     OPACITY_MAX,
     OPACITY_MIN,
     OPACITY_STEPS,
-    PANEL,
-    TEXT,
     TINTS,
     _flags,
     _paint_glass,
-    _picked,
     accent_of,
     apply_look,
+    look_palette,
     set_capturable,
 )
 from .regionpick import from_capture
@@ -52,40 +47,53 @@ WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loo
 # the Tools button's menu: straight to these Tools window tabs (one click from the game, each tool still in one
 # place: the owner, 2026-10-11), then the whole window
 QUICK = ("prices", "route", "scrolls", "gear", "crafting", "quests", "farm", "loot")
-# icons mode: each button's emoji, by its i18n key (Segoe UI Emoji draws them in colour on Windows)
-ICONS = {"tb_npcs_here": "\U0001F4AC", "tb_monsters": "\U0001F47E", "tb_loot": "\U0001F4DC",
-         "tb_tools": "\U0001F6E0\uFE0F"}
 
 
 def qss(settings) -> str:
-    """The bar's (and its ⚙ panel's) own style: the accent that lights a lit button, from the settings, and in
-    icons mode the emoji font its buttons show their icons in (rebuilt whenever either is picked)."""
+    """The bar's (and its ⚙ panel's) own style: its text and fills in the palette of the glass the settings
+    pick, and the accent that lights a lit button (rebuilt whenever either is picked, or the app's appearance
+    changes)."""
+    c = look_palette(settings)
     accent, on_accent = accent_of(settings)
-    icons = bool(_picked(settings, "game_toolbar_icons"))
-    emoji = 'font-family: "Segoe UI Emoji"; font-size: 15px;' if icons else ""
     return f"""
-#Title {{ color: {TEXT}; font-weight: 600; }}
-#Status {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 0 2px; }}
-#Grip {{ color: {MUTED}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
-QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
-              padding: 5px 10px; text-align: center; {emoji} }}
-QPushButton:hover {{ background: {FILL2}; }}
+QLabel {{ color: {c['text']}; }}
+#Title {{ color: {c['text']}; font-weight: 600; }}
+#Status {{ color: {c['muted']}; font-size: 11px; font-weight: 600; padding: 0 2px; }}
+#Grip {{ color: {c['muted']}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
+QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px;
+              padding: 5px 10px; text-align: center; }}
+QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton:checked, QPushButton[on="true"] {{ background: {accent}; color: {on_accent}; }}
-QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
+QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
-QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
+QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
 """
+
+
+def menu_qss(settings) -> str:
+    """The Tools menu in the bar's own palette: solid glass, a border, and every row's text colour set here —
+    the app's own QMenu::item colour (dark text in its light look) otherwise wins over a colour set on the
+    menu alone, and read dark grey on the dark glass. The padding is the same both sides, so a right-to-left
+    menu reads as a left-to-right one."""
+    c = look_palette(settings)
+    return (f"QMenu {{ background: {_hex(c['glass'])}; color: {c['text']}; border: 1px solid {c['stroke']};"
+            f" border-radius: 8px; padding: 4px; }}"
+            f" QMenu::item {{ color: {c['text']}; background: transparent; padding: 5px 14px; border-radius: 6px; }}"
+            f" QMenu::item:selected {{ color: {c['text']}; background: {c['fill2']}; }}"
+            f" QMenu::item:disabled {{ color: {c['muted']}; }}"
+            f" QMenu::separator {{ height: 1px; background: {c['stroke']}; margin: 4px 6px; }}")
 
 
 def _hex(rgb: tuple[int, int, int]) -> str:
     return "#{:02x}{:02x}{:02x}".format(*rgb)
 
 
-def _swatch_qss(colour: str, on: bool) -> str:
-    """A round colour chip: the colour itself, ringed when it is the chosen one."""
-    ring = TEXT if on else "rgba(255,255,255,0.30)"
+def _swatch_qss(colour: str, on: bool, c: dict) -> str:
+    """A round colour chip: the colour itself, ringed when it is the chosen one (the ring in the palette `c`
+    the panel is drawn in)."""
+    ring = c["text"] if on else c["ring"]
     return (f"QPushButton {{ background: {colour}; border: 2px solid {ring}; border-radius: 11px; padding: 0; }}"
-            f"QPushButton:hover {{ border: 2px solid {TEXT}; }}")
+            f"QPushButton:hover {{ border: 2px solid {c['text']}; }}")
 
 
 class _Grip(QLabel):
@@ -109,8 +117,8 @@ class _Grip(QLabel):
 
 
 class _SettingsPanel(QWidget):
-    """The bar's ⚙ panel: the colours of every window over the game (the glass tint, the lit buttons' accent),
-    the bar's own icons mode and the transparency — in the same dark glass, over the game like the bar. Each
+    """The bar's ⚙ panel: the colours of every window over the game (the glass, the lit buttons' accent) and
+    the transparency — in the same glass, over the game like the bar. Each
     choice is written, applies at once to every window and stays; ✕, the ⚙ again or Esc closes it (Esc once
     the panel has been clicked into: it takes the keyboard only then, never on opening)."""
 
@@ -141,21 +149,15 @@ class _SettingsPanel(QWidget):
         head.addWidget(self._close, 0, Qt.AlignTop)
         col.addLayout(head)
         col.addSpacing(4)
-        # the glass tint, then the lit buttons' accent: a chip per preset, the chosen one ringed
+        # the glass, then the lit buttons' accent: a chip per preset ("app" first), the chosen one ringed
         self._tint_label = QLabel(objectName="Status")
         col.addWidget(self._tint_label)
-        self._tints = self._swatches(TINTS, lambda name: (name, _hex(TINTS[name][1])), self._pick_tint)
+        self._tints = self._swatches(TINTS, self._pick_tint)
         col.addWidget(self._tints)
         self._accent_label = QLabel(objectName="Status")
         col.addWidget(self._accent_label)
-        self._accents = self._swatches(ACCENTS, lambda name: (name, ACCENTS[name][1]), self._pick_accent)
+        self._accents = self._swatches(ACCENTS, self._pick_accent)
         col.addWidget(self._accents)
-        col.addSpacing(4)
-        # icons instead of words: the one toggle, lit while on (the bar follows at once)
-        self._icons = QPushButton(checkable=True)
-        self._icons.setCursor(Qt.PointingHandCursor)
-        self._icons.clicked.connect(self._pick_icons)
-        col.addWidget(self._icons)
         col.addSpacing(4)
         # the transparency: the same steps Settings > Minimap offers, one chip each
         self._opacity_label = QLabel(objectName="Status")
@@ -175,20 +177,19 @@ class _SettingsPanel(QWidget):
 
     # ------------------------------------------------------------ the panel
 
-    def _swatches(self, presets: dict, colour_of, picked) -> QWidget:
-        """A row of round chips, one per preset (a tint or an accent): the colour itself, the chosen one
-        ringed; clicking picks it."""
+    def _swatches(self, presets: dict, picked) -> QWidget:
+        """A row of round chips, one per preset (a tint or an accent), named in its tooltip: the colour itself
+        (_style_swatches), the chosen one ringed; clicking picks it."""
         w = QWidget()
         row = FlowLayout(w, spacing=FLOW_GAP)
         row.setContentsMargins(0, 0, 0, 0)
         for key in presets:
-            _, colour = colour_of(key)
             b = QPushButton(checkable=True)
             b.setFixedSize(22, 22)
             b.setCursor(Qt.PointingHandCursor)
             b.clicked.connect(lambda _=False, k=key: picked(k))
-            b.setProperty("key", key)        # _style_swatches rings the chosen preset's chip
-            b.setProperty("colour", colour)
+            b.setProperty("key", key)        # _style_swatches colours it and rings the chosen preset's chip
+            b.setProperty("name_key", presets[key][0])
             row.addWidget(b)
         return w
 
@@ -202,12 +203,11 @@ class _SettingsPanel(QWidget):
         for lb, key in ((self._tint_label, "tbs_tint"), (self._accent_label, "tbs_accent"),
                         (self._opacity_label, "npc_overlay_opacity")):
             lb.setText(bidi.plain(t(key), rtl))
-        self._icons.setText(bidi.plain(t("tbs_icons"), rtl))
-        self._icons.setToolTip(t("tbs_icons"))
-        self._icons.setAccessibleName(t("tbs_icons"))
-        self._icons.setChecked(bool(self._settings["game_toolbar_icons"]))
+        for b in self._tints.findChildren(QPushButton) + self._accents.findChildren(QPushButton):
+            b.setToolTip(t(b.property("name_key")))
+            b.setAccessibleName(t(b.property("name_key")))
         sheet = qss(self._settings)
-        if sheet != self.styleSheet():       # a freshly picked accent lights this panel's own chips too
+        if sheet != self.styleSheet():       # a freshly picked look lights this panel's own chips too
             self.setStyleSheet(sheet)
         self._style_swatches()
         try:
@@ -221,14 +221,21 @@ class _SettingsPanel(QWidget):
         self.update()
 
     def _style_swatches(self) -> None:
-        """Each chip in its own colour, the chosen one ringed."""
+        """Each chip in its own colour — "app"'s glass the app's own light or dark one as it is now — the chosen
+        one (a stale name: "app") ringed."""
+        c = look_palette(self._settings)
         tint = self._settings["overlay_tint"]
         accent = self._settings["overlay_accent"]
+        tint = tint if tint in TINTS else "app"
+        accent = accent if accent in ACCENTS else "app"
+        app_glass = look_palette({"overlay_tint": "app", "appearance": self._settings["appearance"]})["glass"]
         for row, chosen in ((self._tints, tint), (self._accents, accent)):
             for b in row.findChildren(QPushButton):
-                on = b.property("key") == chosen
+                key = b.property("key")
+                colour = _hex(TINTS[key][1] or app_glass) if row is self._tints else ACCENTS[key][1]
+                on = key == chosen
                 b.setChecked(on)
-                b.setStyleSheet(_swatch_qss(b.property("colour"), on))
+                b.setStyleSheet(_swatch_qss(colour, on, c))
 
     def paintEvent(self, e) -> None:
         _paint_glass(self, self._opacity)
@@ -253,16 +260,12 @@ class _SettingsPanel(QWidget):
         self._settings["overlay_accent"] = key
         self._applied()
 
-    def _pick_icons(self, _=False) -> None:
-        self._settings["game_toolbar_icons"] = self._icons.isChecked()
-        self._applied()
-
     def _pick_opacity(self, value: float) -> None:
         self._settings["npc_overlay_opacity"] = value
         self._applied()
 
     def _applied(self) -> None:
-        """One choice, on everything at once: written (it stays), the glass tint every _paint_glass paints,
+        """One choice, on everything at once: written (it stays), the glass every _paint_glass paints,
         this panel's and the bar's own style and texts, then every other window over the game follows."""
         apply_look(self._settings)
         self.refresh()
@@ -287,8 +290,8 @@ class _SettingsPanel(QWidget):
 class GameToolbar(EdgeResize, QWidget):
     """The bar itself. Each WINDOWS button flips its window's setting (window_toggled: the window follows), Tools
     asks for the app's Tools window (tools_requested), and the ✕ turns the bar itself off. Its sides are dragged
-    narrower and wider, the buttons wrapping into rows; the ⚙ opens the panel with the colours, the icons mode
-    and the transparency. Clicks work but it never takes the keyboard from the game, and the minimap reads never
+    narrower and wider, the buttons wrapping into rows; the ⚙ opens the panel with the colours and the
+    transparency. Clicks work but it never takes the keyboard from the game, and the minimap reads never
     see it. Its place is kept in game_toolbar_pos, its width in game_toolbar_width."""
 
     window_toggled = Signal(str)       # a WINDOWS setting flipped ("npc_overlay" | "monster_overlay" | "loot_overlay")
@@ -338,7 +341,7 @@ class GameToolbar(EdgeResize, QWidget):
         self._tools.clicked.connect(self._tools_clicked)
         self._menu = QMenu(self)
         self._flow.addWidget(self._tools)
-        # the ⚙: the panel with the colours, the icons mode and the transparency; then the ✕
+        # the ⚙: the panel with the colours and the transparency; then the ✕
         self._gear = QToolButton(objectName="Gear", text=theme.SYMBOL_ICONS["settings"])
         self._gear.setCursor(Qt.PointingHandCursor)
         self._gear.setFocusPolicy(Qt.NoFocus)
@@ -357,14 +360,12 @@ class GameToolbar(EdgeResize, QWidget):
     # ------------------------------------------------------------ text (all of it, for apply_language)
 
     def _tools_clicked(self, _=False) -> None:
-        """The Tools button: its menu of tabs, under it (popup, not exec: nothing waits on it, the game goes on)."""
+        """The Tools button: its menu of tabs, under it (popup, not exec: nothing waits on it, the game goes on),
+        in the bar's own palette (menu_qss)."""
         t, rtl, m = self.t, self.t.rtl, self._menu
         m.clear()
         m.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
-        m.setStyleSheet(f"QMenu {{ background: rgb{PANEL}; color: {TEXT}; border: 1px solid {FILL2}; border-radius: 8px;"
-                        f" padding: 4px; }} QMenu::item {{ padding: 5px 14px; border-radius: 6px; }}"
-                        f" QMenu::item:selected {{ background: {FILL2}; }} QMenu::separator {{ height: 1px;"
-                        f" background: {FILL1}; margin: 4px 6px; }}")
+        m.setStyleSheet(menu_qss(self._settings))
         for page in QUICK:
             m.addAction(bidi.plain(t(f"tool_{page}"), rtl), lambda p=page: self.tools_requested.emit(p))
         m.addSeparator()
@@ -372,24 +373,19 @@ class GameToolbar(EdgeResize, QWidget):
         m.popup(self._tools.mapToGlobal(QPoint(0, self._tools.height())))
 
     def _buttons(self):
-        """Every button on the bar with its i18n key: the texts, tooltips and icons follow the language."""
+        """Every button on the bar with its i18n key: the texts and tooltips follow the language."""
         for key, text in WINDOWS.items():
             yield self._windows[key], text
         yield self._tools, "tb_tools"
 
     def _retext(self) -> None:
         t, rtl = self.t, self.t.rtl
-        icons = bool(self._settings["game_toolbar_icons"])
         self._grip.setAccessibleName(t("tb_move"))
         self._grip.setToolTip(t("tb_move"))
         for b, key in self._buttons():
             name = t(key)
-            if icons:
-                b.setText(ICONS[key])                    # the name stays in the tooltip, for what the icon is
-                b.setToolTip(name)
-            else:
-                b.setText(bidi.plain(name, rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
-                b.setToolTip(t(key + "_tip"))
+            b.setText(bidi.plain(name, rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
+            b.setToolTip(t(key + "_tip"))
             b.setAccessibleName(name)
         self._gear.setAccessibleName(t("tbs_title"))
         self._gear.setToolTip(t("tbs_title"))
@@ -483,7 +479,7 @@ class GameToolbar(EdgeResize, QWidget):
         set_capturable(self._panel, self._settings)
 
     def look_followed(self) -> None:
-        """A choice in the ⚙ panel: the bar's own style, texts (icons mode) and glass follow at once."""
+        """A choice in the ⚙ panel: the bar's own style and glass follow at once."""
         self._restyle()
         self._retext()
         try:
@@ -493,7 +489,7 @@ class GameToolbar(EdgeResize, QWidget):
         self.update()
 
     def _restyle(self) -> None:
-        """The accent (and the icons mode's emoji font) the settings pick; skipped when it is the same."""
+        """The look the settings pick (the glass's palette, the accent); skipped when it is the same."""
         sheet = qss(self._settings)
         if sheet != self.styleSheet():
             self.setStyleSheet(sheet)
@@ -562,7 +558,7 @@ class GameToolbar(EdgeResize, QWidget):
             if self.isVisible():
                 self.hide()
             return
-        self._retext()                 # icons or words, as Settings may have just switched (it fits the width too)
+        self._retext()                 # (it fits the width too: the font or language may have changed)
         if not self.isVisible():
             self._place()
             self.show()

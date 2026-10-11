@@ -436,14 +436,14 @@ def test_the_scrolls_tab_is_a_page_of_the_tools_window(qapp, tools):
     from maplehelper.ui.tools import PAGES
     d = tools()
     assert PAGES[d.stack.currentIndex()] == "scrolls"
-    assert d.nav.button(PAGES.index("scrolls")).text() == "Scrolls"
+    assert d.nav.button(PAGES.index("scrolls")).text() == "Scroll Planner"
     w = d.scroll_planner
     assert w.window() is d and not w.windowFlags() & Qt.WindowStaysOnTopHint
     w.open_item("item/1000")
     assert {c["card"].objectName() for c in w._cards} == {"Card"}
     assert {b.objectName() for b in w._stats} == {"SubChip"}
     he = tools("he")
-    assert he.nav.button(PAGES.index("scrolls")).text().replace(chr(0x200F), "") == "סקרולים"
+    assert he.nav.button(PAGES.index("scrolls")).text().replace(chr(0x200F), "") == "תכנון סקרולים"
 
 
 def test_page_shows_the_plan_in_both_languages(qapp, tools):
@@ -492,17 +492,64 @@ def test_page_shows_the_plan_in_both_languages(qapp, tools):
     assert "חולצה" in win._head.sub.text()                        # the slot word in Hebrew, per itemterms
 
 
-def test_page_search_lists_equips_and_a_click_plans_one(qapp, win):
-    win._box.setText("bow")
-    win._run()
-    assert [r.name.text() for r in win._rows] == ["Ranger Bow", "War Bow"]
-    assert win._results.isVisibleTo(win) and not win._plan.isVisibleTo(win)
-    win._rows[1].clicked.emit()
+def test_page_picker_lists_every_scrollable_equip_and_a_pick_plans_one(qapp, tools):
+    """The equip search is the Item price page's picker: every equip the planner can plan (none it has no
+    scrolls for), each with its picture, the placeholder counting them; picking one plans it, its picture on its
+    card; an emptied box goes back to what the character wears."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+
+    from maplehelper.ui.tools import EntityPicker
+    d = tools()
+    win = d.scroll_planner
+    box = win._box
+    assert isinstance(box, EntityPicker)
+    model = box.completer().model()
+    names = [model.item(i).text() for i in range(model.rowCount())]
+    assert names == ["Green Lua", "Ranger Bow", "Silver Master Sergeant", "War Bow", "Zard"]   # no Battle Shield
+    assert all(model.data(model.index(i, 0), Qt.DecorationRole) is not None for i in range(model.rowCount()))
+    assert box.placeholderText() == "Pick a piece of gear from the list (5 items) or type a name"
+    box.setFocus()
+    QTest.keyClicks(box, "War Bow")
+    QTest.keyClick(box, Qt.Key_Return)
     qapp.processEvents()
-    assert win._head.name.text() == "War Bow" and win._box.text() == "" and win._plan.isVisibleTo(win)
-    win._box.setText("zzz")
-    win._run()
-    assert "Nothing in the database named" in win._status.text()
+    assert win._picked is not None and win._picked.key == "item/663"
+    assert win._head.name.text() == "War Bow" and win._cards
+    pic = win._head.pic.pixmap()
+    assert win._head.pic.isVisibleTo(win) and pic is not None and not pic.isNull()
+    assert win._head.pic.toolTip()                                  # large on hover, as the price card's
+    # part of a name, Enter: the planner's own search finds it; nothing found says so
+    box.setText("zard")
+    box.picked.emit()
+    assert win._head.name.text() == "Zard" and box.text() == "Zard"
+    box.setText("zzz")
+    box.picked.emit()
+    assert "No gear in the database named" in win._status.text() and win._status.isVisibleTo(win)
+    # the gear advisor's open_item puts the name in the box
+    win.open_item("item/1000")
+    assert box.text() == "Silver Master Sergeant"
+    box.clear()
+    assert win._picked is None
+
+
+def test_page_hebrew_picker_card_and_stat_caption(qapp, tools):
+    """Hebrew: the placeholder, the picture beside the name on the right, the stat caption says what it is."""
+    from PySide6.QtCore import Qt
+    d = tools("he")
+    win = d.scroll_planner
+    plain = lambda s: "".join(ch for ch in s if not 0x200E <= ord(ch) <= 0x206F)   # noqa: E731 - bidi marks aside
+    assert plain(win._box.placeholderText()) == "בחרו ציוד מהרשימה (5 פריטים) או הקלידו שם"
+    win.open_item("item/1000")
+    qapp.processEvents()
+    head = win._head
+    assert head.layoutDirection() == Qt.RightToLeft
+    assert head.pic.geometry().center().x() > head.name.geometry().center().x()    # the picture on the right
+    assert plain(win._bonus_label.text()) == "מה לשדרג" and "סקרולים" in win._bonus_label.toolTip()
+    assert all(b.toolTip() == win._bonus_label.toolTip() for b in win._stats)
+    assert plain(win._use_label.text()) == "כמה משבצות שדרוג לנצל" and win._use_label.toolTip()
+    en = tools().scroll_planner
+    assert en._bonus_label.text() == "Stat to raise" and en._use_label.text() == "Upgrade slots to use"
+    assert "Each chip is a stat" in en._bonus_label.toolTip()
 
 
 def test_page_free_market_price_off_the_gui_thread(qapp, win, monkeypatch):

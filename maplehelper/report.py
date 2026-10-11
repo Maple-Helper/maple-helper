@@ -27,8 +27,8 @@ REPORT_SETTINGS = ("language", "appearance", "font_size", "answer_length",
                    "gemini_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "shot_hints_seen", "usage",
                    "saver_mode", "seen_version", "instant_answers", "telemetry", "presence", "grind_auto", "minimap_scan_interval",
                    "minimap_hidden_portals", "npc_overlay", "npc_overlay_opacity", "monster_overlay", "game_toolbar",
-                   "overlays_in_screenshots", "loot_overlay", "loot_overlay_folded", "game_toolbar_icons",
-                   "overlay_tint", "overlay_accent")
+                   "overlays_in_screenshots", "loot_overlay", "loot_overlay_folded", "overlay_tint",
+                   "overlay_accent")
 log = logging.getLogger("maplehelper")
 # libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link
 # among them, into the log that goes with problem reports; RapidOCR logs its model paths on every load

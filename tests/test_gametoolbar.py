@@ -2,9 +2,9 @@
 NPCs, Monsters and Loot Log buttons each flipping its window's setting (the window follows the signal) — and a
 Tools button asking for the app's Tools window, the ✕ turning the bar off, and its place on the screen — above
 the drawn minimap box, at the saved spot, and the spot kept after a drag. Its width is the player's too: the
-buttons wrap into as many rows as the width leaves room for, and the ⚙ panel's choices (the glass tint, the
-accent, icons instead of words, the transparency) are written and followed live — by the bar, and by the NPCs
-and Monsters windows over the game."""
+buttons wrap into as many rows as the width leaves room for, and the ⚙ panel's choices (the glass, the accent,
+the transparency) are written and followed live — by the bar, and by the NPCs and Monsters windows over the game.
+By default all of them look like the app itself, light or dark as its appearance, and so does the Tools menu."""
 import os
 
 import pytest
@@ -28,11 +28,11 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def _todays_look():
-    """The glass tint every window paints is module state: a test that picks a preset puts today's dark back,
-    or the next test file's windows paint midnight."""
+    """The glass every window paints is module state: a test that picks a preset puts the default back, or the
+    next test file's windows paint midnight."""
     from maplehelper.ui import npcoverlay
     yield
-    npcoverlay.apply_look({"overlay_tint": "dark"})
+    npcoverlay.apply_look({})
 
 
 @pytest.fixture
@@ -215,35 +215,22 @@ def test_the_panel_rings_the_chosen_swatches(bar):
     assert [b.property("key") for b in w._panel._accents.findChildren(QPushButton) if b.isChecked()] == ["pink"]
 
 
-def test_the_icons_choice_swaps_the_words_for_icons(bar):
-    """Each of the four buttons shows its icon, its name in the tooltip and the accessible name; off, the words
-    are back."""
+def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
+    """The icons mode is gone (the owner, 2026-10-11): no setting, no ⚙ panel toggle, no Settings row — the
+    buttons show their names, a tooltip each."""
+    from maplehelper import report, store
+    from maplehelper.i18n import STRINGS
     from maplehelper.ui import gametoolbar
-    w, s = bar
+    w, _ = bar
     w.refresh()
     w._gear.click()
-    w._panel._icons.click()
-    assert s["game_toolbar_icons"] is True and w._panel._icons.isChecked()
-    npcs = w._windows["npc_overlay"]
-    assert npcs.text() == "\U0001F4AC"
-    assert npcs.toolTip() == "NPCs" and npcs.accessibleName() == "NPCs"
-    assert [b.text() for b, _ in w._buttons()] == [gametoolbar.ICONS[k] for k in
-                                                   ("tb_npcs_here", "tb_monsters", "tb_loot", "tb_tools")]
-    assert w._tools.toolTip() == "Tools" and w._windows["monster_overlay"].toolTip() == "Monsters"
-    assert len(set(gametoolbar.ICONS.values())) == 4                   # each its own
-    w._panel._icons.click()
-    assert s["game_toolbar_icons"] is False
-    assert npcs.text() == "NPCs" and npcs.toolTip() == w.t("tb_npcs_here_tip")
-
-
-def test_the_settings_dialogs_icons_switch_reaches_an_open_bar(bar):
-    """Settings > Minimap's switch (saved, then the app refreshes the windows): the bar's words turn to icons on
-    that refresh, not on the next start."""
-    w, s = bar
-    w.refresh()
-    s["game_toolbar_icons"] = True
-    w.refresh()
-    assert w._tools.text() == "\U0001F6E0\uFE0F"
+    assert "game_toolbar_icons" not in store.DEFAULT_SETTINGS
+    assert "game_toolbar_icons" not in report.REPORT_SETTINGS
+    assert not hasattr(gametoolbar, "ICONS") and not hasattr(w._panel, "_icons")
+    assert [b.text() for b, _ in w._buttons()] == ["NPCs", "Monsters", "Loot Log", "Tools"]
+    assert w._tools.toolTip() == w.t("tb_tools_tip")
+    assert "Emoji" not in w.styleSheet()
+    assert "tbs_icons" not in STRINGS and "tbs_icons_hint" not in STRINGS
 
 
 def test_an_opacity_choice_writes_the_shared_setting(bar):
@@ -272,14 +259,131 @@ def test_a_panel_choice_signals_the_app_to_restyle_every_window(bar):
     assert seen == [True]
 
 
-def test_the_default_look_is_todays(bar):
-    """Nothing picked: today's dark glass, today's green lit buttons, today's words on the buttons."""
-    from maplehelper.ui import npcoverlay
-    w, _ = bar
+def test_the_default_look_is_the_apps(bar, monkeypatch):
+    """Nothing picked: "app" for both — the app's own glass in its appearance, its orange lighting a lit button,
+    the words on the buttons."""
+    from maplehelper.ui import npcoverlay, theme
+    monkeypatch.setattr(theme, "HIGH_CONTRAST", False)
+    w, s = bar
+    assert s["overlay_tint"] == "app" and s["overlay_accent"] == "app"
+    npcoverlay.apply_look(s)
     w.refresh()
-    assert npcoverlay.current_tint() == npcoverlay.PANEL
-    assert npcoverlay.ACCENTS["green"][1] in w.styleSheet()
+    assert npcoverlay.current_tint() == theme.PALETTES[s["appearance"]]["glass"]
+    assert npcoverlay.ACCENTS["app"][1] == theme.ORANGE_DEEP and theme.ORANGE_DEEP in w.styleSheet()
     assert w._windows["npc_overlay"].text() == "NPCs"
+
+
+def _lum(css: str) -> float:
+    from maplehelper.ui import theme
+    c = theme.qcolor(css)
+    return 0.299 * c.red() + 0.587 * c.green() + 0.114 * c.blue()
+
+
+@pytest.mark.parametrize("appearance", ["light", "dark"])
+def test_the_default_look_follows_the_apps_appearance(bar, monkeypatch, appearance):
+    """Light: light glass and dark text (the app's own light colours); dark: dark glass and light text — in the
+    bar's style sheet and in the glass _paint_glass paints, switched live on the app's restyle (apply_look and
+    refresh, as app.on_settings_changed runs them after a Save)."""
+    from maplehelper.ui import npcoverlay, theme
+    monkeypatch.setattr(theme, "HIGH_CONTRAST", False)
+    w, s = bar
+    s["appearance"] = "dark" if appearance == "light" else "light"
+    npcoverlay.apply_look(s)
+    w.refresh()
+    s["appearance"] = appearance                   # the app's appearance changed and saved
+    npcoverlay.apply_look(s)
+    w.refresh()
+    c = theme.PALETTES[appearance]
+    look = npcoverlay.look_palette(s)
+    assert npcoverlay.current_tint() == c["glass"] == look["glass"]
+    assert look["text"] == c["text"] and look["muted"] == c["muted"]
+    assert f"#Title {{ color: {c['text']};" in w.styleSheet()
+    glass = sum(c["glass"]) / 3
+    if appearance == "light":
+        assert glass > 200 and _lum(c["text"]) < 60          # dark text on light glass
+    else:
+        assert glass < 60 and _lum(c["text"]) > 200          # light text on dark glass
+
+
+def test_a_dark_tint_keeps_its_light_text_in_the_apps_light_look(bar):
+    from maplehelper.ui import npcoverlay
+    _, s = bar
+    s["appearance"], s["overlay_tint"] = "light", "midnight"
+    look = npcoverlay.look_palette(s)
+    assert look["glass"] == npcoverlay.TINTS["midnight"][1] and look["text"] == npcoverlay.DARK_LOOK["text"]
+    s["overlay_tint"] = "no-such-tint"                         # a stale name: the app's own
+    assert npcoverlay.look_palette(s)["glass"] == npcoverlay.look_palette({"appearance": "light"})["glass"]
+
+
+def _menu_rule(sheet: str, selector: str) -> str:
+    import re
+    m = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", sheet)
+    assert m, selector
+    return m.group(1)
+
+
+@pytest.mark.parametrize("appearance,tint", [("light", "app"), ("dark", "app"), ("light", "dark"),
+                                             ("light", "wine")])
+def test_the_tools_menu_items_are_in_the_bars_text_colour(bar, appearance, tint):
+    """The bug in the owner's screenshot: the menu's rows dark grey on its dark glass (the app's light-look
+    QMenu::item colour won over the menu's own). Every row state now sets its colour from the bar's palette."""
+    from maplehelper.ui import npcoverlay
+    w, s = bar
+    s["appearance"], s["overlay_tint"] = appearance, tint
+    w._tools.click()
+    sheet, look = w._menu.styleSheet(), npcoverlay.look_palette(s)
+    assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item ")
+    assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item:selected")
+    assert f"color: {look['muted']};" in _menu_rule(sheet, "QMenu::item:disabled")
+    w._menu.hide()
+
+
+def test_the_tools_menu_reads_light_on_dark_glass_under_the_apps_light_style(bar, qapp):
+    """Rendered, under the app's own light style sheet (the one whose dark menu text won): the dark glass
+    menu's rows draw light pixels, its text."""
+    from PySide6.QtGui import QColor
+
+    from maplehelper.ui import theme
+    w, s = bar
+    before = qapp.styleSheet()
+    theme.set_mode("light")
+    qapp.setStyleSheet(theme.stylesheet("Segoe UI", 14))
+    try:
+        s["appearance"], s["overlay_tint"] = "light", "dark"
+        w._tools.click()
+        img = w._menu.grab().toImage()
+        light = sum(1 for x in range(0, img.width(), 2) for y in range(0, img.height(), 2)
+                    if QColor(img.pixel(x, y)).lightness() > 180)
+        assert light > 20
+        w._menu.hide()
+    finally:
+        qapp.setStyleSheet(before)
+        theme.set_mode("dark")
+
+
+def test_the_tools_menu_mirrors_in_hebrew(bar):
+    """Right to left in Hebrew (its rows' padding the same both sides), left to right in English."""
+    w, _ = bar
+    w.apply_language(I18n("he"))
+    w._tools.click()
+    assert w._menu.layoutDirection() == Qt.RightToLeft
+    assert "padding: 5px 14px;" in _menu_rule(w._menu.styleSheet(), "QMenu::item ")
+    w._menu.hide()
+    w.apply_language(I18n("en"))
+    w._tools.click()
+    assert w._menu.layoutDirection() == Qt.LeftToRight
+    w._menu.hide()
+
+
+def test_the_panels_app_swatch_is_the_apps_glass(bar):
+    """The "app" chip shows the app's glass as it is now (light here), ringed while it is the one chosen."""
+    w, s = bar
+    s["appearance"] = "light"
+    w._gear.click()
+    chips = {b.property("key"): b for b in w._panel._tints.findChildren(QPushButton)}
+    assert list(chips)[0] == "app" and chips["app"].isChecked()
+    assert "#f2f2f7" in chips["app"].styleSheet()
+    assert chips["app"].toolTip() == "Like the app"
 
 
 # ------------------------------------------------------------ its place on the screen

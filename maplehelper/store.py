@@ -187,9 +187,8 @@ DEFAULT_SETTINGS = {
     "loot_overlay_folded": False,  # ... folded to its title row (its – button)
     "craft_exp_table": None,      # crafting EXP per level the player measured in game: {"7": 1234}; None: the KB's table
     "game_toolbar_width": None,   # the width the player dragged the bar to (its buttons wrap into rows); None: one row
-    "game_toolbar_icons": False,  # the bar's buttons as icons (their names in the tooltips) instead of words
-    "overlay_tint": "dark",       # the windows over the game: their glass colour (ui/npcoverlay.py TINTS)
-    "overlay_accent": "green",    # ... and their lit buttons' colour (ui/npcoverlay.py ACCENTS)
+    "overlay_tint": "app",        # the windows over the game: their glass colour (ui/npcoverlay.py TINTS; app: the app's own)
+    "overlay_accent": "app",      # ... and their lit buttons' colour (ui/npcoverlay.py ACCENTS; app: its orange)
 }
 
 

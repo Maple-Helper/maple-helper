@@ -4,14 +4,16 @@ by side — its per-slot success, the chance all n pass, the expected gain, the 
 the cost per expected +1 (an NPC price from the KB, a Free Market usual price from MeowDB, or the player's own
 typed price — never one made up).
 
-Built like the tools window's other pages (the app's own light / dark look: its cards, chips, stepper and search
-box), as a plain widget the page holds. The Free Market lookups run off the GUI thread."""
+Built like the tools window's other pages (the app's own light / dark look: its cards, chips, stepper and the
+Item price page's picker, every scrollable equip with its picture), as a plain widget the page holds. The Free
+Market lookups run off the GUI thread."""
 from __future__ import annotations
 
 import re
 import threading
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from .. import bidi, itemterms, market, scrollplan
@@ -19,24 +21,64 @@ from ..i18n import I18n
 from ..kb import KnowledgeBase
 from ..store import Profiles
 from .controls import Stepper
+from .tools import EntityPicker
+from .widgets import fit_picture, zoom_on_hover
 
-LIMIT = 12                                  # equips listed before the "and N more" line
 UNKNOWN_CAP = 30                            # the stepper's ceiling for an equip whose slot count the KB lacks
-TYPE_DEBOUNCE_MS = 150                      # a pause in the typing before the rows are read again
 CARD_PAD = 12                               # a card's own margin, each side (its texts are measured inside it)
+PIC = 48                                    # the equip's picture on its card, as the Item price card's
 
 
-class _Box(QLineEdit):
-    """The typing box: Esc with something typed drops the results and goes back to the plan (empty, it is the
-    window's own Esc)."""
+def equip_rows(kb: KnowledgeBase) -> tuple[list[tuple[str, str, object]], dict[str, str]]:
+    """The picker's rows, every equip the planner has scrolls for (scrollplan.scrollable) once by name with its
+    picture, and each row's name -> its KB key. A male and a female version of one name (the same slot, the
+    same scrolls) are one row; one name in two slots (Blue Moon, an earring and a top) is told apart by its
+    slot, in the KB's own English like the name beside it (one direction in the list)."""
+    by_name: dict[str, dict[str, scrollplan.EquipScrolls]] = {}
+    for es in sorted(scrollplan.scrollable(kb).values(), key=lambda e: (e.item.lower(), e.key)):
+        by_name.setdefault(es.item, {}).setdefault(es.slot, es)
+    rows, keys = [], {}
+    for name, slots in by_name.items():
+        for es in slots.values():
+            shown = f"{name} ({es.slot})" if len(slots) > 1 else name
+            rows.append((shown, shown, kb.picture(es.key)))
+            keys[shown] = es.key
+    return rows, keys
 
-    escaped = Signal()
 
-    def keyPressEvent(self, e):
-        if e.key() == Qt.Key_Escape and self.text():
-            self.escaped.emit()
+class EquipHead(QFrame):
+    """The equip in hand's card: its picture at the side (as the Item price card's), its name over its slot and
+    clean upgrade slots."""
+
+    def __init__(self):
+        super().__init__(objectName="Card")
+        row = QHBoxLayout(self)
+        row.setContentsMargins(CARD_PAD, 10, CARD_PAD, 10)
+        row.setSpacing(12)
+        self.pic = QLabel()
+        self.pic.setFixedSize(PIC, PIC)
+        self.pic.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        row.addWidget(self.pic, 0, Qt.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(1)
+        self.name = QLabel(objectName="CardName", wordWrap=True)
+        self.sub = QLabel(objectName="CardSub", wordWrap=True)
+        col.addWidget(self.name)
+        col.addWidget(self.sub)
+        col.addStretch(1)
+        row.addLayout(col, 1)
+
+    def set_picture(self, path) -> None:
+        """The item's picture, fitted into the card's box and large on hover; none: the box is hidden."""
+        pm = QPixmap(str(path)) if path else QPixmap()
+        if pm.isNull():
+            self.pic.clear()
+            self.pic.setToolTip("")
+            self.pic.hide()
             return
-        super().keyPressEvent(e)
+        self.pic.setPixmap(fit_picture(pm, PIC, PIC, self.pic))
+        zoom_on_hover(self.pic, path)
+        self.pic.show()
 
 
 class PickRow(QFrame):
@@ -107,11 +149,9 @@ class ScrollPlanner(QWidget):
         self._fm_bad: set[str] = set()     # scroll keys whose lookup couldn't reach the site at all
         self._fm_seen: set[str] = set()    # scroll keys a thread is already fetching
         self._fm_read = 0                  # bumped on a KB swap: answers from before it are dropped
-        self._rows: list[QWidget] = []
         self._cards: list[dict] = []
         self._stats: list[QPushButton] = []
         self._measure: dict[tuple[str, int], QLabel] = {}   # hidden labels the card texts' lines are measured with
-        self._typing = QTimer(self, singleShot=True, interval=TYPE_DEBOUNCE_MS, timeout=self._run)
         self._build()
 
     # ------------------------------------------------------------ the page
@@ -120,18 +160,16 @@ class ScrollPlanner(QWidget):
         col = QVBoxLayout(self)
         col.setContentsMargins(0, 0, 0, 0)
         col.setSpacing(10)
-        self._box = _Box()
-        self._box.setClearButtonEnabled(True)
-        self._box.textChanged.connect(lambda _t: self._typing.start())
-        self._box.escaped.connect(self._box.clear)      # textChanged drops the results, the plan is back
+        # every equip the planner can plan, with its picture, as the Item price page's picker (the owner)
+        rows, self._keys = equip_rows(self._kb)
+        self._box = EntityPicker(rows, self._placeholder(len(rows)), icon=32, rtl=self.t.rtl)
+        self._box.picked.connect(self._picked_name)
+        # an emptied box drops the player's pick: the character's worn equip is planned again
+        self._box.textChanged.connect(lambda text: None if text.strip() else self._unpick())
         col.addWidget(self._box)
         self._status = QLabel(objectName="RowHint", wordWrap=True)
+        self._status.hide()
         col.addWidget(self._status)
-        self._results = QWidget()
-        self._results_lay = QVBoxLayout(self._results)
-        self._results_lay.setContentsMargins(0, 0, 0, 0)
-        self._results_lay.setSpacing(6)
-        col.addWidget(self._results)
         self._plan = QWidget()
         self._plan_lay = QVBoxLayout(self._plan)
         self._plan_lay.setContentsMargins(0, 0, 0, 0)
@@ -146,7 +184,7 @@ class ScrollPlanner(QWidget):
     def _build_plan(self) -> None:
         """The plan half of the page: the picked equip's header, the stepper and the stat choice, then the
         grade cards (filled in per pick) and the notes."""
-        self._head = PickRow("", " ", "", clickable=False)     # ' ': its grey line exists, filled per pick
+        self._head = EquipHead()
         self._plan_lay.addWidget(self._head)
         knobs = QHBoxLayout()
         knobs.setSpacing(8)
@@ -190,6 +228,7 @@ class ScrollPlanner(QWidget):
         es = scrollplan.scrolls_for(self._kb, key)
         if es is None:
             self._status.setText(bidi.plain(self.t("sp_not_equip"), self.t.rtl))
+            self._status.show()
             return
         self._pick(es)
 
@@ -205,17 +244,14 @@ class ScrollPlanner(QWidget):
             self._picked = again or None
         self._default = None
         self._sync_default()
-        self._run()
+        rows, self._keys = equip_rows(kb)
+        self._box.set_rows(rows)
+        self._box.setPlaceholderText(self._placeholder(len(rows)))
         self._show_plan()
 
     def leave(self) -> None:
-        """The page left: its search starts fresh next time (the pick stays, like the other pages' own)."""
-        self._typing.stop()
-        if self._box.text():
-            self._box.blockSignals(True)
-            self._box.clear()
-            self._box.blockSignals(False)
-            self._show_plan()
+        """The page left: the picker's list closes with it (the pick stays, like the other pages' own)."""
+        self._box.completer().popup().hide()
 
     def _sync_default(self) -> bool:
         """The active character's first scrollable worn equip as the plan's default pick. True when it
@@ -231,39 +267,43 @@ class ScrollPlanner(QWidget):
         was, self._default = self._default, found
         return was is not found and (was is None or found is None or was.key != found.key)
 
-    # ------------------------------------------------------------ the search
+    # ------------------------------------------------------------ the picker
 
-    def _run(self) -> None:
-        """The equips for what is typed (the typing debounce's work too)."""
-        t, rtl = self.t, self.t.rtl
-        q = self._box.text()
-        picks = scrollplan.find_equips(self._kb, q, LIMIT) if q.strip() else []
-        self._clear_rows()
-        for es in picks:
-            sub = " · ".join(x for x in (itemterms.kind(es.slot, t.lang), self._slots_text(es)) if x)
-            row = PickRow(bidi.ltr_name(es.item, rtl), bidi.plain(sub, rtl) if sub else "", t("sp_pick_tip"))
-            row.clicked.connect(lambda e=es: self._pick(e))
-            self._rows.append(row)
-            self._results_lay.addWidget(row)
-        self._results.setVisible(bool(picks))
-        self._plan.setVisible(not picks)
-        if len(q.replace(" ", "")) < 2:
-            text = t("sp_type_more") if q.strip() else ""
-        elif not picks:
-            text = t("sp_none", q=bidi.ltr_block(q, rtl))
-        elif (total := len(scrollplan.find_equips(self._kb, q, 10_000))) > len(picks):
-            text = t("sp_more", n=bidi.ltr_block(f"{total - len(picks):,}", rtl))
-        else:
-            text = ""
-        self._status.setText(bidi.plain(text, rtl) if text else "")
-        self._status.setVisible(bool(text))
+    def _placeholder(self, n: int) -> str:
+        return bidi.plain(self.t("sp_placeholder", n=f"{n:,}"), self.t.rtl)
 
-    def _clear_rows(self) -> None:
-        while self._rows:
-            w = self._rows.pop()
-            self._results_lay.removeWidget(w)
-            w.hide()
-            w.deleteLater()
+    def _picked_name(self) -> None:
+        """A row picked from the list, or Enter on a typed name: its exact name, else the first equip whose name
+        holds what was typed (the planner's own search). Nothing found only says so."""
+        text = self._box.text().strip()
+        if not text:
+            return
+        key = self._keys.get(text) or next((k for n, k in self._keys.items() if n.lower() == text.lower()), None)
+        es = scrollplan.scrolls_for(self._kb, key) if key else None
+        if es is None:
+            es = next((e for e in scrollplan.find_equips(self._kb, text, 10_000) if e.groups), None)
+        if es is None:
+            self._status.setText(bidi.plain(self.t("sp_none", q=bidi.ltr_block(text, self.t.rtl)), self.t.rtl))
+            self._status.show()
+            return
+        self._pick(es)
+
+    def _unpick(self) -> None:
+        """The box emptied: the player's pick is dropped, the character's worn equip is planned again."""
+        self._status.hide()
+        if self._picked is None:
+            return
+        self._picked = None
+        self._stat = 0
+        self._your.clear()
+        self._show_plan()
+
+    def _name_of(self, es: scrollplan.EquipScrolls) -> str:
+        """The picker's row name for an equip (its other-gender twin's row, when that one is the one listed)."""
+        named = next((n for n, k in self._keys.items() if k == es.key), None)
+        if named is None:
+            named = next((n for n, k in self._keys.items() if n == es.item or n.startswith(f"{es.item} (")), es.item)
+        return named
 
     def _slots_text(self, es: scrollplan.EquipScrolls) -> str:
         t = self.t
@@ -273,25 +313,24 @@ class ScrollPlanner(QWidget):
 
     def _pick(self, es: scrollplan.EquipScrolls) -> None:
         """The equip to plan: picked, the stepper set to its clean slots, the first stat group chosen, the
-        typed prices of the last equip dropped."""
+        typed prices of the last equip dropped. The picker holds its name (also when the gear advisor opened it)."""
         self._picked = es
         self._stat = 0
         self._your.clear()
-        self._typing.stop()
-        self._box.blockSignals(True)       # the plan shows now, not after the typing pause re-reads an empty box
-        self._box.clear()
-        self._box.blockSignals(False)
+        name = self._name_of(es)
+        if self._box.text() != name:
+            self._box.blockSignals(True)       # not an emptied box, not a new pick
+            self._box.setText(name)
+            self._box.blockSignals(False)
+        self._box.setCursorPosition(0)          # a long name shows from its start
         self._show_plan()
 
     def _show_plan(self) -> None:
         """The plan half drawn for the equip in hand (the player's pick, else the character's worn one)."""
         t, rtl = self.t, self.t.rtl
         es = self._equip()
-        self._clear_rows()
-        self._results.hide()
         self._status.setText("")
         self._status.hide()
-        self._plan.show()
         self._head.setVisible(es is not None)
         if es is None:
             self._hint.setText(bidi.plain(t("sp_pick"), rtl))
@@ -316,9 +355,10 @@ class ScrollPlanner(QWidget):
 
     def _paint_head(self) -> None:
         """The equip in hand's own two lines: its name, and its slot (in the player's language, per
-        itemterms' own translations) with its clean upgrade slots."""
+        itemterms' own translations) with its clean upgrade slots, its picture at the side."""
         t, rtl = self.t, self.t.rtl
         es = self._equip()
+        self._head.set_picture(self._kb.picture(es.key) if es else None)
         self._head.name.setText(bidi.ltr_name(es.item, rtl) if es else "")
         sub = " · ".join(x for x in ((itemterms.kind(es.slot, t.lang), self._slots_text(es)) if es else ()) if x)
         self._head.sub.setText(bidi.plain(sub, rtl) if sub else "")
@@ -339,8 +379,8 @@ class ScrollPlanner(QWidget):
             b = QPushButton(bidi.plain(g.stat, self.t.rtl), objectName="SubChip", checkable=True)
             b.setCursor(Qt.PointingHandCursor)
             b.setAutoDefault(False)          # Enter in a price box never picks a stat
-            b.setToolTip(self.t("sp_bonus"))
-            b.setAccessibleName(self.t("sp_bonus"))
+            b.setToolTip(self.t("sp_bonus_tip"))
+            b.setAccessibleName(f"{self.t('sp_bonus')}: {g.stat}")
             b.setChecked(i == self._stat)
             b.clicked.connect(lambda _=False, i=i: self._stat_changed(i))
             self._stats_lay.addWidget(b, (i + 1) // 5, (i + 1) % 5)
@@ -637,8 +677,10 @@ class ScrollPlanner(QWidget):
 
     def _retext(self) -> None:
         t, rtl = self.t, self.t.rtl
-        self._box.setPlaceholderText(bidi.plain(t("sp_search_ph"), rtl))
         self._use_label.setText(bidi.plain(t("sp_use"), rtl))
+        self._use_label.setToolTip(t("sp_use_tip"))
         self._spin.set_label(t("sp_use"))
+        self._spin.setToolTip(t("sp_use_tip"))
         self._bonus_label.setText(bidi.plain(t("sp_bonus"), rtl))
+        self._bonus_label.setToolTip(t("sp_bonus_tip"))
         self._hint.setText(bidi.plain(t("sp_pick"), rtl))
