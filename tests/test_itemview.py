@@ -123,7 +123,7 @@ def test_the_pan_lids_window_shows_its_stats_dropper_and_notes():
     dlg = itemview.ItemDetailsDialog(kb, "en", "")
     dlg.show_item("item/917")
     texts = " | ".join(lb.text() for lb in dlg.findChildren(QLabel))
-    assert "W.DEF +44" in texts and "Meow Notes" in texts and "Shield Guard" in texts
+    assert "W.DEF +44" in texts and "Nia Notes" in texts and "Shield Guard" in texts
     assert all(kb.get(m)["name"] in texts for m in kb.droppers.get("item/917", []))
     dlg.close()
 

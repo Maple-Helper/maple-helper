@@ -201,4 +201,4 @@ def test_the_measurement_set_is_valid(real):
     every = {e["name"] for e in real.entities.values()}
     assert len(mention_recall.CASES) >= 80 and len(mention_recall.NEGATIVES) >= 30
     assert sum(bool(re.search("[א-ת]", q)) for q, _ in mention_recall.CASES) >= 30
-    assert all(n in every for _, ns in mention_recall.CASES for n in ns)
+    assert all(any(a in every for a in n.split("|")) for _, ns in mention_recall.CASES for n in ns)
