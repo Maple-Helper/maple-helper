@@ -535,6 +535,7 @@ def test_the_maps_are_listed_before_anything_is_typed_and_a_search_narrows_them(
     rows = [{"key": f"map/{100000000 + i:09d}", "map": f"Field {i:03d}", "street": "Victoria Road",
              "lv_min": i, "lv_max": i + 5} for i in range(60)]
     rows.append({"key": "map/100000999", "map": "Henesys", "street": "Victoria Road", "lv_min": None, "lv_max": None})
+    rows.append({"key": "map/100000998", "map": "Henesys Pig Farm", "street": "Victoria Road", "lv_min": 7, "lv_max": 7})
     real = tables.rows
     monkeypatch.setattr(tables, "rows", lambda kb, name, *a, **kw: rows if name == "maps" else real(kb, name, *a, **kw))
     monkeypatch.setattr(tables, "ready", lambda kb: True)
@@ -544,10 +545,11 @@ def test_the_maps_are_listed_before_anything_is_typed_and_a_search_narrows_them(
     assert win._title.text() == "Maps" and win._box.placeholderText() == "Search maps…"
     assert len(win._rows) == gamesearch.LIMIT == 50
     assert win._rows[0].name.text() == "Field 000" and win._rows[0].sub.text() == "Victoria Road · Lv. 0–5"
-    assert win._status.text() == "and 11 more — type more to narrow it down"
+    assert win._status.text() == "and 12 more — type more to narrow it down"
     win._box.setText("henesys")
     pump(qapp, 200)
-    assert [(r.name.text(), r.sub.text()) for r in win._rows] == [("Henesys", "Victoria Road")]
+    assert [(r.name.text(), r.sub.text()) for r in win._rows] == [("Henesys", "Victoria Road"),
+                                                                   ("Henesys Pig Farm", "Victoria Road · Lv. 7")]
     assert win._status.text() == ""
     win._rows[0].clicked.emit()
     assert opened == [("map", "map/100000999")]

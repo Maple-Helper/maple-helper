@@ -142,7 +142,7 @@ def _map_hits(kb) -> list[Hit]:
         if not key.startswith("map/") or not name or key in out:
             continue
         lo, hi = r.get("lv_min"), r.get("lv_max")
-        levels = f"Lv. {lo}–{hi}" if lo is not None and hi is not None else ""
+        levels = "" if lo is None or hi is None else f"Lv. {lo}" if lo == hi else f"Lv. {lo}–{hi}"
         out[key] = Hit(key, name, " · ".join(x for x in (str(r.get("street") or ""), levels) if x), "map")
     return sorted(out.values(), key=lambda h: (_fold(h.name), h.key))
 
