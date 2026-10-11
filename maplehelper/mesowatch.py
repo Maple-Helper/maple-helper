@@ -14,8 +14,8 @@ Close to the site, and light on it: an open app checks every 15 minutes (the own
 MesoWatch, which publishes about every 12 minutes; app.py's timer, and a price looked up after that long). One small
 index file (index.json says when the market was last published) decides whether the market file is fetched at all;
 that fetch is conditional (ETag) and gzip-compressed (14 MB of JSON comes down as about 1.5 MB). What the app needs is
-kept on disk (DATA_DIR/mesowatch.json, about 1 MB), so a restart doesn't download again. Seller names are not kept:
-the app shows where a shop stands and its price, not who runs it.
+kept on disk (DATA_DIR/mesowatch.json, a few MB), so a restart doesn't download again. A shop's owner is kept, as
+MesoWatch shows it: the character name is how a player finds that shop in the Free Market (the owner, 2026-10-11).
 
 Only the live world's market (MesoWatch's default, "Classic World"); its closed-test markets (COT1, COT2) are past
 tests, not today's prices. Items are matched by the game's own item ID when the KB has it (an item's icon URL,
@@ -43,15 +43,20 @@ SITE = "https://meso.watch/"
 INDEX_URL = SITE + "data/markets/index.json"
 MARKET_URL = SITE + "data/market.json"       # the default market's whole file
 LIVE_MARKET = "Classic World"                # MesoWatch's id of the live world's market
+# the shop owners' character pictures: {seller: "afcd2541d8f9.webp"} (45 KB), each picture under sellers/<market>/
+FACES_URL = SITE + "data/shopmap/" + urllib.parse.quote(LIVE_MARKET) + ".json"
+FACE_BASE = SITE + "data/shopmap/sellers/" + urllib.parse.quote(LIVE_MARKET) + "/"
 REFRESH_SECONDS = 15 * 60                    # a check every 15 minutes (the site publishes about every 12)
 RETRY_SECONDS = 300                          # after a failed check
 STALE_SECONDS = 3 * 24 * 3600                # older than this, the numbers are not shown at all
 TREND_DAYS = 7                               # the trend is read over the last week's daily medians
 TREND_MIN_SOLD = 3                           # a day with fewer sales is too thin to measure a trend from
 SHOPS_KEPT = 8                               # as many as MesoWatch publishes per item
-RECENT_KEPT = 5                              # an item's newest sales kept (no seller names)
+RECENT_KEPT = 40                             # an item's newest sales kept (the details window's spread chart)
+HISTORY_KEPT = 30                            # daily medians kept (its over-time chart)
 TIMEOUT = 30
-SLIM_VERSION = 2                             # 2: recent sales, listings, Cash Shop items
+SLIM_VERSION = 4                             # 2: recent sales, listings, Cash Shop items; 3: sellers, history; 4: category
+CATEGORIES = ("Equips", "Weapons", "Scrolls", "Use", "Etc", "Stars", "Cash Shop")   # MesoWatch's tabs, in its order
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()                     # one check at a time; the others wait and read its result
@@ -59,6 +64,7 @@ _snap: Snapshot | None = None
 _loaded = False                              # the disk copy was read (once per run)
 _checked = 0.0                               # monotonic time of the last check (successful or not)
 _failed = False
+_version = 0                                 # goes up each time a newer market comes in (the Free Market page redraws)
 
 
 def _file() -> Path:
@@ -75,6 +81,7 @@ class Shop:
     qty: int = 1
     stock: int | None = None    # how many the shop had
     seen: float | None = None   # unix time the stream last showed it
+    seller: str = ""            # the shop owner's character name, as the stream showed it
 
 
 @dataclass
@@ -83,6 +90,16 @@ class Sale:
     qty: int = 1
     location: str = ""
     time: float | None = None
+    seller: str = ""
+
+
+@dataclass
+class Day:
+    date: str                   # "2026-10-10"
+    median: int | float
+    low: int | float | None = None
+    high: int | float | None = None
+    sold: int = 0
 
 
 @dataclass
@@ -110,6 +127,13 @@ class Sales:
     cash: bool = False          # a Cash Shop item
     cash_on_sale: bool | None = None     # in the Cash Shop now (None: MesoWatch doesn't know)
     nx: int | None = None       # its Cash Shop price
+    history: list[Day] = field(default_factory=list)      # daily medians, oldest first
+    category: str = ""          # MesoWatch's tab: "Equips", "Weapons", "Scrolls", "Use", "Etc", "Stars", "Cash Shop"
+
+    @property
+    def first_day(self) -> str:
+        """The first day MesoWatch saw it sell (within the history it publishes): "2026-10-10", or ""."""
+        return self.history[0].date if self.history else ""
 
     @property
     def empty(self) -> bool:
@@ -127,6 +151,7 @@ class Snapshot:
     items: dict[int, Sales]
     fetched: float = 0.0        # when we last confirmed it is current
     by_name: dict[str, int] = field(default_factory=dict)   # folded name -> game id, names one item has
+    faces: dict[str, str] = field(default_factory=dict)     # seller -> their character picture's file name
 
     @property
     def stale(self) -> bool:
@@ -180,7 +205,7 @@ def _place(v) -> str:
     return f"Free Market {m.group(1)}" if m else text
 
 
-def slim(doc: dict, world: str = "") -> dict:
+def slim(doc: dict, world: str = "", faces: dict | None = None) -> dict:
     """MesoWatch's market file cut down to what the app uses: no seller names, and of the sales list only each
     item's newest RECENT_KEPT (price, amount, where, when)."""
     recent: dict[str, list[dict]] = {}
@@ -190,7 +215,7 @@ def slim(doc: dict, world: str = "") -> dict:
         got = recent.setdefault(str(sale.get("itemId")), [])
         if len(got) < RECENT_KEPT:
             got.append({"price": sale.get("price"), "qty": sale.get("qty"), "location": _place(sale.get("location")),
-                        "time": sale.get("time")})
+                        "time": sale.get("time"), "seller": str(sale.get("seller") or "")})
     items = []
     for it in doc.get("items") or []:
         if not isinstance(it, dict) or game_id_of(it.get("id")) is None:
@@ -201,19 +226,27 @@ def slim(doc: dict, world: str = "") -> dict:
         for s in (it.get("listings") or [])[:SHOPS_KEPT]:
             if isinstance(s, dict) and _num(s.get("price")):
                 shops.append({"location": _place(s.get("location")), "price": s.get("price"),
-                              "qty": s.get("qty"), "stock": s.get("stock"), "seen": s.get("lastSeen")})
+                              "qty": s.get("qty"), "stock": s.get("stock"), "seen": s.get("lastSeen"),
+                              "seller": str(s.get("seller") or "")})
         tr, days = trend(it.get("history") or [])
         cash = it.get("cash") if isinstance(it.get("cash"), dict) else None
-        items.append({"id": it["id"], "name": it.get("name") or "", "price": it.get("price"), "p25": it.get("p25"),
+        items.append({"id": it["id"], "name": it.get("name") or "", "category": str(it.get("category") or ""),
+                      "price": it.get("price"), "p25": it.get("p25"),
                       "p75": it.get("p75"), "sold": it.get("sold") or 0, "lowData": bool(it.get("lowData", True)),
                       "ask": it.get("askMedian"), "asks": it.get("asks") or 0, "lastSold": it.get("lastSold"),
                       "set": it.get("unitBasis") == "set", "scrolledOnly": bool(it.get("scrolledOnly")),
                       "trend": tr, "trendDays": days, "shops": shops, "listingShops": it.get("listingShops") or 0,
                       "days": sum(1 for p in it.get("history") or [] if isinstance(p, dict) and p.get("sold")),
                       "recent": recent.get(str(it["id"]), []),
+                      "history": [{"date": p["date"], "median": p.get("median"), "low": p.get("low"),
+                                   "high": p.get("high"), "sold": p.get("sold") or 0}
+                                  for p in (it.get("history") or [])[-HISTORY_KEPT:]
+                                  if isinstance(p, dict) and isinstance(p.get("date"), str) and _num(p.get("median"))],
                       "cash": {"onSale": cash.get("onSale"), "nx": cash.get("nx")} if cash else None})
+    faces = {str(k): str(v) for k, v in (faces or {}).items()
+             if isinstance(v, str) and re.fullmatch(r"[\w-]+\.(?:webp|png|jpg)", v)}
     return {"version": SLIM_VERSION, "world": world, "market": doc.get("market"),
-            "generated_at": doc.get("generated_at"), "items": items}
+            "generated_at": doc.get("generated_at"), "items": items, "faces": faces}
 
 
 def parse(data: dict) -> Snapshot | None:
@@ -229,10 +262,14 @@ def parse(data: dict) -> Snapshot | None:
         if gid is None or (gid in out and str(it["id"]).startswith("cash:")):
             continue                    # the same number on both sides: the game item's row wins
         shops = [Shop(s["location"], _num(s.get("price")), _num(s.get("qty")) or 1, _num(s.get("stock")),
-                      _ts(s.get("seen"))) for s in it.get("shops") or [] if isinstance(s, dict) and _num(s.get("price"))]
+                      _ts(s.get("seen")), str(s.get("seller") or ""))
+                 for s in it.get("shops") or [] if isinstance(s, dict) and _num(s.get("price"))]
         shops.sort(key=lambda s: s.seen or 0, reverse=True)
-        recent = [Sale(_num(r.get("price")), _num(r.get("qty")) or 1, str(r.get("location") or ""), _ts(r.get("time")))
+        recent = [Sale(_num(r.get("price")), _num(r.get("qty")) or 1, str(r.get("location") or ""), _ts(r.get("time")),
+                       str(r.get("seller") or ""))
                   for r in it.get("recent") or [] if isinstance(r, dict) and _num(r.get("price"))]
+        history = [Day(p["date"], _num(p.get("median")), _num(p.get("low")), _num(p.get("high")), int(p.get("sold") or 0))
+                   for p in it.get("history") or [] if isinstance(p, dict) and _num(p.get("median"))]
         recent.sort(key=lambda r: r.time or 0, reverse=True)
         last3 = [r.price for r in recent[:3]]
         cash = it.get("cash") if isinstance(it.get("cash"), dict) else None
@@ -244,12 +281,13 @@ def parse(data: dict) -> Snapshot | None:
                          int(it.get("days") or 0), recent,
                          _num(sum(last3) / len(last3)) if len(last3) == 3 else None,
                          cash is not None, cash.get("onSale") if cash and isinstance(cash.get("onSale"), bool) else None,
-                         _num(cash.get("nx")) if cash else None)
+                         _num(cash.get("nx")) if cash else None, history, str(it.get("category") or ""))
     names: dict[str, list[int]] = {}
     for gid, s in out.items():
         names.setdefault(_fold(s.name), []).append(gid)
+    faces = data.get("faces") if isinstance(data.get("faces"), dict) else {}
     return Snapshot(str(data.get("world") or "") or LIVE_MARKET, generated, out,
-                    by_name={n: ids[0] for n, ids in names.items() if n and len(ids) == 1})
+                    by_name={n: ids[0] for n, ids in names.items() if n and len(ids) == 1}, faces=faces)
 
 
 def _fold(name: str) -> str:
@@ -306,7 +344,7 @@ def _write_disk(data: dict) -> None:
 
 def _check(timeout: float) -> None:
     """Brings the snapshot up to date (caller holds _lock)."""
-    global _snap, _failed
+    global _snap, _failed, _version
     snap, raw = _read_disk() if _snap is None else (_snap, {})
     if snap is not None:
         _snap = snap
@@ -337,7 +375,7 @@ def _check(timeout: float) -> None:
     if not isinstance(doc, dict) or doc.get("market") != LIVE_MARKET or doc.get("preview"):
         _failed = False
         return
-    data = slim(doc, world)
+    data = slim(doc, world, _faces(timeout))
     snap = parse(data)
     if snap is None:
         raise ValueError("MesoWatch's market file has an unexpected shape")
@@ -349,6 +387,46 @@ def _check(timeout: float) -> None:
         log.warning("could not keep MesoWatch's prices on disk", exc_info=True)
     _snap = snap
     _failed = False
+    _version += 1
+
+
+def _faces(timeout: float) -> dict:
+    """The sellers' pictures map, fetched with the market file; without it the rows show an initial."""
+    try:
+        _, body, _ = _request(FACES_URL, timeout=timeout)
+        data = json.loads(body.decode("utf-8"))
+        return data.get("faces") if isinstance(data, dict) and isinstance(data.get("faces"), dict) else {}
+    except Exception:          # noqa: BLE001 - pictures are a nicety
+        log.info("MesoWatch faces unavailable", exc_info=True)
+        return {}
+
+
+def face_file(snap: Snapshot | None, seller: str, timeout: float = 10) -> Path | None:
+    """The seller's character picture on disk (downloaded once, kept in DATA_DIR/mesowatch_faces); None when
+    MesoWatch has none for them or it can't be fetched. Blocking: call it off the UI thread."""
+    name = snap.faces.get(seller) if snap and seller else None
+    if not name or not re.fullmatch(r"[\w-]+\.(?:webp|png|jpg)", name):
+        return None
+    folder = _file().parent / "mesowatch_faces"
+    path = folder / name
+    if path.exists():
+        return path
+    try:
+        status, body, _ = _request(FACE_BASE + name, timeout=timeout)
+        if status != 200 or not body:
+            return None
+        folder.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        tmp.write_bytes(body)
+        tmp.replace(path)
+        return path
+    except Exception:          # noqa: BLE001 - offline: the initial stays
+        return None
+
+
+def version() -> int:
+    """A number that changes when a newer market came in: a page showing the market redraws when it moves."""
+    return _version
 
 
 def snapshot(refresh: bool = True, timeout: float = TIMEOUT) -> Snapshot | None:

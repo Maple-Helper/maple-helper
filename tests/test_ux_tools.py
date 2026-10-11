@@ -164,7 +164,6 @@ def test_an_offline_free_market_offers_to_try_again(tools, monkeypatch):
 def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch, lang):
     import time
 
-    from PySide6.QtWidgets import QPushButton
 
     from maplehelper import mesowatch
     snap = mesowatch.Snapshot("Windia", time.time() - 600, {})
@@ -174,8 +173,9 @@ def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch
                           recent=[mesowatch.Sale(450, 1, "Free Market 2", time.time() - 120),
                                   mesowatch.Sale(400, 2, "", time.time() - 600), mesowatch.Sale(410)])
     monkeypatch.setattr(mesowatch, "for_item", lambda kb, key, *a, **k: (snap, ore))
-    opened = []
-    monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
+    from maplehelper.ui.widgets import MARKET_REQUESTS
+    asked = []
+    MARKET_REQUESTS.requested.connect(asked.append)
     d = tools(page="prices", lang=lang)
     d.price_input.setText("Iron Ore")
     d._fill_prices()
@@ -184,13 +184,11 @@ def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch
     text = d.mw_label.text()
     assert "375" in text and "Windia" in text
     more = [d.mw_more.itemAt(i).widget().text() for i in range(d.mw_more.count())]
-    assert any("299" in x and "499" in x for x in more) and any("399" in x and "Rain-Forest" in x for x in more)
-    assert any("450" in x and "420" in x and "2,243" in x for x in more)      # last sale, last 3 average, count
-    assert any("1,170" in x for x in more) and any("Free Market 2" in x for x in more)
-    link = [b for b in d.findChildren(QPushButton) if "MesoWatch" in b.text()]
-    assert link
-    link[0].click()
-    assert opened == ["https://meso.watch/?item=04010001"]
+    # the basics only (the owner): the last sale and the count; the lists are in the details window
+    assert len(more) == 1 and "450" in more[0] and "2,243" in more[0] and "Rain-Forest" not in more[0]
+    d.mw_details.click()
+    assert asked == [d._price_key]
+    MARKET_REQUESTS.requested.disconnect(asked.append)
     d._on_mesowatch((d._price_key, (None, None)))                       # can't reach it
     assert "MesoWatch" in d.mw_label.text() and d.mw_more.count() == 0
 

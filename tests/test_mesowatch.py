@@ -82,6 +82,8 @@ def site(monkeypatch, tmp_path):
     state = {"index": index_doc(), "market": market_doc(), "etag": '"v1"', "calls": [], "down": False}
 
     def request(url, etag="", timeout=30):
+        if url == mesowatch.FACES_URL and not state["down"]:
+            return 200, b'{"faces": {}}', ""          # the sellers' pictures: not what these tests count
         state["calls"].append((url, etag))
         if state["down"]:
             raise OSError("offline")
@@ -94,12 +96,16 @@ def site(monkeypatch, tmp_path):
     return state
 
 
-def test_the_slim_copy_keeps_prices_and_shops_but_no_names_or_sales():
+def test_the_slim_copy_keeps_prices_shops_and_their_owners_but_not_the_whole_sales_list():
     data = mesowatch.slim(market_doc(), "Windia")
     assert [i["id"] for i in data["items"]] == ["basil:04010001", "basil:02060000", "basil:01302008",
                                                 "cash:01007145"]
     text = json.dumps(data)
-    assert "sales" not in data and not any(n in text for n in ("Thorfein", "Space Ghost", "ShadowBlade"))
+    assert "sales" not in data
+    # the shop's owner, as MesoWatch shows it: how a player finds the shop (the owner, 2026-10-11)
+    assert data["items"][0]["shops"][0]["seller"] == "Thorfein" and data["items"][3]["recent"][0]["seller"] == "Space Ghost"
+    assert data["items"][3]["category"] == "Cash Shop" and len(data["items"][3]["history"]) == 4
+    assert "Thorfein" in text
     assert data["items"][3]["recent"][1]["location"] == "Free Market 2"      # the room's sign, read twice
     assert data["items"][0]["shops"][0]["location"] == "The Rain-Forest East of Henesys"
 
@@ -132,7 +138,7 @@ def test_first_lookup_downloads_and_keeps_a_copy(site, tmp_path):
     assert snap.world == "Windia" and ore.price == 375
     assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL, mesowatch.MARKET_URL]
     kept = json.loads((tmp_path / "mesowatch.json").read_text(encoding="utf-8"))
-    assert kept["etag"] == '"v1"' and "Thorfein" not in json.dumps(kept)
+    assert kept["etag"] == '"v1"' and "Thorfein" in json.dumps(kept)
 
 
 def test_within_the_hour_nothing_is_asked_again(site):
@@ -274,3 +280,27 @@ def test_a_check_is_due_after_15_minutes_even_when_the_timer_is_early(site):
     site["calls"].clear()
     mesowatch.snapshot()
     assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL]
+
+
+def test_a_newer_market_moves_the_version_and_brings_the_sellers_pictures(site, tmp_path, monkeypatch):
+    real = site and mesowatch._request
+    pictures = []
+
+    def request(url, etag="", timeout=30):
+        if url == mesowatch.FACES_URL:
+            return 200, json.dumps({"faces": {"Thorfein": "abc123.webp", "bad": "../x.exe"}}).encode(), ""
+        if url.startswith(mesowatch.FACE_BASE):
+            pictures.append(url)
+            return 200, b"RIFF-webp", ""
+        return real(url, etag, timeout)
+    monkeypatch.setattr(mesowatch, "_request", request)
+    before = mesowatch.version()
+    snap = mesowatch.snapshot()
+    assert mesowatch.version() == before + 1
+    assert snap.faces == {"Thorfein": "abc123.webp"}                   # a file name only: nothing else is fetched
+    path = mesowatch.face_file(snap, "Thorfein")
+    assert path.read_bytes() == b"RIFF-webp" and mesowatch.face_file(snap, "Thorfein") == path
+    assert len(pictures) == 1                                           # kept: asked once
+    assert mesowatch.face_file(snap, "Nobody") is None and mesowatch.face_file(snap, "bad") is None
+    hat = snap.items[1007145]
+    assert hat.category == "Cash Shop" and hat.first_day == "2026-10-08"

@@ -22,11 +22,12 @@ from . import mapview, terms, theme
 from .controls import BalancedRow, FlowLayout, Section, Segmented, Stepper, Switch, WrapLink, follow_typing, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
 from .location import LOCATION
-from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, name_lv, source_tag, source_tags,
+from .widgets import (MARKET_REQUESTS, changed_tag, chip_row, fit_picture, info_tag, mesos_text, mesos_tip, name_lv, source_tag, source_tags,
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
+# "market": the Free Market page (ui/marketpage.py), MesoWatch's items by tab; the Pets page is a tab in it
+PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "market")
 # the pages that are all about the character: with none, one card that offers to add one takes their place (a live
 # stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
 CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
@@ -76,7 +77,6 @@ NAME_ROLE = Qt.UserRole + 1
 PATH_ROLE = Qt.UserRole + 2
 FIND_ROLE = Qt.UserRole + 3         # what the list filters on: the name, plus a misspelling it is close to
 SELL_FM_DEADLINE = 20               # seconds the sell check starts new Free Market lookups for
-LISTINGS_MW = 3                     # MesoWatch shops shown under an item's price, cheapest first
 
 
 def _close(typed: str, name: str) -> bool:
@@ -453,6 +453,7 @@ class ToolsDialog(GlassDialog):
         self._pending = list(PAGES)
         for _ in PAGES:
             self.stack.addWidget(QWidget())
+        page = "market" if page == "pets" else page      # the Pets page is a tab of the Free Market now
         start = PAGES.index(page) if page in PAGES else 0
         self._build_page(PAGES[start])
         no_default_buttons(self)
@@ -2758,11 +2759,13 @@ class ToolsDialog(GlassDialog):
         web.clicked.connect(lambda _=False, n=name, i=item_id: __import__("webbrowser").open(
             market.item_page(i) if i else market.page_url(n)))
         col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
-        # MesoWatch's terms: a visible credit and link wherever its prices show (the chip, and this)
-        mw = QPushButton(self._p(t("price_mw_open")), objectName="Link")
+        # MesoWatch's full card in its own window (chart, where to buy, recent sales; it links to the site: the
+        # credit and link its terms ask for, with the chip here)
+        mw = QPushButton(self._p(t("price_mw_details")), objectName="Secondary")
         mw.setCursor(Qt.PointingHandCursor)
-        mw.clicked.connect(lambda _=False: __import__("webbrowser").open(mesowatch.item_url(self._mw_id)))
+        mw.clicked.connect(lambda _=False, k=key: MARKET_REQUESTS.requested.emit(k))
         col.addWidget(mw, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
+        self.mw_details = mw
         # who drops it (Farm), the way to the cheapest shop
         acts = [("go_get", lambda n=name: self._go_farm_item(n))] if self.kb.droppers.get(key) else []
         if shops and routes.of(self.kb).find(shops[0][0]):
@@ -2808,74 +2811,24 @@ class ToolsDialog(GlassDialog):
             pass                        # the card was redrawn meanwhile
 
     def _mw_lines(self, snap, s) -> tuple[str, list[str]]:
-        """An item's MesoWatch sales in words: the usual sold price beside the chip, then how solid it is, the trend,
-        what shops ask and the shops seen listing it (smaller, under it)."""
+        """An item's MesoWatch sales in short (the owner: the card has the basics, the details window the rest): the
+        usual sold price beside the chip, then the last sale and how many sold over how many days, and a few-sales
+        warning. The chart, the shops and the newest sales are in the window ("Full details")."""
         t = self.t
         if snap is None:
             return t("price_mw_offline"), []
-        more: list[str] = []
         if s is None or not s.price:
-            text = t("price_mw_none")
-        else:
-            text = t("price_mw", price=f"{s.price:,}", n=f"{s.sold:,}", world=snap.world)
-            facts = []
-            if s.p25 and s.p75 and s.p25 != s.p75:
-                facts.append(t("price_mw_range", low=f"{s.p25:,}", high=f"{s.p75:,}"))
-            if s.per_set:
-                facts.append(t("price_mw_per_set"))
-            if s.low_data:
-                facts.append(t("price_mw_few"))
-            if s.scrolled_only:
-                facts.append(t("price_mw_scrolled"))
-            if facts:
-                more.append(" · ".join(facts))
-            # MesoWatch's own card: the last sale, the last 3's average, how many sales over how many days
-            stats = []
-            if s.last:
-                stats.append(t("price_mw_last", price=f"{s.last.price:,}", ago=market_ago(t, s.last.time))
-                             if s.last.time else t("price_mw_last", price=f"{s.last.price:,}", ago="-"))
-            if s.last3:
-                stats.append(t("price_mw_last3", price=f"{s.last3:,}"))
-            if s.days:
-                stats.append(t("price_mw_day" if s.days == 1 else "price_mw_days", n=f"{s.sold:,}", days=s.days))
-            if stats:
-                more.append(" · ".join(stats))
-            moves = []
-            if s.trend_pct is not None and s.trend_days:
-                arrow = "▲" if s.trend_pct > 0 else "▼" if s.trend_pct < 0 else "="
-                moves.append(t("price_mw_trend", trend=f"{arrow} {abs(s.trend_pct)}%", days=s.trend_days,
-                               n=s.trend_days))
-            if s.ask:
-                moves.append(t("price_mw_ask", price=f"{s.ask:,}"))
-            if moves:
-                more.append(" · ".join(moves))
-        if s is not None and s.asks:
-            more.append(t("price_mw_listings", n=f"{s.asks:,}", shops=f"{max(s.listing_shops, 1):,}"))
-        if s is not None and s.cash and s.cash_on_sale is not None:
-            more.append(t("price_mw_cash_nx", nx=f"{s.nx:,}") if s.cash_on_sale and s.nx
-                        else t("price_mw_cash_on") if s.cash_on_sale else t("price_mw_cash_off"))
-        if s is not None and s.recent:
-            more.append(t("price_mw_recent"))
-            for r in s.recent[:LISTINGS_MW]:
-                bits = [bidi.ltr_block(f"{r.price:,} mesos" + (f" x{r.qty}" if r.qty > 1 else ""), t.rtl)]
-                if r.location:
-                    bits.append(bidi.ltr_block(r.location, t.rtl))
-                if r.time:
-                    bits.append(market_ago(t, r.time))
-                more.append("• " + " · ".join(bits))
-        if s is not None and s.shops:
-            more.append(t("price_mw_shops"))
-            for x in sorted(s.shops, key=lambda x: x.price)[:LISTINGS_MW]:
-                # each English part one block: in a Hebrew line "399 mesos", the map and "8" ran together reversed
-                bits = [bidi.ltr_block(f"{x.price:,} mesos", t.rtl)] + ([bidi.ltr_block(x.location, t.rtl)]
-                                                                        if x.location else [])
-                if x.stock:
-                    bits.append(t("price_mw_stock", n=x.stock))
-                if x.seen:
-                    bits.append(market_ago(t, x.seen))
-                more.append("• " + " · ".join(bits))
-        more.append(t("price_mw_updated", ago=market_ago(t, snap.generated)))
-        return text, more
+            return t("price_mw_none"), []
+        text = t("price_mw", price=f"{s.price:,}", n=f"{s.sold:,}", world=snap.world)
+        stats = []
+        if s.last:
+            stats.append(t("price_mw_last", price=f"{s.last.price:,}", ago=market_ago(t, s.last.time) if s.last.time
+                           else "-"))
+        if s.days:
+            stats.append(t("price_mw_day" if s.days == 1 else "price_mw_days", n=f"{s.sold:,}", days=s.days))
+        if s.low_data:
+            stats.append(t("price_mw_few"))
+        return text, [" · ".join(stats)] if stats else []
 
     def _fm_lookup(self, name: str, item_id: int | None) -> None:
         """The item's Free Market from MeowDB, in the background (market_ready brings it back)."""
@@ -4099,6 +4052,12 @@ class ToolsDialog(GlassDialog):
         self.inventory_ready.connect(self._show_sell)
         self.sell_market_ready.connect(self._on_sell_market)
         return sc
+
+    def _page_market(self):
+        """The Free Market: every item on the live world's market by tab, and the pets (their own page before)."""
+        from .marketpage import MarketPage
+        self.market_page = MarketPage(self.kb, self.t, pets=self._page_pets())
+        return self.market_page
 
     def _page_pets(self):
         sc, lay = scroll_page(self.t.rtl)
