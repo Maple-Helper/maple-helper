@@ -1248,6 +1248,8 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
         self.npc_overlay = Switch(settings["npc_overlay"])
         sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
+        self.monster_overlay = Switch(settings["monster_overlay"])
+        sec.add_row(t("monster_overlay"), self.monster_overlay, hint=t("monster_overlay_hint"))
         try:
             opacity = float(settings["npc_overlay_opacity"])
         except (TypeError, ValueError):
@@ -1875,6 +1877,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "minimap_hidden_portals": self.hidden_portals.isChecked(),
             "game_toolbar": self.game_toolbar.isChecked(),
             "npc_overlay": self.npc_overlay.isChecked(),
+            "monster_overlay": self.monster_overlay.isChecked(),
             "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
             "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),

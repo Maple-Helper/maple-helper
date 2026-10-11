@@ -1,10 +1,10 @@
-"""The gear upgrade advisor (maplehelper/gearadvice.py and its window over the game): who can wear what —
+"""The gear upgrade advisor (maplehelper/gearadvice.py and its Gear page in the play tools): who can wear what —
 level, class and the weapons each 2nd job actually fights with, gender, stat requirements against the player's
 typed stats (unknown ones flag, never hide) — the transparent ranking (main attack first, the class's main and
 secondary stat, weapon speed; armour by stats then defense), the "soon" horizon, every price and dropper from
-the KB's own tables, and the window's life: rows in both languages, the worn-item picker saving to the
-character, the ✕ turning its setting off. The real-KB tests prove a Lv 32 Assassin never gets a bow, a
-Warrior-only item, an over-level item in "now" or a Female-only one."""
+the KB's own tables, and the page's life: rows in both languages, the worn-item picker saving to the
+character, stats typed just before leaving kept, "Plan scrolls" opening the Scrolls page. The real-KB tests
+prove a Lv 32 Assassin never gets a bow, a Warrior-only item, an over-level item in "now" or a Female-only one."""
 import json
 import os
 from pathlib import Path
@@ -332,7 +332,7 @@ def test_untyped_stats_flag_instead_of_hiding(real):
     assert flagged                                                                 # the real KB does ask stats
 
 
-# ---------------------------------------------------------------- the window
+# ---------------------------------------------------------------- the Gear page of the play tools
 
 @pytest.fixture
 def qapp():
@@ -341,111 +341,131 @@ def qapp():
 
 
 @pytest.fixture
-def settings(isolated_store):
-    return isolated_store.Settings()
-
-
-@pytest.fixture
 def profiles(isolated_store):
     return isolated_store.Profiles()
 
 
 @pytest.fixture
-def win(qapp, settings, profiles, kb, drops):
-    from maplehelper.i18n import I18n
-    from maplehelper.ui.gearadvisor import GearAdvisor
+def tools(qapp, isolated_store, profiles, kb, drops, monkeypatch):
+    """make(lang): the tools window on its Gear page, shown, for the sample Lv 32 Assassin. The Free Market is
+    offline (the Scrolls page a "Plan scrolls" opens reaches no network)."""
+    from PySide6.QtCore import QEvent
+
+    from maplehelper.ui.tools import ToolsDialog
+    monkeypatch.setattr("maplehelper.market.item_market", lambda item_id, timeout=8: None)
     c = profiles.add("ShadowK", "Thief", "Assassin", 32)
     c.gender, c.ap = "Male", {"str": 4, "dex": 50, "luk": 120}
     profiles.save()
-    settings["gear_advisor"] = True
-    w = GearAdvisor(kb, settings, profiles, I18n("en"))
-    yield w
-    from PySide6.QtCore import QEvent
-    for timer in (w._typing, w._stats_typing, w._geom):
-        timer.stop()
-    w.hide()
-    w.deleteLater()
+    made = []
+
+    def make(lang="en"):
+        d = ToolsDialog(kb, profiles, isolated_store.Settings(), lang, "", {}, "gear")
+        d.show()
+        qapp.processEvents()
+        made.append(d)
+        return d
+    yield make
+    for d in made:
+        d.close()
+        d.deleteLater()
     qapp.processEvents()
     qapp.sendPostedEvents(None, QEvent.DeferredDelete)
     qapp.processEvents()
 
 
-def test_the_window_shows_rows_in_both_languages_and_the_x_turns_it_off(qapp, win, settings):
+@pytest.fixture
+def win(tools):
+    return tools().gear_advisor
+
+
+def test_the_gear_tab_shows_rows_in_both_languages(qapp, tools):
     from PySide6.QtCore import Qt
     from PySide6.QtWidgets import QLabel
-    from maplehelper.i18n import STRINGS, I18n
-    win.refresh()
-    assert win.isVisible()
-    assert win._title.text() == STRINGS["ga_title"]["en"]
-    names = {x.text() for x in win.findChildren(QLabel) if x.objectName() == "Name"}
+
+    from maplehelper.ui.tools import PAGES
+    d = tools()
+    assert PAGES[d.stack.currentIndex()] == "gear" and d.nav.button(PAGES.index("gear")).text() == "Gear"
+    win = d.gear_advisor
+    assert win.window() is d and not win.windowFlags() & Qt.WindowStaysOnTopHint    # a page, not a glass window
+    names = {x.text() for x in win.findChildren(QLabel) if x.objectName() == "CardName"}
     assert {"Keen Guard", "Fast Guard", "Plain Guard"} <= names                    # the advice, in English
-    subs = [x.text() for x in win.findChildren(QLabel) if x.objectName() == "Sub"]
+    subs = [x.text() for x in win.findChildren(QLabel) if x.objectName() in ("CardSub", "CardStat")]
     assert any("Lv. 30" in s for s in subs) and not any("Lv. Lv" in s for s in subs)  # never "Lv. Lv. 30"
-    win.apply_language(I18n("he"))
-    assert win._title.text().replace(chr(0x200F), "") == STRINGS["ga_title"]["he"]
-    assert win.layoutDirection() == Qt.RightToLeft
-    assert {x.text() for x in win.findChildren(QLabel) if x.objectName() == "Name"} >= {"Fast Guard"}
-    closed = []
-    win.closed.connect(lambda: closed.append(True))
-    win._close.click()
-    qapp.processEvents()
-    assert settings["gear_advisor"] is False and not win.isVisible() and closed == [True]
+    he = tools("he")
+    assert he.nav.button(PAGES.index("gear")).text().replace(chr(0x200F), "") == "ציוד"
+    assert he.gear_advisor.layoutDirection() == Qt.RightToLeft
+    he_names = [x.text() for x in he.gear_advisor.findChildren(QLabel) if x.objectName() == "CardName"]
+    assert "⁦Fast Guard⁩" in "".join(he_names)                         # the English name one block
+
+
+def test_the_gear_tab_needs_a_character(qapp, isolated_store, kb, drops):
+    """No character: the tools window's own "add a character" card stands in the Gear page's place."""
+    from maplehelper.ui.tools import ToolsDialog
+    d = ToolsDialog(kb, isolated_store.Profiles(), isolated_store.Settings(), "en", "", {}, "gear")
+    try:
+        assert d.stack.currentWidget().currentIndex() == 1
+    finally:
+        d.close()
 
 
 def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
-    from maplehelper.ui.gamesearch import _Row
-    win.refresh()
+    from maplehelper.ui.scrollplanner import PickRow
     win._worn_clicked("Claw")
     qapp.processEvents()
     assert win._pick_slot == "Claw" and win._pick_box.isVisibleTo(win)
-    rows = [r for r in win._pick_rows if isinstance(r, _Row)]
+    rows = [r for r in win._pick_rows if isinstance(r, PickRow)]
     assert rows[0].name.text() == "Nothing worn here"                              # taking it off is a choice
     expected = next(p for p in win._plans if p.slot == "Claw").picker[0]["key"]
     rows[1].clicked.emit()                                                         # the first claw of the list
     qapp.processEvents()
     assert profiles.active.gear.get("Claw") == expected                            # saved to the character
     win._worn_clicked("Claw")
-    rows = [r for r in win._pick_rows if isinstance(r, _Row)]
+    rows = [r for r in win._pick_rows if isinstance(r, PickRow)]
     rows[0].clicked.emit()                                                         # nothing: taken off
     qapp.processEvents()
     assert "Claw" not in profiles.active.gear
 
 
-def test_hebrew_fold_badge_and_picker_more_line_never_crash(qapp, win):
+def test_hebrew_fold_badge_and_picker_more_line_never_crash(qapp, tools, monkeypatch):
     """bidi.ltr_block() got an int (the count): Hebrew, the default, raised in the fold click and the picker."""
-    from maplehelper.i18n import I18n
-    win.apply_language(I18n("he"))
-    win.refresh()
+    from maplehelper.ui import gearadvisor
+    win = tools("he").gear_advisor
     slot = next(p.slot for p in win._plans if p.now)
     win._fold_clicked(slot)                                        # folded: its badge counts the upgrades
     assert str(len(next(p for p in win._plans if p.slot == slot).now)) in win._badge_of[slot].text()
-    monkey = __import__("maplehelper.ui.gearadvisor", fromlist=["PICK_ROWS"])
-    old = monkey.PICK_ROWS
-    monkey.PICK_ROWS = 1                                           # more items than rows: the "and N more" line
-    try:
-        win._worn_clicked("Claw")
-        qapp.processEvents()
-        assert win._pick_more.text() and win._pick_box.hasFocus() is not None
-    finally:
-        monkey.PICK_ROWS = old
-
-
-def test_esc_in_a_box_closes_like_the_x(qapp, win, settings):
-    """Esc only hid the window: the bar's Gear button stayed lit and the window came back at the next start."""
-    from PySide6.QtCore import QEvent, Qt
-    from PySide6.QtGui import QKeyEvent
-    win.refresh()
-    closed = []
-    win.closed.connect(lambda: closed.append(True))
-    box = next(iter(win._editors.values()))
-    qapp.sendEvent(box, QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+    monkeypatch.setattr(gearadvisor, "PICK_ROWS", 1)               # more items than rows: the "and N more" line
+    win._worn_clicked("Claw")
     qapp.processEvents()
-    assert settings["gear_advisor"] is False and not win.isVisible() and closed == [True]
+    assert win._pick_more.text() and "⁦" in win._pick_more.text()
 
 
-def test_stats_typed_just_before_closing_are_kept(qapp, win, profiles):
-    win.refresh()
-    win._editors["str"].setText("77")                               # the 350 ms pause not over yet
+def test_stats_typed_just_before_leaving_are_kept(qapp, tools, profiles):
+    """The 350 ms pause not over yet when the player goes to another tab, or closes the window: saved anyway."""
+    from maplehelper.ui.tools import PAGES
+    d = tools()
+    win = d.gear_advisor
+    win._editors["str"].setText("77")
     assert win._stats_typing.isActive()
-    win._close_clicked()
-    assert profiles.active.ap.get("str") == 77
+    d.show_page(PAGES.index("scrolls"))
+    assert profiles.active.ap.get("str") == 77 and not win._stats_typing.isActive()
+    d.show_page(PAGES.index("gear"))
+    win._editors["dex"].setText("66")
+    assert win._stats_typing.isActive()
+    d.close()
+    assert profiles.active.ap.get("dex") == 66
+
+
+def test_plan_scrolls_opens_the_scrolls_page_on_that_item(qapp, tools):
+    from PySide6.QtWidgets import QPushButton
+
+    from maplehelper.ui.tools import PAGES
+    d = tools()
+    asked = []
+    d.gear_advisor.scroll_requested.connect(asked.append)
+    plan = next(b for b in d.gear_advisor.findChildren(QPushButton) if b.text() == "Plan scrolls")
+    plan.click()
+    qapp.processEvents()
+    assert PAGES[d.stack.currentIndex()] == "scrolls"
+    picked = d.scroll_planner._picked
+    assert asked and picked is not None and picked.key == asked[0]       # that item, picked on the Scrolls page
+    assert d.scroll_planner._head.name.text() == picked.item

@@ -284,6 +284,7 @@ class NpcOverlay(EdgeResize, QWidget):
     the ring on the game's own minimap is drawn elsewhere (ui/portaldots.py)."""
 
     closed = Signal()               # the ✕ turned the setting off: the toolbar's NPCs-here button unchecks
+    SHOW_KEY, GEOM_KEY = "npc_overlay", "npc_overlay_geom"     # its setting and its place (MonsterOverlay: its own)
 
     def __init__(self, kb: KnowledgeBase, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -487,7 +488,7 @@ class NpcOverlay(EdgeResize, QWidget):
         """Where the window opens: where the player left it, when that is still on a screen (a monitor since
         unplugged: beside the minimap box again)."""
         screens = [s.geometry() for s in QGuiApplication.screens()]
-        saved = self._settings["npc_overlay_geom"]
+        saved = self._settings[self.GEOM_KEY]
         size = QSize(self.width(), self._full_h if self._collapsed and self._full_h else self.height())
         if isinstance(saved, dict) and isinstance(saved.get("w"), int) and isinstance(saved.get("h"), int):
             size = mapview.clamp_size(saved["w"], saved["h"], screens, QSize(MIN_W, MIN_H))
@@ -538,7 +539,7 @@ class NpcOverlay(EdgeResize, QWidget):
     def _remember(self) -> None:
         if self._placed:            # folded, the height kept is the one it opens back to
             h = self._full_h if self._collapsed and self._full_h else self.height()
-            self._settings["npc_overlay_geom"] = {"x": self.x(), "y": self.y(), "w": self.width(), "h": h}
+            self._settings[self.GEOM_KEY] = {"x": self.x(), "y": self.y(), "w": self.width(), "h": h}
 
     # ------------------------------------------------------------ the rest of the window's life
 
@@ -551,7 +552,7 @@ class NpcOverlay(EdgeResize, QWidget):
             self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self._settings["npc_overlay_opacity"])))
         except (TypeError, ValueError):
             self._opacity = OPACITY_DEFAULT
-        if not self._settings["npc_overlay"]:
+        if not self._settings[self.SHOW_KEY]:
             if self._sel is not None:    # turned off from the bar or Settings: the ring on the game's minimap goes too
                 self._clear_pick()
             if self.isVisible():
@@ -588,7 +589,7 @@ class NpcOverlay(EdgeResize, QWidget):
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: the setting off (the Settings switch follows), the guide gone, the window hidden."""
-        self._settings["npc_overlay"] = False
+        self._settings[self.SHOW_KEY] = False
         self._clear_pick()
         self.hide()
         self.closed.emit()

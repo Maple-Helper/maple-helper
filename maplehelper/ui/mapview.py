@@ -165,14 +165,10 @@ class WayFromHere:
     tail: tuple = ()                   # Spot cards after the arrival (a door, a quest's turn-in)
 
 
-def way_from_here(kb, key: str, here_map: str | None, rides: bool = True) -> WayFromHere | None:
+def way_from_here(kb, key: str, here_map: str | None) -> WayFromHere | None:
     """The way from the player's map to this map, NPC or quest giver, or None for today's entrances view (no live
-    map, the map unknown to the graph, or no way there). Never empty: has_location stays independent of it.
-    rides=False: on foot (the game toolbar's Cabs & Teleports off): no cab, no NPC teleport, a boat still."""
+    map, the map unknown to the graph, or no way there). Never empty: has_location stays independent of it."""
     g = routes.of(kb)
-
-    def route(dest: str):
-        return g.route(here_map, dest, taxi=rides, teleport=rides)
     if not here_map or here_map not in g.maps:
         return None
     cat = key.partition("/")[0]
@@ -180,13 +176,13 @@ def way_from_here(kb, key: str, here_map: str | None, rides: bool = True) -> Way
         dest = g.of_key(key)
         if not dest:
             return None
-        r = route(dest)
+        r = g.route(here_map, dest)
         return WayFromHere(dest, r) if r is not None else None
     if cat == "npc":
         dest = g.of_key(key)
         if not dest:
             return None
-        r = route(dest)
+        r = g.route(here_map, dest)
         if r is None:
             return None
         # no minimap of its own (a shop inside): the way ends at its door, whose cards stay as the tail
@@ -201,7 +197,7 @@ def way_from_here(kb, key: str, here_map: str | None, rides: bool = True) -> Way
         dest = g.of_key(giver) if giver else None
         if not giver or not dest:
             return None
-        r = route(dest)
+        r = g.route(here_map, dest)
         if r is None:
             return None
         tail = [] if g.npc_spot(giver) else list(_npc_spots(kb, g, giver, "quest_where_start"))
@@ -519,8 +515,7 @@ class MapLocationDialog(EdgeResize, GlassDialog):
         mid = g.of_key(key) if key.startswith("map/") else None
         name = g.name(mid) if mid else (self.kb.get(key) or {}).get("name", key)
         here = LOCATION.here
-        rides = self.settings is None or bool(self.settings["game_rides"])    # no settings (a test): as before
-        way = way_from_here(self.kb, key, here.map if here else None, rides)
+        way = way_from_here(self.kb, key, here.map if here else None)
         if way is None:
             self._here_map = None
             title = "map_where_title" if key.startswith("map/") else "where_title"

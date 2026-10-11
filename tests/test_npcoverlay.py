@@ -2,6 +2,7 @@
 picked NPC and where that is measured, the guide it sets (LOCATION.guide) and lets go, and its life as a window —
 shown from the setting, placed beside the minimap box, kept where the player leaves it, closed by its ✕."""
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ from maplehelper.routes import MapInfo
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 
+BIDI_MARKS = re.compile("[%s]" % "".join(map(chr, (0x200E, 0x200F, *range(0x202A, 0x202F), *range(0x2066, 0x206A)))))
 MID, OTHER = "010020000", "010020001"        # a town with NPCs, and a map without any
 MM = [2000, 4000, 1000, 2000]                # its minimap: width, height in map units, then the origin offset
 
@@ -358,9 +360,10 @@ def test_apply_language_retexts_and_mirrors(overlay):
     w.apply_language(I18n("he"))
     assert w.layoutDirection() == Qt.RightToLeft
     title = w._title.text().replace("\xa0", " ")    # RTL rendering keeps "Fake Town" one run: its space an NBSP
-    assert "Fake Town" in title and "דמויות" in title
+    plain = BIDI_MARKS.sub("", title)
+    assert "Fake Town" in title and "NPC במפה" in plain
     from maplehelper import bidi
-    assert w._status.text() == bidi.plain("לחצו על דמות כדי להגיע אליה", True)
+    assert w._status.text() == bidi.plain("לחצו על NPC כדי להגיע אליו", True)
 
 
 # ------------------------------------------------------------ its place on the screen

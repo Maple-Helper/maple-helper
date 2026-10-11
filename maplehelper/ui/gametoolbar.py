@@ -1,5 +1,6 @@
-"""The little bar over the game: the NPCs-here window's own switch, and the three searches — where a monster
-lives, any NPC, any item (each asks the app to open ui/gamesearch.py in that mode). Like the NPCs window it
+"""The little bar over the game: only what is about where the player is now — the NPCs and the monsters on their
+map (each button its window's switch), the loot log's window — and a Tools button to the app's own Tools window,
+where everything else lives (one place for each thing: the owner's, 2026-10-11). Like the NPCs window it
 floats over the game: frameless, always on top, never taking the keyboard from it (clicks still work), dark
 glass the minimap reads never see. Where the player left it is kept in game_toolbar_pos; with none saved it
 opens just above the drawn minimap box."""
@@ -35,9 +36,8 @@ from .regionpick import from_capture
 
 SIDE, TOP, BOTTOM = SHADOW + 12, SHADOW + 8, SHADOW + 8    # content margins, past the glass's shadow rim
 GRIP = "⋮⋮"                                               # the drag handle's dots
-KINDS = {"monster_npc": "tb_monster_npc", "map": "tb_maps", "item": "tb_items", "sell": "tb_sell"}  # search buttons, i18n keys
-# the tool windows the bar shows and hides, after the loot log: each button is its window's setting -> its i18n key
-TOOLS = {"scroll_planner": "tb_scrolls", "gear_advisor": "tb_gear"}
+# the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
+WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
 QSS = f"""
 #Grip {{ color: {MUTED}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
@@ -71,16 +71,12 @@ class _Grip(QLabel):
 
 
 class GameToolbar(QWidget):
-    """The bar itself. The NPCs-here button flips settings["npc_overlay"] (npc_toggled: the window follows), the
-    search buttons ask for their search (search_requested: "monster_npc", "map", "item" or "sell"), and the ✕ turns the
-    bar itself off. Clicks work but it never takes the keyboard from the game, and the minimap reads never see
+    """The bar itself. Each WINDOWS button flips its window's setting (window_toggled: the window follows), Tools
+    asks for the app's Tools window (tools_requested), and the ✕ turns the bar itself off. Clicks work but it never takes the keyboard from the game, and the minimap reads never see
     it. Its place is kept in game_toolbar_pos."""
 
-    search_requested = Signal(str)     # which search to open: "monster_npc" | "map" | "item" | "sell"
-    npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
-    rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
-    loot_toggled = Signal()            # settings["loot_overlay"] flipped: the loot log's window follows
-    tool_toggled = Signal(str)         # a TOOLS setting flipped ("scroll_planner" | "gear_advisor"): its window follows
+    window_toggled = Signal(str)       # a WINDOWS setting flipped ("npc_overlay" | "monster_overlay" | "loot_overlay")
+    tools_requested = Signal()         # the Tools button: the app's Tools window opens
 
     def __init__(self, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -92,7 +88,6 @@ class GameToolbar(QWidget):
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self._opacity = OPACITY_DEFAULT
         self._placed = False                 # geometry applied at least once: there is a place to remember
-        self._mode = ""                      # the search window's mode, lit on its button ("" none)
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
         self.setStyleSheet(QSS)
         self._build()
@@ -106,40 +101,19 @@ class GameToolbar(QWidget):
         row.setSpacing(6)
         self._grip = _Grip()
         row.addWidget(self._grip)
-        self._npcs = QPushButton(checkable=True)
-        self._npcs.setCursor(Qt.PointingHandCursor)
-        self._npcs.setFocusPolicy(Qt.NoFocus)
-        self._npcs.clicked.connect(self._npcs_clicked)
-        row.addWidget(self._npcs)
-        self._search: dict[str, QPushButton] = {}
-        for kind in KINDS:
-            b = QPushButton()
-            b.setCursor(Qt.PointingHandCursor)
-            b.setFocusPolicy(Qt.NoFocus)
-            b.clicked.connect(lambda _=False, k=kind: self.search_requested.emit(k))
-            self._search[kind] = b
-            row.addWidget(b)
-        # the way to a found NPC or map: with cabs and NPC teleports, or on foot (the owner's, 2026-10-10)
-        self._rides = QPushButton(checkable=True)
-        self._rides.setCursor(Qt.PointingHandCursor)
-        self._rides.setFocusPolicy(Qt.NoFocus)
-        self._rides.clicked.connect(self._rides_clicked)
-        row.addWidget(self._rides)
-        # the loot log's window, as the NPCs-here button is its window's: the checkable button is the setting
-        self._loot = QPushButton(checkable=True)
-        self._loot.setCursor(Qt.PointingHandCursor)
-        self._loot.setFocusPolicy(Qt.NoFocus)
-        self._loot.clicked.connect(self._loot_clicked)
-        row.addWidget(self._loot)
-        # the scroll planner's and gear advisor's windows, each button its window's setting as the loot log's is
-        self._tools: dict[str, QPushButton] = {}
-        for key in TOOLS:
+        self._windows: dict[str, QPushButton] = {}
+        for key in WINDOWS:
             b = QPushButton(checkable=True)
             b.setCursor(Qt.PointingHandCursor)
             b.setFocusPolicy(Qt.NoFocus)
-            b.clicked.connect(lambda _=False, k=key: self._tool_clicked(k))
-            self._tools[key] = b
+            b.clicked.connect(lambda _=False, k=key: self._window_clicked(k))
+            self._windows[key] = b
             row.addWidget(b)
+        self._tools = QPushButton()
+        self._tools.setCursor(Qt.PointingHandCursor)
+        self._tools.setFocusPolicy(Qt.NoFocus)
+        self._tools.clicked.connect(lambda _=False: self.tools_requested.emit())
+        row.addWidget(self._tools)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
@@ -157,60 +131,26 @@ class GameToolbar(QWidget):
         t, rtl = self.t, self.t.rtl
         self._grip.setAccessibleName(t("tb_move"))
         self._grip.setToolTip(t("tb_move"))
-        self._npcs.setText(bidi.plain(t("tb_npcs_here"), rtl))
-        self._npcs.setToolTip(t("tb_npcs_here_tip"))
-        for kind, key in KINDS.items():
-            self._search[kind].setText(bidi.plain(t(key), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
-            self._search[kind].setToolTip(t(key + "_tip"))
-        self._rides.setText(bidi.plain(t("tb_rides"), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
-        self._rides.setToolTip(t("tb_rides_tip"))
-        self._loot.setText(bidi.plain(t("tb_loot"), rtl))
-        self._loot.setToolTip(t("tb_loot_tip"))
-        for key, text in TOOLS.items():
-            self._tools[key].setText(bidi.plain(t(text), rtl))
-            self._tools[key].setToolTip(t(text + "_tip"))
+        for key, text in WINDOWS.items():
+            self._windows[key].setText(bidi.plain(t(text), rtl))
+            self._windows[key].setToolTip(t(text + "_tip"))
+        self._tools.setText(bidi.plain(t("tb_tools"), rtl))
+        self._tools.setToolTip(t("tb_tools_tip"))
         self._close.setAccessibleName(t("tb_close"))
         self._close.setToolTip(t("tb_close"))
         self.adjustSize()
 
     # ------------------------------------------------------------ the buttons
 
-    def _npcs_clicked(self, _=False) -> None:
-        """The checkable button is the setting: the window itself follows the flip (npc_toggled)."""
-        self._settings["npc_overlay"] = self._npcs.isChecked()
-        self.npc_toggled.emit()
-
-    def _rides_clicked(self, _=False) -> None:
-        """Cabs and NPC teleports in the way shown, or on foot: the button is the setting."""
-        self._settings["game_rides"] = self._rides.isChecked()
-        self.rides_toggled.emit()
-
-    def _loot_clicked(self, _=False) -> None:
-        """The loot log's window on or off: the button is the setting (its Start, Stop and Reset are in it)."""
-        self._settings["loot_overlay"] = self._loot.isChecked()
-        self.loot_toggled.emit()
-
-    def _tool_clicked(self, key: str) -> None:
-        """A tool window on or off: the button is its setting (the window follows tool_toggled)."""
-        self._settings[key] = self._tools[key].isChecked()
-        self.tool_toggled.emit(key)
+    def _window_clicked(self, key: str) -> None:
+        """A window over the game on or off: the checkable button is its setting (the window follows)."""
+        self._settings[key] = self._windows[key].isChecked()
+        self.window_toggled.emit(key)
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: the setting off (the Settings switch follows), the bar hidden until it's switched back on."""
         self._settings["game_toolbar"] = False
         self.hide()
-
-    def set_search_mode(self, kind: str) -> None:
-        """The search window's mode lit on its button (mode_changed: "" when it closed, none lit)."""
-        if kind == self._mode:
-            return
-        self._mode = kind
-        for k, b in self._search.items():
-            on = k == kind
-            if b.property("on") != on:
-                b.setProperty("on", on)
-                b.style().unpolish(b)
-                b.style().polish(b)
 
     # ------------------------------------------------------------ place and move
 
@@ -258,16 +198,13 @@ class GameToolbar(QWidget):
     # ------------------------------------------------------------ the rest of the bar's life
 
     def refresh(self) -> None:
-        """Show or hide from the setting, the NPCs-here button back in step with the window's own (its ✕ turned
+        """Show or hide from the setting, each window's button back in step with the window's own (its ✕ turned
         it off; the Settings switch may have turned it on), and the glass at the opacity the player picked."""
         try:
             self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self._settings["npc_overlay_opacity"])))
         except (TypeError, ValueError):
             self._opacity = OPACITY_DEFAULT
-        self._npcs.setChecked(bool(self._settings["npc_overlay"]))
-        self._rides.setChecked(bool(self._settings["game_rides"]))
-        self._loot.setChecked(bool(self._settings["loot_overlay"]))
-        for key, b in self._tools.items():
+        for key, b in self._windows.items():
             b.setChecked(bool(self._settings[key]))
         if not self._settings["game_toolbar"]:
             if self.isVisible():

@@ -107,6 +107,8 @@ Style:
   "לגרינד" or "לגריינד".
   Address the player in the plural, as the app does ("קחו", "לכו", "דברו"), never "קח" or "קחי". The currency is
   "mesos" in English letters ("300 mesos"), never "מזו", "מזוס", "מסוס" or "מסות". A level is "רמה" ("ברמה 31", "הרמה הבאה"), never "לבל".
+  A scroll (gear scrolls, Return Scroll) is "סקרול", plural "סקרולים", masculine ("סקרול טוב", "סקרולי Lesser"),
+  never "מגילה" or "מגילות".
   Source tags in Hebrew too: "(קהילה)", never "(community)". A Hebrew prefix joins an English name
   with a hyphen ("ל-Henesys", "מ-Henesys"), never a Hebrew spelling ("להניסיס").
 - In-game names (items, monsters, maps, NPCs, skills, quests, jobs) always in English, exactly as in the data.
@@ -173,7 +175,8 @@ REPLY_RULES = """<reply_rules>
   * Grammar: an adjective agrees with its noun ("נשק בסיסי", "מפלצת בסיסית", never "מפלצת בסיס").
   * A level always says so: "אתם ברמה 31", "נשק לרמה 20", never "(31)", "ב-31" or "לבל"; "רמה" is feminine
     ("הרמה הבאה", "רמה גבוהה").
-  * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה"; "mesos" in English
+  * Words: "גריינד" with no ל- before it ("לעשות גריינד"), "דרופ", "ג'וב", "קווסט", "קהילה", "סקרול" / "סקרולים"
+    (masculine; never "מגילה"); "mesos" in English
     letters (never "מזו", "מזוס", "מסוס", "מסות").
   * One word per thing, the same as the app's screens: "מפלצת", "נזק" (never "דמג'"), "אינבנטורי" (never "תיק"),
     "פוטים" (never "שיקויים"), "חלון ה-Stat", "הסרגל התחתון" of the game (never "HUD"), "Free Market" (never
@@ -555,6 +558,11 @@ _SLASHED_BONUS = re.compile(r"\b((?:[A-Z][A-Z.]{1,5}/)+[A-Z][A-Z.]{1,5}) ?([+-]\
 _LEVEL_WORD = re.compile(r"(?<![\u0590-\u05FF])((?:ו|ש|כש|וכש)?(?:ה|מה|לה|בה|מ|ל)?|(?:ו|ש|כש|וכש)?ב(?=לבל\s*-?\d|"
                          r"לבלים|לבלינג))(לבלים|לבלינג|לבל)([- ]?אפ)?(?![\u0590-\u05FF])")
 _TO_GRIND = re.compile(r"(?<![\u0590-\u05FF])ל(?:גרינד|גריינד)(?![\u0590-\u05FF])")
+# a scroll is "סקרול" / "סקרולים" in the app's Hebrew, never "מגילה" (the owner, 2026-10-11). Any prefix
+# ("המגילה", "למגילת", "ומגילות"); the construct "מגילת X" is plain "סקרול X". The word only: agreement around it
+# is the prompt's job, as with "לבל"
+_SCROLL_WORD = re.compile(r"(?<![\u0590-\u05FF])((?:ו|ש|כש|וכש)?(?:ה|מה|לה|בה|מ|ל|ב|כ)?)(מגילות|מגילת|מגילה)"
+                          r"(?![\u0590-\u05FF])")
 # an English name given a Hebrew plural ending, seen live: "Warrior-ים". The plural stays English: "Warriors"
 _HEBREW_PLURAL = re.compile(r"\b([A-Za-z][A-Za-z']*)-(?:ים|ות)(?![\u0590-\u05FF])")
 
@@ -582,11 +590,13 @@ def _level_word(m: re.Match) -> str:
 
 def drop_keys(text: str) -> str:
     """The answer text as the player reads it: no knowledge-base keys, "לעשות גריינד" for "לגרינד", and a level
-    named as one ("אתם ברמה 31", not "אתם ב-31"), "רמה" for the gamer's "לבל" (the owner's word), and an English
+    named as one ("אתם ברמה 31", not "אתם ב-31"), "רמה" for the gamer's "לבל" (the owner's word), "סקרול" for
+    "מגילה", and an English
     plural for a Hebrew ending on an English name ("Warriors", not "Warrior-ים")."""
     text = _KEY_IN_TEXT.sub("", text)
     text = _BARE_LEVEL.sub(lambda m: f"{m['me'] or m['he']} ברמה {m['n'] or m['n2']}", text)
     text = _LEVEL_WORD.sub(_level_word, text)
+    text = _SCROLL_WORD.sub(lambda m: m.group(1) + ("סקרולים" if m.group(2) == "מגילות" else "סקרול"), text)
     text = _SLASHED_BONUS.sub(lambda m: ", ".join(f"{s} {m.group(2)}" for s in m.group(1).split("/")), text)
     text = _HEBREW_PLURAL.sub(lambda m: _english_plural(m.group(1)), text)
     return _TO_GRIND.sub("לעשות גריינד", text).replace("גרינד", "גריינד")

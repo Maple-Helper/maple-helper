@@ -203,15 +203,18 @@ class MapleHelperApp:
         from .ui.npcoverlay import NpcOverlay
         self.npc_overlay = NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
         self.npc_overlay.refresh()
-        # the little bar over the game (ui/gametoolbar.py): its NPCs-here button flips the window above, its
-        # search buttons open the monster/NPC/item search (ui/gamesearch.py) — made on the first ask, so a start
-        # in the tray builds none of it
-        from .ui.gametoolbar import TOOLS, GameToolbar
+        # ... and the monsters on it, in the same panel (ui/monsteroverlay.py)
+        from .ui.monsteroverlay import MonsterOverlay
+        self.monster_overlay = MonsterOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        self.monster_overlay.refresh()
+        # the little bar over the game (ui/gametoolbar.py): its buttons flip the windows over the game, and Tools
+        # opens the app's own Tools window (everything not about where the player stands lives there)
+        from .ui.gametoolbar import GameToolbar
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
-        self.game_toolbar.npc_toggled.connect(self.npc_overlay.refresh)
+        self.game_toolbar.window_toggled.connect(self._game_window_toggled)
+        self.game_toolbar.tools_requested.connect(lambda: self.show_tools())
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
-        self.game_toolbar.search_requested.connect(self._open_game_search)
-        self.game_toolbar.rides_toggled.connect(self._game_rides_toggled)
+        self.monster_overlay.closed.connect(self.game_toolbar.refresh)
         self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         # the loot log: the game's pickup messages read while a log runs (the box the player drew around them), with
@@ -226,16 +229,8 @@ class MapleHelperApp:
         self.loot_scanner.changed.connect(self.loot_overlay.sync)
         self.loot_overlay.sync()
         # the bar over the game's Loot log button shows / hides that window (lit while it shows), as NPCs here does
-        self.game_toolbar.loot_toggled.connect(self.loot_overlay.sync)
         self.loot_overlay.closed.connect(self.game_toolbar.refresh)
         self.loot_scanner.changed.connect(self.game_toolbar.refresh)     # a log starting opens it: the button follows
-        # the bar's Scrolls and Gear buttons: the scroll planner's and the gear advisor's windows (ui/scrollplanner.py,
-        # ui/gearadvisor.py), made on the first ask, or now when the app last closed with one open
-        self._tool_windows: dict = {}
-        self.game_toolbar.tool_toggled.connect(self._tool_toggled)
-        for key in TOOLS:
-            if self.settings[key]:
-                self._tool_toggled(key)
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -309,64 +304,14 @@ class MapleHelperApp:
             self.overlay.toggle(self.capture)
         QTimer.singleShot(300, self.overlay.start_tour)
 
-    def _open_game_search(self, kind: str) -> None:
-        """A toolbar search button: the search window (ui/gamesearch.py) is made on the first ask and opened in
-        that mode, under the bar until the player has placed it themselves."""
-        search = getattr(self, "game_search", None)
-        if search is None:
-            from .ui.gamesearch import GameSearch
-            search = self.game_search = GameSearch(self.kb, self.settings, I18n(self.settings["language"] or "he"))
-            search.mode_changed.connect(self.game_toolbar.set_search_mode)
-        if not isinstance(self.settings["game_search_geom"], dict):
-            search.place_under(self.game_toolbar.frameGeometry())
-        search.open(kind)
-
-    def _tool_window(self, key: str):
-        """The scroll planner's or gear advisor's window, made on the first ask."""
-        w = self._tool_windows.get(key)
-        if w is None:
-            t = I18n(self.settings["language"] or "he")
-            if key == "scroll_planner":
-                from .ui.scrollplanner import ScrollPlanner
-                w = ScrollPlanner(self.kb, self.settings, self.profiles, t)
-            else:
-                from .ui.gearadvisor import GearAdvisor
-                w = GearAdvisor(self.kb, self.settings, self.profiles, t)
-                w.scroll_requested.connect(self._plan_scrolls)
-            w.closed.connect(self.game_toolbar.refresh)          # its ✕: the bar's button goes off
-            self._tool_windows[key] = w
-        return w
-
-    def _place_tool(self, key: str, w) -> None:
-        """A tool window about to show: under the bar until the player has placed it themselves."""
-        if not w.isVisible() and not isinstance(self.settings[key + "_geom"], dict):
-            w.place_under(self.game_toolbar.frameGeometry())
-
-    def _tool_toggled(self, key: str) -> None:
-        """The bar's Scrolls or Gear button flipped its window's setting: the window follows."""
-        w = self._tool_window(key) if self.settings[key] else self._tool_windows.get(key)
-        if w is None:
-            return
-        if self.settings[key]:
-            self._place_tool(key, w)
-        w.refresh()
-
-    def _plan_scrolls(self, key: str) -> None:
-        """The gear advisor's "Plan scrolls" on an item: the scroll planner opens on it, its bar button lit."""
-        planner = self._tool_window("scroll_planner")
-        self._place_tool("scroll_planner", planner)
-        planner.open_item(key)
-        self.game_toolbar.refresh()
-
-    def _game_rides_toggled(self) -> None:
-        """The toolbar's Cabs & Teleports switch: a way already shown follows it, in the search's detail page and
-        in the ◎ where-is-it window."""
-        search = getattr(self, "game_search", None)
-        if search is not None:
-            search.rides_changed()
-        where = self.__dict__.get("_windows", {}).get("map")
-        if where is not None and where.isVisible() and where.key:
-            where.show_map(where.key)
+    def _game_window_toggled(self, key: str) -> None:
+        """A bar button flipped its window's setting: that window follows."""
+        if key == "npc_overlay":
+            self.npc_overlay.refresh()
+        elif key == "monster_overlay":
+            self.monster_overlay.refresh()
+        elif key == "loot_overlay":
+            self.loot_overlay.sync()
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -829,17 +774,15 @@ class MapleHelperApp:
                 npc = getattr(self, "npc_overlay", None)
                 if npc is not None:
                     npc.apply_language(I18n(self.settings["language"] or "he"))   # its texts follow the switch
+                mobs = getattr(self, "monster_overlay", None)
+                if mobs is not None:
+                    mobs.apply_language(I18n(self.settings["language"] or "he"))
                 game = getattr(self, "game_toolbar", None)
                 if game is not None:
                     game.apply_language(I18n(self.settings["language"] or "he"))    # the bar's texts too
-                search = getattr(self, "game_search", None)
-                if search is not None:
-                    search.apply_language(I18n(self.settings["language"] or "he"))
                 loot = getattr(self, "loot_overlay", None)
                 if loot is not None:
                     loot.apply_language(I18n(self.settings["language"] or "he"))
-                for w in self.__dict__.get("_tool_windows", {}).values():
-                    w.apply_language(I18n(self.settings["language"] or "he"))
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -869,25 +812,25 @@ class MapleHelperApp:
         npc = getattr(self, "npc_overlay", None)
         if npc is not None:
             npc.refresh()          # the NPCs-on-this-map window switched on or off
+        mobs = getattr(self, "monster_overlay", None)
+        if mobs is not None:
+            mobs.refresh()         # ... and the monsters one
         game = getattr(self, "game_toolbar", None)
         if game is not None:
             game.refresh()         # the bar over the game switched on or off (its button follows the window)
         loot = getattr(self, "loot_overlay", None)
         if loot is not None:
             loot.sync()            # the loot log's window at the windows' opacity
-        for w in self.__dict__.get("_tool_windows", {}).values():
-            w.refresh()            # the scroll planner / gear advisor at the windows' opacity
         self._apply_overlay_capture()
 
     def _apply_overlay_capture(self) -> None:
         """Settings' "Show the overlays in screenshots": every window over the game that exists takes it now (each
         also takes it whenever it shows), not on the next restart."""
         from .ui.npcoverlay import set_capturable
-        search = getattr(self, "game_search", None)
         npc = getattr(self, "npc_overlay", None)
         for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
-                  getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None),
-                  getattr(self, "loot_overlay", None), *self.__dict__.get("_tool_windows", {}).values()):
+                  getattr(self, "monster_overlay", None), getattr(self, "game_toolbar", None),
+                  getattr(self, "loot_overlay", None)):
             if w is not None:
                 set_capturable(w, self.settings)
 
@@ -1176,8 +1119,6 @@ class MapleHelperApp:
     def on_profile_changed(self):
         self.grind.sync()          # another character: its own session's minute reads (or none)
         self._tools_call("profile_changed")
-        for w in self.__dict__.get("_tool_windows", {}).values():
-            w.character_changed()      # the gear advisor's level, job and worn gear are the new character's
 
     def show_guides(self, open_key: str | None = None):
         from .ui.guides import GuidesDialog
@@ -1293,15 +1234,13 @@ class MapleHelperApp:
         npc = getattr(self, "npc_overlay", None)
         if npc is not None:
             npc.set_kb(self.kb)        # the new KB's NPC lists
-        search = getattr(self, "game_search", None)
-        if search is not None:
-            search.set_kb(self.kb)     # the new KB's monster/NPC/item search
+        mobs = getattr(self, "monster_overlay", None)
+        if mobs is not None:
+            mobs.set_kb(self.kb)       # ... and monster lists
         loot = getattr(self, "loot_scanner", None)
         if loot is not None:
             loot.set_kb(self.kb)        # the item names it matches reads against
             self.loot_overlay.kb = self.kb
-        for w in self.__dict__.get("_tool_windows", {}).values():
-            w.set_kb(self.kb)                # the new KB's equips and scrolls
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1325,8 +1264,6 @@ class MapleHelperApp:
         if loot is not None:
             loot.stop()                     # no loot read while the app goes; the running log is saved
             self.loot_overlay.hide()
-        for w in self.__dict__.get("_tool_windows", {}).values():
-            w.hide()                        # (their setting stays: open again next time)
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

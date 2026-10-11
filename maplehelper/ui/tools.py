@@ -26,10 +26,13 @@ from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, 
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-PAGES = ("train", "exp", "farm", "loot", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
+# the gear advisor and the scroll planner beside the build: what to wear next, then how to scroll it (they were
+# windows over the game, opened from its bar; every general tool lives here: the owner)
+PAGES = ("train", "exp", "farm", "loot", "quests", "crafting", "town", "build", "gear", "scrolls", "calc", "prices",
+         "more", "route", "pets")
 # the pages that are all about the character: with none, one card that offers to add one takes their place (a live
 # stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
-CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
+CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "gear", "calc")
 MAX_QUESTS = 40
 CURRENT_ROW = {"light": "#FFD3A3", "dark": "#7A4615"}     # the build table row for the player's level
 CHANGED_CHIP = {"light": ("#0A6CD6", "#E3F0FD"), "dark": ("#64B5FF", "#1B3350")}   # its "Changed in COT2" chips
@@ -508,6 +511,8 @@ class ToolsDialog(GlassDialog):
 
     def closeEvent(self, e):
         self._closed = True
+        if "gear" in self.pages:
+            self.gear_advisor.leave()          # stats typed just before closing: saved, never lost
         super().closeEvent(e)
 
     def _build_rest(self) -> None:
@@ -2380,6 +2385,10 @@ class ToolsDialog(GlassDialog):
         elif name == "route":
             empty(self.route_to)
             clear(self.route_out)
+        elif name == "gear":
+            self.gear_advisor.leave()          # stats typed just before leaving: saved now
+        elif name == "scrolls":
+            self.scroll_planner.leave()
 
     def _quest_by_name(self, name: str):
         """A quest of the KB by its name ("A Blacksmith in My Own Right!" or without its "!")."""
@@ -4222,6 +4231,41 @@ class ToolsDialog(GlassDialog):
                     t("loot_recent_exp", n=f"{r.get('exp') or 0:,}"), t("loot_recent_mesos", n=f"{r.get('mesos') or 0:,}"),
                     t("loot_recent_items", n=f"{r.get('picked') or 0:,}")]
             self.loot_recent.addWidget(self._ll(" · ".join(bits), "RowLabel"))
+
+    # gear upgrades and the scroll planner -----------------------------------
+
+    def _page_gear(self):
+        """What the character wears per slot and what the KB says beats it (ui/gearadvisor.py)."""
+        from .gearadvisor import GearAdvisor
+        sc, lay = scroll_page(self.t.rtl)
+        lay.addWidget(self._label(self.t("ga_title"), "ToolHeader"))
+        self.gear_advisor = GearAdvisor(self.kb, self.profiles, self.t)
+        self.gear_advisor.scroll_requested.connect(self.plan_scrolls)
+        lay.addWidget(self.gear_advisor)
+        lay.addStretch(1)
+        return sc
+
+    def _fill_gear(self):
+        self.gear_advisor.refresh()
+
+    def _page_scrolls(self):
+        """Every grade of scroll for a piece of gear, side by side: the odds and the costs (ui/scrollplanner.py)."""
+        from .scrollplanner import ScrollPlanner
+        sc, lay = scroll_page(self.t.rtl)
+        lay.addWidget(self._label(self.t("sp_title"), "ToolHeader"))
+        self.scroll_planner = ScrollPlanner(self.kb, self.profiles, self.t)
+        lay.addWidget(self.scroll_planner)
+        lay.addStretch(1)
+        return sc
+
+    def _fill_scrolls(self):
+        self.scroll_planner.refresh()
+
+    def plan_scrolls(self, key: str) -> None:
+        """The gear advisor's "Plan scrolls" on an item: the Scrolls page, open on it."""
+        self.show_page(PAGES.index("scrolls"))
+        self.scroll_planner.open_item(key)
+        self.pages["scrolls"].verticalScrollBar().setValue(0)
 
     # quick checks --------------------------------------------------------
 

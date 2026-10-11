@@ -1,105 +1,71 @@
-"""The scroll planner's window over the game (the toolbar's Scrolls button opens it): pick a piece of gear,
-pick the stat and how many of its upgrade slots to use, and every grade of scroll the KB confirms is in the
-game is laid out side by side — its per-slot success, the chance all n pass, the expected gain, the exact
-odds of every outcome, and the cost per expected +1 (an NPC price from the KB, a Free Market usual price from
-MeowDB, or the player's own typed price — never one made up).
+"""The scroll planner, the Scrolls page of the play tools (ui/tools.py): pick a piece of gear, pick the stat and
+how many of its upgrade slots to use, and every grade of scroll the KB confirms is in the game is laid out side
+by side — its per-slot success, the chance all n pass, the expected gain, the exact odds of every outcome, and
+the cost per expected +1 (an NPC price from the KB, a Free Market usual price from MeowDB, or the player's own
+typed price — never one made up).
 
-Built like the toolbar's other windows (the searches, the loot log): the same dark glass at the opacity the
-player picked for them, the title row that drags it, the same rows and rounded controls, its place kept in
-scroll_planner_geom. It takes the keyboard while its search box is used (like the search window), shows while
-settings["scroll_planner"] is on, and its ✕ turns that off. The Free Market lookups run off the GUI thread."""
+Built like the tools window's other pages (the app's own light / dark look: its cards, chips, stepper and search
+box), as a plain widget the page holds. The Free Market lookups run off the GUI thread."""
 from __future__ import annotations
 
 import re
 import threading
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from .. import bidi, itemterms, market, scrollplan
 from ..i18n import I18n
 from ..kb import KnowledgeBase
-from ..store import Profiles, Settings
-from . import mapview, theme
-from .gamesearch import GAP, QSS as _GLASS_QSS, SCROLLBAR_W, TYPE_DEBOUNCE_MS, _Row
-from .glass import SHADOW, EdgeResize
-from .npcoverlay import (BOTTOM, FILL1, FILL2, GEOM_DEBOUNCE_MS, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN,
-                         SIDE, TEXT, TOP, _Header, _paint_glass, set_capturable)
+from ..store import Profiles
+from .controls import Stepper
 
-DEFAULT_W, DEFAULT_H = 400, 560             # what opens under the toolbar before it is ever resized
-MIN_W, MIN_H = 340, 400                     # the smallest the player can drag the window to
 LIMIT = 12                                  # equips listed before the "and N more" line
-UNKNOWN_CAP = 30                            # the spinner's ceiling for an equip whose slot count the KB lacks
-
-QSS = _GLASS_QSS + f"""
-#Stepper {{ background: {FILL1}; border: none; border-radius: 8px; }}
-QToolButton#StepBtn {{ background: transparent; color: {TEXT}; border: none; border-radius: 6px;
-                       padding: 3px 9px; font-weight: 600; }}
-QToolButton#StepBtn:hover {{ background: {FILL2}; }}
-QToolButton#StepBtn:disabled {{ color: {MUTED}; }}
-#StepNum {{ color: {TEXT}; font-weight: 600; min-width: 24px; }}
-QPushButton#Stat {{ background: {FILL1}; color: {MUTED}; border: none; border-radius: 8px;
-                   padding: 4px 10px; text-align: center; }}
-QPushButton#Stat:hover {{ background: {FILL2}; color: {TEXT}; }}
-QPushButton#Stat:checked {{ background: rgba(255,149,51,0.30); color: {TEXT}; font-weight: 600; }}
-#GradeName {{ background: transparent; color: {TEXT}; font-weight: 600; }}
-#Note {{ color: {MUTED}; font-size: 11px; }}
-#YourPrice {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 3px 8px; }}
-"""
+UNKNOWN_CAP = 30                            # the stepper's ceiling for an equip whose slot count the KB lacks
+TYPE_DEBOUNCE_MS = 150                      # a pause in the typing before the rows are read again
+CARD_PAD = 12                               # a card's own margin, each side (its texts are measured inside it)
 
 
 class _Box(QLineEdit):
-    """The typing box: Esc drops the results and goes back to the plan (the keyboard goes back to the game at
-    once); with nothing typed it closes the window, like the ✕."""
+    """The typing box: Esc with something typed drops the results and goes back to the plan (empty, it is the
+    window's own Esc)."""
 
     escaped = Signal()
 
     def keyPressEvent(self, e):
-        if e.key() == Qt.Key_Escape:
+        if e.key() == Qt.Key_Escape and self.text():
             self.escaped.emit()
             return
         super().keyPressEvent(e)
 
 
-class _Stepper(QFrame):
-    """A small − n + counter in the overlay's own look: a spin box's little arrows don't survive the dark
-    glass's style sheet, and the value is too often 7 to leave the player clicking one at a time."""
+class PickRow(QFrame):
+    """One card of a list in the tools window's look: a name over a muted line (its slot, its level);
+    clickable=False: a fact in the same look (the equip in hand). The gear advisor's lists use it too."""
 
-    changed = Signal(int)
+    clicked = Signal()
 
-    def __init__(self, lo: int = 1, hi: int = UNKNOWN_CAP, value: int = 1):
-        super().__init__(objectName="Stepper")
-        self._lo, self._hi, self._v = lo, hi, lo
-        row = QHBoxLayout(self)
-        row.setContentsMargins(2, 2, 2, 2)
-        row.setSpacing(2)
-        self._minus = QToolButton(objectName="StepBtn", text="\u2212")
-        self._num = QLabel(objectName="StepNum", alignment=Qt.AlignCenter)
-        self._plus = QToolButton(objectName="StepBtn", text="+")
-        for b, d in ((self._minus, -1), (self._plus, 1)):
-            b.setCursor(Qt.PointingHandCursor)
-            b.clicked.connect(lambda _=False, d=d: self.setValue(self._v + d))
-        row.addWidget(self._minus)
-        row.addWidget(self._num)
-        row.addWidget(self._plus)
-        self.setValue(value)
+    def __init__(self, name: str, sub: str, tip: str = "", clickable: bool = True):
+        super().__init__(objectName="Card")
+        if clickable:
+            self.setCursor(Qt.PointingHandCursor)
+        if tip:
+            self.setToolTip(tip)
+            self.setAccessibleName(tip)
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(CARD_PAD, 8, CARD_PAD, 8)
+        lay.setSpacing(1)
+        self.name = QLabel(name, objectName="CardName", wordWrap=True)
+        lay.addWidget(self.name)
+        self.sub = QLabel(sub, objectName="CardSub", wordWrap=True) if sub else None
+        if self.sub is not None:
+            lay.addWidget(self.sub)
+        self._clickable = clickable
 
-    def value(self) -> int:
-        return self._v
-
-    def setRange(self, lo: int, hi: int) -> None:
-        self._lo, self._hi = lo, hi
-        self.setValue(self._v)
-
-    def setValue(self, v: int) -> None:
-        v = min(self._hi, max(self._lo, int(v)))
-        self._v = v
-        self._num.setText(str(v))
-        self._minus.setEnabled(v > self._lo)
-        self._plus.setEnabled(v < self._hi)
-        self.changed.emit(v)
+    def mouseReleaseEvent(self, e):
+        if self._clickable and e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(e)
 
 
 def _pct(v: float) -> str:
@@ -121,185 +87,111 @@ def _mesos(v: float) -> str:
     return f"{round(v):,}"
 
 
-class _Wrap(QLabel):
-    """A word-wrapping label that asks for the height its wrapped text needs: Qt's own size hint inside a
-    scroll area lags a width change (and a text set before the first layout), which clipped the second line
-    of the outcome ladders."""
+class ScrollPlanner(QWidget):
+    """The page's content. A picked equip shows its clean slots, a stepper for how many to use, a choice of the
+    stat to scroll, and one card per grade with the odds, the outcome ladder and the costs. The player's typed
+    price per scroll is kept for the window's life, never saved."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, wordWrap=True, **kwargs)
-
-    def resizeEvent(self, e) -> None:
-        need = self.heightForWidth(self.width())
-        if need > 0 and self.minimumHeight() != need:
-            self.setMinimumHeight(need)
-
-
-class _Body(QWidget):
-    """The scroll area's content: whenever it is resized (its width changed, the wrapped lines re-broke) it
-    re-asks for the height its rows now need — Qt's own word-wrap hints lag a change, and the cards drew over
-    each other until some later repaint nudged them apart."""
-
-    def resizeEvent(self, e) -> None:
-        lay = self.layout()
-        if lay is not None:
-            self.setMinimumHeight(lay.totalMinimumSize().height())
-
-
-class ScrollPlanner(EdgeResize, QWidget):
-    """The window itself: over the game, in the searches' dark glass, taking the keyboard while its search box
-    is used. A picked equip shows its clean slots, a spinner for how many to use, a choice of the stat to
-    scroll, and one card per grade with the odds, the outcome ladder and the costs. The player's typed price
-    per scroll is kept for the window's life, never saved."""
-
-    closed = Signal()               # the ✕ (or Esc on an empty box) turned settings["scroll_planner"] off
     market_ready = Signal(object)   # a Free Market lookup's answer, from its own thread
 
-    def __init__(self, kb: KnowledgeBase, settings: Settings, profiles: Profiles, t: I18n):
-        # the search window's flags, not the NPCs window's: this one takes the keyboard while its box is used
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setMouseTracking(True)          # hovering the rim shows the resize cursor
-        self.setMinimumSize(MIN_W, MIN_H)
-        self.resize(DEFAULT_W, DEFAULT_H)
-        self.setWindowTitle("Maple Helper")
-        self._kb, self._settings, self._profiles, self.t = kb, settings, profiles, t
+    def __init__(self, kb: KnowledgeBase, profiles: Profiles, t: I18n):
+        super().__init__()
+        self._kb, self._profiles, self.t = kb, profiles, t
         self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
         self._picked: scrollplan.EquipScrolls | None = None    # the player's own pick, kept across switches
         self._default: scrollplan.EquipScrolls | None = None   # what the active character wears, until they pick
         self._stat = 0                     # the chosen stat group, an index into the equip's groups
+        self._n = 1                        # the slots to use
         self._your: dict[str, int] = {}    # a typed price per scroll's KB key, this window's life only
         self._fm: dict[str, int | None] = {}   # a Free Market usual price per scroll key (None: none on the site)
         self._fm_bad: set[str] = set()     # scroll keys whose lookup couldn't reach the site at all
         self._fm_seen: set[str] = set()    # scroll keys a thread is already fetching
         self._fm_read = 0                  # bumped on a KB swap: answers from before it are dropped
-        self._opacity = OPACITY_DEFAULT
-        self._placed = False               # geometry applied at least once: there is a place to remember
-        self._under: QRect | None = None   # the toolbar's rect, where the window first opens
         self._rows: list[QWidget] = []
         self._cards: list[dict] = []
-        self._measure: dict[str, QLabel] = {}     # hidden labels the card texts' lines are measured with
-        self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
+        self._stats: list[QPushButton] = []
+        self._measure: dict[tuple[str, int], QLabel] = {}   # hidden labels the card texts' lines are measured with
         self._typing = QTimer(self, singleShot=True, interval=TYPE_DEBOUNCE_MS, timeout=self._run)
-        self.setStyleSheet(QSS)
         self._build()
 
-    # ------------------------------------------------------------ the panel
+    # ------------------------------------------------------------ the page
 
     def _build(self) -> None:
         col = QVBoxLayout(self)
-        col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
-        col.setSpacing(8)
-        head = _Header()
-        hrow = QHBoxLayout(head)
-        hrow.setContentsMargins(0, 0, 0, 0)
-        hrow.setSpacing(8)
-        self._title = QLabel(objectName="Title")
-        self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
-        self._close.setCursor(Qt.PointingHandCursor)
-        self._close.clicked.connect(self._close_clicked)
-        hrow.addWidget(self._title, 1)
-        hrow.addWidget(self._close, 0, Qt.AlignTop)
-        col.addWidget(head)
-        self._box = _Box(objectName="Search")
+        col.setContentsMargins(0, 0, 0, 0)
+        col.setSpacing(10)
+        self._box = _Box()
         self._box.setClearButtonEnabled(True)
         self._box.textChanged.connect(lambda _t: self._typing.start())
-        self._box.escaped.connect(self._escaped)
+        self._box.escaped.connect(self._box.clear)      # textChanged drops the results, the plan is back
         col.addWidget(self._box)
-        self._status = QLabel(objectName="Status", wordWrap=True)
+        self._status = QLabel(objectName="RowHint", wordWrap=True)
         col.addWidget(self._status)
-        self._scroll = QScrollArea(objectName="Body")
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.NoFrame)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        body = _Body()
-        body_lay = QVBoxLayout(body)
-        body_lay.setContentsMargins(0, 0, 0, 0)
-        body_lay.setSpacing(4)
-        self._results = QWidget(objectName="Rows")
+        self._results = QWidget()
         self._results_lay = QVBoxLayout(self._results)
         self._results_lay.setContentsMargins(0, 0, 0, 0)
-        self._results_lay.setSpacing(4)
-        body_lay.addWidget(self._results)
-        self._plan = QWidget(objectName="Rows")
+        self._results_lay.setSpacing(6)
+        col.addWidget(self._results)
+        self._plan = QWidget()
         self._plan_lay = QVBoxLayout(self._plan)
         self._plan_lay.setContentsMargins(0, 0, 0, 0)
-        self._plan_lay.setSpacing(6)
-        body_lay.addWidget(self._plan)
-        body_lay.addStretch(1)
-        self._scroll.setWidget(body)
-        col.addWidget(self._scroll, 1)
+        self._plan_lay.setSpacing(8)
+        col.addWidget(self._plan)
         self._build_plan()
         self.market_ready.connect(self._on_market)
         self._retext()
+        self._sync_default()
+        self._show_plan()
 
     def _build_plan(self) -> None:
-        """The plan half of the body: the picked equip's header, the spinner and the stat choice, then the
+        """The plan half of the page: the picked equip's header, the stepper and the stat choice, then the
         grade cards (filled in per pick) and the notes."""
-        self._head = _Row("", " ", "", clickable=False)     # ' ': its grey line exists, filled per pick
+        self._head = PickRow("", " ", "", clickable=False)     # ' ': its grey line exists, filled per pick
         self._plan_lay.addWidget(self._head)
         knobs = QHBoxLayout()
-        knobs.setSpacing(6)
-        self._use_label = QLabel(objectName="Sub")
-        self._spin = _Stepper()
-        self._spin.changed.connect(self._n_changed)
-        self._bonus_label = QLabel(objectName="Sub")
+        knobs.setSpacing(8)
+        self._use_label = QLabel(objectName="RowLabel")
+        self._spin = Stepper(1, UNKNOWN_CAP, 1)
+        self._spin.valueChanged.connect(self._n_changed)
         knobs.addWidget(self._use_label)
         knobs.addWidget(self._spin)
         knobs.addStretch(1)
         self._plan_lay.addLayout(knobs)
+        self._bonus_label = QLabel(objectName="RowLabel")
         self._stats_lay = QGridLayout()
-        self._stats_lay.setSpacing(4)
+        self._stats_lay.setHorizontalSpacing(6)
+        self._stats_lay.setVerticalSpacing(6)
         self._plan_lay.addLayout(self._stats_lay)
         self._cards_lay = QVBoxLayout()
-        self._cards_lay.setSpacing(6)
+        self._cards_lay.setSpacing(8)
         self._plan_lay.addLayout(self._cards_lay)
-        self._summary = _Wrap(objectName="Note")
+        self._summary = QLabel(objectName="RowLabel", wordWrap=True)
         self._plan_lay.addWidget(self._summary)
-        self._chaos = _Wrap(objectName="Note")
-        self._chaos.setContentsMargins(0, 4, 0, 0)
+        self._chaos = QLabel(objectName="RowHint", wordWrap=True)
         self._plan_lay.addWidget(self._chaos)
-        self._source = _Wrap(objectName="Note")
+        self._source = QLabel(objectName="RowHint", wordWrap=True)
         self._plan_lay.addWidget(self._source)
-        self._hint = _Wrap(objectName="Sub")
+        self._hint = QLabel(objectName="RowHint", wordWrap=True)
         self._plan_lay.addWidget(self._hint)
 
-    # ------------------------------------------------------------ shown, hidden, replaced
+    # ------------------------------------------------------------ the page shown, the character, the KB
 
     def refresh(self) -> None:
-        """Shown while settings["scroll_planner"] is on (the bar's button flips it): placed where the player
-        left it or under the bar, at the overlays' opacity, out of screen captures, the active character read."""
-        want = bool(self._settings["scroll_planner"])
-        if want and not self.isVisible():
-            self._read_opacity()
-            self._place()
-            self.show()
-            set_capturable(self, self._settings)
-        if want:
-            if self._sync_default():
-                self._picked = None        # nothing of the player's own: the worn gear replaced
-                self._show_plan()
+        """The page shown (or the character read again): what the character wears is read again (the plan's
+        pick until the player picks their own), and the cards' texts are rewritten for the page's width."""
+        if self._sync_default() and self._picked is None:
+            self._show_plan()
+        else:
             self._paint_cards()
-        elif self.isVisible():
-            self.hide()
 
     def open_item(self, key: str) -> None:
-        """Jump straight to one equip (the gear advisor's 'plan scrolls for this'): picked, shown, the setting
-        on. A key the KB doesn't know as an equip only says so in the status line."""
+        """Jump straight to one equip (the gear advisor's 'plan scrolls for this'): picked and shown. A key the
+        KB doesn't know as an equip only says so in the status line."""
         es = scrollplan.scrolls_for(self._kb, key)
         if es is None:
             self._status.setText(bidi.plain(self.t("sp_not_equip"), self.t.rtl))
             return
         self._pick(es)
-        self._settings["scroll_planner"] = True
-        if not self.isVisible():
-            self._read_opacity()
-            self._place()
-            self.show()
-            set_capturable(self, self._settings)
-        self.raise_()
-        self.activateWindow()
-        self._show_plan()
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         """A KB update swapped the KB: everything is read again, the market answers of the old one dropped."""
@@ -316,10 +208,13 @@ class ScrollPlanner(EdgeResize, QWidget):
         self._run()
         self._show_plan()
 
-    def character_changed(self) -> None:
-        """The active character switched or was edited: what it wears is read again (it is the plan's pick
-        until the player picks their own)."""
-        if self._sync_default() and self._picked is None:
+    def leave(self) -> None:
+        """The page left: its search starts fresh next time (the pick stays, like the other pages' own)."""
+        self._typing.stop()
+        if self._box.text():
+            self._box.blockSignals(True)
+            self._box.clear()
+            self._box.blockSignals(False)
             self._show_plan()
 
     def _sync_default(self) -> bool:
@@ -334,28 +229,9 @@ class ScrollPlanner(EdgeResize, QWidget):
                 found = es
                 break
         was, self._default = self._default, found
-        return was is not found or (was is not None and found is not None and was.key != found.key)
-
-    def place_under(self, rect: QRect) -> None:
-        """Where the window opens the first time (no place kept yet): just under the toolbar's rect."""
-        self._under = QRect(rect) if isinstance(rect, QRect) else None
-
-    def apply_language(self, t: I18n) -> None:
-        self.t = t
-        self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
-        self._retext()
-        self._run()
-        self._paint_head()
-        self._build_stats()
-        self._rebuild_cards()
+        return was is not found and (was is None or found is None or was.key != found.key)
 
     # ------------------------------------------------------------ the search
-
-    def _escaped(self) -> None:
-        if self._box.text():
-            self._box.clear()          # textChanged drops the results, the plan is back
-        else:
-            self._close_clicked()
 
     def _run(self) -> None:
         """The equips for what is typed (the typing debounce's work too)."""
@@ -365,10 +241,10 @@ class ScrollPlanner(EdgeResize, QWidget):
         self._clear_rows()
         for es in picks:
             sub = " · ".join(x for x in (itemterms.kind(es.slot, t.lang), self._slots_text(es)) if x)
-            row = _Row(bidi.ltr_name(es.item, rtl), bidi.plain(sub, rtl) if sub else "", t("sp_pick_tip"))
-            row.clicked.connect(lambda _=False, e=es: self._pick(e))
+            row = PickRow(bidi.ltr_name(es.item, rtl), bidi.plain(sub, rtl) if sub else "", t("sp_pick_tip"))
+            row.clicked.connect(lambda e=es: self._pick(e))
             self._rows.append(row)
-            self._results_lay.insertWidget(self._results_lay.count(), row)
+            self._results_lay.addWidget(row)
         self._results.setVisible(bool(picks))
         self._plan.setVisible(not picks)
         if len(q.replace(" ", "")) < 2:
@@ -380,6 +256,7 @@ class ScrollPlanner(EdgeResize, QWidget):
         else:
             text = ""
         self._status.setText(bidi.plain(text, rtl) if text else "")
+        self._status.setVisible(bool(text))
 
     def _clear_rows(self) -> None:
         while self._rows:
@@ -395,22 +272,27 @@ class ScrollPlanner(EdgeResize, QWidget):
         return t("sp_slots_one") if es.slots == 1 else t("sp_slots", n=bidi.ltr_block(f"{es.slots}", t.rtl))
 
     def _pick(self, es: scrollplan.EquipScrolls) -> None:
-        """The equip to plan: picked, the spinner set to its clean slots, the first stat group chosen, the
+        """The equip to plan: picked, the stepper set to its clean slots, the first stat group chosen, the
         typed prices of the last equip dropped."""
         self._picked = es
         self._stat = 0
         self._your.clear()
+        self._typing.stop()
+        self._box.blockSignals(True)       # the plan shows now, not after the typing pause re-reads an empty box
         self._box.clear()
+        self._box.blockSignals(False)
         self._show_plan()
 
     def _show_plan(self) -> None:
         """The plan half drawn for the equip in hand (the player's pick, else the character's worn one)."""
         t, rtl = self.t, self.t.rtl
-        es = self._picked or self._default
+        es = self._equip()
         self._clear_rows()
         self._results.hide()
         self._status.setText("")
-        self._plan.setVisible(es is not None)
+        self._status.hide()
+        self._plan.show()
+        self._head.setVisible(es is not None)
         if es is None:
             self._hint.setText(bidi.plain(t("sp_pick"), rtl))
             self._hint.setVisible(True)
@@ -424,8 +306,10 @@ class ScrollPlanner(EdgeResize, QWidget):
             self._hint.setVisible(True)
             return
         cap = es.slots if isinstance(es.slots, int) and es.slots > 0 else UNKNOWN_CAP
-        self._spin.setRange(1, cap)
+        self._spin.blockSignals(True)      # the cards are rebuilt below for the new equip, painted once
+        self._spin.setMaximum(cap)
         self._spin.setValue(min(cap, es.slots or 1))
+        self._spin.blockSignals(False)
         self._n = self._spin.value()
         self._build_stats()
         self._rebuild_cards()
@@ -434,31 +318,34 @@ class ScrollPlanner(EdgeResize, QWidget):
         """The equip in hand's own two lines: its name, and its slot (in the player's language, per
         itemterms' own translations) with its clean upgrade slots."""
         t, rtl = self.t, self.t.rtl
-        es = self._picked or self._default
+        es = self._equip()
         self._head.name.setText(bidi.ltr_name(es.item, rtl) if es else "")
         sub = " · ".join(x for x in ((itemterms.kind(es.slot, t.lang), self._slots_text(es)) if es else ()) if x)
         self._head.sub.setText(bidi.plain(sub, rtl) if sub else "")
         self._head.sub.setVisible(bool(sub))
 
     def _build_stats(self) -> None:
-        """The equip's stats as a wrap of little pills, the chosen one lit (a combo's arrow doesn't survive
-        the dark glass's style sheet, and pills read at a glance over the game)."""
+        """The equip's stats as a wrap of chips, the chosen one lit (they read at a glance, a combo's list
+        doesn't), the caption leading them."""
         es = self._equip()
-        while (btn := self._stats_lay.takeAt(0)) is not None:
-            if btn.widget() is not None and btn.widget() is not self._bonus_label:   # the caption stays
-                btn.widget().hide()
-                btn.widget().deleteLater()
-        self._stats_lay.addWidget(self._bonus_label, 0, 0)      # the caption leads the pills it names
-        self._stats: list[QPushButton] = []
+        while (item := self._stats_lay.takeAt(0)) is not None:
+            w = item.widget()
+            if w is not None and w is not self._bonus_label:     # the caption stays
+                w.hide()
+                w.deleteLater()
+        self._stats_lay.addWidget(self._bonus_label, 0, 0)
+        self._stats = []
         for i, g in enumerate((es.groups if es else ()) or ()):
-            b = QPushButton(bidi.plain(g.stat, self.t.rtl), objectName="Stat", checkable=True)
+            b = QPushButton(bidi.plain(g.stat, self.t.rtl), objectName="SubChip", checkable=True)
             b.setCursor(Qt.PointingHandCursor)
+            b.setAutoDefault(False)          # Enter in a price box never picks a stat
             b.setToolTip(self.t("sp_bonus"))
             b.setAccessibleName(self.t("sp_bonus"))
             b.setChecked(i == self._stat)
             b.clicked.connect(lambda _=False, i=i: self._stat_changed(i))
-            self._stats_lay.addWidget(b, (i + 1) // 4, (i + 1) % 4)
+            self._stats_lay.addWidget(b, (i + 1) // 5, (i + 1) % 5)
             self._stats.append(b)
+        self._stats_lay.setColumnStretch(5, 1)       # the chips keep their own width, the rest of the row empty
         if self._stats:
             self._stat = min(self._stat, len(self._stats) - 1)
 
@@ -491,20 +378,20 @@ class ScrollPlanner(EdgeResize, QWidget):
 
     def _rebuild_cards(self) -> None:
         """One card per grade of the chosen stat (their texts filled by _paint_cards, so a price that arrives
-        or a spinner turn only rewrites them — a typed price is never interrupted)."""
+        or a stepper turn only rewrites them — a typed price is never interrupted)."""
         self._clear_cards()
         group = self._group()
         if group is None:
             return
         self._set_cards_visible(True)
         for s in group.grades:
-            card = QFrame(objectName="Row")
+            card = QFrame(objectName="Card")
             lay = QVBoxLayout(card)
-            lay.setContentsMargins(10, 6, 10, 6)
-            lay.setSpacing(2)
+            lay.setContentsMargins(CARD_PAD, 10, CARD_PAD, 10)
+            lay.setSpacing(3)
             top = QHBoxLayout()
             top.setSpacing(8)
-            name = QLabel(objectName="GradeName")
+            name = QLabel(objectName="CardName")
             price = QWidget()
             price_lay = QVBoxLayout(price)
             price_lay.setContentsMargins(0, 0, 0, 0)
@@ -528,9 +415,8 @@ class ScrollPlanner(EdgeResize, QWidget):
             cost_lay = QVBoxLayout(cost)
             cost_lay.setContentsMargins(0, 0, 0, 0)
             cost_lay.setSpacing(0)
-            edit = QLineEdit(objectName="YourPrice")
-            edit.setFixedWidth(150)
-            edit.setMinimumHeight(edit.sizeHint().height())
+            edit = QLineEdit()
+            edit.setFixedWidth(170)
             edit.textChanged.connect(lambda txt, k=s.key: self._your_changed(k, txt))
             bottom.addWidget(cost, 1)
             bottom.addWidget(edit, 0, Qt.AlignBottom)
@@ -545,8 +431,7 @@ class ScrollPlanner(EdgeResize, QWidget):
             c = self._cards.pop()
             c["card"].hide()
             c["card"].deleteLater()
-        self._summary.setText("")
-        for c in (self._chaos, self._source):
+        for c in (self._summary, self._chaos, self._source):
             c.setText("")
 
     def _your_changed(self, key: str, text: str) -> None:
@@ -572,13 +457,16 @@ class ScrollPlanner(EdgeResize, QWidget):
         return out
 
     def _line_fm(self, obj: str):
-        """A hidden label of one card text's own look, for measuring its lines (kept for the window's life)."""
-        if obj not in self._measure:
-            lb = QLabel(self, objectName=obj)
+        """A hidden label of one card text's own look, for measuring its lines: a child of the window the page
+        is in, so the window's style sheet (its font size) is the one measured with."""
+        win = self.window()
+        key = (obj, id(win))
+        if key not in self._measure:
+            lb = QLabel(win, objectName=obj)
             lb.hide()
             lb.ensurePolished()
-            self._measure[obj] = lb
-        return self._measure[obj].fontMetrics()
+            self._measure[key] = lb
+        return self._measure[key].fontMetrics()
 
     @staticmethod
     def _wrap_tokens(tokens: list[str], sep: str, fm, max_w: int) -> list[str]:
@@ -598,13 +486,15 @@ class ScrollPlanner(EdgeResize, QWidget):
     @staticmethod
     def _set_lines(lay, lines: list[str], obj: str, right: bool = False) -> None:
         """A card's text as exactly as many single-line labels as it has lines — never a wrapping label:
-        one line per label, and Qt's layout always knows the height it needs."""
+        one line per label, and Qt's layout always knows the height it needs. A line never widens the page
+        (its width is the page's to give): a page laid out before it was shown measured too wide a card once."""
         while lay.count() > len(lines):
             w = lay.takeAt(lay.count() - 1).widget()
             w.hide()
             w.deleteLater()
         while lay.count() < len(lines):
             lb = QLabel(objectName=obj)
+            lb.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
             lb.setAlignment((Qt.AlignRight if right else Qt.AlignLeft) | Qt.AlignVCenter)
             lay.addWidget(lb)
         for i, text in enumerate(lines):
@@ -614,45 +504,46 @@ class ScrollPlanner(EdgeResize, QWidget):
         """Every text of the grade cards, the comparison line and the notes, from the plan's own math."""
         t, rtl = self.t, self.t.rtl
         group = self._group()
-        if group is None:
+        if group is None or not self._cards:
             return
         got = scrollplan.plans(group, self._n, self._prices(group))
-        inner = self._scroll.viewport().width() - SCROLLBAR_W - 20     # a card's own width, rim aside
+        inner = max(200, self.width() - 2 * CARD_PAD - 2)     # a card's own width, its margins and rim aside
         for card, gp in zip(self._cards, got):
             s = gp.scroll
             name = bidi.plain(f"{s.grade} · {bidi.ltr_block(f'{s.success}%', rtl)}", rtl)
             card["name"].setText(name)
-            price_w = max(120, inner - self._line_fm("GradeName").horizontalAdvance(name) - 8)
+            price_w = max(120, inner - self._line_fm("CardName").horizontalAdvance(name) - 8)
             key, pieces = self._price_bits(s)
             if pieces:
-                lines = self._wrap_tokens(pieces, " · ", self._line_fm("Sub"), price_w)
+                lines = self._wrap_tokens(pieces, " · ", self._line_fm("CardSub"), price_w)
                 texts = [bidi.plain(t(key, p=bidi.ltr_block(lines[0], rtl)), rtl)]      # the key opens the
                 texts += [bidi.plain(bidi.ltr_block(ln, rtl), rtl) for ln in lines[1:]]  # price, not each line
             else:
                 texts = [bidi.plain(t(key), rtl)]
-            self._set_lines(card["price"], texts, "Sub", right=not rtl)
+            self._set_lines(card["price"], texts, "CardSub", right=not rtl)
             # each part is laid out whole, then blocked whole: "0.6 ** 7" showed as "2.8" next to a stray "%",
             # and "+70 Max HP" as "Max HP +70", while the parts floated apart in the Hebrew lines
             exp = " · ".join(f"+{_num(v)} {label}" for label, v in gp.expected)
             parts = [bidi.plain(t("sp_all_pass", n=bidi.ltr_block(str(self._n), rtl),
                                   p=bidi.ltr_block(_pct(gp.plan.all_pass), rtl)), rtl),
                      bidi.plain(t("sp_expected", v=bidi.ltr_block(exp, rtl) if exp else "—"), rtl)]
-            self._set_lines(card["odds"], self._wrap_tokens(parts, " · ", self._line_fm("Sub"), inner), "Sub")
+            self._set_lines(card["odds"], self._wrap_tokens(parts, " · ", self._line_fm("CardStat"), inner),
+                            "CardStat")
             gain = s.gains[0][1] if s.gains else 0
             entries = [f"+{k * gain}: {_pct(pr)}" for k, pr in enumerate(gp.plan.dist) if pr > 0]
             word = bidi.plain(t("sp_ladder"), rtl)
             head = f"({group.primary}):" if entries else ""
-            budget = inner - (self._line_fm("Sub").horizontalAdvance(word) + 6 if rtl and head else 0)
+            budget = inner - (self._line_fm("CardSub").horizontalAdvance(word) + 6 if rtl and head else 0)
             # the head leads its first entry (never a ' · ' between them: "(Max HP): · +70: 100%")
             first = [f"{head} {entries[0]}"] if head and entries else ([head] if head else [])
-            lines = self._wrap_tokens(first + entries[1:], " · ", self._line_fm("Note"), budget)
+            lines = self._wrap_tokens(first + entries[1:], " · ", self._line_fm("CardSub"), budget)
             texts = ([f"{word} {bidi.ltr_block(lines[0], rtl)}"] if lines else []) \
                     + [bidi.ltr_block(ln, rtl) for ln in lines[1:]]
-            self._set_lines(card["ladder"], [bidi.plain(x, rtl) for x in texts], "Note")
+            self._set_lines(card["ladder"], [bidi.plain(x, rtl) for x in texts], "CardSub")
             cost = (bidi.plain(t("sp_expected_cost", p=bidi.ltr_block(
                 f"{_mesos(gp.expected_cost)} mesos", rtl)), rtl)
                     if gp.expected_cost is not None else bidi.plain(t("sp_price_none"), rtl))
-            self._set_lines(card["cost"], [cost], "Sub")
+            self._set_lines(card["cost"], [cost], "CardStat")
             if s.key in self._your:
                 card["edit"].setPlaceholderText("")
                 if card["edit"].text() != f"{self._your[s.key]:,}":
@@ -689,6 +580,15 @@ class ScrollPlanner(EdgeResize, QWidget):
             return "sp_price_offline", []
         return "sp_price_loading", []
 
+    def showEvent(self, e) -> None:
+        super().showEvent(e)
+        self._paint_cards()           # measured again in the window's own look, at the page's width
+
+    def resizeEvent(self, e) -> None:
+        super().resizeEvent(e)
+        if e.oldSize().width() != e.size().width():
+            self._paint_cards()       # the lines broken again for the new width
+
     # ------------------------------------------------------------ the Free Market prices
 
     def _queue_fm(self, group: scrollplan.StatGroup) -> None:
@@ -722,7 +622,7 @@ class ScrollPlanner(EdgeResize, QWidget):
 
     def _on_market(self, r) -> None:
         """A lookup's answer, back on the GUI thread: remembered (also for the other grades' cards) and the
-        texts rewritten. An answer from before the last pick or KB swap is dropped."""
+        texts rewritten. An answer from before the last KB swap is dropped."""
         read, key, usual, offline = r
         if read != self._fm_read:
             return
@@ -730,82 +630,15 @@ class ScrollPlanner(EdgeResize, QWidget):
             self._fm_bad.add(key)
         else:
             self._fm[key] = usual
-        if self.isVisible():
+        if self.isVisible():          # a page not shown is painted when it shows (showEvent)
             self._paint_cards()
 
-    # ------------------------------------------------------------ text (all of it, for apply_language)
+    # ------------------------------------------------------------ text
 
     def _retext(self) -> None:
         t, rtl = self.t, self.t.rtl
-        self._title.setText(bidi.plain(t("sp_title"), rtl))
-        self._close.setAccessibleName(t("sp_close"))
-        self._close.setToolTip(t("sp_close"))
         self._box.setPlaceholderText(bidi.plain(t("sp_search_ph"), rtl))
         self._use_label.setText(bidi.plain(t("sp_use"), rtl))
-        self._bonus_label.setText(bidi.plain(t("sp_bonus"), rtl))
-        self._spin.setAccessibleName(t("sp_use"))
+        self._spin.set_label(t("sp_use"))
         self._bonus_label.setText(bidi.plain(t("sp_bonus"), rtl))
         self._hint.setText(bidi.plain(t("sp_pick"), rtl))
-
-    # ------------------------------------------------------------ close, place, move, resize
-
-    def _close_clicked(self, _=False) -> None:
-        """The ✕: the setting off (the bar's button follows), hidden until switched back on."""
-        self._settings["scroll_planner"] = False
-        self.hide()
-        self.closed.emit()
-
-    def paintEvent(self, e) -> None:
-        _paint_glass(self, self._opacity)
-
-    def _read_opacity(self) -> None:
-        """The NPCs window's own slider sets it: the same dark glass, as see-through as the player asked."""
-        try:
-            self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self._settings["npc_overlay_opacity"])))
-        except (TypeError, ValueError):
-            self._opacity = OPACITY_DEFAULT
-
-    def _place(self) -> None:
-        """Where the window opens: where the player left it, when that is still on a screen (a monitor since
-        unplugged: under the toolbar again)."""
-        screens = [s.geometry() for s in QGuiApplication.screens()]
-        saved = self._settings["scroll_planner_geom"]
-        size = QSize(self.width(), self.height())
-        if isinstance(saved, dict) and isinstance(saved.get("w"), int) and isinstance(saved.get("h"), int):
-            size = mapview.clamp_size(saved["w"], saved["h"], screens, QSize(MIN_W, MIN_H))
-        spot = mapview.saved_spot(saved, size, screens)
-        self.setGeometry(QRect(spot if spot is not None else self._default_spot(size), size))
-        self._placed = True
-
-    def _default_spot(self, size: QSize) -> QPoint:
-        """Just under the toolbar (its button opens this), kept on that screen; without one — the bar never
-        placed, or gone — the primary screen's top-left corner."""
-        primary = QGuiApplication.primaryScreen().availableGeometry()
-        screens = [s.geometry() for s in QGuiApplication.screens()]
-        under = self._under
-        if isinstance(under, QRect) and not under.isNull():
-            screen = next((g for g in screens if g.intersects(under)), primary)
-            x = min(max(under.left(), screen.left()), max(screen.left(), screen.right() - size.width() + 1))
-            y = min(max(under.bottom() + 1 + GAP, screen.top()), max(screen.top(), screen.bottom() - size.height() + 1))
-            return QPoint(x, y)
-        return primary.topLeft() + QPoint(SHADOW + 4, SHADOW + 4)
-
-    def moveEvent(self, e) -> None:
-        self._geom.start()
-        super().moveEvent(e)
-
-    def resizeEvent(self, e) -> None:
-        self._geom.start()
-        super().resizeEvent(e)
-
-    def hideEvent(self, e) -> None:
-        self._typing.stop()       # nothing fires once it is hidden: the rows are not read again behind the back
-        if self._placed:             # hidden (the ✕, the bar's button, the app closing): keep the place now
-            self._geom.stop()
-            self._remember()
-        super().hideEvent(e)
-
-    def _remember(self) -> None:
-        if self._placed:
-            self._settings["scroll_planner_geom"] = {"x": self.x(), "y": self.y(), "w": self.width(),
-                                                     "h": self.height()}

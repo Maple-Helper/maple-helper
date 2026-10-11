@@ -1,7 +1,7 @@
-"""The scroll planner (maplehelper/scrollplan.py and its window): which scrolls an equip takes — the slot
-name mapping between the two tables, the stat grouping, the exact odds of a scroll session (closed forms,
-checked against the attempt-by-attempt definition), the prices nothing invents, and the window's own life
-(shown from its setting, rows in both languages, the ✕, a Free Market price that never blocks the GUI thread).
+"""The scroll planner (maplehelper/scrollplan.py and its Scrolls page in the play tools): which scrolls an equip
+takes — the slot name mapping between the two tables, the stat grouping, the exact odds of a scroll session
+(closed forms, checked against the attempt-by-attempt definition), the prices nothing invents, and the page's own
+life (a tab of the tools window, rows in both languages, a Free Market price that never blocks the GUI thread).
 The real-KB tests cross-check the mapping against the equip pages' own "Scrolls for <item>" tables."""
 import json
 import math
@@ -360,17 +360,12 @@ def test_real_kb_chaos_scrolls_are_not_confirmed_in_the_game():
     assert chaos and not any(open_.item_open(k) for k in chaos)
 
 
-# ---------------------------------------------------------------- the window
+# ---------------------------------------------------------------- the Scrolls page of the play tools
 
 @pytest.fixture
 def qapp():
     from PySide6.QtWidgets import QApplication
     return QApplication.instance() or QApplication([])
-
-
-@pytest.fixture
-def settings(isolated_store):
-    return isolated_store.Settings()
 
 
 @pytest.fixture
@@ -385,34 +380,43 @@ def pump(qapp, ms):
         time.sleep(0.005)
 
 
-def delete_window(qapp, w):
+@pytest.fixture
+def tools(qapp, isolated_store, profiles, kb, monkeypatch):
+    """make(lang, page): the tools window on a page, shown (a page not shown paints its cards when it shows).
+    The Free Market is offline unless a test says otherwise: no test reaches the network."""
     from PySide6.QtCore import QEvent
-    w.hide()
-    w.close()
-    for timer in (w._typing, w._geom):
-        timer.stop()
-    w.deleteLater()
+
+    from maplehelper.ui.tools import ToolsDialog
+    monkeypatch.setattr("maplehelper.market.item_market", lambda item_id, timeout=8: None)
+    made = []
+
+    def make(lang="en", page="scrolls"):
+        d = ToolsDialog(kb, profiles, isolated_store.Settings(), lang, "", {}, page)
+        d.show()
+        qapp.processEvents()
+        made.append(d)
+        return d
+    yield make
+    for d in made:
+        d.close()
+        d.deleteLater()
     qapp.processEvents()
     qapp.sendPostedEvents(None, QEvent.DeferredDelete)
     qapp.processEvents()
 
 
 @pytest.fixture
-def win(qapp, settings, profiles, kb):
-    from maplehelper.i18n import I18n
-    from maplehelper.ui.scrollplanner import ScrollPlanner
-    w = ScrollPlanner(kb, settings, profiles, I18n("en"))
-    yield w
-    delete_window(qapp, w)
+def win(tools):
+    return tools().scroll_planner
 
 
 def _pick_stat(w, name: str) -> None:
-    """Click the stat pill of this name (its bidi marks aside)."""
+    """Click the stat chip of this name (its bidi marks aside)."""
     for b in w._stats:
         if "".join(ch for ch in b.text() if ord(ch) < 0x2000) == name:
             b.click()
             return
-    raise AssertionError(f"no stat pill {name} in {[b.text() for b in w._stats]}")
+    raise AssertionError(f"no stat chip {name} in {[b.text() for b in w._stats]}")
 
 
 def _lines(lay) -> str:
@@ -424,10 +428,26 @@ def _card_texts(w):
     return [(c["scroll"].grade, c["name"].text(), _lines(c["odds"]), _lines(c["price"])) for c in w._cards]
 
 
-def test_window_shows_the_plan_and_the_x_turns_the_setting_off(qapp, settings, win):
-    settings["scroll_planner"] = True
-    win.refresh()
-    assert win.isVisible() and win._plan.isVisibleTo(win) or win.isVisible()
+def test_the_scrolls_tab_is_a_page_of_the_tools_window(qapp, tools):
+    """The planner lives in the tools window (not a glass window over the game): its own tab, in both languages,
+    in the window's own cards and chips."""
+    from PySide6.QtCore import Qt
+
+    from maplehelper.ui.tools import PAGES
+    d = tools()
+    assert PAGES[d.stack.currentIndex()] == "scrolls"
+    assert d.nav.button(PAGES.index("scrolls")).text() == "Scrolls"
+    w = d.scroll_planner
+    assert w.window() is d and not w.windowFlags() & Qt.WindowStaysOnTopHint
+    w.open_item("item/1000")
+    assert {c["card"].objectName() for c in w._cards} == {"Card"}
+    assert {b.objectName() for b in w._stats} == {"SubChip"}
+    he = tools("he")
+    assert he.nav.button(PAGES.index("scrolls")).text().replace(chr(0x200F), "") == "סקרולים"
+
+
+def test_page_shows_the_plan_in_both_languages(qapp, tools):
+    win = tools().scroll_planner
     # an empty plan asks for a pick; a non-equip key only says so
     assert win._hint.text()
     win.open_item("npc/5")
@@ -452,33 +472,40 @@ def test_window_shows_the_plan_and_the_x_turns_the_setting_off(qapp, settings, w
     assert "+70: 100%" in ladders["Lesser"]
     assert "+0:" not in ladders["Lesser"]                         # a sure success shows its one outcome only
     assert "all 7 pass: 2.8%" in hp["Intermediate"] and "+63 Max HP" in hp["Intermediate"]
-    # Hebrew re-texts everything, right to left
+    # Hebrew (the default) texts everything right to left
     from PySide6.QtCore import Qt
-
-    from maplehelper.i18n import STRINGS, I18n
-    win.apply_language(I18n("he"))
+    win = tools("he").scroll_planner
+    win.open_item("item/1000")
+    _pick_stat(win, "HP")
     qapp.processEvents()
-    assert win._title.text().replace(chr(0x200F), "") == STRINGS["sp_title"]["he"]   # bidi.plain's RLM marks aside
     assert win.layoutDirection() == Qt.RightToLeft
     he = {g: t for g, _, t, _ in _card_texts(win)}
     assert "100%" in he["Lesser"]
     # every Latin run is one whole block: numbers, "mesos", percents — pieced out they scrambled ("mesos
     # 15,000 :NPC-מה", "<0.1%" flipping, the ladder running right-to-left)
     he_prices = {g: p for g, _, _, p in _card_texts(win)}
-    assert "\u206615,000 mesos\u2069" in he_prices["Lesser"]
-    assert "\u2066<0.1%\u2069" in he["Greater"] or "\u2066<0.1%\u2069" in he["Intermediate"]
+    assert re.search("⁦[^⁩]*15,000 mesos[^⁩]*⁩", he_prices["Lesser"])   # (a line: one block)
+    assert "⁦<0.1%⁩" in he["Greater"] or "⁦<0.1%⁩" in he["Intermediate"]
     he_ladder = _lines(win._cards[0]["ladder"])
-    assert "תוצאות" in he_ladder and "\u2066(Max HP): +70: 100%\u2069" in he_ladder   # one block, Hebrew head
-    assert "\u2066" in win._summary.text()
+    assert "תוצאות" in he_ladder and "⁦(Max HP): +70: 100%⁩" in he_ladder   # one block, Hebrew head
+    assert "⁦" in win._summary.text()
     assert "חולצה" in win._head.sub.text()                        # the slot word in Hebrew, per itemterms
-    closed = []
-    win.closed.connect(lambda: closed.append(True))
-    win._close.click()
+
+
+def test_page_search_lists_equips_and_a_click_plans_one(qapp, win):
+    win._box.setText("bow")
+    win._run()
+    assert [r.name.text() for r in win._rows] == ["Ranger Bow", "War Bow"]
+    assert win._results.isVisibleTo(win) and not win._plan.isVisibleTo(win)
+    win._rows[1].clicked.emit()
     qapp.processEvents()
-    assert settings["scroll_planner"] is False and not win.isVisible() and closed == [True]
+    assert win._head.name.text() == "War Bow" and win._box.text() == "" and win._plan.isVisibleTo(win)
+    win._box.setText("zzz")
+    win._run()
+    assert "Nothing in the database named" in win._status.text()
 
 
-def test_window_free_market_price_off_the_gui_thread(qapp, settings, win, monkeypatch):
+def test_page_free_market_price_off_the_gui_thread(qapp, win, monkeypatch):
     threads, answered = [], threading.Event()
 
     def fake(item_id, timeout=8):
@@ -501,7 +528,7 @@ def test_window_free_market_price_off_the_gui_thread(qapp, settings, win, monkey
     assert "NPC: 15,000 mesos" in prices["Lesser"]                 # the KB's price never waits on the network
 
 
-def test_window_typed_price_reprices_that_grade(qapp, settings, win):
+def test_page_typed_price_reprices_that_grade(qapp, win):
     win.open_item("item/1000")
     _pick_stat(win, "HP")
     inter = next(c for c in win._cards if c["scroll"].grade == "Intermediate")
@@ -512,19 +539,19 @@ def test_window_typed_price_reprices_that_grade(qapp, settings, win):
     assert "Intermediate 2,222" in win._summary.text()             # 140,000 mesos over an expected +63 HP
 
 
-def test_window_defaults_to_what_the_character_wears(qapp, settings, profiles, win):
+def test_page_defaults_to_what_the_character_wears(qapp, profiles, tools):
     c = profiles.add("Test", "Warrior", "Fighter", 30)
     c.gear = {"Top": "item/1000"}
     profiles.save()
-    settings["scroll_planner"] = True
-    win.refresh()
+    d = tools()
+    win = d.scroll_planner
     assert win._head.name.text() == "Silver Master Sergeant"       # the character's top, until they pick
     win.open_item("item/663")
-    win.character_changed()
+    d.profile_changed()
     assert win._head.name.text() == "War Bow"                      # the player's own pick always wins
 
 
-def test_window_an_earlier_lookup_still_lands_after_another_pick(qapp, settings, win, monkeypatch):
+def test_page_an_earlier_lookup_still_lands_after_another_pick(qapp, win, monkeypatch):
     """Every new batch of lookups dropped the answers of the one before, whose keys were never fetched again:
     a quick second pick left those grades on "loading" for as long as the window stayed open."""
     go, started = threading.Event(), threading.Event()
@@ -547,3 +574,28 @@ def test_window_an_earlier_lookup_still_lands_after_another_pick(qapp, settings,
         time.sleep(0.01)
     prices = {g: p for g, _, _, p in _card_texts(win)}
     assert "FM usual: 777 mesos" in prices["Intermediate"] and "FM usual: 777 mesos" in prices["Greater"]
+
+
+def test_page_only_a_kb_swap_drops_the_lookups_on_their_way(qapp, win, kb):
+    win.open_item("item/1000")
+    _pick_stat(win, "HP")
+    before = win._fm_read
+    win.open_item("item/663")                                      # a pick never starts a new round
+    assert win._fm_read == before
+    win.set_kb(kb)
+    assert win._fm_read == before + 1
+    win._on_market((before, "item/205", 999, False))               # an answer of the old KB: dropped
+    assert "item/205" not in win._fm
+
+
+def test_gear_advisor_plan_scrolls_lands_on_the_scrolls_page(qapp, profiles, tools):
+    """The gear advisor's "Plan scrolls" on an item: the same window's Scrolls page, open on that item."""
+    from maplehelper.ui.tools import PAGES
+    profiles.add("Test", "Warrior", "Fighter", 30)
+    profiles.save()
+    d = tools(page="gear")
+    assert PAGES[d.stack.currentIndex()] == "gear"
+    d.gear_advisor.scroll_requested.emit("item/1000")
+    qapp.processEvents()
+    assert PAGES[d.stack.currentIndex()] == "scrolls"
+    assert d.scroll_planner._head.name.text() == "Silver Master Sergeant" and d.scroll_planner._cards
