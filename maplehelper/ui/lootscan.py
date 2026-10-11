@@ -6,10 +6,12 @@ size, since the game's interface scales with it. A box the player drew ("loot_re
 one. A QTimer ticks on the GUI thread; finding the window, the grab and the OCR run on a worker thread (the chat never
 freezes on them), and the read lines come back through a signal to lootlog.Tracker, which turns them into the log's
 events. Nothing reads while no log runs. The running log is kept here, live, and saved to loot.json every few seconds
-and when it ends (a log outlives the tools window and an app restart)."""
+and when it ends (a log outlives the tools window and an app restart); each pickup, once no later read can correct
+it, also goes into the loot database for good (lootdb.py)."""
 from __future__ import annotations
 
 import logging
+import sqlite3
 import sys
 import threading
 import time
@@ -17,7 +19,7 @@ import time
 import numpy as np
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from .. import capture, lootlog, osapi
+from .. import capture, lootdb, lootlog, osapi
 from ..kb import KnowledgeBase
 from ..store import Profiles, Settings
 
@@ -25,6 +27,7 @@ log = logging.getLogger("maplehelper")
 
 READ_INTERVAL = 0.5     # s: a message stays ~6 s and a kill writes up to 3 at once; two reads a second follow them
 SAVE_EVERY_MS = 5000    # the running log goes to disk this often while it counts (and at once when it ends)
+SETTLE_S = lootlog.LIFETIME_S + 3   # a pickup older than this is final (no read corrects it): it goes in the database
 BARS_EVERY_S = 30.0     # how often the game's black bars are measured again (one whole-window grab); and on a resize
 
 
@@ -131,10 +134,11 @@ class LootScanner(QObject):
         self._tracker = lootlog.Tracker(lootlog.item_names(kb))
 
     def resume(self) -> None:
-        """A log running when the app last closed goes on."""
+        """A log running when the app last closed goes on (and gets its database row if it had none)."""
         cid = self.store.running_any()
         if cid is not None:
             self._cid, self._log = cid, self.store.running(cid)
+            self._save()
         self.restart()
 
     def restart(self) -> None:
@@ -147,9 +151,10 @@ class LootScanner(QObject):
             self._timer.stop()
 
     def stop(self) -> None:
-        """No read while the app goes; the running log is saved as it is (it goes on at the next start)."""
+        """No read while the app goes; the running log is saved as it is (it goes on at the next start), and every
+        pickup it counted goes into the database now."""
         self._timer.stop()
-        self._save()
+        self._save(final=True)
 
     # ---------------------------------------------------------------- the log
 
@@ -169,22 +174,49 @@ class LootScanner(QObject):
         self._cid, self._log = cid, self.store.start(cid, self.kb)
         self.last_read = None
         self.state = "ok"
+        self._save()                        # (its database row, at once)
         self.restart()
         self.changed.emit()
 
     def end(self) -> dict | None:
         if self._log is None:
             return None
-        rec = self.store.end(self._cid, self.kb, self._log)
+        cid, lg = self._cid, self._log
+        rec = self.store.end(cid, self.kb, lg)
+        self._to_db(lg, final=True)         # the rest of its pickups, and its end
+        self.store.put(cid, lg)             # (which of them are in the database)
         self._cid, self._log = None, None
         self._save_timer.stop()
         self.restart()
         self.changed.emit()
         return rec
 
-    def _save(self) -> None:
-        if self._log is not None and self._cid is not None:
-            self.store.put(self._cid, self._log)
+    def _save(self, final: bool = False) -> None:
+        """To loot.json, and the settled pickups to the database; again in a while when some aren't settled yet."""
+        lg = self._log
+        if lg is None or self._cid is None:
+            return
+        self._to_db(lg, final)
+        self.store.put(self._cid, lg)
+        if not final and any(not e.saved for e in lg.events) and not self._save_timer.isActive():
+            self._save_timer.start(SAVE_EVERY_MS)
+
+    def _to_db(self, lg: lootlog.Log, final: bool) -> None:
+        """The log's row (made on its first save) and its pickups that no read can change any more (SETTLE_S after
+        they came; `final`: all of them). A database that can't be written keeps them for the next try."""
+        try:
+            if lg.db_id is None:
+                name = next((c.name for c in self._profiles.characters if c.id == self._cid), "")
+                lg.db_id = lootdb.open_log(self._cid or "", name, lg.start)
+            cut = time.time() - SETTLE_S
+            ready = [e for e in lg.events if not e.saved and (final or e.t <= cut)]
+            lootdb.add_events(lg.db_id, ready, self.kb)
+            for e in ready:
+                e.saved = True
+            if lg.ended is not None:
+                lootdb.end_log(lg.db_id, lg.ended)
+        except sqlite3.Error as e:
+            self._complain(f"loot database: {e}")
 
     # ---------------------------------------------------------------- reading
 
