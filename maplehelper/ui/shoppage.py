@@ -13,8 +13,8 @@ import threading
 
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget,
+                               QVBoxLayout, QWidget)
 
 from .. import bidi, itemdetails, mesowatch, osms, sources, translations
 from .controls import FlowLayout, Segmented
@@ -22,6 +22,7 @@ from .widgets import ITEM_REQUESTS, fit_picture, source_tag
 
 POLL_MS = 60 * 1000            # how often the page looks for a newer list (the checks: hourly / every 15 minutes)
 GUIDE = "guide"                # the Pets tab's pets guide (the old Pets page)
+CRATE_COLUMNS = 4              # the crate's tiles a row (the owner)
 
 
 def fold(name: str) -> str:
@@ -119,7 +120,7 @@ class CrateTile(QFrame):
         super().__init__(objectName="Card")
         t = page.t
         self.key = key
-        self.setFixedSize(132, 156)          # room for a two-line name under the picture
+        self.setFixedHeight(156)             # room for a two-line name under the picture; four share a row
         if key:
             self.setCursor(Qt.PointingHandCursor)
             self.setToolTip(t("shop_open_item"))
@@ -402,8 +403,12 @@ class ShopPage(QWidget):
             self.list.addWidget(note)
             return
         holder = QWidget()
-        holder.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
-        flow = FlowLayout(holder)
-        for s in inside:
-            flow.addWidget(CrateTile(self, s, self.key_of(s.name)))
+        holder.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)      # the first tile on the reading side
+        grid = QGridLayout(holder)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(8)
+        for n, s in enumerate(inside):
+            grid.addWidget(CrateTile(self, s, self.key_of(s.name)), n // CRATE_COLUMNS, n % CRATE_COLUMNS)
+        for c in range(CRATE_COLUMNS):
+            grid.setColumnStretch(c, 1)
         self.list.addWidget(holder)
