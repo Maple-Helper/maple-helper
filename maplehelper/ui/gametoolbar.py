@@ -33,6 +33,7 @@ from .npcoverlay import (
     _flags,
     _paint_glass,
     accent_of,
+    drag_to,
     keep_off_minimap,
     apply_look,
     look_palette,
@@ -111,7 +112,7 @@ class _Grip(QLabel):
 
     def mouseMoveEvent(self, e):
         if self._grab is not None and e.buttons() & Qt.LeftButton:
-            self.window().move(e.globalPosition().toPoint() - self._grab)
+            drag_to(self.window(), e.globalPosition().toPoint() - self._grab)
 
     def mouseReleaseEvent(self, e):
         self._grab = None

@@ -298,19 +298,53 @@ def _panel(w: QWidget, at: QPoint | None = None) -> QRect:
     return r.adjusted(SHADOW, SHADOW, -SHADOW, -SHADOW)
 
 
-def keep_off_minimap(w: QWidget, settings) -> bool:
-    """A window over the game dragged onto the drawn minimap box stops at its edge: it would cover the very box the
-    minimap reads take (now that captures see the windows, the owner's 2026-10-11). Moved out by the shortest way;
-    True when it was moved."""
+def _on_screen(w: QWidget, at: QPoint) -> QPoint:
+    """`at` moved so the window's drawn panel stays whole on the screen it is over (its shadow rim may hang off)."""
+    centre = at + QPoint(w.width() // 2, w.height() // 2)
+    screen = QGuiApplication.screenAt(centre) or QGuiApplication.primaryScreen()
+    room = screen.availableGeometry()
+    x = min(max(at.x(), room.left() - SHADOW), room.right() + 1 + SHADOW - w.width())
+    y = min(max(at.y(), room.top() - SHADOW), room.bottom() + 1 + SHADOW - w.height())
+    return QPoint(x, y)
+
+
+def allowed_spot(w: QWidget, settings, at: QPoint) -> QPoint:
+    """Where a window over the game may be put when asked for `at`: whole on its screen, and never on the drawn
+    minimap box, whose reads it would cover (now that captures see the windows, the owner's 2026-10-11) — off it the
+    shortest way that stays on the screen. A drag asks this before moving, so the window stops at the box's edge
+    instead of going in and being pushed back out (it flickered)."""
+    at = _on_screen(w, at)
     box = minimap_box(settings)
-    panel = _panel(w)
-    if box is None or not panel.intersects(box) or w.__dict__.get("_nudging"):
-        return False
+    panel = _panel(w, at)
+    if box is None or not panel.intersects(box):
+        return at
     shifts = [QPoint(box.left() - 1 - panel.right(), 0), QPoint(box.right() + 1 - panel.left(), 0),
               QPoint(0, box.top() - 1 - panel.bottom()), QPoint(0, box.bottom() + 1 - panel.top())]
+    for d in sorted(shifts, key=lambda d: abs(d.x()) + abs(d.y())):
+        spot = _on_screen(w, at + d)
+        if not _panel(w, spot).intersects(box):
+            return spot
+    return w.pos()                  # no room anywhere around it: where it already is
+
+
+def drag_to(w: QWidget, at: QPoint) -> None:
+    """A title row's or grip's drag: the window goes to the allowed spot nearest `at`."""
+    spot = allowed_spot(w, w.__dict__.get("_settings") or w.__dict__.get("settings"), at)
+    if spot != w.pos():
+        w.move(spot)
+
+
+def keep_off_minimap(w: QWidget, settings) -> bool:
+    """Any other move (opened at a saved spot, the box drawn anew under it): the window put back where it may be.
+    True when it was moved."""
+    if w.__dict__.get("_nudging"):
+        return False
+    spot = allowed_spot(w, settings, w.pos())
+    if spot == w.pos():
+        return False
     w._nudging = True
     try:
-        w.move(w.pos() + min(shifts, key=lambda d: abs(d.x()) + abs(d.y())))
+        w.move(spot)
     finally:
         w._nudging = False
     return True
@@ -405,7 +439,7 @@ class _Header(QWidget):
 
     def mouseMoveEvent(self, e):
         if self._grab is not None and e.buttons() & Qt.LeftButton:
-            self.window().move(e.globalPosition().toPoint() - self._grab)
+            drag_to(self.window(), e.globalPosition().toPoint() - self._grab)
 
     def mouseReleaseEvent(self, e):
         self._grab = None
