@@ -89,23 +89,28 @@ def test_the_cabs_and_teleports_button_is_its_setting_off_at_first(bar):
 
 # ------------------------------------------------------------ the searches
 
-@pytest.mark.parametrize("kind,text", [("monster", "Monsters"), ("npc", "NPCs"), ("item", "Items"),
+@pytest.mark.parametrize("kind,text", [("monster_npc", "Monsters & NPCs"), ("item", "Items"),
                                        ("sell", "Safe to sell?")])
 def test_each_search_button_names_its_search(bar, kind, text):
     w, _ = bar
-    assert w._search[kind].text() == text
+    assert w._search[kind].text().replace("&&", "&") == text      # ("&&": Qt shows one "&", not a shortcut)
     seen = []
     w.search_requested.connect(seen.append)
     w._search[kind].click()
     assert seen == [kind]
 
 
+def test_monsters_and_npcs_is_one_button(bar):
+    w, _ = bar
+    assert set(w._search) == {"monster_npc", "item", "sell"}
+
+
 def test_set_search_mode_lights_only_that_button(bar):
     w, _ = bar
-    w.set_search_mode("npc")
-    assert [w._search[k].property("on") for k in ("monster", "npc", "item")] == [False, True, False]
+    w.set_search_mode("item")
+    assert [w._search[k].property("on") for k in ("monster_npc", "item", "sell")] == [False, True, False]
     w.set_search_mode("")
-    assert [w._search[k].property("on") for k in ("monster", "npc", "item")] == [False, False, False]
+    assert [w._search[k].property("on") for k in ("monster_npc", "item", "sell")] == [False, False, False]
 
 
 def test_the_x_turns_the_setting_off_and_hides(bar):
