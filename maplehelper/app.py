@@ -245,17 +245,7 @@ class MapleHelperApp:
         self._update_timer.start()
         self._app_update_timer = QTimer(interval=APP_CHECK_MS, timeout=self.check_app_update_silently)
         self._app_update_timer.start()
-        # MesoWatch's Free Market sales: checked as soon as the app starts (the owner: fresh prices the moment it
-        # opens; in the background, the copy on disk shows meanwhile), then every 15 minutes, so a price or an answer
-        # is never far behind its site (mesowatch.py: a 1 KB index decides, the market file comes compressed and only
-        # when it changed)
-        from . import mesowatch, osms
-        mesowatch.warm()
-        osms.warm()             # the Cash Shop list (the Shop page): at start, then hourly (ohmi's terms)
-        self._osms_timer = QTimer(interval=osms.REFRESH_SECONDS * 1000, timeout=osms.warm)
-        self._osms_timer.start()
-        self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)
-        self._mesowatch_timer.start()
+        self._start_live_data()
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
             t = I18n(self.settings["language"])
@@ -1013,6 +1003,19 @@ class MapleHelperApp:
             dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
             return dlg
         self.open_window("item", make).show_item(key)
+
+    def _start_live_data(self) -> None:
+        """The live sources, kept fresh with no one asking (the owner: every piece of data updates by itself):
+        MesoWatch's Free Market sales checked as the app starts and every 15 minutes (it publishes about every 12),
+        OSMS's Cash Shop list at start and every hour (ohmi's terms). Both in the background; the copy on disk shows
+        meanwhile, and the open price card, details window and Shop page redraw when a newer one comes in."""
+        from . import mesowatch, osms
+        mesowatch.warm()
+        osms.warm()
+        self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)
+        self._mesowatch_timer.start()
+        self._osms_timer = QTimer(interval=osms.REFRESH_SECONDS * 1000, timeout=osms.warm)
+        self._osms_timer.start()
 
     def show_market_details(self, key: str):
         """An item's Free Market sales on MesoWatch in full (chart, where to buy, recent sales), beside the Play

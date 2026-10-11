@@ -227,3 +227,68 @@ def test_the_shop_lays_out_the_games_cash_shop(app, monkeypatch, lang):
     page._poll()
     assert loads == [1]
     page.timer.stop()
+
+
+def test_the_app_keeps_both_live_sources_fresh_by_itself(app, monkeypatch):
+    """At start, then every 15 minutes (MesoWatch) and every hour (OSMS), with no one asking."""
+    from types import SimpleNamespace
+
+    from maplehelper import app as app_module
+    from maplehelper import osms
+    warmed = []
+    monkeypatch.setattr(mesowatch, "warm", lambda: warmed.append("mesowatch"))
+    monkeypatch.setattr(osms, "warm", lambda: warmed.append("osms"))
+    fake = SimpleNamespace()
+    app_module.MapleHelperApp._start_live_data(fake)
+    assert sorted(warmed) == ["mesowatch", "osms"]                     # right as the app opens
+    assert fake._mesowatch_timer.isActive() and fake._mesowatch_timer.interval() == 15 * 60 * 1000
+    assert fake._osms_timer.isActive() and fake._osms_timer.interval() == 60 * 60 * 1000
+    warmed.clear()
+    fake._mesowatch_timer.timeout.emit()
+    fake._osms_timer.timeout.emit()
+    assert sorted(warmed) == ["mesowatch", "osms"]                     # and again on each tick
+    fake._mesowatch_timer.stop()
+    fake._osms_timer.stop()
+
+
+def test_a_new_publish_reaches_what_is_open_by_itself(app, monkeypatch, tmp_path):
+    """End to end with the real refresh code: the site publishes a newer market, the app's timer checks, and the
+    open details window shows the new numbers with nobody clicking anything."""
+    import json
+
+    from PySide6.QtWidgets import QLabel
+
+    from maplehelper.ui.marketview import MarketDetailsDialog
+    for name, value in (("_snap", None), ("_loaded", False), ("_checked", 0.0), ("_failed", False)):
+        monkeypatch.setattr(mesowatch, name, value)
+    monkeypatch.setattr(mesowatch, "_file", lambda: tmp_path / "mw.json")
+    monkeypatch.setattr(mesowatch, "face_file", lambda snap_, who, timeout=10: None)
+    now = time.time()
+    site = {"price": 229000.0, "at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now - 60))}
+
+    def doc():
+        return {"version": 1, "market": "Classic World", "preview": False, "generated_at": site["at"],
+                "items": [{"id": "cash:01007145", "name": "Black Cat Beanie", "price": site["price"], "sold": 19,
+                           "lowData": False, "history": [], "listings": [], "category": "Cash Shop"}], "sales": []}
+
+    def request(url, etag="", timeout=30):
+        if url == mesowatch.INDEX_URL:
+            return 200, json.dumps({"markets": [{"id": "Classic World", "label": "Windia",
+                                                 "updated": site["at"]}]}).encode(), ""
+        if url == mesowatch.FACES_URL:
+            return 200, b'{"faces": {}}', ""
+        return 200, json.dumps(doc()).encode(), '"' + site["at"] + '"'
+    monkeypatch.setattr(mesowatch, "_request", request)
+    kb = FakeKB({"item/3198": "Black Cat Beanie"})
+    mesowatch.snapshot()
+    d = MarketDetailsDialog(kb, "en", "", None, None)
+    d.show_item("item/3198")
+    assert any("229,000" in w.text() for w in d.findChildren(QLabel))
+    # the site publishes a newer market; 15 minutes later the app's timer checks (mesowatch.warm -> snapshot)
+    site["price"], site["at"] = 251000.0, time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime(now))
+    mesowatch._snap.fetched -= mesowatch.REFRESH_SECONDS
+    mesowatch._checked -= mesowatch.REFRESH_SECONDS
+    mesowatch.snapshot()
+    d._follow()                                          # the window's own poll (every minute)
+    assert any("251,000" in w.text() for w in d.findChildren(QLabel))
+    d.close()
