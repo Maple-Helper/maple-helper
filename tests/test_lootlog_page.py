@@ -37,14 +37,6 @@ def _cell(d, key):
     return d.loot_cells[key][1].text()
 
 
-def test_no_area_no_start(page):
-    """Nothing to read before the box is drawn: Start waits, and the page says where to draw it."""
-    d, _ = page
-    d.loot_changed()
-    assert not d.loot_start.isEnabled() and d.loot_start.isVisibleTo(d)
-    assert "messages area" in d.loot_status.text()
-
-
 def test_the_area_button_asks_the_app_to_draw_the_box(page):
     d, _ = page
     asked = []
@@ -53,12 +45,21 @@ def test_the_area_button_asks_the_app_to_draw_the_box(page):
     assert asked == [True]
 
 
+def test_the_messages_are_found_on_their_own_unless_a_box_was_drawn(page):
+    """Start needs no box; a drawn one shows "Find it on its own", which forgets it."""
+    d, s = page
+    d.loot_changed()
+    assert d.loot_start.isEnabled() and not d.loot_auto.isVisibleTo(d)
+    s["loot_region"] = {"x": 0, "y": 0, "w": 400, "h": 260}
+    d.loot_changed()
+    assert d.loot_auto.isVisibleTo(d) and d.loot.region() is not None
+    d.loot_auto.click()
+    assert s["loot_region"] is None and d.loot.region() is None and not d.loot_auto.isVisibleTo(d)
+
+
 def test_a_running_log_shows_its_totals_and_ends_into_recent(page):
     d, s = page
-    s["loot_region"] = {"x": 0, "y": 0, "w": 400, "h": 260}
-    d.loot.restart()
     d.loot_changed()
-    assert d.loot_start.isEnabled()
     d.loot_start.click()
     assert d.loot.running(d.c.id) and d.loot_end.isVisibleTo(d) and not d.loot_start.isVisibleTo(d)
     d.loot._log.add([lootlog.Event(1.0, "exp", 21), lootlog.Event(2.0, "mesos", 27),
@@ -77,8 +78,6 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
 
     from maplehelper.ui.lootoverlay import LootOverlay
     d, s = page
-    s["loot_region"] = {"x": 0, "y": 0, "w": 400, "h": 260}
-    d.loot_changed()                    # (Start waits for the box)
     card = LootOverlay(d.loot, s, kb)
     d.loot.changed.connect(card.sync)
     try:
@@ -99,3 +98,33 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
         assert not card.isVisible()
     finally:
         card.close()
+
+
+def test_reads_follow_the_game_window_and_skip_a_covered_one(page, monkeypatch):
+    """No box drawn: each read takes the messages box from the game's window as it is now (moved, resized), and
+    reads nothing while another app's window covers it (its text was read live), saying so on the page."""
+    from maplehelper import capture
+    from maplehelper.ui import lootscan
+    d, _ = page
+    scan = d.loot
+    grabbed, cover = [], [False]
+    windows = iter([(0, 0, 1922, 1112), (500, 300, 1368, 800), (500, 300, 1368, 800)])
+    monkeypatch.setattr(lootscan.GameArea, "find", lambda self: next(windows))
+    monkeypatch.setattr(lootscan.GameArea, "covered", lambda self, box: cover[0])
+    monkeypatch.setattr(capture, "grab_image", lambda x, y, w, h: grabbed.append((x, y, w, h)) or
+                        __import__("PIL.Image", fromlist=["Image"]).new("RGB", (w, h)))
+    monkeypatch.setattr(lootlog, "ocr_rows", lambda arr: [])
+    got = []
+    scan._read_done.disconnect()
+    scan._read_done.connect(lambda rows, at, read: (got.append(read), scan._deliver(rows, at, read)))
+    scan.start()
+    scan._read(None)
+    scan._read(None)
+    assert grabbed == [tuple(lootlog.auto_box((0, 0, 1922, 1112)).values()),
+                       tuple(lootlog.auto_box((500, 300, 1368, 800)).values())]
+    cover[0] = True
+    scan._read(None)
+    assert len(grabbed) == 2 and got[-1][1] == "covered" and scan.state == "covered"
+    d.loot_changed()
+    assert "covers the game" in d.loot_status.text()
+    scan.end()

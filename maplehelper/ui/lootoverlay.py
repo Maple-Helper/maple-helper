@@ -96,8 +96,8 @@ class LootOverlay(QWidget):
             else:
                 text = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
             out.append((text, DIM, False))
-        if self.scanner.region() is None:
-            out.append((t("loot_need_area"), DIM, False))
+        if self.scanner.state in ("no_game", "covered"):
+            out.append((t(f"loot_{self.scanner.state}"), DIM, False))
         return out
 
     def refresh(self) -> None:
