@@ -366,7 +366,7 @@ class GameToolbar(EdgeResize, QWidget):
                         f" QMenu::item:selected {{ background: {FILL2}; }} QMenu::separator {{ height: 1px;"
                         f" background: {FILL1}; margin: 4px 6px; }}")
         for page in QUICK:
-            m.addAction(bidi.plain(t("tool_" + page), rtl), lambda p=page: self.tools_requested.emit(p))
+            m.addAction(bidi.plain(t(f"tool_{page}"), rtl), lambda p=page: self.tools_requested.emit(p))
         m.addSeparator()
         m.addAction(bidi.plain(t("tb_tools_all"), rtl), lambda: self.tools_requested.emit(""))
         m.popup(self._tools.mapToGlobal(QPoint(0, self._tools.height())))
