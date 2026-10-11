@@ -293,8 +293,10 @@ class MarketDetailsDialog(GlassDialog):
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addLayout(price_box(mesos(s.price), "MwPrice", 28, t.rtl))
-        label = QLabel(bidi.plain(t("mw_typical_sale"), t.rtl), objectName="MwPriceLabel")
-        label.setToolTip(t("mw_typical_tip"))
+        # "usual sale price ?": the "?" says it is the median (the glossary's term, as on the price card)
+        from . import terms
+        label = terms.label(bidi.paragraph_html(t("mw_typical_sale"), "rtl" if t.rtl else "ltr"), t.lang,
+                            "MwPriceLabel")
         row.addWidget(label, 0, Qt.AlignBottom)
         row.addStretch(1)
         if s.low_data:
@@ -428,15 +430,15 @@ class MarketDetailsDialog(GlassDialog):
     def _shop_row(self, x: mesowatch.Shop, s) -> QFrame:
         t = self.t
         bits = [t("mw_spotted", ago=ago(t, x.seen))] if x.seen else []
-        if x.location:
-            bits.append(bidi.ltr_block(x.location, t.rtl))
+        if x.location:      # one block that never breaks: "Free Market" | "2" over two lines read wrong
+            bits.append(bidi.ltr_block(x.location.replace(" ", " "), t.rtl))
         if x.stock:
             bits.append(t("price_mw_stock", n=x.stock))
         return self._row(x.seller, " · ".join(bits), x.price, t("mw_per_set_short") if s.per_set else t("mw_each"))
 
     def _sale_row(self, r: mesowatch.Sale, s) -> QFrame:
         t = self.t
-        bits = [bidi.ltr_block(r.location, t.rtl)] if r.location else []
+        bits = [bidi.ltr_block(r.location.replace(" ", " "), t.rtl)] if r.location else []
         if r.time:
             bits.append(ago(t, r.time))
         note = t("mw_qty", n=r.qty) if r.qty > 1 else (t("mw_per_set_short") if s.per_set else t("mw_each"))

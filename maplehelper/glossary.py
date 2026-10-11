@@ -27,6 +27,8 @@ TERMS = {
     "KS": "KS", "Citizenship": "Citizenship", "grind": "grind", "buff": "buff",
     "Booster": "booster", "Mastery": "mastery", "Critical Rate": "crit", "scroll": "scroll", "mob": "mob",
     "catalyst": "catalyst", "Training Advisor": "Training Advisor",
+    # MesoWatch's typical sale (the price card, the market details window): what the price is, a median
+    "מחיר מכירה רגיל": "usual sale price", "usual sale price": "usual sale price",
 }
 
 # clearer or missing definitions, written for the app
@@ -70,6 +72,10 @@ APP = {
     "Lv.": ("Level: הרמה של הדמות או של המפלצת. כל עליית רמה נותנת AP ו-SP.",
             "Level: of your character or a monster. Every level up gives AP and SP."),
     "mob": ("מפלצת (קיצור של mobile). \"מובים\" = מפלצות.", "A monster (short for mobile)."),
+    "usual sale price": ("החציון של המכירות ש-MesoWatch ראו: חצי מהמכירות היו זולות ממנו וחצי יקרות ממנו. מכירה חריגה "
+                         "אחת, זולה מאוד או יקרה מאוד, לא מזיזה אותו, ולכן הוא משקף את המחיר שבאמת משלמים.",
+                         "The median of the sales MesoWatch saw: half sold for less, half for more. One odd sale, very "
+                         "cheap or very dear, doesn't move it, so it shows what players really pay."),
     "catalyst": ("ה-mesos שמשלמים כדי ליצור את הפריט, מעבר לחומרים.", "The mesos paid to craft, on top of the materials."),
     # the book's lines point to website tools ("try the scroll simulator", "see the damage formula guide") or are
     # fragments; these say the same in full, with nothing the app doesn't have
