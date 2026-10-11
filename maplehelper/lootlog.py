@@ -182,9 +182,13 @@ class Event:
     amount: int = 0             # EXP / mesos; an item's count
     name: str = ""              # the item as the KB names it (or as read when the KB has no such item)
     key: str = ""               # the KB item, "" when unknown
+    saved: bool = False         # written to the loot database (lootdb.py)
 
     def to_json(self) -> dict:
-        return {k: v for k, v in asdict(self).items() if v not in ("", None)}
+        out = {k: v for k, v in asdict(self).items() if v not in ("", None)}
+        if not self.saved:
+            del out["saved"]
+        return out
 
     @classmethod
     def from_json(cls, raw) -> Event | None:
@@ -193,7 +197,8 @@ class Event:
         t, amount = raw.get("t"), raw.get("amount", 0)
         if not isinstance(t, (int, float)) or not isinstance(amount, int) or isinstance(amount, bool):
             return None
-        return cls(float(t), raw["kind"], amount, str(raw.get("name") or ""), str(raw.get("key") or ""))
+        return cls(float(t), raw["kind"], amount, str(raw.get("name") or ""), str(raw.get("key") or ""),
+                   raw.get("saved") is True)
 
 
 @dataclass
@@ -381,6 +386,7 @@ class Log:
     ended: float | None = None
     events: list[Event] = field(default_factory=list)
     base: dict = field(default_factory=lambda: {"exp": 0, "mesos": 0, "items": {}})
+    db_id: int | None = None    # its row in the loot database (lootdb.py); None until it has one
 
     def add(self, evs: list[Event]) -> None:
         self.events.extend(evs)
@@ -402,7 +408,7 @@ class Log:
 
     def to_json(self) -> dict:
         return {"start": self.start, "ended": self.ended, "events": [e.to_json() for e in self.events],
-                "base": self.base}
+                "base": self.base, "db_id": self.db_id}
 
     @classmethod
     def from_json(cls, raw) -> Log | None:
@@ -416,6 +422,8 @@ class Log:
             lg.base = {"exp": _int(base.get("exp")), "mesos": _int(base.get("mesos")),
                        "items": {str(n): [_int(v[0]), str(v[1] or "")] for n, v in base["items"].items()
                                  if isinstance(v, list) and len(v) == 2}}
+        db_id = raw.get("db_id")
+        lg.db_id = db_id if isinstance(db_id, int) and not isinstance(db_id, bool) else None
         return lg
 
 
