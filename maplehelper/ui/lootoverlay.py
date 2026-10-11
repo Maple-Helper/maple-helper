@@ -2,11 +2,10 @@
 Helper window), with the running log's EXP, mesos and items, per hour, and the latest pickups.
 
 It never takes focus from the game, drags from anywhere on it, and keeps its place (settings "loot_overlay_pos").
-On Windows it is left out of screen captures: the loot log reads the game's messages from a screenshot of their box,
-and a card dragged over that box would otherwise be read as messages (and the chat's screenshots would show it)."""
+Like the other windows over the game it stays out of screen captures unless "Show the overlays in screenshots" is
+on: the chat's screenshots would show it (its lines never read as pickup messages: no "received", "gained" or
+"earned" in them)."""
 from __future__ import annotations
-
-import sys
 
 from PySide6.QtCore import QPoint, QRect, Qt, QTimer
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QPainter, QPainterPath, QPen
@@ -23,17 +22,6 @@ FG = QColor(240, 240, 240)
 DIM = QColor(175, 180, 190)
 ACCENT = QColor(255, 140, 26)
 CLOSE = 18                  # the "×" in the top corner: hides the card (the Loot log page's switch shows it again)
-
-
-def exclude_from_capture(w: QWidget) -> None:
-    """Windows 10 2004+: the window shows on screen but not in captures (WDA_EXCLUDEFROMCAPTURE)."""
-    if sys.platform != "win32":
-        return
-    import ctypes
-    try:
-        ctypes.windll.user32.SetWindowDisplayAffinity(int(w.winId()), 0x11)
-    except (AttributeError, OSError):
-        pass
 
 
 def _short(n: int | None) -> str:
@@ -123,7 +111,8 @@ class LootOverlay(QWidget):
             scr = QGuiApplication.primaryScreen().availableGeometry()
             self.move(scr.right() - WIDTH - 40, scr.top() + 160)
         self.show()
-        exclude_from_capture(self)
+        from .npcoverlay import set_capturable
+        set_capturable(self, self.settings)
 
     def _on_screen(self, pos: dict) -> bool:
         r = QRect(pos["x"], pos["y"], WIDTH, max(40, self.height()))

@@ -224,6 +224,10 @@ class MapleHelperApp:
         self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb)
         self.loot_scanner.changed.connect(self.loot_overlay.sync)
         self.loot_overlay.sync()
+        # the bar over the game's Loot log button starts / ends it, and is lit while one runs
+        self.game_toolbar.loot_clicked.connect(self._loot_from_bar)
+        self.loot_scanner.changed.connect(self._loot_bar_state)
+        self._loot_bar_state()
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -318,6 +322,18 @@ class MapleHelperApp:
         where = self.__dict__.get("_windows", {}).get("map")
         if where is not None and where.isVisible() and where.key:
             where.show_map(where.key)
+
+    def _loot_from_bar(self) -> None:
+        """The bar's Loot log button: ends the running log, else starts one (the messages are found on their own)."""
+        scan = self.loot_scanner
+        if scan.running(scan.cid()):
+            scan.end()
+        else:
+            scan.start()
+
+    def _loot_bar_state(self) -> None:
+        scan = self.loot_scanner
+        self.game_toolbar.set_loot(scan.running(scan.cid()))
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -827,7 +843,8 @@ class MapleHelperApp:
         search = getattr(self, "game_search", None)
         npc = getattr(self, "npc_overlay", None)
         for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
-                  getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None)):
+                  getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None),
+                  getattr(self, "loot_overlay", None)):
             if w is not None:
                 set_capturable(w, self.settings)
 

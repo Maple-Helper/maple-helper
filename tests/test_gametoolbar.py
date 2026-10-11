@@ -108,6 +108,19 @@ def test_set_search_mode_lights_only_that_button(bar):
     assert [w._search[k].property("on") for k in ("monster", "npc", "item")] == [False, False, False]
 
 
+def test_the_loot_log_button_asks_for_it_and_is_lit_while_one_runs(bar):
+    w, _ = bar
+    seen = []
+    w.loot_clicked.connect(lambda: seen.append(True))
+    assert w._loot.text() == "Loot log"
+    w._loot.click()
+    assert seen == [True]
+    w.set_loot(True)
+    assert w._loot.property("on") is True
+    w.set_loot(False)
+    assert w._loot.property("on") is False
+
+
 def test_the_x_turns_the_setting_off_and_hides(bar):
     w, s = bar
     w.refresh()

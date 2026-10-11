@@ -77,6 +77,7 @@ class GameToolbar(QWidget):
     search_requested = Signal(str)     # which search to open: "monster" | "npc" | "item"
     npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
     rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
+    loot_clicked = Signal()            # the Loot log button: the app starts the log (or ends the running one)
 
     def __init__(self, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -121,6 +122,12 @@ class GameToolbar(QWidget):
         self._rides.setFocusPolicy(Qt.NoFocus)
         self._rides.clicked.connect(self._rides_clicked)
         row.addWidget(self._rides)
+        # the loot log: start / end, lit while one runs (the app keeps it in step: set_loot)
+        self._loot = QPushButton()
+        self._loot.setCursor(Qt.PointingHandCursor)
+        self._loot.setFocusPolicy(Qt.NoFocus)
+        self._loot.clicked.connect(lambda _=False: self.loot_clicked.emit())
+        row.addWidget(self._loot)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
@@ -145,6 +152,8 @@ class GameToolbar(QWidget):
             self._search[kind].setToolTip(t(key + "_tip"))
         self._rides.setText(bidi.plain(t("tb_rides"), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
         self._rides.setToolTip(t("tb_rides_tip"))
+        self._loot.setText(bidi.plain(t("tb_loot"), rtl))
+        self._loot.setToolTip(t("tb_loot_tip"))
         self._close.setAccessibleName(t("tb_close"))
         self._close.setToolTip(t("tb_close"))
         self.adjustSize()
@@ -177,6 +186,13 @@ class GameToolbar(QWidget):
                 b.setProperty("on", on)
                 b.style().unpolish(b)
                 b.style().polish(b)
+
+    def set_loot(self, running: bool) -> None:
+        """The Loot log button lit while a log runs (started here, on its tab, or still running from last time)."""
+        if self._loot.property("on") != running:
+            self._loot.setProperty("on", running)
+            self._loot.style().unpolish(self._loot)
+            self._loot.style().polish(self._loot)
 
     # ------------------------------------------------------------ place and move
 
