@@ -26,7 +26,7 @@ from .widgets import (changed_tag, chip_row, fit_picture, info_tag, mesos_text, 
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
+PAGES = ("train", "exp", "farm", "loot", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "pets")
 # the pages that are all about the character: with none, one card that offers to add one takes their place (a live
 # stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
 CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
@@ -402,8 +402,10 @@ class ToolsDialog(GlassDialog):
     tag_requested = Signal(str)                # tag an entity (monster, quest) in the chat
     guide_requested = Signal(str)              # open a guide in the guides window
     add_character_requested = Signal()         # no character yet: the chat's "Add character"
+    loot_area_requested = Signal()             # the loot log's "Select the messages area" (the app draws the box)
 
-    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train"):
+    def __init__(self, kb, profiles, settings, lang: str, stylesheet: str, runner=None, page: str = "train",
+                 loot=None):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tools"), t.rtl)
         self.kb, self.profiles, self.settings = kb, profiles, settings
@@ -415,6 +417,10 @@ class ToolsDialog(GlassDialog):
             self.runner.setParent(self)         # its timer goes with this window
         self.grind = self.runner.store
         self.runner.changed.connect(self.grind_changed)
+        # the loot log's reads and its log: the app's (they go on with this window closed), or its own
+        from .lootscan import LootScanner
+        self.loot = loot if isinstance(loot, LootScanner) else LootScanner(kb, profiles, settings, parent=self)
+        self.loot.changed.connect(self.loot_changed)
         self.setStyleSheet(stylesheet)
         self.fit_screen(580, 800)
         rtl = t.rtl
@@ -3958,6 +3964,240 @@ class ToolsDialog(GlassDialog):
             bits.append(t("farm_sessions", n=r.sessions))
             self.farm_records.addWidget(self._fl(" · ".join(bits), "RowLabel"))
         self.farm_records.addWidget(self._fl(t("farm_records_note"), "RowHint"))
+
+    # loot log --------------------------------------------------------------
+    # The game's pickup messages ("You received EXP (+21)", "You have gained mesos (+27)", "Leaf x1 earned. (Etc)"),
+    # read on this computer from the box the player drew around them while a log runs (lootlog.py, ui/lootscan.py).
+
+    LOOT_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "picked", "value", "value_h")
+    LOOT_FEED = 8               # the newest counted messages shown under the totals
+
+    def _loot_cid(self) -> str:
+        return self.c.id if self.c else ""
+
+    def _page_loot(self):
+        t = self.t
+        sc, lay = scroll_page(t.rtl)
+        self._loot_seen: set = set()
+        lay.addWidget(self._label(t("loot_intro"), "ToolHeader", seen=self._loot_seen))
+        area = Section(t("loot_area_title"), t.rtl)
+        box = QWidget()
+        bl = QVBoxLayout(box)
+        bl.setContentsMargins(0, 8, 0, 8)
+        bl.setSpacing(8)
+        self.loot_area_state = self._ll("", "RowLabel")
+        bl.addWidget(self.loot_area_state)
+        row = QHBoxLayout()
+        self.loot_pick = QPushButton(self._p(t("loot_pick")), objectName="Secondary")
+        self.loot_pick.setCursor(Qt.PointingHandCursor)
+        self.loot_pick.clicked.connect(self.loot_area_requested.emit)
+        row.addWidget(self.loot_pick)
+        row.addStretch(1)
+        bl.addLayout(row)
+        area.add_widget(box)
+        lay.addWidget(area)
+
+        sec = Section(t("loot_log_title"), t.rtl)
+        top = QWidget()
+        tl = QVBoxLayout(top)
+        tl.setContentsMargins(0, 8, 0, 8)
+        tl.setSpacing(4)
+        self.loot_tag = tag("", "TagGood")
+        self.loot_state = self._ll("", "RowLabel")
+        tl.addLayout(chip_row([self.loot_tag], self.loot_state, lead=True))
+        sec.add_widget(top)
+        cells = QWidget()
+        grid = QGridLayout(cells)
+        grid.setContentsMargins(0, 10, 0, 6)
+        grid.setHorizontalSpacing(6)
+        grid.setVerticalSpacing(12)
+        self.loot_cells = {}
+        for i, key in enumerate(self.LOOT_CELLS):
+            cell = QWidget()
+            cl = self._big("–", self._p(t(f"loot_cell_{key}")), explain=False)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cell.setLayout(cl)
+            grid.addWidget(cell, i // 2, i % 2)
+            grid.setColumnStretch(i % 2, 1)
+            self.loot_cells[key] = (cell, cl.itemAt(0).widget())
+        sec.add_widget(cells)
+        lines = QWidget()
+        self.loot_items = QVBoxLayout(lines)
+        self.loot_items.setContentsMargins(0, 8, 0, 8)
+        self.loot_items.setSpacing(6)
+        sec.add_widget(lines)
+        feed = QWidget()
+        self.loot_feed = QVBoxLayout(feed)
+        self.loot_feed.setContentsMargins(0, 4, 0, 8)
+        self.loot_feed.setSpacing(2)
+        sec.add_widget(feed)
+        foot = QWidget()
+        fl = QVBoxLayout(foot)
+        fl.setContentsMargins(0, 8, 0, 8)
+        fl.setSpacing(8)
+        self.loot_status = self._ll("", "RowHint")
+        fl.addWidget(self.loot_status)
+        btns = QHBoxLayout()
+        btns.setSpacing(8)
+        self.loot_start = QPushButton(self._p(t("loot_start")), objectName="Primary")
+        self.loot_end = QPushButton(self._p(t("loot_end")), objectName="Secondary")
+        self.loot_start.clicked.connect(lambda: self.loot.start())
+        self.loot_end.clicked.connect(lambda: self.loot.end())
+        for b in (self.loot_start, self.loot_end):
+            b.setCursor(Qt.PointingHandCursor)
+            btns.addWidget(b)
+        btns.addStretch(1)
+        fl.addLayout(btns)
+        sec.add_widget(foot)
+        lay.addWidget(sec)
+
+        rec = Section(t("loot_recent"), t.rtl)
+        rbox = QWidget()
+        self.loot_recent = QVBoxLayout(rbox)
+        self.loot_recent.setContentsMargins(0, 8, 0, 8)
+        self.loot_recent.setSpacing(6)
+        rec.add_widget(rbox)
+        lay.addWidget(rec)
+        lay.addStretch(1)
+        # the clock and the per-hour cells move between reads too
+        self._loot_clock = QTimer(self)
+        self._loot_clock.timeout.connect(self._loot_tick)
+        self._loot_clock.start(5000)
+        return sc
+
+    def _ll(self, text: str, obj: str) -> QLabel:
+        """A loot log label: the terms the intro explained get no second "?"."""
+        return self._label(text, obj, seen=set(self._loot_seen))
+
+    def _ls(self, label: QLabel, text: str) -> None:
+        self._set(label, text, set(self._loot_seen))
+
+    def loot_changed(self):
+        """The loot log counted something, started or ended, or its box was drawn: the page follows, once built."""
+        try:
+            if "loot" in self.pages:
+                self._fill_loot()
+        except RuntimeError:       # the window closed meanwhile
+            pass
+
+    def _loot_tick(self):
+        try:
+            if self.isVisible() and self.stack.currentIndex() == PAGES.index("loot"):
+                self._fill_loot()
+        except RuntimeError:
+            pass
+
+    def _loot_cell(self, key: str, value: str, tip: str = ""):
+        cell, label = self.loot_cells[key]
+        label.setText(value)
+        cell.setToolTip(tip_html(tip, self.t.rtl) if tip else "")
+        label.setAccessibleName(f"{self.t(f'loot_cell_{key}')}: {value}" + (f". {tip}" if tip else ""))
+
+    def _fill_loot(self):
+        from .. import lootlog
+        t, scan = self.t, self.loot
+        region = scan.region()
+        self._ls(self.loot_area_state, t("loot_area_set", w=region["w"], h=region["h"]) if region
+                  else t("loot_area_none"))
+        self.loot_pick.setText(self._p(t("loot_pick_again" if region else "loot_pick")))
+        cid = self._loot_cid()
+        lg = scan.log_for(cid)
+        running = scan.running(cid)
+        self.loot_start.setVisible(not running)
+        self.loot_end.setVisible(running)
+        self.loot_start.setEnabled(region is not None)
+        clear(self.loot_items)
+        clear(self.loot_feed)
+        if lg is None:
+            self.loot_tag.hide()
+            self._ls(self.loot_state, t("loot_idle_state"))
+            for k in self.LOOT_CELLS:
+                self._loot_cell(k, "–")
+        else:
+            self.loot_tag.show()
+            self.loot_tag.setObjectName("TagGood" if running else "Tag")
+            self.loot_tag.setText(self._p(t("grind_tag_running" if running else "grind_tag_ended")))
+            self.loot_tag.style().unpolish(self.loot_tag)
+            self.loot_tag.style().polish(self.loot_tag)
+            self._ls(self.loot_state, self._started_ago(lg) if running else
+                      t("grind_ended_state", time=self._clock(lg.seconds())))
+            sm = lootlog.summarize(self.kb, lg)
+            wait = t("loot_tip_wait")
+            self._loot_cell("time", self._p(self._clock(sm.seconds)))
+            self._loot_cell("exp", self._num(sm.exp))
+            self._loot_cell("exp_h", self._num(sm.exp_h), "" if sm.exp_h is not None else wait)
+            self._loot_cell("mesos", self._num(sm.mesos))
+            self._loot_cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else wait)
+            self._loot_cell("picked", self._num(sm.picked))
+            self._loot_cell("value", self._num(sm.value), t("loot_tip_value"))
+            self._loot_cell("value_h", self._num(sm.value_h), t("loot_tip_value") if sm.value_h is not None else wait)
+            self._loot_lines(sm)
+            self._loot_feed_lines(lg)
+        self.loot_items.parentWidget().setVisible(self.loot_items.count() > 0)
+        self.loot_feed.parentWidget().setVisible(self.loot_feed.count() > 0)
+        if region is None:
+            status = t("loot_need_area")
+        elif scan.ocr_missing:
+            status = t("loot_no_reader")
+        elif running:
+            status = t("loot_running_hint")
+        else:
+            status = t("loot_idle")
+        self._ls(self.loot_status, status)
+        self._fill_loot_recent(cid)
+
+    def _loot_lines(self, sm):
+        t = self.t
+        if not sm.items:
+            self.loot_items.addWidget(self._ll(t("loot_items_none"), "RowHint"))
+            return
+        self.loot_items.addWidget(self._ll(t("loot_items_head"), "SectionHeader"))
+        for name, n, key, price in sm.items:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            path = self.kb.picture(key) if key else None
+            if path:
+                pic = QLabel()
+                pic.setPixmap(QPixmap(str(path)).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setFixedSize(30, 30)
+                pic.setAlignment(Qt.AlignCenter)
+                row.addWidget(pic)
+            bits = [bidi.ltr_block(name, t.rtl), t("loot_count", n=f"{n:,}")]
+            if price:
+                bits.append(t("farm_loot_value", n=f"{n * price:,}"))
+            row.addWidget(self._ll(" · ".join(bits), "RowLabel"), 1)
+            self.loot_items.addLayout(row)
+        unknown = [bidi.ltr_block(name, t.rtl) for name, _, key, _ in sm.items if not key]
+        if unknown:
+            self.loot_items.addWidget(self._ll(t("loot_unknown", names=", ".join(unknown)), "RowHint"))
+
+    def _loot_feed_lines(self, lg):
+        t = self.t
+        evs = lg.events[-self.LOOT_FEED:]
+        if not evs:
+            return
+        self.loot_feed.addWidget(self._ll(t("loot_feed_head"), "SectionHeader"))
+        for e in reversed(evs):
+            when = time.strftime("%H:%M:%S", time.localtime(e.t))
+            if e.kind == "item":
+                what = t("loot_feed_item", name=bidi.ltr_block(e.name, t.rtl), n=f"{e.amount:,}")
+            else:
+                what = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
+            self.loot_feed.addWidget(self._ll(f"{what} · {bidi.ltr_block(when, t.rtl)}", "RowHint"))
+
+    def _fill_loot_recent(self, cid: str):
+        t = self.t
+        clear(self.loot_recent)
+        rows = self.loot.store.recent(cid)
+        if not rows:
+            self.loot_recent.addWidget(self._ll(t("loot_recent_none"), "RowHint"))
+            return
+        for r in rows[:10]:
+            when = time.strftime("%d/%m %H:%M", time.localtime(r.get("start") or 0))
+            bits = [bidi.ltr_block(when, t.rtl), self._clock(r.get("seconds")),
+                    t("loot_recent_exp", n=f"{r.get('exp') or 0:,}"), t("loot_recent_mesos", n=f"{r.get('mesos') or 0:,}"),
+                    t("loot_recent_items", n=f"{r.get('picked') or 0:,}")]
+            self.loot_recent.addWidget(self._ll(" · ".join(bits), "RowLabel"))
 
     # quick checks --------------------------------------------------------
 

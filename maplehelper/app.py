@@ -195,6 +195,11 @@ class MapleHelperApp:
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
+        # the loot log: the game's pickup messages read while a log runs (the box the player drew around them), with
+        # its timer as long as the app (ui/lootscan.py)
+        from .ui.lootscan import LootScanner
+        self.loot_scanner = LootScanner(self.kb, self.profiles, self.settings)
+        self.loot_scanner.changed.connect(lambda: self._tools_call("loot_changed"))
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -507,37 +512,47 @@ class MapleHelperApp:
 
     def pick_minimap(self):
         """The character card's minimap button: draw the box around the game's minimap; the reads start from it."""
+        self._pick_region("minimap_region", "minimap_pick_hint", getattr(self, "minimap_scanner", None))
+
+    def pick_loot_area(self):
+        """The loot log's "Select the messages area": draw the box around the game's pickup messages."""
+        self._pick_region("loot_region", "loot_pick_hint", getattr(self, "loot_scanner", None))
+
+    def _pick_region(self, setting: str, hint: str, scanner):
+        """Draw a box on the game (the chat steps aside meanwhile); it is saved in `setting` and `scanner` restarts
+        on it. One picker at a time."""
         from .ui.regionpick import RegionPicker
-        if getattr(self, "_minimap_picker", None) is not None:
+        if getattr(self, "_region_picker", None) is not None:
             return                  # already picking
         t = I18n(self.settings["language"] or "he")
-        self._minimap_overlay_open = self.overlay.is_open()
-        if self._minimap_overlay_open:
+        self._picker_overlay_open = self.overlay.is_open()
+        if self._picker_overlay_open:
             self.overlay.hide()     # the chat would cover the game the box is drawn on
-        picker = RegionPicker(hint=t("minimap_pick_hint"), rtl=t.rtl)
-        self._minimap_picker = picker
-        picker.picked.connect(self._on_minimap_picked)
+        picker = RegionPicker(hint=t(hint), rtl=t.rtl)
+        self._region_picker = picker
+        picker.picked.connect(lambda rect: self._on_region_picked(rect, setting, scanner))
         picker.start()
 
-    def _on_minimap_picked(self, rect: dict):
-        self._end_minimap_pick()
+    def _on_region_picked(self, rect: dict, setting: str, scanner):
+        self._end_region_pick()
         ok = (isinstance(rect, dict)
               and all(isinstance(rect.get(k), (int, float)) and not isinstance(rect.get(k), bool)
                       for k in ("x", "y", "w", "h"))
               and rect["w"] > 0 and rect["h"] > 0)
         if not ok:
             return                  # not a box: keep whatever was there
-        self.settings["minimap_region"] = {k: int(rect[k]) for k in ("x", "y", "w", "h")}  # saves, like every setting
-        scanner = getattr(self, "minimap_scanner", None)
+        self.settings[setting] = {k: int(rect[k]) for k in ("x", "y", "w", "h")}  # saves, like every setting
         if scanner is not None:
-            scanner.restart()       # (also resets the locator's lock onto the new box)
+            scanner.restart()       # (the minimap's also resets the locator's lock onto the new box)
+        if setting == "loot_region":
+            self._tools_call("loot_changed")
 
-    def _end_minimap_pick(self):
-        picker, self._minimap_picker = getattr(self, "_minimap_picker", None), None
+    def _end_region_pick(self):
+        picker, self._region_picker = getattr(self, "_region_picker", None), None
         if picker is not None:
             picker.close()
-        if getattr(self, "_minimap_overlay_open", False):
-            self._minimap_overlay_open = False
+        if getattr(self, "_picker_overlay_open", False):
+            self._picker_overlay_open = False
             if not self.overlay.isVisible():
                 self.overlay.show()
 
@@ -955,7 +970,8 @@ class MapleHelperApp:
 
         def make():
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
-                              self.grind, page)
+                              self.grind, page, loot=self.loot_scanner)
+            dlg.loot_area_requested.connect(self.pick_loot_area)
             dlg.sync_requested.connect(self.overlay.sync_profile)
             dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
@@ -1130,6 +1146,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.set_kb(self.kb)     # its locator is rebuilt from the new KB on the next read
+        loot = getattr(self, "loot_scanner", None)
+        if loot is not None:
+            loot.set_kb(self.kb)        # the item names it matches reads against
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1149,6 +1168,9 @@ class MapleHelperApp:
         scanner = getattr(self, "minimap_scanner", None)
         if scanner is not None:
             scanner.stop()                  # no minimap read while the app goes
+        loot = getattr(self, "loot_scanner", None)
+        if loot is not None:
+            loot.stop()                     # no loot read while the app goes; the running log is saved
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:

@@ -172,6 +172,7 @@ DEFAULT_SETTINGS = {
     "grind_auto": True,           # the grind tracker reads the game every minute while a session runs
     "minimap_region": None,       # the game's minimap on screen, drawn by the player: {"x","y","w","h"} in capture pixels
     "minimap_scan_interval": 1.0,  # seconds between two reads of the minimap (where the player is)
+    "loot_region": None,          # the game's pickup messages on screen, drawn by the player (the loot log reads them)
 }
 
 
@@ -457,6 +458,8 @@ class Profiles:
         History(cid).clear()
         from .grind import Store as GrindStore
         GrindStore().forget(cid)            # its grind sessions go with it
+        from .lootlog import Store as LootStore
+        LootStore().forget(cid)             # and its loot logs
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None
