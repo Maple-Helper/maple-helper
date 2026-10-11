@@ -1,14 +1,15 @@
 """The bar over the game (ui/gametoolbar.py): shown from its own setting, its NPCs-here button flipping the
-NPCs window's setting (the window follows the signal), its three search buttons naming their search, the
-mode lit back on the button that opened it, the ✕ turning the bar off, and its place on the screen — above
-the drawn minimap box, at the saved spot, and the spot kept after a drag. Its width is the player's too: the
-buttons wrap into as many rows as the width leaves room for, and the ⚙ panel's choices (the glass tint, the
-accent, icons instead of words, the transparency) are written and followed live."""
+NPCs window's setting (the window follows the signal), its search buttons naming their search, the mode lit back
+on the button that opened it, the ✕ turning the bar off (and saying so, for the app's how-to-bring-it-back toast),
+and its place on the screen — above the drawn minimap box, at the saved spot, and the spot kept after a drag. Its
+width is the player's too: the buttons wrap into as many rows as the width leaves room for. Every button has its
+line icon in its text's colours; in icons mode the icon alone. The ⚙ panel's choices (the glass tint, the accent,
+the transparency, icons instead of words, the bar's key, Reset) are written and followed live."""
 import os
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QPoint, QSize, Qt
+from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QPushButton
 from PySide6.QtTest import QTest
 
@@ -41,6 +42,8 @@ def bar(qapp, isolated_store):
     w = gametoolbar.GameToolbar(s, I18n("en"))
     yield w, s
     w.close()
+    if w._panel is not None:
+        w._panel.close()
 
 
 # ------------------------------------------------------------ its setting
@@ -162,11 +165,15 @@ def test_each_tool_button_is_its_windows_setting(bar, key, text):
     assert [k for k in w._tools if w._tools[k].isChecked()] == [key]     # the other ones stay off
 
 
-def test_the_x_turns_the_setting_off_and_hides(bar):
+def test_the_x_turns_the_setting_off_hides_and_says_so(bar):
+    """closed is what the app's how-to-bring-it-back toast and the open Settings window's switch follow."""
     w, s = bar
+    seen = []
+    w.closed.connect(lambda: seen.append(s["game_toolbar"]))
     w.refresh()
     w._close.click()
     assert s["game_toolbar"] is False and not w.isVisible()
+    assert seen == [False]
 
 
 def test_apply_language_retexts_and_mirrors(bar):
@@ -276,35 +283,179 @@ def test_the_panel_rings_the_chosen_swatches(bar):
     assert [b.property("key") for b in w._panel._accents.findChildren(QPushButton) if b.isChecked()] == ["pink"]
 
 
-def test_the_icons_choice_swaps_the_words_for_icons(bar):
-    """Each button shows its icon, its name in the tooltip and the accessible name; off, the words are back."""
+def _colours(icon, size, state) -> set[str]:
+    """The colours a line icon draws in where its strokes cover a pixel whole (anti-aliased edges left out)."""
+    img = icon.pixmap(size, QIcon.Normal, state).toImage()
+    return {img.pixelColor(x, y).name() for y in range(img.height()) for x in range(img.width())
+            if img.pixelColor(x, y).alpha() == 255}
+
+
+def test_every_button_has_its_line_icon_in_its_texts_colours(bar):
+    """Beside the words too: each button's icon drawn in the text colour, and in the accent's own text colour while
+    the button is lit, checked or its search mode on (an emoji kept its own colours on the lit green)."""
+    from maplehelper.ui import gametoolbar, npcoverlay
+    w, s = bar
+    w.refresh()
+    for b, key in w._buttons():
+        assert not b.icon().isNull() and b.text(), key
+    size = QSize(gametoolbar.WORD_ICON_PX, gametoolbar.WORD_ICON_PX)
+    _, on_fill = npcoverlay.accent_of(s)
+    assert npcoverlay.TEXT.lower() in _colours(w._search["map"].icon(), size, QIcon.Off)
+    assert on_fill.lower() in _colours(w._search["map"].icon(), size, QIcon.On)
+    w.set_search_mode("map")                   # lit by its mode, not checked
+    assert _colours(w._search["map"].icon(), size, QIcon.Off) == {on_fill.lower()}
+    w.set_search_mode("")
+    assert on_fill.lower() not in _colours(w._search["map"].icon(), size, QIcon.Off)
+    s["overlay_accent"] = "blue"               # a new accent: the lit icons take its text colour
+    w.look_followed()
+    assert npcoverlay.ACCENTS["blue"][2].lower() in _colours(w._search["map"].icon(), size, QIcon.On)
+    s["overlay_accent"] = "pink"               # picked elsewhere: the app's refresh is enough
+    w.refresh()
+    assert npcoverlay.ACCENTS["pink"][2].lower() in _colours(w._search["map"].icon(), size, QIcon.On)
+
+
+def test_the_icons_choice_shows_each_icon_alone_with_its_name_in_the_tooltip(bar):
+    """Icons mode: no word on any button, its icon at the larger size, the name in the tooltip and the accessible
+    name; off again, the words and their tips are back."""
+    from maplehelper.ui import gametoolbar
     w, s = bar
     w.refresh()
     w._gear.click()
     w._panel._icons.click()
     assert s["game_toolbar_icons"] is True
-    assert w._npcs.text() == "\U0001F4AC"
-    assert w._npcs.toolTip() == "NPCs Here" and w._npcs.accessibleName() == "NPCs Here"
-    assert w._search["map"].text() == "\U0001F5FA\uFE0F"
+    for b, key in w._buttons():
+        name = w.t(key)
+        assert b.text() == "" and not b.icon().isNull(), key
+        assert b.iconSize() == QSize(gametoolbar.ICON_PX, gametoolbar.ICON_PX)
+        assert b.toolTip() == name and b.accessibleName() == name
+    icons_wide = w.width()
     w._panel._icons.click()
     assert s["game_toolbar_icons"] is False
     assert w._npcs.text() == "NPCs Here" and w._npcs.toolTip() == w.t("tb_npcs_here_tip")
+    assert w.width() > icons_wide              # the words take more room
 
 
-def test_an_opacity_choice_writes_the_shared_setting(bar):
-    """The panel's transparency is the same npc_overlay_opacity the Settings dialog offers."""
+def test_the_transparency_slider_lands_on_a_step_and_writes_the_shared_setting(bar):
+    """The slider runs over the steps the windows over the game share (OPACITY_STEPS): a click lands on the
+    nearest one, written to npc_overlay_opacity and on the bar's and the panel's glass at once, its % beside it."""
+    from maplehelper.ui import npcoverlay
     w, s = bar
     w.refresh()
     w._gear.click()
-    w._panel._pick_opacity(0.5)
-    assert s["npc_overlay_opacity"] == 0.5
-    assert w._opacity == 0.5
+    p = w._panel
+    sl = p._slider
+    assert sl._n == len(npcoverlay.OPACITY_STEPS) and sl.index() == npcoverlay.OPACITY_STEPS.index(0.85)
+    QTest.mouseClick(sl, Qt.LeftButton, pos=QPoint(round(sl._x(1)) + 3, sl.height() // 2))
+    assert s["npc_overlay_opacity"] == npcoverlay.OPACITY_STEPS[1] == 0.5
+    assert w._opacity == 0.5 and p._opacity == 0.5 and p._opacity_value.text() == "50%"
+    QTest.mouseClick(sl, Qt.LeftButton, pos=QPoint(sl.width() - 1, sl.height() // 2))
+    assert s["npc_overlay_opacity"] == 1.0 and p._opacity_value.text() == "100%"
 
 
-def test_the_panel_and_settings_offer_the_same_opacity_steps():
-    from maplehelper.ui.dialogs import OPACITY_CHOICES
-    from maplehelper.ui.npcoverlay import OPACITY_STEPS
-    assert OPACITY_CHOICES == OPACITY_STEPS
+def test_each_look_choice_is_written_and_followed_live(bar):
+    """A tint tile, an accent dot, the icons switch: each click writes its setting, restyles the bar, asks every
+    window to follow (look_changed), and moves the panel's ring and the name beside its label."""
+    from maplehelper.ui import npcoverlay
+    w, s = bar
+    seen = []
+    w.look_changed.connect(lambda: seen.append(True))
+    w.refresh()
+    w._gear.click()
+    p = w._panel
+    swatch = lambda row, key: next(b for b in row.findChildren(QPushButton) if b.property("key") == key)  # noqa: E731
+    swatch(p._tints, "wine").click()
+    assert s["overlay_tint"] == "wine" and npcoverlay.current_tint() == npcoverlay.TINTS["wine"][1]
+    assert p._tint_name.text() == "Wine" and swatch(p._tints, "wine").isChecked()
+    assert not swatch(p._tints, "dark").isChecked()
+    swatch(p._accents, "orange").click()
+    assert s["overlay_accent"] == "orange" and npcoverlay.ACCENTS["orange"][1] in w.styleSheet()
+    assert p._accent_name.text() == "Orange" and swatch(p._accents, "orange").isChecked()
+    p._icons.click()
+    assert s["game_toolbar_icons"] is True and w._npcs.text() == ""
+    assert seen == [True, True, True]
+
+
+def test_reset_puts_the_default_look_back_and_keeps_the_key(bar):
+    from maplehelper.store import DEFAULT_SETTINGS
+    from maplehelper.ui import gametoolbar, npcoverlay
+    w, s = bar
+    s["overlay_tint"], s["overlay_accent"], s["npc_overlay_opacity"], s["game_toolbar_icons"] = "slate", "pink", 0.3, True
+    s["game_toolbar_hotkey"] = "Ctrl+Alt+T"
+    w.refresh()
+    w._gear.click()
+    p = w._panel
+    assert p._reset.isEnabled()
+    p._reset.click()
+    assert {k: s[k] for k in gametoolbar.LOOK_KEYS} == {k: DEFAULT_SETTINGS[k] for k in gametoolbar.LOOK_KEYS}
+    assert s["game_toolbar_hotkey"] == "Ctrl+Alt+T"                      # the key is no look
+    assert npcoverlay.current_tint() == npcoverlay.PANEL and w._npcs.text() == "NPCs Here" and w._opacity == 0.85
+    assert not p._reset.isEnabled()                                        # nothing left to put back
+
+
+def test_the_panels_key_box_sets_the_bars_key(bar):
+    """Click the box, press a key with its modifiers: written at once, and hotkey_changed has the app bind it. A
+    plain letter is refused (it would take that letter from every program) and the box goes on listening; its ✕
+    takes the key away."""
+    from maplehelper import keys
+    w, s = bar
+    seen = []
+    w.hotkey_changed.connect(lambda: seen.append(s["game_toolbar_hotkey"]))
+    w.refresh()
+    w._gear.click()
+    box = w._panel._hotkey
+    assert box.box.text() == keys.label(s["game_toolbar_hotkey"]) and keys.usable(s["game_toolbar_hotkey"])
+    QTest.mouseClick(box.box, Qt.LeftButton)
+    assert box.listening() and box.box.text() == "Press keys…"
+    QTest.keyClick(box.box, Qt.Key_T)
+    assert box.listening() and box.box.text() == "Add Ctrl or Alt" and seen == []
+    QTest.keyClick(box.box, Qt.Key_T, Qt.ControlModifier | Qt.AltModifier)
+    assert not box.listening() and s["game_toolbar_hotkey"] == "Ctrl+Alt+T" and seen == ["Ctrl+Alt+T"]
+    assert box.box.text() == keys.label("Ctrl+Alt+T")
+    box.clear.click()
+    assert s["game_toolbar_hotkey"] == "" and seen == ["Ctrl+Alt+T", ""] and box.box.text() == "None"
+
+
+def test_a_listening_key_box_lets_the_app_take_its_key_back(bar):
+    """While the box listens the app lets go of the bar's key (CAPTURE), or that key would never reach the box;
+    Esc keeps the key and the panel open, and the panel closing mid-listen hands the key back too."""
+    from maplehelper.ui.hotkeybox import CAPTURE
+    w, s = bar
+    heard = []
+
+    def on(v):
+        heard.append(v)
+    CAPTURE.listening.connect(on)
+    try:
+        w.refresh()
+        w._gear.click()
+        before = s["game_toolbar_hotkey"]
+        box = w._panel._hotkey
+        QTest.mouseClick(box.box, Qt.LeftButton)
+        QTest.keyClick(box.box, Qt.Key_Escape)
+        assert heard == [True, False] and not box.listening() and s["game_toolbar_hotkey"] == before
+        assert w._panel.isVisible()
+        QTest.mouseClick(box.box, Qt.LeftButton)
+        w._panel.hide()
+        assert heard == [True, False, True, False] and not box.listening()
+    finally:
+        CAPTURE.listening.disconnect(on)
+
+
+def test_the_panel_is_one_width_and_mirrors_in_hebrew(qapp, isolated_store):
+    from maplehelper.ui import gametoolbar
+    w = gametoolbar.GameToolbar(isolated_store.Settings(), I18n("he"))
+    try:
+        w.refresh()
+        w._gear.click()
+        p = w._panel
+        assert p.width() == gametoolbar.PANEL_W and p.layoutDirection() == Qt.RightToLeft
+        assert p._slider._x(0) > p._slider._x(p._slider._n - 1)      # the most see-through step on the right
+        tiles = p._tints.findChildren(QPushButton)
+        assert tiles[0].x() > tiles[-1].x()                            # the tiles run from the right
+        assert p._tint_name.text() == bidi.plain("כהה", True)
+    finally:
+        w.close()
+        w._panel.close()
 
 
 def test_a_panel_choice_signals_the_app_to_restyle_every_window(bar):

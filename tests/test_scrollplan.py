@@ -1,8 +1,10 @@
 """The scroll planner (maplehelper/scrollplan.py and its window): which scrolls an equip takes — the slot
 name mapping between the two tables, the stat grouping, the exact odds of a scroll session (closed forms,
-checked against the attempt-by-attempt definition), the prices nothing invents, and the window's own life
-(shown from its setting, rows in both languages, the ✕, a Free Market price that never blocks the GUI thread).
-The real-KB tests cross-check the mapping against the equip pages' own "Scrolls for <item>" tables."""
+checked against the attempt-by-attempt definition), the prices nothing invents, the plain answer's facts
+(summary: never a "best" on a missing price), and the window's own life (its header and pictures, the stat
+segments, a card per grade with its outcome chart, a price typed in, both languages, the accent, the ✕, a Free
+Market price that never blocks the GUI thread). The real-KB tests cross-check the mapping against the equip
+pages' own "Scrolls for <item>" tables."""
 import json
 import math
 import os
@@ -259,6 +261,74 @@ def test_plans_costs_stop_when_the_item_can_break(kb):
     assert gp.expected_cost == pytest.approx(100 * (1 - 0.8 ** 7) / 0.2)
 
 
+# ---------------------------------------------------------------- the plain answer's facts
+
+def _hp(kb):
+    return next(g for g in scrollplan.scrolls_for(kb, "item/1000").groups if g.stat == "HP")
+
+
+def _attack(*grades):
+    """A stat group of these (grade, success %, gain) rows, as the bows' Weapon Attack scrolls are."""
+    return scrollplan.StatGroup(stat="Attack", grades=tuple(
+        scrollplan.Scroll(key=f"item/{900 + i}", scroll=f"Bow Attack Scroll: {g}", grade=g, success=s,
+                          gains=(("Weapon Attack", gain),))
+        for i, (g, s, gain) in enumerate(grades)))
+
+
+def test_summary_with_only_the_npc_price_ranks_no_cost(kb):
+    """Only Lesser has a price (the KB's NPC one): it leads as the sure grade, the riskier grades are compared on
+    what they add, and no cheapest is named — the unpriced grades are said to be unpriced, not ranked."""
+    hp = _hp(kb)
+    got = scrollplan.plans(hp, 7, {s.key: s.buy for s in hp.grades if s.buy is not None})
+    sm = scrollplan.summary(got)
+    assert (sm.n, sm.effect, sm.lead.scroll.grade, sm.sure) == (7, "Max HP", "Lesser", True)
+    assert [gp.scroll.grade for gp in sm.others] == ["Intermediate", "Greater"]
+    assert sm.more == ()                                   # +63 and +14 against Lesser's sure +70
+    assert sm.cheapest is None and not sm.best
+    assert [gp.scroll.grade for gp in sm.unpriced] == ["Intermediate", "Greater"]
+    assert scrollplan.gain(sm.lead, "Max HP") == 70 and sm.lead.expected_cost == 105000
+
+
+def test_summary_with_every_price_names_the_cheapest(kb):
+    hp = _hp(kb)
+    lesser, inter, greater = (s.key for s in hp.grades)
+    sm = scrollplan.summary(scrollplan.plans(hp, 7, {lesser: 15000, inter: 20000, greater: 5000}))
+    # per +1 HP: Lesser 105,000 / 70 = 1,500; Intermediate 140,000 / 63 = 2,222; Greater 35,000 / 14 = 2,500
+    assert sm.cheapest is sm.lead and sm.unpriced == () and sm.best
+    # a riskier grade cheaper per +1 is named, and the sure grade is no longer "the best"
+    sm = scrollplan.summary(scrollplan.plans(hp, 7, {lesser: 15000, inter: 10000, greater: 5000}))
+    assert sm.cheapest.scroll.grade == "Intermediate" and sm.cheapest.per_point == pytest.approx(70000 / 63)
+    assert sm.lead.scroll.grade == "Lesser" and not sm.best
+
+
+def test_summary_without_prices_still_answers_on_the_odds(kb):
+    sm = scrollplan.summary(scrollplan.plans(_hp(kb), 7))
+    assert sm.lead.scroll.grade == "Lesser" and sm.sure          # the odds never wait for a price
+    assert sm.cheapest is None and not sm.best
+    assert [gp.scroll.grade for gp in sm.unpriced] == ["Lesser", "Intermediate", "Greater"]
+
+
+def test_summary_the_sure_grade_leads_even_when_a_riskier_one_averages_more():
+    """A 100% grade is the answer's lead — what it adds is certain — and a riskier grade expected to add more is
+    named as such (Weapon Attack: Lesser's sure +7 against Intermediate's +8.4 on average). With no sure grade the
+    lead is the one expected to add the most."""
+    got = scrollplan.plans(_attack(("Lesser", 100, 1), ("Intermediate", 60, 2), ("Greater", 10, 3)), 7,
+                           {"item/900": 25000, "item/901": 1000, "item/902": 1000})
+    sm = scrollplan.summary(got)
+    assert sm.lead.scroll.grade == "Lesser" and sm.sure and sm.lead.plan.all_pass == 1.0
+    assert [gp.scroll.grade for gp in sm.more] == ["Intermediate"]
+    assert scrollplan.gain(sm.more[0], "Weapon Attack") == pytest.approx(8.4)
+    assert sm.cheapest.scroll.grade == "Intermediate" and not sm.best
+    risky = scrollplan.summary(scrollplan.plans(_attack(("Intermediate", 60, 2), ("Greater", 10, 3)), 7))
+    assert risky.lead.scroll.grade == "Intermediate" and not risky.sure and risky.more == ()
+
+
+def test_summary_with_no_slots_has_nothing_to_roll(kb):
+    sm = scrollplan.summary(scrollplan.plans(_hp(kb), 0))
+    assert (sm.n, sm.lead, sm.sure, sm.others, sm.cheapest, sm.unpriced, sm.best) == (0, None, False, (), None, (), False)
+    assert scrollplan.summary(()).lead is None
+
+
 # ---------------------------------------------------------------- the equip search
 
 def test_find_equips(kb):
@@ -398,7 +468,13 @@ def delete_window(qapp, w):
 
 
 @pytest.fixture
-def win(qapp, settings, profiles, kb):
+def no_fm_price(monkeypatch):
+    """MeowDB answers, with no Free Market price for any scroll: the grades without an NPC price have none."""
+    monkeypatch.setattr("maplehelper.market.item_market", lambda item_id, timeout=8: SimpleNamespace(usual=None))
+
+
+@pytest.fixture
+def win(qapp, settings, profiles, kb, no_fm_price):
     from maplehelper.i18n import I18n
     from maplehelper.ui.scrollplanner import ScrollPlanner
     w = ScrollPlanner(kb, settings, profiles, I18n("en"))
@@ -406,71 +482,263 @@ def win(qapp, settings, profiles, kb):
     delete_window(qapp, w)
 
 
-def _pick_stat(w, name: str) -> None:
-    """Click the stat pill of this name (its bidi marks aside)."""
-    for b in w._stats:
-        if "".join(ch for ch in b.text() if ord(ch) < 0x2000) == name:
+_MARKS = dict.fromkeys(map(ord, "\u2066\u2067\u2069\u200e\u200f\u202a\u202c\u2060"))
+
+
+def plain(text: str) -> str:
+    """A label's words as read: the bidi marks, the rich text's tags and the no-break spaces out."""
+    return re.sub(r"<[^>]+>", "", text).replace("&nbsp;", " ").translate(_MARKS).replace("\xa0", " ")
+
+
+def shown_text(w) -> str:
+    from PySide6.QtWidgets import QAbstractButton, QLabel
+    shown = [x for kind in (QLabel, QAbstractButton) for x in w.findChildren(kind) if x.isVisibleTo(w)]
+    return " ".join(plain(x.text()) for x in shown)
+
+
+def pick_stat(w, name: str) -> None:
+    """Click the stat segment of this name."""
+    for b in w._picker.buttons:
+        if plain(b.text()) == name:
             b.click()
             return
-    raise AssertionError(f"no stat pill {name} in {[b.text() for b in w._stats]}")
+    raise AssertionError(f"no stat {name} in {[plain(b.text()) for b in w._picker.buttons]}")
 
 
-def _lines(lay) -> str:
-    """A card text's lines as one string (the card keeps one single-line label per measured line)."""
-    return " ".join(lay.itemAt(i).widget().text() for i in range(lay.count()) if lay.itemAt(i).widget())
+def card(w, grade: str):
+    return next(c for c in w._cards if c.scroll.grade == grade)
 
 
-def _card_texts(w):
-    return [(c["scroll"].grade, c["name"].text(), _lines(c["odds"]), _lines(c["price"])) for c in w._cards]
+def settle(qapp, w, timeout: float = 5.0) -> None:
+    """Until every grade's Free Market lookup (on its own thread) has answered."""
+    end = time.monotonic() + timeout
+    while time.monotonic() < end and any(w._price_kind(c.scroll) == "loading" for c in w._cards):
+        qapp.processEvents()
+        time.sleep(0.01)
+    qapp.processEvents()
 
 
-def test_window_shows_the_plan_and_the_x_turns_the_setting_off(qapp, settings, win):
+def type_price(qapp, c, text: str) -> None:
+    """A grade's price typed the player's way: its button opens the box, the keys, Enter."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    (c.set_btn if c.set_btn.isVisible() else c.price_btn).click()
+    assert c.edit.isVisible()
+    QTest.keyClicks(c.edit, text)
+    QTest.keyClick(c.edit, Qt.Key_Return)
+    qapp.processEvents()
+
+
+def test_window_header_shows_the_picture_level_and_slots(qapp, settings, win):
+    """The picked equip on top: its picture, its name, its slot word and level, its clean slots big on the end; a
+    picture on every search result too. A key that isn't an equip only says so."""
+    from maplehelper.ui.scrollplanner import ITEM_PIC
     settings["scroll_planner"] = True
     win.refresh()
-    assert win.isVisible() and win._plan.isVisibleTo(win) or win.isVisible()
-    # an empty plan asks for a pick; a non-equip key only says so
-    assert win._hint.text()
+    assert not win._item.isVisibleTo(win) and "Pick a piece of gear" in win._hint.text()
     win.open_item("npc/5")
-    assert "isn't a piece of gear" in win._status.text()
-    # the top: its header, its clean slots, and every grade of its HP scrolls
+    assert win._status.isVisibleTo(win) and "isn't a piece of gear" in win._status.text()
     win.open_item("item/1000")
-    qapp.processEvents()
-    assert win._head.name.text() == "Silver Master Sergeant"
-    assert win._head.sub.text() == "Top · 7 upgrade slots"
-    assert ["".join(ch for ch in b.text() if ord(ch) < 0x2000) for b in win._stats] == ["DEF", "HP"]
-    assert win._spin.value() == 7
-    texts = {g: t for g, _, t, _ in _card_texts(win)}              # DEF first: its grades' odds and prices
-    prices = {g: p for g, _, _, p in _card_texts(win)}
-    assert "100%" in texts["Lesser"] and "+14 Weapon Def." in texts["Lesser"]
-    assert "NPC: 15,000 mesos" in prices["Lesser"]
-    assert "2.8%" in texts["Intermediate"]
-    _pick_stat(win, "HP")                                          # the acceptance numbers, on show
-    qapp.processEvents()
-    hp = {g: t for g, _, t, _ in _card_texts(win)}
-    assert "all 7 pass: 100%" in hp["Lesser"] and "+70 Max HP" in hp["Lesser"]
-    ladders = {c["scroll"].grade: _lines(c["ladder"]) for c in win._cards}
-    assert "+70: 100%" in ladders["Lesser"]
-    assert "+0:" not in ladders["Lesser"]                         # a sure success shows its one outcome only
-    assert "all 7 pass: 2.8%" in hp["Intermediate"] and "+63 Max HP" in hp["Intermediate"]
-    # Hebrew re-texts everything, right to left
+    head = win._item
+    assert head.isVisibleTo(win) and not head.pic.pixmap().isNull()
+    assert head.pic.width() == head.pic.height() == ITEM_PIC
+    assert plain(head.name.text()) == "Silver Master Sergeant"
+    assert plain(head.sub.text()) == "Top · Lv. 10"
+    assert (plain(head.slots_num.text()), plain(head.slots_word.text())) == ("7", "upgrade slots")
+    assert win._spin.value() == 7 and plain(win._of.text()) == "of 7"
+    win._box.setText("bow")
+    win._run()
+    rows = win._rows
+    assert [plain(r.name.text()) for r in rows] == ["Ranger Bow", "War Bow"]
+    assert all(not r.pic.pixmap().isNull() for r in rows)
+    assert plain(rows[1].sub.text()) == "Bow · Lv. 10 · 7 upgrade slots"
+    assert plain(rows[0].sub.text()) == "Bow · Lv. 10 · No upgrade-slot count in the database"
+    rows[1].clicked.emit()
+    assert plain(win._item.name.text()) == "War Bow" and not win._rows and not win._box.text()
+
+
+def test_window_stats_are_segments_with_each_grades_gain_on_hover(qapp, win):
+    win.open_item("item/1000")
+    segs = win._picker.buttons
+    assert [plain(b.text()) for b in segs] == ["DEF", "HP"] and segs[0].isChecked()
+    tip = plain(segs[1].toolTip())
+    assert "Lesser +10 Max HP" in tip and "Intermediate +15 Max HP" in tip and "Greater +20 Max HP" in tip
+    pick_stat(win, "HP")
+    assert win._picker.buttons[1].isChecked()
+    assert [c.scroll.grade for c in win._cards] == ["Lesser", "Intermediate", "Greater"]
+    assert plain(card(win, "Lesser").each.text()) == "+10 Max HP per scroll"
+
+
+def test_window_grade_cards_show_the_expected_gain_and_the_chance_all_pass(qapp, win):
+    win.open_item("item/1000")
+    # DEF: Intermediate adds M.DEF too, said under its expected W.DEF
+    inter = card(win, "Intermediate")
+    assert plain(inter.expected.text()) == "+16.8 Weapon Def."
+    assert plain(inter.expected_word.text()) == "expected, plus +8.4 Magic Def."
+    pick_stat(win, "HP")
+    got = {c.scroll.grade: (plain(c.expected.text()), plain(c.expected_word.text()), plain(c.odds.text()),
+                            plain(c.odds_word.text())) for c in win._cards}
+    assert got == {"Lesser": ("+70 Max HP", "guaranteed", "100%", "all 7 pass"),
+                   "Intermediate": ("+63 Max HP", "expected", "2.8%", "all 7 pass"),
+                   "Greater": ("+14 Max HP", "expected", "<0.1%", "all 7 pass")}
+    badges = {c.scroll.grade: (plain(c.badge.text()), c.badge.property("risk")) for c in win._cards}
+    assert badges == {"Lesser": ("100%", "sure"), "Intermediate": ("60%", "risky"), "Greater": ("10%", "long")}
+    win._spin.setValue(3)                                          # fewer slots: every card follows
+    inter = card(win, "Intermediate")
+    assert (plain(inter.expected.text()), plain(inter.odds.text()), plain(inter.odds_word.text())) == (
+        "+27 Max HP", "21.6%", "all 3 pass")
+    assert plain(card(win, "Lesser").odds_word.text()) == "all 3 pass"
+
+
+def test_window_chart_has_a_bar_per_total_that_can_happen(qapp, win):
+    """One bar per final total with a chance above 0 — a sure scroll's one, a 60% scroll's eight — each as tall as
+    its chance against the likeliest, a near-impossible total still a sliver, the exact chance on hover."""
+    win.open_item("item/1000")
+    pick_stat(win, "HP")
+    pump(qapp, 30)                                                 # the cards laid out: the charts have a width
+    lesser = card(win, "Lesser").chart
+    assert [(b.label, b.chance) for b in lesser.bars] == [("+70", 1.0)]     # +0 … +60 can't happen: no bars
+    chart = card(win, "Intermediate").chart
+    assert [b.label for b in chart.bars] == [f"+{15 * k}" for k in range(8)]
+    assert [b.chance for b in chart.bars] == pytest.approx(
+        [math.comb(7, k) * 0.6 ** k * 0.4 ** (7 - k) for k in range(8)])
+    peak = chart.peak()
+    assert chart.bars[peak].label == "+60"                         # 4 of the 7: 29.03%
+    assert plain(chart.bars[peak].tip) == "+60 Max HP in total: 29.03%\n+60 or more: 71.02%"
+    assert chart.bar_rect(peak).height() == chart.BARS
+    for i, b in enumerate(chart.bars):
+        assert chart.bar_rect(i).height() == pytest.approx(
+            max(chart.MIN_BAR, b.chance / chart.bars[peak].chance * chart.BARS))
+    greater = card(win, "Greater").chart
+    assert len(greater.bars) == 8 and greater.bars[-1].chance == pytest.approx(0.1 ** 7)
+    assert greater.bar_rect(7).height() == greater.MIN_BAR         # 0.00001%: still drawn
+    assert plain(greater.bars[-1].tip) == "+140 Max HP in total: 0.00001%"
+    assert chart.width() > 0 and chart.bar_rect(0).center().x() < chart.bar_rect(7).center().x()   # +0 on the left
+
+
+def test_window_set_price_opens_a_box_and_the_price_applies(qapp, win):
+    """No price yet: a Set price button; clicked, a price box; typed, the card's cost and the answer follow. Esc in
+    the box puts back what was there."""
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    win.open_item("item/1000")
+    pick_stat(win, "HP")
+    settle(qapp, win)
+    lesser, inter = card(win, "Lesser"), card(win, "Intermediate")
+    assert (plain(lesser.tag.text()), plain(lesser.price_btn.text())) == ("NPC · Tulcus", "15,000 each")
+    assert plain(lesser.total.text()) == "105,000 mesos" and plain(lesser.per_point.text()) == "1,500 per +1"
+    assert plain(inter.tag.text()) == "No price yet" and inter.set_btn.isVisibleTo(win)
+    assert not inter.edit.isVisibleTo(win) and not inter.total.isVisibleTo(win)
+    inter.set_btn.click()
+    assert inter.edit.isVisibleTo(win) and not inter.set_btn.isVisibleTo(win)
+    QTest.keyClicks(inter.edit, "20000")
+    QTest.keyClick(inter.edit, Qt.Key_Return)
+    assert not inter.edit.isVisibleTo(win) and inter.price_btn.isVisibleTo(win)
+    assert plain(inter.tag.text()) == "Your price" and inter.tag.property("kind") == "yours"
+    assert plain(inter.price_btn.text()) == "20,000 each"
+    assert plain(inter.total.text()) == "140,000 mesos"
+    assert plain(inter.per_point.text()) == "2,222 per +1"         # 140,000 mesos over an expected +63 HP
+    assert plain(win._answer.note.text()) == "No price yet for Greater, so the cheapest per +1 Max HP isn't known."
+    inter.price_btn.click()                                        # Esc: the price it had, the box closed
+    QTest.keyClicks(inter.edit, "999")
+    assert plain(inter.total.text()) == "6,993 mesos"
+    QTest.keyClick(inter.edit, Qt.Key_Escape)
+    assert not inter.edit.isVisibleTo(win) and plain(inter.total.text()) == "140,000 mesos"
+    type_price(qapp, card(win, "Greater"), "5000")               # every grade priced: the cheapest is named
+    assert plain(win._answer.title.text()) == "Lesser is the best pick"
+    assert plain(win._answer.note.text()) == "Cheapest per +1 Max HP: Lesser, 1,500 mesos."
+
+
+def test_window_answers_first_in_plain_words(qapp, win):
+    """The answer card over the cards, from scrollplan.summary: the sure grade as the safe pick with its cost, each
+    riskier grade's average and its all-pass odds, and what the missing prices leave unknown — never "best"."""
+    win.open_item("item/1000")
+    pick_stat(win, "HP")
+    assert "Checking the Free Market" in plain(win._answer.note.text())    # (before the lookups answer)
+    settle(qapp, win)
+    a = win._answer
+    assert plain(a.title.text()) == "Lesser is the safe pick"
+    assert [plain(x.text()) for x in a.lines] == [
+        "+70 Max HP guaranteed for 105,000 mesos.",
+        "Intermediate averages +63, all 7 pass only 2.8% of the time.",
+        "Greater averages +14, all 7 pass only <0.1% of the time."]
+    assert plain(a.note.text()) == "No price yet for Intermediate and Greater, so the cheapest per +1 Max HP isn't known."
+    assert "best" not in shown_text(a)
+    win.open_item("item/663")                                      # the bow: its NPC Lesser and a 10% Greater
+    settle(qapp, win)
+    assert plain(a.title.text()) == "Lesser is the safe pick"
+    assert [plain(x.text()) for x in a.lines] == [
+        "+7 Weapon Attack guaranteed for 105,000 mesos.",
+        "Greater averages +2.1, all 7 pass only <0.1% of the time."]
+
+
+def test_window_notes_fold_under_about_these_numbers(qapp, win):
+    win.open_item("item/1000")
+    about = win._about
+    assert about.isVisibleTo(win) and not about.body.isVisibleTo(win)
+    about.head.clicked.emit()
+    assert about.body.isVisibleTo(win)
+    assert "Chaos scrolls aren't offered" in plain(about.body.text()) and "NiaMeowDB" in about.body.text()
+
+
+def test_window_hebrew_rebuilds_everything_right_to_left(qapp, win):
+    """A language switch draws the plan again as it stood — the stat, the slots and a typed price kept — every word
+    Hebrew but the game's own names, every Latin run one left-to-right block, the chart's totals from the right."""
     from PySide6.QtCore import Qt
 
     from maplehelper.i18n import STRINGS, I18n
+    win.open_item("item/1000")
+    pick_stat(win, "HP")
+    settle(qapp, win)
+    win._spin.setValue(6)
+    type_price(qapp, card(win, "Intermediate"), "20000")
     win.apply_language(I18n("he"))
-    qapp.processEvents()
-    assert win._title.text().replace(chr(0x200F), "") == STRINGS["sp_title"]["he"]   # bidi.plain's RLM marks aside
+    pump(qapp, 30)
     assert win.layoutDirection() == Qt.RightToLeft
-    he = {g: t for g, _, t, _ in _card_texts(win)}
-    assert "100%" in he["Lesser"]
-    # every Latin run is one whole block: numbers, "mesos", percents — pieced out they scrambled ("mesos
-    # 15,000 :NPC-מה", "<0.1%" flipping, the ladder running right-to-left)
-    he_prices = {g: p for g, _, _, p in _card_texts(win)}
-    assert "\u206615,000 mesos\u2069" in he_prices["Lesser"]
-    assert "\u2066<0.1%\u2069" in he["Greater"] or "\u2066<0.1%\u2069" in he["Intermediate"]
-    he_ladder = _lines(win._cards[0]["ladder"])
-    assert "תוצאות" in he_ladder and "\u2066(Max HP): +70: 100%\u2069" in he_ladder   # one block, Hebrew head
-    assert "\u2066" in win._summary.text()
-    assert "חולצה" in win._head.sub.text()                        # the slot word in Hebrew, per itemterms
+    assert plain(win._title.text()) == STRINGS["sp_title"]["he"]
+    assert plain(win._item.sub.text()) == "חולצה · רמה 10"
+    assert win._picker.buttons[1].isChecked() and win._spin.value() == 6
+    inter = card(win, "Intermediate")
+    assert plain(inter.total.text()) == "120,000 mesos" and plain(inter.tag.text()) == "המחיר שלכם"
+    assert plain(win._answer.title.text()) == "Lesser היא הבחירה הבטוחה"
+    first, *_middle, last = win._answer.lines
+    assert "\u2066+60\xa0Max\xa0HP\u2069" in first.text() and "\u206690,000\xa0mesos\u2069" in first.text()
+    assert "\u2066<0.1%\u2069" in last.text()
+    assert "\u2066+15\xa0Max\xa0HP\u2069" in inter.each.text()
+    chart = inter.chart
+    assert chart.width() > 0 and chart.bar_rect(0).center().x() > chart.bar_rect(len(chart.bars) - 1).center().x()
+    text = shown_text(win)
+    assert "Lv" not in text and "רמה 10" in text
+    assert "Max HP" in text and "Intermediate" in text             # the game's own words stay English
+
+
+def test_window_follows_the_accent(qapp, settings, win):
+    """The lit stat, the answer card and the charts' likeliest bars in the accent the ⚙ panel picks; a refresh with
+    the same accent doesn't restyle."""
+    from PySide6.QtGui import QColor
+
+    from maplehelper.ui import npcoverlay
+    settings["scroll_planner"] = True
+    settings["overlay_accent"] = "green"
+    win.refresh()
+    win.open_item("item/1000")
+    green, blue = npcoverlay.ACCENTS["green"][1], npcoverlay.ACCENTS["blue"][1]
+    assert green in win.styleSheet()
+    before = win.styleSheet()
+    win.refresh()
+    assert win.styleSheet() == before
+    settings["overlay_accent"] = "blue"
+    win.refresh()
+    assert blue in win.styleSheet() and green not in win.styleSheet()
+    assert win._cards and all(c.chart._accent == QColor(blue) for c in win._cards)
+    pick_stat(win, "HP")                                           # new cards take it too
+    assert all(c.chart._accent == QColor(blue) for c in win._cards)
+
+
+def test_window_x_turns_the_setting_off(qapp, settings, win):
+    settings["scroll_planner"] = True
+    win.refresh()
+    win.open_item("item/1000")
     closed = []
     win.closed.connect(lambda: closed.append(True))
     win._close.click()
@@ -488,28 +756,18 @@ def test_window_free_market_price_off_the_gui_thread(qapp, settings, win, monkey
 
     monkeypatch.setattr("maplehelper.market.item_market", fake)
     win.open_item("item/1000")
-    _pick_stat(win, "HP")     # Intermediate and Greater have no NPC price of their own
+    pick_stat(win, "HP")      # Intermediate and Greater have no NPC price of their own
+    assert plain(card(win, "Lesser").price_btn.text()) == "15,000 each"   # the KB's price never waits on the network
     deadline = time.monotonic() + 5
     while time.monotonic() < deadline and not answered.is_set():
         qapp.processEvents()
         time.sleep(0.01)
-    pump(qapp, 100)                                                # the answer crosses to the GUI thread
+    settle(qapp, win)                                              # the answers cross to the GUI thread
     assert answered.is_set() and threads and all(t is not threading.main_thread() for t in threads)
-    prices = {g: p for g, _, _, p in _card_texts(win)}
-    assert "FM usual: 12,345 mesos" in prices["Intermediate"]
-    assert "FM usual: 12,345 mesos" in prices["Greater"]
-    assert "NPC: 15,000 mesos" in prices["Lesser"]                 # the KB's price never waits on the network
-
-
-def test_window_typed_price_reprices_that_grade(qapp, settings, win):
-    win.open_item("item/1000")
-    _pick_stat(win, "HP")
-    inter = next(c for c in win._cards if c["scroll"].grade == "Intermediate")
-    inter["edit"].setText("20000")
-    qapp.processEvents()
-    assert "expected cost: 140,000 mesos" in _lines(inter["cost"])
-    assert "your price per scroll" in _lines(inter["price"])
-    assert "Intermediate 2,222" in win._summary.text()             # 140,000 mesos over an expected +63 HP
+    for grade in ("Intermediate", "Greater"):
+        c = card(win, grade)
+        assert (plain(c.tag.text()), plain(c.price_btn.text())) == ("Free Market usual", "12,345 each")
+    assert plain(card(win, "Intermediate").total.text()) == "86,415 mesos"
 
 
 def test_window_defaults_to_what_the_character_wears(qapp, settings, profiles, win):
@@ -518,7 +776,44 @@ def test_window_defaults_to_what_the_character_wears(qapp, settings, profiles, w
     profiles.save()
     settings["scroll_planner"] = True
     win.refresh()
-    assert win._head.name.text() == "Silver Master Sergeant"       # the character's top, until they pick
+    assert plain(win._item.name.text()) == "Silver Master Sergeant"  # the character's top, until they pick
     win.open_item("item/663")
     win.character_changed()
-    assert win._head.name.text() == "War Bow"                      # the player's own pick always wins
+    win.refresh()
+    assert plain(win._item.name.text()) == "War Bow"                 # the player's own pick always wins
+
+
+def test_window_made_for_plan_scrolls_keeps_that_item(qapp, settings, profiles, kb, no_fm_price):
+    """The gear advisor's "Plan scrolls" makes the window and opens it on an item at once: the next refresh (a look
+    change, the bar) keeps that item, not the character's worn top it hadn't read yet."""
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.scrollplanner import ScrollPlanner
+    c = profiles.add("Test", "Warrior", "Fighter", 30)
+    c.gear = {"Top": "item/1000"}
+    profiles.save()
+    w = ScrollPlanner(kb, settings, profiles, I18n("en"))
+    try:
+        w.open_item("item/663")
+        w.refresh()
+        assert plain(w._item.name.text()) == "War Bow"
+    finally:
+        delete_window(qapp, w)
+
+
+@needs_kb
+def test_real_kb_window_shows_each_things_own_picture(qapp, settings, profiles, no_fm_price):
+    """A 7-slot hat in the real KB: the header shows its own sprite (large on hover), each grade card its scroll's
+    picture."""
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.scrollplanner import ScrollPlanner
+    real = KnowledgeBase(REAL_KB)
+    hat = next(r for r in tables.rows(real, "equips")
+               if r["slot"] == "Hat" and r["slots"] == 7 and real.image_path(r["key"])
+               and scrollplan.scrolls_for(real, r["key"]).groups)
+    w = ScrollPlanner(real, settings, profiles, I18n("en"))
+    try:
+        w.open_item(hat["key"])
+        assert real.image_path(hat["key"]).name in w._item.pic.toolTip()
+        assert w._cards and all(real.picture(c.scroll.key).name in c.pic.toolTip() for c in w._cards)
+    finally:
+        delete_window(qapp, w)

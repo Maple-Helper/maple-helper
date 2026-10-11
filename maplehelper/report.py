@@ -28,7 +28,7 @@ REPORT_SETTINGS = ("language", "appearance", "font_size", "answer_length",
                    "saver_mode", "seen_version", "instant_answers", "telemetry", "presence", "grind_auto", "minimap_scan_interval",
                    "minimap_hidden_portals", "npc_overlay", "npc_overlay_opacity", "game_toolbar", "game_rides",
                    "overlays_in_screenshots", "loot_overlay", "loot_overlay_folded", "scroll_planner", "gear_advisor",
-                   "craft_advisor", "game_toolbar_icons", "overlay_tint", "overlay_accent")
+                   "craft_advisor", "game_toolbar_icons", "game_toolbar_hotkey", "overlay_tint", "overlay_accent")
 log = logging.getLogger("maplehelper")
 # libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link
 # among them, into the log that goes with problem reports; RapidOCR logs its model paths on every load

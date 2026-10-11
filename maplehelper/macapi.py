@@ -1,8 +1,9 @@
-"""macOS helpers, same interface as winapi.py: find the game window, capture it, focus, autostart.
+"""macOS helpers, same interface as winapi.py: find the game window, capture it, focus, the bar's hotkey, autostart.
 
-Just as non-invasive as on Windows: no event taps, no key-state polling, no keyboard shortcuts, no process access.
-Windows come from the Quartz window list, and capture is a screen grab. The one privacy grant the player gives is
-Screen Recording (window titles + the screenshot).
+Just as non-invasive as on Windows: no event taps, no key-state polling, no process access. Windows come from the
+Quartz window list, capture is a screen grab, and the one key (the bar over the game's show/hide) is an ordinary
+system hotkey (Carbon RegisterEventHotKey, the macOS counterpart of RegisterHotKey). The one privacy grant the
+player gives is Screen Recording (window titles + the screenshot).
 
 pyobjc and Carbon are loaded lazily, so the pure parts of this module import (and are tested) on any OS.
 """
@@ -16,8 +17,9 @@ import sys
 import time
 from pathlib import Path
 
+from PySide6.QtCore import QObject, Signal
 
-from . import capture
+from . import capture, keys
 from .capture import grab_image, grab_jpeg
 
 GAME_TITLES = ("MapleStory Classic", "MapleStory", "Classic World", "MapleRoyals")
@@ -226,6 +228,112 @@ def float_over_fullscreen(win_id: int) -> None:
             window.setCollectionBehavior_(window.collectionBehavior() | _CAN_JOIN_ALL_SPACES | _FULLSCREEN_AUXILIARY)
     except Exception:
         pass   # cosmetic: the window still works on the game's Space when the game is windowed
+
+
+# ---------------------------------------------------------------- the bar's hotkey (Carbon)
+
+def fourcc(code: str) -> int:
+    return int.from_bytes(code.encode("ascii"), "big")
+
+
+class EventHotKeyID(ctypes.Structure):
+    _fields_ = [("signature", ctypes.c_uint32), ("id", ctypes.c_uint32)]
+
+
+class EventTypeSpec(ctypes.Structure):
+    _fields_ = [("eventClass", ctypes.c_uint32), ("eventKind", ctypes.c_uint32)]
+
+
+_EventHandler = ctypes.CFUNCTYPE(ctypes.c_int32, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+SIGNATURE = fourcc("MplH")
+kEventClassKeyboard = fourcc("keyb")
+kEventHotKeyPressed = 5
+kEventParamDirectObject = fourcc("----")
+typeEventHotKeyID = fourcc("hkid")
+eventNotHandledErr = -9874
+# Carbon's modifier flags (cmdKey, shiftKey, optionKey, controlKey), by Qt's names: Ctrl is ⌘ on a Mac, Meta ⌃
+CARBON_MODS = {"Ctrl": 1 << 8, "Shift": 1 << 9, "Alt": 1 << 11, "Meta": 1 << 12}
+_carbon_lib = None
+
+
+def carbon_combo(key_name: str) -> tuple[int, int] | None:
+    """The key code and Carbon modifiers of a keys.py name ("Shift+F10" -> (109, shiftKey)); None for a name that
+    can't be a hotkey on a Mac (F21-F24 have no key there)."""
+    if not keys.usable(key_name, mac=True):
+        return None
+    mods, key = keys.split(key_name)
+    code = keys.MAC_KEYCODES.get(key)
+    return None if code is None else (code, sum(CARBON_MODS[m] for m in mods))
+
+
+def carbon():
+    """Carbon's HIToolbox, with the signatures of the five calls hotkeys need."""
+    global _carbon_lib
+    if _carbon_lib is None:
+        c = ctypes.CDLL("/System/Library/Frameworks/Carbon.framework/Carbon")
+        vp, u32, ulong = ctypes.c_void_p, ctypes.c_uint32, ctypes.c_ulong   # ItemCount/ByteCount: unsigned long
+        c.GetApplicationEventTarget.restype, c.GetApplicationEventTarget.argtypes = vp, []
+        c.InstallEventHandler.restype = ctypes.c_int32
+        c.InstallEventHandler.argtypes = [vp, _EventHandler, ulong, ctypes.POINTER(EventTypeSpec), vp, ctypes.POINTER(vp)]
+        c.RegisterEventHotKey.restype = ctypes.c_int32
+        c.RegisterEventHotKey.argtypes = [u32, u32, EventHotKeyID, vp, u32, ctypes.POINTER(vp)]
+        c.UnregisterEventHotKey.restype, c.UnregisterEventHotKey.argtypes = ctypes.c_int32, [vp]
+        c.GetEventParameter.restype = ctypes.c_int32
+        c.GetEventParameter.argtypes = [vp, u32, u32, vp, ulong, vp, vp]
+        _carbon_lib = c
+    return _carbon_lib
+
+
+class Hotkeys(QObject):
+    """System-wide hotkeys (RegisterEventHotKey; delivered through the app's event loop). Emits pressed(hotkey_id)."""
+
+    pressed = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        c = carbon()
+        self._refs: dict[int, ctypes.c_void_p] = {}
+        self._handler = _EventHandler(self._on_event)   # keep a reference: Carbon holds only the pointer
+        spec = EventTypeSpec(kEventClassKeyboard, kEventHotKeyPressed)
+        self._handler_ref = ctypes.c_void_p()
+        c.InstallEventHandler(c.GetApplicationEventTarget(), self._handler, 1, ctypes.byref(spec), None,
+                              ctypes.byref(self._handler_ref))
+
+    def _on_event(self, _call, event, _user_data) -> int:
+        try:
+            hk = EventHotKeyID()
+            err = carbon().GetEventParameter(event, kEventParamDirectObject, typeEventHotKeyID, None,
+                                             ctypes.sizeof(hk), None, ctypes.byref(hk))
+            if err == 0 and hk.signature == SIGNATURE and hk.id in self._refs:
+                self.pressed.emit(int(hk.id))
+                return 0
+        except Exception:      # noqa: BLE001, S110 - a callback from C: never let an error unwind into Carbon
+            pass
+        return eventNotHandledErr
+
+    def register(self, hotkey_id: int, key_name: str) -> bool:
+        """(Re)binds hotkey_id to key_name. False when it can't be a hotkey on a Mac or another app holds the key."""
+        self.unregister(hotkey_id)
+        combo = carbon_combo(key_name)
+        if combo is None:
+            return False
+        c = carbon()
+        ref = ctypes.c_void_p()
+        err = c.RegisterEventHotKey(combo[0], combo[1], EventHotKeyID(SIGNATURE, hotkey_id),
+                                    c.GetApplicationEventTarget(), 0, ctypes.byref(ref))
+        if err != 0:
+            return False
+        self._refs[hotkey_id] = ref
+        return True
+
+    def unregister(self, hotkey_id: int) -> None:
+        ref = self._refs.pop(hotkey_id, None)
+        if ref:
+            carbon().UnregisterEventHotKey(ref)
+
+    def close(self) -> None:
+        for hid in list(self._refs):
+            self.unregister(hid)
 
 
 # ---------------------------------------------------------------- autostart

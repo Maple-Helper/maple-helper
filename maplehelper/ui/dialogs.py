@@ -17,7 +17,7 @@ from .. import bidi, osapi, providers
 from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .npcoverlay import ACCENTS, OPACITY_STEPS, TINTS
+from .hotkeybox import HotkeyBox
 from .patchnotes import gutter
 from ..i18n import I18n, system_language
 from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class -> [(job, min level)], checked against the KB
@@ -69,9 +69,6 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 LEVEL_FIELD_MAX = 250
 # Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
 SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
-# Settings → the NPCs-on-this-map window's background opacity, and the ⚙ panel's transparency: the same steps
-# from the one place (npcoverlay), so the two entry points can't drift apart
-OPACITY_CHOICES = OPACITY_STEPS
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -1227,8 +1224,9 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         lay.addWidget(sec)
 
         # the minimap: how often its box is read (where the player is, under the level on the character card), the
-        # hidden-portal dots drawn over it, the bar over the game that opens the NPCs window and the searches, and
-        # the NPCs-on-this-map window itself
+        # hidden-portal dots drawn over it, and the bar over the game with the key that shows or hides it. The bar's
+        # look and its windows (their colours, transparency, icons, the NPCs-here window) live in the bar itself and
+        # its ⚙ panel, which apply at once: here, a window open meanwhile would have put back the old ones on Save
         sec = Section(t("sec_minimap"), rtl)
         # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
         try:
@@ -1248,35 +1246,9 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("minimap_hidden_portals"), self.hidden_portals, hint=t("minimap_hidden_portals_hint"))
         self.game_toolbar = Switch(settings["game_toolbar"])
         sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
-        self.npc_overlay = Switch(settings["npc_overlay"])
-        sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
-        try:
-            opacity = float(settings["npc_overlay_opacity"])
-        except (TypeError, ValueError):
-            opacity = 0.85
-        if not math.isfinite(opacity) or opacity <= 0:
-            opacity = 0.85
-        # a pop-up like the scan interval's: the few set choices, a hand-edited value shows as the nearest one
-        # (in ratio: 0.8 is nearer 0.85 than 0.7)
-        opacity = min(OPACITY_CHOICES, key=lambda v: abs(math.log(v / opacity)))
-        self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
-        self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
-        sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
-        # the colours every window over the game follows, and the bar's icons mode: the ⚙ panel offers the
-        # same choices from the one place (npcoverlay's presets) and applies them at once; here they wait
-        # for Save like everything else in Settings
-        tints = list(TINTS)
-        self.overlay_tint = Select([t(TINTS[k][0]) for k in tints])
-        self.overlay_tint.setCurrentIndex(tints.index(settings["overlay_tint"] if settings["overlay_tint"] in tints
-                                                      else tints[0]))
-        sec.add_row(t("tbs_tint"), self.overlay_tint, hint=t("tbs_tint_hint"))
-        accents = list(ACCENTS)
-        self.overlay_accent = Select([t(ACCENTS[k][0]) for k in accents])
-        self.overlay_accent.setCurrentIndex(accents.index(settings["overlay_accent"] if settings["overlay_accent"] in accents
-                                                          else accents[0]))
-        sec.add_row(t("tbs_accent"), self.overlay_accent, hint=t("tbs_accent_hint"))
-        self.toolbar_icons = Switch(settings["game_toolbar_icons"])
-        sec.add_row(t("tbs_icons"), self.toolbar_icons, hint=t("tbs_icons_hint"))
+        # the key that shows or hides the bar from any program (the bar's ✕ toast and the tray item name it too)
+        self.toolbar_hotkey = HotkeyBox(settings["game_toolbar_hotkey"], t)
+        sec.add_row(t("tb_hotkey"), self.toolbar_hotkey, hint=t("tb_hotkey_hint"), hint_below=True)
         self.overlay_shots = Switch(settings["overlays_in_screenshots"])
         sec.add_row(t("overlays_in_screenshots"), self.overlay_shots, hint=t("overlays_in_screenshots_hint"))
         lay.addWidget(sec)
@@ -1891,11 +1863,7 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
             "minimap_hidden_portals": self.hidden_portals.isChecked(),
             "game_toolbar": self.game_toolbar.isChecked(),
-            "npc_overlay": self.npc_overlay.isChecked(),
-            "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
-            "overlay_tint": list(TINTS)[max(0, self.overlay_tint.currentIndex())],
-            "overlay_accent": list(ACCENTS)[max(0, self.overlay_accent.currentIndex())],
-            "game_toolbar_icons": self.toolbar_icons.isChecked(),
+            "game_toolbar_hotkey": self.toolbar_hotkey.key(),
             "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
@@ -1906,6 +1874,21 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
 
     def unsaved(self) -> bool:
         return self._values() != getattr(self, "_initial", self._values())
+
+    def follow(self, key: str) -> None:
+        """A setting changed outside this window while it is open (the bar's ✕, its key, the tray item, its ⚙ panel's
+        key box): its control and the value Save compares against both take the new value. After the bar's ✕ the
+        switch kept reading On, so closing Settings changed nothing and the player found the bar "on" but gone (the
+        owner, 2026-10-11); a change made here and not saved yet is given up to the newer one."""
+        value = self.settings[key]
+        if key == "game_toolbar":
+            self.game_toolbar.setChecked(bool(value))
+        elif key == "game_toolbar_hotkey":
+            self.toolbar_hotkey.set_key(value or "")
+        else:
+            return
+        if hasattr(self, "_initial"):
+            self._initial[key] = self._values()[key]
 
     def _close_clicked(self):
         """The X with unsaved changes asks: save them, or not (closing the question keeps Settings open).

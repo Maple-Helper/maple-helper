@@ -6,7 +6,8 @@ leave them out; the window says so instead of offering them. plan() still models
 for the day the KB confirms a scroll that has one (its success and its stats come from the table, the destroy
 chance would come from that scroll's page — never from memory).
 
-No Qt in here: scrolls_for/find_equips read the tables, plan/plans are closed-form probability (no simulation).
+No Qt in here: scrolls_for/find_equips read the tables, plan/plans are closed-form probability (no simulation),
+and summary boils one stat's plans down to the facts the window's plain answer is worded from.
 """
 from __future__ import annotations
 
@@ -94,6 +95,7 @@ class EquipScrolls:
     slot: str                                    # the equips table's slot word, 'Top'
     slots: int | None                            # its clean upgrade slots, when the KB has the number
     groups: tuple[StatGroup, ...]                # attack-type stats first, then the rest by name
+    req_lv: int | None = None                    # the level it needs (REQ LEV), when the KB has it
 
 
 def _groups(rows: list[dict]) -> tuple[StatGroup, ...]:
@@ -130,7 +132,8 @@ def _cache(kb) -> dict:
         equips, scrolls = [], {}
         for r in tables.rows(kb, "equips"):
             es = EquipScrolls(item=r["item"], key=r["key"], slot=str(r.get("slot") or ""),
-                              slots=r.get("slots"), groups=groups.get(scroll_slot(r.get("slot") or ""), ()))
+                              slots=r.get("slots"), groups=groups.get(scroll_slot(r.get("slot") or ""), ()),
+                              req_lv=r.get("req_lv"))
             equips.append(es)
             if es.groups:
                 scrolls[r["key"]] = es
@@ -235,3 +238,51 @@ def plans(group: StatGroup, n: int, prices: dict[str, int | None] | None = None)
                              price=price, expected_cost=cost,
                              per_point=cost / first if cost is not None and first > 0 else None))
     return tuple(out)
+
+
+# ---------------------------------------------------------------- the plain answer's facts
+
+_EPS = 1e-9                                      # two expected gains this close are the same gain
+
+
+def gain(gp: GradePlan, effect: str) -> float:
+    """What one grade is expected to add of one effect over its slots (0 when it adds none of it)."""
+    return next((v for label, v in gp.expected if label == effect), 0.0)
+
+
+@dataclass(frozen=True)
+class Summary:
+    """One stat's grades over n slots, boiled down to the facts a plain answer is worded from (the window words
+    them; nothing here is text). The lead is the grade the answer opens with: the surest one — of those, the one
+    expected to add the most — or, when every grade can fail, the one expected to add the most. Costs are ranked
+    only when every grade has a price: with one missing, `cheapest` is None and that grade is in `unpriced`,
+    never ranked as if it were free or dear."""
+    n: int
+    effect: str                                  # what the grades are compared on: the safest grade's first effect
+    lead: GradePlan | None                       # None: nothing to roll (no slots used, or no grades)
+    sure: bool                                   # the lead never fails: what it adds is certain
+    others: tuple[GradePlan, ...]                # every other grade, safest first
+    more: tuple[GradePlan, ...]                  # those of the others expected to add more than the lead
+    cheapest: GradePlan | None                   # the lowest cost per +1, only when every grade has a price
+    unpriced: tuple[GradePlan, ...]              # the grades without a price: their cost is unknown
+    best: bool                                   # the lead is sure, adds the most and costs the least per +1
+
+
+def summary(got: tuple[GradePlan, ...]) -> Summary:
+    """The facts behind the planner's answer for one stat's plans (plans() over the same n slots)."""
+    n = got[0].plan.n if got else 0
+    effect = got[0].scroll.gains[0][0] if got and got[0].scroll.gains else ""
+    if n <= 0:
+        return Summary(n=0, effect=effect, lead=None, sure=False, others=(), more=(), cheapest=None,
+                       unpriced=(), best=False)
+    sure = [gp for gp in got if gp.plan.p >= 1.0]
+    lead = max(sure or got, key=lambda gp: gain(gp, effect))       # a tie: the safer grade (got is safest first)
+    top = gain(lead, effect)
+    others = tuple(gp for gp in got if gp is not lead)
+    more = tuple(gp for gp in others if gain(gp, effect) > top + _EPS)
+    unpriced = tuple(gp for gp in got if gp.price is None)
+    ranked = [gp for gp in got if gp.per_point is not None]
+    cheapest = min(ranked, key=lambda gp: gp.per_point) if ranked and not unpriced else None
+    is_sure = lead.plan.p >= 1.0
+    return Summary(n=n, effect=effect, lead=lead, sure=is_sure, others=others, more=more, cheapest=cheapest,
+                   unpriced=unpriced, best=is_sure and not more and cheapest is lead)

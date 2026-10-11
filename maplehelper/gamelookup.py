@@ -15,7 +15,7 @@ _CACHE = "_game_lookup"     # the kb.memo key holding this module's per-KB table
 # the door the game names in00/in01_1/jobin00...: the same rule as ui.npcoverlay.buildings_off, kept here in words
 # (npcoverlay imports Qt, this module must stay importable without it)
 _DOOR = re.compile(r"in\d")
-_UNKNOWN_LEVEL = 999        # a monster without a Level in its props, sorted after every known one
+UNKNOWN_LEVEL = 999         # a monster without a Level in its props, sorted after every known one (no level chip)
 
 
 @dataclass(frozen=True)
@@ -41,7 +41,7 @@ class Way:
 
 @dataclass(frozen=True)
 class Dropper:
-    """A monster that drops an item: its key, name, and level."""
+    """A monster that drops an item: its key, name, and level (UNKNOWN_LEVEL when its page gives none)."""
     key: str
     name: str
     level: int
@@ -113,11 +113,11 @@ def way_to(kb, here_map: str | None, to_map: str, rides: bool = True) -> Way:
 def _monster_level(kb, key: str) -> int:
     lvl = ((kb.get(key) or {}).get("props") or {}).get("Level")
     if isinstance(lvl, bool):
-        return _UNKNOWN_LEVEL
+        return UNKNOWN_LEVEL
     if isinstance(lvl, (int, float)):
         return int(lvl)
     m = re.search(r"\d+", str(lvl or ""))
-    return int(m.group(0)) if m else _UNKNOWN_LEVEL
+    return int(m.group(0)) if m else UNKNOWN_LEVEL
 
 
 def item_sources(kb, key: str) -> tuple[list[Dropper], list[Seller]]:

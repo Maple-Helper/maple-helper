@@ -67,6 +67,8 @@ DELTA_ORDER = ("watk", "matk", "str", "dex", "int", "luk", "wdef", "mdef", "acc"
 # "Attack Speed Fast (4)": the number is the stage, lower is faster. Unstated ranks below every stated stage
 # at equal stats (two items, one with an unstated speed: the stated one is the surer pick, not the slower one).
 _SPEED = re.compile(r"\((\d+)\)")
+SPEED = "attack_speed"          # the equips table's attack-speed column, a weapon's ranked column (rank_stats)
+SPEED_LABEL = "Attack Speed"    # ... as the game words it (English in both languages, like LABELS)
 
 
 @dataclass(frozen=True)
@@ -85,8 +87,9 @@ class Fit:
 @dataclass(frozen=True)
 class Upgrade:
     """One advised item: its equips row, the stat deltas against what is worn (the why of its rank), 0 when it is
-    wearable now (else the levels until it opens), the NPC's buy price and seller as the table has them, and the
-    droppers the drops table names (best-voted first)."""
+    wearable now (else the levels until it opens), the NPC's buy price and seller as the table has them, the
+    droppers the drops table names (best-voted first), what to flag, and why: the first ranked column it beats
+    what is worn by (see why())."""
     row: dict
     deltas: tuple[tuple[str, int], ...] = ()
     soon: int = 0
@@ -94,18 +97,35 @@ class Upgrade:
     seller: str = ""
     drops: tuple[tuple[str, int], ...] = ()
     flags: tuple[str, ...] = ()
+    why: tuple[str, int] | None = None
 
 
 @dataclass(frozen=True)
 class SlotPlan:
     """One equip slot: what is worn (the equips row behind character.gear's key, None for nothing; worn_gone:
-    a stored key the table no longer has), the items wearable now that beat it, and the soon ones."""
+    a stored key the table no longer has), the items wearable now that beat it, the soon ones, and later: the
+    first item past the soon horizon that will beat it (only its level keeps it away)."""
     slot: str
     worn: dict | None = None
     worn_gone: bool = False
     now: tuple[Upgrade, ...] = ()
     soon: tuple[Upgrade, ...] = ()
     picker: tuple[dict, ...] = field(default=())       # every item of the slot the class can ever hold
+    later: Upgrade | None = None
+
+
+@dataclass(frozen=True)
+class Summary:
+    """A slot's plain answer as facts (the window words them, slot_summary makes them): what is worn by name
+    ("" for nothing), the best item wearable now (its why() is the stat it wins by), how many soon items there
+    are and the levels they open from and to, and, when nothing beats what is worn now, the next item that will
+    (the soonest of the soon ones, else the plan's later one)."""
+    worn: str = ""
+    best: Upgrade | None = None
+    soon: int = 0
+    soon_from: int | None = None
+    soon_to: int | None = None
+    next: Upgrade | None = None
 
 
 def holds(character, item: dict) -> bool:
@@ -159,30 +179,54 @@ def wearable(kb, character, item: dict) -> Fit:
 
 
 def _speed(item: dict) -> tuple[int, int]:
-    m = _SPEED.search(str(item.get("attack_speed") or ""))
+    m = _SPEED.search(str(item.get(SPEED) or ""))
     return (1, -int(m.group(1))) if m else (0, 0)
 
 
+def speed_stage(item: dict) -> int | None:
+    """The attack-speed stage the table states ("Fast (4)" -> 4: lower is faster), None when it states none."""
+    m = _SPEED.search(str(item.get(SPEED) or ""))
+    return int(m.group(1)) if m else None
+
+
+def rank_stats(base_class: str, slot: str) -> tuple[str, ...]:
+    """The columns rank_key compares, in its order: a weapon's main attack (M.ATK for a Magician), the class's
+    main and secondary stat, then attack speed (SPEED) for a weapon or W.DEF and HP for armour, then CRIT and
+    ACC. A Beginner has no class stat: those columns drop out."""
+    weapon = slot not in ARMOUR_SLOTS                              # a weapon (or a slot the KB names anew)
+    cols = ("matk" if base_class == "Magician" else "watk",) if weapon else ()
+    cols += tuple(s for s in (MAIN_STAT.get(base_class), SECOND_STAT.get(base_class)) if s)
+    cols += (SPEED,) if weapon else ("wdef", "hp")
+    return cols + ("crit", "acc")
+
+
 def rank_key(base_class: str, item: dict) -> tuple:
-    """The transparent ranking of one item in its slot, per the class guides' own order. A weapon: main attack
-    (W.ATK; M.ATK for a Magician), the class's main stat, its secondary, then attack speed (faster first, the
-    guides' "Spell cast time does not change with weapon speed" notwithstanding — it is the stated tie-break),
-    then the table's own later tie-breaks CRIT and ACC (M.ATK is nothing to a physical class, so it never
-    enters). Armour: main stat, secondary, then W.DEF and HP, then CRIT and ACC the same way. A Beginner has
-    no class stat: those columns drop out."""
-    main, second = MAIN_STAT.get(base_class), SECOND_STAT.get(base_class)
-    parts = []
-    if item.get("slot") not in ARMOUR_SLOTS:                       # a weapon (or a slot the KB names anew)
-        parts.append((item.get("matk") or 0) if base_class == "Magician" else (item.get("watk") or 0))
-    if main:
-        parts.append(item.get(main) or 0)
-    if second:
-        parts.append(item.get(second) or 0)
-    if item.get("slot") not in ARMOUR_SLOTS:
-        parts += list(_speed(item))
-    else:
-        parts += [item.get("wdef") or 0, item.get("hp") or 0]
-    return tuple(parts + [item.get("crit") or 0, item.get("acc") or 0])
+    """The transparent ranking of one item in its slot, per the class guides' own order (rank_stats). A weapon:
+    main attack (W.ATK; M.ATK for a Magician), the class's main stat, its secondary, then attack speed (faster
+    first, the guides' "Spell cast time does not change with weapon speed" notwithstanding — it is the stated
+    tie-break), then the table's own later tie-breaks CRIT and ACC (M.ATK is nothing to a physical class, so it
+    never enters). Armour: main stat, secondary, then W.DEF and HP, then CRIT and ACC the same way."""
+    parts: list[int] = []
+    for col in rank_stats(base_class, str(item.get("slot") or "")):
+        parts += list(_speed(item)) if col == SPEED else [item.get(col) or 0]
+    return tuple(parts)
+
+
+def why(base_class: str, worn: dict | None, item: dict) -> tuple[str, int] | None:
+    """The first ranked column (rank_stats) where the item and what is worn differ — the reason it ranks above
+    or below it — as (column, difference); SPEED counts the stages it is faster (+) or slower (-), 0 when only
+    one of the two states a speed. Nothing worn: against zeroes. None: they rank the same."""
+    worn = worn or {}
+    for col in rank_stats(base_class, str(item.get("slot") or "")):
+        if col == SPEED:
+            if _speed(item) != _speed(worn):
+                a, b = speed_stage(worn), speed_stage(item)
+                return SPEED, (a - b if a is not None and b is not None else 0)
+            continue
+        d = int(item.get(col) or 0) - int(worn.get(col) or 0)
+        if d:
+            return col, d
+    return None
 
 
 def deltas(worn: dict | None, item: dict) -> tuple[tuple[str, int], ...]:
@@ -194,6 +238,36 @@ def deltas(worn: dict | None, item: dict) -> tuple[tuple[str, int], ...]:
         if d:
             out.append((st, d))
     return tuple(out)
+
+
+def changes(base_class: str, worn: dict | None, item: dict) -> tuple[tuple[str, int], ...]:
+    """An item's stat changes against what is worn, the ranked columns first (rank_stats, the why of its place):
+    each that differs, or that both have the same and not zero (0: equal); attack speed as the stages it is
+    faster (+) or slower (-) when both state one; then every other stat that differs, in DELTA_ORDER. Nothing
+    worn: the item's own stats, all gains."""
+    ranked = rank_stats(base_class, str(item.get("slot") or ""))
+    out: list[tuple[str, int]] = []
+    for col in ranked:
+        if col == SPEED:
+            a, b = speed_stage(worn or {}), speed_stage(item)
+            if worn is not None and a is not None and b is not None and a != b:
+                out.append((SPEED, a - b))
+            continue
+        have, get = int((worn or {}).get(col) or 0), int(item.get(col) or 0)
+        if get != have:
+            out.append((col, get - have))
+        elif worn is not None and get:
+            out.append((col, 0))
+    return tuple(out + [(st, d) for st, d in deltas(worn, item) if st not in ranked])
+
+
+def change_text(stat: str, d: int, item: dict) -> str:
+    """One change as a chip says it: '+10 W.ATK', '-2 DEX', '±0 LUK' (the same on both), and for attack speed
+    the item's own, 'Attack Speed Fast (4)' (d says faster or slower). The game's words, English in both
+    languages."""
+    if stat == SPEED:
+        return f"{SPEED_LABEL} {item.get(SPEED) or ''}".strip()
+    return f"{'±' if d == 0 else '+' if d > 0 else ''}{d} {LABELS[stat]}"
 
 
 def delta_text(dts: tuple[tuple[str, int], ...]) -> str:
@@ -250,9 +324,10 @@ def slot_items(kb, character, slot: str) -> list[dict]:
 
 def upgrades(kb, character) -> list[SlotPlan]:
     """One SlotPlan per slot: what is worn, the wearable-now items that rank strictly above it (every wearable
-    item when nothing is worn), and the soon ones — items only levels away (within SOON_LEVELS) that also rank
-    above it. Each Upgrade carries its deltas, its NPC price and seller from the equips table, and its droppers
-    from the drops table, so the window never has to guess a source."""
+    item when nothing is worn), the soon ones — items only levels away (within SOON_LEVELS) that also rank
+    above it — and the later one: the first item past that horizon that does, its level the only block. Each
+    Upgrade carries its deltas and why it ranks above, its NPC price and seller from the equips table, and its
+    droppers from the drops table, so the window never has to guess a source."""
     base = str(getattr(character, "base_class", "") or "")
     rows = _equips(kb)
     by_key = {str(r.get("key")): r for r in rows}
@@ -273,6 +348,7 @@ def upgrades(kb, character) -> list[SlotPlan]:
         worn_key = rank_key(base, worn) if worn else None
         now: list[Upgrade] = []
         soon: list[Upgrade] = []
+        later: list[Upgrade] = []
         for r in (x for x in rows if x.get("slot") == slot and holds(character, x)):
             if worn is not None and r.get("key") == worn.get("key"):
                 continue                                  # what is worn is not its own upgrade
@@ -280,12 +356,15 @@ def upgrades(kb, character) -> list[SlotPlan]:
             if worn_key is not None and rank_key(base, r) <= worn_key:
                 continue                                  # must strictly beat what is worn, by the ranking
             if fit.ok:
-                now.append(Upgrade(r, deltas(worn, r), 0))
-            elif fit.reasons == ("level",) and 0 < fit.level_gap <= SOON_LEVELS:
-                soon.append(Upgrade(r, deltas(worn, r), fit.level_gap))
+                now.append(Upgrade(r, deltas(worn, r), 0, why=why(base, worn, r)))
+            elif fit.reasons == ("level",):
+                (soon if fit.level_gap <= SOON_LEVELS else later).append(
+                    Upgrade(r, deltas(worn, r), fit.level_gap, why=why(base, worn, r)))
         now, soon = by_rank(now)[:TOP_NOW], by_rank(soon, level_first=True)[:TOP_SOON]
-        wanted |= {str(u.row.get("key")) for u in now + soon}
-        plans.append(SlotPlan(slot, worn, bool(gear.get(slot)) and worn is None, tuple(now), tuple(soon)))
+        nxt = by_rank(later, level_first=True)[:1]
+        wanted |= {str(u.row.get("key")) for u in now + soon + nxt}
+        plans.append(SlotPlan(slot, worn, bool(gear.get(slot)) and worn is None, tuple(now), tuple(soon),
+                              later=nxt[0] if nxt else None))
     droppers = _droppers(kb, wanted)
 
     def filled(u: Upgrade) -> Upgrade:
@@ -296,7 +375,20 @@ def upgrades(kb, character) -> list[SlotPlan]:
         return Upgrade(u.row, u.deltas, u.soon,
                        u.row.get("buy") if isinstance(u.row.get("buy"), int) else None,
                        str(u.row.get("seller") or ""), droppers.get(str(u.row.get("key")), ()),
-                       fit.flags + tuple(f"stat:{st}:{need}" for st, need, have in fit.missing if have is None))
+                       fit.flags + tuple(f"stat:{st}:{need}" for st, need, have in fit.missing if have is None),
+                       u.why)
     return [SlotPlan(p.slot, p.worn, p.worn_gone, tuple(filled(u) for u in p.now),
-                     tuple(filled(u) for u in p.soon), tuple(slot_items(kb, character, p.slot)))
+                     tuple(filled(u) for u in p.soon), tuple(slot_items(kb, character, p.slot)),
+                     filled(p.later) if p.later is not None else None)
             for p in plans]
+
+
+def slot_summary(plan: SlotPlan) -> Summary:
+    """The facts of a slot's one-line answer: what is worn, the best item wearable now (plan.now's first), how
+    many soon items there are and the levels they open from and to, and — nothing better now — the next item
+    that will be: the soonest soon one, else the later one past the horizon."""
+    levels = sorted(int(u.row.get("req_lv") or 0) for u in plan.soon)
+    best = plan.now[0] if plan.now else None
+    return Summary(str((plan.worn or {}).get("item") or ""), best, len(plan.soon),
+                   levels[0] if levels else None, levels[-1] if levels else None,
+                   None if best is not None else plan.soon[0] if plan.soon else plan.later)

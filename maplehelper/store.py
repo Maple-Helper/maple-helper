@@ -196,6 +196,9 @@ DEFAULT_SETTINGS = {
     "craft_exp_table": None,      # crafting EXP per level the player measured in game: {"7": 1234}; None: the KB's table
     "game_toolbar_width": None,   # the width the player dragged the bar to (its buttons wrap into rows); None: one row
     "game_toolbar_icons": False,  # the bar's buttons as icons (their names in the tooltips) instead of words
+    # the key that shows or hides the bar, from any program (keys.py names it; "" is none). With Shift: the game
+    # binds the plain F-keys. A Mac shows the desktop on F11, with Shift too, so it gets the next key down
+    "game_toolbar_hotkey": "Shift+F10" if sys.platform == "darwin" else "Shift+F11",
     "overlay_tint": "dark",       # the windows over the game: their glass colour (ui/npcoverlay.py TINTS)
     "overlay_accent": "green",    # ... and their lit buttons' colour (ui/npcoverlay.py ACCENTS)
 }

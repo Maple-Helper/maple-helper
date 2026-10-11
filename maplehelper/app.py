@@ -1,4 +1,4 @@
-"""Maple Helper entry point: tray icon, overlay, voice, onboarding."""
+"""Maple Helper entry point: tray icon, the bar's hotkey, overlay, voice, onboarding."""
 from __future__ import annotations
 
 import os
@@ -30,6 +30,7 @@ KB_RETRY_MS = 5 * 60 * 1000      # a failed or postponed KB update tries again t
 KB_CHECK_MS = 60 * 60 * 1000     # an open app looks for a new KB this often: the night's KB within the hour (only a
                                  # small manifest is read when there is nothing new)
 APP_CHECK_MS = 15 * 60 * 1000    # and for a new app release this often: one small GitHub API call (60 an hour allowed)
+HOTKEY_TOOLBAR = 1              # the one system-wide key: shows or hides the bar over the game (game_toolbar_hotkey)
 # the .ico carries every Windows size; macOS draws the menu bar and Dock from a PNG
 APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
 
@@ -215,6 +216,8 @@ class MapleHelperApp:
         self.game_toolbar.search_requested.connect(self._open_game_search)
         self.game_toolbar.rides_toggled.connect(self._game_rides_toggled)
         self.game_toolbar.look_changed.connect(self._overlay_look_changed)
+        self.game_toolbar.closed.connect(self._game_toolbar_closed)            # its ✕: how to bring it back
+        self.game_toolbar.hotkey_changed.connect(self._toolbar_hotkey_changed)  # its ⚙ panel's key box
         self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         # the loot log: the game's pickup messages read while a log runs (the box the player drew around them), with
@@ -248,9 +251,15 @@ class MapleHelperApp:
         self.overlay.profile_changed.connect(self.on_profile_changed)
         self.overlay.sync_finished.connect(lambda ok: self._tools_call("sync_done", ok))
 
-        # no keyboard shortcuts: the official client in front takes every key from other programs (live test,
-        # 2026-10-07), so the chat opens from the tray icon, the desktop shortcut or the taskbar, and talking from
-        # the mic button
+        # one keyboard shortcut only, the bar's show/hide (game_toolbar_hotkey). The chat has none: the official
+        # client in front takes every key from other programs (live test, 2026-10-07), so the chat opens from the
+        # tray icon, the desktop shortcut or the taskbar, and talking from the mic button. The bar's key may not reach
+        # the app while the game is in front either: the tray's Show the toolbar and Settings always bring it back
+        self.hotkeys = osapi.Hotkeys()
+        self.hotkeys.pressed.connect(self._on_hotkey)
+        from .ui.hotkeybox import CAPTURE
+        CAPTURE.listening.connect(self._hotkey_capture)       # a key box waiting for a key: the bar's let go
+        self.register_toolbar_hotkey()
         self.voice = VoiceController()
         self.apply_voice_settings()
         self.voice.started.connect(self.on_voice_start)
@@ -373,6 +382,94 @@ class MapleHelperApp:
         where = self.__dict__.get("_windows", {}).get("map")
         if where is not None and where.isVisible() and where.key:
             where.show_map(where.key)
+
+    def register_toolbar_hotkey(self) -> None:
+        """The bar's key (game_toolbar_hotkey) bound now in place of the old one; none: let go. A key that can't be
+        bound (the system or another program holds it) says so in a toast, once: the same key isn't tried again on
+        every Save. The official client in front may keep the key to itself even so (live tests, 2026-10-07): the
+        tray item and Settings > Minimap always bring the bar back."""
+        from .keys import label
+        hotkeys = getattr(self, "hotkeys", None)
+        key = self.settings["game_toolbar_hotkey"] or ""
+        if hotkeys is None or key == getattr(self, "_toolbar_key", None):
+            return
+        self._toolbar_key, self._toolbar_bound = key, False
+        if not key:
+            hotkeys.unregister(HOTKEY_TOOLBAR)
+        elif hotkeys.register(HOTKEY_TOOLBAR, key):
+            self._toolbar_bound = True
+        else:
+            from . import bidi
+            t = I18n(self.settings["language"])
+            self.toast(t("tb_hotkey_taken_title"), t("tb_hotkey_taken", key=bidi.ltr_block(label(key), t.rtl)),
+                       timeout_ms=9000)
+
+    def _hotkey_capture(self, listening: bool) -> None:
+        """A key box (Settings, the bar's ⚙ panel) waits for a key: the bar's own key is let go meanwhile, or
+        pressing it there would show or hide the bar instead of reaching the box; bound again once the box is done
+        (a key that wouldn't bind isn't tried, and toasted, again)."""
+        hotkeys = getattr(self, "hotkeys", None)
+        if hotkeys is None:
+            return
+        if not listening:
+            self.register_toolbar_hotkey()
+        elif getattr(self, "_toolbar_bound", False):
+            hotkeys.unregister(HOTKEY_TOOLBAR)
+            self._toolbar_key, self._toolbar_bound = None, False
+
+    def _on_hotkey(self, hotkey_id: int) -> None:
+        if hotkey_id == HOTKEY_TOOLBAR:
+            self.toggle_game_toolbar()
+
+    def toggle_game_toolbar(self) -> None:
+        """The bar's key and the tray's Show/Hide the toolbar: the bar shown (game_toolbar on) or hidden (off)."""
+        self.settings["game_toolbar"] = not self.settings["game_toolbar"]
+        self.game_toolbar.refresh()
+        self._game_toolbar_followed()
+
+    def _game_toolbar_closed(self) -> None:
+        """The bar's ✕: Settings and the tray item follow, and a toast says how to bring the bar back."""
+        from . import bidi
+        from .keys import label, usable
+        self._game_toolbar_followed()
+        t = I18n(self.settings["language"])
+        key, mac = self.settings["game_toolbar_hotkey"], "_mac" if t.mac else ""
+        body = (t("tray_toolbar_back" + mac, key=bidi.ltr_block(label(key), t.rtl)) if usable(key) else
+                t("tray_toolbar_back_nokey" + mac))
+        self.toast(t("tray_toolbar_hidden"), body, timeout_ms=12000)
+
+    def _game_toolbar_followed(self) -> None:
+        """The bar turned on or off outside Settings (its ✕, its key, the tray item): an open Settings window's switch
+        follows, with the value its Save compares against — after the ✕ it kept reading On, so closing it changed
+        nothing and the bar was 'on' yet gone (the owner, 2026-10-11) — and the tray item says the other way now."""
+        self._settings_follow("game_toolbar")
+        self._retext_tray_toolbar()
+
+    def _toolbar_hotkey_changed(self) -> None:
+        """The ⚙ panel picked or cleared the bar's key: bound now; Settings' key box and the tray item follow."""
+        self.register_toolbar_hotkey()
+        self._settings_follow("game_toolbar_hotkey")
+        self._retext_tray_toolbar()
+
+    def _settings_follow(self, key: str) -> None:
+        dlg = self.__dict__.get("_windows", {}).get("settings")
+        if dlg is not None:
+            dlg.follow(key)
+
+    def _retext_tray_toolbar(self) -> None:
+        """The tray item says what a click does: Show the toolbar while it's off, Hide while it's on, with its key."""
+        from . import bidi
+        from .keys import label, usable
+        item = getattr(self, "_tray_toolbar", None)
+        if item is None:
+            return
+        t = I18n(self.settings["language"])
+        text = t("tray_toolbar_hide" if self.settings["game_toolbar"] else "tray_toolbar_show")
+        key = self.settings["game_toolbar_hotkey"]
+        if usable(key):
+            # in the label itself: the menu's shortcut column glued a key to Hebrew text ("הצ'אטF9", seen live)
+            text = f"{text}  ·  {bidi.ltr_block(label(key), t.rtl)}"
+        item.setText(bidi.plain(text, t.rtl))
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -579,6 +676,15 @@ class MapleHelperApp:
         a_set = QAction(t("tray_settings"), menu, triggered=self.open_settings)
         a_quit = QAction(t("tray_quit"), menu, triggered=self.qapp.quit)
         menu.addAction(a_show)
+        # the bar over the game, shown or hidden from here too: its key may not reach the app while the game is in
+        # front, and its ✕ once hid it with no way back the player found (the owner, 2026-10-11). The label says what
+        # a click does, read again each time the menu opens (the ✕, the key and Settings flip it meanwhile)
+        self._tray_toolbar = None
+        if getattr(self, "game_toolbar", None) is not None:
+            self._tray_toolbar = QAction("", menu, triggered=self.toggle_game_toolbar)
+            menu.addAction(self._tray_toolbar)
+            self._retext_tray_toolbar()
+            menu.aboutToShow.connect(self._retext_tray_toolbar)
         menu.addAction(a_set)
         if getattr(self, "pending_installer", None):
             a_upd = QAction(t("update_now_tray", version=updater.installer_version(self.pending_installer)), menu,
@@ -864,6 +970,7 @@ class MapleHelperApp:
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
         self.apply_voice_settings()
         self.apply_autostart()
+        self.register_toolbar_hotkey()          # the bar's key picked in Settings > Minimap: bound now
         self.tray.hide()
         self.make_tray()
         scanner = getattr(self, "minimap_scanner", None)
@@ -878,9 +985,9 @@ class MapleHelperApp:
 
     def _overlay_look_changed(self) -> None:
         """Every window over the game at the colours, icons and transparency the settings give now, not on the
-        next restart: the ⚙ panel's choices (look_changed) and Settings > Minimap's (on Save) both land here.
-        Each window re-reads the opacity, re-styles its own lit buttons in the accent, and repaints its glass
-        in the tint _paint_glass takes (the NPCs window's guide and the search's page window with them)."""
+        next restart: the ⚙ panel's choices land here (look_changed), and so does a Save in Settings (the bar or
+        the screenshots switch). Each window re-reads the opacity, re-styles its own lit buttons in the accent, and
+        repaints its glass in the tint _paint_glass takes (the NPCs window's guide and the search's page window too)."""
         npc = getattr(self, "npc_overlay", None)
         if npc is not None:
             npc.refresh()          # the NPCs-on-this-map window switched on or off
@@ -1376,6 +1483,9 @@ class MapleHelperApp:
             stop_login()                         # a sign-in still waiting (Codex's holds a port the next one needs)
         except Exception:
             pass
+        hotkeys = getattr(self, "hotkeys", None)
+        if hotkeys is not None:
+            hotkeys.close()                      # the bar's key free for other programs again
         if getattr(self, "pending_installer", None):
             from .setupwait import setup_running
             if setup_running():

@@ -1,10 +1,13 @@
 """The gear upgrade advisor (maplehelper/gearadvice.py and its window over the game): who can wear what —
 level, class and the weapons each 2nd job actually fights with, gender, stat requirements against the player's
 typed stats (unknown ones flag, never hide) — the transparent ranking (main attack first, the class's main and
-secondary stat, weapon speed; armour by stats then defense), the "soon" horizon, every price and dropper from
-the KB's own tables, and the window's life: rows in both languages, the worn-item picker saving to the
-character, the ✕ turning its setting off. The real-KB tests prove a Lv 32 Assassin never gets a bow, a
-Warrior-only item, an over-level item in "now" or a Female-only one."""
+secondary stat, weapon speed; armour by stats then defense) and why each item ranks where it does, the "soon"
+horizon and the next item past it, a slot's one-line answer as facts (slot_summary), every price and dropper
+from the KB's own tables, and the window: the equipment grid (a tile per slot, the worn item's picture, the
+upgrade count), the picked slot's panel (the best card marked, the stat changes as signed chips, Plan scrolls
+only for an item with upgrade slots, the Free Market price for an item no NPC sells), the worn-item picker
+saving to the character, both languages, the accent, and the ✕ turning its setting off. The real-KB tests prove
+a Lv 32 Assassin never gets a bow, a Warrior-only item, an over-level item in "now" or a Female-only one."""
 import json
 import os
 from pathlib import Path
@@ -72,6 +75,7 @@ PAGES = {
     "item/130": _equip_page("LUK Bamboo Hat", "Equip / Hat", ("LUK +2", "W.DEF +10"), "REQ LEV 20", 7),
     "item/132": _equip_page("Rose Circlet", "Equip / Hat", ("LUK +5", "W.DEF +12"), "REQ LEV 25", 7, gender="Female"),
     "item/140": _equip_page("Lukewire Shirt", "Equip / Top", ("LUK +4",), "REQ LEV 20 REQ LUK 200", 7),
+    "item/141": _equip_page("Plain Tee", "Equip / Top", ("LUK +1",), "REQ LEV 10"),     # no upgrade slots
     "item/150": _equip_page("Sauna Robe", "Equip / Overall", ("W.DEF +75",), "REQ LEV 30", 10),
     # a Magician's weapon ranks by M.ATK, not W.ATK
     "item/160": _equip_page("Spell Wand", "Equip / Wand", ("M.ATK +40", "W.ATK +60"), "REQ LEV 25 JOB Magician", 7),
@@ -87,8 +91,13 @@ DROPS = [  # the drops table's rows, as rows() types them, for the tests that ne
      "item_type": "Equip / Claw", "item_key": "item/109", "source": "community", "votes": "2 up 0 down"},
 ]
 
+# the sprites the KB has for some items (img/item/<id>.png, as the real KB's index names them): the grid and the
+# cards show these, the rest the category's stand-in
+PICTURES = {"item/101": ((6, 10), (200, 40, 40)), "item/109": ((10, 6), (40, 200, 40))}
+
 
 def make_kb(root: Path) -> KnowledgeBase:
+    from PIL import Image
     index = []
     for key, p in PAGES.items():
         cat, _, slug = key.partition("/")
@@ -97,8 +106,13 @@ def make_kb(root: Path) -> KnowledgeBase:
         (root / "pages" / cat / f"{slug}.md").write_text(
             "---\n" + json.dumps(front, ensure_ascii=False, indent=1) + f"\n---\n\n# {p['name']}\n{p['body']}",
             encoding="utf-8")
-        index.append({"key": key, "id": slug, "name": p["name"], "category": cat, "props": p["props"],
-                      "type": p["typ"]})
+        entry = {"key": key, "id": slug, "name": p["name"], "category": cat, "props": p["props"], "type": p["typ"]}
+        if key in PICTURES:
+            (root / "img" / cat).mkdir(parents=True, exist_ok=True)
+            size, rgb = PICTURES[key]
+            Image.new("RGB", size, rgb).save(root / "img" / cat / f"{slug}.png")
+            entry["image"] = f"img/{cat}/{slug}.png"
+        index.append(entry)
     (root / "index.json").write_text(json.dumps(index), encoding="utf-8")
     (root / "aliases.json").write_text("{}", encoding="utf-8")
     (root / "routes.json").write_text('{"maps": []}', encoding="utf-8")
@@ -264,6 +278,66 @@ def test_delta_text_uses_the_game_own_words():
     assert gearadvice.delta_text((("luk", -1),)) == "LUK -1"
 
 
+def test_why_names_the_first_ranked_stat_an_upgrade_wins_by(kb):
+    keen = plan(kb, char(gear={"Claw": "item/101"}), "Claw").now[0]               # Keen Guard over Steel Titans
+    assert keen.why == ("watk", 8)                                                 # W.ATK first, before CRIT/ACC
+    strong = char(gear={"Claw": "item/102"}, ap={"str": 4, "dex": 50, "luk": 140})  # W.ATK 23 Slow (7) worn
+    assert plan(kb, strong, "Claw").now[0].why == (gearadvice.SPEED, 3)            # same W.ATK: 3 stages faster
+    assert plan(kb, char(gender="", gear={"Hat": "item/130"}), "Hat").now[0].why == ("luk", 3)   # armour: LUK
+    assert gearadvice.rank_stats("Thief", "Claw") == ("watk", "luk", "dex", gearadvice.SPEED, "crit", "acc")
+    assert gearadvice.rank_stats("Magician", "Hat") == ("int", "luk", "wdef", "hp", "crit", "acc")
+    assert gearadvice.rank_stats("Beginner", "Wand") == ("watk", gearadvice.SPEED, "crit", "acc")
+
+
+def test_changes_show_the_ranked_stats_first_with_losses_and_equals(kb):
+    worn, keen = item(kb, "item/101"), item(kb, "item/109")                        # Steel Titans -> Keen Guard
+    assert gearadvice.changes("Thief", worn, keen) == (("watk", 8), ("crit", 1), ("acc", 2))
+    slow, fast = item(kb, "item/102"), item(kb, "item/103")                        # the same W.ATK 23, faster
+    assert gearadvice.changes("Thief", slow, fast) == (("watk", 0), (gearadvice.SPEED, 3), ("crit", 1))
+    lesser, spell = item(kb, "item/161"), item(kb, "item/160")                     # M.ATK up, W.ATK down
+    assert gearadvice.changes("Magician", lesser, spell) == (("matk", 5), ("watk", -10))
+    assert gearadvice.changes("Thief", None, keen)[:2] == (("watk", 23), ("crit", 1))   # nothing worn: all gains
+    assert gearadvice.change_text("watk", 10, keen) == "+10 W.ATK"
+    assert gearadvice.change_text("dex", -2, keen) == "-2 DEX"
+    assert gearadvice.change_text("watk", 0, keen) == "±0 W.ATK"
+    assert gearadvice.change_text(gearadvice.SPEED, 3, fast) == "Attack Speed Fast (4)"
+
+
+def test_the_next_item_past_the_horizon_is_kept(kb):
+    top = plan(kb, char(gear={"Claw": "item/109"}), "Claw")                        # Keen Guard: the best wearable
+    assert not top.now and not top.soon                                            # (Guardians asks LUK 130)
+    assert top.later is not None and top.later.row["item"] == "Far Claw" and top.later.soon == 8
+    assert top.later.why == ("watk", 7)
+
+
+def test_slot_summary_says_the_best_upgrade_and_what_opens_soon(kb):
+    s = gearadvice.slot_summary(plan(kb, char(gear={"Claw": "item/101"}), "Claw"))
+    assert s.worn == "Steel Titans" and s.best.row["item"] == "Keen Guard" and s.best.why == ("watk", 8)
+    assert s.soon == 0 and s.next is None                                          # the best is the answer
+    strong = char(gear={"Claw": "item/102"}, ap={"str": 4, "dex": 50, "luk": 140})
+    s = gearadvice.slot_summary(plan(kb, strong, "Claw"))
+    assert s.best.row["item"] == "Keen Guard" and s.best.why == (gearadvice.SPEED, 3)
+    assert (s.soon, s.soon_from, s.soon_to) == (1, 37, 37)                         # Guardians of Doom at 37
+
+
+def test_slot_summary_nothing_better_names_the_next_item(kb):
+    s = gearadvice.slot_summary(plan(kb, char(gear={"Claw": "item/109"}), "Claw"))
+    assert s.worn == "Keen Guard" and s.best is None and s.soon == 0
+    assert s.next.row["item"] == "Far Claw" and s.next.row["req_lv"] == 40         # past the horizon, still named
+    top = char(level=40, gear={"Claw": "item/105"})                                # Far Claw: nothing beats it
+    s = gearadvice.slot_summary(plan(kb, top, "Claw"))
+    assert s.best is None and s.next is None and s.worn == "Far Claw"
+
+
+def test_slot_summary_soon_only_and_nothing_worn(kb):
+    strong = char(gear={"Claw": "item/109"}, ap={"str": 4, "dex": 50, "luk": 140})  # Keen Guard, LUK for Guardians
+    s = gearadvice.slot_summary(plan(kb, strong, "Claw"))
+    assert s.best is None and (s.soon, s.soon_from, s.soon_to) == (1, 37, 37)
+    assert s.next.row["item"] == "Guardians of Doom" and s.next.soon == 5          # the soonest soon one first
+    bare = gearadvice.slot_summary(plan(kb, char(), "Claw"))
+    assert bare.worn == "" and bare.best.row["item"] == "Keen Guard"               # nothing worn: the best to wear
+
+
 # ---------------------------------------------------------------- the real knowledge base
 
 @pytest.fixture(scope="module")
@@ -352,10 +426,11 @@ def profiles(isolated_store):
 
 @pytest.fixture
 def win(qapp, settings, profiles, kb, drops):
+    """The window on the sample player wearing Steel Titans (item/101, a sprite of its own in the tiny KB)."""
     from maplehelper.i18n import I18n
     from maplehelper.ui.gearadvisor import GearAdvisor
     c = profiles.add("ShadowK", "Thief", "Assassin", 32)
-    c.gender, c.ap = "Male", {"str": 4, "dex": 50, "luk": 120}
+    c.gender, c.ap, c.gear = "Male", {"str": 4, "dex": 50, "luk": 120}, {"Claw": "item/101"}
     profiles.save()
     settings["gear_advisor"] = True
     w = GearAdvisor(kb, settings, profiles, I18n("en"))
@@ -370,21 +445,246 @@ def win(qapp, settings, profiles, kb, drops):
     qapp.processEvents()
 
 
-def test_the_window_shows_rows_in_both_languages_and_the_x_turns_it_off(qapp, win, settings):
-    from PySide6.QtCore import Qt
+def settle() -> None:
+    """Widgets added to a window that shows already show on the loop's next turn (Qt queues it): that turn now."""
+    from PySide6.QtWidgets import QApplication
+    QApplication.processEvents()
+
+
+def shown(win, cls, name):
+    """The window's widgets of this class and object name that show now (a replaced card is hidden at once)."""
+    settle()
+    return [w for w in win.findChildren(cls, name) if w.isVisibleTo(win)]
+
+
+def spaced(text: str) -> str:
+    """A label's text as read: its no-break spaces (a name or a level kept on one line) as plain ones, and in Hebrew
+    without the direction marks around its English blocks."""
+    for mark in ("\u200f", "\u2066", "\u2069", "\u202a", "\u202c", "\u2060"):
+        text = text.replace(mark, "")
+    return text.replace("\u00a0", " ")
+
+
+def texts(parent, name):
     from PySide6.QtWidgets import QLabel
+    settle()
+    return [spaced(w.text()) for w in parent.findChildren(QLabel, name) if w.isVisibleTo(parent)]
+
+
+def card_of(win, item_name):
+    """The panel's card naming this item (the worn card or an upgrade's)."""
+    from PySide6.QtWidgets import QFrame
+    return next(c for c in shown(win, QFrame, "Card") if item_name in texts(c, "ItemName"))
+
+
+def centre(label) -> tuple[int, int, int]:
+    """A picture label's middle pixel: which sprite it shows (the tiny KB's are solid colours)."""
+    img = label.pixmap().toImage()
+    return img.pixelColor(img.width() // 2, img.height() // 2).getRgb()[:3]
+
+
+def tiles(win) -> dict:
+    return {t.slot: t for t in win._tiles}
+
+
+def test_the_grid_has_a_tile_per_slot_with_the_worn_picture_and_the_upgrade_count(qapp, win):
+    win.refresh()
+    grid = tiles(win)
+    assert set(grid) == {p.slot for p in win._plans} == {"Claw", "Hat", "Top", "Overall"}
+    assert centre(grid["Claw"].pic) == PICTURES["item/101"][1]                      # Steel Titans' own sprite
+    assert grid["Hat"].pic is None and grid["Hat"].property("empty") is True       # nothing worn: an outline
+    for slot, tile in grid.items():
+        n = len(win._plan(slot).now)
+        assert (tile.badge.text() if tile.badge is not None else 0) == (str(n) if n else 0), slot
+    assert grid["Claw"].badge.text() == "3"                                        # Keen, Fast and Plain Guard
+    assert grid["Claw"].property("sel") is True                                    # it opens on the worn slot
+    assert not any(t.property("sel") for s, t in grid.items() if s != "Claw")
+
+
+def test_clicking_a_tile_switches_the_panel_and_says_the_answer(qapp, win):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    win.refresh()
+    qapp.processEvents()                                                           # the grid laid out: tiles to click
+    assert spaced(win._answer.text()) == "Keen Guard is your best claw now: +8 W.ATK over Steel Titans."
+    QTest.mouseClick(tiles(win)["Hat"], Qt.LeftButton)
+    assert win._slot == "Hat" and tiles(win)["Hat"].property("sel") and not tiles(win)["Claw"].property("sel")
+    assert win._views.group.buttons()[0].text() == "Hat" and win._views.value() == "slot"
+    assert spaced(win._answer.text()) == "Pick what you wear to compare. Best you can wear now: LUK Bamboo Hat."
+    assert "Nothing set" in texts(win._scroll.widget(), "ItemMuted")              # the worn card: an empty slot
+    QTest.mouseClick(tiles(win)["Claw"], Qt.LeftButton)
+    assert win._slot == "Claw" and "Steel Titans" in texts(card_of(win, "Steel Titans"), "ItemName")
+    QTest.mouseClick(tiles(win)["Claw"], Qt.LeftButton)                          # the picked tile again: its picker
+    settle()
+    assert win._pick_box is not None and win._pick_box.isVisibleTo(win)
+
+
+def test_the_first_card_is_marked_best_and_its_changes_are_signed_chips(qapp, win, profiles):
+    from PySide6.QtWidgets import QFrame
+    win.refresh()
+    cards = [c for c in shown(win, QFrame, "Card") if c.property("best") is not None]
+    upgrades = [c for c in cards if "Steel Titans" not in texts(c, "ItemName")]
+    assert [c.property("best") for c in upgrades] == [True, False, False]          # the first, and only it
+    best = upgrades[0]
+    assert texts(best, "ItemName") == ["Keen Guard"] and texts(best, "BestCaption") == ["BEST UPGRADE"]
+    assert centre(best.findChild(type(win._answer), "Pic")) == PICTURES["item/109"][1]
+    assert texts(best, "ChipLv") == ["Lv. 30"]
+    assert texts(best, "ChipGain") == ["+8 W.ATK", "+1 CRIT", "+2 ACC"]
+    assert not texts(best, "ChipLoss")
+    # the same W.ATK, faster: an equal chip, then why it wins (the attack speed it has)
+    c = profiles.active
+    c.ap, c.gear = {"str": 4, "dex": 50, "luk": 140}, {"Claw": "item/102"}
+    profiles.save()
+    win.character_changed()
+    keen = card_of(win, "Keen Guard")
+    assert texts(keen, "ChipSame") == ["±0 W.ATK"]
+    assert texts(keen, "ChipGain") == ["Attack Speed Fast (4)", "+1 CRIT", "+2 ACC"]
+    assert texts(card_of(win, "Guardians of Doom"), "ChipSoon") == ["Lv. 37 · in 5 levels"]
+    # a stat given up shows red: a Cleric's Spell Wand has more M.ATK and less W.ATK than its Lesser Wand
+    wiz = profiles.add("Wiz", "Magician", "Cleric", 30)
+    wiz.gear = {"Wand": "item/161"}
+    profiles.save()
+    win.character_changed()
+    spell = card_of(win, "Spell Wand")
+    assert texts(spell, "ChipGain") == ["+5 M.ATK"] and texts(spell, "ChipLoss") == ["-10 W.ATK"]
+
+
+def test_plan_scrolls_only_for_items_with_upgrade_slots(qapp, win):
+    from PySide6.QtWidgets import QPushButton
+    asked = []
+    win.scroll_requested.connect(asked.append)
+    win.refresh()
+    buttons = shown(win, QPushButton, "Plan")
+    assert len(buttons) == 3                                                       # three claws, 7 slots each
+    card_of(win, "Keen Guard").findChild(QPushButton, "Plan").click()
+    assert asked == ["item/109"]
+    win._select("Top")                                                             # Plain Tee: no upgrade slots
+    assert texts(card_of(win, "Plain Tee"), "ItemName") == ["Plain Tee"]
+    assert not shown(win, QPushButton, "Plan") and asked == ["item/109"]
+
+
+def test_an_item_no_npc_sells_shows_its_free_market_price(qapp, win, profiles, monkeypatch):
+    """Mithril Guards said "no NPC price in the database" while MeowDB had its usual Free Market price (~69.9k, the
+    owner's report): a card whose item no NPC sells shows the usual price live from MeowDB, says when there is none
+    lately, and says MeowDB was out of reach rather than nothing."""
+    import time
+
+    from maplehelper import market
+    answers = {109: market.ItemMarket(usual=69900, checks=7), 103: market.ItemMarket(), 108: None}
+    monkeypatch.setattr(market, "item_market", lambda item_id, timeout=8: answers.get(item_id))
+    win.refresh()
+    end = time.time() + 5
+    while time.time() < end and any("Checking" in x for x in texts(win._scroll.widget(), "WhereMuted")):
+        qapp.processEvents()
+        time.sleep(0.02)
+    qapp.processEvents()
+    keen = card_of(win, "Keen Guard")
+    assert "Free Market: usually 69,900 mesos (last 14 days)" in " ".join(texts(keen, "Where"))
+    assert any("Drops from Jr. Wraith (Lv. 34)" in x for x in texts(keen, "Where"))
+    assert "No NPC price in the database, and no Free Market price in the last 14 days" in " ".join(
+        texts(card_of(win, "Fast Guard"), "WhereMuted"))
+    assert "couldn't reach MeowDB" in " ".join(texts(card_of(win, "Plain Guard"), "WhereMuted"))
+    # an item an NPC sells: the price and the seller, its price label left to the hover
+    profiles.active.level = 26
+    profiles.save()
+    win.character_changed()
+    shop = card_of(win, "Meba").findChild(type(win._answer), "Where")
+    assert "7,000 mesos" in spaced(shop.text()) and "Tulcus Armor Seller (Sleepywood)" in spaced(shop.text())
+    assert "COT2" not in shop.text() and "COT2 price" in shop.toolTip()
+
+
+def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
+    from PySide6.QtCore import Qt
+    from PySide6.QtTest import QTest
+    from PySide6.QtWidgets import QLabel
+    win.refresh()
+    win._worn_btn.click()                                                          # the worn card's Change
+    settle()
+    assert win._pick_box is not None and win._pick_box.isVisibleTo(win)
+    rows = win._pick_rows
+    assert rows[0].name.text() == "Nothing worn here"                              # taking it off is a choice
+    assert not rows[1].findChild(QLabel, "Pic").pixmap().isNull()                  # each item with its picture
+    expected = win._plan("Claw").picker[0]["key"]
+    rows[1].clicked.emit()                                                         # the first claw of the list
+    qapp.processEvents()
+    assert profiles.active.gear.get("Claw") == expected and win._pick_box is None  # saved, the picker closed
+    QTest.mouseClick(tiles(win)["Claw"], Qt.LeftButton)                            # the picked tile: the picker
+    win._pick_box.setText("keen")
+    win._fill_picker()                                                             # (the typing pause, now)
+    assert [r.name.text() for r in win._pick_rows] == ["Nothing worn here", "Keen Guard"]
+    win._pick_rows[0].clicked.emit()                                               # nothing: taken off
+    qapp.processEvents()
+    assert "Claw" not in profiles.active.gear
+
+
+def test_your_stats_fold_once_typed_and_still_save(qapp, win, profiles):
+    win.refresh()
+    assert not win._stats_edit.isVisibleTo(win) and not win._hint.isVisibleTo(win)  # typed: folded to a line
+    assert spaced(win._stats_line.text()) == "STR 4 · DEX 50 · LUK 120"
+    win._stats_btn.click()                                                         # Edit
+    assert win._stats_edit.isVisibleTo(win)
+    win._editors["luk"].setText("140")
+    win._stats_saved()                                                             # (the typing pause, now)
+    assert profiles.active.ap["luk"] == 140
+    assert "Guardians of Doom" in texts(win._scroll.widget(), "ItemName")          # LUK 130 met: it opens soon
+    profiles.add("Newbie", "Thief", "Assassin", 32)                                # nothing typed yet
+    profiles.save()
+    win.character_changed()
+    assert win._stats_edit.isVisibleTo(win) and win._hint.isVisibleTo(win)
+    assert win._hint.text() == "Type your STR / DEX / INT / LUK to check gear requirements"
+
+
+def test_a_first_job_class_has_one_weapon_tile_and_a_type_box(qapp, win, profiles):
+    """A 1st-job Thief holds claws and daggers both: one weapon tile, as the game's equip window has one weapon
+    slot, and a drop-down of the types in the panel (ten chips for a 1st-job Warrior took five rows)."""
+    rogue = profiles.add("Rook", "Thief", "Thief", 30)
+    rogue.gender, rogue.ap = "Male", {"luk": 120}
+    profiles.save()
+    win.refresh()
+    weapon = win._tiles[0]
+    assert weapon.group == {"Claw", "Dagger"} and len(win._tiles) == 4             # the weapon, Hat, Top, Overall
+    assert weapon.slot == "Claw" and weapon.property("sel") is True and weapon.pic is None
+    assert win._views.group.buttons()[0].text() == "Weapon"
+    assert [win._types.itemData(i) for i in range(win._types.count())] == ["Claw", "Dagger"]
+    assert win._types.itemText(0) == "Claw · 3 upgrades" and win._types.itemText(1) == "Dagger · 1 upgrade"
+    win._types.activated.emit(1)
+    settle()                                                                       # (picked after the pop-up closes)
+    assert win._slot == "Dagger" and win._tiles[0].slot == "Dagger" and win._tiles[0].property("sel") is True
+    assert spaced(win._answer.text()) == "Pick what you wear to compare. Best you can wear now: Reef Dagger."
+
+
+def test_all_upgrades_lists_every_slots_best_and_opens_one(qapp, win):
+    from PySide6.QtWidgets import QFrame
+    win.refresh()
+    win._views.group.buttons()[1].click()                                          # All upgrades
+    rows = shown(win, QFrame, "AllRow")
+    assert [texts(r, "ItemName")[0] for r in rows] == ["Keen Guard", "LUK Bamboo Hat", "Plain Tee", "Sauna Robe"]
+    assert texts(rows[0], "AllSlot") == ["Claw · you wear Steel Titans"]
+    rows[1].clicked.emit()
+    assert win._view == "slot" and win._slot == "Hat" and tiles(win)["Hat"].property("sel")
+
+
+def test_hebrew_mirrors_the_grid_and_keeps_the_counts(qapp, win, settings):
+    """Hebrew rebuilds everything: the grid's columns run right to left and each tile keeps its upgrade count. (The
+    folded slot's badge once passed the count as a number to bidi.ltr_block, which takes text, and folding a slot
+    with upgrades crashed in Hebrew only; the grid's badges and tips carry the count the same way.)"""
+    from PySide6.QtCore import Qt
     from maplehelper.i18n import STRINGS, I18n
     win.refresh()
-    assert win.isVisible()
-    assert win._title.text() == STRINGS["ga_title"]["en"]
-    names = {x.text() for x in win.findChildren(QLabel) if x.objectName() == "Name"}
-    assert {"Keen Guard", "Fast Guard", "Plain Guard"} <= names                    # the advice, in English
-    subs = [x.text() for x in win.findChildren(QLabel) if x.objectName() == "Sub"]
-    assert any("Lv. 30" in s for s in subs) and not any("Lv. Lv" in s for s in subs)  # never "Lv. Lv. 30"
+    qapp.processEvents()
+    assert tiles(win)["Claw"].x() < tiles(win)["Hat"].x()
     win.apply_language(I18n("he"))
-    assert win._title.text().replace(chr(0x200F), "") == STRINGS["ga_title"]["he"]
+    qapp.processEvents()
     assert win.layoutDirection() == Qt.RightToLeft
-    assert {x.text() for x in win.findChildren(QLabel) if x.objectName() == "Name"} >= {"Fast Guard"}
+    assert win._title.text().replace(chr(0x200F), "") == STRINGS["ga_title"]["he"]
+    assert tiles(win)["Claw"].x() > tiles(win)["Hat"].x()                          # mirrored: the weapon on the right
+    for slot, tile in tiles(win).items():
+        n = len(win._plan(slot).now)
+        if n:
+            assert tile.badge.text() == str(n) and (str(n) in tile.toolTip() or n == 1), slot
+    answer = spaced(win._answer.text())
+    assert "Keen Guard" in answer and "+8 W.ATK" in answer and "Lv" not in answer
+    assert "Keen Guard" in texts(win._scroll.widget(), "ItemName")
     closed = []
     win.closed.connect(lambda: closed.append(True))
     win._close.click()
@@ -392,32 +692,10 @@ def test_the_window_shows_rows_in_both_languages_and_the_x_turns_it_off(qapp, wi
     assert settings["gear_advisor"] is False and not win.isVisible() and closed == [True]
 
 
-def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
-    from maplehelper.ui.gamesearch import _Row
+def test_the_window_follows_the_accent(qapp, win, settings):
+    from maplehelper.ui.npcoverlay import ACCENTS, accent_of
     win.refresh()
-    win._worn_clicked("Claw")
-    qapp.processEvents()
-    assert win._pick_slot == "Claw" and win._pick_box.isVisibleTo(win)
-    rows = [r for r in win._pick_rows if isinstance(r, _Row)]
-    assert rows[0].name.text() == "Nothing worn here"                              # taking it off is a choice
-    expected = next(p for p in win._plans if p.slot == "Claw").picker[0]["key"]
-    rows[1].clicked.emit()                                                         # the first claw of the list
-    qapp.processEvents()
-    assert profiles.active.gear.get("Claw") == expected                            # saved to the character
-    win._worn_clicked("Claw")
-    rows = [r for r in win._pick_rows if isinstance(r, _Row)]
-    rows[0].clicked.emit()                                                         # nothing: taken off
-    qapp.processEvents()
-    assert "Claw" not in profiles.active.gear
-
-
-def test_a_folded_slot_counts_its_upgrades_in_hebrew_too(qapp, win):
-    """The folded badge passed the count as a number to bidi.ltr_block, which takes text: folding a slot with
-    upgrades crashed in Hebrew (English skips the wrap, so only Hebrew hit it)."""
-    from maplehelper.i18n import I18n
-    win.refresh()
-    win.apply_language(I18n("he"))
-    plan = next(p for p in win._plans if p.now)
-    if plan.slot not in (win._folded or set()):
-        win._fold_clicked(plan.slot)
-    assert str(len(plan.now)) in win._badge_of[plan.slot].text()
+    assert accent_of(settings)[0] in win.styleSheet()
+    settings["overlay_accent"] = "purple"
+    win.refresh()                                                                  # the ⚙ panel's pick lands here
+    assert ACCENTS["purple"][1] in win.styleSheet() and accent_of(None)[0] not in win.styleSheet()

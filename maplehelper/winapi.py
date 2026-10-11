@@ -1,8 +1,9 @@
-"""Small Windows helpers: find the game window, capture it, focus handling, autostart.
+"""Small Windows helpers: find the game window, capture it, focus handling, the bar's hotkey, autostart.
 
 Deliberately non-invasive: no keyboard hooks, no key-state polling, no process access, nothing hidden
 from screen capture. The game window is found by its title and captured from the screen like any
-screenshot tool. No keyboard shortcuts: the official client in front takes every key from other programs.
+screenshot tool. One key, the bar over the game's show/hide, is an ordinary Windows hotkey (RegisterHotKey); the
+official client in front may take it from other programs (live tests), so the bar's tray item stays the sure way.
 Same interface as macapi.py; the app picks one through osapi.py.
 """
 from __future__ import annotations
@@ -13,15 +14,16 @@ import os
 import re
 import sys
 
+from PySide6.QtCore import QAbstractNativeEventFilter, QObject, Signal
+from PySide6.QtWidgets import QApplication, QWidget
 
-from . import APP_NAME, capture
+from . import APP_NAME, capture, keys
 from .capture import grab_image, grab_jpeg
 
 user32 = ctypes.windll.user32
 dwmapi = ctypes.windll.dwmapi
 
 GAME_TITLES = ("MapleStory Classic", "MapleStory", "Classic World", "MapleRoyals")
-VK = {f"F{i}": 0x6F + i for i in range(1, 13)}   # F1=0x70 ... F12=0x7B
 APP_ID = "MapleHelper.App"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
@@ -189,6 +191,72 @@ def seconds_since_self_activation() -> float:
 
 def float_over_fullscreen(win_id: int) -> None:
     """Nothing to do: on Windows a topmost window already floats over a borderless game."""
+
+
+MOD_ALT, MOD_CONTROL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
+MOD_FLAGS = {"Ctrl": MOD_CONTROL, "Alt": MOD_ALT, "Shift": MOD_SHIFT, "Meta": MOD_WIN}
+WM_HOTKEY = 0x0312
+
+
+def register_hotkey(hwnd: int, hotkey_id: int, key_name: str) -> bool:
+    """key_name as keys.py names it ("Shift+F11"). False for a name that can't be a hotkey here, or a key another
+    program already holds."""
+    if not keys.usable(key_name, mac=False):
+        return False
+    mods, key = keys.split(key_name)
+    flags = MOD_NOREPEAT
+    for m in mods:
+        flags |= MOD_FLAGS[m]
+    return bool(user32.RegisterHotKey(wt.HWND(hwnd), hotkey_id, flags, keys.WIN_VK[key]))
+
+
+def unregister_hotkey(hwnd: int, hotkey_id: int) -> None:
+    user32.UnregisterHotKey(wt.HWND(hwnd), hotkey_id)
+
+
+class _HotkeyFilter(QAbstractNativeEventFilter):
+    def __init__(self, on_hotkey):
+        super().__init__()
+        self.on_hotkey = on_hotkey
+
+    def nativeEventFilter(self, event_type, message):
+        if event_type == b"windows_generic_MSG":
+            msg = wt.MSG.from_address(int(message))
+            if msg.message == WM_HOTKEY:
+                self.on_hotkey(int(msg.wParam))
+                return True, 0
+        return False, 0
+
+
+class Hotkeys(QObject):
+    """System-wide hotkeys (RegisterHotKey on a hidden native window). Emits pressed(hotkey_id)."""
+
+    pressed = Signal(int)
+
+    def __init__(self):
+        super().__init__()
+        self._host = QWidget()        # hotkeys live on a hidden native window
+        self._host.winId()
+        self._ids: set[int] = set()
+        self._filter = _HotkeyFilter(self.pressed.emit)
+        QApplication.instance().installNativeEventFilter(self._filter)
+
+    def register(self, hotkey_id: int, key_name: str) -> bool:
+        """(Re)binds hotkey_id to key_name. False when it can't be a hotkey or another program holds the key."""
+        self.unregister(hotkey_id)
+        ok = register_hotkey(int(self._host.winId()), hotkey_id, key_name)
+        if ok:
+            self._ids.add(hotkey_id)
+        return ok
+
+    def unregister(self, hotkey_id: int) -> None:
+        if hotkey_id in self._ids:
+            unregister_hotkey(int(self._host.winId()), hotkey_id)
+            self._ids.discard(hotkey_id)
+
+    def close(self) -> None:
+        for hid in list(self._ids):
+            self.unregister(hid)
 
 
 def set_autostart(enabled: bool, args: list[str]) -> bool:
