@@ -160,16 +160,16 @@ def test_tab_switch_back_keeps_the_quest_cards(tools):
 
 @needs_kb
 def test_closing_during_a_free_market_lookup_logs_nothing(tools, monkeypatch):
-    from maplehelper import market
+    from maplehelper import mesowatch
     release, errors = threading.Event(), []
-    monkeypatch.setattr(market, "free_market", lambda n: release.wait(5) and None)
-    monkeypatch.setattr(market, "item_market", lambda i: release.wait(5) and None)
+    # the card's Free Market lookup is MesoWatch's (the owner: item prices from MesoWatch only)
+    monkeypatch.setattr(mesowatch, "for_item", lambda kb, key, *a, **k: release.wait(5) and (None, None))
     monkeypatch.setattr(threading, "excepthook", lambda a: errors.append(a.exc_value))
     d, _ = tools("Thief", "Assassin", 34, "prices")
     before = set(threading.enumerate())
     d.price_input.setText("Red Potion")
     d._fill_prices()
-    worker = next(iter(set(threading.enumerate()) - before))
+    worker = next(iter(t for t in set(threading.enumerate()) - before if t.is_alive()))
     deleted_on_close(d)
     release.set()
     worker.join(5)
