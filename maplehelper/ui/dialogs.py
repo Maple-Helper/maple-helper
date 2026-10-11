@@ -1219,14 +1219,10 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         lay.addWidget(sec)
 
-        # the minimap: the bar over the game, and the NPC and Monsters windows it opens
+        # the minimap: the bar over the game (its buttons open the NPC and Monsters windows: no second switch here)
         sec = Section(t("sec_minimap"), rtl)
         self.game_toolbar = Switch(settings["game_toolbar"])
         sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
-        self.npc_overlay = Switch(settings["npc_overlay"])
-        sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
-        self.monster_overlay = Switch(settings["monster_overlay"])
-        sec.add_row(t("monster_overlay"), self.monster_overlay, hint=t("monster_overlay_hint"))
         # the windows' colours and transparency are the bar's ⚙ panel's alone; how often the minimap is read, the
         # hidden-portal dots and the overlays in screenshots are fixed, with no setting (the owner, 2026-10-11)
         lay.addWidget(sec)
@@ -1839,8 +1835,6 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
             "game_toolbar": self.game_toolbar.isChecked(),
-            "npc_overlay": self.npc_overlay.isChecked(),
-            "monster_overlay": self.monster_overlay.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

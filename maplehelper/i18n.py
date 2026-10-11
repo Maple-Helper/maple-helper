@@ -1145,10 +1145,6 @@ STRINGS = {
                           "• \"How to get there\" in the Play tools starts from your map\n"
                           "Moved the minimap or resized the game? Click again and draw a new box."},
     "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק.", "en": "Drag a box around the game's minimap."},
-    "npc_overlay": {"he": "חלון NPC במשחק", "en": "NPCs-on-this-map window"},
-    "npc_overlay_hint": {"he": "חלון שקוף מעל המשחק עם כל ה-NPC במפה שלכם. לחיצה על NPC מסמנת אותו במיני-מפה ומכוונת אליו.",
-                         "en": "A see-through window over the game listing every NPC on your map. Click one to mark "
-                               "it on the minimap and be guided to it."},
     "npc_overlay_opacity": {"he": "אטימות החלון", "en": "Window opacity"},
     "npc_overlay_title": {"he": "NPC במפה", "en": "NPCs Here"},
     "npc_overlay_none": {"he": "אין NPC במפה הזו", "en": "No NPCs on this map"},
@@ -1158,10 +1154,6 @@ STRINGS = {
     "npc_overlay_clear": {"he": "ביטול הסימון", "en": "Stop guiding"},
     "npc_overlay_inside": {"he": "בתוך {place}", "en": "Inside {place}"},
     # the in-game "Monsters on this map" window (ui/monsteroverlay.py)
-    "monster_overlay": {"he": "חלון מפלצות במשחק", "en": "Monsters-on-this-map window"},
-    "monster_overlay_hint": {"he": "חלון שקוף מעל המשחק עם המפלצות במפה שלכם: רמה, HP, EXP וכמה יש במפה.",
-                             "en": "A see-through window over the game listing the monsters on your map: level, HP, "
-                                   "EXP and how many spawn."},
     "monster_overlay_title": {"he": "מפלצות במפה", "en": "Monsters Here"},
     "monster_overlay_none": {"he": "אין מפלצות במפה הזו", "en": "No monsters on this map"},
     "npc_guide_inside": {"he": "{name} נמצא בתוך {place}.", "en": "{name} is inside {place}."},
