@@ -778,7 +778,6 @@ STRINGS = {
     "price_mw_stock": {"he": "{n} במלאי", "en": "{n} in stock"},
     "price_mw_stock_one": {"he": "אחד במלאי", "en": "1 in stock"},
     "price_mw_updated": {"he": "MesoWatch עודכן {ago}", "en": "MesoWatch updated {ago}"},
-    "price_mw_open": {"he": "כל המכירות באתר MesoWatch", "en": "All sales on MesoWatch"},
     "price_mw_details": {"he": "כל הפרטים: איפה לקנות ומכירות אחרונות", "en": "Full details: where to buy, recent sales"},
     # the Free Market details window (ui/marketview.py), laid out like MesoWatch's own item card
     "mw_window": {"he": "מחירי שוק · MesoWatch", "en": "Market prices · MesoWatch"},

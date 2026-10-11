@@ -2745,12 +2745,7 @@ class ToolsDialog(GlassDialog):
         self.mw_more = QVBoxLayout()
         self.mw_more.setSpacing(4)
         col.addLayout(self.mw_more)
-        # MesoWatch's credit and link (its terms ask for both wherever its prices show), then its full card
-        web = QPushButton(self._p(t("price_mw_open")), objectName="Link")
-        web.setCursor(Qt.PointingHandCursor)
-        web.clicked.connect(lambda _=False: __import__("webbrowser").open(mesowatch.item_url(self._mw_id)))
-        col.addWidget(web, 0, (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute)
-        self.mw_site = web
+        # MesoWatch's full card (the chip above is its credit; the card's window links to its site)
         mw = QPushButton(self._p(t("price_mw_details")), objectName="Secondary")
         mw.setCursor(Qt.PointingHandCursor)
         mw.clicked.connect(lambda _=False, k=key: MARKET_REQUESTS.requested.emit(k))
@@ -2765,7 +2760,6 @@ class ToolsDialog(GlassDialog):
         self.price_box.addWidget(card)
         self._price_for = name
         self._price_key = key
-        self._mw_id = None              # the item's id on MesoWatch, once the lookup matched it (_on_mesowatch)
         self._mw_version = mesowatch.version()
         self._mw_lookup(key)
 
@@ -2796,7 +2790,6 @@ class ToolsDialog(GlassDialog):
         key, (snap, sales) = result
         if key != getattr(self, "_price_key", None) or not hasattr(self, "mw_label"):
             return                      # an older lookup: the player picked another item since
-        self._mw_id = sales.mw_id or sales.game_id if sales else None    # a Cash Shop item's link is "cash:..."
         text, more = self._mw_lines(snap, sales)
         seen = set(getattr(self, "_card_seen", ()))
         try:
