@@ -12,9 +12,10 @@ import json
 from pathlib import Path
 
 FILE = "he.json"                    # in the KB: {kind: {key: {"en", "he"}}, "news": {...}}
-KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc", "item_desc", "item_notes")
-# a kind whose shipped file isn't assets/<kind>/he.json (an item's description and its Meow Notes: assets/items)
-ASSET_DIRS = {"skill_desc": "skills", "item_desc": "items", "item_notes": "items"}
+KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc", "item_desc", "item_notes", "cash_desc")
+# a kind whose shipped file isn't assets/<kind>/he.json (an item's description and its Meow Notes: assets/items; a Cash
+# Shop item's OSMS description, for one the KB has no Hebrew of: assets/cashshop, keyed "cash/<game id>")
+ASSET_DIRS = {"skill_desc": "skills", "item_desc": "items", "item_notes": "items", "cash_desc": "cashshop"}
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
 _cache: dict[str, tuple[float, dict]] = {}

@@ -20,21 +20,47 @@ from .. import bidi, itemdetails, mesowatch, osms, sources, translations
 from .controls import FlowLayout, Segmented
 from .widgets import ITEM_REQUESTS, fit_picture, source_tag
 
-DESC_CHARS = 110               # a description cut to about two lines
 POLL_MS = 60 * 1000            # how often the page looks for a newer list (the checks: hourly / every 15 minutes)
 GUIDE = "guide"                # the Pets tab's pets guide (the old Pets page)
 
 
-def shorten(text: str, limit: int = DESC_CHARS) -> str:
-    """About two lines of a description, cut at a word with "…"; the whole text is in the item's window."""
-    text = " ".join(str(text or "").split())
-    if len(text) <= limit:
-        return text
-    return text[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:-") + "…"
-
-
-def _fold(name: str) -> str:
+def fold(name: str) -> str:
     return " ".join(str(name or "").split()).lower()
+
+
+def kb_names(kb) -> dict[str, list[str]]:
+    """Folded item name -> every KB item of that name, Cash ones first (a name can be two items: a male and a female
+    version, a Cash and a game one)."""
+    seen: dict[str, list[str]] = {}
+    for k, e in (getattr(kb, "entities", None) or {}).items():
+        if k.startswith("item/"):
+            seen.setdefault(fold(e.get("name")), []).append(k)
+    cash = lambda k: str((kb.get(k) or {}).get("type") or "").startswith("Cash")      # noqa: E731
+    return {n: sorted(ks, key=lambda k: not cash(k)) for n, ks in seen.items()}
+
+
+def same_text(a: str, b: str) -> bool:
+    """The same words, whatever the spacing, line breaks and punctuation."""
+    import re
+    norm = lambda t: re.sub(r"[^a-z0-9%]+", " ", str(t or "").lower()).strip()      # noqa: E731
+    return norm(a) == norm(b)
+
+
+def kb_hebrew(kb, root, keys: list[str], game_text: str = "") -> str | None:
+    """The Hebrew of an item's KB description, from any KB item of its name that has one (the app's file or the
+    KB's nightly translation, made from the KB's own English). With game_text (OSMS's words: the game's own), only a
+    KB text that says the same: the KB's closed-test words can differ ("up to 24 items" where the game says 18)."""
+    for k in keys:
+        try:
+            en = itemdetails.details(kb, k).description or ""
+        except Exception:          # noqa: BLE001 - a page the parser didn't expect
+            continue
+        if not en or (game_text and not same_text(en, game_text)):
+            continue
+        he = translations.he(root, "item_desc", k, en)
+        if he:
+            return he
+    return None
 
 
 class ShopRow(QFrame):
@@ -62,7 +88,7 @@ class ShopRow(QFrame):
         title = QLabel(bidi.ltr_name(name or item.name, t.rtl), objectName="ShopName")
         title.setAlignment(page.align)
         col.addWidget(title)
-        desc = page.describe(key, item.description)
+        desc = page.describe(item.name, item.description, item.game_id)
         if desc:
             lb = QLabel(desc, objectName="ShopText")
             lb.setWordWrap(True)
@@ -240,33 +266,40 @@ class ShopPage(QWidget):
         self.items, self.snap, self._loaded = found, snap, True
         self._refill()
 
-    def _kb_names(self) -> dict[str, str]:
-        """Folded item name -> KB key, for names one KB item has (the picture and the Hebrew description)."""
-        seen: dict[str, list[str]] = {}
-        for k, e in (getattr(self.kb, "entities", None) or {}).items():
-            if k.startswith("item/"):
-                seen.setdefault(_fold(e.get("name")), []).append(k)
-        cash = {n: [k for k in ks if str((self.kb.get(k) or {}).get("type") or "").startswith("Cash")] or ks
-                for n, ks in seen.items()}
-        return {n: ks[0] for n, ks in cash.items() if len(ks) >= 1}
+    def _kb_names(self) -> dict[str, list[str]]:
+        return kb_names(self.kb)
 
     def key_of(self, name: str) -> str | None:
-        return self._by_name.get(_fold(name))
+        keys = self._by_name.get(fold(name)) or []
+        return keys[0] if keys else None
 
-    def describe(self, key: str | None, english: str = "") -> str:
-        """What the item is: the Hebrew of the KB's description when there is one, else OSMS's own words (cached)."""
-        cache = (key, english)
+    def describe(self, name: str, english: str = "", game_id: int | None = None) -> str:
+        """What the item is, whole (the owner: never cut). The game's own words (OSMS) win over the KB's, which can be
+        the closed test's: in a Hebrew window, the Hebrew made from OSMS's words (the app's file, then the KB's nightly
+        "cash_desc"), or the KB's Hebrew of a text that says the same; for an item OSMS has no words for (most
+        equips), the KB's Hebrew; else English. Cached."""
+        cache = (name, english)
         if cache not in self._desc:
-            if not english and key:         # OSMS has no words for most equips: the KB's description
-                try:
-                    english = itemdetails.details(self.kb, key).description or ""
-                except Exception:      # noqa: BLE001 - a page the parser didn't expect: no description
-                    english = ""
-            text = english
-            if self.t.rtl and key:
-                text = translations.he(getattr(self.kb, "root", None), "item_desc", key, english) or english
-            text = shorten(text)
-            hebrew = any("֐" <= ch <= "׿" for ch in text)
+            keys = self._by_name.get(fold(name)) or []
+            root = getattr(self.kb, "root", None)
+            text = None
+            if self.t.rtl:
+                if english:
+                    text = (translations.he(root, "cash_desc", f"cash/{game_id}", english) if game_id else None) \
+                        or kb_hebrew(self.kb, root, keys, english)
+                else:
+                    text = kb_hebrew(self.kb, root, keys)
+            if not text:
+                text = english
+                for k in keys:
+                    if text:
+                        break
+                    try:
+                        text = itemdetails.details(self.kb, k).description or ""
+                    except Exception:      # noqa: BLE001 - a page the parser didn't expect: no description
+                        text = ""
+            text = " ".join(str(text or "").split())
+            hebrew = any("\u0590" <= ch <= "\u05ff" for ch in text)
             self._desc[cache] = bidi.plain(text, self.t.rtl) if hebrew else bidi.ltr_block(text, self.t.rtl)
         return self._desc[cache]
 

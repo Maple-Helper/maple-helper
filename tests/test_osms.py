@@ -97,3 +97,49 @@ def test_a_picture_is_fetched_once(site):
     path = osms.thumbnail_file(item)
     assert path.read_bytes() == b"PNG" and osms.thumbnail_file(item) == path
     assert sum(1 for u, _ in site["calls"] if u.endswith(".png")) == 1
+
+
+def test_the_games_words_win_over_the_kbs_in_hebrew(monkeypatch, tmp_path):
+    """The KB's closed-test text said "up to 24 items" where the game says 18: its Hebrew is used only when it says
+    the same; else the Hebrew of the game's own words; an item OSMS has no words for keeps the KB's Hebrew."""
+    import json as _json
+
+    from maplehelper import itemdetails, translations
+    from maplehelper.i18n import I18n
+    from maplehelper.ui import shoppage
+
+    class KB:
+        root = tmp_path
+        entities = {"item/1": {"name": "Fall Store Permit", "type": "Cash / Store Permit"},
+                    "item/2": {"name": "Kuniragi Hat", "type": "Cash Equip / Cash Hat"},
+                    "item/3": {"name": "Megaphone", "type": "Cash / Megaphone"}}
+
+        def get(self, k):
+            return self.entities.get(k)
+
+    kb_en = {"item/1": "Open a store for up to 24 items.", "item/2": "A cash hat.", "item/3": "Shout to the channel."}
+    monkeypatch.setattr(itemdetails, "details", lambda kb, k: type("D", (), {"description": kb_en[k]})())
+    (tmp_path / "he.json").write_text(_json.dumps({"item_desc": {
+        "item/1": {"en": kb_en["item/1"], "he": "חנות עד 24 פריטים"},
+        "item/2": {"en": kb_en["item/2"], "he": "כובע Cash"},
+        "item/3": {"en": kb_en["item/3"], "he": "צעקה לערוץ"}},
+        "cash_desc": {"cash/5140003": {"en": "Open a store for up to 18 items.", "he": "חנות עד 18 פריטים"}}},
+        ensure_ascii=False), encoding="utf-8")
+    translations._cache.clear()
+    page = shoppage.ShopPage.__new__(shoppage.ShopPage)
+    page.kb, page.t, page._desc = KB(), I18n("he"), {}
+    page._by_name = shoppage.kb_names(page.kb)
+    import re
+
+    def text(*a):
+        return re.sub("[\u200e\u200f\u202a-\u202e\u2066-\u2069]", "", page.describe(*a))
+    assert "18" in text("Fall Store Permit", "Open a store for up to 18 items.", 5140003)
+    assert "כובע Cash" in text("Kuniragi Hat", "", 1007098)                          # no game words: the KB's
+    assert "צעקה" in text("Megaphone", "Shout to the channel!", 5070000)             # the same words: the KB's
+    # an item the Cash Shop just added: no Hebrew yet, so tonight's translation picks its words up
+    monkeypatch.setattr(osms, "items", lambda refresh=True, timeout=30: [
+        osms.Item(5140003, "Fall Store Permit", "Store Permit", "", 3000, description="Open a store for up to 18 items."),
+        osms.Item(5999999, "New Thing", "Other", "", 100, description="Brand new.")])
+    import translate_kb
+    assert translate_kb.cash_jobs(KB(), tmp_path) == [{"kind": "cash_desc", "key": "cash/5999999", "en": "Brand new."}]
+    translations._cache.clear()
