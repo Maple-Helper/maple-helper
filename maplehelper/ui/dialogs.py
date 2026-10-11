@@ -17,6 +17,7 @@ from .. import bidi, osapi, providers
 from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
+from .npcoverlay import ACCENTS, OPACITY_STEPS, TINTS
 from .patchnotes import gutter
 from ..i18n import I18n, system_language
 from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class -> [(job, min level)], checked against the KB
@@ -68,8 +69,9 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 LEVEL_FIELD_MAX = 250
 # Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
 SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
-# Settings → the NPCs-on-this-map window's background opacity (npcoverlay clamps whatever is stored to 0.3-1.0)
-OPACITY_CHOICES = (0.3, 0.5, 0.7, 0.85, 1.0)
+# Settings → the NPCs-on-this-map window's background opacity, and the ⚙ panel's transparency: the same steps
+# from the one place (npcoverlay), so the two entry points can't drift apart
+OPACITY_CHOICES = OPACITY_STEPS
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -1262,6 +1264,21 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
         self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
         sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
+        # the colours every window over the game follows, and the bar's icons mode: the ⚙ panel offers the
+        # same choices from the one place (npcoverlay's presets) and applies them at once; here they wait
+        # for Save like everything else in Settings
+        tints = list(TINTS)
+        self.overlay_tint = Select([t(TINTS[k][0]) for k in tints])
+        self.overlay_tint.setCurrentIndex(tints.index(settings["overlay_tint"] if settings["overlay_tint"] in tints
+                                                      else tints[0]))
+        sec.add_row(t("tbs_tint"), self.overlay_tint, hint=t("tbs_tint_hint"))
+        accents = list(ACCENTS)
+        self.overlay_accent = Select([t(ACCENTS[k][0]) for k in accents])
+        self.overlay_accent.setCurrentIndex(accents.index(settings["overlay_accent"] if settings["overlay_accent"] in accents
+                                                          else accents[0]))
+        sec.add_row(t("tbs_accent"), self.overlay_accent, hint=t("tbs_accent_hint"))
+        self.toolbar_icons = Switch(settings["game_toolbar_icons"])
+        sec.add_row(t("tbs_icons"), self.toolbar_icons, hint=t("tbs_icons_hint"))
         self.overlay_shots = Switch(settings["overlays_in_screenshots"])
         sec.add_row(t("overlays_in_screenshots"), self.overlay_shots, hint=t("overlays_in_screenshots_hint"))
         lay.addWidget(sec)
@@ -1879,6 +1896,9 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "npc_overlay": self.npc_overlay.isChecked(),
             "monster_overlay": self.monster_overlay.isChecked(),
             "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
+            "overlay_tint": list(TINTS)[max(0, self.overlay_tint.currentIndex())],
+            "overlay_accent": list(ACCENTS)[max(0, self.overlay_accent.currentIndex())],
+            "game_toolbar_icons": self.toolbar_icons.isChecked(),
             "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),

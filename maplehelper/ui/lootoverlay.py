@@ -20,13 +20,17 @@ from ..i18n import I18n
 from . import theme
 from .glass import SHADOW
 from .npcoverlay import (BOTTOM, FILL1, FILL2, GEOM_DEBOUNCE_MS, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN,
-                         SEL_TEXT, SIDE, TEXT, TOP, _flags, _Header, _paint_glass, set_capturable)
+                         SIDE, TEXT, TOP, _Header, _flags, _paint_glass, accent_of, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 4                        # the latest pickups shown under the totals
 STATS = ("exp", "mesos", "items")
 
-QSS = f"""
+def qss(settings) -> str:
+    """The window's own style at the accent the settings pick: the Go button lights in it. Rebuilt whenever
+    the accent is picked (refresh follows it), so the window follows with no more code of its own."""
+    accent, on_accent = accent_of(settings)
+    return f"""
 #Title {{ color: {TEXT}; font-weight: 600; }}
 #Status {{ color: {MUTED}; }}
 #Head {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
@@ -36,7 +40,7 @@ QSS = f"""
 #Feed {{ color: {MUTED}; padding: 0 2px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 6px 12px; }}
 QPushButton:hover {{ background: {FILL2}; }}
-QPushButton#Go {{ background: {theme.GOOD_TEXT_LIGHT}; color: {SEL_TEXT}; font-weight: 600; }}
+QPushButton#Go {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
 QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
@@ -70,7 +74,7 @@ class LootOverlay(QWidget):
         self._placed = False                 # shown at least once: there is a place to remember
         self._was_running = scanner.running(scanner.cid())
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
-        self.setStyleSheet(QSS)
+        self.setStyleSheet(qss(self.settings))
         self._build()
         # the clock and the per-hour figures move between pickups too
         self._clock = QTimer(self, interval=5000, timeout=lambda: self.isVisible() and self.refresh())
@@ -162,6 +166,7 @@ class LootOverlay(QWidget):
         return out + [lb.text() for lb in self._feed if lb.isVisibleTo(self)]
 
     def refresh(self) -> None:
+        self._restyle()
         t, rtl = self.t, self.t.rtl
         try:
             self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self.settings["npc_overlay_opacity"])))
@@ -220,6 +225,14 @@ class LootOverlay(QWidget):
         self.layout().activate()
         self.setFixedHeight(self.layout().sizeHint().height())
         self.update()
+
+    def _restyle(self) -> None:
+        """The accent the settings pick, in the window's own style sheet (its glass is painted in the tint by
+        _paint_glass); skipped when it is the same — this refreshes every few seconds while a log runs."""
+        sheet = qss(self.settings)
+        if sheet != self.styleSheet():
+            self.setStyleSheet(sheet)
+
 
     def sync(self) -> None:
         """Shown while settings["loot_overlay"] is on; a log that just started turns it on."""

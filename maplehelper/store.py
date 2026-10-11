@@ -185,6 +185,11 @@ DEFAULT_SETTINGS = {
     "loot_overlay": False,        # the loot log's window over the game (ui/lootoverlay.py); a log starting turns it on
     "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
     "loot_overlay_folded": False,  # ... folded to its title row (its – button)
+    "craft_exp_table": None,      # crafting EXP per level the player measured in game: {"7": 1234}; None: the KB's table
+    "game_toolbar_width": None,   # the width the player dragged the bar to (its buttons wrap into rows); None: one row
+    "game_toolbar_icons": False,  # the bar's buttons as icons (their names in the tooltips) instead of words
+    "overlay_tint": "dark",       # the windows over the game: their glass colour (ui/npcoverlay.py TINTS)
+    "overlay_accent": "green",    # ... and their lit buttons' colour (ui/npcoverlay.py ACCENTS)
 }
 
 
@@ -276,6 +281,9 @@ class Character:
     gear: dict = field(default_factory=dict)          # equip slot ("Hat", "One-Handed Sword"...) -> KB key of the item worn
     ap: dict = field(default_factory=dict)            # the player's STR / DEX / INT / LUK as they typed them ("str": 35)
     gender: str = ""                                  # "Male" | "Female" as the player picked it ("" not said): gender-only gear
+    craft_bag: dict = field(default_factory=dict)     # crafting advisor: KB item key -> how many the player has
+    craft_pct: dict = field(default_factory=dict)     # ... profession -> its Mastery bar % as the player typed it
+    craft_targets: list = field(default_factory=list)  # ... KB keys of the items the player plans to craft
     updated_at: float = field(default_factory=time.time)
 
     @property

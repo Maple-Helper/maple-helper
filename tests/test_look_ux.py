@@ -350,7 +350,7 @@ def test_the_recipe_level_chip_keeps_a_visible_gap_in_hebrew(tools):
     d, c = tools("Warrior", "Fighter", 35, "crafting")
     d.craft_mode.set_value("recipes")
     d._fill_crafting()
-    chips = [lb.text() for lb in d.pages["crafting"].widget().findChildren(QLabel)
+    chips = [lb.text() for lb in d.craft_scroll.widget().findChildren(QLabel)
              if lb.objectName() == "Tag" and "רמה" in lb.text()]
     one = [x for x in chips if "‪1‬" in x]           # the level-1 recipes' chips
     assert one and all("רמה  " in x for x in one), one[:3]

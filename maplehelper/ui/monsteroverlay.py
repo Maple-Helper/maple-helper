@@ -8,9 +8,10 @@ from PySide6.QtCore import QPoint, QSize, Qt
 from PySide6.QtWidgets import QLabel
 
 from .. import bidi, combat, gamelookup, routes
-from .npcoverlay import FILL1, GAP, QSS, TEXT, NpcHere, NpcOverlay
+from .npcoverlay import FILL1, GAP, TEXT, NpcHere, NpcOverlay, qss
 
-MOB_QSS = QSS + f"""
+# a monster's row, a label in the look of the NPCs window's row buttons (the rest is that window's style sheet)
+MOB_QSS = f"""
 #Mob {{ background: {FILL1}; color: {TEXT}; border-radius: 8px; padding: 6px 10px; }}
 """
 
@@ -24,7 +25,11 @@ class MonsterOverlay(NpcOverlay):
     def _build(self) -> None:
         self._mobs: dict[str, tuple[int, int]] = {}      # monster key -> (level, how many spawn)
         super()._build()
-        self.setStyleSheet(MOB_QSS)
+
+    def _qss(self) -> str:
+        """The NPCs window's style at the accent the ⚙ panel picked, with the monster rows' own look; the glass
+        (its tint, its transparency) is NpcOverlay's, so this window follows the panel exactly as that one does."""
+        return qss(self._settings) + MOB_QSS
 
     def _rebuild(self, mid: str | None) -> None:
         """The rows for this map: one per monster, the most spawns first."""

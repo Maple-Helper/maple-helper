@@ -513,6 +513,8 @@ class ToolsDialog(GlassDialog):
         self._closed = True
         if "gear" in self.pages:
             self.gear_advisor.leave()          # stats typed just before closing: saved, never lost
+        if "crafting" in self.pages:
+            self.craft_advisor.leave()         # ... and the craft plan's numbers
         super().closeEvent(e)
 
     def _build_rest(self) -> None:
@@ -1664,7 +1666,7 @@ class ToolsDialog(GlassDialog):
                 w = self.craft_info.itemAt(i).widget()
                 head = w.findChild(QLabel, "CardName") if w is not None else None
                 if head is not None and bidi.plain(name, False) in head.text():
-                    self.pages["crafting"].ensureWidgetVisible(w, 0, 40)
+                    self.craft_scroll.ensureWidgetVisible(w, 0, 40)
                     return
         # a citizenship quest: on the citizenship page, its town picked, every grade, searched by its name
         cq = next((q for k, e in self.kb.entities.items() if e.get("category") == "quest" and e.get("name") == name
@@ -2209,6 +2211,41 @@ class ToolsDialog(GlassDialog):
     # crafting ------------------------------------------------------------
 
     def _page_crafting(self):
+        # "Crafting": two tabs, the professions (their teacher, quests and recipes, as they were) and the craft plan
+        # (#119's crafting advisor, inside this page rather than a window over the game: the owner, 2026-10-11)
+        t = self.t
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(10)
+        self.craft_tabs = Segmented([(t("craft_tab_recipes"), "recipes"), (t("craft_tab_plan"), "plan")], "recipes",
+                                    t.rtl)
+        self.craft_tabs.set_label(t("craft_tabs_a11y"))
+        outer.addWidget(self.craft_tabs, 0, Qt.AlignHCenter)
+        self.craft_stack = QStackedWidget()
+        outer.addWidget(self.craft_stack, 1)
+        self.craft_scroll = self._craft_recipes_page()
+        self.craft_stack.addWidget(self.craft_scroll)
+        self.craft_stack.addWidget(self._craft_plan_page())
+        self.craft_tabs.changed.connect(self._craft_tab)
+        return page
+
+    def _craft_tab(self, value) -> None:
+        if value != "plan":
+            self.craft_advisor.leave()          # numbers typed just before switching: saved now
+        self.craft_stack.setCurrentIndex(1 if value == "plan" else 0)
+        self._fill_crafting()
+
+    def _craft_plan_page(self):
+        """What to craft, from what's in the bag, in which order (ui/craftadvisor.py, craftplan.py)."""
+        from .craftadvisor import CraftAdvisor
+        sc, lay = scroll_page(self.t.rtl)
+        self.craft_advisor = CraftAdvisor(self.kb, self.settings, self.profiles, self.t)
+        lay.addWidget(self.craft_advisor)
+        lay.addStretch(1)
+        return sc
+
+    def _craft_recipes_page(self):
         t = self.t
         sc, lay = scroll_page(self.t.rtl)
         # the professions live inside this tab's own card, in a lighter style than the main tabs
@@ -2280,6 +2317,9 @@ class ToolsDialog(GlassDialog):
         self._fill_crafting()
 
     def _fill_crafting(self):
+        if self.craft_tabs.value() == "plan":
+            self.craft_advisor.refresh()
+            return
         t, c = self.t, self.c
         clear(self.craft_list)
         clear(self.craft_info)
@@ -2378,6 +2418,7 @@ class ToolsDialog(GlassDialog):
         elif name == "crafting":
             self._craft_level_pick = None
             empty(self.craft_search)
+            self.craft_advisor.leave()         # numbers typed just before leaving: saved now
         elif name == "farm":
             self._farm_mob_pick = None
         elif name == "more":
