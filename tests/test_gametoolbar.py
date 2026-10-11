@@ -148,27 +148,40 @@ def test_apply_language_retexts_and_mirrors(bar):
 
 # ------------------------------------------------------------ its place on the screen
 
+def _spare_x(w):
+    """An x the bar fits at on the offscreen screen, whatever its width there (the fonts differ by platform: macOS
+    draws the same buttons wider), so the place the test asks for is never the clamped one."""
+    from PySide6.QtGui import QGuiApplication
+    screen = QGuiApplication.primaryScreen().geometry()
+    room = screen.width() - w.width()
+    assert room > 1
+    return screen.left() + room // 2
+
+
 def test_it_opens_just_above_the_drawn_minimap_box(bar):
     from maplehelper.ui import gametoolbar
     w, s = bar
-    s["minimap_region"] = {"x": 40, "y": 100, "w": 200, "h": 200}     # 1:1 on the offscreen screen (800 px: the
-    w.refresh()                                                        # bar is wide, so a box near its left edge)
-    assert w.pos() == QPoint(40, 100 - w.height() - gametoolbar.GAP)   # its left edge lined up with the box's
+    x = _spare_x(w)
+    s["minimap_region"] = {"x": x, "y": 100, "w": 200, "h": 200}      # 1:1 on the offscreen screen
+    w.refresh()
+    assert w.pos() == QPoint(x, 100 - w.height() - gametoolbar.GAP)    # its left edge lined up with the box's
 
 
 def test_the_place_is_kept_when_moved_and_reopened_there(bar):
     w, s = bar
     w.refresh()
-    w.move(40, 70)
+    x = _spare_x(w)
+    w.move(x, 70)
     w._remember()                            # the debounced save, as the 400 ms timer would fire it
-    assert s["game_toolbar_pos"] == {"x": 40, "y": 70}
+    assert s["game_toolbar_pos"] == {"x": x, "y": 70}
     w.hide()
     w.refresh()
-    assert w.pos() == QPoint(40, 70)
+    assert w.pos() == QPoint(x, 70)
 
 
 def test_it_opens_at_a_saved_spot(bar):
     w, s = bar
-    s["game_toolbar_pos"] = {"x": 50, "y": 60}
+    x = _spare_x(w)
+    s["game_toolbar_pos"] = {"x": x, "y": 60}
     w.refresh()
-    assert w.pos() == QPoint(50, 60)
+    assert w.pos() == QPoint(x, 60)
