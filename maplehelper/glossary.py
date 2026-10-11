@@ -17,13 +17,13 @@ from .store import ASSETS
 GLOSSARY = "maplestory-classic-glossary"
 
 # term shown in the app -> the glossary entry it uses (or an app definition below).
-# Everyday words players already know (Lv., EXP) get no "?" (the player asked for that)
+# Everyday words players already know (Lv., EXP, and mesos: the owner, 2026-10-11) get no "?" (the player asked for that)
 TERMS = {
     "HP": "HP / MP", "MP": "HP / MP", "ACC": "ACC", "Accuracy": "ACC", "Avoid": "Avoid",
     "AVOID": "Avoid", "P.DEF": "P.DEF", "PDEF": "P.DEF", "M.DEF": "M.DEF", "MDEF": "M.DEF",
     "W.ATK": "WATK / W.ATK", "WATK": "WATK / W.ATK", "M.ATK": "Magic / MATK", "AP": "AP", "SP": "SP",
     "STR": "STR / DEX / INT / LUK", "DEX": "STR / DEX / INT / LUK", "INT": "STR / DEX / INT / LUK",
-    "LUK": "STR / DEX / INT / LUK", "mesos": "mesos", "NPC": "NPC", "Free Market": "FM", "KPQ": "kPQ",
+    "LUK": "STR / DEX / INT / LUK", "NPC": "NPC", "Free Market": "FM", "KPQ": "kPQ",
     "KS": "KS", "Citizenship": "Citizenship", "grind": "grind", "buff": "buff",
     "Booster": "booster", "Mastery": "mastery", "Critical Rate": "crit", "scroll": "scroll", "mob": "mob",
     "catalyst": "catalyst", "Training Advisor": "Training Advisor",
