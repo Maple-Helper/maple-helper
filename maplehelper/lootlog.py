@@ -20,6 +20,7 @@ import logging
 import re
 import statistics
 import time
+import weakref
 from dataclasses import asdict, dataclass, field
 
 import numpy as np
@@ -488,6 +489,7 @@ class Store:
         raw = _read_json(self.path, {"active": {}, "recent": {}})
         self._active = raw.get("active") if isinstance(raw.get("active"), dict) else {}
         self._recent = raw.get("recent") if isinstance(raw.get("recent"), dict) else {}
+        _LIVE.add(self)
 
     def log(self, cid: str) -> Log | None:
         return Log.from_json(self._active.get(cid))
@@ -537,3 +539,27 @@ class Store:
 
     def save(self) -> None:
         _write_json(self.path, {"active": self._active, "recent": self._recent})
+
+
+_LIVE: "weakref.WeakSet[Store]" = weakref.WeakSet()   # every Store in memory: a deleted character leaves each of them
+_ON_FORGET: list = []                                  # weak callbacks(cid) of the scanners: a running log of it stops
+
+
+def on_forget(method) -> None:
+    """`method(cid)` (a bound method, held weakly) is called when a character is deleted, before its data goes."""
+    _ON_FORGET.append(weakref.WeakMethod(method))
+
+
+def forget(cid: str) -> None:
+    """A deleted character: a scanner running its log lets it go first, then every Store in memory drops it (one
+    saving later never writes it back) and loot.json is saved without it."""
+    for ref in list(_ON_FORGET):
+        fn = ref()
+        if fn is None:
+            _ON_FORGET.remove(ref)
+        else:
+            fn(cid)
+    for st in list(_LIVE):
+        st._active.pop(cid, None)
+        st._recent.pop(cid, None)
+    Store().forget(cid)

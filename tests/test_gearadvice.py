@@ -409,3 +409,43 @@ def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
     rows[0].clicked.emit()                                                         # nothing: taken off
     qapp.processEvents()
     assert "Claw" not in profiles.active.gear
+
+
+def test_hebrew_fold_badge_and_picker_more_line_never_crash(qapp, win):
+    """bidi.ltr_block() got an int (the count): Hebrew, the default, raised in the fold click and the picker."""
+    from maplehelper.i18n import I18n
+    win.apply_language(I18n("he"))
+    win.refresh()
+    slot = next(p.slot for p in win._plans if p.now)
+    win._fold_clicked(slot)                                        # folded: its badge counts the upgrades
+    assert str(len(next(p for p in win._plans if p.slot == slot).now)) in win._badge_of[slot].text()
+    monkey = __import__("maplehelper.ui.gearadvisor", fromlist=["PICK_ROWS"])
+    old = monkey.PICK_ROWS
+    monkey.PICK_ROWS = 1                                           # more items than rows: the "and N more" line
+    try:
+        win._worn_clicked("Claw")
+        qapp.processEvents()
+        assert win._pick_more.text() and win._pick_box.hasFocus() is not None
+    finally:
+        monkey.PICK_ROWS = old
+
+
+def test_esc_in_a_box_closes_like_the_x(qapp, win, settings):
+    """Esc only hid the window: the bar's Gear button stayed lit and the window came back at the next start."""
+    from PySide6.QtCore import QEvent, Qt
+    from PySide6.QtGui import QKeyEvent
+    win.refresh()
+    closed = []
+    win.closed.connect(lambda: closed.append(True))
+    box = next(iter(win._editors.values()))
+    qapp.sendEvent(box, QKeyEvent(QEvent.KeyPress, Qt.Key_Escape, Qt.NoModifier))
+    qapp.processEvents()
+    assert settings["gear_advisor"] is False and not win.isVisible() and closed == [True]
+
+
+def test_stats_typed_just_before_closing_are_kept(qapp, win, profiles):
+    win.refresh()
+    win._editors["str"].setText("77")                               # the 350 ms pause not over yet
+    assert win._stats_typing.isActive()
+    win._close_clicked()
+    assert profiles.active.ap.get("str") == 77

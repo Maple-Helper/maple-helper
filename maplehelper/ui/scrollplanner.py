@@ -172,7 +172,7 @@ class ScrollPlanner(EdgeResize, QWidget):
         self._fm: dict[str, int | None] = {}   # a Free Market usual price per scroll key (None: none on the site)
         self._fm_bad: set[str] = set()     # scroll keys whose lookup couldn't reach the site at all
         self._fm_seen: set[str] = set()    # scroll keys a thread is already fetching
-        self._fm_read = 0                  # the answers of lookups before the last one are dropped
+        self._fm_read = 0                  # bumped on a KB swap: answers from before it are dropped
         self._opacity = OPACITY_DEFAULT
         self._placed = False               # geometry applied at least once: there is a place to remember
         self._under: QRect | None = None   # the toolbar's rect, where the window first opens
@@ -698,8 +698,8 @@ class ScrollPlanner(EdgeResize, QWidget):
         if not keys:
             return
         self._fm_seen.update(keys)
-        self._fm_read += 1
-        read = self._fm_read
+        read = self._fm_read            # only a KB swap starts a new round: a new pick never drops the
+                                        # answers of keys still in _fm_seen (they'd stay "loading" for good)
 
         def look():
             for key in keys:

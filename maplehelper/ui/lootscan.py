@@ -114,7 +114,17 @@ class LootScanner(QObject):
         self.last_read: float | None = None   # when a read last found a message line
         self._read_done.connect(self._deliver)
         self._failed.connect(self._complain)
+        lootlog.on_forget(self._forgot)
         self.resume()
+
+    def _forgot(self, cid: str) -> None:
+        """Its character deleted: the running log is dropped unsaved (its database rows are going too)."""
+        if cid != self._cid:
+            return
+        self._cid, self._log = None, None
+        self._save_timer.stop()
+        self.restart()
+        self.changed.emit()
 
     # ---------------------------------------------------------------- whose log, which box
 

@@ -443,8 +443,10 @@ class DetailWindow(EdgeResize, QWidget):
             for s in sell[:SRC_CAP]:
                 price = t("lk_price", n=f"{s.price:,}") if s.price is not None else ""
                 row = _Row(bidi.ltr_name(s.name, t.rtl),
-                           bidi.plain(" · ".join(x for x in (price, s.place) if x), t.rtl), t("lk_open_npc"))
-                row.clicked.connect(lambda _=False, k=s.key: self.push("npc", k))
+                           bidi.plain(" · ".join(x for x in (price, s.place) if x), t.rtl),
+                           t("lk_open_npc") if s.key else "", clickable=bool(s.key))
+                if s.key:                   # an NPC the shops table didn't resolve: a fact, no empty page
+                    row.clicked.connect(lambda _=False, k=s.key: self.push("npc", k))
                 self._add(row)
             self._more(len(sell))
 

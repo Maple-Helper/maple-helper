@@ -689,3 +689,18 @@ def test_the_real_maps_list_opens_at_fifty(real):
     assert len(hits) == 50 and total > 200 and all(h.key.startswith("map/") and h.kind == "map" for h in hits)
     hits, _ = search(real, "map", "henesys hunting")
     assert hits and all("henesys hunting" in h.name.lower() for h in hits)
+
+
+def test_a_seller_the_shops_table_didnt_resolve_is_a_fact_not_a_link(win, qapp, clean_location, graph, monkeypatch):
+    """Its key is "": clicking it opened an empty page with no title."""
+    from maplehelper import gamelookup
+    monkeypatch.setattr(gamelookup, "item_sources", lambda kb, key: (
+        [], [gamelookup.Seller("", "Mystery", 10, "Somewhere")]))
+    win.open("item")
+    win._box.setText("red")
+    pump(qapp, 200)
+    win._rows[0].clicked.emit()
+    d = win._detail
+    row = next(r for r in _links(d) if r.name.text() == "Mystery")
+    row.clicked.emit()
+    assert d._stack == [("item", "item/2000000")] and row.toolTip() == ""

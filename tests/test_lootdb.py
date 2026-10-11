@@ -140,3 +140,20 @@ def test_a_log_from_before_the_database_gets_its_row_when_it_resumes(scanner, kb
         assert _rows("SELECT kind, amount FROM events") == [("mesos", 40)]
     finally:
         again._timer.stop()
+
+
+def test_deleting_the_character_of_a_running_log_stops_it_and_nothing_comes_back(scanner):
+    """The scanner's own Store kept the deleted character's log in memory: its next save wrote it back into
+    loot.json, and its pickups went to a log row already deleted (a foreign-key failure, retried for good)."""
+    s, p = scanner
+    keep = p.add("Other", "Warrior", "Warrior", 20)
+    gone = next(c for c in p.characters if c.name == "Kiwi")
+    p.set_active(gone.id)
+    s.start()
+    s._log.add([lootlog.Event(time.time() - 100, "exp", 9)])
+    s._save()
+    p.remove(gone.id)
+    assert not s.running(gone.id) and s._log is None and not s._save_timer.isActive()
+    s.store.put(keep.id, lootlog.Log(start=time.time()))    # any later save of the scanner's own Store
+    assert gone.id not in lootlog.Store()._active and gone.id not in lootlog.Store()._recent
+    assert _rows("SELECT COUNT(*) FROM logs WHERE character_id = ?", gone.id) == [(0,)]

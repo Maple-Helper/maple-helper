@@ -96,6 +96,19 @@ def _match(name: str, query: str) -> bool:
     return not words or all(w in n for w in words)
 
 
+class _Box(_SearchBox):
+    """A stat or picker box: Esc closes the window as its ✕ does (the setting off, the bar's Gear button unlit),
+    not a bare hide that the bar and the next start would never hear of."""
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Escape:
+            close = getattr(self.window(), "_close_clicked", None)
+            if close is not None:
+                close()
+                return
+        super().keyPressEvent(e)
+
+
 class _UpRow(QFrame):
     """One advised item: its name with a Plan scrolls button beside it, under it the level and the deltas that
     rank it (plus what to flag: a stat requirement not checked, a gendered item), then where to get it — the
@@ -230,14 +243,14 @@ class GearAdvisor(EdgeResize, QWidget):
         srow = QHBoxLayout(self._stats)
         srow.setContentsMargins(0, 0, 0, 0)
         srow.setSpacing(6)
-        self._editors: dict[str, _SearchBox] = {}
+        self._editors: dict[str, _Box] = {}
         for st in STAT_KEYS:
             pair = QWidget()
             prow = QHBoxLayout(pair)
             prow.setContentsMargins(0, 0, 0, 0)
             prow.setSpacing(4)
             prow.addWidget(QLabel(gearadvice.LABELS[st], objectName="StatName"))    # still readable once filled
-            box = _SearchBox(objectName="Stat", maxLength=3)
+            box = _Box(objectName="Stat", maxLength=3)
             box.setMinimumWidth(40)                    # three digits ("120") whole; the gender box keeps its word
             box.setMaximumWidth(60)
             box.setAlignment(Qt.AlignCenter)
@@ -419,7 +432,7 @@ class GearAdvisor(EdgeResize, QWidget):
         folded = plan.slot in (self._folded or set())
         self._body_of[plan.slot].setVisible(not folded)
         self._badge_of[plan.slot].setText("" if not folded or not plan.now else
-                                          bidi.plain(t("ga_upgrades", n=bidi.ltr_block(len(plan.now), t.rtl)), t.rtl))
+                                          bidi.plain(t("ga_upgrades", n=bidi.ltr_block(str(len(plan.now)), t.rtl)), t.rtl))
 
     def _fold_clicked(self, slot: str) -> None:
         self._folded = (self._folded or set()) ^ {slot}
@@ -437,7 +450,7 @@ class GearAdvisor(EdgeResize, QWidget):
         lay = QVBoxLayout(pick)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(4)
-        self._pick_box = _SearchBox()
+        self._pick_box = _Box()
         self._pick_box.setClearButtonEnabled(True)
         self._pick_box.setPlaceholderText(bidi.plain(t("ga_pick_ph"), t.rtl))
         self._pick_box.textChanged.connect(lambda _t: self._typing.start())
@@ -494,7 +507,7 @@ class GearAdvisor(EdgeResize, QWidget):
             self._pick_rows.append(row)
             self._pick_rows_lay.insertWidget(self._pick_rows_lay.count() - 1, row)
         left = len(rows) - min(len(rows), PICK_ROWS)
-        self._pick_more.setText(bidi.plain(t("ga_more", n=bidi.ltr_block(left, rtl)), rtl) if left else "")
+        self._pick_more.setText(bidi.plain(t("ga_more", n=bidi.ltr_block(str(left), rtl)), rtl) if left else "")
         if not rows:
             self._pick_more.setText(bidi.plain(t("ga_pick_none"), rtl))
 
@@ -561,6 +574,9 @@ class GearAdvisor(EdgeResize, QWidget):
         self.closed.emit()
 
     def hideEvent(self, e) -> None:
+        if self._stats_typing.isActive():      # stats typed just before closing: saved now, never lost
+            self._stats_typing.stop()
+            self._stats_saved()
         for timer in (self._typing, self._stats_typing):   # nothing fires once hidden: no re-read behind the back
             timer.stop()
         self._close_picker()

@@ -522,3 +522,28 @@ def test_window_defaults_to_what_the_character_wears(qapp, settings, profiles, w
     win.open_item("item/663")
     win.character_changed()
     assert win._head.name.text() == "War Bow"                      # the player's own pick always wins
+
+
+def test_window_an_earlier_lookup_still_lands_after_another_pick(qapp, settings, win, monkeypatch):
+    """Every new batch of lookups dropped the answers of the one before, whose keys were never fetched again:
+    a quick second pick left those grades on "loading" for as long as the window stayed open."""
+    go, started = threading.Event(), threading.Event()
+
+    def slow(item_id, timeout=8):
+        started.set()
+        go.wait(5)
+        return SimpleNamespace(usual=777)
+
+    monkeypatch.setattr("maplehelper.market.item_market", slow)
+    win.open_item("item/1000")
+    _pick_stat(win, "HP")                                          # batch 1: Intermediate and Greater, held
+    assert started.wait(5)
+    other = SimpleNamespace(key="item/424242", buy=None)           # another pick's grade, never seen: batch 2
+    win._queue_fm(scrollplan.StatGroup("Other", (other,)))
+    go.set()
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and not any("FM usual: 777" in p for _, _, _, p in _card_texts(win)):
+        qapp.processEvents()
+        time.sleep(0.01)
+    prices = {g: p for g, _, _, p in _card_texts(win)}
+    assert "FM usual: 777 mesos" in prices["Intermediate"] and "FM usual: 777 mesos" in prices["Greater"]

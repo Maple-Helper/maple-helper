@@ -479,9 +479,9 @@ class Profiles:
         from .grind import Store as GrindStore
         GrindStore().forget(cid)            # its grind sessions go with it
         from . import lootdb
-        from .lootlog import Store as LootStore
-        LootStore().forget(cid)             # and its loot logs, in loot.json and the loot database
-        lootdb.forget(cid)
+        from . import lootlog
+        lootlog.forget(cid)                 # and its loot logs: a running one stopped, out of loot.json ...
+        lootdb.forget(cid)                  # ... and out of the loot database
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

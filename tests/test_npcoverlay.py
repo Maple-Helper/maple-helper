@@ -450,3 +450,14 @@ def test_a_real_click_guides_with_the_map_picture(real, qapp, isolated_store, cl
     finally:
         clean_location.changed.disconnect(w.refresh)
         w.close()
+
+
+def test_turning_it_off_from_the_bar_or_settings_lets_the_guide_go(overlay):
+    """Only the ✕ cleared the pick: switched off elsewhere, the ring stayed on the game's minimap."""
+    w, s, loc = overlay
+    loc.set(_here())
+    _row(w, "Cara").click()
+    assert loc.guide is not None
+    s["npc_overlay"] = False
+    w.refresh()
+    assert not w.isVisible() and loc.guide is None and w._sel is None

@@ -552,6 +552,8 @@ class NpcOverlay(EdgeResize, QWidget):
         except (TypeError, ValueError):
             self._opacity = OPACITY_DEFAULT
         if not self._settings["npc_overlay"]:
+            if self._sel is not None:    # turned off from the bar or Settings: the ring on the game's minimap goes too
+                self._clear_pick()
             if self.isVisible():
                 self.hide()
             return
