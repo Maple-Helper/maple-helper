@@ -213,21 +213,21 @@ def test_where_a_monster_lives(kb):
 def test_open_shows_that_mode_and_the_same_mode_again_toggles_off(win):
     modes = []
     win.mode_changed.connect(modes.append)
-    win.open("monster")
-    assert win.isVisible() and win._kind == "monster"
-    assert win._title.text() == "Find a monster" and win._box.placeholderText() == "Monster name…"
+    win.open("monster_npc")
+    assert win.isVisible() and win._kind == "monster_npc"
+    assert win._title.text() == "Find a monster or NPC" and win._box.placeholderText() == "Monster or NPC name…"
     assert win._status.text() == "Type at least 2 letters" and not win._rows
-    win.open("monster")                                        # the same mode again: off
+    win.open("monster_npc")                                    # the same mode again: off
     assert not win.isVisible()
-    assert modes == ["monster", ""]
+    assert modes == ["monster_npc", ""]
 
 
 def test_typing_fills_the_rows(win, qapp):
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)                                            # the typing debounce
     assert [r.name.text() for r in win._rows] == ["Snail", "Blue Snail", "Red Snail"]
-    assert win._rows[0].sub.text() == "Lv. 1"
+    assert win._rows[0].sub.text() == "Monster · Lv. 1"       # which kind it is, before its level
     assert win._status.text() == ""                            # all of them shown: no "and N more"
     win._box.setText("zzz")
     pump(qapp, 200)
@@ -240,7 +240,7 @@ def test_clicking_a_monster_opens_the_detail_window_docked_beside(win, qapp, cle
     from PySide6.QtCore import QPoint, QRect
     from maplehelper.ui.glass import SHADOW
     from maplehelper.ui.npcoverlay import GUIDE_GAP
-    win.open("monster")
+    win.open("monster_npc")
     win.setGeometry(QRect(400, 100, 320, 420))          # room on its left
     win._box.setText("snail")
     pump(qapp, 200)
@@ -268,7 +268,7 @@ def test_a_map_row_opens_the_maps_page_and_back_returns(win, qapp, clean_locatio
     monkeypatch.setattr(gamelookup, "map_monsters",
                         lambda kb, key: [("monster/2230104", "Stump", 15, 3)] if key == f"map/{GARDEN}" else [])
     monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True: gamelookup.Way(here=None, legs=(), known=False))
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)
     win._rows[0].clicked.emit()
@@ -299,7 +299,7 @@ def test_the_next_page_is_measured_at_once_never_folded_to_the_header(win, qapp,
     monkeypatch.setattr(gamelookup, "map_monsters",
                         lambda kb, key: [("monster/2230104", "Stump", 15, 3)] if key == f"map/{GARDEN}" else [])
     monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True: gamelookup.Way(here=None, legs=(), known=False))
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)
     win._rows[0].clicked.emit()
@@ -324,7 +324,7 @@ def test_the_page_window_keeps_the_size_the_player_drags_it_to(win, qapp, settin
     real = mapview.route_picture
     monkeypatch.setattr(mapview, "route_picture",
                         lambda path, spot=None, npc=False, you=None, cap_w=0: widths.append(cap_w) or real(path))
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)
     win._rows[0].clicked.emit()
@@ -342,7 +342,7 @@ def test_the_page_window_keeps_the_size_the_player_drags_it_to(win, qapp, settin
     assert widths[0] > gamesearch.DETAIL_W - 2 * gamesearch.SIDE
     assert widths[0] + gamesearch.SCROLLBAR_W <= d.width() - 2 * gamesearch.SIDE
     win.hide()
-    win.open("monster")
+    win.open("monster_npc")
     win._rows[0].clicked.emit()                         # opened again: still their size
     assert d.size() == QSize(420, 600)
 
@@ -445,7 +445,7 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     monkeypatch.setattr(gamelookup, "way_to",
                         lambda kb, here, to, rides=True: gamelookup.Way(here="999999999", legs=(), known=False))
     clean_location.set(_here(MID, (0.5, 0.5)))
-    win.open("npc")
+    win.open("monster_npc")
     win._detail.open_view("npc", "npc/3")
     d = win._detail
     name = _kb_name(kb, "npc/3")
@@ -456,7 +456,7 @@ def test_an_npc_on_the_players_map_guides_and_hiding_clears_it(win, qapp, kb, cl
     win.hide()
     assert not d.isVisible() and LOCATION.guide is None                     # hidden: the ring is let go
     clean_location.set(_here(MID, (0.5, 0.5)))
-    win.open("npc")
+    win.open("monster_npc")
     d.open_view("npc", "npc/3")
     assert LOCATION.guide == (MID, spot, "npc/3")
     clean_location.set(_here("999999999", (0.5, 0.5)))  # another map: the ring goes, the way from there shown
@@ -487,7 +487,7 @@ def test_an_npc_elsewhere_shows_the_way_there_step_by_step_with_each_maps_pictur
     monkeypatch.setattr(gamelookup, "way_to", lambda kb, here, to, rides=True:
                         gamelookup.Way(here=MID, legs=ride if rides else walk, known=True))
     clean_location.set(_here(MID, (0.5, 0.5)))
-    win.open("npc")
+    win.open("monster_npc")
     win._detail.open_view("npc", "npc/3")
     d = win._detail
     t = I18n("en")
@@ -529,19 +529,39 @@ def test_an_npc_elsewhere_shows_the_way_there_step_by_step_with_each_maps_pictur
 
 def test_switching_modes_keeps_each_ones_query(win, qapp):
     modes = []
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)
     win.mode_changed.connect(modes.append)
-    win.open("npc")                                            # another mode while it shows: a switch, not a toggle
-    assert win.isVisible() and win._kind == "npc" and win._box.text() == "" and modes == ["npc"]
-    win._box.setText("roger")      # the fixture KB's NPCs are all shut by its release guide: no rows, but the
-    pump(qapp, 200)                # query is kept all the same
-    win.open("monster")
+    win.open("item")                                           # another mode while it shows: a switch, not a toggle
+    assert win.isVisible() and win._kind == "item" and win._box.text() == "" and modes == ["item"]
+    win._box.setText("red")
+    pump(qapp, 200)
+    win.open("monster_npc")
     assert win._box.text() == "snail" and [r.name.text() for r in win._rows] == ["Snail", "Blue Snail", "Red Snail"]
-    win.open("npc")
-    assert win._box.text() == "roger" and not win._rows
-    assert modes == ["npc", "monster", "npc"]
+    win.open("item")
+    assert win._box.text() == "red" and win._rows
+    assert modes == ["item", "monster_npc", "item"]
+
+
+def test_monsters_and_npcs_list_together_and_each_opens_its_own_page(win, qapp, clean_location, monkeypatch):
+    """One search over both: an NPC beside the monsters with the same words, each row saying which it is, and a
+    click opening the monster's page or the NPC's. (The fixture KB's own NPCs are all shut by its release guide.)"""
+    from maplehelper.ui import gamesearch
+    monkeypatch.setitem(gamesearch._BUILDERS, "npc",
+                        lambda kb: [gamesearch.Hit("npc/3", "Snail Keeper", "Henesys · Victoria Road", "npc")])
+    opened = []
+    monkeypatch.setattr(win._detail, "open_view", lambda kind, key: opened.append((kind, key)))
+    win.open("monster_npc")
+    win._box.setText("snail")
+    pump(qapp, 200)
+    rows = {r.name.text(): r for r in win._rows}
+    assert list(rows) == ["Snail", "Snail Keeper", "Blue Snail", "Red Snail"]   # ranked together: the exact name,
+                                                                                # then the ones "snail" starts
+    assert rows["Snail Keeper"].sub.text() == "NPC · Henesys · Victoria Road"
+    rows["Snail Keeper"].clicked.emit()
+    rows["Snail"].clicked.emit()
+    assert opened == [("npc", "npc/3"), ("monster", win._hits[0].key)]
 
 
 def test_esc_in_the_box_hides(win, qapp):
@@ -549,22 +569,22 @@ def test_esc_in_the_box_hides(win, qapp):
     from PySide6.QtTest import QTest
     modes = []
     win.mode_changed.connect(modes.append)
-    win.open("npc")
+    win.open("monster_npc")
     QTest.keyClick(win._box, Qt.Key_Escape)
-    assert not win.isVisible() and modes == ["npc", ""]
+    assert not win.isVisible() and modes == ["monster_npc", ""]
 
 
 def test_apply_language_retexts_and_mirrors(win, qapp):
     from PySide6.QtCore import Qt
     from maplehelper import bidi
     from maplehelper.i18n import I18n
-    win.open("monster")
+    win.open("monster_npc")
     win._box.setText("snail")
     pump(qapp, 200)
     win.apply_language(I18n("he"))
     assert win.layoutDirection() == Qt.RightToLeft
-    assert win._title.text() == bidi.plain("חיפוש מפלצת", True)
-    assert win._box.placeholderText() == bidi.plain("שם המפלצת…", True)
+    assert win._title.text() == bidi.plain("חיפוש מפלצת או דמות", True)
+    assert win._box.placeholderText() == bidi.plain("שם המפלצת או הדמות…", True)
     assert [r.name.text() for r in win._rows] == [bidi.ltr_name(n, True) for n in ("Snail", "Blue Snail", "Red Snail")]      # rebuilt, still there
 
 
@@ -574,19 +594,19 @@ def test_it_first_opens_just_under_the_toolbar(win):
     from PySide6.QtCore import QPoint, QRect
     from maplehelper.ui import gamesearch
     win.place_under(QRect(100, 60, 200, 40))
-    win.open("monster")
+    win.open("monster_npc")
     assert win.pos() == QPoint(100, 60 + 40 + gamesearch.GAP)
 
 
 def test_it_reopens_where_the_player_left_it(win, settings):
     from PySide6.QtCore import QPoint, QSize
     settings["game_search_geom"] = {"x": 90, "y": 70, "w": 280, "h": 330}
-    win.open("monster")
+    win.open("monster_npc")
     assert win.pos() == QPoint(90, 70) and win.size() == QSize(280, 330)
 
 
 def test_the_place_is_saved_once_the_move_settles(win, qapp, settings):
-    win.open("monster")
+    win.open("monster_npc")
     win.move(90, 70)
     win.resize(280, 330)
     pump(qapp, 500)                                            # the geometry debounce

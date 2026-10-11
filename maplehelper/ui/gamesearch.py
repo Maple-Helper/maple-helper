@@ -26,7 +26,9 @@ from .location import LOCATION
 from .npcoverlay import (BOTTOM, FILL1, FILL2, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TEXT, TOP,
                          _Header, _flags, _paint_glass, direction, dock_beside, set_capturable)
 
-KINDS = ("monster", "npc", "item", "sell")   # the searches the toolbar offers ("sell": the items, safe to sell?)
+# the searches the toolbar offers: monsters and NPCs together (each row opens its own page), the items, and "sell"
+# (the items again, safe to sell?)
+KINDS = ("monster_npc", "item", "sell")
 MIN_W, MIN_H = 260, 300             # the smallest the player can drag the window to
 DEFAULT_W, DEFAULT_H = 320, 420     # what opens under the toolbar before it is ever resized
 GAP = 8                             # between the toolbar and the window that opens under it
@@ -75,10 +77,12 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{ background: tran
 
 @dataclass(frozen=True)
 class Hit:
-    """One row of a search: the thing's KB key (what a click opens), its name, and the grey line under it."""
+    """One row of a search: the thing's KB key (what a click opens), its name, the grey line under it, and which
+    page it opens ("monster" / "npc"; "" for the search's own: an item's, or Safe to sell?'s)."""
     key: str
     name: str
     sub: str
+    kind: str = ""
 
 
 def _fold(name: str) -> str:
@@ -97,7 +101,7 @@ def _monster_hits(kb) -> list[Hit]:
             continue
         if m.name not in best or sum(n for _, n in m.maps) > sum(n for _, n in best[m.name].maps):
             best[m.name] = m
-    return [Hit(m.key, m.name, f"Lv. {m.level}")
+    return [Hit(m.key, m.name, f"Lv. {m.level}", "monster")
             for m in sorted(best.values(), key=lambda m: (m.level, m.name))]
 
 
@@ -109,7 +113,7 @@ def _npc_hits(kb) -> list[Hit]:
         if r.get("key"):
             where[str(r["key"])] = " · ".join(x for x in (str(r.get("map") or ""), str(r.get("street") or "")) if x)
     open_ = availability.of(kb)
-    return sorted((Hit(k, e["name"], where.get(k, ""))
+    return sorted((Hit(k, e["name"], where.get(k, ""), "npc")
                    for k, e in kb.entities.items()
                    if e.get("category") == "npc" and str(e.get("name") or "").strip() and open_.npc_open(k)),
                   key=lambda h: _fold(h.name))
@@ -135,7 +139,10 @@ _BUILDERS = {"monster": _monster_hits, "npc": _npc_hits, "item": _item_hits}
 def _source(kb, kind: str) -> list[Hit]:
     """One kind's every row, built once per KB (a keystroke only ranks them; the item list alone reads ~650
     pages). A list made while the KB's tables weren't ready (still building at start-up) isn't kept: it would have
-    left every NPC without its map for the whole session. Safe to sell? searches the items' own list."""
+    left every NPC without its map for the whole session. Safe to sell? searches the items' own list; Monsters &
+    NPCs both lists, each row still opening its own page."""
+    if kind == "monster_npc":
+        return _source(kb, "monster") + _source(kb, "npc")
     kind = "item" if kind == "sell" else kind
     cache = memo(kb, "_game_search")
     if kind not in cache:
@@ -856,19 +863,26 @@ class GameSearch(EdgeResize, QWidget):
 
     def _rebuild_rows(self) -> None:
         t, rtl = self.t, self.t.rtl
-        tip = {"npc": t("search_npc_open"), "item": t("search_item_open"),
-               "sell": t("search_sell_open")}.get(self._kind, "")
+        tips = {"monster": t("search_monster_open"), "npc": t("search_npc_open"), "item": t("search_item_open"),
+                "sell": t("search_sell_open")}
         self._clear_rows()
         for hit in self._hits:
-            sub = sell_verdict(t, self._kb, hit.key) if self._kind == "sell" else hit.sub
-            row = _Row(bidi.ltr_name(hit.name, rtl), bidi.plain(sub, rtl) if sub else "", tip)
+            if self._kind == "sell":
+                sub = sell_verdict(t, self._kb, hit.key)
+            elif hit.kind:
+                # a monster and an NPC side by side: which is which, before its level or its map
+                sub = " · ".join(x for x in (t(f"search_is_{hit.kind}"), hit.sub) if x)
+            else:
+                sub = hit.sub
+            row = _Row(bidi.ltr_name(hit.name, rtl), bidi.plain(sub, rtl) if sub else "",
+                       tips.get(hit.kind or self._kind, ""))
             row.clicked.connect(lambda _=False, h=hit: self._picked(h))
             self._add(row)
 
     def _picked(self, hit: Hit) -> None:
         """A result clicked: its own page in the detail window beside this one, the history started over (the
         results stay listed here)."""
-        self._detail.open_view(self._kind, hit.key)
+        self._detail.open_view(hit.kind or self._kind, hit.key)
 
     def _close_clicked(self, _=False) -> None:
         """The ✕: hidden (the toolbar's button lets go of its highlight; nothing is turned off)."""

@@ -35,7 +35,7 @@ from .regionpick import from_capture
 
 SIDE, TOP, BOTTOM = SHADOW + 12, SHADOW + 8, SHADOW + 8    # content margins, past the glass's shadow rim
 GRIP = "⋮⋮"                                               # the drag handle's dots
-KINDS = {"monster": "tb_monsters", "npc": "tb_npcs", "item": "tb_items", "sell": "tb_sell"}  # search buttons, i18n keys
+KINDS = {"monster_npc": "tb_monster_npc", "item": "tb_items", "sell": "tb_sell"}  # search buttons, i18n keys
 QSS = f"""
 #Grip {{ color: {MUTED}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
@@ -70,11 +70,11 @@ class _Grip(QLabel):
 
 class GameToolbar(QWidget):
     """The bar itself. The NPCs-here button flips settings["npc_overlay"] (npc_toggled: the window follows), the
-    three search buttons ask for their search (search_requested: "monster", "npc" or "item"), and the ✕ turns the
+    search buttons ask for their search (search_requested: "monster_npc", "item" or "sell"), and the ✕ turns the
     bar itself off. Clicks work but it never takes the keyboard from the game, and the minimap reads never see
     it. Its place is kept in game_toolbar_pos."""
 
-    search_requested = Signal(str)     # which search to open: "monster" | "npc" | "item"
+    search_requested = Signal(str)     # which search to open: "monster_npc" | "item" | "sell"
     npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
     rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
     loot_toggled = Signal()            # settings["loot_overlay"] flipped: the loot log's window follows
@@ -148,7 +148,7 @@ class GameToolbar(QWidget):
         self._npcs.setText(bidi.plain(t("tb_npcs_here"), rtl))
         self._npcs.setToolTip(t("tb_npcs_here_tip"))
         for kind, key in KINDS.items():
-            self._search[kind].setText(bidi.plain(t(key), rtl))
+            self._search[kind].setText(bidi.plain(t(key), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
             self._search[kind].setToolTip(t(key + "_tip"))
         self._rides.setText(bidi.plain(t("tb_rides"), rtl).replace("&", "&&"))   # "&" alone: Qt's shortcut mark
         self._rides.setToolTip(t("tb_rides_tip"))
