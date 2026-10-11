@@ -399,7 +399,7 @@ def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
     qapp.processEvents()
     assert win._pick_slot == "Claw" and win._pick_box.isVisibleTo(win)
     rows = [r for r in win._pick_rows if isinstance(r, _Row)]
-    assert rows[0].name.text().lower() == "nothing"                                # taking it off is a choice
+    assert rows[0].name.text() == "Nothing worn here"                              # taking it off is a choice
     expected = next(p for p in win._plans if p.slot == "Claw").picker[0]["key"]
     rows[1].clicked.emit()                                                         # the first claw of the list
     qapp.processEvents()

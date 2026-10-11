@@ -64,6 +64,7 @@ QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 
               padding: 6px 10px; text-align: left; }}
 QPushButton:hover {{ background: {FILL2}; }}
 QPushButton#Worn {{ padding: 4px 10px; font-weight: 600; }}
+QPushButton#Worn[empty="true"] {{ color: {MUTED}; font-weight: 400; }}
 QPushButton#Plan {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
                    padding: 2px 8px; font-size: 11px; }}
 QPushButton#Plan:hover {{ background: {FILL2}; color: {TEXT}; }}
@@ -385,7 +386,10 @@ class GearAdvisor(EdgeResize, QWidget):
         worn.setCursor(Qt.PointingHandCursor)
         worn.setFocusPolicy(Qt.NoFocus)
         worn.setToolTip(t("ga_worn_tip"))
-        worn.setText(bidi.ltr_name(str(plan.worn.get("item") or "") if plan.worn else t("ga_nothing"), rtl))
+        # what is worn, by name; with nothing set the button says what it does ("nothing" read as a dead label)
+        worn.setText(bidi.ltr_name(str(plan.worn.get("item") or ""), rtl) if plan.worn
+                     else bidi.plain(t("ga_set_worn"), rtl))
+        worn.setProperty("empty", plan.worn is None)
         worn.clicked.connect(lambda _=False, s=plan.slot: self._worn_clicked(s))
         head.lay.addWidget(worn)
         lay.addWidget(head)
