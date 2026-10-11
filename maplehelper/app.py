@@ -908,7 +908,9 @@ class MapleHelperApp:
         npc = getattr(self, "npc_overlay", None)
         for w in (getattr(self, "portal_dots", None), npc, getattr(npc, "_guide", None),
                   getattr(self, "game_toolbar", None), search, getattr(search, "_detail", None),
-                  getattr(self, "loot_overlay", None), *self.__dict__.get("_tool_windows", {}).values()):
+                  getattr(self, "loot_overlay", None), *self.__dict__.get("_tool_windows", {}).values(),
+                  # the crafting advisor's Forge plan window beside it
+                  *(getattr(w, "plan_window", None) for w in self.__dict__.get("_tool_windows", {}).values())):
             if w is not None:
                 set_capturable(w, self.settings)
 

@@ -423,10 +423,15 @@ def _pump(qapp, ms=30):
 def _delete_window(qapp, w):
     from PySide6.QtCore import QEvent
 
+    plan = w.plan_window
     w.hide()
     w.close()
-    for timer in (w._typing, w._edit, w._geom):
+    for timer in (w._typing, w._bag_typing, w._edit, w._geom):
         timer.stop()
+    if plan is not None:
+        plan._sized.stop()
+        plan.close()
+        plan.deleteLater()
     w.deleteLater()
     qapp.processEvents()
     qapp.sendPostedEvents(None, QEvent.DeferredDelete)
@@ -443,42 +448,83 @@ def win(qapp, settings, profiles, kb):
     _delete_window(qapp, w)
 
 
+_MARKS = dict.fromkeys(map(ord, "\u2066\u2069\u200e\u200f\u202a\u202c\u2060"))
+
+
 def _texts(w) -> str:
-    """Every label in the scrolled body, one string (asserting on words, not on layout)."""
+    """Every shown label in a window or row, one string, the bidi marks and the rich text's tags out (asserting on
+    words, not on layout)."""
+    import re
+
     from PySide6.QtWidgets import QLabel
 
-    return " ".join(x.text() for x in w._scroll.findChildren(QLabel))
+    shown = [re.sub(r"<[^>]+>", "", x.text()) for x in w.findChildren(QLabel) if x.isVisibleTo(w)]
+    return " ".join(shown).translate(_MARKS).replace("\xa0", " ")
 
 
-def test_window_follows_the_accent_the_settings_pick(qapp, settings, win):
-    """The lit buttons and ticked boxes light in the accent the ⚙ panel picked (npcoverlay.ACCENTS), and a
-    refresh follows a new pick without re-polishing when it is the same."""
-    settings["craft_advisor"] = True
-    settings["overlay_accent"] = "green"
-    win.refresh()
-    assert "#2E9E5B" in win.styleSheet()
-    before = win.styleSheet()
-    win.refresh()
-    assert win.styleSheet() == before  # the same accent: no restyle
-    settings["overlay_accent"] = "blue"
-    win.refresh()
-    assert "#3D8BD6" in win.styleSheet() and "#2E9E5B" not in win.styleSheet()
-
-
-def test_window_shows_the_plan_and_the_x_turns_it_off(qapp, settings, win):
+def test_window_tabs_switch_pages(qapp, settings, win):
+    """Three tabs over one stack: what to craft, the bag (the plan's raw mats listed), the professions."""
     settings["craft_advisor"] = True
     win.refresh()
-    assert win.isVisible()
-    text = _texts(win)
-    assert "Mithril Wand" in text and "Forge plan" in text
-    assert "8,400" in text  # the wand's own craft cost row (the empty-bag table)
-    assert "Leather ×312" in text.replace("\u2066", "").replace("\u2069", "")
-    # the ✕: the setting off, hidden, the toolbar told
-    seen = []
-    win.closed.connect(lambda: seen.append(True))
-    win._close.click()
+    tabs = win._tabs.group.buttons()
+    assert [b.text() for b in tabs] == ["What to craft", "Your bag", "Professions"]
+    assert win._stack.currentIndex() == 0 and "Mithril Wand" in _texts(win)
+    tabs[1].click()
     _pump(qapp)
-    assert seen and not settings["craft_advisor"] and not win.isVisible()
+    assert win._stack.currentIndex() == 1
+    assert "Mithril Ore" in _texts(win) and "in plan" in _texts(win)
+    tabs[2].click()
+    _pump(qapp)
+    assert win._stack.currentIndex() == 2
+    assert "Character level" in _texts(win) and "Arcforge" in _texts(win)
+    tabs[0].click()
+    assert win._stack.currentIndex() == 0
+
+
+def test_window_table_row_shows_its_craft_cost_and_vs_shop(qapp, settings, win):
+    """The wand's row: its level, the class's stat, the craft cost from raw mats and what it saves against the
+    NPC's 22,000 — lit, since one is picked; the header names the class's stat column."""
+    settings["craft_advisor"] = True
+    win.refresh()
+    row = win._item_rows[WAND]
+    text = _texts(row)
+    assert "Mithril Wand" in text and "Wand" in text and "Arcforge 6" in text
+    assert "30" in text and "55" in text
+    assert "8,400" in text and "saves" in text and "13,600" in text
+    assert row.property("picked") is True
+    assert "M.ATK" in _texts(win._head) and "Craft cost" in _texts(win._head) and "vs shop" in _texts(win._head)
+    # a wider window gives the recipe a column of its own
+    win.resize(760, win.height())
+    _pump(qapp)
+    assert win._wide and "Arcforge 6" in _texts(win._head.parentWidget())
+
+
+def test_window_make_opens_the_plan_window_with_its_stages(qapp, settings, win, profiles):
+    """Nothing picked: no plan window. The wand's Make + : the plan window opens beside, its stages titled as the
+    site titles them; − again and craft_targets is empty."""
+    from maplehelper.ui.craftadvisor import _Stepper
+
+    profiles.active.craft_targets = []
+    profiles.save()
+    settings["craft_advisor"] = True
+    win.refresh()
+    assert win.plan_window is None or not win.plan_window.isVisible()
+    assert win._plan_btn.text() == "Show plan"
+    step = win._item_rows[WAND].findChild(_Stepper)
+    step._plus.click()
+    _pump(qapp)
+    assert profiles.active.craft_targets == [WAND]
+    plan = win.plan_window
+    assert plan is not None and plan.isVisible() and win._plan_btn.text() == "Hide plan"
+    text = _texts(plan)
+    for title in ("Forge plan", "Make materials", "Level Arcforge 4 → 6", "Craft Mithril Wand", "1 · Farm these first"):
+        assert title in text, title
+    assert "Leather" in text and "312" in text  # the level-up recipe's raw mat, all of it still to farm
+    assert "Wizard" in _texts(win) and "1 item to craft" in _texts(win)
+    step._minus.click()
+    _pump(qapp)
+    assert profiles.active.craft_targets == []
+    assert "Pick items on the What to craft tab" in _texts(plan).replace("pick", "Pick")
 
 
 def test_window_ticked_step_moves_the_craft_into_the_bag(qapp, settings, win, profiles):
@@ -486,35 +532,146 @@ def test_window_ticked_step_moves_the_craft_into_the_bag(qapp, settings, win, pr
 
     settings["craft_advisor"] = True
     win.refresh()
-    boxes = [b for b in win._scroll.findChildren(QCheckBox)]
+    plan = win.plan_window
+    boxes = plan.findChildren(QCheckBox)
     assert boxes
-    final = boxes[-1]  # the plan's last step is the Mithril Wand craft
-    assert "Mithril Wand" in final.parentWidget().findChildren(type(final.parentWidget()))[0].text() or "Mithril Wand" in _texts(
-        win
-    )
-    final.setChecked(True)
+    boxes[-1].setChecked(True)  # the last stage's step: the Mithril Wand craft
     _pump(qapp)
     c = profiles.active
     assert c.craft_bag.get(WAND) == 1  # the crafted wand entered the bag …
-    assert not [f for f in (win._plan.farm if win._plan else ()) if f.farm > 0] or win._plan is None
-    assert not c.craft_targets or c.craft_targets == [WAND]
+    assert c.craft_targets == [WAND]
+    assert "Your bag already holds what you picked" in _texts(plan)  # … and the plan has nothing left to make
 
 
-def test_window_make_stepper_and_language_rebuild(qapp, settings, win, profiles):
-    from maplehelper.i18n import I18n
-    from maplehelper.ui.craftadvisor import _Stepper
+def test_window_plan_x_hides_only_the_plan(qapp, settings, win):
+    """The plan's ✕ hides the plan alone (an edit doesn't bring it back, Show plan does); the main ✕ turns the
+    setting off and hides both."""
+    settings["craft_advisor"] = True
+    win.refresh()
+    plan = win.plan_window
+    assert plan.isVisible()
+    plan._close.click()
+    _pump(qapp)
+    assert not plan.isVisible() and win.isVisible() and settings["craft_advisor"]
+    assert win._plan_btn.text() == "Show plan"
+    win._mode_set("cheapest")
+    assert not plan.isVisible()
+    win._plan_btn.click()
+    assert plan.isVisible()
+    seen = []
+    win.closed.connect(lambda: seen.append(True))
+    win._close.click()
+    _pump(qapp)
+    assert seen and not settings["craft_advisor"] and not win.isVisible() and not plan.isVisible()
+
+
+def test_window_plan_size_is_kept(qapp, settings, win):
+    """The size the player drags the plan to is kept (craft_plan_size): the plan drawn again keeps it, and so does
+    the next plan window."""
+    from PySide6.QtCore import QSize
+
+    from maplehelper.ui.craftadvisor import ForgePlanWindow
 
     settings["craft_advisor"] = True
     win.refresh()
-    steps = [s for s in win._scroll.findChildren(_Stepper)]
-    wand_step = next(s for s in steps if s.value() == 1)  # the wand's Make stepper carries the target
-    wand_step.setValue(0)
+    plan = win.plan_window
+    plan.resize(480, 520)
+    _pump(qapp, 600)
+    assert settings["craft_plan_size"] == {"w": 480, "h": 520}
+    plan.redraw()
+    assert plan.size() == QSize(480, 520)
+    again = ForgePlanWindow(win)
+    assert again.size() == QSize(480, 520)
+    again.deleteLater()
+
+
+def test_window_follows_the_accent_in_both_windows(qapp, settings, win):
+    """The lit tab, mode and rows light in the accent the ⚙ panel picked (npcoverlay.ACCENTS), in both windows; a
+    refresh follows a new pick without re-polishing when it is the same."""
+    settings["craft_advisor"] = True
+    settings["overlay_accent"] = "green"
+    win.refresh()
+    plan = win.plan_window
+    assert "#2E9E5B" in win.styleSheet() and "#2E9E5B" in plan.styleSheet()
+    before = win.styleSheet()
+    win.refresh()
+    assert win.styleSheet() == before  # the same accent: no restyle
+    settings["overlay_accent"] = "blue"
+    win.refresh()
+    for w in (win, plan):
+        assert "#3D8BD6" in w.styleSheet() and "#2E9E5B" not in w.styleSheet()
+
+
+def test_window_bag_and_exp_edits_are_saved(qapp, settings, win, profiles):
+    """A count typed in the bag is the character's (the farm list shrinks by it); the bag's search offers what a
+    recipe uses; an EXP typed over the KB's is the player's own, the other levels stay the KB's."""
+    settings["craft_advisor"] = True
+    win.refresh()
+    win._bag_boxes["item/415"].setText("22")  # Mithril Ore
+    win._edits_saved()
     _pump(qapp)
-    assert profiles.active.craft_targets == []
+    assert profiles.active.craft_bag.get("item/415") == 22
+    ore = next(f for f in win._plan.farm if f.name == "Mithril Ore")
+    assert (ore.bag, ore.farm) == (22, 8)
+    win._bag_search.setText("hoof")  # not in this plan (the ingot Screws are): the search offers it to add
+    win._fill_bag()
+    found = _texts(win._bag_scroll)
+    assert "Add to your bag" in found and "Iron Hog's Metal Hoof" in found
+    win._exp_boxes[5].setText("900")
+    win._edits_saved()
+    assert settings["craft_exp_table"] == {"5": 900}
+    assert win._exp_marks[5].text() == "yours" and win._exp_marks[4].text() == "database"
+
+
+def test_window_language_rebuilds_both_windows(qapp, settings, win):
+    from PySide6.QtCore import Qt
+
+    from maplehelper.i18n import I18n
+
+    settings["craft_advisor"] = True
+    win.refresh()
     win.apply_language(I18n("he"))
     _pump(qapp)
-    hebrew = _texts(win)
-    assert "Lv" not in "".join(ch for ch in hebrew if ch.isascii()) or "Lv." in hebrew
-    assert "תוכנית ההכנה" in hebrew  # the plan section kept its Hebrew title
-    # the character strip still shows the game's own English words
-    assert "Arcforge" in hebrew
+    plan = win.plan_window
+    assert win.layoutDirection() == Qt.RightToLeft and plan.layoutDirection() == Qt.RightToLeft
+    main, page = _texts(win), _texts(plan)
+    assert "קראפטינג" in main and "פריט אחד להכנה" in main and "חוסך" in main
+    assert "תוכנית ההכנה" in page and "להעלות" in page and "הכנת חומרים" in page
+    assert "Arcforge" in page and "Mithril Wand" in page  # the game's own English names stay English
+    for text in (main, page):
+        assert "Lv" not in text  # Hebrew says רמה
+
+
+def test_window_without_a_character_says_so(qapp, isolated_store, settings, kb):
+    """No character: the summary says how to get one, no tabs, and the plan window (Show plan) says it too."""
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.craftadvisor import CraftAdvisor
+
+    w = CraftAdvisor(kb, settings, isolated_store.Profiles(), I18n("en"))
+    try:
+        settings["craft_advisor"] = True
+        w.refresh()
+        assert "No character yet" in w._summary.text()
+        assert not w._stack.isVisibleTo(w) and not w._tabs.isVisibleTo(w)
+        w._plan_btn.click()
+        assert w.plan_window.isVisible() and "No character yet" in _texts(w.plan_window)
+    finally:
+        _delete_window(qapp, w)
+
+
+def test_window_class_without_an_attack_stat_has_no_stat_column(qapp, isolated_store, settings, kb):
+    """A Beginner's gear ranks by no attack stat: the table has no column for one (the header and every row)."""
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.craftadvisor import CraftAdvisor
+
+    p = isolated_store.Profiles()
+    p.add("Newbie", "Beginner", "Beginner", 8)
+    w = CraftAdvisor(kb, settings, p, I18n("en"))
+    try:
+        settings["craft_advisor"] = True
+        w.refresh()
+        assert not w._has_stat
+        assert w._cols["stat"] and not any(c.isVisibleTo(w) for c in w._cols["stat"])
+        assert "M.ATK" not in _texts(w._head)
+    finally:
+        _delete_window(qapp, w)

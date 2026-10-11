@@ -52,7 +52,7 @@ def test_report_leaves_out_the_stats_id_and_every_unlisted_setting(tmp_path, mon
     private = {"window", "map_window_pos", "item_window_pos", "pins", "last_session", "wishlist", "farm_target", "microphone",
                "minimap_region", "npc_overlay_geom", "game_toolbar_pos", "game_search_geom", "game_detail_size",
                "loot_region", "loot_overlay_pos", "scroll_planner_geom", "gear_advisor_geom",
-               "craft_advisor_geom", "craft_exp_table", "game_toolbar_width",
+               "craft_advisor_geom", "craft_plan_size", "craft_exp_table", "game_toolbar_width",
                "tips_dismissed", "usage_warned", "install_id", "news_read", "presence_sent"}
     assert set(DEFAULT_SETTINGS) - set(report.REPORT_SETTINGS) == private
 

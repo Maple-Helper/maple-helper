@@ -192,6 +192,7 @@ DEFAULT_SETTINGS = {
     "gear_advisor_geom": None,    # ... where the player left it: {"x","y","w","h"}; None: under the bar
     "craft_advisor": False,       # the crafting advisor's window over the game (ui/craftadvisor.py): the bar's Crafting button
     "craft_advisor_geom": None,   # ... where the player left it: {"x","y","w","h"}; None: under the bar
+    "craft_plan_size": None,      # ... the size the player dragged its Forge plan window to: {"w","h"}; None: fits its plan
     "craft_exp_table": None,      # crafting EXP per level the player measured in game: {"7": 1234}; None: the KB's table
     "game_toolbar_width": None,   # the width the player dragged the bar to (its buttons wrap into rows); None: one row
     "game_toolbar_icons": False,  # the bar's buttons as icons (their names in the tooltips) instead of words
