@@ -119,6 +119,27 @@ def check(key: str) -> bool:
 
 # ---------------------------------------------------------------- what's missing
 
+def cash_jobs(kb, root: Path) -> list[dict]:
+    """What the Cash Shop sells now (OSMS Data Explorer, the Shop page) with words that have no Hebrew yet: the game's
+    own words, unless the KB's Hebrew was made from the same ones. An item the Cash Shop adds reads in Hebrew from the
+    next night on (osms.py: one fetch a night, well within ohmi's hourly terms)."""
+    from maplehelper import osms, translations
+    from maplehelper.ui import shoppage
+    try:
+        found = osms.items() or []
+    except Exception as e:      # noqa: BLE001 - OSMS unreachable tonight: the rest still translates
+        print(f"cash shop descriptions skipped: {e}")
+        return []
+    names = shoppage.kb_names(kb)
+    out = []
+    for it in found:
+        key = f"cash/{it.game_id}"
+        if it.description and not shoppage.kb_hebrew(kb, root, names.get(shoppage.fold(it.name), []), it.description) \
+                and not translations.he(root, "cash_desc", key, it.description):
+            out.append({"kind": "cash_desc", "key": key, "en": it.description})
+    return out
+
+
 def missing(root: Path) -> list[dict]:
     """[{kind, key, en, ...}] every text the KB has in English with no Hebrew made from it."""
     from maplehelper import quests, sitedata, translations
@@ -156,6 +177,7 @@ def missing(root: Path) -> list[dict]:
         for kind, key, en in texts:
             if en and not translations.he(root, kind, key, en):
                 jobs.append({"kind": kind, "key": key, "en": en})
+    jobs += cash_jobs(kb, root)
     import scrape_news
     made = scrape_news.translations(kb=root)
     try:

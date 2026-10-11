@@ -1,5 +1,24 @@
 [
  {
+  "version": "0.17.0",
+  "he": [
+   "מחיר פריט: מחירי Free Market אמיתיים, מכירות שבוצעו בפועל בחנויות של שחקנים (MesoWatch): מחיר מכירה רגיל, מכירה אחרונה וכמה מכירות היו. \"כל הפרטים\" פותח חלון עם איפה לקנות (מהזול ליקר, עם הדמות של בעל החנות) ומכירות אחרונות.",
+   "דף \"חנות\" חדש במקום \"חיות מחמד\": כל מה שנמכר עכשיו ב-Cash Shop של המשחק ובכמה NX, בלשוניות כמו במשחק, כולל מה אפשר לקבל מה-Founder's Mystery Fashion Crate ובאיזה סיכוי. חיות המחמד הן לשונית בתוכו.",
+   "המחירים והחנות מתעדכנים לבד: מחירי השוק כל 15 דקות, ה-Cash Shop כל שעה, וגם מיד כשהאפליקציה נפתחת.",
+   "\"מכור או שמור\" והצ'אט משתמשים במחירים האמיתיים האלה (\"MesoWatch\" ליד המחיר).",
+   "מאגר הנתונים מעודכן לערכי ההשקה של המשחק: ערכי המפלצות, תיאורי הסקילים בעברית, הנסיעה ל-Florina Beach ו-Nia Notes בחלון הפריט.",
+   "בלי \"?\" אחרי המילה mesos."
+  ],
+  "en": [
+   "Item price: real Free Market prices, sales that actually happened in players' shops (MesoWatch): the usual sale price, the last sale and how many sold. \"Full details\" opens a window with where to buy (cheapest first, with the shop owner's character) and the recent sales.",
+   "A new Cash Shop page in place of Pets: everything the game's Cash Shop sells now and for how many NX, in the game's own tabs, with what the Founder's Mystery Fashion Crate can give and each item's chance. Pets is a tab in it.",
+   "Prices and the shop update by themselves: market prices every 15 minutes, the Cash Shop every hour, and as soon as the app opens.",
+   "Sell or keep and the chat use these real prices (\"MesoWatch\" beside the price).",
+   "The database follows the game's launch values: monster stats, the skills' Hebrew, the Florina Beach trip and Nia Notes in the item window.",
+   "No \"?\" after the word mesos."
+  ]
+ },
+ {
   "version": "0.16.0",
   "he": [
    "הצ'אט: בזמן ההמתנה רואים נקודות זזות, כמה שניות עברו, ומה ה-AI עושה (\"מחפש במאגר…\"). אם תשובה נכשלת, יש כפתור \"נסו שוב\" ו\"פתיחת הגדרות\" כשצריך, והשאלה חוזרת לשדה עם התגיות שלה.",

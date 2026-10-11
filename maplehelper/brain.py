@@ -12,7 +12,7 @@ import re
 import time
 from dataclasses import dataclass, field
 
-from . import availability, news, official, planner, providers, routes, sitedata, sources, tables
+from . import availability, mesowatch, news, official, planner, providers, routes, sitedata, sources, tables
 from . import recent as kb_changes      # ("recent" is the conversation in build_prompt)
 from .kb import KnowledgeBase, _norm
 from .store import Character, History
@@ -79,7 +79,8 @@ every dropped item's key you name, up to 12 (the tiles show the rest).
 Sources: the app tags every number it shows with where it comes from, and so do you. A pre-fetched page starts with a
 "[sources: ...]" line: stats and NPC shop prices carry the build the KB labels them with ("COT2" = the second closed
 test, not confirmed for launch; a later KB may say "Launch"), drops their list, Free Market prices are community
-reports, the game's scope is MeowDB's release guide, and anything unlabeled is MeowDB's own. Whenever you state drops,
+reports ("Free Market sales (MesoWatch ...)" lines are real player-shop sales MesoWatch saw on public streams, also
+community: name them "(MesoWatch)" in either language, and say "a rough guess" when the line says few sales), the game's scope is MeowDB's release guide, and anything unlabeled is MeowDB's own. Whenever you state drops,
 prices or stats, name their source in a word or two right after them: "(MSEA)", "(community)", "(COT2)", "(official)",
 "(MeowDB)" in English; in a Hebrew answer "(MSEA)", "(קהילה)", "(COT2)", "(רשמי)", "(MeowDB)". When players reported
 nothing and no card shows it, say so in the answer's language: "אין נתונים מהקהילה" / "no community data". "Recent KB change" lines are things a knowledge-base update changed this week: when they bear on the answer,
@@ -435,6 +436,11 @@ def build_prompt(question: str, character: Character | None, history: History | 
     if changes:
         ctx.append("\n".join(changes))
     ctx += _site_context(kb, question, character, shown)
+    # what the items in the context really sell for on the Free Market (MesoWatch), from the copy on hand: the chat
+    # never waits for the site
+    sold = mesowatch.ai_lines(kb, tagged + named)
+    if sold:
+        ctx.append("\n".join(sold))
 
     # the KB's news (NiaMeowDB's news section) for a question about news, launch or maintenance: what was
     # announced, never what is released (the game scope says that)

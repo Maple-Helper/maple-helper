@@ -139,24 +139,37 @@ def test_hit_and_damage_maps_offer_the_way_there(tools):
 
 
 @needs_kb
-def test_an_offline_free_market_offers_to_try_again(tools, monkeypatch):
-    """TOOL-12."""
-    from PySide6.QtWidgets import QPushButton
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch, lang):
+    import time
 
-    from maplehelper import market
-    monkeypatch.setattr(market, "item_market", lambda i: None)
-    monkeypatch.setattr(market, "free_market", lambda n: None)
-    d = tools(page="prices")
-    d.price_input.setText("Red Potion")
+
+    from maplehelper import mesowatch
+    snap = mesowatch.Snapshot("Windia", time.time() - 600, {})
+    ore = mesowatch.Sales(4010001, "Iron Ore", 375, 299, 499, 2243, False, 500, trend_pct=-22, trend_days=3,
+                          shops=[mesowatch.Shop("The Rain-Forest East of Henesys", 399, 1, 8, time.time() - 300)],
+                          mw_id="basil:04010001", asks=2243, listing_shops=1170, days=4, last3=420,
+                          recent=[mesowatch.Sale(450, 1, "Free Market 2", time.time() - 120),
+                                  mesowatch.Sale(400, 2, "", time.time() - 600), mesowatch.Sale(410)])
+    monkeypatch.setattr(mesowatch, "for_item", lambda kb, key, *a, **k: (snap, ore))
+    from maplehelper.ui.widgets import MARKET_REQUESTS
+    asked = []
+    MARKET_REQUESTS.requested.connect(asked.append)
+    d = tools(page="prices", lang=lang)
+    d.price_input.setText("Iron Ore")
     d._fill_prices()
-    d._on_market(("Red Potion", None))
-    again = [b for i in range(d.fm_more.count()) if (w := d.fm_more.itemAt(i).widget())
-             for b in w.findChildren(QPushButton) if b.text() == "Try again"]
-    assert again
-    looked = []
-    monkeypatch.setattr(d, "_fm_lookup", lambda n, i: looked.append(n))
-    again[0].click()
-    assert looked == ["Red Potion"] and "Free Market" in d.fm_label.text()
+    assert "MesoWatch" in d.mw_label.text()                              # checking…, before the lookup is in
+    d._on_mesowatch((d._price_key, (snap, ore)))
+    text = d.mw_label.text()
+    assert "375" in text and "Windia" in text
+    more = [d.mw_more.itemAt(i).widget().text() for i in range(d.mw_more.count())]
+    # the basics only (the owner): the last sale and the count; the lists are in the details window
+    assert len(more) == 1 and "450" in more[0] and "2,243" in more[0] and "Rain-Forest" not in more[0]
+    d.mw_details.click()
+    assert asked == [d._price_key]
+    MARKET_REQUESTS.requested.disconnect(asked.append)
+    d._on_mesowatch((d._price_key, (None, None)))                       # can't reach it
+    assert "MesoWatch" in d.mw_label.text() and d.mw_more.count() == 0
 
 
 def test_guide_search_lights_no_category_and_counts(app):

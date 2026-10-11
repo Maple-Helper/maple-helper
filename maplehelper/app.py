@@ -195,10 +195,11 @@ class MapleHelperApp:
         self.minimap_scanner = MinimapScanner(self.kb, self.settings)
         self.minimap_scanner.restart()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
-        from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
+        from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, MARKET_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
         ITEM_REQUESTS.requested.connect(self.show_item_details)  # an item's ⓘ
+        MARKET_REQUESTS.requested.connect(self.show_market_details)  # a price card's "full details"
 
         self.overlay.news_requested.connect(self.show_news_page)
         self.overlay.profile_changed.connect(self.on_profile_changed)
@@ -244,6 +245,7 @@ class MapleHelperApp:
         self._update_timer.start()
         self._app_update_timer = QTimer(interval=APP_CHECK_MS, timeout=self.check_app_update_silently)
         self._app_update_timer.start()
+        self._start_live_data()
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
             t = I18n(self.settings["language"])
@@ -1001,6 +1003,29 @@ class MapleHelperApp:
             dlg.ask_requested.connect(lambda q: self.ask_from_tools(q, False))
             return dlg
         self.open_window("item", make).show_item(key)
+
+    def _start_live_data(self) -> None:
+        """The live sources, kept fresh with no one asking (the owner: every piece of data updates by itself):
+        MesoWatch's Free Market sales checked as the app starts and every 15 minutes (it publishes about every 12),
+        OSMS's Cash Shop list at start and every hour (ohmi's terms). Both in the background; the copy on disk shows
+        meanwhile, and the open price card, details window and Shop page redraw when a newer one comes in."""
+        from . import mesowatch, osms
+        mesowatch.warm()
+        osms.warm()
+        self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)
+        self._mesowatch_timer.start()
+        self._osms_timer = QTimer(interval=osms.REFRESH_SECONDS * 1000, timeout=osms.warm)
+        self._osms_timer.start()
+
+    def show_market_details(self, key: str):
+        """An item's Free Market sales on MesoWatch in full (chart, where to buy, recent sales), beside the Play
+        tools the first time, then where the player left it (the open window shows the next item)."""
+        from .ui.marketview import MarketDetailsDialog
+        tools = self.__dict__.get("_windows", {}).get("tools")
+        anchor = (tools.frameGeometry() if tools is not None and tools.isVisible()
+                  else self.overlay.frameGeometry() if self.overlay.isVisible() else None)
+        self.open_window("market", lambda: MarketDetailsDialog(self.kb, self.settings["language"], self.style(),
+                                                                self.settings, anchor)).show_item(key)
 
     def ask_from_tools(self, question: str, with_screenshot: bool, detail: bool = False, shown: str | None = None):
         if not self.overlay.is_open():
