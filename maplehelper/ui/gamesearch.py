@@ -877,6 +877,7 @@ class GameSearch(EdgeResize, QWidget):
         while self._rows:
             w = self._rows.pop()
             self._rows_lay.removeWidget(w)
+            w.hide()        # gone now: deleteLater left the 50 maps drawn under the narrowed ones (seen offscreen)
             w.deleteLater()
 
     def _rebuild_rows(self) -> None:
