@@ -62,7 +62,7 @@ def test_only_the_map_windows_loot_log_and_tools_are_on_the_bar(bar):
     from PySide6.QtWidgets import QPushButton
     w, _ = bar
     texts = [b.text() for b in w.findChildren(QPushButton)]
-    assert texts == ["NPCs", "Monsters", "Loot Log", "Tools"]
+    assert texts == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
 
 
 @pytest.mark.parametrize("key", ["npc_overlay", "monster_overlay", "loot_overlay"])
@@ -227,7 +227,7 @@ def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
     assert "game_toolbar_icons" not in store.DEFAULT_SETTINGS
     assert "game_toolbar_icons" not in report.REPORT_SETTINGS
     assert not hasattr(gametoolbar, "ICONS") and not hasattr(w._panel, "_icons")
-    assert [b.text() for b, _ in w._buttons()] == ["NPCs", "Monsters", "Loot Log", "Tools"]
+    assert [b.text() for b, _ in w._buttons()] == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
     assert w._tools.toolTip() == w.t("tb_tools_tip")
     assert "Emoji" not in w.styleSheet()
     assert "tbs_icons" not in STRINGS and "tbs_icons_hint" not in STRINGS
@@ -452,3 +452,16 @@ def test_it_opens_at_a_saved_spot(bar):
     s["game_toolbar_pos"] = {"x": x, "y": 60}
     w.refresh()
     assert w.pos() == QPoint(x, 60)
+
+
+def test_the_chat_button_comes_first_lit_and_opens_the_chat(bar):
+    """The chat one click from the game, first on the bar and in the accent (the owner, 2026-10-11)."""
+    from PySide6.QtWidgets import QPushButton
+    w, _ = bar
+    seen = []
+    w.chat_requested.connect(lambda: seen.append(True))
+    first = next(b for b in w.findChildren(QPushButton))
+    assert first is w._chat and w._chat.objectName() == "Chat" and not w._chat.isCheckable()
+    assert "#Chat" in w.styleSheet()
+    w._chat.click()
+    assert seen == [True]

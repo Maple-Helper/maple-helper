@@ -66,6 +66,8 @@ QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; borde
               padding: 5px 10px; text-align: center; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton:checked, QPushButton[on="true"] {{ background: {accent}; color: {on_accent}; }}
+#Chat {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
+#Chat:hover {{ background: {accent}; color: {on_accent}; }}
 QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
@@ -298,6 +300,7 @@ class GameToolbar(EdgeResize, QWidget):
     see it. Its place is kept in game_toolbar_pos, its width in game_toolbar_width."""
 
     window_toggled = Signal(str)       # a WINDOWS setting flipped ("npc_overlay" | "monster_overlay" | "loot_overlay")
+    chat_requested = Signal()          # the Chat button: the chat window opens (or comes forward)
     tools_requested = Signal(str)      # the Tools menu: the app's Tools window opens on that tab ("": its own)
     look_changed = Signal()            # a ⚙ panel choice: every window over the game re-styles and repaints
 
@@ -330,6 +333,12 @@ class GameToolbar(EdgeResize, QWidget):
         col.addLayout(self._flow)
         self._grip = _Grip()
         self._flow.addWidget(self._grip)
+        # the chat first, lit in the accent: the app's main window, one click from the game (the owner, 2026-10-11)
+        self._chat = QPushButton(objectName="Chat")
+        self._chat.setCursor(Qt.PointingHandCursor)
+        self._chat.setFocusPolicy(Qt.NoFocus)
+        self._chat.clicked.connect(lambda _=False: self.chat_requested.emit())
+        self._flow.addWidget(self._chat)
         self._windows: dict[str, QPushButton] = {}
         for key in WINDOWS:
             b = QPushButton(checkable=True)
@@ -378,6 +387,7 @@ class GameToolbar(EdgeResize, QWidget):
 
     def _buttons(self):
         """Every button on the bar with its i18n key: the texts and tooltips follow the language."""
+        yield self._chat, "tb_chat"
         for key, text in WINDOWS.items():
             yield self._windows[key], text
         yield self._tools, "tb_tools"

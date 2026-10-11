@@ -215,6 +215,7 @@ class MapleHelperApp:
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
         self.game_toolbar.window_toggled.connect(self._game_window_toggled)
         self.game_toolbar.tools_requested.connect(self._tools_from_bar)
+        self.game_toolbar.chat_requested.connect(self.show_chat)
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
         self.monster_overlay.closed.connect(self.game_toolbar.refresh)
         self.game_toolbar.look_changed.connect(self._overlay_look_changed)

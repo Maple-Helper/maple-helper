@@ -1236,6 +1236,8 @@ STRINGS = {
     "tb_loot": {"he": "יומן שלל", "en": "Loot Log"},
     "tb_loot_tip": {"he": "חלון יומן השלל מעל המשחק: EXP, mesos ופריטים מהודעות האיסוף, עם התחלה, עצירה ואיפוס. הפירוט: כלי משחק > יומן שלל",
                     "en": "The Loot Log window over the game: EXP, mesos and items from the pickup messages, with Start, Stop and Reset. Details: Play tools > Loot Log"},
+    "tb_chat": {"he": "צ'אט", "en": "Chat"},
+    "tb_chat_tip": {"he": "פתיחת הצ'אט של Maple Helper", "en": "Open the Maple Helper chat"},
     "tb_tools": {"he": "כלים", "en": "Tools"},
     "tb_tools_all": {"he": "כל הכלים…", "en": "All tools…"},
     "tb_tools_tip": {"he": "פתיחת חלון הכלים של Maple Helper: מחירים, מסלולים, סקרולים, ציוד ועוד",
