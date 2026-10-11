@@ -62,7 +62,7 @@ ACCENTS = {"app": ("tbs_accent_app", theme.ORANGE_DEEP, theme.ON_ORANGE),
            "orange": ("tbs_accent_orange", "#E08A3C", "#2F1706"),
            "pink": ("tbs_accent_pink", "#D65C8E", "#2F081A"),
            "teal": ("tbs_accent_teal", "#2FA8A0", "#062623")}
-OPACITY_STEPS = (0.3, 0.5, 0.7, 0.85, 1.0)   # the choices both the ⚙ panel and Settings > Minimap offer
+OPACITY_STEPS = (0.3, 0.5, 0.7, 0.85, 1.0)   # the ⚙ panel's transparency choices
 
 
 def _picked(settings, key: str):
@@ -257,17 +257,17 @@ def _paint_glass(w: QWidget, opacity: float) -> None:
     p.end()
 
 
-def set_capturable(w: QWidget, settings) -> None:
-    """Whether screen captures see this window over the game: by default never (WDA_EXCLUDEFROMCAPTURE), since it
-    may sit over the very box the minimap reads take (the hidden-portal dots over the player's yellow dot hid it from
-    the read) and the chat's game screenshots would carry it too; with settings["overlays_in_screenshots"] on they
-    do, so the player can screenshot what the overlays show. Set on every show, and by the app when the setting
-    flips. Older Windows draws it into the shot either way, where the reader's matching leaves the markers out."""
+def set_capturable(w: QWidget, settings, keep_out: bool = False) -> None:
+    """Screen captures see the windows over the game (the owner, 2026-10-11: players screenshot and stream them, no
+    setting). keep_out: the one layer drawn ON the game's minimap (the hidden-portal dots and the guide's ring,
+    ui/portaldots.py) stays out of every capture (WDA_EXCLUDEFROMCAPTURE), or the minimap reads would see their own
+    dots over the player's yellow one. Set on every show. Older Windows draws it into the shot either way, where the
+    reader's matching leaves the markers out."""
     if sys.platform != "win32":
         return
     try:
         import ctypes
-        mode = WDA_NONE if settings["overlays_in_screenshots"] else WDA_EXCLUDEFROMCAPTURE
+        mode = WDA_EXCLUDEFROMCAPTURE if keep_out else WDA_NONE
         if not ctypes.windll.user32.SetWindowDisplayAffinity(int(w.winId()), mode):
             log.debug("overlay: display affinity not available")
     except Exception as e:  # noqa: BLE001 - the window still shows; only who captures it changes
@@ -279,15 +279,55 @@ def _flags() -> Qt.WindowType:
     return Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
 
 
-def dock_beside(win: QWidget, owner: QWidget, gap: int = GUIDE_GAP) -> None:
+def minimap_box(settings) -> QRect | None:
+    """The drawn minimap box on the screen (Qt's coordinates), or None with no box drawn."""
+    region = _picked(settings, "minimap_region")
+    if not isinstance(region, dict):
+        return None
+    screens = [(s.geometry(), s.devicePixelRatio()) for s in QGuiApplication.screens()]
+    try:
+        box, _ = from_capture(region, screens, scale=sys.platform != "darwin")
+    except (KeyError, TypeError, ValueError):
+        return None
+    return box
+
+
+def _panel(w: QWidget, at: QPoint | None = None) -> QRect:
+    """The window's drawn panel (its rect less the transparent shadow rim), at `at` or where it is."""
+    r = QRect(at if at is not None else w.pos(), w.size())
+    return r.adjusted(SHADOW, SHADOW, -SHADOW, -SHADOW)
+
+
+def keep_off_minimap(w: QWidget, settings) -> bool:
+    """A window over the game dragged onto the drawn minimap box stops at its edge: it would cover the very box the
+    minimap reads take (now that captures see the windows, the owner's 2026-10-11). Moved out by the shortest way;
+    True when it was moved."""
+    box = minimap_box(settings)
+    panel = _panel(w)
+    if box is None or not panel.intersects(box) or w.__dict__.get("_nudging"):
+        return False
+    shifts = [QPoint(box.left() - 1 - panel.right(), 0), QPoint(box.right() + 1 - panel.left(), 0),
+              QPoint(0, box.top() - 1 - panel.bottom()), QPoint(0, box.bottom() + 1 - panel.top())]
+    w._nudging = True
+    try:
+        w.move(w.pos() + min(shifts, key=lambda d: abs(d.x()) + abs(d.y())))
+    finally:
+        w._nudging = False
+    return True
+
+
+def dock_beside(win: QWidget, owner: QWidget, gap: int = GUIDE_GAP, settings=None) -> None:
     """A small panel of its own docked beside its owner (its left, or its right where the owner's screen has no
-    room left of it): top edges lined up, kept on that screen top to bottom."""
+    room left of it, or where its left would cover the drawn minimap box): top edges lined up, kept on that screen
+    top to bottom."""
     left = owner.x() + 2 * SHADOW - gap - win.width()
     right = owner.x() + owner.width() - 2 * SHADOW + gap
     screen = QGuiApplication.screenAt(owner.geometry().center()) or QGuiApplication.primaryScreen()
     room = screen.availableGeometry()
-    x = left if left + SHADOW >= room.left() else right
     y = min(max(owner.y(), room.top()), max(room.top(), room.bottom() - win.height() + 1))
+    box = minimap_box(settings)
+    covers = box is not None and _panel(win, QPoint(left, y)).intersects(box)
+    x = left if left + SHADOW >= room.left() and not covers else right
     if win.pos() != QPoint(x, y):
         win.move(x, y)
 
@@ -349,7 +389,7 @@ class GuideWindow(QWidget):
     def dock(self) -> None:
         """Beside the list's panel, top edges lined up: on its left, or on its right when the list's screen has
         no room left of it; kept on that screen top to bottom."""
-        dock_beside(self, self._owner)
+        dock_beside(self, self._owner, settings=self._owner._settings)
 
 
 class _Header(QWidget):
@@ -611,6 +651,8 @@ class NpcOverlay(EdgeResize, QWidget):
         return primary.topLeft() + QPoint(SHADOW + 4, SHADOW + 4)
 
     def moveEvent(self, e) -> None:
+        if keep_off_minimap(self, self._settings):
+            return                  # moved again, off the minimap box: that move's own event follows
         self._geom.start()
         if self._guide.isVisible():
             self._guide.dock()      # the guide moves with the list

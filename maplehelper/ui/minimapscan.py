@@ -27,7 +27,7 @@ log = logging.getLogger("maplehelper")
 
 MIN_INTERVAL = 0.2      # s: faster only burned CPU rereading the same picture
 MAX_INTERVAL = 60.0     # s: slower, and the "where you are" line went stale
-DEFAULT_INTERVAL = 1.0  # s, the setting's own default (store.DEFAULT_SETTINGS)
+INTERVAL = 0.5          # s between reads: fixed, no setting (the owner, 2026-10-11)
 CONFIRM = 2             # reads in a row that must name a new map before the player counts as moved
 FOLLOW_IDLE_MS = 150    # the fast follow's period while the minimap stands still; while it moves, each follow's answer
                         # starts the next (~20 ms apart): every 100 ms, then 50, the dots trailed each scroll step by
@@ -121,14 +121,8 @@ class MinimapScanner(QObject):
                 and region["w"] > 0 and region["h"] > 0)
 
     def _interval(self) -> float:
-        """The setting's seconds between reads, inside [MIN_INTERVAL, MAX_INTERVAL]."""
-        try:
-            interval = float(self._settings["minimap_scan_interval"])
-        except (TypeError, ValueError):
-            return DEFAULT_INTERVAL
-        if not math.isfinite(interval):
-            return DEFAULT_INTERVAL
-        return min(MAX_INTERVAL, max(MIN_INTERVAL, interval))
+        """The seconds between reads: half a second, always (no setting)."""
+        return INTERVAL
 
     def _tick(self) -> None:
         if self._region is None:
@@ -163,12 +157,12 @@ class MinimapScanner(QObject):
 
     def _wants_follow(self) -> bool:
         """The fast follow runs while something on the game's minimap moves with its scroll: the hidden-portal
-        dots (the setting on, the player's map has hidden portals) or the guided NPC's ring (a guide set for the
+        dots (the player's map has hidden portals) or the guided NPC's ring (a guide set for the
         player's own map, ui/npcoverlay.py)."""
         here = LOCATION.here
         if here is None or self._graph is None:
             return False
-        if self._settings["minimap_hidden_portals"] and self._graph.hidden_spots(here.map):
+        if self._graph.hidden_spots(here.map):
             return True
         guide = LOCATION.guide
         return guide is not None and guide[0] == here.map

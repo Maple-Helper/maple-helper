@@ -4677,8 +4677,10 @@ class ToolsDialog(GlassDialog):
         for picker, label in ((self.route_from, "route_from"), (self.route_to, "route_to")):
             picker.setMinimumWidth(280)
             sec.add_row(t(label), picker)
-        self.route_taxi = Switch(True)
-        # a way already shown follows the switch; before one is asked for, nothing yet
+        self.route_taxi = Switch(bool(self.settings["route_taxi"]))
+        # a way already shown follows the switch; before one is asked for, nothing yet. Kept, and shared with the
+        # map window's own switch (a card's ◎): one choice for every way shown
+        self.route_taxi.toggled.connect(lambda on: self.settings.__setitem__("route_taxi", bool(on)))
         self.route_taxi.toggled.connect(lambda *_: self.route_out.count() > 1 and self._find_route())
         sec.add_row(t("route_taxi"), self.route_taxi, hint=t("route_taxi_hint"))
         go = QPushButton(self._p(t("route_go")), objectName="Primary")

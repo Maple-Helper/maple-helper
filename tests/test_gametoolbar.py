@@ -234,7 +234,7 @@ def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
 
 
 def test_an_opacity_choice_writes_the_shared_setting(bar):
-    """The panel's transparency is the same npc_overlay_opacity the Settings dialog offers."""
+    """The panel's transparency writes npc_overlay_opacity, the one setting every window over the game reads."""
     w, s = bar
     w.refresh()
     w._gear.click()
@@ -243,10 +243,36 @@ def test_an_opacity_choice_writes_the_shared_setting(bar):
     assert w._opacity == 0.5
 
 
-def test_the_panel_and_settings_offer_the_same_opacity_steps():
-    from maplehelper.ui.dialogs import OPACITY_CHOICES
+def test_the_panel_offers_the_opacity_steps(bar):
+    """The ⚙ panel is the one place to pick the transparency (Settings > Minimap no longer offers it)."""
+    from maplehelper.ui import dialogs
     from maplehelper.ui.npcoverlay import OPACITY_STEPS
-    assert OPACITY_CHOICES == OPACITY_STEPS
+    w, _ = bar
+    w._gear.click()
+    assert list(w._panel._steps) == [f"{v:g}" for v in OPACITY_STEPS]
+    assert [b.text() for b in w._panel._steps.values()] == [f"{round(v * 100)}%" for v in OPACITY_STEPS]
+    assert not hasattr(dialogs, "OPACITY_CHOICES")
+
+
+def test_settings_has_no_look_rows(bar, isolated_store, kb, monkeypatch):
+    """The windows' glass colour, accent and transparency are the ⚙ panel's alone (the owner, 2026-10-11): Settings
+    shows none of them, and saving it leaves the panel's choices as they were."""
+    from maplehelper import providers
+    from maplehelper.ui.dialogs import SettingsDialog
+    for name in ("claude", "codex"):
+        monkeypatch.setattr(type(providers.get(name)), "account",
+                            lambda self: {"status": "logged_out", "email": None, "method": None})
+        monkeypatch.setattr(type(providers.get(name)), "status", lambda self: "logged_out")
+    _, s = bar
+    s["overlay_tint"], s["overlay_accent"], s["npc_overlay_opacity"] = "wine", "pink", 0.5
+    dlg = SettingsDialog(s, isolated_store.Profiles(), kb, lambda *_: "")
+    try:
+        for name in ("npc_opacity", "overlay_tint", "overlay_accent", "overlay_shots"):
+            assert not hasattr(dlg, name), name
+        dlg._save()
+    finally:
+        dlg.close()
+    assert (s["overlay_tint"], s["overlay_accent"], s["npc_overlay_opacity"]) == ("wine", "pink", 0.5)
 
 
 def test_a_panel_choice_signals_the_app_to_restyle_every_window(bar):
@@ -383,7 +409,7 @@ def test_the_panels_app_swatch_is_the_apps_glass(bar):
     chips = {b.property("key"): b for b in w._panel._tints.findChildren(QPushButton)}
     assert list(chips)[0] == "app" and chips["app"].isChecked()
     assert "#f2f2f7" in chips["app"].styleSheet()
-    assert chips["app"].toolTip() == "Like the app"
+    assert chips["app"].toolTip() == "Like Maple Helper"
 
 
 # ------------------------------------------------------------ its place on the screen

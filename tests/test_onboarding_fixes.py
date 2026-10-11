@@ -354,12 +354,6 @@ def test_a_connected_ai_is_named_in_the_privacy_line(env):
     dlg.close()
 
 
-def test_minimap_label_doesnt_repeat_the_unit():
-    from maplehelper.i18n import STRINGS
-    assert "seconds" not in STRINGS["minimap_scan_interval"]["en"]
-    assert "לפי שניות" not in STRINGS["minimap_scan_interval"]["he"]
-
-
 # --- COPY-07: the startup failure ----------------------------------------------------------------------------------
 
 def test_startup_failure_names_the_issues_address():

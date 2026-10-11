@@ -33,6 +33,7 @@ from .npcoverlay import (
     _flags,
     _paint_glass,
     accent_of,
+    keep_off_minimap,
     apply_look,
     look_palette,
     set_capturable,
@@ -159,7 +160,7 @@ class _SettingsPanel(QWidget):
         self._accents = self._swatches(ACCENTS, self._pick_accent)
         col.addWidget(self._accents)
         col.addSpacing(4)
-        # the transparency: the same steps Settings > Minimap offers, one chip each
+        # the transparency: OPACITY_STEPS, one chip each (only here: Settings has no look rows)
         self._opacity_label = QLabel(objectName="Status")
         col.addWidget(self._opacity_label)
         steps = QWidget()
@@ -524,6 +525,8 @@ class GameToolbar(EdgeResize, QWidget):
         return QPoint(primary.center().x() - self.width() // 2, primary.top() + SHADOW + 4)
 
     def moveEvent(self, e) -> None:
+        if keep_off_minimap(self, self._settings):
+            return                  # moved again, off the minimap box: that move's own event follows
         self._geom.start()
         super().moveEvent(e)
 

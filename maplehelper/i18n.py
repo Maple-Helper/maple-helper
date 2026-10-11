@@ -1145,29 +1145,11 @@ STRINGS = {
                           "• \"How to get there\" in the Play tools starts from your map\n"
                           "Moved the minimap or resized the game? Click again and draw a new box."},
     "minimap_pick_hint": {"he": "גררו מסגרת סביב המיני-מפה במשחק.", "en": "Drag a box around the game's minimap."},
-    "minimap_scan_interval": {"he": "כל כמה זמן לקרוא את המיני-מפה", "en": "How often to read the minimap"},
-    "scan_every_0_5": {"he": "חצי שנייה", "en": "Half a second"},
-    "scan_every_1": {"he": "שנייה אחת", "en": "1 second"},
-    "scan_every_2": {"he": "2 שניות", "en": "2 seconds"},
-    "scan_every_5": {"he": "5 שניות", "en": "5 seconds"},
-    "scan_every_10": {"he": "10 שניות", "en": "10 seconds"},
-    "minimap_scan_hint": {"he": "כל כמה זמן אני בודק במיני-מפה איפה אתם.",
-                          "en": "How often Maple Helper reads the minimap to see where you are."},
-    "minimap_hidden_portals": {"he": "פורטלים נסתרים במיני-מפה", "en": "Hidden portals on the minimap"},
-    "minimap_hidden_portals_hint": {"he": "נקודה כחולה קטנה במיני-מפה של המשחק בכל מקום עם טלפורט בלתי נראה.",
-                                    "en": "A small blue dot on the game's minimap wherever an invisible teleport is."},
     "npc_overlay": {"he": "חלון NPC במשחק", "en": "NPCs-on-this-map window"},
     "npc_overlay_hint": {"he": "חלון שקוף מעל המשחק עם כל ה-NPC במפה שלכם. לחיצה על NPC מסמנת אותו במיני-מפה ומכוונת אליו.",
                          "en": "A see-through window over the game listing every NPC on your map. Click one to mark "
                                "it on the minimap and be guided to it."},
     "npc_overlay_opacity": {"he": "אטימות החלון", "en": "Window opacity"},
-    "overlays_in_screenshots": {"he": "החלונות שמעל המשחק בצילומי מסך", "en": "Show the overlays in screenshots"},
-    "overlays_in_screenshots_hint": {
-        "he": "דלוק: צילום מסך (גם של Windows) רואה את הסרגל, החלונות והנקודות שמעל המשחק, כדי שתוכלו לצלם ולשתף אותם. "
-              "כבוי (מומלץ): הם נשארים מחוץ לצילומים, כי קריאת המיני-מפה וצילומי המשחק שנשלחים ל-AI רואים אותם גם.",
-        "en": "On: screenshots (Windows' own too) show the toolbar, windows and dots over the game, so you can capture "
-              "and share them. Off (recommended): they stay out, since the minimap reads and the game shots the AI "
-              "gets would see them too."},
     "npc_overlay_title": {"he": "NPC במפה", "en": "NPCs Here"},
     "npc_overlay_none": {"he": "אין NPC במפה הזו", "en": "No NPCs on this map"},
     "npc_overlay_unknown": {"he": "עוד לא ידוע באיזו מפה אתם", "en": "Your map isn't known yet"},
@@ -2006,16 +1988,9 @@ STRINGS = {
     "tbs_title": {"he": "הגדרות הסרגל", "en": "Toolbar settings"},
     "tbs_close": {"he": "סגירת ההגדרות", "en": "Close the settings"},
     "tbs_tint": {"he": "צבע הזכוכית", "en": "Glass colour"},
-    "tbs_tint_hint": {"he": "צבע הרקע של סרגל הכלים ושל החלונות שמעל המשחק. \"כמו האפליקציה\" בהיר או כהה, "
-                            "לפי המראה שבחרתם לאפליקציה.",
-                      "en": "The background colour of the toolbar and the windows over the game. \"Like the app\" "
-                            "is light or dark, as the appearance you picked for the app."},
     "tbs_accent": {"he": "צבע ההדגשה", "en": "Accent colour"},
-    "tbs_accent_hint": {"he": "הצבע שמדליק כפתור פעיל בחלונות שמעל המשחק. \"כמו האפליקציה\" הוא הכתום שלה.",
-                        "en": "The colour that lights a turned-on button in the windows over the game. "
-                              "\"Like the app\" is its orange."},
-    "tbs_tint_app": {"he": "כמו האפליקציה", "en": "Like the app"},
-    "tbs_accent_app": {"he": "כמו האפליקציה", "en": "Like the app"},
+    "tbs_tint_app": {"he": "כמו האפליקציה", "en": "Like Maple Helper"},
+    "tbs_accent_app": {"he": "כמו האפליקציה", "en": "Like Maple Helper"},
     "tbs_tint_dark": {"he": "כהה", "en": "Dark"},
     "tbs_tint_midnight": {"he": "כחול חצות", "en": "Midnight blue"},
     "tbs_tint_forest": {"he": "ירוק יער", "en": "Forest"},

@@ -20,7 +20,7 @@ from ..i18n import I18n
 from . import theme
 from .glass import SHADOW
 from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TOP, _Header,
-                         _flags, _paint_glass, accent_of, look_palette, set_capturable)
+                         _flags, _paint_glass, accent_of, keep_off_minimap, look_palette, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 4                        # the latest pickups shown under the totals
@@ -300,6 +300,8 @@ class LootOverlay(QWidget):
         return any(s.availableGeometry().intersects(r) for s in QGuiApplication.screens())
 
     def moveEvent(self, e) -> None:
+        if keep_off_minimap(self, self.settings):
+            return                  # moved again, off the minimap box: that move's own event follows
         self._geom.start()
         super().moveEvent(e)
 

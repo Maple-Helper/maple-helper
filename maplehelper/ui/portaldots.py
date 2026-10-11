@@ -73,8 +73,8 @@ class PortalDots(QWidget):
         if view is None:
             self._clear()
             return
-        # the portal dots need their setting; the ring, only a guide for the map the player is on
-        spots = routes.of(self._kb).hidden_spots(here.map) if self._settings["minimap_hidden_portals"] else []
+        # the portal dots always (no setting: the owner, 2026-10-11); the ring, only a guide for the player's map
+        spots = routes.of(self._kb).hidden_spots(here.map)
         at = [p for p in (view.at(s) for s in spots) if p is not None]
         guide = LOCATION.guide
         at_ring = view.at(guide[1]) if guide is not None and guide[0] == here.map else None
@@ -94,7 +94,7 @@ class PortalDots(QWidget):
             self.setGeometry(rect)
         if not self.isVisible():
             self.show()
-            set_capturable(self, self._settings)     # off the minimap reads' shots, unless the player asked
+            set_capturable(self, self._settings, keep_out=True)   # never in the minimap reads' own shots
         self.update()
 
     def _clear(self) -> None:

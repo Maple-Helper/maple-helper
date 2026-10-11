@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import re
 import sys
 import threading
@@ -17,7 +16,6 @@ from .. import bidi, osapi, providers
 from ..providers.base import login_failed, login_waiting, stop_login
 from .controls import AdaptiveRow, FlowLayout, Section, Segmented, Select, Stepper, Switch, rtl_buttons
 from .glass import GlassDialog, no_default_buttons
-from .npcoverlay import ACCENTS, OPACITY_STEPS, TINTS
 from .patchnotes import gutter
 from ..i18n import I18n, system_language
 from ..jobs import JOBS, job_label, open_jobs        # the job tree: base class -> [(job, min level)], checked against the KB
@@ -67,11 +65,6 @@ CLASS_HE = {"Beginner": "ביגינר", "Warrior": "לוחם", "Magician": "קו
 # at least 100). It matches the bound the saved profile keeps (store._repair), so nothing typed here is
 # changed on the next load.
 LEVEL_FIELD_MAX = 250
-# Settings → how often the minimap is read, in seconds (minimapscan clamps whatever is stored to 0.2-60)
-SCAN_CHOICES = (0.5, 1.0, 2.0, 5.0, 10.0)
-# Settings → the NPCs-on-this-map window's background opacity, and the ⚙ panel's transparency: the same steps
-# from the one place (npcoverlay), so the two entry points can't drift apart
-OPACITY_CHOICES = OPACITY_STEPS
 
 
 def jobs_for(base_class: str, level: int, kb=None) -> list[str]:
@@ -1226,59 +1219,16 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
         sec.add_row(t("instant_answers"), self.instant, hint=t.p("instant_answers_hint", settings["provider"]))
         lay.addWidget(sec)
 
-        # the minimap: how often its box is read (where the player is, under the level on the character card), the
-        # hidden-portal dots drawn over it, the bar over the game that opens the NPCs window and the searches, and
-        # the NPCs-on-this-map window itself
+        # the minimap: the bar over the game, and the NPC and Monsters windows it opens
         sec = Section(t("sec_minimap"), rtl)
-        # (a few set choices in the app's own pop-up: a bare number box with arrows didn't match anything else)
-        try:
-            scan_value = float(settings["minimap_scan_interval"])
-        except (TypeError, ValueError):
-            scan_value = 1.0
-        if not math.isfinite(scan_value) or scan_value <= 0:
-            scan_value = 1.0
-        # a value from before the choices (or hand-edited) shows as the nearest one (in ratio: 3 s is nearer 2 than 5)
-        scan_value = min(SCAN_CHOICES, key=lambda v: abs(math.log(v / scan_value)))
-        # a pop-up like the microphone's: five segments beside the label pushed the window wider than 470 px
-        self.scan = Select([t(k) for k in ("scan_every_0_5", "scan_every_1", "scan_every_2", "scan_every_5",
-                                             "scan_every_10")])   # (SCAN_CHOICES, in order)
-        self.scan.setCurrentIndex(SCAN_CHOICES.index(scan_value))
-        sec.add_row(t("minimap_scan_interval"), self.scan, hint=t("minimap_scan_hint"), hint_below=True)
-        self.hidden_portals = Switch(settings["minimap_hidden_portals"])
-        sec.add_row(t("minimap_hidden_portals"), self.hidden_portals, hint=t("minimap_hidden_portals_hint"))
         self.game_toolbar = Switch(settings["game_toolbar"])
         sec.add_row(t("game_toolbar"), self.game_toolbar, hint=t("game_toolbar_hint"))
         self.npc_overlay = Switch(settings["npc_overlay"])
         sec.add_row(t("npc_overlay"), self.npc_overlay, hint=t("npc_overlay_hint"))
         self.monster_overlay = Switch(settings["monster_overlay"])
         sec.add_row(t("monster_overlay"), self.monster_overlay, hint=t("monster_overlay_hint"))
-        try:
-            opacity = float(settings["npc_overlay_opacity"])
-        except (TypeError, ValueError):
-            opacity = 0.85
-        if not math.isfinite(opacity) or opacity <= 0:
-            opacity = 0.85
-        # a pop-up like the scan interval's: the few set choices, a hand-edited value shows as the nearest one
-        # (in ratio: 0.8 is nearer 0.85 than 0.7)
-        opacity = min(OPACITY_CHOICES, key=lambda v: abs(math.log(v / opacity)))
-        self.npc_opacity = Select([f"{round(v * 100)}%" for v in OPACITY_CHOICES])
-        self.npc_opacity.setCurrentIndex(OPACITY_CHOICES.index(opacity))
-        sec.add_row(t("npc_overlay_opacity"), self.npc_opacity)
-        # the colours every window over the game follows ("app" first, the default: the app's own look): the ⚙
-        # panel offers the same choices from the one place (npcoverlay's presets) and applies them at once; here
-        # they wait for Save like everything else in Settings
-        tints = list(TINTS)
-        self.overlay_tint = Select([t(TINTS[k][0]) for k in tints])
-        self.overlay_tint.setCurrentIndex(tints.index(settings["overlay_tint"] if settings["overlay_tint"] in tints
-                                                      else tints[0]))
-        sec.add_row(t("tbs_tint"), self.overlay_tint, hint=t("tbs_tint_hint"))
-        accents = list(ACCENTS)
-        self.overlay_accent = Select([t(ACCENTS[k][0]) for k in accents])
-        self.overlay_accent.setCurrentIndex(accents.index(settings["overlay_accent"] if settings["overlay_accent"] in accents
-                                                          else accents[0]))
-        sec.add_row(t("tbs_accent"), self.overlay_accent, hint=t("tbs_accent_hint"))
-        self.overlay_shots = Switch(settings["overlays_in_screenshots"])
-        sec.add_row(t("overlays_in_screenshots"), self.overlay_shots, hint=t("overlays_in_screenshots_hint"))
+        # the windows' colours and transparency are the bar's ⚙ panel's alone; how often the minimap is read, the
+        # hidden-portal dots and the overlays in screenshots are fixed, with no setting (the owner, 2026-10-11)
         lay.addWidget(sec)
 
         # AI account: the provider and the model wait for Save like every other setting ("Don't save" kept a
@@ -1888,15 +1838,9 @@ class SettingsDialog(_ApiKeyEntry, GlassDialog):
             "microphone": self._mic_value(),
             "voice_language": self.voice_lang.value(),
             "instant_answers": self.instant.isChecked(),
-            "minimap_scan_interval": SCAN_CHOICES[max(0, self.scan.currentIndex())],
-            "minimap_hidden_portals": self.hidden_portals.isChecked(),
             "game_toolbar": self.game_toolbar.isChecked(),
             "npc_overlay": self.npc_overlay.isChecked(),
             "monster_overlay": self.monster_overlay.isChecked(),
-            "npc_overlay_opacity": OPACITY_CHOICES[max(0, self.npc_opacity.currentIndex())],
-            "overlay_tint": list(TINTS)[max(0, self.overlay_tint.currentIndex())],
-            "overlay_accent": list(ACCENTS)[max(0, self.overlay_accent.currentIndex())],
-            "overlays_in_screenshots": self.overlay_shots.isChecked(),
             "saver_mode": self.saver.isChecked(),
             "answer_length": self.length.value(),
             "start_with_windows": self.autostart.isChecked(),

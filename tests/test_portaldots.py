@@ -1,5 +1,6 @@
 """The hidden-portal dots over the game's minimap (ui/portaldots.py): placed from each minimap read's view over the
-drawn box, hidden when there is nothing to place or the setting is off; and their Settings switch."""
+drawn box, hidden when there is nothing to place; always on (no Settings switch), and kept out of screen captures
+while every other window over the game shows in them."""
 import os
 from types import SimpleNamespace
 
@@ -67,16 +68,13 @@ def test_dots_sit_on_the_box_where_the_map_was_placed(dots, qapp):
     assert img.pixelColor(150, 150).alpha() == 0                   # and nothing else
 
 
-@pytest.mark.parametrize("change", ["setting_off", "no_view", "no_read", "no_box", "none_in_view", "other_map"])
+@pytest.mark.parametrize("change", ["no_view", "no_read", "no_box", "none_in_view", "other_map"])
 def test_nothing_to_place_hides_the_dots(dots, change):
     from maplehelper.minimap import Here
     w, s, loc = dots
     _place(loc, _here())
     assert w.isVisible()
-    if change == "setting_off":
-        s["minimap_hidden_portals"] = False
-        w.refresh()
-    elif change == "no_view":
+    if change == "no_view":
         _place(loc, Here("010003000", (0.3, 0.3)))
     elif change == "no_read":
         loc.set(None)
@@ -91,29 +89,27 @@ def test_nothing_to_place_hides_the_dots(dots, change):
 
 
 def test_the_guided_npc_rings_where_the_map_was_placed(dots):
-    """A guide rings its NPC green on the game's minimap (wider than the blue dots) from the follow alone: the
-    hidden-portal setting gates only the dots, so the ring shows with it off and beside the dots with it on.
-    Another map's guide, or none, leaves the window with nothing to draw."""
+    """A guide rings its NPC green on the game's minimap (wider than the blue dots) from the follow alone: on a map
+    without hidden portals the ring shows by itself, and beside the dots on one with them. Another map's guide, or
+    none, leaves the window with nothing to draw."""
     from PySide6.QtCore import QPointF
 
-    w, s, loc = dots
-    s["minimap_hidden_portals"] = False
-    _place(loc, _here())
+    w, _, loc = dots
+    _place(loc, _here("100000000"))                      # a map with no hidden portals: nothing to draw
     assert not w.isVisible()
-    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+    loc.set_guide(("100000000", (0.5, 0.5), "npc/303"))
     assert w.isVisible() and w._dots == [] and w._ring == QPointF(60, 45)
     img = w.grab().toImage()
     c = img.pixelColor(60, 38)                            # on the ring, 7 px above its centre
     assert c.green() > 90 and c.red() < 90                # the NPC's green, drawn
-    loc.set_guide(("100000000", (0.5, 0.5), "npc/303"))   # a guide for another map: nothing to ring here
+    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))   # a guide for another map: nothing to ring here
     assert not w.isVisible() and w._ring is None
-    loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
+    loc.set_guide(("100000000", (0.5, 0.5), "npc/303"))
     loc.set_guide(None)                                   # guiding stopped: the ring goes with it
     assert not w.isVisible() and w._ring is None
+    _place(loc, _here())                                  # a map with hidden portals, guided there
     loc.set_guide(("010003000", (0.5, 0.5), "npc/303"))
-    s["minimap_hidden_portals"] = True
-    w.refresh()                                           # beside the dots, when they show too
-    assert w.isVisible() and w._dots and w._ring == QPointF(60, 45)
+    assert w.isVisible() and w._dots and w._ring == QPointF(60, 45)    # beside the dots
 
 
 def test_the_follow_moves_the_dots_between_reads_and_a_lost_one_hides_them(dots):
@@ -154,23 +150,92 @@ def test_entering_a_shop_never_flashes_the_streets_dots_back(dots):
     assert not w.isVisible()
 
 
-def test_the_switch_is_on_by_default_and_saves(qapp, isolated_store, kb, monkeypatch):
-    from maplehelper import providers
+def test_the_dots_ignore_a_stale_setting(dots):
+    """The dots have no setting any more (the owner, 2026-10-11): an old settings.json's False hides nothing."""
+    w, s, loc = dots
+    s["minimap_hidden_portals"] = False
+    _place(loc, _here())
+    assert w.isVisible() and len(w._dots) == 3
+
+
+def test_settings_has_no_hidden_portal_switch(qapp, isolated_store, kb, monkeypatch):
+    from maplehelper import providers, store
+    from maplehelper.i18n import STRINGS
     from maplehelper.ui.dialogs import SettingsDialog
     for name in ("claude", "codex"):
         monkeypatch.setattr(type(providers.get(name)), "account",
                             lambda self: {"status": "logged_out", "email": None, "method": None})
         monkeypatch.setattr(type(providers.get(name)), "status", lambda self: "logged_out")
+    assert "minimap_hidden_portals" not in store.DEFAULT_SETTINGS and "minimap_hidden_portals" not in STRINGS
+    assert "overlays_in_screenshots" not in store.DEFAULT_SETTINGS and "overlays_in_screenshots" not in STRINGS
     s = isolated_store.Settings()
     s["language"] = "en"
     s["provider"] = "claude"
-    assert s["minimap_hidden_portals"] is True
     dlg = SettingsDialog(s, isolated_store.Profiles(), kb, lambda *_: "")
     try:
-        assert dlg.hidden_portals.isChecked() and not dlg.unsaved()
-        dlg.hidden_portals.setChecked(False)
-        assert dlg.unsaved()
+        assert not hasattr(dlg, "hidden_portals") and not hasattr(dlg, "overlay_shots") and not dlg.unsaved()
         dlg._save()
-        assert s["minimap_hidden_portals"] is False
+        assert "minimap_hidden_portals" not in s.data and "overlays_in_screenshots" not in s.data
     finally:
         dlg.close()
+
+
+# --- screen captures: the dots stay out, every other window over the game shows ---------------------------------
+
+
+def test_the_dots_show_kept_out_of_captures(dots, monkeypatch):
+    """The dots sit on the very box the minimap reads capture: they ask to stay out (keep_out=True) on show."""
+    from maplehelper.ui import portaldots
+    calls = []
+    monkeypatch.setattr(portaldots, "set_capturable", lambda w, settings, keep_out=False: calls.append((w, keep_out)))
+    w, _, loc = dots
+    _place(loc, _here())
+    assert w.isVisible() and calls == [(w, True)]
+
+
+class _User32:
+    def __init__(self):
+        self.calls = []
+
+    def SetWindowDisplayAffinity(self, hwnd, mode):     # noqa: N802 - the Win32 name
+        self.calls.append(mode)
+        return 1
+
+
+@pytest.mark.skipif(os.sys.platform != "win32", reason="display affinity is Windows-only")
+def test_display_affinity_keeps_only_the_dots_out(qapp, isolated_store, monkeypatch):
+    """keep_out: WDA_EXCLUDEFROMCAPTURE; every other window: WDA_NONE, whatever an old settings.json says."""
+    import ctypes
+
+    from PySide6.QtWidgets import QWidget
+
+    from maplehelper.ui import npcoverlay
+    user32 = _User32()
+    monkeypatch.setattr(ctypes, "windll", SimpleNamespace(user32=user32), raising=False)
+    s = isolated_store.Settings()
+    s["overlays_in_screenshots"] = False                # a stale key: it no longer hides anything
+    w = QWidget()
+    try:
+        npcoverlay.set_capturable(w, s)
+        npcoverlay.set_capturable(w, s, keep_out=True)
+    finally:
+        w.close()
+    assert user32.calls == [npcoverlay.WDA_NONE, npcoverlay.WDA_EXCLUDEFROMCAPTURE]
+    assert (npcoverlay.WDA_NONE, npcoverlay.WDA_EXCLUDEFROMCAPTURE) == (0x0, 0x11)
+
+
+def test_the_app_never_reapplies_capture_without_keeping_the_dots_out(monkeypatch):
+    """Each window sets its capture mode on show. An app-wide re-apply (once run after every Settings save) must
+    keep the dots out too, or the minimap reads would see them until their next show."""
+    from maplehelper import app
+    from maplehelper.ui import npcoverlay
+    reapply = getattr(app.MapleHelperApp, "_apply_overlay_capture", None)
+    if reapply is None:
+        return                  # none any more (the setting it served is gone): only the windows' own shows set it
+    calls = {}
+    monkeypatch.setattr(npcoverlay, "set_capturable",
+                        lambda w, settings, keep_out=False: calls.__setitem__(w, keep_out))
+    dots, npc, toolbar = object(), SimpleNamespace(_guide=None), object()
+    reapply(SimpleNamespace(portal_dots=dots, npc_overlay=npc, monster_overlay=None, game_toolbar=toolbar,
+                            loot_overlay=None, settings={}))
+    assert calls[dots] is True and calls[npc] is False and calls[toolbar] is False

@@ -1,5 +1,5 @@
-"""The minimap scanner (ui/minimapscan.py) and its Settings row: reads run on the interval, nothing runs without
-a box, a bad read is "unknown" (never a crash), and the interval saves like every other setting."""
+"""The minimap scanner (ui/minimapscan.py): reads run every half second (a fixed interval, no Settings row),
+nothing runs without a box, and a bad read is "unknown" (never a crash)."""
 import logging
 import os
 import threading
@@ -70,23 +70,25 @@ def test_a_box_scans_on_the_interval(env, clean_location, qapp):
     try:
         s["minimap_region"] = dict(BOX)
         sc.restart()
-        assert sc._timer.isActive() and sc._timer.interval() == 1000
-        s["minimap_scan_interval"] = 2.5
-        sc.restart()
-        assert sc._timer.interval() == 2500
+        assert sc._timer.isActive() and sc._timer.interval() == 500
     finally:
         sc.stop()
 
 
-def test_the_interval_is_clamped(env, clean_location, qapp):
+def test_the_interval_is_half_a_second_whatever_is_stored(env, clean_location, qapp):
+    """The interval has no setting any more (the owner, 2026-10-11): a value left in an old settings.json, or a
+    junk one, changes nothing."""
+    from maplehelper.ui import minimapscan
     s, _, kb = env
+    assert minimapscan.INTERVAL == 0.5
+    assert not hasattr(minimapscan, "DEFAULT_INTERVAL")
     sc = _make_scanner(s, kb)
     try:
         s["minimap_region"] = dict(BOX)
-        for value, ms in ((0.01, 200), (600.0, 60000), ("junk", 1000), (None, 1000), (float("nan"), 1000)):
-            s["minimap_scan_interval"] = value
+        for value in (0.01, 1.0, 2.5, 600.0, "junk", None, float("nan")):
+            s["minimap_scan_interval"] = value          # a stale key from before the change
             sc.restart()
-            assert sc._timer.interval() == ms, value
+            assert sc._interval() == 0.5 and sc._timer.interval() == 500, value
     finally:
         sc.stop()
 
@@ -221,7 +223,6 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
     sc = _make_scanner(s, kb)
     try:
         s["minimap_region"] = dict(BOX)
-        s["minimap_scan_interval"] = 1.0
         sc.restart()
         sc._locator, sc._graph = _Locator(None), _Graph()
         grabs = []
@@ -238,7 +239,7 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
                 pass
 
         monkeypatch.setattr(threading, "Thread", FakeThread)
-        sc._read(dict(BOX))                     # a miss: unknown, and no read for max(5 s, 5 x 1 s)
+        sc._read(dict(BOX))                     # a miss: unknown, and no read for max(5 s, 5 x 0.5 s)
         assert clean_location.state == "unknown" and sc._cooldown_until == 1005.0
         sc._tick()
         assert started == [] and not sc._reading
@@ -259,8 +260,8 @@ def test_misses_back_off_and_hits_reset(env, clean_location, qapp, monkeypatch):
 
 
 def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_location, qapp, monkeypatch):
-    """The fast follow runs only while the dots have something to show (the setting on, hidden portals on the
-    map). Its answers reach LOCATION.follow; losing the picture (a teleport) starts a whole read at once, once per
+    """The fast follow runs only while the dots have something to show (hidden portals on the map; the dots have
+    no setting, they always show). Its answers reach LOCATION.follow; losing the picture (a teleport) starts a whole read at once, once per
     loss, not every 100 ms while the loading screen lasts."""
     from types import SimpleNamespace
 
@@ -289,10 +290,7 @@ def test_the_follow_runs_only_for_dots_and_a_loss_starts_one_read(env, clean_loc
         sc._follow_tick()
         assert started == []
         clean_location.set(Here("010003000", None))
-        s["minimap_hidden_portals"] = False
-        sc._follow_tick()
-        assert started == []
-        s["minimap_hidden_portals"] = True
+        s["minimap_hidden_portals"] = False                 # a stale key from before the dots were always on
         sc._follow_tick()
         sc._follow_tick()                                   # still going: no second one
         assert started == ["_follow"]
@@ -338,9 +336,6 @@ def test_the_follow_also_runs_while_a_guide_is_on_the_players_map(env, clean_loc
         assert not sc._wants_follow()                      # nothing to follow for: no portals, no guide
         clean_location.set_guide(("010003000", (0.5, 0.5), "npc/303"))
         assert sc._wants_follow()                          # the ring needs the follow to stay placed
-        s["minimap_hidden_portals"] = False
-        assert sc._wants_follow()                          # the dots' setting off: the guide keeps it running
-        s["minimap_hidden_portals"] = True
         clean_location.set_guide(("100000000", (0.5, 0.5), "npc/303"))
         assert not sc._wants_follow()                      # a guide elsewhere rings nothing here
         clean_location.set_guide(None)
@@ -386,7 +381,6 @@ def test_a_known_map_is_never_dropped_for_unreadable_reads(env, clean_location, 
     sc = _make_scanner(s, kb)
     try:
         s["minimap_region"] = dict(BOX)
-        s["minimap_scan_interval"] = 1.0
         sc.restart()
         now = [500.0]
         monkeypatch.setattr(minimapscan.time, "monotonic", lambda: now[0])
@@ -438,45 +432,34 @@ def test_restart_clears_the_backoff_and_failures_back_off(env, clean_location, q
     sc = _make_scanner(s, kb)
     try:
         s["minimap_region"] = dict(BOX)
-        s["minimap_scan_interval"] = 10.0     # the backoff is max(5 s, 5 x 10 s) = 50 s
+        # the backoff is max(5 s, 5 x 0.5 s) = 5 s
         sc.restart()
         now = [2000.0]
         monkeypatch.setattr(minimapscan.time, "monotonic", lambda: now[0])
         sc._complain("RuntimeError: boom")    # a failing read backs off too
-        assert sc._cooldown_until == 2050.0 and clean_location.state == "unknown"
-        sc.restart()                          # a new box or interval: read right away
+        assert sc._cooldown_until == 2005.0 and clean_location.state == "unknown"
+        sc.restart()                          # a new box: read right away
         assert sc._cooldown_until == 0.0
     finally:
         sc.stop()
 
 
-# --- the Settings row ---------------------------------------------------------------------------------------------
+# --- no Settings row ---------------------------------------------------------------------------------------------
 
 
-def test_the_scan_row_saves_and_detects_changes(env, qapp):
-    from maplehelper.ui.controls import Select
-    from maplehelper.ui.dialogs import SCAN_CHOICES, SettingsDialog
+def test_settings_has_no_scan_row(env, qapp):
+    """How often the minimap is read is fixed (the owner, 2026-10-11): Settings neither shows nor saves it."""
+    from maplehelper import store
+    from maplehelper.i18n import STRINGS
+    from maplehelper.ui import dialogs
+    from maplehelper.ui.dialogs import SettingsDialog
     s, p, kb = env
+    assert not hasattr(dialogs, "SCAN_CHOICES")
+    assert "minimap_scan_interval" not in store.DEFAULT_SETTINGS and "minimap_scan_interval" not in STRINGS
     dlg = SettingsDialog(s, p, kb, lambda *_: "")
     try:
-        # the app's own pop-up, not a bare number box (the owner's, 2026-10-08)
-        assert isinstance(dlg.scan, Select) and dlg.scan.count() == len(SCAN_CHOICES)
-        assert dlg.scan.text() == dlg.t("scan_every_1") and not dlg.unsaved()
-        dlg.scan.setCurrentIndex(SCAN_CHOICES.index(5.0))
-        assert dlg.unsaved()
-        dlg._save()                 # stores it (Save closes the dialog, so _initial stays as it was, like every row)
-        assert s["minimap_scan_interval"] == 5.0 and not dlg.isVisible()
+        assert not hasattr(dlg, "scan") and not dlg.unsaved()
+        dlg._save()
+        assert "minimap_scan_interval" not in s.data
     finally:
         dlg.close()
-
-
-def test_the_scan_row_shows_the_nearest_choice(env, qapp):
-    from maplehelper.ui.dialogs import SCAN_CHOICES, SettingsDialog
-    s, p, kb = env
-    for stored, shown in ((600.0, 10.0), (0.2, 0.5), (3.0, 2.0), (float("nan"), 1.0), ("x", 1.0), (-4, 1.0)):
-        s["minimap_scan_interval"] = stored
-        dlg = SettingsDialog(s, p, kb, lambda *_: "")
-        try:
-            assert SCAN_CHOICES[dlg.scan.currentIndex()] == shown and not dlg.unsaved(), stored
-        finally:
-            dlg.close()
