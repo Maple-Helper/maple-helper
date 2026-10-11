@@ -72,30 +72,59 @@ def test_a_running_log_shows_its_totals_and_ends_into_recent(page):
 
 
 def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
-    """Its own window over the game while a log runs; its × turns it off and the page's switch follows."""
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtGui import QMouseEvent
-
+    """Its own window over the game, at the other windows' opacity: a log starting opens it, its ✕ hides it and the
+    page's switch follows, and a stopped log stays in it to read."""
     from maplehelper.ui.lootoverlay import LootOverlay
     d, s = page
+    s["npc_overlay_opacity"] = 0.5
     card = LootOverlay(d.loot, s, kb)
     d.loot.changed.connect(card.sync)
     try:
         assert card.isWindow() and card.parent() is None and not card.isVisible()
         d.loot_start.click()
-        assert card.isVisible()
+        assert card.isVisible() and card._opacity == 0.5 and s["loot_overlay"] is True
         d.loot._log.add([lootlog.Event(1.0, "mesos", 1234), lootlog.Event(2.0, "item", 1, "Leaf", "item/358")])
         d.loot.changed.emit()
-        texts = [text for text, _, _ in card._lines]
+        texts = card.lines()
         assert any("1,234" in x for x in texts) and any("Leaf" in x for x in texts)
-        at = QPointF(card._close_rect().center())
-        card.mousePressEvent(QMouseEvent(QMouseEvent.MouseButtonPress, at, at, Qt.LeftButton, Qt.LeftButton,
-                                         Qt.NoModifier))
+        card._close.click()
         assert not card.isVisible() and s["loot_overlay"] is False and not d.loot_overlay_switch.isChecked()
+        assert d.loot.running(d.c.id)                    # hiding the window never stops the log
         d.loot_overlay_switch.setChecked(True)
         assert card.isVisible()
         d.loot_end.click()
-        assert not card.isVisible()
+        assert card.isVisible() and any("1,234" in x for x in card.lines())
+    finally:
+        card.close()
+
+
+def test_the_windows_buttons_start_stop_reset_and_fold(page, kb):
+    """Start when no log runs; Stop and Reset while one does (Reset: the log so far saved, a new one from zero);
+    the – folds it to its title row, with what the log made in the title, and the fold is kept."""
+    from maplehelper.ui.lootoverlay import LootOverlay
+    d, s = page
+    card = LootOverlay(d.loot, s, kb)
+    d.loot.changed.connect(card.sync)
+    s["loot_overlay"] = True
+    card.sync()
+    try:
+        assert card._start.isVisibleTo(card) and not card._stop.isVisibleTo(card)
+        card._start.click()
+        assert d.loot.running(d.c.id) and card._stop.isVisibleTo(card) and card._reset.isVisibleTo(card)
+        d.loot._log.add([lootlog.Event(1.0, "mesos", 500)])
+        card._reset.click()
+        assert d.loot.running(d.c.id) and d.loot._log.totals()[1] == 0
+        assert d.loot.store.recent(d.c.id)[0]["mesos"] == 500
+        d.loot._log.add([lootlog.Event(2.0, "mesos", 70)])
+        card.refresh()
+        full = card.height()
+        card._fold.click()
+        assert s["loot_overlay_folded"] is True and card.height() < full and not card._body.isVisibleTo(card)
+        assert "70" in card._title.text()
+        card._fold.click()
+        assert s["loot_overlay_folded"] is False and card.height() == full
+        card._stop.click()
+        assert not d.loot.running(d.c.id) and card._start.isVisibleTo(card) and card.isVisible()
     finally:
         card.close()
 

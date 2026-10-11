@@ -1,27 +1,46 @@
-"""The loot log over the game: a small see-through card that stays on top of the game on its own (not inside a Maple
-Helper window), with the running log's EXP, mesos and items, per hour, and the latest pickups.
+"""The loot log over the game: a window of its own (not inside a Maple Helper window) with the log's time, EXP, mesos
+and items, each per hour, the latest pickups, and its buttons: Start, or Stop and Reset while a log runs, and in its
+title row a – that folds it to that row and a ✕ that hides it.
 
-It never takes focus from the game, drags from anywhere on it, and keeps its place (settings "loot_overlay_pos").
-Like the other windows over the game it stays out of screen captures unless "Show the overlays in screenshots" is
-on: the chat's screenshots would show it (its lines never read as pickup messages: no "received", "gained" or
-"earned" in them)."""
+It is built like the other windows over the game (the NPCs here window, the searches): the same dark glass at the
+opacity the player picked for them (npc_overlay_opacity), the title row that drags it, muted status text and the
+same rounded buttons. It shows while settings["loot_overlay"] is on: the bar's Loot log button and the Loot log
+page's switch flip it, its ✕ turns it off, and a log starting (from anywhere) turns it on. A stopped log stays in
+it, to read what it made. It never takes the keyboard from the game and keeps its place ("loot_overlay_pos") and its
+fold ("loot_overlay_folded"). Like the others it stays out of screen captures unless "Show the overlays in
+screenshots" is on (its lines never read as pickup messages anyway: no "received", "gained" or "earned" in them)."""
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QGuiApplication, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QRect, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi, lootlog
 from ..i18n import I18n
+from . import theme
+from .glass import SHADOW
+from .npcoverlay import (BOTTOM, FILL1, FILL2, GEOM_DEBOUNCE_MS, MUTED, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN,
+                         SEL_TEXT, SIDE, TEXT, TOP, _flags, _Header, _paint_glass, set_capturable)
 
-WIDTH = 260
-PAD = 12
-FEED = 4                    # the latest pickups shown under the totals
-BG = QColor(18, 20, 26, 190)
-FG = QColor(240, 240, 240)
-DIM = QColor(175, 180, 190)
-ACCENT = QColor(255, 140, 26)
-CLOSE = 18                  # the "×" in the top corner: hides the card (the Loot log page's switch shows it again)
+WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
+FEED = 4                        # the latest pickups shown under the totals
+STATS = ("exp", "mesos", "items")
+
+QSS = f"""
+#Title {{ color: {TEXT}; font-weight: 600; }}
+#Status {{ color: {MUTED}; }}
+#Head {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
+#Stat {{ background: {FILL1}; border-radius: 8px; }}
+#StatName {{ color: {MUTED}; }}
+#StatValue {{ color: {TEXT}; font-weight: 600; }}
+#Feed {{ color: {MUTED}; padding: 0 2px; }}
+QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px; padding: 6px 12px; }}
+QPushButton:hover {{ background: {FILL2}; }}
+QPushButton#Go {{ background: {theme.GOOD_TEXT_LIGHT}; color: {SEL_TEXT}; font-weight: 600; }}
+QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
+              padding: 2px 7px; font-size: 13px; }}
+QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
+"""
 
 
 def _short(n: int | None) -> str:
@@ -35,24 +54,180 @@ def _short(n: int | None) -> str:
 
 
 class LootOverlay(QWidget):
-    def __init__(self, scanner, settings, kb):
-        super().__init__(None, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus)
+    closed = Signal()               # the ✕ turned the setting off: the bar's Loot log button unchecks
+
+    def __init__(self, scanner, settings, kb, t: I18n | None = None):
+        super().__init__(None, _flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.setAttribute(Qt.WA_MacAlwaysShowToolWindow)
+        self.setFocusPolicy(Qt.NoFocus)
         self.setWindowTitle("Maple Helper")
-        self.setCursor(Qt.SizeAllCursor)
-        self.scanner, self.settings, self.kb = scanner, settings, kb
-        self._grab: QPoint | None = None
-        self._lines: list[tuple[str, QColor, bool]] = []
         self.setFixedWidth(WIDTH)
+        self.scanner, self.settings, self.kb = scanner, settings, kb
+        self.t = t or I18n(settings["language"] or "he")
+        self.setLayoutDirection(Qt.RightToLeft if self.t.rtl else Qt.LeftToRight)
+        self._opacity = OPACITY_DEFAULT
+        self._placed = False                 # shown at least once: there is a place to remember
+        self._was_running = scanner.running(scanner.cid())
+        self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
+        self.setStyleSheet(QSS)
+        self._build()
         # the clock and the per-hour figures move between pickups too
         self._clock = QTimer(self, interval=5000, timeout=lambda: self.isVisible() and self.refresh())
         self._clock.start()
 
+    # ---------------------------------------------------------------- the panel
+
+    def _tool(self, icon: str, then) -> QToolButton:
+        b = QToolButton(text=theme.SYMBOL_ICONS[icon])
+        b.setCursor(Qt.PointingHandCursor)
+        b.setFocusPolicy(Qt.NoFocus)
+        b.clicked.connect(then)
+        return b
+
+    def _button(self, then, name: str = "") -> QPushButton:
+        b = QPushButton(objectName=name)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setFocusPolicy(Qt.NoFocus)
+        b.clicked.connect(then)
+        return b
+
+    def _build(self) -> None:
+        col = QVBoxLayout(self)
+        col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
+        col.setSpacing(6)
+        head = _Header()
+        hrow = QHBoxLayout(head)
+        hrow.setContentsMargins(0, 0, 0, 0)
+        hrow.setSpacing(4)
+        self._title = QLabel(objectName="Title")
+        self._fold = self._tool("minimize", self._fold_clicked)
+        self._close = self._tool("close", self._close_clicked)
+        hrow.addWidget(self._title, 1)
+        hrow.addWidget(self._fold, 0, Qt.AlignTop)
+        hrow.addWidget(self._close, 0, Qt.AlignTop)
+        col.addWidget(head)
+        self._body = QWidget()
+        body = QVBoxLayout(self._body)
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(6)
+        self._status = QLabel(objectName="Status")      # not running / stopped / no game / covered
+        self._status.setWordWrap(True)
+        body.addWidget(self._status)
+        self._stats: dict[str, tuple[QFrame, QLabel, QLabel]] = {}
+        for key in STATS:
+            row = QFrame(objectName="Stat")
+            lay = QHBoxLayout(row)
+            lay.setContentsMargins(10, 6, 10, 6)
+            lay.setSpacing(8)
+            name, value = QLabel(objectName="StatName"), QLabel(objectName="StatValue")
+            lay.addWidget(name)
+            lay.addStretch(1)
+            lay.addWidget(value)
+            body.addWidget(row)
+            self._stats[key] = (row, name, value)
+        self._feed_head = QLabel(objectName="Head")
+        body.addWidget(self._feed_head)
+        self._feed = [QLabel(objectName="Feed") for _ in range(FEED)]
+        for lb in self._feed:
+            body.addWidget(lb)
+        btns = QHBoxLayout()
+        btns.setContentsMargins(0, 4, 0, 0)
+        btns.setSpacing(6)
+        self._start = self._button(self._start_clicked, "Go")
+        self._stop = self._button(self._stop_clicked)
+        self._reset = self._button(self._reset_clicked)
+        for b in (self._start, self._stop, self._reset):
+            btns.addWidget(b, 1)
+        body.addLayout(btns)
+        col.addWidget(self._body)
+
+    def paintEvent(self, e) -> None:
+        _paint_glass(self, self._opacity)
+
+    # ---------------------------------------------------------------- what it shows
+
+    def folded(self) -> bool:
+        return bool(self.settings["loot_overlay_folded"])
+
+    def lines(self) -> list[str]:
+        """Every text it shows now, top to bottom (title, status, the figures, the latest pickups)."""
+        out = [self._title.text()]
+        if self._status.isVisibleTo(self):
+            out.append(self._status.text())
+        for key in STATS:
+            row, name, value = self._stats[key]
+            if row.isVisibleTo(self):
+                out.append(f"{name.text()} {value.text()}")
+        return out + [lb.text() for lb in self._feed if lb.isVisibleTo(self)]
+
+    def refresh(self) -> None:
+        t, rtl = self.t, self.t.rtl
+        try:
+            self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self.settings["npc_overlay_opacity"])))
+        except (TypeError, ValueError):
+            self._opacity = OPACITY_DEFAULT
+        cid = self.scanner.cid()
+        lg = self.scanner.log_for(cid)
+        running = self.scanner.running(cid)
+        sm = lootlog.summarize(self.kb, lg) if lg is not None else None
+        num = lambda v: bidi.ltr_block(_short(v), rtl)      # a number stays one block beside Hebrew words
+        title = t("tool_loot")
+        if sm is not None and self.folded():
+            title += " · " + t("loot_card_made", v=num(sm.value))     # folded: what it made, nothing longer
+        elif sm is not None:
+            m = int(sm.seconds) // 60
+            title += " · " + (t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m))
+        self._title.setText(bidi.plain(title, rtl))
+        state = self.scanner.state
+        status = ("loot_overlay_idle" if sm is None else
+                  "loot_card_stopped" if not running else
+                  f"loot_{state}" if state in ("no_game", "covered") else "")
+        self._status.setText(bidi.plain(t(status), rtl) if status else "")
+        self._status.setVisible(bool(status))
+        values = {} if sm is None else {
+            "exp": t("loot_card_rate", n=num(sm.exp), h=num(sm.exp_h)),
+            "mesos": t("loot_card_rate", n=num(sm.mesos), h=num(sm.mesos_h)),
+            "items": t("loot_card_worth", n=num(sm.picked), v=num(sm.value))}
+        for key in STATS:
+            row, name, value = self._stats[key]
+            row.setVisible(sm is not None)
+            name.setText(bidi.plain(t(f"loot_card_{key}"), rtl))
+            value.setText(bidi.plain(values.get(key, ""), rtl))
+        evs = lg.events[-FEED:][::-1] if lg is not None else []
+        self._feed_head.setText(bidi.plain(t("loot_feed_head"), rtl))
+        self._feed_head.setVisible(bool(evs))
+        for i, lb in enumerate(self._feed):
+            if i < len(evs):
+                e = evs[i]
+                text = (t("loot_feed_item", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}") if e.kind == "item"
+                        else t(f"loot_feed_{e.kind}", n=f"{e.amount:,}"))
+                lb.setText(bidi.plain(text, rtl))
+            lb.setVisible(i < len(evs))
+        self._start.setVisible(not running)
+        self._stop.setVisible(running)
+        self._reset.setVisible(running)
+        for b, key in ((self._start, "loot_start"), (self._stop, "loot_card_stop"), (self._reset, "loot_card_reset")):
+            b.setText(bidi.plain(t(key), rtl))
+        self._reset.setToolTip(t("loot_card_reset_tip"))
+        self._stop.setToolTip(t("loot_card_stop_tip"))
+        fold = self.folded()
+        self._body.setVisible(not fold)
+        self._fold.setText(theme.SYMBOL_ICONS["add" if fold else "minimize"])
+        for b, key in ((self._fold, "loot_card_unfold" if fold else "loot_card_fold"), (self._close, "loot_card_close")):
+            b.setAccessibleName(t(key))
+            b.setToolTip(t(key))
+        self.layout().activate()
+        self.setFixedHeight(self.layout().sizeHint().height())
+        self.update()
+
     def sync(self) -> None:
-        """Shown while a log runs and the player keeps it on (settings "loot_overlay"), hidden otherwise."""
-        want = bool(self.settings["loot_overlay"]) and self.scanner.running(self.scanner.cid())
+        """Shown while settings["loot_overlay"] is on; a log that just started turns it on."""
+        running = self.scanner.running(self.scanner.cid())
+        if running and not self._was_running and not self.settings["loot_overlay"]:
+            self.settings["loot_overlay"] = True
+        self._was_running = running
+        want = bool(self.settings["loot_overlay"])
         if want and not self.isVisible():
             self.show_on_game()
         elif want:
@@ -60,45 +235,35 @@ class LootOverlay(QWidget):
         elif self.isVisible():
             self.hide()
 
-    # ---------------------------------------------------------------- what it shows
+    def apply_language(self, t: I18n) -> None:
+        self.t = t
+        self.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
+        self.refresh()
 
-    def lines(self) -> list[tuple[str, QColor, bool]]:
-        """(text, colour, bold) rows, top to bottom, for the running log of the scanner's character."""
-        t = I18n(self.settings["language"] or "he")
-        cid = self.scanner.cid()
-        lg = self.scanner.log_for(cid)
-        rtl = t.rtl
-        if lg is None or not self.scanner.running(cid):
-            return [(t("tool_loot"), ACCENT, True), (t("loot_overlay_idle"), DIM, False)]
-        sm = lootlog.summarize(self.kb, lg)
-        m = int(sm.seconds) // 60
-        clock = t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m)
-        out = [(f"{t('tool_loot')} · {clock}", ACCENT, True)]
-        num = lambda v: bidi.ltr_block(v, rtl)      # a number stays one block beside Hebrew words
-        out = out + [(t("loot_overlay_exp", n=num(_short(sm.exp)), h=num(_short(sm.exp_h))), FG, False),
-                     (t("loot_overlay_mesos", n=num(_short(sm.mesos)), h=num(_short(sm.mesos_h))), FG, False),
-                     (t("loot_overlay_items", n=num(f"{sm.picked:,}"), v=num(_short(sm.value))), FG, False)]
-        for e in lg.events[-FEED:][::-1]:
-            if e.kind == "item":
-                text = t("loot_feed_item", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}")
-            else:
-                text = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
-            out.append((text, DIM, False))
-        if self.scanner.state in ("no_game", "covered"):
-            out.append((t(f"loot_{self.scanner.state}"), DIM, False))
-        return out
+    # ---------------------------------------------------------------- the buttons
 
-    def refresh(self) -> None:
-        self._lines = self.lines()
-        fm = QFontMetrics(self._font(False))
-        self.setFixedHeight(2 * PAD + len(self._lines) * (fm.height() + 4))
-        self.update()
+    def _start_clicked(self, _=False) -> None:
+        self.scanner.start()
 
-    def _font(self, bold: bool) -> QFont:
-        f = QFont("Segoe UI")
-        f.setPixelSize(13)
-        f.setBold(bold)
-        return f
+    def _stop_clicked(self, _=False) -> None:
+        """The log ends (saved in Recent logs and the database); its totals stay here to read."""
+        self.scanner.end()
+
+    def _reset_clicked(self, _=False) -> None:
+        """Back to zero: the running log ends (kept, as Stop keeps it) and a new one starts at once."""
+        self.scanner.start()
+
+    def _fold_clicked(self, _=False) -> None:
+        self.settings["loot_overlay_folded"] = not self.folded()
+        self.refresh()
+
+    def _close_clicked(self, _=False) -> None:
+        """The ✕: the setting off (the bar's button and the Loot log page's switch follow), hidden until switched
+        back on. A running log goes on counting."""
+        self.settings["loot_overlay"] = False
+        self.hide()
+        self.closed.emit()
+        self.scanner.changed.emit()
 
     # ---------------------------------------------------------------- show / place
 
@@ -110,62 +275,24 @@ class LootOverlay(QWidget):
         else:
             scr = QGuiApplication.primaryScreen().availableGeometry()
             self.move(scr.right() - WIDTH - 40, scr.top() + 160)
+        self._placed = True
         self.show()
-        from .npcoverlay import set_capturable
         set_capturable(self, self.settings)
 
     def _on_screen(self, pos: dict) -> bool:
         r = QRect(pos["x"], pos["y"], WIDTH, max(40, self.height()))
         return any(s.availableGeometry().intersects(r) for s in QGuiApplication.screens())
 
-    # ---------------------------------------------------------------- input
+    def moveEvent(self, e) -> None:
+        self._geom.start()
+        super().moveEvent(e)
 
-    def _close_rect(self) -> QRect:
-        rtl = (self.settings["language"] or "he") == "he"
-        x = PAD - 4 if rtl else self.width() - PAD - CLOSE + 4
-        return QRect(x, PAD - 4, CLOSE, CLOSE)
+    def hideEvent(self, e) -> None:
+        if self._placed:             # hidden or the app closing: keep the place now, not 400 ms later
+            self._geom.stop()
+            self._remember()
+        super().hideEvent(e)
 
-    def mousePressEvent(self, e):
-        if e.button() != Qt.LeftButton:
-            return
-        if self._close_rect().contains(e.position().toPoint()):
-            self.settings["loot_overlay"] = False
-            self.hide()
-            self.scanner.changed.emit()        # the Loot log page's switch follows
-            return
-        self._grab = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
-
-    def mouseMoveEvent(self, e):
-        if self._grab is not None and e.buttons() & Qt.LeftButton:
-            self.move(e.globalPosition().toPoint() - self._grab)
-
-    def mouseReleaseEvent(self, e):
-        if self._grab is not None:
-            self._grab = None
+    def _remember(self) -> None:
+        if self._placed:
             self.settings["loot_overlay_pos"] = {"x": self.x(), "y": self.y()}
-
-    # ---------------------------------------------------------------- painting
-
-    def paintEvent(self, e):
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        path = QPainterPath()
-        path.addRoundedRect(self.rect().adjusted(0, 0, -1, -1), 12, 12)
-        p.fillPath(path, BG)
-        rtl = (self.settings["language"] or "he") == "he"
-        align = (Qt.AlignRight if rtl else Qt.AlignLeft) | Qt.AlignAbsolute | Qt.AlignVCenter
-        fm = QFontMetrics(self._font(False))
-        y = PAD
-        for i, (text, colour, bold) in enumerate(self._lines):
-            p.setFont(self._font(bold))
-            p.setPen(colour)
-            room = self.width() - 2 * PAD - (CLOSE if i == 0 else 0)
-            x = PAD + (CLOSE if i == 0 and rtl else 0)
-            shown = QFontMetrics(self._font(bold)).elidedText(bidi.plain(text, rtl), Qt.ElideRight, room)
-            p.drawText(QRect(x, y, room, fm.height() + 2), align, shown)
-            y += fm.height() + 4
-        c = self._close_rect().adjusted(5, 5, -5, -5)
-        p.setPen(QPen(DIM, 1.6))
-        p.drawLine(c.topLeft(), c.bottomRight())
-        p.drawLine(c.topRight(), c.bottomLeft())
-        p.end()

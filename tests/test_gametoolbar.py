@@ -108,17 +108,20 @@ def test_set_search_mode_lights_only_that_button(bar):
     assert [w._search[k].property("on") for k in ("monster", "npc", "item")] == [False, False, False]
 
 
-def test_the_loot_log_button_asks_for_it_and_is_lit_while_one_runs(bar):
-    w, _ = bar
+def test_the_loot_log_button_is_the_loot_windows_setting(bar):
+    """As NPCs here is its window's: the button flips settings["loot_overlay"] and says so; refresh follows the
+    setting (the window's ✕, or a log starting, changed it)."""
+    w, s = bar
     seen = []
-    w.loot_clicked.connect(lambda: seen.append(True))
-    assert w._loot.text() == "Loot log"
+    w.loot_toggled.connect(lambda: seen.append(s["loot_overlay"]))
+    assert w._loot.text() == "Loot log" and not w._loot.isChecked()
     w._loot.click()
-    assert seen == [True]
-    w.set_loot(True)
-    assert w._loot.property("on") is True
-    w.set_loot(False)
-    assert w._loot.property("on") is False
+    assert seen == [True] and s["loot_overlay"] is True
+    w._loot.click()
+    assert seen == [True, False]
+    s["loot_overlay"] = True
+    w.refresh()
+    assert w._loot.isChecked()
 
 
 def test_the_x_turns_the_setting_off_and_hides(bar):

@@ -183,8 +183,9 @@ DEFAULT_SETTINGS = {
     "game_rides": False,          # the toolbar's Cabs & Teleports switch: the way to a found NPC/map takes them, or walks
     "overlays_in_screenshots": False,   # the windows over the game show in screen captures (they hide from them)
     "loot_region": None,          # the game's pickup messages on screen, drawn by the player (the loot log reads them)
-    "loot_overlay": True,         # the loot log's card over the game while a log runs (ui/lootoverlay.py)
+    "loot_overlay": False,        # the loot log's window over the game (ui/lootoverlay.py); a log starting turns it on
     "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
+    "loot_overlay_folded": False,  # ... folded to its title row (its – button)
 }
 
 

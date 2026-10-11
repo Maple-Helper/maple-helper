@@ -77,7 +77,7 @@ class GameToolbar(QWidget):
     search_requested = Signal(str)     # which search to open: "monster" | "npc" | "item"
     npc_toggled = Signal()             # settings["npc_overlay"] flipped: the NPCs-here window follows
     rides_toggled = Signal()           # settings["game_rides"] flipped: a way shown is found again, on foot or riding
-    loot_clicked = Signal()            # the Loot log button: the app starts the log (or ends the running one)
+    loot_toggled = Signal()            # settings["loot_overlay"] flipped: the loot log's window follows
 
     def __init__(self, settings: Settings, t: I18n):
         super().__init__(None, _flags())
@@ -122,11 +122,11 @@ class GameToolbar(QWidget):
         self._rides.setFocusPolicy(Qt.NoFocus)
         self._rides.clicked.connect(self._rides_clicked)
         row.addWidget(self._rides)
-        # the loot log: start / end, lit while one runs (the app keeps it in step: set_loot)
-        self._loot = QPushButton()
+        # the loot log's window, as the NPCs-here button is its window's: the checkable button is the setting
+        self._loot = QPushButton(checkable=True)
         self._loot.setCursor(Qt.PointingHandCursor)
         self._loot.setFocusPolicy(Qt.NoFocus)
-        self._loot.clicked.connect(lambda _=False: self.loot_clicked.emit())
+        self._loot.clicked.connect(self._loot_clicked)
         row.addWidget(self._loot)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
@@ -170,6 +170,11 @@ class GameToolbar(QWidget):
         self._settings["game_rides"] = self._rides.isChecked()
         self.rides_toggled.emit()
 
+    def _loot_clicked(self, _=False) -> None:
+        """The loot log's window on or off: the button is the setting (its Start, Stop and Reset are in it)."""
+        self._settings["loot_overlay"] = self._loot.isChecked()
+        self.loot_toggled.emit()
+
     def _close_clicked(self, _=False) -> None:
         """The ✕: the setting off (the Settings switch follows), the bar hidden until it's switched back on."""
         self._settings["game_toolbar"] = False
@@ -186,13 +191,6 @@ class GameToolbar(QWidget):
                 b.setProperty("on", on)
                 b.style().unpolish(b)
                 b.style().polish(b)
-
-    def set_loot(self, running: bool) -> None:
-        """The Loot log button lit while a log runs (started here, on its tab, or still running from last time)."""
-        if self._loot.property("on") != running:
-            self._loot.setProperty("on", running)
-            self._loot.style().unpolish(self._loot)
-            self._loot.style().polish(self._loot)
 
     # ------------------------------------------------------------ place and move
 
@@ -248,6 +246,7 @@ class GameToolbar(QWidget):
             self._opacity = OPACITY_DEFAULT
         self._npcs.setChecked(bool(self._settings["npc_overlay"]))
         self._rides.setChecked(bool(self._settings["game_rides"]))
+        self._loot.setChecked(bool(self._settings["loot_overlay"]))
         if not self._settings["game_toolbar"]:
             if self.isVisible():
                 self.hide()

@@ -221,13 +221,14 @@ class MapleHelperApp:
         self.loot_scanner.changed.connect(lambda: self._tools_call("loot_changed"))
         # ... and its own card over the game while a log runs (not inside a Maple Helper window: ui/lootoverlay.py)
         from .ui.lootoverlay import LootOverlay
-        self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb)
+        self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb,
+                                        I18n(self.settings["language"] or "he"))
         self.loot_scanner.changed.connect(self.loot_overlay.sync)
         self.loot_overlay.sync()
-        # the bar over the game's Loot log button starts / ends it, and is lit while one runs
-        self.game_toolbar.loot_clicked.connect(self._loot_from_bar)
-        self.loot_scanner.changed.connect(self._loot_bar_state)
-        self._loot_bar_state()
+        # the bar over the game's Loot log button shows / hides that window (lit while it shows), as NPCs here does
+        self.game_toolbar.loot_toggled.connect(self.loot_overlay.sync)
+        self.loot_overlay.closed.connect(self.game_toolbar.refresh)
+        self.loot_scanner.changed.connect(self.game_toolbar.refresh)     # a log starting opens it: the button follows
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -322,18 +323,6 @@ class MapleHelperApp:
         where = self.__dict__.get("_windows", {}).get("map")
         if where is not None and where.isVisible() and where.key:
             where.show_map(where.key)
-
-    def _loot_from_bar(self) -> None:
-        """The bar's Loot log button: ends the running log, else starts one (the messages are found on their own)."""
-        scan = self.loot_scanner
-        if scan.running(scan.cid()):
-            scan.end()
-        else:
-            scan.start()
-
-    def _loot_bar_state(self) -> None:
-        scan = self.loot_scanner
-        self.game_toolbar.set_loot(scan.running(scan.cid()))
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -802,6 +791,9 @@ class MapleHelperApp:
                 search = getattr(self, "game_search", None)
                 if search is not None:
                     search.apply_language(I18n(self.settings["language"] or "he"))
+                loot = getattr(self, "loot_overlay", None)
+                if loot is not None:
+                    loot.apply_language(I18n(self.settings["language"] or "he"))
                 self._reopen_windows_in_new_look()
                 from .ui.toast import Toast
                 for toast in list(Toast._live):
@@ -834,6 +826,9 @@ class MapleHelperApp:
         game = getattr(self, "game_toolbar", None)
         if game is not None:
             game.refresh()         # the bar over the game switched on or off (its button follows the window)
+        loot = getattr(self, "loot_overlay", None)
+        if loot is not None:
+            loot.sync()            # the loot log's window at the windows' opacity
         self._apply_overlay_capture()
 
     def _apply_overlay_capture(self) -> None:
