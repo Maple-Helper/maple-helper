@@ -26,8 +26,8 @@ from .widgets import (MARKET_REQUESTS, changed_tag, chip_row, fit_picture, info_
                       tip_html, updated_tag, vote_tag, zoom_on_hover)
 from .patchnotes import gutter
 
-# "market": the Free Market page (ui/marketpage.py), MesoWatch's items by tab; the Pets page is a tab in it
-PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "market")
+# "shop": the Shop page (ui/shoppage.py), what the Cash Shop sells now and for how many NX; the Pets page is a tab
+PAGES = ("train", "exp", "farm", "quests", "crafting", "town", "build", "calc", "prices", "more", "route", "shop")
 # the pages that are all about the character: with none, one card that offers to add one takes their place (a live
 # stats editor, a monster picker and 9 empty cells stood above a small grey "you need a character", TOOL-03)
 CHAR_PAGES = ("train", "exp", "farm", "quests", "town", "build", "calc")
@@ -451,7 +451,7 @@ class ToolsDialog(GlassDialog):
         self._pending = list(PAGES)
         for _ in PAGES:
             self.stack.addWidget(QWidget())
-        page = "market" if page == "pets" else page      # the Pets page is a tab of the Free Market now
+        page = "shop" if page in ("pets", "market") else page      # the Pets page is a tab of the Shop now
         start = PAGES.index(page) if page in PAGES else 0
         self._build_page(PAGES[start])
         no_default_buttons(self)
@@ -3949,11 +3949,11 @@ class ToolsDialog(GlassDialog):
         self.sell_market_ready.connect(self._on_sell_market)
         return sc
 
-    def _page_market(self):
-        """The Free Market: every item on the live world's market by tab, and the pets (their own page before)."""
-        from .marketpage import MarketPage
-        self.market_page = MarketPage(self.kb, self.t, pets=self._page_pets())
-        return self.market_page
+    def _page_shop(self):
+        """The Shop: what the Cash Shop sells now (MesoWatch) by tab, and the pets (their own page before)."""
+        from .shoppage import ShopPage
+        self.shop_page = ShopPage(self.kb, self.t, pets=self._page_pets())
+        return self.shop_page
 
     def _page_pets(self):
         sc, lay = scroll_page(self.t.rtl)

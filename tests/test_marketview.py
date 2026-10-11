@@ -1,5 +1,5 @@
-"""The Free Market details window (ui/marketview.py) and the Free Market page (ui/marketpage.py): MesoWatch's item card
-laid out in the app, and every item on the market by tab, the pets a tab of it."""
+"""The Free Market details window (ui/marketview.py) and the Shop page (ui/shoppage.py): MesoWatch's item card
+laid out in the app, and what the Cash Shop sells now by tab, the pets a tab of it."""
 import os
 import sys
 import time
@@ -131,63 +131,6 @@ def pump(app, until, ms=3000):
         time.sleep(0.01)
 
 
-@pytest.mark.parametrize("lang", ["en", "he"])
-def test_the_free_market_page_lists_every_item_by_tab(app, monkeypatch, lang):
-    from PySide6.QtWidgets import QLabel, QWidget
-
-    from maplehelper.ui.marketpage import ItemRow, MarketPage
-    from maplehelper.ui.widgets import MARKET_REQUESTS
-    now = time.time()
-    snap = market(now)
-    monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: snap)
-    pets = QWidget()
-    page = MarketPage(KB, __import__("maplehelper.i18n", fromlist=["I18n"]).I18n(lang), pets=pets)
-    pump(app, lambda: page.snap is not None)
-    assert "2" in page.tab_buttons["Equips"].text() and "1" in page.tab_buttons["Cash Shop"].text()
-
-    def rows():
-        return [page.list.itemAt(i).widget() for i in range(page.list.count())
-                if isinstance(page.list.itemAt(i).widget(), ItemRow)]
-    # Equips: best selling first; the new one tagged, the thin one warned
-    assert [r.key for r in rows()] == ["item/1", None]
-    first = rows()[0]
-    assert first.findChildren(QLabel, "TagAccent") and rows()[1].findChildren(QLabel, "TagWarn")
-    page.sort.group.buttons()[1].click()                  # cheapest
-    assert [r.key for r in rows()] == [None, "item/1"]
-    page.search.setText("glove")
-    assert [r.key for r in rows()] == ["item/1"]
-    page.search.clear()
-    page.pick("Cash Shop")
-    (row,) = rows()
-    assert any("Cash" in w.text() and "Shop" in w.text() for w in row.findChildren(QLabel))   # bidi marks between
-    asked = []
-    MARKET_REQUESTS.requested.connect(asked.append)
-    from PySide6.QtCore import QPointF, Qt
-    from PySide6.QtGui import QMouseEvent
-    from PySide6.QtCore import QEvent
-    row.mousePressEvent(QMouseEvent(QEvent.MouseButtonPress, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
-                                    Qt.LeftButton, Qt.NoModifier))
-    MARKET_REQUESTS.requested.disconnect(asked.append)
-    assert asked == ["item/3198"]
-    page.pick("pets")
-    assert page.stack.currentWidget() is pets
-    # a newer market (the app's 15-minute refresh): the page reads it again
-    loads = []
-    monkeypatch.setattr(page, "load", lambda: loads.append(1))
-    monkeypatch.setattr(mesowatch, "version", lambda: page._version + 1)
-    page._poll()
-    assert loads == [1]
-    page.timer.stop()
-
-
-def test_a_long_description_is_cut_at_a_word():
-    from maplehelper.ui.marketpage import shorten
-    text = "word " * 40
-    cut = shorten(text, 30)
-    assert cut.endswith("…") and len(cut) <= 31 and not cut[:-1].endswith(" ")
-    assert shorten("short") == "short"
-
-
 def test_an_open_window_follows_a_newer_market(app, monkeypatch):
     from maplehelper.ui.marketview import MarketDetailsDialog
     now = time.time()
@@ -220,3 +163,61 @@ def test_a_sellers_picture_is_the_whole_character(app, tmp_path):
     # the figure's feet are drawn too (the bottom of the picture), not cut to the head
     blue = [y for y in range(out.height()) if out.pixelColor(out.width() // 2, y).blue() > 120]
     assert blue and max(blue) > out.height() * 0.85 and min(blue) < out.height() * 0.15
+
+
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_the_shop_lists_what_the_cash_shop_sells_now(app, monkeypatch, lang):
+    from PySide6.QtCore import QEvent, QPointF, Qt
+    from PySide6.QtGui import QMouseEvent
+    from PySide6.QtWidgets import QLabel, QWidget
+
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.shoppage import ShopPage, ShopRow
+    from maplehelper.ui.widgets import ITEM_REQUESTS
+    now = time.time()
+    snap = market(now)
+    hat_ = snap.items[1007145]
+    hat_.cash_on_sale = True                       # in the Cash Shop now
+    snap.items[5150000] = mesowatch.Sales(5150000, "Mystery Hair Coupon", 900, sold=30, cash=True, cash_on_sale=True,
+                                          nx=5500, category="Cash Shop")
+    snap.items[5000000] = mesowatch.Sales(5000000, "Gone Hat", 900, sold=3, cash=True, cash_on_sale=False, nx=100,
+                                          category="Cash Shop")
+    hat_.nx = 3500
+    kb = FakeKB({"item/3198": "Black Cat Beanie", "item/1511": "Mystery Hair Coupon"})
+    kb.entities["item/3198"]["type"] = "Cash Equip / Cash Hat"
+    kb.entities["item/1511"]["type"] = "Cash / Coupon"
+    snap.by_name.update({"mystery hair coupon": 5150000})
+    monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: snap)
+    monkeypatch.setattr(mesowatch, "icon_file", lambda s, timeout=10: None)
+    pets = QWidget()
+    page = ShopPage(kb, I18n(lang), pets=pets)
+    pump(app, lambda: page.snap is not None)
+
+    def rows():
+        return [page.list.itemAt(i).widget() for i in range(page.list.count())
+                if isinstance(page.list.itemAt(i).widget(), ShopRow)]
+    # only what the Cash Shop sells now (the gone hat is not listed), with its NX
+    assert sorted(r.key for r in rows()) == ["item/1511", "item/3198"]
+    texts = " ".join(w.text() for r in rows() for w in r.findChildren(QLabel))
+    assert "5,500 NX" in texts and "3,500 NX" in texts and "Gone Hat" not in texts
+    page.sort.group.buttons()[2].click()                # priciest first
+    assert [r.key for r in rows()] == ["item/1511", "item/3198"]
+    page.pick("wear")
+    assert [r.key for r in rows()] == ["item/3198"]
+    page.pick("coupons")
+    (row,) = rows()
+    asked = []
+    ITEM_REQUESTS.requested.connect(asked.append)
+    row.mousePressEvent(QMouseEvent(QEvent.MouseButtonPress, QPointF(5, 5), QPointF(5, 5), Qt.LeftButton,
+                                    Qt.LeftButton, Qt.NoModifier))
+    ITEM_REQUESTS.requested.disconnect(asked.append)
+    assert asked == ["item/1511"]
+    page.pick("pets")
+    assert page.stack.currentWidget() is pets
+    # a newer list (the 15-minute refresh): read again
+    loads = []
+    monkeypatch.setattr(page, "load", lambda: loads.append(1))
+    monkeypatch.setattr(mesowatch, "version", lambda: page._version + 1)
+    page._poll()
+    assert loads == [1]
+    page.timer.stop()

@@ -223,8 +223,9 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
   - **Item price:** NPC buy and sell prices, and what the item actually sells for on the Free Market: completed shop sales MesoWatch read from public streams (the usual price, the last sale and the sale count, with a button to the item's full Free Market card).
   - **Sell or keep:** open your inventory and the app names each item and says whether to keep it (a quest, a recipe, gear you can wear, a starred item) or sell it to an NPC or on the Free Market, and for how much. No AI: straight from the database.
   - **How to get there:** the way from your map to any map, monster or NPC, with taxis and boats.
-  - **Free Market:** every item sold on the Free Market by MesoWatch's categories (Equips, Weapons, Scrolls, Use, Etc, Stars, Cash Shop), each with what it does and what it usually sells for, searchable and sortable, refreshed every 15 minutes. Click an item for its full card in a side window: the usual sale price (the median), the last sale, the last 3 sales' average, where to buy it (the shops seen selling it, cheapest first, with the owner's character) and the newest sales.
-  - **Pets** (a tab of the Free Market page): lifespan, hunger, commands to level 30 and the fastest command at each stage, Cash Shop prices, and the pet skills.
+  - **Cash Shop:** what the Cash Shop sells right now and for how many NX (the game's Cash Shop list, via MesoWatch), by tab, each item with what it does; refreshed every 15 minutes, so items that come and go follow by themselves.
+  - **Free Market details:** from an item's price, its full card in a side window: the usual sale price (the median), the last sale, the last 3 sales' average, where to buy it (the shops seen selling it, cheapest first, with the owner's character) and the newest sales.
+  - **Pets** (a tab of the Cash Shop page): lifespan, hunger, commands to level 30 and the fastest command at each stage, Cash Shop prices, and the pet skills.
 - **News:** MapleStory Classic news with the full articles in the app, in English and Hebrew.
 - **Sources on every number:** a tag says where each value comes from (community reports, the COT1 / COT2 test builds, MSEA, or official game data once it's out).
 - **Game terms explained:** An orange **?** beside terms like ACC, Avoid or AP shows what they mean on hover.

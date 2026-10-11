@@ -59,7 +59,7 @@ def test_telemetry_hint_names_what_is_sent():
 @pytest.mark.parametrize("key,kw", [("news_btn_new", {}), ("sell_summary", {"mesos": "10"}), ("farm_every", {}),
                                     ("spot_crowd", {}), ("craft_head_all", {"prof": "Smithing"}),
                                     ("price_mw", {"price": "5", "world": "Windia"}),
-                                    ("fm_sold", {}), ("fm_more_n", {}),
+                                    ("shop_status", {"ago": "now"}),
                                     ("route_walk_alt", {})])
 def test_a_count_of_one_reads_as_one(key, kw):
     """"1 חדשות", "1 items": a count that can be 1 has its own "_one" string (the audit, HEB-8)."""
