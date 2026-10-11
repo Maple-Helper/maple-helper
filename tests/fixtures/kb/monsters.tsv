@@ -1,0 +1,6 @@
+monster	key	level	hp	mp	exp	hp_per_exp	wdef	mdef	acc	avoid	acc_needed	element	mesos	mesos_kill	boss	respawn	maps
+Snail	monster/100100	1	8		3	2.67					0					7	Snail Garden
+Blue Snail	monster/100101	2	15		4	3.75					0					7	Henesys Hunting Ground I
+Red Snail	monster/130101	4	45		8	5.62					0					7	Henesys Hunting Ground I; Snail Garden; Henesys Hunting Ground II
+Pig	monster/1210100	7	80		12	6.67					0					7	Henesys Hunting Ground II
+Axe Stump	monster/5130104	17	371		32	11.59					0					7	Henesys Hunting Ground II

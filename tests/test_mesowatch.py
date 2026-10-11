@@ -26,9 +26,25 @@ def market_doc(**over):
             {"id": "basil:01302008", "name": "Gladius", "price": 50000.0, "sold": 2, "lowData": True,
              "unitBasis": "item", "history": [], "listings": []},
             {"id": "basil:01000000", "name": "Never Seen", "price": None, "sold": 0, "history": [], "listings": []},
-            {"id": "cash:5000", "name": "Pet Food", "price": 1000.0, "sold": 9, "history": [], "listings": []},
+            {"id": "cash:01007145", "name": "Black Cat Beanie", "category": "Cash Shop", "price": 229000.0,
+             "p25": 99999.0, "p75": 265000.0, "sold": 19, "lowData": False, "askMedian": 299999.0, "asks": 111,
+             "listingShops": 62, "cash": {"nx": None, "onSale": False, "crateOdds": None},
+             "history": [{"date": "2026-10-08", "median": 74999.0, "sold": 5},
+                         {"date": "2026-10-09", "median": 199999.5, "sold": 6},
+                         {"date": "2026-10-10", "median": 299999.0, "sold": 7},
+                         {"date": "2026-10-11", "median": 250000.0, "sold": 1}],
+             "listings": [{"seller": "Tagged", "location": None, "price": 399999.0, "qty": 1,
+                           "lastSeen": "2026-10-11T06:33:26Z"}]},
         ],
-        "sales": [{"id": "L-1", "itemId": "basil:04010001", "price": 399, "seller": "Thorfein"}],
+        "sales": [   # newest first, as MesoWatch publishes them
+            {"id": "L-4", "itemId": "cash:01007145", "price": 250000.0, "qty": 1, "seller": "Space Ghost",
+             "location": None, "time": "2026-10-11T00:13:38Z"},
+            {"id": "L-3", "itemId": "cash:01007145", "price": 349999.0, "qty": 1, "seller": "ShadowBlade",
+             "location": "Free Market<2> <2>", "time": "2026-10-10T23:07:42Z"},
+            {"id": "L-2", "itemId": "cash:01007145", "price": 299999.0, "qty": 1, "seller": "SimmeBowjobs",
+             "location": None, "time": "2026-10-10T19:23:34Z"},
+            {"id": "L-1", "itemId": "basil:04010001", "price": 399, "qty": 2, "seller": "Thorfein",
+             "location": "The Rain-Forest East of Henesys", "time": "2026-10-10T07:29:00Z"}],
     }
     doc.update(over)
     return doc
@@ -80,8 +96,11 @@ def site(monkeypatch, tmp_path):
 
 def test_the_slim_copy_keeps_prices_and_shops_but_no_names_or_sales():
     data = mesowatch.slim(market_doc(), "Windia")
-    assert [i["id"] for i in data["items"]] == ["basil:04010001", "basil:02060000", "basil:01302008"]
-    assert "Thorfein" not in json.dumps(data) and "sales" not in data       # no seller names, no sales list
+    assert [i["id"] for i in data["items"]] == ["basil:04010001", "basil:02060000", "basil:01302008",
+                                                "cash:01007145"]
+    text = json.dumps(data)
+    assert "sales" not in data and not any(n in text for n in ("Thorfein", "Space Ghost", "ShadowBlade"))
+    assert data["items"][3]["recent"][1]["location"] == "Free Market 2"      # the room's sign, read twice
     assert data["items"][0]["shops"][0]["location"] == "The Rain-Forest East of Henesys"
 
 
@@ -98,11 +117,14 @@ def test_parse_reads_the_market_by_game_id():
 
 
 def test_ids_match_the_kb_by_its_icon_url():
-    assert mesowatch.game_id_of("basil:04010001") == 4010001 and mesowatch.game_id_of("cash:5000") is None
+    assert mesowatch.game_id_of("basil:04010001") == 4010001 and mesowatch.game_id_of("cash:01007145") == 1007145
+    assert mesowatch.game_id_of("other:1") is None
     assert mesowatch.game_id(KB, "item/414") == 4010001
     assert mesowatch.game_id(KB, "item/9") is None and mesowatch.game_id(KB, "item/0") is None
     assert mesowatch.item_url(4010001) == "https://meso.watch/?item=04010001"
     assert mesowatch.item_url(None) == "https://meso.watch/"
+    assert mesowatch.item_url("basil:04010001") == "https://meso.watch/?item=04010001"
+    assert mesowatch.item_url("cash:01007145") == "https://meso.watch/?item=cash:01007145"
 
 
 def test_first_lookup_downloads_and_keeps_a_copy(site, tmp_path):
@@ -204,3 +226,51 @@ def test_a_kb_without_game_ids_matches_by_a_name_both_sides_give_one_item(site):
     assert ore.game_id == 4010001 and mesowatch.match(snap, kb, "item/541") == 1302008      # case and spaces folded
     assert mesowatch.match(snap, kb, "item/1") is None                    # two KB items by that name: no guess
     assert [x.split(" [")[0] for x in mesowatch.ai_lines(kb, ["item/414"])[1:]] == ["- Iron Ore"]
+
+
+def test_a_cash_shop_item_has_its_sales_listings_and_shop_status():
+    """Black Cat Beanie as MesoWatch's card shows it: 229K typical, 111 listings, 19 sales over 4 days, last sale
+    250K, last 3 average 300K, not on sale in the Cash Shop."""
+    hat = mesowatch.parse(mesowatch.slim(market_doc(), "Windia")).items[1007145]
+    assert (hat.price, hat.sold, hat.days, hat.asks, hat.listing_shops) == (229000, 19, 4, 111, 62)
+    assert (hat.last.price, hat.last3, hat.cash, hat.cash_on_sale, hat.nx) == (250000, 299999, True, False, None)
+    assert [r.price for r in hat.recent] == [250000, 349999, 299999] and hat.mw_id == "cash:01007145"
+
+
+def test_the_ai_line_carries_the_last_sales_and_the_cash_shop(site):
+    kb = FakeKB({"item/3198": "https://meowdb.com/msclassic/item-db/3198"}, {"item/3198": "Black Cat Beanie"})
+    mesowatch.snapshot()
+    (line,) = mesowatch.ai_lines(kb, ["item/3198"])[1:]
+    assert "last sale 250,000" in line and "last 3 sales average 299,999" in line and "19 sales over 4 days" in line
+    assert "111 listings in 62 shops" in line and "not on sale in the Cash Shop now" in line
+
+
+def test_the_market_file_comes_compressed(monkeypatch):
+    """14 MB of JSON comes down as about 1.5 MB: asked for gzip, unpacked here."""
+    import gzip
+
+    class Reply:
+        status = 200
+        headers = {"Content-Encoding": "gzip", "ETag": 'W/"v2"'}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return gzip.compress(b'{"ok": 1}')
+    asked = []
+    monkeypatch.setattr(mesowatch.urllib.request, "urlopen",
+                        lambda req, timeout=0: asked.append(req.get_header("Accept-encoding")) or Reply())
+    assert mesowatch._http(mesowatch.MARKET_URL) == (200, b'{"ok": 1}', 'W/"v2"') and asked == ["gzip"]
+
+
+def test_a_check_is_due_after_15_minutes_even_when_the_timer_is_early(site):
+    mesowatch.snapshot()
+    mesowatch._snap.fetched = time.time() - (mesowatch.REFRESH_SECONDS - 30)
+    mesowatch._checked = time.monotonic() - (mesowatch.REFRESH_SECONDS - 30)
+    site["calls"].clear()
+    mesowatch.snapshot()
+    assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL]

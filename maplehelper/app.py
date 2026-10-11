@@ -244,6 +244,12 @@ class MapleHelperApp:
         self._update_timer.start()
         self._app_update_timer = QTimer(interval=APP_CHECK_MS, timeout=self.check_app_update_silently)
         self._app_update_timer.start()
+        # MesoWatch's Free Market sales every 15 minutes, so a price or an answer is never far behind its site
+        # (mesowatch.py: a 1 KB index decides, the market file comes compressed and only when it changed)
+        from . import mesowatch
+        QTimer.singleShot(15000, mesowatch.warm)
+        self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)
+        self._mesowatch_timer.start()
         if BACKGROUND_ARG in sys.argv[1:]:
             # started with Windows or by a silent update: stay in the tray until the player asks for the chat
             t = I18n(self.settings["language"])

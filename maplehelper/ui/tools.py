@@ -2796,7 +2796,7 @@ class ToolsDialog(GlassDialog):
         key, (snap, sales) = result
         if key != getattr(self, "_price_key", None) or not hasattr(self, "mw_label"):
             return                      # an older lookup: the player picked another item since
-        self._mw_id = sales.game_id if sales else None
+        self._mw_id = sales.mw_id or sales.game_id if sales else None    # a Cash Shop item's link is "cash:..."
         text, more = self._mw_lines(snap, sales)
         seen = set(getattr(self, "_card_seen", ()))
         try:
@@ -2829,6 +2829,17 @@ class ToolsDialog(GlassDialog):
                 facts.append(t("price_mw_scrolled"))
             if facts:
                 more.append(" · ".join(facts))
+            # MesoWatch's own card: the last sale, the last 3's average, how many sales over how many days
+            stats = []
+            if s.last:
+                stats.append(t("price_mw_last", price=f"{s.last.price:,}", ago=market_ago(t, s.last.time))
+                             if s.last.time else t("price_mw_last", price=f"{s.last.price:,}", ago="-"))
+            if s.last3:
+                stats.append(t("price_mw_last3", price=f"{s.last3:,}"))
+            if s.days:
+                stats.append(t("price_mw_day" if s.days == 1 else "price_mw_days", n=f"{s.sold:,}", days=s.days))
+            if stats:
+                more.append(" · ".join(stats))
             moves = []
             if s.trend_pct is not None and s.trend_days:
                 arrow = "▲" if s.trend_pct > 0 else "▼" if s.trend_pct < 0 else "="
@@ -2838,6 +2849,20 @@ class ToolsDialog(GlassDialog):
                 moves.append(t("price_mw_ask", price=f"{s.ask:,}"))
             if moves:
                 more.append(" · ".join(moves))
+        if s is not None and s.asks:
+            more.append(t("price_mw_listings", n=f"{s.asks:,}", shops=f"{max(s.listing_shops, 1):,}"))
+        if s is not None and s.cash and s.cash_on_sale is not None:
+            more.append(t("price_mw_cash_nx", nx=f"{s.nx:,}") if s.cash_on_sale and s.nx
+                        else t("price_mw_cash_on") if s.cash_on_sale else t("price_mw_cash_off"))
+        if s is not None and s.recent:
+            more.append(t("price_mw_recent"))
+            for r in s.recent[:LISTINGS_MW]:
+                bits = [bidi.ltr_block(f"{r.price:,} mesos" + (f" x{r.qty}" if r.qty > 1 else ""), t.rtl)]
+                if r.location:
+                    bits.append(bidi.ltr_block(r.location, t.rtl))
+                if r.time:
+                    bits.append(market_ago(t, r.time))
+                more.append("• " + " · ".join(bits))
         if s is not None and s.shops:
             more.append(t("price_mw_shops"))
             for x in sorted(s.shops, key=lambda x: x.price)[:LISTINGS_MW]:

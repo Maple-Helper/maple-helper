@@ -169,7 +169,10 @@ def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch
     from maplehelper import mesowatch
     snap = mesowatch.Snapshot("Windia", time.time() - 600, {})
     ore = mesowatch.Sales(4010001, "Iron Ore", 375, 299, 499, 2243, False, 500, trend_pct=-22, trend_days=3,
-                          shops=[mesowatch.Shop("The Rain-Forest East of Henesys", 399, 1, 8, time.time() - 300)])
+                          shops=[mesowatch.Shop("The Rain-Forest East of Henesys", 399, 1, 8, time.time() - 300)],
+                          mw_id="basil:04010001", asks=2243, listing_shops=1170, days=4, last3=420,
+                          recent=[mesowatch.Sale(450, 1, "Free Market 2", time.time() - 120),
+                                  mesowatch.Sale(400, 2, "", time.time() - 600), mesowatch.Sale(410)])
     monkeypatch.setattr(mesowatch, "for_item", lambda kb, key, *a, **k: (snap, ore))
     opened = []
     monkeypatch.setattr("webbrowser.open", lambda url: opened.append(url))
@@ -182,6 +185,8 @@ def test_the_price_card_shows_mesowatch_sales_with_its_credit(tools, monkeypatch
     assert "375" in text and "Windia" in text
     more = [d.mw_more.itemAt(i).widget().text() for i in range(d.mw_more.count())]
     assert any("299" in x and "499" in x for x in more) and any("399" in x and "Rain-Forest" in x for x in more)
+    assert any("450" in x and "420" in x and "2,243" in x for x in more)      # last sale, last 3 average, count
+    assert any("1,170" in x for x in more) and any("Free Market 2" in x for x in more)
     link = [b for b in d.findChildren(QPushButton) if "MesoWatch" in b.text()]
     assert link
     link[0].click()
