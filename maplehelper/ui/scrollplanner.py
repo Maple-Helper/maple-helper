@@ -270,18 +270,20 @@ class ScrollPlanner(EdgeResize, QWidget):
         """Shown while settings["scroll_planner"] is on (the bar's button flips it): placed where the player
         left it or under the bar, at the overlays' opacity, out of screen captures, the active character read."""
         want = bool(self._settings["scroll_planner"])
-        if want and not self.isVisible():
-            self._read_opacity()
+        if not want:
+            if self.isVisible():
+                self.hide()
+            return
+        self._read_opacity()              # the ⚙ panel or Settings may change the look while it shows
+        if not self.isVisible():
             self._place()
             self.show()
             set_capturable(self, self._settings)
-        if want:
-            if self._sync_default():
-                self._picked = None        # nothing of the player's own: the worn gear replaced
-                self._show_plan()
-            self._paint_cards()
-        elif self.isVisible():
-            self.hide()
+        if self._sync_default():
+            self._picked = None        # nothing of the player's own: the worn gear replaced
+            self._show_plan()
+        self._paint_cards()
+        self.update()                     # the glass repaints in the tint the settings now give
 
     def open_item(self, key: str) -> None:
         """Jump straight to one equip (the gear advisor's 'plan scrolls for this'): picked, shown, the setting

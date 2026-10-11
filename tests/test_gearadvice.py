@@ -409,3 +409,15 @@ def test_the_worn_picker_saves_what_you_pick(qapp, win, profiles):
     rows[0].clicked.emit()                                                         # nothing: taken off
     qapp.processEvents()
     assert "Claw" not in profiles.active.gear
+
+
+def test_a_folded_slot_counts_its_upgrades_in_hebrew_too(qapp, win):
+    """The folded badge passed the count as a number to bidi.ltr_block, which takes text: folding a slot with
+    upgrades crashed in Hebrew (English skips the wrap, so only Hebrew hit it)."""
+    from maplehelper.i18n import I18n
+    win.refresh()
+    win.apply_language(I18n("he"))
+    plan = next(p for p in win._plans if p.now)
+    if plan.slot not in (win._folded or set()):
+        win._fold_clicked(plan.slot)
+    assert str(len(plan.now)) in win._badge_of[plan.slot].text()

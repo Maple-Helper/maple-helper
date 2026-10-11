@@ -199,9 +199,11 @@ class MapleHelperApp:
         self.portal_dots = PortalDots(self.kb, self.settings)
         self.portal_dots.refresh()
         # the "NPCs on this map" window over the game itself (ui/npcoverlay.py), shown from its own setting; the
-        # guide it sets is what the ring above draws on the game's minimap
-        from .ui.npcoverlay import NpcOverlay
-        self.npc_overlay = NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
+        # guide it sets is what the ring above draws on the game's minimap. Before any of the windows over the
+        # game are made: the glass tint they all paint is taken from the settings (the ⚙ panel re-takes it live).
+        from .ui import npcoverlay
+        npcoverlay.apply_look(self.settings)
+        self.npc_overlay = npcoverlay.NpcOverlay(self.kb, self.settings, I18n(self.settings["language"] or "he"))
         self.npc_overlay.refresh()
         # the little bar over the game (ui/gametoolbar.py): its NPCs-here button flips the window above, its
         # search buttons open the monster/NPC/item search (ui/gamesearch.py) — made on the first ask, so a start
@@ -212,6 +214,7 @@ class MapleHelperApp:
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
         self.game_toolbar.search_requested.connect(self._open_game_search)
         self.game_toolbar.rides_toggled.connect(self._game_rides_toggled)
+        self.game_toolbar.look_changed.connect(self._overlay_look_changed)
         self.game_toolbar.refresh()
         self.overlay.minimap_requested.connect(self.pick_minimap)     # the character card's minimap button
         # the loot log: the game's pickup messages read while a log runs (the box the player drew around them), with
@@ -329,10 +332,13 @@ class MapleHelperApp:
             if key == "scroll_planner":
                 from .ui.scrollplanner import ScrollPlanner
                 w = ScrollPlanner(self.kb, self.settings, self.profiles, t)
-            else:
+            elif key == "gear_advisor":
                 from .ui.gearadvisor import GearAdvisor
                 w = GearAdvisor(self.kb, self.settings, self.profiles, t)
                 w.scroll_requested.connect(self._plan_scrolls)
+            else:
+                from .ui.craftadvisor import CraftAdvisor
+                w = CraftAdvisor(self.kb, self.settings, self.profiles, t)
             w.closed.connect(self.game_toolbar.refresh)          # its ✕: the bar's button goes off
             self._tool_windows[key] = w
         return w
@@ -866,12 +872,27 @@ class MapleHelperApp:
         dots = getattr(self, "portal_dots", None)
         if dots is not None:
             dots.refresh()          # the hidden-portal dots switched on or off
+        from .ui import npcoverlay
+        npcoverlay.apply_look(self.settings)     # the tint every window's glass paints, before they repaint
+        self._overlay_look_changed()
+
+    def _overlay_look_changed(self) -> None:
+        """Every window over the game at the colours, icons and transparency the settings give now, not on the
+        next restart: the ⚙ panel's choices (look_changed) and Settings > Minimap's (on Save) both land here.
+        Each window re-reads the opacity, re-styles its own lit buttons in the accent, and repaints its glass
+        in the tint _paint_glass takes (the NPCs window's guide and the search's page window with them)."""
         npc = getattr(self, "npc_overlay", None)
         if npc is not None:
             npc.refresh()          # the NPCs-on-this-map window switched on or off
         game = getattr(self, "game_toolbar", None)
         if game is not None:
             game.refresh()         # the bar over the game switched on or off (its button follows the window)
+        search = getattr(self, "game_search", None)
+        if search is not None:
+            search._read_opacity()          # no refresh of its own: its rows are the search's, not the look's
+            search.update()
+            if getattr(search, "_detail", None) is not None:
+                search._detail.update()
         loot = getattr(self, "loot_overlay", None)
         if loot is not None:
             loot.sync()            # the loot log's window at the windows' opacity

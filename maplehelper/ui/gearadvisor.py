@@ -224,8 +224,19 @@ class GearAdvisor(EdgeResize, QWidget):
         hrow.addWidget(self._title, 1)
         hrow.addWidget(self._close, 0, Qt.AlignTop)
         col.addWidget(head)
+        # the character line, with the gender box at its end (the stat row had no room left for it: "Ma" at 360 px)
+        crow = QHBoxLayout()
+        crow.setContentsMargins(0, 0, 0, 0)
+        crow.setSpacing(6)
         self._char = QLabel(objectName="Char", wordWrap=True)
-        col.addWidget(self._char)
+        crow.addWidget(self._char, 1)
+        self._gender = QComboBox()
+        self._gender.setCursor(Qt.PointingHandCursor)
+        self._gender.addItems(list(GENDERS))
+        self._gender.currentIndexChanged.connect(lambda _i: self._gender_picked())
+        self._gender.setSizeAdjustPolicy(QComboBox.AdjustToContents)     # "Female" whole, never clipped
+        crow.addWidget(self._gender, 0, Qt.AlignVCenter)
+        col.addLayout(crow)
         self._stats = QWidget()
         srow = QHBoxLayout(self._stats)
         srow.setContentsMargins(0, 0, 0, 0)
@@ -245,12 +256,6 @@ class GearAdvisor(EdgeResize, QWidget):
             prow.addWidget(box, 1)
             srow.addWidget(pair, 1)
             self._editors[st] = box
-        self._gender = QComboBox()
-        self._gender.setCursor(Qt.PointingHandCursor)
-        self._gender.addItems(list(GENDERS))
-        self._gender.currentIndexChanged.connect(lambda _i: self._gender_picked())
-        self._gender.setSizeAdjustPolicy(QComboBox.AdjustToContents)     # "Female" whole, never clipped
-        srow.addWidget(self._gender)
         col.addWidget(self._stats)
         self._hint = QLabel(objectName="Hint", wordWrap=True)
         col.addWidget(self._hint)
@@ -284,6 +289,7 @@ class GearAdvisor(EdgeResize, QWidget):
                 self.show()
                 set_capturable(self, self._settings)
             self.raise_()
+            self.update()             # the glass repaints in the tint the settings now give
         elif self.isVisible():
             self.hide()
 
@@ -339,6 +345,7 @@ class GearAdvisor(EdgeResize, QWidget):
         if self._c is None:
             self._char.setText(bidi.plain(t("ga_no_character"), rtl))
             self._stats.setVisible(False)
+            self._gender.setVisible(False)
             self._hint.setText("")
             self._hint.setVisible(False)
             return
@@ -346,6 +353,7 @@ class GearAdvisor(EdgeResize, QWidget):
         self._char.setText(bidi.plain(f"{bidi.ltr_name(f'{c.name} · {c.job}', rtl)} · {t('lv_short', n=c.level)}",
                                       rtl))
         self._stats.setVisible(True)
+        self._gender.setVisible(True)
         for st, box in self._editors.items():
             box.blockSignals(True)
             box.setText(str(c.ap.get(st, "")) if c.ap.get(st) is not None else "")
@@ -419,7 +427,7 @@ class GearAdvisor(EdgeResize, QWidget):
         folded = plan.slot in (self._folded or set())
         self._body_of[plan.slot].setVisible(not folded)
         self._badge_of[plan.slot].setText("" if not folded or not plan.now else
-                                          bidi.plain(t("ga_upgrades", n=bidi.ltr_block(len(plan.now), t.rtl)), t.rtl))
+                                          bidi.plain(t("ga_upgrades", n=bidi.ltr_block(str(len(plan.now)), t.rtl)), t.rtl))
 
     def _fold_clicked(self, slot: str) -> None:
         self._folded = (self._folded or set()) ^ {slot}

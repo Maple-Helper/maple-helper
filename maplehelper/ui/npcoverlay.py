@@ -47,7 +47,68 @@ FILL1 = "rgba(255,255,255,0.08)"
 FILL2 = "rgba(255,255,255,0.14)"
 SEL_TEXT = "#07230F"                # on the selected row's green, as the NPC's dot is ringed dark green
 
-QSS = f"""
+# the colours every window over the game follows (the bar's ⚙ panel and Settings > Minimap pick them): the
+# glass tints, all dark enough for the light text, and the accents that light a lit or selected button, each
+# with the text colour that reads on it. "dark"/"green" are today's look, the ones a stale setting falls back to.
+TINTS = {"dark": ("tbs_tint_dark", (24, 24, 27)),
+         "midnight": ("tbs_tint_midnight", (17, 24, 43)),
+         "forest": ("tbs_tint_forest", (13, 31, 22)),
+         "wine": ("tbs_tint_wine", (38, 17, 27)),
+         "slate": ("tbs_tint_slate", (36, 39, 44))}
+ACCENTS = {"green": ("tbs_accent_green", "#2E9E5B", "#07230F"),
+           "blue": ("tbs_accent_blue", "#3D8BD6", "#082138"),
+           "purple": ("tbs_accent_purple", "#8265D6", "#180C2C"),
+           "orange": ("tbs_accent_orange", "#E08A3C", "#2F1706"),
+           "pink": ("tbs_accent_pink", "#D65C8E", "#2F081A"),
+           "teal": ("tbs_accent_teal", "#2FA8A0", "#062623")}
+OPACITY_STEPS = (0.3, 0.5, 0.7, 0.85, 1.0)   # the choices both the ⚙ panel and Settings > Minimap offer
+
+
+def _picked(settings, key: str):
+    """A setting as Settings or a plain dict gives it; None when neither has it (a test's stub settings)."""
+    if settings is None:
+        return None
+    try:
+        return settings[key]
+    except (KeyError, TypeError):
+        return None
+
+
+def tint_of(settings) -> tuple[int, int, int]:
+    """The glass fill the settings pick (a name TINTS doesn't know: today's dark)."""
+    name = _picked(settings, "overlay_tint")
+    entry = TINTS.get(name) if isinstance(name, str) else None
+    return entry[1] if entry is not None else PANEL
+
+
+def accent_of(settings) -> tuple[str, str]:
+    """The colour that lights a lit or selected button, and the text colour on it (a name ACCENTS doesn't
+    know: today's green)."""
+    name = _picked(settings, "overlay_accent")
+    entry = ACCENTS.get(name) if isinstance(name, str) else None
+    return (entry[1], entry[2]) if entry is not None else (theme.GOOD_TEXT_LIGHT, SEL_TEXT)
+
+
+_tint = PANEL       # the tint _paint_glass paints right now: set from the settings by apply_look
+
+
+def apply_look(settings) -> None:
+    """The one place the windows-over-the-game look follows the settings: the glass tint every _paint_glass
+    paints (the accent each window takes itself in its own style sheet, from accent_of). The app calls this
+    at start and whenever the tint is picked, so every window repaints with none of its own code."""
+    global _tint
+    _tint = tint_of(settings)
+
+
+def current_tint() -> tuple[int, int, int]:
+    """The tint _paint_glass is painting (the tests ask; a window never needs it)."""
+    return _tint
+
+def qss(settings) -> str:
+    """The window's own style at the accent the settings pick: [sel] rows light in it (the rest of the look is
+    every window's). Rebuilt whenever the accent is picked, so a window follows with no code of its own."""
+    accent, on_accent = accent_of(settings)
+    return f"""
 #Title {{ color: {TEXT}; font-weight: 600; }}
 #Status {{ color: {MUTED}; }}
 #Inside {{ color: {MUTED}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
@@ -55,7 +116,7 @@ QSS = f"""
 QPushButton {{ background: {FILL1}; color: {TEXT}; border: none; border-radius: 8px;
               padding: 6px 10px; text-align: left; }}
 QPushButton:hover {{ background: {FILL2}; }}
-QPushButton[sel="true"] {{ background: {theme.GOOD_TEXT_LIGHT}; color: {SEL_TEXT}; font-weight: 600; }}
+QPushButton[sel="true"] {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
 QToolButton {{ background: transparent; color: {MUTED}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {FILL2}; color: {TEXT}; }}
@@ -140,8 +201,9 @@ def direction(g, mid: str, you, spot) -> str:
 
 
 def _paint_glass(w: QWidget, opacity: float) -> None:
-    """A floating panel's own glass: the soft shadow, then a dark rounded fill at the player's chosen opacity, so
-    the game shows through as much as they asked (settings: npc_overlay_opacity)."""
+    """A floating panel's own glass: the soft shadow, then a rounded fill in the tint the player picked (the
+    ⚙ panel's or Settings' colour, apply_look) at the opacity they asked, so the game shows through as much
+    as they asked (settings: npc_overlay_opacity)."""
     p = QPainter(w)
     p.setRenderHint(QPainter.Antialiasing)
     for i in range(SHADOW, 0, -2):
@@ -152,7 +214,7 @@ def _paint_glass(w: QWidget, opacity: float) -> None:
     path = QPainterPath()
     path.addRoundedRect(QRectF(w.rect()).adjusted(SHADOW + 0.5, SHADOW + 0.5, -SHADOW - 0.5, -SHADOW - 0.5),
                         RADIUS, RADIUS)
-    fill = QColor(*PANEL)
+    fill = QColor(*_tint)
     fill.setAlphaF(opacity)
     p.fillPath(path, fill)
     rim = QLinearGradient(0, SHADOW, 0, w.height() - SHADOW)
@@ -210,7 +272,7 @@ class GuideWindow(QWidget):
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setFocusPolicy(Qt.NoFocus)
         self.setFixedWidth(GUIDE_W)
-        self.setStyleSheet(QSS)
+        self.setStyleSheet(qss(owner._settings))
         self._owner = owner
         col = QVBoxLayout(self)
         col.setContentsMargins(SIDE, TOP, SIDE, BOTTOM)
@@ -307,7 +369,7 @@ class NpcOverlay(EdgeResize, QWidget):
         self._collapsed = False              # folded to the header: no NPCs to list (_fit)
         self._full_h: int | None = None      # the height it opens back to from the fold
         self._geom = QTimer(self, singleShot=True, interval=GEOM_DEBOUNCE_MS, timeout=self._remember)
-        self.setStyleSheet(QSS)
+        self.setStyleSheet(qss(self._settings))
         self._build()
         LOCATION.changed.connect(self.refresh)
 
@@ -547,6 +609,7 @@ class NpcOverlay(EdgeResize, QWidget):
         map keeps the list and the picked NPC — only the guide panel follows the player's dot; a new one rebuilds
         the list and lets the guide go, except into the building the picked NPC is in: there the NPC is picked
         again, now guided to where it stands inside."""
+        self._restyle()
         try:
             self._opacity = min(OPACITY_MAX, max(OPACITY_MIN, float(self._settings["npc_overlay_opacity"])))
         except (TypeError, ValueError):
@@ -572,6 +635,15 @@ class NpcOverlay(EdgeResize, QWidget):
             self._redraw_guide()
         self.update()
         self._guide.update()
+
+    def _restyle(self) -> None:
+        """The accent the settings pick, in this window's and the guide's own style sheets (the glass itself is
+        painted in the tint by _paint_glass); skipped when it is the same, a restyle re-polishing every row."""
+        sheet = qss(self._settings)
+        if sheet != self.styleSheet():
+            self.setStyleSheet(sheet)
+        if sheet != self._guide.styleSheet():
+            self._guide.setStyleSheet(sheet)
 
     def set_kb(self, kb: KnowledgeBase) -> None:
         self._kb = kb
