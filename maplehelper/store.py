@@ -182,6 +182,9 @@ DEFAULT_SETTINGS = {
     "game_detail_size": None,     # the size the player dragged the search's page window to: {"w","h"}; None: fits its page
     "game_rides": False,          # the toolbar's Cabs & Teleports switch: the way to a found NPC/map takes them, or walks
     "overlays_in_screenshots": False,   # the windows over the game show in screen captures (they hide from them)
+    "loot_region": None,          # the game's pickup messages on screen, drawn by the player (the loot log reads them)
+    "loot_overlay": True,         # the loot log's card over the game while a log runs (ui/lootoverlay.py)
+    "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
 }
 
 
@@ -467,6 +470,8 @@ class Profiles:
         History(cid).clear()
         from .grind import Store as GrindStore
         GrindStore().forget(cid)            # its grind sessions go with it
+        from .lootlog import Store as LootStore
+        LootStore().forget(cid)             # and its loot logs
         self.characters.remove(c)
         if self.active_id == cid:
             self.active_id = self.characters[0].id if self.characters else None

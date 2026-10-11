@@ -148,7 +148,8 @@ def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
     monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
     monkeypatch.setattr(store, "HISTORY_DIR", tmp_path / "history")
-    from maplehelper import grind
+    from maplehelper import grind, lootlog
     monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
+    monkeypatch.setattr(lootlog.Store, "path", tmp_path / "loot.json")
     (tmp_path / "history").mkdir()
     return store
