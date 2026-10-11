@@ -498,9 +498,19 @@ def test_released_filters_unreleased_shops(real):
     from maplehelper import market
     from maplehelper import availability
     a = availability.of(real)
-    red_cross = market.npc_prices(real, real._item_by_name["red cross shield"])
-    open_shops = [s for s in red_cross.shops if combat.released(real, s[1])]
-    assert open_shops and all(a.place_open(s[1].rsplit(" · ", 1)[-1]) for s in open_shops)
+    # an item sold both in an open town and in a shut one (Red Cross Shield was, until Perion's weapon store stopped
+    # selling it on 2026-10-11): the shut town's shop is left out, the open one kept. Found in the KB, not named
+    mixed = None
+    for name in ("red cross shield", *sorted(real._item_by_name)):
+        shops = market.npc_prices(real, real._item_by_name[name]).shops
+        flags = {combat.released(real, s[1]) for s in shops}
+        if flags == {True, False}:
+            mixed = shops
+            break
+    assert mixed, "no item the KB sells both in an open town and a shut one"
+    open_shops = [s for s in mixed if combat.released(real, s[1])]
+    assert open_shops and len(open_shops) < len(mixed)
+    assert all(a.place_open(s[1].rsplit(" · ", 1)[-1]) for s in open_shops)
     # a town is released exactly when the guide has opened its continent (El Nath: Ossyria)
     for town in ("El Nath", "Orbis", "Henesys", "Perion"):
         assert combat.released(real, town) == a.place_open(town)

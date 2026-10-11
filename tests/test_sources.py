@@ -334,7 +334,7 @@ def test_cards_and_groups_show_their_source(tiny, qapp):
 # every kind of label line the KB writes, found here independently of sources.py: a page with one must get
 # that marker from the classifier
 FAMILIES = {
-    "history": re.compile(r"^updated in .+ ▾"),
+    "history": re.compile(r"^updated (?:in|at) .+ ▾"),
     "prices": re.compile(r"^\S+ prices(?: .*[+→])?$"),
     "respawn": re.compile(r"^\S+ map data stores "),
     "drops": re.compile(r"^MSEA reference drops$", re.I),
@@ -428,7 +428,10 @@ def test_every_stat_card_and_instant_answer_is_tagged(real, qapp):
                 checked += 1
             a = quick.answer(f"{e['name']} hp", real, en)
             if a and a.text and "HP" in a.text:
-                assert a.sources == [sources.stat_source(real, key).source]
+                # the monster the answer is about: a name two monsters share ("Zombie Mushroom" and its 2nd-job-test
+                # copy, one at launch values, one at COT2's) is answered for the one the name finds first
+                about = a.entities[0] if a.entities else key
+                assert a.sources == [sources.source_of(real, about)]
             card.deleteLater()
     assert checked > 30
     for key in [k for k, e in real.entities.items() if e.get("category") == "item"][:300]:

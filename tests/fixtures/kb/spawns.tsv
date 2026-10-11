@@ -1,0 +1,8 @@
+monster	monster_key	level	map	map_key	street	count	share	mob_rate	respawn
+Snail	monster/100100	1	Snail Garden	map/100000003	Victoria Road	6	30		7
+Blue Snail	monster/100101	2	Henesys Hunting Ground I	map/100000001	Victoria Road	6	30		7
+Red Snail	monster/130101	4	Henesys Hunting Ground I	map/100000001	Victoria Road	12	40		7
+Red Snail	monster/130101	4	Snail Garden	map/100000003	Victoria Road	8	25		7
+Red Snail	monster/130101	4	Henesys Hunting Ground II	map/100000002	Victoria Road	5	15		7
+Pig	monster/1210100	7	Henesys Hunting Ground II	map/100000002	Victoria Road	6	30		7
+Axe Stump	monster/5130104	17	Henesys Hunting Ground II	map/100000002	Victoria Road	6	30		7
