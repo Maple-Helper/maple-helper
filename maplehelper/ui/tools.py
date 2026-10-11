@@ -4049,6 +4049,11 @@ class ToolsDialog(GlassDialog):
         btns.addStretch(1)
         fl.addLayout(btns)
         sec.add_widget(foot)
+        # its own card over the game while it runs (ui/lootoverlay.py), on by default
+        self.loot_overlay_switch = Switch(bool(self.settings["loot_overlay"]))
+        self.loot_overlay_switch.setAccessibleName(t("loot_overlay"))
+        self.loot_overlay_switch.toggled.connect(self._loot_set_overlay)
+        sec.add_row(t("loot_overlay"), self.loot_overlay_switch, hint=t("loot_overlay_hint"))
         lay.addWidget(sec)
 
         rec = Section(t("loot_recent"), t.rtl)
@@ -4064,6 +4069,10 @@ class ToolsDialog(GlassDialog):
         self._loot_clock.timeout.connect(self._loot_tick)
         self._loot_clock.start(5000)
         return sc
+
+    def _loot_set_overlay(self, on: bool) -> None:
+        self.settings["loot_overlay"] = bool(on)
+        self.loot.changed.emit()            # the app shows or hides the card
 
     def _ll(self, text: str, obj: str) -> QLabel:
         """A loot log label: the terms the intro explained get no second "?"."""
@@ -4106,6 +4115,10 @@ class ToolsDialog(GlassDialog):
         self.loot_start.setVisible(not running)
         self.loot_end.setVisible(running)
         self.loot_start.setEnabled(region is not None)
+        if self.loot_overlay_switch.isChecked() != bool(self.settings["loot_overlay"]):
+            self.loot_overlay_switch.blockSignals(True)             # the card's own "×" turned it off
+            self.loot_overlay_switch.setChecked(bool(self.settings["loot_overlay"]))
+            self.loot_overlay_switch.blockSignals(False)
         clear(self.loot_items)
         clear(self.loot_feed)
         if lg is None:

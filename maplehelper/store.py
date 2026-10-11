@@ -173,6 +173,8 @@ DEFAULT_SETTINGS = {
     "minimap_region": None,       # the game's minimap on screen, drawn by the player: {"x","y","w","h"} in capture pixels
     "minimap_scan_interval": 1.0,  # seconds between two reads of the minimap (where the player is)
     "loot_region": None,          # the game's pickup messages on screen, drawn by the player (the loot log reads them)
+    "loot_overlay": True,         # the loot log's card over the game while a log runs (ui/lootoverlay.py)
+    "loot_overlay_pos": None,     # ... where the player left it: {"x","y"} in screen pixels
 }
 
 

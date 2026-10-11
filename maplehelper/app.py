@@ -200,6 +200,11 @@ class MapleHelperApp:
         from .ui.lootscan import LootScanner
         self.loot_scanner = LootScanner(self.kb, self.profiles, self.settings)
         self.loot_scanner.changed.connect(lambda: self._tools_call("loot_changed"))
+        # ... and its own card over the game while a log runs (not inside a Maple Helper window: ui/lootoverlay.py)
+        from .ui.lootoverlay import LootOverlay
+        self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb)
+        self.loot_scanner.changed.connect(self.loot_overlay.sync)
+        self.loot_overlay.sync()
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
         MAP_REQUESTS.requested.connect(self.show_map_location)  # a map's "Where it is on the map"
@@ -1149,6 +1154,7 @@ class MapleHelperApp:
         loot = getattr(self, "loot_scanner", None)
         if loot is not None:
             loot.set_kb(self.kb)        # the item names it matches reads against
+            self.loot_overlay.kb = self.kb
         self.overlay.show_scope()           # the new KB's "verified on" date
         self.overlay.show_news()            # and its news
         # the open KB windows were built on the old KB (their lists named pages the swap removed): reopen them as
@@ -1171,6 +1177,7 @@ class MapleHelperApp:
         loot = getattr(self, "loot_scanner", None)
         if loot is not None:
             loot.stop()                     # no loot read while the app goes; the running log is saved
+            self.loot_overlay.hide()
         try:
             self.overlay.save_session_summary()   # quitting ends the session: show it next time
         except Exception:
