@@ -69,6 +69,7 @@ QPushButton:checked, QPushButton[on="true"] {{ background: {accent}; color: {on_
 QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
+#Gear, #Close {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; padding: 4px 7px; }}
 """
 
 
@@ -144,7 +145,7 @@ class _SettingsPanel(QWidget):
         head = QHBoxLayout()
         head.setSpacing(8)
         self._title = QLabel(objectName="Title")
-        self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
+        self._close = QToolButton(objectName="Close", text=theme.ICON["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.clicked.connect(self._close_clicked)
         head.addWidget(self._title, 1)
@@ -344,12 +345,13 @@ class GameToolbar(EdgeResize, QWidget):
         self._menu = QMenu(self)
         self._flow.addWidget(self._tools)
         # the ⚙: the panel with the colours and the transparency; then the ✕
-        self._gear = QToolButton(objectName="Gear", text=theme.SYMBOL_ICONS["settings"])
+        # the app's own icons (its icon font, as the chat's header draws them), not the emoji-looking symbols
+        self._gear = QToolButton(objectName="Gear", text=theme.ICON["settings"])
         self._gear.setCursor(Qt.PointingHandCursor)
         self._gear.setFocusPolicy(Qt.NoFocus)
         self._gear.clicked.connect(self._gear_clicked)
         self._flow.addWidget(self._gear)
-        self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
+        self._close = QToolButton(objectName="Close", text=theme.ICON["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
         self._close.clicked.connect(self._close_clicked)
