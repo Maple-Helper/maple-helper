@@ -21,7 +21,9 @@ from . import dates
 NEWS_PAGE = "https://www.nexon.com/maplestory/news"
 SETTING = "news_read"   # the ids the player dismissed or read (store.Settings), newest kept
 KEEP = 300
-SINCE = "2026-10-02"    # news start here (the owner's call, 2026-10-04); tools/scrape_news.py cuts the same
+# news start here (the owner's call, 2026-10-12: Nexon's news only, from that day on); tools/scrape_news.py cuts
+# the same, and a KB from before still carries older items: they never show
+SINCE = "2026-10-12"
 NEW_DAYS = 14          # how long an item can still come up as unread news in the chat
 SHOWN_REGION = "gms"   # the app is for Global Classic: China / Taiwan news stay in the News tab only
 REGIONS = ("gms", "cms", "tms")

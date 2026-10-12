@@ -36,9 +36,19 @@ TODAY = date(2026, 10, 4)
 IDS = ["nexon-46321", "nexon-45490", "nexon-45819", "nexon-45621", "nexon-45681"]
 
 
+FIXTURE_SINCE = "2026-10-02"     # the recorded articles are from October 2-8, before the app's news start
+REAL_SINCE = {"test_news_start_today", "test_today_the_recorded_list_is_no_news",
+              "test_an_empty_news_json_shows_nothing_anywhere"}
+
+
 @pytest.fixture(autouse=True)
-def no_pause(monkeypatch):
+def no_pause(monkeypatch, request):
+    """No pauses; and the cut moved back to the recorded week, so the fixtures are news (the tests in REAL_SINCE
+    keep the app's real one)."""
     monkeypatch.setattr(scrape_news, "PAUSE", 0)
+    if request.node.originalname not in REAL_SINCE:
+        monkeypatch.setattr(scrape_news, "SINCE", FIXTURE_SINCE)
+        monkeypatch.setattr(news, "SINCE", FIXTURE_SINCE)
 
 
 def nexon(url, broken=()):
@@ -58,10 +68,40 @@ def scraped(kb: Path) -> dict:
     return {i["id"]: i for i in json.loads((kb / "news.json").read_text(encoding="utf-8"))["items"]}
 
 
+def test_news_start_today():
+    """The owner's call of 2026-10-12: the news are Nexon's, from that day on; nothing older, not even the week
+    before (the maintenance of October 8)."""
+    assert scrape_news.SINCE == news.SINCE == "2026-10-12"
+
+
+def test_today_the_recorded_list_is_no_news(tmp_path):
+    """Every recorded article is older than the cut: a list read fine with no Classic World article since is a quiet
+    night, not a failure. news.json says so (items []), and what an older KB had is gone, its pictures too."""
+    assert scrape_news.selected(scrape_news.entries(LIST)) == []
+    assert scrape_news.update(tmp_path, nexon) == 0
+    assert json.loads((tmp_path / "news.json").read_text(encoding="utf-8"))["items"] == []
+    old = tmp_path / "old"
+    (old / "img" / "news").mkdir(parents=True)
+    (old / "img" / "news" / "founders-access-release-notes.webp").write_bytes(b"x")
+    (old / "news.json").write_text(json.dumps({"items": [
+        {"id": "founders-access-release-notes", "title": "x", "date": "2026-10-03",
+         "image": "img/news/founders-access-release-notes.webp"},
+        {"id": "classic-world-founders-access-live", "title": "y", "date": "2026-10-06"}]}), encoding="utf-8")
+    assert scrape_news.update(old, nexon) == 3                     # two items gone, one picture deleted
+    assert json.loads((old / "news.json").read_text(encoding="utf-8"))["items"] == []
+    assert not list((old / "img" / "news").rglob("*.webp"))
+    assert scrape_news.update(old, nexon) == 0                     # and the next quiet night changes nothing
+    # a list that can't be read still keeps what there is
+    (old / "news.json").write_text(json.dumps({"items": [{"id": "a", "title": "A", "date": "2026-10-13"}]}),
+                                   encoding="utf-8")
+    for night in (lambda url: None, lambda url: "<html>", lambda url: "[]"):
+        assert scrape_news.update(old, night) == 0 and scraped(old) == {"a": {"id": "a", "title": "A",
+                                                                               "date": "2026-10-13"}}
+
+
 def test_news_start_at_the_cut(tmp_path):
-    """Only news from 2026-10-02 on (the owner's call): the scrape keeps none older (the FAQ and the pre-download
-    steps of September 29 are Classic World's too), and the app shows none older from a KB that still has them."""
-    assert scrape_news.SINCE == news.SINCE == "2026-10-02"
+    """Only news from the cut on: the scrape keeps none older (the FAQ and the pre-download steps of September 29
+    are Classic World's too), and the app shows none older from a KB that still has them."""
     kept = scrape_news.selected(scrape_news.entries(LIST))
     assert [e["id"] for e in kept] == [int(i.split("-")[1]) for i in IDS]
     (tmp_path / "news.json").write_text(json.dumps({"items": [
@@ -254,10 +294,8 @@ def test_a_bad_night_keeps_the_news_there_is(tmp_path):
 
     def down(url):
         raise OSError("refused")
-    no_classic = json.dumps([e for e in json.loads(LIST) if not scrape_news.classic(e)])
     for night in (lambda url: None, down, lambda url: "<html>new layout</html>", lambda url: "[]",
-                  lambda url: json.dumps({"items": []}),
-                  lambda url: no_classic if url == scrape_news.NEWS_LIST else nexon(url)):
+                  lambda url: json.dumps({"items": []})):
         assert scrape_news.update(tmp_path, night) == 0
         assert (tmp_path / "news.json").read_text(encoding="utf-8") == first
 
@@ -707,3 +745,44 @@ def test_the_maintenance_notice_redraws_its_date_in_the_new_language(chat):
     chat.settings["language"] = "en"
     chat.apply_language()
     assert dates.day(day, False, False) in notice.msg.text() and "until about" in notice.msg.text()
+
+
+@pytest.mark.parametrize("items", [[], [
+    {"id": "founders-access-release-notes", "title": "Founder's Access release notes", "date": "2026-10-03",
+     "region": "gms", "official": True, "publisher": "Nexon", "summary": "Level cap 100."},
+    {"id": "nexon-46321", "title": "Unscheduled Maintenance", "date": "2026-10-08", "region": "gms", "official": True,
+     "publisher": "Nexon", "summary": "Servers down."}]])
+def test_an_empty_news_json_shows_nothing_anywhere(kb_copy, isolated_store, monkeypatch, items):
+    """news.json with no items (a night with no news since the cut), or an older KB whose items all predate it: no
+    strip in the chat, the News tab's empty state, no news for the AI."""
+    from maplehelper import osapi
+    from maplehelper.brain import build_prompt
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.newsview import NewsCard, news_page
+    from maplehelper.ui.overlay import Overlay
+    (kb_copy / "news.json").write_text(json.dumps({"source": "x", "items": items}), encoding="utf-8")
+    kb = KnowledgeBase(kb_copy)
+    assert news.items(kb) == [] and news.unread(kb, [], today=date(2026, 10, 9)) == []
+    assert news.ai_lines(kb, today=date(2026, 10, 12)) == []
+    assert "official, Nexon" not in build_prompt("When does Orbis open?", None, None, kb, False)
+    for lang in ("he", "en"):
+        t = I18n(lang)
+        page = news_page(t, kb)
+        assert not page.findChildren(NewsCard)
+        from PySide6.QtWidgets import QLabel
+        assert any(lb.text().strip("‎‏⁦⁧⁨⁩") == t("news_empty")
+                   for lb in page.findChildren(QLabel))
+    for name in ("float_over_fullscreen", "activate_self", "focus_window"):
+        monkeypatch.setattr(osapi, name, lambda *a: None)
+    monkeypatch.setattr(osapi, "find_game_window", lambda: None)
+    s, p = isolated_store.Settings(), isolated_store.Profiles()
+    s["language"], s["tour_done"] = "he", True
+    p.add("Kiwi", "Thief", "Assassin", 34)
+    ov = Overlay(s, p, kb, None)
+    ov.show()
+    pump()
+    ov.show_news()
+    assert not ov.news_strip.isVisible() and ov.news_btn.property("unread") == "false"
+    ov.hide()
+    ov.deleteLater()
+    pump()

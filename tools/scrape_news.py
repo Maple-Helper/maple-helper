@@ -56,8 +56,9 @@ MAX_IMAGE_BYTES = 1_000_000          # a news picture is ~20-200 KB; anything ov
 MAX_PICTURES = 20                    # an article's named pictures (the Cash Shop's has 17)
 FORMATS = {"webp": "WEBP", "png": "PNG", "jpg": "JPEG", "jpeg": "JPEG"}    # extension -> what Pillow must read
 PAUSE = 0.5                          # between two requests to Nexon (the scraper's own pace)
-# the app's news start here (the owner's call, 2026-10-04): every item from then on, none older (maplehelper/news.py)
-SINCE = "2026-10-02"
+# the app's news start here (the owner's call, 2026-10-12: Nexon's news only, from the day they come from Nexon):
+# every article from then on, none older, not even the week before (maplehelper/news.py cuts the same)
+SINCE = "2026-10-12"
 TRANSLATIONS = ROOT / "assets" / "news"
 PUBLISHER = "Nexon"
 # content whose opening news may announce: a hint list, matched as whole words (case-insensitive)
@@ -643,7 +644,8 @@ def prune_pictures(kb: Path, items: list[dict]) -> int:
 def update(kb: Path, fetch, fetch_bytes=None) -> int:
     """Refresh kb/news.json with fetch(url) -> str | None (the scraper's polite fetch). Returns how many items are
     new, changed or gone (0 when nothing changed). A failed fetch or an unreadable list keeps the news.json there
-    is: a site hiccup must not wipe the news, or the next good night announce all of it again.
+    is: a site hiccup must not wipe the news, or the next good night announce all of it again. A list read fine with
+    no Classic World article since SINCE is no news: items [] (what there was counts as gone).
 
     fetch_bytes(url) -> bytes | None downloads the pictures (add_cover, add_nexon); without it the items keep the
     pictures they have and get no new ones."""
@@ -661,9 +663,8 @@ def update(kb: Path, fetch, fetch_bytes=None) -> int:
         print("news: Nexon's news list could not be fetched; keeping the news there is", flush=True)
         return cleaned
     try:
+        # (no Classic World article since SINCE in a list read fine is a quiet week, not a failure: no news)
         found = selected(entries(text))
-        if not found:
-            raise NewsError(f"no Classic World news since {SINCE} in Nexon's list")
     except NewsError as e:
         print(f"news: {e}; keeping the news there is", flush=True)
         return cleaned
@@ -685,7 +686,7 @@ def update(kb: Path, fetch, fetch_bytes=None) -> int:
     changed = sum(1 for i in items if old.get(i["id"]) != i)
     removed = len(old.keys() - {i["id"] for i in items})
     pruned = prune_pictures(kb, items)            # (a picture deleted is a change too: the KB gets lighter)
-    if changed or removed:
+    if changed or removed or not path.exists():
         path.write_text(json.dumps({"source": "Nexon (nexon.com/maplestory/news)",
                                     "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                     "items": items}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")

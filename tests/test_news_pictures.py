@@ -51,8 +51,11 @@ ARTICLE = {"id": 45621, "name": "Founder's Access Release Notes", "body": f"""
 
 @pytest.fixture(autouse=True)
 def no_pause(monkeypatch):
+    """No pauses; the cut moved back to the recorded week (October 2-8, before the app's news start)."""
     import scrape_news
     monkeypatch.setattr(scrape_news, "PAUSE", 0)
+    monkeypatch.setattr(scrape_news, "SINCE", "2026-10-02")
+    monkeypatch.setattr(news, "SINCE", "2026-10-02")
 
 
 class Site:
