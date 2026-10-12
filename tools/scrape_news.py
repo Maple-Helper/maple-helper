@@ -66,8 +66,7 @@ MENTIONS = ("Victoria Island", "Ossyria", "Orbis", "El Nath", "Ludibrium", "Aqua
             "Papulatus", "Horntail", "Cash Shop", "Hired Merchant")
 MAX_HIGHLIGHTS = 12                  # a short article's lines, or a long one's headings
 SHORT_HEADINGS = 6                   # a long article with no headings: its first paragraphs
-FEW_HEADINGS = 4                     # fewer sections than this (the interview has 3): its bold paragraphs too
-MAX_BOLD = 8                         # ... up to this many highlights in all
+MAX_BOLD = 8                         # a long article with fewer sections: its bold paragraphs up to this many in all
 MAX_HIGHLIGHT = 400                  # characters; a longer paragraph ends at its last sentence that fits
 # the greetings and sign-offs around an announcement: not what it says
 BOILERPLATE = re.compile(r"(?:h(?:i|ello|ey),? maplers|join our official|thank you|we appreciate|happy mapling|"
@@ -220,11 +219,12 @@ def highlights(body: str, summary: str = "", title: str = "") -> list[str]:
     """What the article says, in Nexon's words and order, chosen the same way every night.
 
     A short article (up to MAX_HIGHLIGHTS blocks): its every paragraph, list line and heading. A longer one: its
-    sections, each "<heading>: <the first text under it>" (the release notes' "General Key Details: ..." says the
-    level cap), from the top heading levels when there are too many (the Cash Shop's sales, not each coupon's "Male
-    Hairs"), the heading alone when nothing is under it. Under FEW_HEADINGS sections (an interview), its bold
-    paragraphs (the questions) after them, up to MAX_BOLD in all; with neither, its first paragraphs. Never the
-    summary again, a picture's empty line, or the greeting and sign-off."""
+    sections, each "<heading>: <the first text under it>" ("Accessing Classic World: Download and install..."),
+    from the top heading levels when there are too many (the Cash Shop's sales, not each coupon's "Male Hairs"), the
+    heading alone when nothing is under it; then its bold paragraphs (the release notes' "The maximum character level
+    is Lv. 100", an interview's questions) while there are fewer than MAX_BOLD in all, never in place of a section;
+    with neither, its first paragraphs. Never the summary again, a picture's empty line, or the greeting and
+    sign-off."""
     kept = [(tag, text, bold) for tag, text, bold in blocks(body)
             if not _same(text, summary) and not BOILERPLATE.match(text) and re.search(r"\w", text)]
     if len(kept) <= MAX_HIGHLIGHTS:
@@ -250,13 +250,12 @@ def highlights(body: str, summary: str = "", title: str = "") -> list[str]:
                 break
         used.update({n} | ({under} if under is not None else set()))
         out.append(clip(f"{head.rstrip(':').rstrip()}: {kept[under][1]}" if under is not None else head))
-    if len(heads) < FEW_HEADINGS:
-        for n, (tag, text, bold) in enumerate(kept):
-            if len(out) >= MAX_BOLD:
-                break
-            if tag == "p" and bold and n not in used and not any(_same(text, kept[u][1]) for u in used):
-                used.add(n)
-                out.append(clip(text))
+    for n, (tag, text, bold) in enumerate(kept):
+        if len(out) >= MAX_BOLD:
+            break
+        if tag == "p" and bold and n not in used and not any(_same(text, kept[u][1]) for u in used):
+            used.add(n)
+            out.append(clip(text))
     return out or [clip(text) for tag, text, _ in kept if tag == "p"][:SHORT_HEADINGS]
 
 

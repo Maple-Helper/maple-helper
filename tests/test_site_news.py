@@ -164,9 +164,10 @@ def test_the_cash_shop_is_its_sales_each_with_its_first_line():
                                                              for x in p)
 
 
-def test_the_release_notes_are_their_sections_with_what_each_says_first():
+def test_the_release_notes_are_their_sections_then_their_bold_lines():
     """Nexon's words as written (its "by 30, 2026" too); a section whose first lines are the greeting has its heading
-    alone."""
+    alone. Five sections leave room for the bold lines, the level cap among them: both there are (7, under
+    MAX_BOLD)."""
     assert _points(45621) == [
         "October 6, 2026 6:00 PM UTC",
         "Accessing Classic World: Download and install the official Nexon Launcher from the Nexon website.",
@@ -175,12 +176,14 @@ def test_the_release_notes_are_their_sections_with_what_each_says_first():
         "Founder’s First Step: How to Participate",
         "Join Founder’s Access: There’s still time to join us! Founder’s Packages are available on the Nexon website "
         "and Steam through October 14, 2026 at 11:59 PM PDT. Choose the Orange Mushroom or Zakum Package to get "
-        "Founder’s Access and start your MapleStory Classic World adventure before Grand Launch!"]
+        "Founder’s Access and start your MapleStory Classic World adventure before Grand Launch!",
+        "The maximum character level is Lv. 100",
+        "Founder’s First Step Rewards"]
 
 
 def test_the_interview_is_its_parts_then_its_questions():
-    """Three sections only (the title's heading isn't one): the bold paragraphs, the interviewer's questions, fill
-    it up to MAX_BOLD."""
+    """Three sections (the title's heading isn't one), then the bold paragraphs, the interviewer's questions, up to
+    MAX_BOLD."""
     p = _points(45681)
     assert len(p) == scrape_news.MAX_BOLD
     assert p[:4] == [
@@ -197,8 +200,16 @@ def test_a_heading_with_nothing_or_only_itself_under_it_stands_alone():
     body = ("<h2>Times</h2><p><strong>Times</strong></p><p>Noon.</p><h2>Rewards</h2><h2>Events:</h2><p>Hi Maplers!</p>"
             "<p>Coconut Harvest.</p>" + "".join(f"<li>Line {n}.</li>" for n in range(12)))
     assert scrape_news.highlights(body)[:3] == ["Times: Noon.", "Rewards", "Events: Coconut Harvest."]
-    # under FEW_HEADINGS sections, the bold paragraphs come after them, never the same text twice
+    # the bold paragraphs come after the sections, never the same text twice
     assert scrape_news.highlights(body + "<p><b>Why?</b></p><p><b>Noon.</b></p>")[3:] == ["Why?"]
+
+
+def test_the_bold_lines_never_take_a_sections_place():
+    """MAX_BOLD is a ceiling for the bold lines, not for the sections: nine sections stay nine, the Cash Shop's
+    twelve stay twelve with none of its bold lines."""
+    body = "".join(f"<h2>Part {n}</h2><p>Text {n}.</p>" for n in range(9)) + "<p><strong>Bold.</strong></p>"
+    assert scrape_news.highlights(body) == [f"Part {n}: Text {n}." for n in range(9)]
+    assert len(_points(45819)) == scrape_news.MAX_HIGHLIGHTS > scrape_news.MAX_BOLD
 
 
 def test_greetings_the_summary_and_empty_lines_are_no_highlight():
