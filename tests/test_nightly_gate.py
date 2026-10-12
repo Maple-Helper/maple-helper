@@ -47,3 +47,18 @@ def test_a_run_that_is_not_test_failures_stops_the_night(gate, rc):
 
 def test_a_failed_run_with_no_failed_test_recorded_stops_the_night(gate):
     assert gate(1, [])[0] == 1
+
+
+def test_the_issue_lists_every_os_drift_once(tmp_path):
+    for os_name, drift in (("windows", ["t::a"]), ("macos", ["t::a", "t::b"])):
+        (tmp_path / f"gate-report-{os_name}.json").write_text(json.dumps(
+            {"verdict": "pass with data changes to review", "drift": drift, "known": []}), encoding="utf-8")
+    body = nightly_gate.issue_body(str(tmp_path), "success")
+    assert body.count("- [ ] `t::a`") == 1 and "- [ ] `t::b`" in body
+
+
+def test_no_issue_on_a_clean_night_but_one_when_the_tests_never_reported(tmp_path):
+    (tmp_path / "gate-report-windows.json").write_text(json.dumps({"verdict": "pass", "drift": [], "known": []}),
+                                                       encoding="utf-8")
+    assert nightly_gate.issue_body(str(tmp_path), "success") is None
+    assert "No gate report" in nightly_gate.issue_body(str(tmp_path / "missing"), "failure")

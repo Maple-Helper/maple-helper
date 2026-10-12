@@ -13,7 +13,8 @@ that value. That is a change for a human to look at, not a reason to keep last n
 
 A broken scrape is also stopped earlier by `kb_release.py validate` (shape, entity counts vs last night).
 
-    python tools/nightly_gate.py [--max-failures 25] [--report gate-report.json]
+    python tools/nightly_gate.py [--max-failures 25] [--report gate-report.json] [-- pytest args]
+    python tools/nightly_gate.py --issue-body reports/ --test-result success   # the kb-drift issue's text
 """
 from __future__ import annotations
 
@@ -79,12 +80,42 @@ def summary(report: dict) -> str:
     return "\n".join(lines)
 
 
+def issue_body(reports_dir: str, test_result: str) -> str | None:
+    """The kb-drift issue's text from every OS's gate report, or None when there's nothing to look at."""
+    reports = {p.name: json.loads(p.read_text(encoding="utf-8")) for p in sorted(Path(reports_dir).glob("*.json"))}
+    drift = sorted({t for r in reports.values() for t in r["drift"]})
+    known = sorted({t for r in reports.values() for t in r["known"]})
+    if not (drift or known) and test_result == "success":
+        return None
+    server, repo, run = (os.environ.get(k, "") for k in ("GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID"))
+    lines = [f"Nightly KB run: {server}/{repo}/actions/runs/{run}  ", f"Test result: **{test_result}**", ""]
+    lines += [f"- `{name}`: {r['verdict']}" for name, r in reports.items()]
+    if drift:
+        lines += ["", "### Tests the new KB changed",
+                  "The site changed a value these tests pin. Check the change is real, then update the test to read "
+                  "the rule or the new value (PR CI tests the published KB, so these fail there until fixed).", ""]
+        lines += [f"- [ ] `{t}`" for t in drift]
+    if known:
+        lines += ["", "### Failing on the published KB too", ""] + [f"- [ ] `{t}`" for t in known]
+    if not reports:
+        lines += ["", "No gate report: the test job stopped before the tests (see the run)."]
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     ap.add_argument("--max-failures", type=int, default=25)
     ap.add_argument("--report", default="gate-report.json")
+    ap.add_argument("--issue-body", metavar="REPORTS_DIR", help="print the kb-drift issue's text (exit 1: none)")
+    ap.add_argument("--test-result", default="success")
     ap.add_argument("pytest_args", nargs="*", help="extra pytest arguments for the first run")
     a = ap.parse_args(argv)
+    if a.issue_body:
+        body = issue_body(a.issue_body, a.test_result)
+        if body is None:
+            return 1
+        print(body)
+        return 0
 
     LASTFAILED.unlink(missing_ok=True)
     rc = pytest(*a.pytest_args)
