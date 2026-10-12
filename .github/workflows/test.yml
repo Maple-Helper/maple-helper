@@ -10,6 +10,10 @@ on:
         description: "Artifact holding the kb.zip to test (empty: the latest release's kb.zip)"
         type: string
         default: ""
+      nightly-gate:
+        description: "Nightly KB refresh: data-test failures caused by the new KB don't block (tools/nightly_gate.py)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -64,9 +68,28 @@ jobs:
       # one worker per core (pytest-xdist): each worker is its own process with its own throwaway APPDATA/HOME
       # (tests/conftest.py), so tests can't see each other's files
       - name: Test
+        if: ${{ !inputs.nightly-gate }}
         env:
           MAPLEHELPER_REQUIRE_REAL_KB: "1"    # a test that needs data/kb fails instead of skipping
         run: python -m pytest -n auto --junitxml=test-results.xml -o junit_family=xunit2
+
+      # the nightly: a few tests that pin values the site just changed publish anyway (listed in an issue);
+      # many failures, or failures that aren't test failures, still stop the night
+      - name: Test (nightly gate)
+        if: ${{ inputs.nightly-gate }}
+        shell: bash      # the "--" reaches the script on every OS
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/nightly_gate.py --report gate-report-${{ matrix.os }}.json -- -n auto --junitxml=test-results.xml -o junit_family=xunit2
+
+      - name: Upload the gate report
+        if: always() && inputs.nightly-gate
+        uses: actions/upload-artifact@v7
+        with:
+          name: gate-report-${{ matrix.os }}
+          path: gate-report-${{ matrix.os }}.json
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Upload test results
         if: always()

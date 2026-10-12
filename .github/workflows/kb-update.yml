@@ -3,7 +3,8 @@ name: Update knowledge base
 # Nightly: fetch only the NiaMeowDB pages that changed (sitemap lastmod) plus new pages.
 # Sundays: full refresh, to catch edits the sitemap doesn't date.
 # Publishes kb.zip + kb-manifest.json to the latest release only when content actually changed and the full
-# test suite passes against the new KB; every installed Maple Helper picks it up on its next start.
+# test suite passes against the new KB (tools/nightly_gate.py: a few data tests the site's edits changed don't block,
+# they go to a "kb-drift" issue); every installed Maple Helper picks it up on its next start.
 on:
   schedule:
     # off the hour: GitHub queues runs at :00 behind everyone else's (01:00 runs started 5-6 hours late)
@@ -140,6 +141,45 @@ jobs:
     uses: ./.github/workflows/test.yml
     with:
       kb-artifact: kb-candidate
+      nightly-gate: true
+
+  # what the gate let through (data tests the new KB changed) or why it stopped: one open issue, updated each night,
+  # so nobody has to read the run to know a test needs a look
+  report:
+    name: Report data changes
+    needs: [update, test]
+    if: always() && needs.update.outputs.changed > 0
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - uses: actions/download-artifact@v8
+        continue-on-error: true     # no report at all (the job died first) is reported below
+        with:
+          pattern: gate-report-*
+          merge-multiple: true
+          path: reports
+
+      - name: Open or update the issue
+        run: |
+          python tools/nightly_gate.py --issue-body reports --test-result "${{ needs.test.result }}" > body.md || {
+            echo "Nothing to report."; exit 0; }
+          gh label create kb-drift --repo "$GITHUB_REPOSITORY" --color D93F0B --description "Nightly KB: data tests to review" 2>/dev/null || true
+          n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label kb-drift --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file body.md
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --label kb-drift --title "Nightly KB: data tests to review" --body-file body.md
+          fi
 
   publish:
     name: Publish the new knowledge base
