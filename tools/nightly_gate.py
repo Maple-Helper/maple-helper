@@ -80,16 +80,21 @@ def summary(report: dict) -> str:
     return "\n".join(lines)
 
 
-def issue_body(reports_dir: str, test_result: str) -> str | None:
-    """The kb-drift issue's text from every OS's gate report, or None when there's nothing to look at."""
+def issue_body(reports_dir: str, test_result: str, translate: str = "") -> str | None:
+    """The kb-drift issue's text from every OS's gate report, or None when there's nothing to look at.
+    translate: "crashed" when the night's Hebrew translation died on a bug (kb-update.yml)."""
     reports = {p.name: json.loads(p.read_text(encoding="utf-8")) for p in sorted(Path(reports_dir).glob("*.json"))}
     drift = sorted({t for r in reports.values() for t in r["drift"]})
     known = sorted({t for r in reports.values() for t in r["known"]})
-    if not (drift or known) and test_result == "success":
+    if not (drift or known or translate == "crashed") and test_result in ("success", "skipped"):
         return None
     server, repo, run = (os.environ.get(k, "") for k in ("GITHUB_SERVER_URL", "GITHUB_REPOSITORY", "GITHUB_RUN_ID"))
     lines = [f"Nightly KB run: {server}/{repo}/actions/runs/{run}  ", f"Test result: **{test_result}**", ""]
     lines += [f"- `{name}`: {r['verdict']}" for name, r in reports.items()]
+    if translate == "crashed":
+        lines += ["", "### The Hebrew translation crashed",
+                  "tools/translate_kb.py exited with an error (a bug, not the API): nothing new was translated tonight. "
+                  "See the run's \"Translate what's new into Hebrew\" step."]
     if drift:
         lines += ["", "### Tests the new KB changed",
                   "The site changed a value these tests pin. Check the change is real, then update the test to read "
@@ -97,7 +102,7 @@ def issue_body(reports_dir: str, test_result: str) -> str | None:
         lines += [f"- [ ] `{t}`" for t in drift]
     if known:
         lines += ["", "### Failing on the published KB too", ""] + [f"- [ ] `{t}`" for t in known]
-    if not reports:
+    if not reports and test_result not in ("success", "skipped"):
         lines += ["", "No gate report: the test job stopped before the tests (see the run)."]
     return "\n".join(lines)
 
@@ -108,10 +113,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--report", default="gate-report.json")
     ap.add_argument("--issue-body", metavar="REPORTS_DIR", help="print the kb-drift issue's text (exit 1: none)")
     ap.add_argument("--test-result", default="success")
+    ap.add_argument("--translate", default="")
     ap.add_argument("pytest_args", nargs="*", help="extra pytest arguments for the first run")
     a = ap.parse_args(argv)
     if a.issue_body:
-        body = issue_body(a.issue_body, a.test_result)
+        body = issue_body(a.issue_body, a.test_result, a.translate)
         if body is None:
             return 1
         print(body)

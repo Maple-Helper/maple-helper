@@ -62,3 +62,9 @@ def test_no_issue_on_a_clean_night_but_one_when_the_tests_never_reported(tmp_pat
                                                        encoding="utf-8")
     assert nightly_gate.issue_body(str(tmp_path), "success") is None
     assert "No gate report" in nightly_gate.issue_body(str(tmp_path / "missing"), "failure")
+
+
+def test_a_crashed_translation_is_reported_even_on_a_night_with_no_changes(tmp_path):
+    body = nightly_gate.issue_body(str(tmp_path / "missing"), "skipped", "crashed")
+    assert "translation crashed" in body and "No gate report" not in body
+    assert nightly_gate.issue_body(str(tmp_path / "missing"), "skipped") is None

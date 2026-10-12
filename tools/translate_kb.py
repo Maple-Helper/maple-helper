@@ -125,18 +125,17 @@ def cash_jobs(kb, root: Path) -> list[dict]:
     """What the Cash Shop sells now (OSMS Data Explorer, the Shop page) with words that have no Hebrew yet: the game's
     own words, unless the KB's Hebrew was made from the same ones. An item the Cash Shop adds reads in Hebrew from the
     next night on (osms.py: one fetch a night, well within ohmi's hourly terms)."""
-    from maplehelper import osms, translations
-    from maplehelper.ui import shoppage
+    from maplehelper import osms, shopnames, translations
     try:
         found = osms.items() or []
     except Exception as e:      # noqa: BLE001 - OSMS unreachable tonight: the rest still translates
         print(f"cash shop descriptions skipped: {e}")
         return []
-    names = shoppage.kb_names(kb)
+    names = shopnames.kb_names(kb)
     out = []
     for it in found:
         key = f"cash/{it.game_id}"
-        if it.description and not shoppage.kb_hebrew(kb, root, names.get(shoppage.fold(it.name), []), it.description) \
+        if it.description and not shopnames.kb_hebrew(kb, root, names.get(shopnames.fold(it.name), []), it.description) \
                 and not translations.he(root, "cash_desc", key, it.description):
             out.append({"kind": "cash_desc", "key": key, "en": it.description})
     return out
