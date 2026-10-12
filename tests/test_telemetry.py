@@ -171,7 +171,29 @@ def test_post_body(monkeypatch):
     monkeypatch.setattr(telemetry.urllib.request, "urlopen", fake)
     assert telemetry._post([{"event": "x"}])
     assert seen["url"].endswith("/batch/")
+    assert seen["body"].pop("sent_at")              # checked in the next test
     assert seen["body"] == {"api_key": "phc_test", "batch": [{"event": "x"}]}
+
+
+def test_post_says_when_it_was_sent(monkeypatch):
+    """sent_at lets PostHog correct a computer whose clock is wrong (it shifts timestamps by server - sent_at)."""
+    from datetime import datetime, timezone
+    seen = {}
+
+    class Resp:
+        status = 200
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    def fake(req, timeout):
+        seen["body"] = json.loads(req.data)
+        return Resp()
+    monkeypatch.setitem(telemetry._state, "key", "phc_test")
+    monkeypatch.setattr(telemetry.urllib.request, "urlopen", fake)
+    before = datetime.now(timezone.utc)
+    assert telemetry._post([{"event": "x"}])
+    sent = datetime.fromisoformat(seen["body"]["sent_at"])
+    assert sent.tzinfo is not None and abs((sent - before).total_seconds()) < 5
 
 
 def test_a_failed_kb_update_is_counted_without_the_error_text(tel):

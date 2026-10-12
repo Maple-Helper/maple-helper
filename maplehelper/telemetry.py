@@ -175,8 +175,11 @@ def _drain() -> list[dict]:
 
 
 def _post(batch: list[dict], key: str | None = None) -> bool:
-    """`key`: the presence ping posts while these stats are off (and init's key unset)."""
-    body = json.dumps({"api_key": key or _state["key"], "batch": batch}).encode("utf-8")
+    """`key`: the presence ping posts while these stats are off (and init's key unset).
+    `sent_at` is this computer's clock at sending: PostHog compares it with its own clock and moves the events'
+    timestamps by the difference, so a computer whose clock is wrong still files its events at the right time."""
+    sent_at = datetime.now(timezone.utc).isoformat()
+    body = json.dumps({"api_key": key or _state["key"], "batch": batch, "sent_at": sent_at}).encode("utf-8")
     req = urllib.request.Request(f"{HOST}/batch/", data=body, method="POST",
                                  headers={"Content-Type": "application/json", "User-Agent": "MapleHelper"})
     try:
