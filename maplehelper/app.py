@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import sys
 import threading
+import time
 import webbrowser
 
 from PySide6.QtCore import QLibraryInfo, QLockFile, QObject, Qt, QTimer, QTranslator, Signal
@@ -152,9 +153,12 @@ class MapleHelperApp:
             self.style()
             Onboarding(self.settings, self.profiles, self.kb, self.style, only_character=True).exec()
         telemetry.init(self.settings, __version__)
+        telemetry.set_context(self._telemetry_context)
+        telemetry.install_crash_hook()
         presence.start(self.settings, __version__)
-        telemetry.track("app_started", fresh_install=fresh_install, background=BACKGROUND_ARG in sys.argv[1:],
-                        provider=self.settings["provider"], language=self.settings["language"])
+        self._started_at = time.monotonic()
+        telemetry.track("app_started", person=self._telemetry_person(), fresh_install=fresh_install,
+                        background=BACKGROUND_ARG in sys.argv[1:])
         self.brain = Brain(self.kb, provider=self.settings["provider"], length=self.settings["answer_length"])
         self.apply_ai_settings()
         # no AI process is started here: it is warmed when the chat opens (Overlay.open_overlay), so a start in the
@@ -391,6 +395,7 @@ class MapleHelperApp:
             return dlg
         dlg = make()
         windows[kind] = dlg
+        telemetry.track("window_opened", window=kind)
         dlg.setWindowModality(Qt.NonModal)
         dlg.setAttribute(Qt.WA_DeleteOnClose)                  # closed windows don't pile up in memory
         dlg.setWindowFlag(Qt.WindowStaysOnTopHint, True)      # over the game, like the chat
@@ -779,8 +784,6 @@ class MapleHelperApp:
         threading.Thread(target=self.brain.prewarm, daemon=True).start()
 
     def on_settings_changed(self):
-        telemetry.set_enabled(self.settings["telemetry"])
-        presence.set_enabled(self.settings["presence"])
         from .ui import terms
         look = (self.settings["language"], self.settings["appearance"], self.settings["font_size"])
         # only a new language, appearance or text size restyles the chat: with a long chat that took ~1.6 s on
@@ -1048,6 +1051,7 @@ class MapleHelperApp:
 
     def kb_updated(self, before: str, interactive: bool = False):
         """Tell the player exactly what the update changed (patch notes), not just that it happened."""
+        telemetry.track("kb_updated", from_version=before, to_version=updater.local_version(), manual=interactive)
         t = I18n(self.settings["language"])
         entries = updater.changes_since(before)
         if not entries:
@@ -1304,7 +1308,23 @@ class MapleHelperApp:
                 dlg.close()
                 QTimer.singleShot(0, again)
 
+    def _telemetry_context(self) -> dict:
+        """What every stats event and presence ping says about the app now (telemetry.set_context)."""
+        c = self.profiles.active
+        ctx = {"language": self.settings["language"], "provider": self.settings["provider"],
+               "saver_mode": bool(self.settings["saver_mode"]), "characters": len(self.profiles.characters)}
+        if c is not None:
+            ctx.update(char_class=c.base_class, char_job=c.job, char_level=c.level)
+        return ctx
+
+    def _telemetry_person(self) -> dict:
+        """The install's profile in PostHog: the latest of everything, plus the version it was first seen on."""
+        return {**self._telemetry_context(), "app_version": __version__, "kb_version": updater.local_version()}
+
     def shutdown(self):
+        started = getattr(self, "_started_at", None)
+        if started is not None:
+            telemetry.track("app_closed", minutes=round((time.monotonic() - started) / 60, 1))
         telemetry.flush()
         presence.stop()
         self.grind.stop()                        # no minute read while the app goes

@@ -48,14 +48,6 @@ def test_privacy_line_names_everything_sent_to_the_ai(key):
     assert "הדמות" in he and "סיכומים" in he
 
 
-def test_telemetry_hint_names_what_is_sent():
-    # telemetry.py sends the app version, OS and a random install id with every event.
-    en, he = STRINGS["telemetry_hint"]["en"], STRINGS["telemetry_hint"]["he"]
-    assert "only which features" not in en
-    assert "version" in en and "random id" in en
-    assert "גרסת" in he and "מזהה אקראי" in he
-
-
 @pytest.mark.parametrize("key,kw", [("news_btn_new", {}), ("sell_summary", {"mesos": "10"}), ("farm_every", {}),
                                     ("spot_crowd", {}), ("craft_head_all", {"prof": "Smithing"}),
                                     ("price_mw", {"price": "5", "world": "Windia"}),

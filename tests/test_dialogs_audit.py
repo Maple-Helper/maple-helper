@@ -231,7 +231,7 @@ def test_settings_controls_have_screen_reader_names(env):
     s, profiles, kb = env
     dlg = SettingsDialog(s, profiles, kb, lambda *_: "")
     assert all(sw.accessibleName() for sw in dlg.findChildren(Switch))
-    assert dlg.telemetry.accessibleDescription()                # its hint comes along
+    assert dlg.saver.accessibleDescription()                    # its hint comes along
     assert dlg.appearance.accessibleName() == "Appearance"
     assert [b.accessibleName() for b in dlg.font.group.buttons()] == ["Small text", "Medium text", "Large text"]
     dlg.close()

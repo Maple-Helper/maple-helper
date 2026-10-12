@@ -165,9 +165,7 @@ DEFAULT_SETTINGS = {
     "news_read": [],              # news ids the player dismissed or read (news.py), so they come up once
     "last_session": None,         # summary of the previous play session, shown when the chat next opens
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
-    "telemetry": True,            # anonymous usage stats, on unless turned off (the owner's, 2026-10-08; telemetry.py)
-    "install_id": "",             # random id for those stats, created on first use
-    "presence": True,             # anonymous "the app is running" ping, for player counts (see presence.py)
+    "install_id": "",             # the install's lasting random id for the usage stats (telemetry.py, presence.py)
     "presence_sent": {},          # what that ping last marked as sent: {"ever", "day", "month"}
     "route_taxi": True,           # ways shown take cabs (Take cabs: the route page and the map window share it)
     "grind_auto": True,           # the grind tracker reads the game every minute while a session runs

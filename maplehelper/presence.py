@@ -1,10 +1,11 @@
-"""Counting the players: an anonymous "Maple Helper is running" ping, on for everyone unless switched off
-(Settings > Privacy & system), apart from the usage stats (telemetry.py).
+"""Counting the players: a "Maple Helper is running" ping, always on (the owner's call, 2026-10-12; only
+$MAPLEHELPER_NO_TELEMETRY=1 turns it off).
 
-What is sent, at start and then every INTERVAL seconds: the app version, the OS, and three flags (the first
-ping of this install ever, of the UTC day, of the UTC month). The id is random for each run and never stored,
-so two runs can't be linked: PostHog counts players online (distinct run ids in the last minutes) and players
-in total, per day and per month (pings with a flag), without knowing who anyone is.
+What is sent, at start and then every INTERVAL seconds, under the install's lasting id (telemetry.install_id): the
+app version, the OS, the app's context (language, provider, the active character's class/job/level, see
+telemetry.set_context), this run's random id and three flags (the first ping of this install ever, of the UTC day, of
+the UTC month). PostHog counts players online (distinct ids in the last minutes), unique players per day, week and
+month, new installs (first_ping) and, by the id, who comes back.
 
 A flag is marked as sent only after a successful post: a ping lost offline hands it to the next one.
 """
@@ -25,16 +26,10 @@ _state = {"enabled": False, "settings": None, "version": "", "run_id": "", "thre
 
 
 def start(settings, version: str) -> None:
-    """Call once at startup, after onboarding. A new run id each time (a new run)."""
+    """Call once at startup, after onboarding. A new run id each time (a new run); it pings at once."""
     _state["settings"], _state["version"], _state["run_id"] = settings, version, uuid.uuid4().hex
-    set_enabled(bool(settings["presence"]))
-
-
-def set_enabled(on: bool) -> None:
-    """Follows the Settings switch; turned on again, it pings at once."""
-    was = _state["enabled"]
-    _state["enabled"] = bool(on and telemetry._key() and not os.environ.get("MAPLEHELPER_NO_TELEMETRY"))
-    if _state["enabled"] and not was:
+    _state["enabled"] = bool(telemetry._key() and not os.environ.get("MAPLEHELPER_NO_TELEMETRY"))
+    if _state["enabled"]:
         _state["wake"].set()
         _start_worker()
 
@@ -59,15 +54,16 @@ def payload(settings, version: str, run_id: str, now: datetime) -> tuple[dict, d
     day, month = now.strftime("%Y-%m-%d"), now.strftime("%Y-%m")
     event = {
         "event": EVENT,
-        "distinct_id": run_id,
+        "distinct_id": telemetry.install_id(settings),
         "timestamp": now.isoformat(),
         "properties": {
             **telemetry.base_props(version),
+            **telemetry.context_props(),
+            "run_id": run_id,
             "first_ping": not sent.get("ever"),
             "first_today": sent.get("day") != day,
             "first_this_month": sent.get("month") != month,
-            "$process_person_profile": False,
-            "$geoip_disable": True,
+            "$process_person_profile": False,       # 6 pings an hour: the person is kept up by telemetry's events
         },
     }
     return event, {"ever": True, "day": day, "month": month}

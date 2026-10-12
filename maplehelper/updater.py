@@ -227,6 +227,8 @@ def fetch_kb(before_swap=None) -> str:
 def _failed(why: str) -> str:
     """Every failed check says why in the log ("Report a problem" sends it): it used to fail without a word."""
     log.warning("knowledge base update failed: %s", why)
+    from . import telemetry
+    telemetry.track("kb_update_failed", reason=why.split(" (")[0])    # not the error's text: it can hold a path
     return "failed"
 
 
