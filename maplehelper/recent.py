@@ -116,9 +116,25 @@ def _labels(kb, key: str, f: str, new) -> tuple[str, str]:
 
 
 def lines(t, kb, r: Recent) -> list[str]:
-    """What changed, a line each: "Weapon Attack 30 → 33 (COT2 → Launch)" (one left-to-right block)."""
-    out = [sources.change_line(f, _value(old), _value(new), *_labels(kb, r.key, f, new))
-           for f, (old, new) in r.props.items() if not same(old, new)]
+    """What changed, a line each: "Weapon Attack 30 → 33 (COT2 → Launch)" (one left-to-right block); a list
+    ("Connected maps") as what it gained and lost, not its whole old list → its whole new one."""
+    out = []
+    for f, (old, new) in r.props.items():
+        if same(old, new):
+            continue
+        listed = _list_change(t, kb, f, old, new)
+        if listed is not None:
+            if listed:
+                out.append(listed)
+            continue
+        label = field_label(t, f)
+        if label == f:
+            out.append(sources.change_line(f, _value(old), _value(new), *_labels(kb, r.key, f, new)))
+        else:
+            # a Hebrew label reads right to left before its values, which stay one left-to-right block
+            before, after = _labels(kb, r.key, f, new)
+            pair = f"{_value(old)}{_NB}→{_NB}{_value(new)}" + (f" ({before} → {after})" if before and after else "")
+            out.append(f"{label}: {bidi.LRI}{pair}{bidi.PDI}")
     if r.drops_added:
         out.append(t("pn_drops_added", items=_items(t, r.drops_added)))
     if r.drops_removed:
@@ -134,6 +150,87 @@ def lines(t, kb, r: Recent) -> list[str]:
         change = f"{_mesos(r.mesos[0])} → {_mesos(r.mesos[1])}"
         out.append(t("pn_mesos", change=f"{bidi.LRI}{change}{bidi.PDI}"))
     return out
+
+
+# the fields whose value is a list of names, written "A, B, C" (kb_release.diff_kb, NiaMeowDB's class pages); a
+# skill's "Ground, air, or rope" is one value, so only these split
+LIST_FIELDS = {"Connected maps": "f", "Second-Job Branches": "m", "Third-Job Branches": "m"}   # Hebrew gender
+_NB = "\u00a0"
+_TIER_FIELD = re.compile(r"^(?P<col>.+) \(community tier list\)$")
+
+
+def field_label(t, f: str) -> str:
+    """A changed field's name in Hebrew ("Connected maps" -> "מפות מחוברות", "Chance" -> "סיכוי"). The
+    game's own stat names (Weapon Attack, Avoidability, HP, EXP ...) stay as the game writes them, as everywhere in
+    the app; a field the app has no word for shows as written."""
+    from .i18n import STRINGS
+    if t.lang != "he":
+        return f           # (the KB writes them in English)
+    slug = re.sub(r"[^a-z0-9]+", "_", f.lower()).strip("_")
+    m = _TIER_FIELD.match(f)
+    if m:
+        col = "tier_col_" + re.sub(r"[^a-z0-9]+", "_", m["col"].lower()).strip("_")
+        return t("pf_tier", col=t(col) if col in STRINGS else m["col"])
+    if "pf_" + slug in STRINGS:
+        return t("pf_" + slug)
+    # a skill change's field (sitedata.field_name), by its exact English: the skill's "Magic attack" is "התקפה
+    # מגית", an item's "Magic Attack" the game's stat name
+    skf = STRINGS.get("skf_" + slug)
+    return t("skf_" + slug) if skf and skf.get("en") == f else f
+
+
+def _comma_names(kb) -> list[str]:
+    """The KB's map names that have a comma of their own ("Tree Dungeon, Monkey Forest I"), longest first."""
+    memo = getattr(kb, "_comma_names", None)
+    if memo is None:
+        ents = getattr(kb, "entities", None) or {}
+        memo = sorted({e.get("name") or "" for e in ents.values() if ", " in (e.get("name") or "")}, key=len,
+                      reverse=True)
+        try:
+            kb._comma_names = memo
+        except AttributeError:
+            pass
+    return memo
+
+
+def list_items(kb, v) -> list[str] | None:
+    """A list field's value as its names: a list as it is, "A, B" split at its commas, but a known name with a comma
+    in it ("Tree Dungeon, Monkey Forest I") kept whole; None for a value that is no list (a number)."""
+    if isinstance(v, (list, tuple)):
+        return [str(x) for x in v]
+    if v is None or v == "":
+        return []
+    if not isinstance(v, str):
+        return None
+    parts, out, i = v.split(", "), [], 0
+    joined = set(_comma_names(kb))
+    while i < len(parts):
+        for j in range(len(parts), i + 1, -1):
+            if ", ".join(parts[i:j]) in joined:
+                out.append(", ".join(parts[i:j]))
+                i = j
+                break
+        else:
+            out.append(parts[i])
+            i += 1
+    return out
+
+
+def _list_change(t, kb, f: str, old, new) -> str | None:
+    """ "מפות מחוברות: נוספה: Backalley Semi-Basement" for a list field: only the names it gained and lost (the
+    whole old list → the whole new one hid the one map a portal now leads to). None: not a list field; "": the same
+    names in another order."""
+    if f not in LIST_FIELDS and not isinstance(old, (list, tuple)) and not isinstance(new, (list, tuple)):
+        return None
+    a, b = list_items(kb, old), list_items(kb, new)
+    if a is None or b is None:
+        return None
+    added = [x for x in b if x not in a]
+    removed = [x for x in a if x not in b]
+    gender = LIST_FIELDS.get(f, "m")
+    bits = [t(f"pn_list_{kind}_{gender}", n=len(names), items=_items(t, names))
+            for kind, names in (("added", added), ("removed", removed)) if names]
+    return f"{field_label(t, f)}: {' · '.join(bits)}" if bits else ""
 
 
 ITEMS_SHOWN = 8      # item names in one line; the rest counted ("and 6 more")
@@ -190,6 +287,13 @@ def ai_lines(kb, keys, today: date | None = None, limit: int = 8) -> list[str]:
             continue
         bits = []
         for f, (old, new) in r.props.items():
+            a, b = (list_items(kb, old), list_items(kb, new)) if f in LIST_FIELDS else (None, None)
+            if a is not None and b is not None:        # the names a list gained and lost, as the patch notes show
+                gained, lost = [x for x in b if x not in a], [x for x in a if x not in b]
+                diff = [f"{w} {' / '.join(names)}" for w, names in (("added", gained), ("removed", lost)) if names]
+                if diff:
+                    bits.append(f"{f} {' and '.join(diff)}")
+                continue
             before, after = _labels(kb, k, f, new)
             bits.append(f"{f} {_value(old)} -> {_value(new)}" + (f" ({before} -> {after})" if before else ""))
         bits += [f"new drop {d}" for d in r.drops_added] + [f"drop removed {d}" for d in r.drops_removed]
