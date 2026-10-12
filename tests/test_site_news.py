@@ -148,19 +148,57 @@ def test_a_short_announcement_is_its_paragraphs_without_the_pictures():
     assert len(p[4]) <= scrape_news.MAX_HIGHLIGHT and p[4].endswith("November 30 at 11:59 PM (UTC).")
 
 
-def test_the_cash_shop_is_its_sales_not_each_coupons_hairs():
-    """421 lines: the headings, from the top level only, since the sub-headings ("Male Hairs" under each coupon)
-    made more than MAX_HIGHLIGHTS."""
+def test_the_cash_shop_is_its_sales_each_with_its_first_line():
+    """421 lines: each section and the first thing under it (its dates), from the top heading level only, since the
+    sub-headings ("Male Hairs" under each coupon) made more than MAX_HIGHLIGHTS."""
     p = _points(45819)
-    assert p[:4] == ["Limited-Time and Rotational Sales", "Founder's Mystery Fashion Crate",
-                     "Aurora Stamp Shop Season 1", "Aurora Mystery Fashion Crate"]
-    assert len(p) == scrape_news.MAX_HIGHLIGHTS and "Male Hairs" not in p and "A Note on Gifting" not in p
+    assert p[:4] == [
+        "Limited-Time and Rotational Sales: The following sales will only be available for a limited time, or will "
+        "have their sales details periodically update over time.",
+        "Founder's Mystery Fashion Crate: UTC: Tuesday, October 6 (End of Maintenance) - Wednesday, October 28 7:59 AM",
+        "Aurora Stamp Shop Season 1: UTC: Tuesday, October 6, 2026 (End of Maintenance) - Wednesday, January 13, 2027 "
+        "7:59 AM",
+        "Aurora Mystery Fashion Crate: UTC: Tuesday, October 6, 2026 (End of Maintenance) - Wednesday, January 13, "
+        "2027 7:59 AM"]
+    assert len(p) == scrape_news.MAX_HIGHLIGHTS and not any(x.startswith(("Male Hairs", "A Note on Gifting"))
+                                                             for x in p)
 
 
-def test_long_articles_are_their_headings_without_the_title():
-    assert _points(45621) == ["October 6, 2026 6:00 PM UTC", "Accessing Classic World", "General Key Details",
-                              "Founder’s First Step", "Join Founder’s Access"]
-    assert _points(45681) == ["A Conversation with Inkwell", "Global MapleStory", "Classic World"]
+def test_the_release_notes_are_their_sections_with_what_each_says_first():
+    """Nexon's words as written (its "by 30, 2026" too); a section whose first lines are the greeting has its heading
+    alone."""
+    assert _points(45621) == [
+        "October 6, 2026 6:00 PM UTC",
+        "Accessing Classic World: Download and install the official Nexon Launcher from the Nexon website.",
+        "General Key Details: Your Founder’s Package will be available to claim from your in-game mailbox. Items must "
+        "be claimed by 30, 2026 at 11:59 PM UTC.",
+        "Founder’s First Step: How to Participate",
+        "Join Founder’s Access: There’s still time to join us! Founder’s Packages are available on the Nexon website "
+        "and Steam through October 14, 2026 at 11:59 PM PDT. Choose the Orange Mushroom or Zakum Package to get "
+        "Founder’s Access and start your MapleStory Classic World adventure before Grand Launch!"]
+
+
+def test_the_interview_is_its_parts_then_its_questions():
+    """Three sections only (the title's heading isn't one): the bold paragraphs, the interviewer's questions, fill
+    it up to MAX_BOLD."""
+    p = _points(45681)
+    assert len(p) == scrape_news.MAX_BOLD
+    assert p[:4] == [
+        "A Conversation with Inkwell: There is one name that has been continually brought up amongst MMORPG players "
+        "lately: Global MapleStory Classic World.",
+        "Global MapleStory: A deeper, evolving experience.",
+        "Classic World: A fresh beginning with a modern approach.",
+        "To start, could you introduce yourself for readers who may not know much about Inkwell yet? You have a very "
+        "long history with MapleStory."]
+    assert p[5] == "Wasn’t one of those companies Embark Studios?"
+
+
+def test_a_heading_with_nothing_or_only_itself_under_it_stands_alone():
+    body = ("<h2>Times</h2><p><strong>Times</strong></p><p>Noon.</p><h2>Rewards</h2><h2>Events:</h2><p>Hi Maplers!</p>"
+            "<p>Coconut Harvest.</p>" + "".join(f"<li>Line {n}.</li>" for n in range(12)))
+    assert scrape_news.highlights(body)[:3] == ["Times: Noon.", "Rewards", "Events: Coconut Harvest."]
+    # under FEW_HEADINGS sections, the bold paragraphs come after them, never the same text twice
+    assert scrape_news.highlights(body + "<p><b>Why?</b></p><p><b>Noon.</b></p>")[3:] == ["Why?"]
 
 
 def test_greetings_the_summary_and_empty_lines_are_no_highlight():

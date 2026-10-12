@@ -66,6 +66,8 @@ MENTIONS = ("Victoria Island", "Ossyria", "Orbis", "El Nath", "Ludibrium", "Aqua
             "Papulatus", "Horntail", "Cash Shop", "Hired Merchant")
 MAX_HIGHLIGHTS = 12                  # a short article's lines, or a long one's headings
 SHORT_HEADINGS = 6                   # a long article with no headings: its first paragraphs
+FEW_HEADINGS = 4                     # fewer sections than this (the interview has 3): its bold paragraphs too
+MAX_BOLD = 8                         # ... up to this many highlights in all
 MAX_HIGHLIGHT = 400                  # characters; a longer paragraph ends at its last sentence that fits
 # the greetings and sign-offs around an announcement: not what it says
 BOILERPLATE = re.compile(r"(?:h(?:i|ello|ey),? maplers|join our official|thank you|we appreciate|happy mapling|"
@@ -125,26 +127,30 @@ def mentions(*texts: str) -> list[str]:
 
 BLOCKS = ("p", "li", "h1", "h2", "h3", "h4")
 HEADINGS = ("h1", "h2", "h3")
+BOLD = ("strong", "b")
 
 
 class _Blocks(HTMLParser):
-    """An article's text blocks in order, [(tag, text)]: each paragraph, list line and heading, a <br> inside one
-    read as "; " ("Thursday, October 8; PDT (UTC -7): 7:00 AM - 9:00 AM"). A list line holding a list is its own
-    text, then each line under it."""
+    """An article's text blocks in order, [(tag, text, bold)]: each paragraph, list line and heading, a <br> inside
+    one read as "; " ("Thursday, October 8; PDT (UTC -7): 7:00 AM - 9:00 AM"); bold when all its text is (an
+    interview's questions). A list line holding a list is its own text, then each line under it."""
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.found: list[tuple[str, str]] = []
+        self.found: list[tuple[str, str, bool]] = []
         self.open: list[str] = []
         self.text: list[str] = []
+        self.plain = False             # some of the block's text is not bold
         self.skip = 0
+        self.bold = 0
 
     def flush(self):
         text, self.text = "".join(self.text), []
+        plain, self.plain = self.plain, False
         if self.open:
             line = "; ".join(p for p in (" ".join(x.split()) for x in text.split("\n")) if p)
             if line:
-                self.found.append((self.open[-1], line))
+                self.found.append((self.open[-1], line, not plain))
 
     def handle_starttag(self, tag, attrs):
         if tag in ("script", "style", "iframe"):
@@ -154,6 +160,8 @@ class _Blocks(HTMLParser):
             self.open.append(tag)
         elif tag == "br":
             self.text.append("\n")
+        elif tag in BOLD:
+            self.bold += 1
 
     def handle_endtag(self, tag):
         if tag in ("script", "style", "iframe"):
@@ -161,13 +169,16 @@ class _Blocks(HTMLParser):
         elif tag in BLOCKS and tag in self.open:
             self.flush()
             del self.open[len(self.open) - 1 - self.open[::-1].index(tag):]
+        elif tag in BOLD:
+            self.bold = max(0, self.bold - 1)
 
     def handle_data(self, data):
         if self.open and not self.skip:
             self.text.append(data)
+            self.plain = self.plain or (not self.bold and bool(data.strip()))
 
 
-def blocks(body: str) -> list[tuple[str, str]]:
+def blocks(body: str) -> list[tuple[str, str, bool]]:
     """The article's text blocks (_Blocks), a line ending with ":" joined to the one it introduces ("Times:" and the
     times, "What will be unavailable:" and what)."""
     parser = _Blocks()
@@ -176,18 +187,18 @@ def blocks(body: str) -> list[tuple[str, str]]:
         parser.close()
     except Exception:          # noqa: BLE001 - a broken article is no text
         return []
-    out: list[tuple[str, str]] = []
-    lead = ""
-    for tag, text in parser.found:
+    out: list[tuple[str, str, bool]] = []
+    lead, lead_bold = "", True
+    for tag, text, bold in parser.found:
         text = html.unescape(text).strip()
         if lead:
-            text, lead = f"{lead} {text}", ""
+            text, bold, lead = f"{lead} {text}", bold and lead_bold, ""
         if text.endswith(":") and tag not in HEADINGS:
-            lead = text
+            lead, lead_bold = text, bold
             continue
-        out.append((tag, text))
+        out.append((tag, text, bold))
     if lead:
-        out.append(("p", lead))
+        out.append(("p", lead, lead_bold))
     return out
 
 
@@ -206,25 +217,47 @@ def clip(text: str, limit: int = MAX_HIGHLIGHT) -> str:
 
 
 def highlights(body: str, summary: str = "", title: str = "") -> list[str]:
-    """What the article says, in Nexon's words and order, chosen the same way every night: a short article's every
-    paragraph, list line and heading (up to MAX_HIGHLIGHTS); a longer one's headings (its sections: the Cash Shop's
-    sales, an interview's parts), from the top levels when there are too many; with no headings, its first
-    paragraphs. Never the summary again, a picture's empty line, or the greeting and sign-off."""
-    kept = [(tag, text) for tag, text in blocks(body)
+    """What the article says, in Nexon's words and order, chosen the same way every night.
+
+    A short article (up to MAX_HIGHLIGHTS blocks): its every paragraph, list line and heading. A longer one: its
+    sections, each "<heading>: <the first text under it>" (the release notes' "General Key Details: ..." says the
+    level cap), from the top heading levels when there are too many (the Cash Shop's sales, not each coupon's "Male
+    Hairs"), the heading alone when nothing is under it. Under FEW_HEADINGS sections (an interview), its bold
+    paragraphs (the questions) after them, up to MAX_BOLD in all; with neither, its first paragraphs. Never the
+    summary again, a picture's empty line, or the greeting and sign-off."""
+    kept = [(tag, text, bold) for tag, text, bold in blocks(body)
             if not _same(text, summary) and not BOILERPLATE.match(text) and re.search(r"\w", text)]
     if len(kept) <= MAX_HIGHLIGHTS:
-        return [clip(text) for _, text in kept]
-    heads: list[tuple[str, str]] = []
-    for tag, text in kept:
-        if tag in HEADINGS and not _same(text, title) and not any(_same(text, h) for _, h in heads):
-            heads.append((tag, text))
-    levels = sorted({tag for tag, _ in heads})
+        return [clip(text) for _, text, _ in kept]
+    heads: list[tuple[int, str]] = []
+    for n, (tag, text, _) in enumerate(kept):
+        if tag in HEADINGS and not _same(text, title) and not any(_same(text, kept[h][1]) for h, _ in heads):
+            heads.append((n, tag))
+    levels = sorted({tag for _, tag in heads})
     while len(heads) > MAX_HIGHLIGHTS and len(levels) > 1:       # "Male Hairs" under each coupon: the coupons
         levels.pop()
-        heads = [(tag, text) for tag, text in heads if tag in levels]
-    if heads:
-        return [clip(text) for _, text in heads[:MAX_HIGHLIGHTS]]
-    return [clip(text) for tag, text in kept if tag == "p"][:SHORT_HEADINGS]
+        heads = [(n, tag) for n, tag in heads if tag in levels]
+    used: set[int] = set()
+    out = []
+    for n, _ in heads[:MAX_HIGHLIGHTS]:
+        head = kept[n][1]
+        under = None
+        for m in range(n + 1, len(kept)):
+            if kept[m][0] in BLOCKS[2:]:                # the next heading: this one has nothing under it
+                break
+            if not _same(kept[m][1], head):
+                under = m
+                break
+        used.update({n} | ({under} if under is not None else set()))
+        out.append(clip(f"{head.rstrip(':').rstrip()}: {kept[under][1]}" if under is not None else head))
+    if len(heads) < FEW_HEADINGS:
+        for n, (tag, text, bold) in enumerate(kept):
+            if len(out) >= MAX_BOLD:
+                break
+            if tag == "p" and bold and n not in used and not any(_same(text, kept[u][1]) for u in used):
+                used.add(n)
+                out.append(clip(text))
+    return out or [clip(text) for tag, text, _ in kept if tag == "p"][:SHORT_HEADINGS]
 
 
 def item(e: dict, nid: str, detail: dict | None, old: dict | None) -> dict:
