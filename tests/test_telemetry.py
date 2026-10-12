@@ -203,3 +203,23 @@ def test_a_failed_kb_update_is_counted_without_the_error_text(tel):
     updater._failed("the KB folder can't be swapped ([WinError 5] C:/Users/someone/kb)")
     [e] = telemetry._drain()
     assert e["event"] == "kb_update_failed" and e["properties"]["reason"] == "the KB folder can't be swapped"
+
+
+def test_crash_place_in_a_release_build(tel, monkeypatch):
+    """PyInstaller keeps relative file names (maplehelper\\app.py): the place must still be found."""
+    import sys
+    import threading
+    settings, _ = tel
+    telemetry.init(settings, "0.6.0")
+    monkeypatch.setattr(sys, "excepthook", lambda *a: None)
+    monkeypatch.setattr(threading, "excepthook", lambda a: None)
+    telemetry.install_crash_hook()
+    code = compile("def boom():\n    raise ValueError('x')\n", "maplehelper\\app.py", "exec")
+    ns = {}
+    exec(code, ns)
+    try:
+        ns["boom"]()
+    except ValueError:
+        sys.excepthook(*sys.exc_info())
+    [e] = telemetry._drain()
+    assert e["properties"]["where"] == "app.py:2"
