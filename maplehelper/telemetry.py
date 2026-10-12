@@ -147,7 +147,8 @@ def install_crash_hook() -> None:
     def where(tb) -> str:
         spot = ""
         while tb is not None:
-            name = tb.tb_frame.f_code.co_filename.replace("\\", "/")
+            # a release build (PyInstaller) has relative names, "maplehelper\app.py": the leading "/" matches both
+            name = "/" + tb.tb_frame.f_code.co_filename.replace("\\", "/")
             if "/maplehelper/" in name:
                 spot = f"{name.rsplit('/maplehelper/', 1)[1]}:{tb.tb_lineno}"
             tb = tb.tb_next
