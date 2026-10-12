@@ -1,10 +1,10 @@
-"""Anonymous usage stats (PostHog), on by default for a new install; the player can turn them off (Settings >
-Privacy & system). An install that already has the setting keeps its choice.
+"""Usage stats (PostHog): always on (the owner's call, 2026-10-12); only $MAPLEHELPER_NO_TELEMETRY=1 turns them off.
 
-What is sent: event names ("question_asked", ...), the app version, the OS, and a few short
-values such as which provider answered. Each install gets a random id that is not linked to the
-player's identity. Never sent: questions, answers, screenshots, voice, character names, API keys.
-Values are limited to short scalars (see _clean), so a question can't be sent by mistake.
+What is sent: event names ("question_asked", "window_opened", ...), the app version, the OS and its version, the
+app language and AI provider, the active character's class, job and level, and a few short values. Each install
+has a lasting random id (settings["install_id"]), so PostHog counts unique players, new installs, updates and who
+comes back; PostHog derives the country from the IP address. Never sent: questions, answers, screenshots, voice,
+character names, API keys. Values are limited to short scalars (see _clean), so a question can't be sent by mistake.
 
 Events wait in a queue and a daemon thread posts them in batches. A failed post is dropped:
 telemetry never blocks the UI or breaks the app.
@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import queue
 import sys
 import threading
@@ -34,7 +35,7 @@ MAX_QUEUE = 500          # offline for hours: drop new events rather than grow w
 MAX_VALUE_LEN = 64
 
 _queue: queue.Queue = queue.Queue(maxsize=MAX_QUEUE)
-_state = {"key": "", "enabled": False, "id": "", "base": {}, "thread": None, "settings": None}
+_state = {"key": "", "enabled": False, "id": "", "base": {}, "thread": None, "settings": None, "context": None}
 
 
 def _key() -> str:
@@ -48,33 +49,56 @@ def install_id(settings) -> str:
     return settings["install_id"]
 
 
+def _os_version() -> str:
+    try:
+        return platform.mac_ver()[0] if sys.platform == "darwin" else platform.version()
+    except Exception:       # noqa: BLE001 - stats never fail anything
+        return ""
+
+
 def base_props(version: str) -> dict:
     """What every event says about the app (also the presence ping's, see presence.py)."""
     return {
         "app_version": version,
         "$os": {"win32": "Windows", "darwin": "Mac OS X"}.get(sys.platform, sys.platform),
+        "$os_version": _os_version(),
         "frozen": bool(getattr(sys, "frozen", False)),   # False = a source run (development)
         "$lib": "maplehelper",
     }
 
 
+def set_context(fn) -> None:
+    """`fn()` -> what the app is like right now (language, provider, the active character's class/job/level), read
+    for every event and ping, so a level-up or a provider switch shows in the next one."""
+    _state["context"] = fn
+
+
+def context_props() -> dict:
+    """The app's context now (see set_context); never raises."""
+    if _state["context"] is None:
+        return {}
+    try:
+        return _clean(_state["context"]() or {})
+    except Exception:   # noqa: BLE001
+        return {}
+
+
+def props() -> dict:
+    """What every event carries: the base props plus the app's context now."""
+    return {**_state["base"], **context_props()}
+
+
 def init(settings, version: str) -> None:
-    """Call once at startup. Nothing is sent unless the player turned stats on and a key is set."""
+    """Call once at startup. Always on, unless $MAPLEHELPER_NO_TELEMETRY is set or no key ships."""
     _state["key"] = _key()
-    # the id is made only when stats are on: a player who turns them off before any event never gets one
-    _state["settings"], _state["id"] = settings, settings["install_id"] or ""
+    _state["settings"] = settings
     _state["base"] = base_props(version)
-    set_enabled(bool(settings["telemetry"]))
-
-
-def set_enabled(on: bool) -> None:
-    """Follows the Settings switch. Turning it off drops whatever is still queued."""
-    _state["enabled"] = bool(on and _state["key"] and not os.environ.get("MAPLEHELPER_NO_TELEMETRY"))
-    if _state["enabled"] and not _state["id"] and _state["settings"] is not None:
-        _state["id"] = install_id(_state["settings"])
+    _state["enabled"] = bool(_state["key"] and not os.environ.get("MAPLEHELPER_NO_TELEMETRY"))
     if not _state["enabled"]:
         _drain()
-    elif _state["thread"] is None:
+        return
+    _state["id"] = install_id(settings)
+    if _state["thread"] is None:
         _state["thread"] = threading.Thread(target=_worker, name="telemetry", daemon=True)
         _state["thread"].start()
 
@@ -94,19 +118,51 @@ def _clean(props: dict) -> dict:
     return out
 
 
-def track(event: str, **props) -> None:
-    """Queue an event; returns at once (never blocks, never raises)."""
+def track(event: str, person: dict | None = None, **values) -> None:
+    """Queue an event; returns at once (never blocks, never raises). `person`: the player's profile in PostHog
+    (version, character...), kept up to date on the install's person ($set)."""
     if not _state["enabled"]:
         return
     try:
+        properties = {**props(), **_clean(values)}
+        if person:
+            properties["$set"] = _clean(person)
         _queue.put_nowait({
             "event": event,
             "distinct_id": _state["id"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "properties": {**_state["base"], **_clean(props), "$process_person_profile": False},
+            "properties": properties,
         })
     except queue.Full:
         pass
+    except Exception:   # noqa: BLE001
+        pass
+
+
+def install_crash_hook() -> None:
+    """An uncaught exception (main thread or another) is counted as "app_crashed": its type and where it was
+    raised (file:line inside the app), never its message, which may hold a path or a player's text."""
+    prev, prev_thread = sys.excepthook, threading.excepthook
+
+    def where(tb) -> str:
+        spot = ""
+        while tb is not None:
+            name = tb.tb_frame.f_code.co_filename.replace("\\", "/")
+            if "/maplehelper/" in name:
+                spot = f"{name.rsplit('/maplehelper/', 1)[1]}:{tb.tb_lineno}"
+            tb = tb.tb_next
+        return spot[-MAX_VALUE_LEN:]
+
+    def on_crash(exc_type, exc, tb):
+        track("app_crashed", error=exc_type.__name__[:MAX_VALUE_LEN], where=where(tb), thread="main")
+        prev(exc_type, exc, tb)
+
+    def on_thread_crash(a):
+        if a.exc_type is not SystemExit:
+            track("app_crashed", error=a.exc_type.__name__[:MAX_VALUE_LEN], where=where(a.exc_traceback),
+                  thread=(a.thread.name if a.thread else "")[:MAX_VALUE_LEN])
+        prev_thread(a)
+    sys.excepthook, threading.excepthook = on_crash, on_thread_crash
 
 
 def _drain() -> list[dict]:

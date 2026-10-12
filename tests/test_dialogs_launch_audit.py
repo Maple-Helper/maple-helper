@@ -249,12 +249,12 @@ def test_the_tour_link_asks_about_unsaved_settings(env, monkeypatch, choice):
     sd = dialogs.SettingsDialog(s, profiles, kb, lambda *_: "")
     sd.setAttribute(Qt.WA_DontShowOnScreen)
     sd.show()
-    was = s["telemetry"]
-    sd.telemetry.setChecked(not was)
+    was = s["saver_mode"]
+    sd.saver.setChecked(not was)
     fake = MagicMock()
     fake.overlay.is_open.return_value = True
     app.MapleHelperApp.replay_tour(fake, sd)
-    assert s["telemetry"] == (not was if choice == "yes" else was)
+    assert s["saver_mode"] == (not was if choice == "yes" else was)
     assert sd.isVisible() is (choice is None)          # the question closed: Settings stays, no tour
     sd.close()
 

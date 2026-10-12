@@ -1,4 +1,4 @@
-"""Presence ping: on for everyone, no stored id, counted by flags, and never a crash or a block."""
+"""Presence ping: always on, under the install's lasting id, flags per day and month, never a crash or a block."""
 from datetime import datetime, timezone
 
 import pytest
@@ -18,6 +18,7 @@ def pres(isolated_store, monkeypatch):
     monkeypatch.delenv("MAPLEHELPER_NO_TELEMETRY", raising=False)
     monkeypatch.setattr(presence, "_start_worker", lambda: None)      # tests ping by hand
     monkeypatch.setitem(presence._state, "enabled", False)
+    monkeypatch.setitem(telemetry._state, "context", None)
     posts = []
     monkeypatch.setattr(telemetry, "_post", lambda batch, key=None: posts.append(batch) or True)
     yield isolated_store.Settings(), posts
@@ -35,16 +36,15 @@ def test_on_by_default(pres):
     assert presence.enabled()
 
 
-def test_switch_env_and_key_turn_it_off(pres, monkeypatch):
+def test_an_old_switched_off_setting_is_ignored_but_env_and_key_turn_it_off(pres, monkeypatch):
     settings, posts = pres
-    settings["presence"] = False
+    settings.data["presence"] = False                   # the removed Settings switch
     presence.start(settings, "0.14.0")
-    assert not presence.enabled() and not presence.ping(DAY1) and posts == []
+    assert presence.enabled()
 
-    settings["presence"] = True
     monkeypatch.setenv("MAPLEHELPER_NO_TELEMETRY", "1")
     presence.start(settings, "0.14.0")
-    assert not presence.enabled()
+    assert not presence.enabled() and not presence.ping(DAY1) and posts == []
 
     monkeypatch.delenv("MAPLEHELPER_NO_TELEMETRY")
     monkeypatch.setenv("MAPLEHELPER_POSTHOG_KEY", "")
@@ -52,28 +52,27 @@ def test_switch_env_and_key_turn_it_off(pres, monkeypatch):
     assert not presence.enabled()
 
 
-def test_event_carries_no_install_id_and_only_the_listed_values(pres):
+def test_event_is_under_the_install_id_with_the_context(pres, monkeypatch):
     settings, posts = pres
-    settings["install_id"] = "a" * 32                  # an opted-in player: the ping still never uses it
+    monkeypatch.setitem(telemetry._state, "context", lambda: {"char_level": 40, "language": "he"})
     presence.start(settings, "0.14.0")
     assert presence.ping(DAY1)
     [[e]] = posts
     assert e["event"] == "app_running"
-    assert e["distinct_id"] != settings["install_id"] and len(e["distinct_id"]) == 32
-    assert set(e["properties"]) == {"app_version", "$os", "frozen", "$lib", "first_ping", "first_today",
-                                    "first_this_month", "$process_person_profile", "$geoip_disable"}
-    assert e["properties"]["app_version"] == "0.14.0"
-    assert e["properties"]["$process_person_profile"] is False and e["properties"]["$geoip_disable"] is True
+    assert e["distinct_id"] == settings["install_id"] and len(e["distinct_id"]) == 32
+    p = e["properties"]
+    assert p["app_version"] == "0.14.0" and p["char_level"] == 40 and p["language"] == "he"
+    assert len(p["run_id"]) == 32 and "$geoip_disable" not in p
 
 
-def test_a_new_run_gets_a_new_id(pres):
+def test_a_new_run_gets_a_new_run_id_but_the_same_install_id(pres):
     settings, posts = pres
     presence.start(settings, "0.14.0")
     presence.ping(DAY1)
     presence.start(settings, "0.14.0")
     presence.ping(DAY1)
-    assert posts[0][0]["distinct_id"] != posts[1][0]["distinct_id"]
-    assert "presence" not in str(settings.data.get("install_id"))     # nothing id-like is stored
+    assert posts[0][0]["distinct_id"] == posts[1][0]["distinct_id"]
+    assert posts[0][0]["properties"]["run_id"] != posts[1][0]["properties"]["run_id"]
 
 
 def test_flags_over_days_and_months(pres):
@@ -130,19 +129,11 @@ def test_a_broken_setting_counts_as_never_sent(pres):
     assert flags(posts[0][0]) == (True, True, True)
 
 
-def test_turning_off_stops_the_pings(pres):
+def test_stop_ends_the_pings(pres):
     settings, posts = pres
     presence.start(settings, "0.14.0")
-    presence.set_enabled(False)
+    presence.stop()
     assert not presence.ping(DAY1) and posts == []
-
-
-def test_stats_turned_off_stay_off_beside_the_ping(pres):
-    settings, _ = pres
-    settings["telemetry"] = False
-    presence.start(settings, "0.14.0")
-    telemetry.init(settings, "0.14.0")
-    assert presence.enabled() and not telemetry.enabled() and settings["install_id"] == ""
 
 
 def test_post_uses_the_given_key(monkeypatch):

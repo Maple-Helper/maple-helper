@@ -14,7 +14,6 @@
 
 <p align="center">
   <a href="https://github.com/Maple-Helper/maple-helper/releases/latest"><img src="https://img.shields.io/github/v/release/Maple-Helper/maple-helper?label=latest&sort=semver" alt="Latest release"></a>
-  <a href="https://github.com/Maple-Helper/maple-helper/releases"><img src="https://img.shields.io/github/downloads/Maple-Helper/maple-helper/total" alt="Total downloads"></a>
 </p>
 
 <p align="center">
@@ -331,7 +330,7 @@ When you ask a question, the app sends your chosen AI provider (Anthropic for Cl
 
 Voice recordings are transcribed locally. The resulting text is used as your question. The Prices tool and the Free Market page read MesoWatch's public market file and its sellers' character pictures (nothing is sent; checked every 15 minutes while the app is open, downloaded compressed only when it changed, kept on disk). The app also checks GitHub Releases for app and knowledge-base updates, and installs an update only when its SHA-256 matches the release's checksums.
 
-So we know how many people use Maple Helper, every 10 minutes while it runs the app tells our PostHog project that it is running: its version, your OS, and whether this is the first time ever, today or this month. The id it is sent under is random for each run and never stored, so runs can't be linked to each other or to you, and the project discards IP addresses. Turn it off in **Settings → Privacy & system → Count me as a player**. Separately, **Share anonymous usage stats** (on unless you turn it off) also sends which features get used, under a random id kept on your computer. Neither ever sends your questions, answers, screenshots, voice or character names. Setting the environment variable `MAPLEHELPER_NO_TELEMETRY=1` turns both off.
+So we know how many people use Maple Helper and how, the app sends usage stats to our PostHog project (US cloud) under a random id created for your install and kept on your computer: when it starts and closes, a "still running" ping every 10 minutes, the windows and features you open, questions asked (which AI answered, not what was asked), updates, and crashes (the error's type and where in the app, not its message). Each event carries the app version, your OS and its version, the app language, your AI provider, and the active character's class, job and level; PostHog works out your country from your IP address. They never send your questions, answers, screenshots, voice, character names or API keys. Setting the environment variable `MAPLEHELPER_NO_TELEMETRY=1` turns them off.
 
 ## Development
 

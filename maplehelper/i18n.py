@@ -1265,16 +1265,6 @@ STRINGS = {
                            "en": "Recipe {name} ({skill} level {level}): {n}"},
     "item_meow_notes": {"he": "Nia Notes (הערות NiaMeowDB)", "en": "Nia Notes"},
     "inv_check": {"he": "בדיקת האינבנטורי", "en": "Inventory check"},
-    "telemetry": {"he": "שליחת נתוני שימוש אנונימיים", "en": "Share anonymous usage stats"},
-    "telemetry_hint": {"he": "עוזר לנו לשפר את האפליקציה: באילו אפשרויות משתמשים, גרסת האפליקציה ומערכת "
-                             "ההפעלה, תחת מזהה אקראי. אף פעם לא שאלות, צילומי מסך או הקלטות",
-                       "en": "Helps us improve Maple Helper: which features get used, its version and your OS, "
-                             "under a random id. Never your questions, screenshots or voice"},
-    "presence": {"he": "ספירה אנונימית של משתמשים", "en": "Count me as a player (anonymous)"},
-    "presence_hint": {"he": "כל 10 דקות שהאפליקציה פתוחה: הגרסה, מערכת ההפעלה והאם זו הפעם הראשונה היום. "
-                            "בלי מזהה קבוע ובלי שום דבר עליכם או על המשחק",
-                      "en": "Every 10 minutes while Maple Helper runs: its version, your OS and whether it's the "
-                            "first time today. No lasting id, nothing about you or your game"},
     # onboarding
     "ob_welcome": {"he": "ברוכים הבאים ל-Maple Helper", "en": "Welcome to Maple Helper"},
     "ob_your_character": {"he": "הדמות שלכם", "en": "Your character"},
