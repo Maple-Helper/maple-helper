@@ -33,6 +33,9 @@ API = "https://api.anthropic.com/v1/messages"
 MAX_TEXTS = 120          # a night's ceiling, whatever the KB brings
 BUDGET_S = 20 * 60       # a night's time: past it no new batch starts, so a slow API never runs the job out of
                          # time (a cancelled job publishes nothing, review2 LOG-6); what's done is kept
+# a run started by hand to clear the backlog (kb-update.yml's "translate_all"): its own ceiling and time
+MAX_TEXTS = int(os.environ.get("TRANSLATE_MAX_TEXTS") or MAX_TEXTS)
+BUDGET_S = int(os.environ.get("TRANSLATE_BUDGET_MIN") or BUDGET_S // 60) * 60
 BATCH = 20               # texts a request
 RETRY_WAIT = 20          # seconds before another try on a busy API (then 40)
 HEBREW = re.compile(r"[א-ת]")

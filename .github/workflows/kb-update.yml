@@ -15,6 +15,10 @@ on:
         description: "Full refresh (re-download every page)"
         type: boolean
         default: false
+      translate_all:
+        description: "Translate every text still in English tonight (no 120-text ceiling; up to 150 minutes)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -97,6 +101,8 @@ jobs:
         if: steps.rel.outputs.exists == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TRANSLATE_MAX_TEXTS: ${{ inputs.translate_all && '100000' || '' }}
+          TRANSLATE_BUDGET_MIN: ${{ inputs.translate_all && '150' || '' }}
         run: |
           if ! python tools/translate_kb.py data/kb; then
             echo "::error::the Hebrew translation crashed tonight (a bug, not the API)"
