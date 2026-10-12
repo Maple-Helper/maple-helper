@@ -4,10 +4,10 @@ News tab of the patch notes window.
 Titles stay as published (English, one left-to-right block in a Hebrew line); the summary is in Hebrew when there
 is a translation of its current text, else the English one under a Hebrew note that says so.
 
-Pictures (news.cover / header / pictures / entities, from the KB's img/news): a card has NiaMeowDB's cover as a
-thumbnail; an article has its picture under the title, the pictures of what it names from Nexon's announcement, and
-the KB's own pictures of the items and monsters it names. A picture that is missing or can't be read is left out,
-and the page is as it was without pictures.
+Pictures (news.cover / header / pictures / entities, from the KB's img/news): a card has the article's cover as a
+thumbnail (Nexon's; an older KB's items have NiaMeowDB's); an article has its picture under the title, the pictures
+of what it names from Nexon's announcement, and the KB's own pictures of the items and monsters it names. A picture
+that is missing or can't be read is left out, and the page is as it was without pictures.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from . import theme
 from .controls import FlowLayout
 from .widgets import fit_picture, zoom_on_hover
 
-SHOWN = 30          # cards per section; the rest are a link away on MeowDB
+SHOWN = 30          # cards per section; the rest are a link away on Nexon's site
 THUMB = (88, 50)        # a card's cover thumbnail (the covers are 540x304), as wide as a guide card's
 RADIUS = 10             # a picture's corners
 TILE_W, TILE_PIC = 92, 48     # a named picture's tile under an article
@@ -219,8 +219,8 @@ def chip(text: str, rtl: bool, tip: str = "", name: str = "SourceTag") -> QLabel
 
 
 def source_chip(t, i: dict) -> QLabel:
-    """"Official · Nexon" for the game's operator, "Community · NiaMeowDB" for analysis and press (as sources.py
-    tags data: official vs community)."""
+    """"Official · Nexon" for the game's operator; an older KB's analysis and press items "Community · NiaMeowDB"
+    (as sources.py tags data: official vs community)."""
     who = i.get("publisher") or "NiaMeowDB"
     if i.get("official"):
         return chip(t("news_official", who=who), t.rtl, t("news_official_tip", who=who))
@@ -296,7 +296,7 @@ class NewsStrip(QFrame):
 class NewsCard(QFrame):
     """One news item: chips (source, region, new), the title (the cover's thumbnail at its side when the KB has it),
     date, summary, links. on_open(item): the full article in the app ("Read the article"); without it the card
-    links to MeowDB."""
+    links to the article's own page."""
 
     def __init__(self, t, i: dict, unread: bool = False, on_open=None, kb=None):
         super().__init__(objectName="Card")
@@ -341,15 +341,17 @@ class NewsCard(QFrame):
             col.addWidget(body)
         links = QHBoxLayout()
         links.setSpacing(16)
+        src = i.get("source_url") or ""
+        read = None
         if on_open:
             read = QPushButton(bidi.plain(t("news_read_full"), rtl), objectName="Link")
             read.clicked.connect(lambda _=False, item=i: on_open(item))
-        else:
+        elif i.get("url") and i.get("url") != src:          # an older KB's item, summed up on MeowDB
             read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
             read.clicked.connect(lambda _=False, u=i.get("url"): open_url(u))
-        read.setCursor(Qt.PointingHandCursor)
-        links.addWidget(read)
-        src = i.get("source_url") or ""
+        if read:
+            read.setCursor(Qt.PointingHandCursor)
+            links.addWidget(read)
         if src.startswith("https://") and i.get("publisher"):
             orig = QPushButton(bidi.plain(t("news_read_source", who=i["publisher"]), rtl), objectName="Link")
             orig.setCursor(Qt.PointingHandCursor)
@@ -395,8 +397,8 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
 
 
 def article(t, i: dict, kb=None) -> QWidget:
-    """A news item in full, like a guide: chips, title, date, its picture, the summary, every highlight, NiaMeowDB's
-    note, the pictures of what it names, and the links to MeowDB and the publisher. Hebrew where it is translated;
+    """A news item in full, like a guide: chips, title, date, its picture, the summary, every highlight (and an older
+    KB's NiaMeowDB note), the pictures of what it names, and the link to the article. Hebrew where it is translated;
     English text reads left to right."""
     rtl = t.rtl
     page = QWidget()
@@ -442,8 +444,9 @@ def article(t, i: dict, kb=None) -> QWidget:
         _pictured(t, i, kb, lay)
     links = QHBoxLayout()
     links.setSpacing(16)
-    # the source's link needs its publisher's name; MeowDB's own link doesn't (an item without one lost both)
-    for label, url, ok in ((t("news_read_meowdb"), i.get("url") or "", True),
+    # the source's link needs its publisher's name; an older KB's MeowDB link doesn't (an item without one lost both).
+    # Nexon's items are their own source: one link
+    for label, url, ok in ((t("news_read_meowdb"), i.get("url") or "", i.get("url") != i.get("source_url")),
                            (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "",
                             bool(i.get("publisher")))):
         if url.startswith("https://") and ok:

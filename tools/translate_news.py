@@ -8,7 +8,7 @@ guides: each item's title and one-line summary get a Hebrew version.
 
 assets/news/<lang>.json = {id: {"summary", "source_hash"}}. A translation is stamped with the hash of the English it
 was made from (title + summary): the nightly scrape copies it into the KB's news.json only while that still matches,
-so a summary NiaMeowDB rewrites shows in English until it is translated again, never a stale sentence.
+so a summary Nexon edits shows in English until it is translated again, never a stale sentence.
 Machine translation isn't run in CI: the export goes to a translator (or an AI by hand), the import is committed,
 and the next nightly KB carries it to every player without an app update.
 """

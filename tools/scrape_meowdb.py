@@ -357,7 +357,8 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     changes[0] += meowdb_sections.scrape(KB, fetch, DELAY_SECONDS)
 
     if not limit:
-        # the news page too (one request: tools/scrape_news.py); a new item counts as a change, so it gets published.
+        # the news too (Nexon's own, from nexon.com: tools/scrape_news.py); a new item counts as a change, so it gets
+        # published.
         # Its pictures come once each (a new item's cover, a Nexon article's named pictures), kept on later nights
         import scrape_news
         changes[0] += scrape_news.update(KB, fetch, lambda url: fetch(url, binary=True))

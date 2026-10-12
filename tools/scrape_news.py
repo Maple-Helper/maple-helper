@@ -1,22 +1,28 @@
-"""MapleStory Classic news from NiaMeowDB (meowdb.com/msclassic/news) into the knowledge base: data/kb/news.json.
+"""MapleStory Classic news from Nexon itself (nexon.com/maplestory/news) into the knowledge base: data/kb/news.json.
 
-Used with NiaMeowDB's permission, like the rest of the KB. One request a night: the news page carries every
-article as structured data (slug, date, region, publisher, headline, summary, highlights) in its Next.js payload,
-the same records the article pages render, so the ~52 article pages are never fetched one by one.
+The news are Nexon's own announcements, in Nexon's own words: nothing is rewritten or summed up (no AI, no
+community site). nexon.com's news pages are a script that loads them from Nexon's public JSON: one request a night
+for the list (NEWS_LIST, every article's id, name, summary, date and category), then one per Classic World article
+for its HTML (NEXON_API), with a pause between two.
 
 news.json = {"source", "fetched_at", "items": [{id, date, title, summary, highlights, commentary, region, official,
 publisher, source_url, url, tags, mentions, hash, summary_he?}]}, newest first.
 
-- official: the publisher is a game's operator (Nexon for Global, Shengqu for China, Gamania for Taiwan), on its
-  site or social channels; NiaMeowDB's own analysis and press articles are community news.
+- which: Classic World articles (Nexon marks them isMSCW, or "Classic World" is in their name or summary) from SINCE.
+- id: the id the item already had in news.json (an older KB's item for the same Nexon article keeps its id, so the
+  players' "read" marks and the Hebrew made for it stay), else "nexon-<Nexon's id>".
+- title, summary: Nexon's name and summary as published. highlights: the article's own sentences (highlights()):
+  every paragraph, list line and heading of a short article; the headings of a long one (a Cash Shop, an interview).
+  commentary: always "" (the field stays for older KBs, where it was a community site's note).
+- official / publisher / region: True / "Nexon" / "gms" (Global). url and source_url: the article on nexon.com.
 - mentions: regions and content the item names (Ossyria, Orbis, 3rd job…). Only a hint for the AI and the owner:
   availability.py reads the release guide, never the news (an announcement is not the game).
 - summary_he: the Hebrew summary from assets/news/he.json (tools/translate_news.py), kept only while it was made from
-  this very English text (hash): a summary NiaMeowDB rewrote shows in English until it is translated again.
-- image, image_w, image_h, image_src: NiaMeowDB's cover picture of the item, saved in the KB as img/news/<id>.<ext>
-  (only a meowdb.com picture; an item whose cover is elsewhere has none).
-- nexon: for Nexon's own announcements, the pictures of the article on nexon.com that show what the item's text names
-  (the AP Reset Scroll, the six pets...) and its banner, in img/news/<id>/<media id>.<ext> (nexon_pictures()):
+  this very English text (hash): a summary Nexon edits shows in English until it is translated again.
+- image, image_w, image_h, image_src: the article's thumbnail on Nexon's site (its imageThumbnail), saved in the KB as
+  img/news/<id>.<ext>.
+- nexon: the pictures of the article that show what the item's text names (the AP Reset Scroll, the six pets...) and
+  its banner, in img/news/<id>/<media id>.<ext> (nexon_pictures()):
   {"id", "key", "banner": {file, w, h, src}?, "pictures": [{name, file, w, h, src}]}.
 
 A picture is downloaded once: the next nights keep it while its address is the same; the pictures of items no longer
@@ -37,57 +43,73 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-NEWS_URL = "https://meowdb.com/msclassic/news"
-MEOWDB = "https://meowdb.com"
-# a Nexon article's content as JSON (www.nexon.com's article page is a script that loads it from here)
+NEXON = "https://g.nexonstatic.com"
+NEWS_LIST = NEXON + "/maplestory/cms/v1/news"          # every article, newest first, without its body
+NEXON_API = NEXON + "/maplestory/cms/v1/news/{id}"     # one article with its HTML (body)
+NEWS_PAGE = "https://www.nexon.com/maplestory/news"
+ARTICLE_URL = NEWS_PAGE + "/{category}/{id}"           # what a player opens (the page loads NEXON_API)
 NEXON_ARTICLE = re.compile(r"https://www\.nexon\.com/maplestory/news/[a-z-]+/(\d+)(?:[/?#]|$)")
-NEXON_API = "https://g.nexonstatic.com/maplestory/cms/v1/news/{id}"
-NEXON_MEDIA = re.compile(r"https://g\.nexonstatic\.com/media/([a-z0-9]+)/([a-z0-9-]+)\.(png|jpe?g|webp)", re.I)
+# a picture on Nexon's media server: an article's ("/media/<id>/<name>.png") and the list's thumbnails alike
+NEXON_MEDIA = re.compile(r"https://g\.nexonstatic\.com/media/([a-z0-9]+)/([a-z0-9_-]+)\.(png|jpe?g|webp)", re.I)
 PICTURES = "img/news"
 MAX_IMAGE_BYTES = 1_000_000          # a news picture is ~20-200 KB; anything over a megabyte is refused
 MAX_PICTURES = 20                    # an article's named pictures (the Cash Shop's has 17)
 FORMATS = {"webp": "WEBP", "png": "PNG", "jpg": "JPEG", "jpeg": "JPEG"}    # extension -> what Pillow must read
-PAUSE = 0.5                          # between two picture requests (the scraper's own pace)
+PAUSE = 0.5                          # between two requests to Nexon (the scraper's own pace)
 # the app's news start here (the owner's call, 2026-10-04): every item from then on, none older (maplehelper/news.py)
 SINCE = "2026-10-02"
 TRANSLATIONS = ROOT / "assets" / "news"
-OFFICIAL_PUBLISHERS = {"Nexon", "Shengqu", "Gamania"}       # the operators of Global, China and Taiwan Classic
+PUBLISHER = "Nexon"
 # content whose opening news may announce: a hint list, matched as whole words (case-insensitive)
 MENTIONS = ("Victoria Island", "Ossyria", "Orbis", "El Nath", "Ludibrium", "Aqua Road", "Leafre", "Mu Lung",
             "Nihal Desert", "Forgotten Hollow", "Sleepywood", "Masteria", "3rd job", "4th job", "level cap", "Zakum",
             "Papulatus", "Horntail", "Cash Shop", "Hired Merchant")
-_PUSH = re.compile(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)</script>', re.S)
+MAX_HIGHLIGHTS = 12                  # a short article's lines, or a long one's headings
+SHORT_HEADINGS = 6                   # a long article with no headings: its first paragraphs
+MAX_HIGHLIGHT = 400                  # characters; a longer paragraph ends at its last sentence that fits
+# the greetings and sign-offs around an announcement: not what it says
+BOILERPLATE = re.compile(r"(?:h(?:i|ello|ey),? maplers|join our official|thank you|we appreciate|happy mapling|"
+                         r"see you (?:in|on|there)|[-—–]\s*the maplestory team)", re.I)
 
 
 class NewsError(Exception):
     pass
 
 
-def payload(page: str) -> str:
-    """The page's React Server Components payload, as one string (the chunks Next.js streams into the HTML)."""
-    out = []
-    for chunk in _PUSH.findall(page):
-        try:
-            out.append(json.loads('"' + chunk + '"'))
-        except json.JSONDecodeError:
-            continue
-    return "".join(out)
-
-
-def entries(page: str) -> list[dict]:
-    """The news list the page renders: {"entries": [{slug, date_published, headline, ...}], "locale": "en"}."""
-    text = payload(page)
-    at = text.find('{"entries":[')
-    if at < 0:
-        raise NewsError("no news list in the page (the site's layout changed?)")
+def entries(text: str) -> list[dict]:
+    """Nexon's news list: [{id, name, summary, liveDate, category, isMSCW?, imageThumbnail, ...}]."""
     try:
-        data, _ = json.JSONDecoder().raw_decode(text, at)
-    except json.JSONDecodeError as e:
+        data = json.loads(text)
+    except (TypeError, json.JSONDecodeError) as e:
         raise NewsError(f"news list unreadable: {e}") from e
-    found = data.get("entries") if isinstance(data, dict) else None
-    if not isinstance(found, list):
-        raise NewsError("news list is not a list")
-    return [e for e in found if isinstance(e, dict)]
+    if not isinstance(data, list):
+        raise NewsError("news list is not a list (Nexon's API changed?)")
+    found = [e for e in data if isinstance(e, dict) and isinstance(e.get("id"), int)
+             and str(e.get("name") or "").strip()
+             and re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(e.get("liveDate") or "")[:10])]
+    if not found:
+        raise NewsError("the news list is empty")
+    return found
+
+
+def _truthy(v) -> bool:
+    """Nexon's flags: true in the list, "True" in an article (and missing on some entries)."""
+    return v is True or str(v).strip().lower() == "true"
+
+
+def classic(e: dict) -> bool:
+    """A Classic World article: marked so, or naming it (the Inkwell interview isn't marked)."""
+    return _truthy(e.get("isMSCW")) or any("classic world" in str(e.get(f) or "").lower() for f in ("name", "summary"))
+
+
+def selected(found: list[dict]) -> list[dict]:
+    """The articles the app shows: Classic World's, from SINCE on."""
+    return [e for e in found if classic(e) and str(e["liveDate"])[:10] >= SINCE]
+
+
+def article_url(e: dict) -> str:
+    category = str(e.get("category") or "").lower()
+    return ARTICLE_URL.format(category=category if re.fullmatch(r"[a-z-]+", category) else "general", id=e["id"])
 
 
 def _hash(title: str, summary: str) -> str:
@@ -99,24 +121,144 @@ def mentions(*texts: str) -> list[str]:
     return [m for m in MENTIONS if re.search(rf"(?<![A-Za-z]){re.escape(m)}(?![A-Za-z])", blob, re.I)]
 
 
-def item(e: dict) -> dict | None:
-    """One news.json item from a site entry; None when it lacks what every item needs."""
-    slug, title, date = str(e.get("slug") or ""), str(e.get("headline") or "").strip(), str(e.get("date_published") or "")
-    if not (slug and title and re.fullmatch(r"\d{4}-\d{2}-\d{2}", date[:10])):
-        return None
-    summary = str(e.get("summary") or "").strip()
-    highlights = [str(h).strip() for h in e.get("highlights") or [] if str(h).strip()]
-    publisher = str(e.get("source_label") or "").strip()
-    out = {
-        "id": slug, "date": date[:10], "title": title, "summary": summary, "highlights": highlights,
-        "commentary": str(e.get("commentary") or "").strip(),
-        "region": str(e.get("region") or "").lower(),                      # gms (Global) | cms (China) | tms (Taiwan)
-        "official": publisher in OFFICIAL_PUBLISHERS,
-        "publisher": publisher, "source_url": str(e.get("source_url") or ""),
-        "url": f"{NEWS_URL}/{slug}", "tags": [str(t) for t in e.get("tags") or []],
-        "mentions": mentions(title, summary, *highlights),
+# ---------------------------------------------------------------- the article's own text
+
+BLOCKS = ("p", "li", "h1", "h2", "h3", "h4")
+HEADINGS = ("h1", "h2", "h3")
+
+
+class _Blocks(HTMLParser):
+    """An article's text blocks in order, [(tag, text)]: each paragraph, list line and heading, a <br> inside one
+    read as "; " ("Thursday, October 8; PDT (UTC -7): 7:00 AM - 9:00 AM"). A list line holding a list is its own
+    text, then each line under it."""
+
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.found: list[tuple[str, str]] = []
+        self.open: list[str] = []
+        self.text: list[str] = []
+        self.skip = 0
+
+    def flush(self):
+        text, self.text = "".join(self.text), []
+        if self.open:
+            line = "; ".join(p for p in (" ".join(x.split()) for x in text.split("\n")) if p)
+            if line:
+                self.found.append((self.open[-1], line))
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ("script", "style", "iframe"):
+            self.skip += 1
+        elif tag in BLOCKS:
+            self.flush()
+            self.open.append(tag)
+        elif tag == "br":
+            self.text.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag in ("script", "style", "iframe"):
+            self.skip = max(0, self.skip - 1)
+        elif tag in BLOCKS and tag in self.open:
+            self.flush()
+            del self.open[len(self.open) - 1 - self.open[::-1].index(tag):]
+
+    def handle_data(self, data):
+        if self.open and not self.skip:
+            self.text.append(data)
+
+
+def blocks(body: str) -> list[tuple[str, str]]:
+    """The article's text blocks (_Blocks), a line ending with ":" joined to the one it introduces ("Times:" and the
+    times, "What will be unavailable:" and what)."""
+    parser = _Blocks()
+    try:
+        parser.feed(body)
+        parser.close()
+    except Exception:          # noqa: BLE001 - a broken article is no text
+        return []
+    out: list[tuple[str, str]] = []
+    lead = ""
+    for tag, text in parser.found:
+        text = html.unescape(text).strip()
+        if lead:
+            text, lead = f"{lead} {text}", ""
+        if text.endswith(":") and tag not in HEADINGS:
+            lead = text
+            continue
+        out.append((tag, text))
+    if lead:
+        out.append(("p", lead))
+    return out
+
+
+def _same(a: str, b: str) -> bool:
+    return " ".join(a.split()).casefold() == " ".join(b.split()).casefold()
+
+
+def clip(text: str, limit: int = MAX_HIGHLIGHT) -> str:
+    """At most limit characters, ending at the last sentence that fits (else at a word, with "…")."""
+    if len(text) <= limit:
+        return text
+    cut = max((m.end() for m in re.finditer(r"[.!?][)\"'”’]?(?=\s)", text[:limit + 1])), default=0)
+    if cut >= limit // 3:
+        return text[:cut].strip()
+    return text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
+
+
+def highlights(body: str, summary: str = "", title: str = "") -> list[str]:
+    """What the article says, in Nexon's words and order, chosen the same way every night: a short article's every
+    paragraph, list line and heading (up to MAX_HIGHLIGHTS); a longer one's headings (its sections: the Cash Shop's
+    sales, an interview's parts), from the top levels when there are too many; with no headings, its first
+    paragraphs. Never the summary again, a picture's empty line, or the greeting and sign-off."""
+    kept = [(tag, text) for tag, text in blocks(body)
+            if not _same(text, summary) and not BOILERPLATE.match(text) and re.search(r"\w", text)]
+    if len(kept) <= MAX_HIGHLIGHTS:
+        return [clip(text) for _, text in kept]
+    heads: list[tuple[str, str]] = []
+    for tag, text in kept:
+        if tag in HEADINGS and not _same(text, title) and not any(_same(text, h) for _, h in heads):
+            heads.append((tag, text))
+    levels = sorted({tag for tag, _ in heads})
+    while len(heads) > MAX_HIGHLIGHTS and len(levels) > 1:       # "Male Hairs" under each coupon: the coupons
+        levels.pop()
+        heads = [(tag, text) for tag, text in heads if tag in levels]
+    if heads:
+        return [clip(text) for _, text in heads[:MAX_HIGHLIGHTS]]
+    return [clip(text) for tag, text in kept if tag == "p"][:SHORT_HEADINGS]
+
+
+def item(e: dict, nid: str, detail: dict | None, old: dict | None) -> dict:
+    """One news.json item from Nexon's list entry and its article (detail; None when it couldn't be read: the
+    highlights the item had stay, when they were Nexon's)."""
+    title = " ".join(html.unescape(str(e.get("name") or "")).split())
+    summary = " ".join(html.unescape(str(e.get("summary") or "")).split())
+    url = article_url(e)
+    if isinstance(detail, dict) and isinstance(detail.get("body"), str):
+        points = highlights(detail["body"], summary, title)
+    elif isinstance(old, dict) and str(old.get("url") or "").startswith(NEWS_PAGE + "/"):
+        points = [str(h) for h in old.get("highlights") or []]       # (never a community site's, from an older KB)
+    else:
+        points = []
+    category = str(e.get("category") or "").strip().lower()
+    return {
+        "id": nid, "date": str(e["liveDate"])[:10], "title": title, "summary": summary, "highlights": points,
+        "commentary": "", "region": "gms", "official": True, "publisher": PUBLISHER,
+        "source_url": url, "url": url, "tags": [category] if category else [],
+        "mentions": mentions(title, summary, *points),
         "hash": _hash(title, summary),
     }
+
+
+def stable_ids(old: dict[str, dict]) -> dict[int, str]:
+    """Nexon's article id -> the id its item already has in news.json (an older KB's, from its source address or
+    its pictures' article), so a player's "read" marks and the Hebrew made for it stay with it."""
+    out: dict[int, str] = {}
+    for oid, o in old.items():
+        m = NEXON_ARTICLE.match(str(o.get("source_url") or ""))
+        nx = o.get("nexon") if isinstance(o.get("nexon"), dict) else {}
+        for n in (int(m.group(1)) if m else None, nx.get("id")):
+            if isinstance(n, int):
+                out.setdefault(n, oid)
     return out
 
 
@@ -147,18 +289,6 @@ def translations(lang: str = "he", kb: Path | None = None) -> dict[str, dict]:
     return data
 
 
-def build(page: str, he: dict[str, dict] | None = None) -> list[dict]:
-    """news.json's items, newest first, each with its Hebrew summary when one was made from its current text."""
-    he = translations() if he is None else he
-    items = [i for i in (item(e) for e in entries(page)) if i]
-    if not items:
-        raise NewsError("the news list is empty")
-    items = [i for i in items if i["date"] >= SINCE]
-    for i in items:
-        _with_he(i, he)
-    return sorted(items, key=lambda i: (i["date"], i["id"]), reverse=True)
-
-
 def he_text(text: str) -> str:
     """A Hebrew translation in the app's terms: "רמה", never the gamer's "לבל" (in any form: "בלבל 10", "הלבל"),
     "גריינד", a level named as one. The same rules the AI's answers go through (brain.drop_keys): the machine
@@ -181,7 +311,7 @@ def _with_he(i: dict, he: dict) -> None:
             i["summary_he"] = he_text(tr["summary"])
         if str(tr.get("title") or "").strip():          # the title too (the hash covers both)
             i["title_he"] = he_text(tr["title"])
-        # the article's body: its highlights and NiaMeowDB's note, when translated from the current English
+        # the article's body: its highlights (and an older KB's note), when translated from the current English
         if tr.get("body_hash") == _body_hash(i):
             if isinstance(tr.get("highlights"), list) and len(tr["highlights"]) == len(i.get("highlights") or []):
                 i["highlights_he"] = [he_text(str(x)) for x in tr["highlights"]]
@@ -205,7 +335,7 @@ def apply_translations(kb: Path) -> None:
 def clean_hebrew(kb: Path) -> int:
     """The Hebrew news.json already has, put in the app's terms (he_text). A KB published before the pipeline did that
     still said "תקרת לבל 100", which kb_release validate refuses (the night's run and a release carrying the KB
-    forward both failed): the next night rewrites it even when the news page can't be fetched and nothing is
+    forward both failed): the next night rewrites it even when the news list can't be fetched and nothing is
     translated. Returns how many items changed (counted as changes, so the cleaned KB gets published)."""
     path = kb / "news.json"
     try:
@@ -284,18 +414,15 @@ def _picture(old: dict | None, src: str, kb: Path, file: str, fetch_bytes) -> di
 
 
 def cover_src(e: dict) -> str | None:
-    """NiaMeowDB's cover of a news entry, when it is on meowdb.com (some old items point at other sites: none)."""
-    url = str(e.get("image_url") or "").strip()
-    if url.startswith("/") and not url.startswith("//"):
-        url = MEOWDB + url
-    if not re.fullmatch(r"https://meowdb\.com/[\w/.-]+\.(?:webp|png|jpe?g)", url, re.I):
-        return None
-    return url
+    """The article's thumbnail on Nexon's media server (its imageThumbnail), else None."""
+    url = str(e.get("imageThumbnail") or "").strip()
+    if url.startswith("/media/"):
+        url = NEXON + url
+    return url if NEXON_MEDIA.fullmatch(url) else None
 
 
-def add_cover(i: dict, e: dict, old: dict | None, kb: Path, fetch_bytes) -> None:
+def add_cover(i: dict, src: str | None, old: dict | None, kb: Path, fetch_bytes) -> None:
     """The item's cover picture fields (image, image_w, image_h, image_src) when there is one."""
-    src = cover_src(e)
     if not src or not re.fullmatch(r"[a-z0-9-]+", i["id"]):
         return
     ext = src.rsplit(".", 1)[-1].lower()
@@ -387,10 +514,25 @@ def nexon_pictures(body: str, article: str, text: str) -> tuple[str | None, list
     return banner, [(name, named[name]) for _, name in found[:MAX_PICTURES]]
 
 
-def add_nexon(i: dict, old: dict | None, kb: Path, fetch, fetch_bytes) -> None:
+def article_json(fetch, nid: int) -> dict | None:
+    """Nexon's article {id, name, summary, body, ...}, or None when it couldn't be read (then a pause)."""
+    try:
+        page = fetch(NEXON_API.format(id=nid))
+        data = json.loads(page) if page else None
+    except Exception:          # noqa: BLE001 - one article down never stops the news
+        data = None
+    time.sleep(PAUSE)
+    return data if isinstance(data, dict) and isinstance(data.get("body"), str) else None
+
+
+_ASK = object()
+
+
+def add_nexon(i: dict, old: dict | None, kb: Path, fetch, fetch_bytes, article=_ASK) -> None:
     """i["nexon"]: the pictures of Nexon's own article (nexon_pictures), for an item Nexon published. One request
-    for the article when the item's text or address changed since the night that matched its pictures; the pictures
-    already there are kept. A failure keeps what there was."""
+    for the article when the item's text or address changed since the night that matched its pictures, none when
+    the caller already has it (article: its JSON, or None when it couldn't be read); the pictures already there are
+    kept. A failure keeps what there was."""
     m = NEXON_ARTICLE.match(i.get("source_url") or "")
     if not (m and i.get("publisher") == "Nexon" and re.fullmatch(r"[a-z0-9-]+", i["id"])):
         return
@@ -406,12 +548,7 @@ def add_nexon(i: dict, old: dict | None, kb: Path, fetch, fetch_bytes) -> None:
         if prev and all(have):
             i["nexon"] = prev
         return
-    try:
-        page = fetch(NEXON_API.format(id=m.group(1)))
-        data = json.loads(page) if page else None
-    except Exception:          # noqa: BLE001
-        data = None
-    time.sleep(PAUSE)
+    data = article_json(fetch, int(m.group(1))) if article is _ASK else article
     if not (isinstance(data, dict) and isinstance(data.get("body"), str)):
         print(f"news: Nexon's article {m.group(1)} unreadable; keeping its pictures", flush=True)
         if prev and all(have):
@@ -473,8 +610,8 @@ def prune_pictures(kb: Path, items: list[dict]) -> int:
 
 def update(kb: Path, fetch, fetch_bytes=None) -> int:
     """Refresh kb/news.json with fetch(url) -> str | None (the scraper's polite fetch). Returns how many items are
-    new or changed (0 when nothing changed). A failed fetch or an unreadable page keeps the news.json there is:
-    a site hiccup must not wipe the news, or the next good night announce all of it again.
+    new, changed or gone (0 when nothing changed). A failed fetch or an unreadable list keeps the news.json there
+    is: a site hiccup must not wipe the news, or the next good night announce all of it again.
 
     fetch_bytes(url) -> bytes | None downloads the pictures (add_cover, add_nexon); without it the items keep the
     pictures they have and get no new ones."""
@@ -484,24 +621,40 @@ def update(kb: Path, fetch, fetch_bytes=None) -> int:
         old = {i["id"]: i for i in json.loads(path.read_text(encoding="utf-8")).get("items", [])}
     except (OSError, json.JSONDecodeError, AttributeError, KeyError, TypeError):
         old = {}
-    page = fetch(NEWS_URL)
-    if not page:
-        print("news: the news page could not be fetched; keeping the news there is", flush=True)
+    try:
+        text = fetch(NEWS_LIST)
+    except Exception:          # noqa: BLE001 - Nexon down or refusing tonight: the news there is stay
+        text = None
+    if not text:
+        print("news: Nexon's news list could not be fetched; keeping the news there is", flush=True)
         return cleaned
     try:
-        items = build(page, translations(kb=kb))
+        found = selected(entries(text))
+        if not found:
+            raise NewsError(f"no Classic World news since {SINCE} in Nexon's list")
     except NewsError as e:
         print(f"news: {e}; keeping the news there is", flush=True)
         return cleaned
-    found = {str(e.get("slug") or ""): e for e in entries(page)}
-    for i in items:
-        add_cover(i, found.get(i["id"], {}), old.get(i["id"]), kb, fetch_bytes)
-        add_nexon(i, old.get(i["id"]), kb, fetch, fetch_bytes)
+    he = translations(kb=kb)
+    ids = stable_ids(old)
+    items = []
+    for e in found:
+        nid = ids.get(e["id"], f"nexon-{e['id']}")
+        prev = old.get(nid)
+        article = article_json(fetch, e["id"])
+        if article is None:
+            print(f"news: Nexon's article {e['id']} unreadable; keeping its highlights", flush=True)
+        i = item(e, nid, article, prev)
+        _with_he(i, he)
+        add_cover(i, cover_src(e), prev, kb, fetch_bytes)
+        add_nexon(i, prev, kb, fetch, fetch_bytes, article)
+        items.append(i)
+    items.sort(key=lambda i: (i["date"], i["id"]), reverse=True)
     changed = sum(1 for i in items if old.get(i["id"]) != i)
     removed = len(old.keys() - {i["id"] for i in items})
     pruned = prune_pictures(kb, items)            # (a picture deleted is a change too: the KB gets lighter)
     if changed or removed:
-        path.write_text(json.dumps({"source": "NiaMeowDB (meowdb.com/msclassic/news)",
+        path.write_text(json.dumps({"source": "Nexon (nexon.com/maplestory/news)",
                                     "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                     "items": items}, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for i in items:
@@ -516,5 +669,5 @@ def update(kb: Path, fetch, fetch_bytes=None) -> int:
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     sys.path.insert(0, str(ROOT / "tools"))
-    import scrape_meowdb
+    import scrape_meowdb            # (its polite fetch, for Nexon's site too)
     update(scrape_meowdb.KB, scrape_meowdb.fetch, lambda url: scrape_meowdb.fetch(url, binary=True))
