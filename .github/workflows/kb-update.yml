@@ -32,6 +32,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     outputs:
       changed: ${{ steps.changed.outputs.changed }}
+      translate: ${{ steps.translate.outputs.result }}
     steps:
       - uses: actions/checkout@v7
 
@@ -90,12 +91,17 @@ jobs:
       # Hebrew for what came in English tonight (a new quest's journal line, a pet skill, a skill note, a news item):
       # into the KB's own he.json, so it reads in Hebrew from tomorrow with no app release. A capped number of texts
       # a night; no key, a bad key or the API down only warns.
+      # (translate_kb itself warns and exits 0 on API trouble: a non-zero exit is a bug, reported in the kb-drift issue)
       - name: Translate what's new into Hebrew
+        id: translate
         if: steps.rel.outputs.exists == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          python tools/translate_kb.py data/kb || echo "::warning::translations not made tonight"
+          if ! python tools/translate_kb.py data/kb; then
+            echo "::error::the Hebrew translation crashed tonight (a bug, not the API)"
+            echo "result=crashed" >> "$GITHUB_OUTPUT"
+          fi
 
       # a broken scrape (site down, layout change) must never reach players: this fails the run instead
       - name: Validate before publishing
@@ -148,7 +154,7 @@ jobs:
   report:
     name: Report data changes
     needs: [update, test]
-    if: always() && needs.update.outputs.changed > 0
+    if: always() && (needs.update.outputs.changed > 0 || needs.update.outputs.translate == 'crashed')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -171,14 +177,14 @@ jobs:
 
       - name: Open or update the issue
         run: |
-          python tools/nightly_gate.py --issue-body reports --test-result "${{ needs.test.result }}" > body.md || {
+          python tools/nightly_gate.py --issue-body reports --test-result "${{ needs.test.result }}"             --translate "${{ needs.update.outputs.translate }}" > body.md || {
             echo "Nothing to report."; exit 0; }
           gh label create kb-drift --repo "$GITHUB_REPOSITORY" --color D93F0B --description "Nightly KB: data tests to review" 2>/dev/null || true
           n=$(gh issue list --repo "$GITHUB_REPOSITORY" --label kb-drift --state open --json number --jq '.[0].number')
           if [ -n "$n" ]; then
             gh issue comment "$n" --repo "$GITHUB_REPOSITORY" --body-file body.md
           else
-            gh issue create --repo "$GITHUB_REPOSITORY" --label kb-drift --title "Nightly KB: data tests to review" --body-file body.md
+            gh issue create --repo "$GITHUB_REPOSITORY" --label kb-drift --title "Nightly KB: needs a look" --body-file body.md
           fi
 
   publish:
