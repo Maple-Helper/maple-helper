@@ -266,6 +266,85 @@ def test_recent_changes_last_a_week_from_the_updates_own_date(tiny):
     assert tip.startswith("עודכן במאגר ב-") and "Weapon Attack 50 → 53 (COT2 → Launch)" in tip.replace(NB, " ")
 
 
+KERNING_OLD = ("Kerning City Civic Center, Kerning City Construction Site, Niora Hospital, Subway Ticketing Booth, "
+               "Thieves' Hideout")
+KERNING_NEW = "Backalley Semi-Basement, " + KERNING_OLD
+HENESYS_OLD = "An Empty House, Henesys Market, Henesys Park, Victoria Road"
+HENESYS_NEW = "An Empty House, Henesys Market, Henesys Park, Yellow Mushroom House"
+
+
+def plain_text(s: str) -> str:
+    return "".join(c for c in s if c not in (bidi.LRI, bidi.PDI, "\u2060")).replace(NB, " ")
+
+
+def test_a_changed_maps_list_shows_only_the_maps_it_gained_and_lost(tiny):
+    """The patch notes printed Kerning City's whole old list → its whole new one, and no reader could find the one
+    map a portal now leads to; a changelog already published (a "A, B" string) reads the same way."""
+    r = recent.Recent("map/103000000", "Kerning City", "", {"Connected maps": [KERNING_OLD, KERNING_NEW]})
+    assert [plain_text(x) for x in recent.lines(he, tiny, r)] == ["מפות מחוברות: נוספה: Backalley Semi-Basement"]
+    assert recent.lines(en, tiny, r) == ["Connected maps: Added: Backalley Semi-Basement"]
+    r = recent.Recent("map/100000000", "Henesys", "", {"Connected maps": [HENESYS_OLD, HENESYS_NEW]})
+    assert [plain_text(x) for x in recent.lines(he, tiny, r)] == \
+        ["מפות מחוברות: נוספה: Yellow Mushroom House · הוסרה: Victoria Road"]
+    assert recent.lines(en, tiny, r) == ["Connected maps: Added: Yellow Mushroom House · Removed: Victoria Road"]
+    # several at once: the plural; each name one unbreakable left-to-right block in the Hebrew line
+    r = recent.Recent("map/1", "Ellinia", "", {"Connected maps": ["Ellinia", "Ellinia Tree, Magic Library, Ellinia"]})
+    line = recent.lines(he, tiny, r)[0]
+    assert plain_text(line) == "מפות מחוברות: נוספו: Ellinia Tree, Magic Library"
+    assert f"{bidi.LRI}Magic{NB}Library{bidi.PDI}" in line
+    assert recent.lines(en, tiny, r) == ["Connected maps: Added: Ellinia Tree, Magic Library"]
+    # a list written structurally (a future changelog) reads the same; the same maps in another order is no line
+    r = recent.Recent("map/1", "Ellinia", "", {"Connected maps": [["Ellinia"], ["Magic Library", "Ellinia"]]})
+    assert recent.lines(en, tiny, r) == ["Connected maps: Added: Magic Library"]
+    r = recent.Recent("map/1", "Ellinia", "", {"Connected maps": ["A, B", ["B", "A"]]})
+    assert recent.lines(en, tiny, r) == []
+
+
+def test_a_map_name_with_its_own_comma_stays_one_name(tiny):
+    """Ellinia's "Tree Dungeon, Monkey Forest I" is one map: split at every comma it was two, one of them a map
+    that doesn't exist."""
+    kb = SimpleNamespace(entities={"map/1": {"name": "Tree Dungeon, Monkey Forest I"},
+                                   "map/2": {"name": "Tree Dungeon, Monkey Forest II"}})
+    assert recent.list_items(kb, "Ellinia, Tree Dungeon, Monkey Forest II, Tree Dungeon, Monkey Forest I") == \
+        ["Ellinia", "Tree Dungeon, Monkey Forest II", "Tree Dungeon, Monkey Forest I"]
+    assert recent.list_items(kb, None) == [] and recent.list_items(kb, 32) is None
+    # a skill's "Ground, air, or rope" is one value, not a list: it changes as old → new
+    r = recent.Recent("skill/1", "Haste", "", {"Cast Context": ["Ground only", "Ground, air, or rope"]})
+    assert recent.lines(en, tiny, r) == \
+        [sources.change_line("Cast Context", "Ground only", "Ground, air, or rope")]
+
+
+def test_every_changed_field_label_is_in_the_ui_language(tiny):
+    """A Hebrew card read "Connected maps ..." under "מפה": the field names are Hebrew too, the game's own stat names
+    (Weapon Attack, Avoidability, HP) stay as the game writes them, as everywhere in the app."""
+    labels = {"Connected maps": "מפות מחוברות", "EXP Reward": "פרס EXP", "Meso Reward": "פרס mesos",
+              "Minimum Level": "רמה מינימלית", "Level": "רמה", "Lifespan": "תוחלת חיים", "Chance": "סיכוי",
+              "Magic attack": "התקפה מגית", "Physical Damage": "נזק פיזי",
+              "ST DPS (community tier list)": "נזק למפלצת אחת (דירוג הקהילה)",
+              "Weapon Attack": "Weapon Attack", "Magic Attack": "Magic Attack", "Avoidability": "Avoidability"}
+    for field, label in labels.items():
+        assert recent.field_label(he, field) == label
+        assert recent.field_label(en, field) == field
+    r = recent.Recent("quest/1", "Olaf's First Training", "", {"EXP Reward": [84, 124], "Avoidability": [19, 21]})
+    quest, stat = recent.lines(he, tiny, r)
+    assert quest == f"פרס EXP: {bidi.LRI}84{NB}→{NB}124{bidi.PDI}"       # the values one left-to-right block
+    assert stat == sources.change_line("Avoidability", "19", "21")
+    assert recent.lines(en, tiny, r) == [sources.change_line("EXP Reward", "84", "124"),
+                                         sources.change_line("Avoidability", "19", "21")]
+    # every field a published changelog carries has a Hebrew word or is a game stat name
+    stats = {"Weapon Attack", "Magic Attack", "Weapon Defense", "Magic Defense", "Accuracy", "Avoidability", "Speed",
+             "Jump", "Crit Rate", "Crit Damage", "HP", "MP", "EXP", "STR", "DEX", "INT", "LUK", "Cash Shop", "NPC"}
+    fields = ["Connected maps", "EXP Reward", "Meso Reward", "Minimum Level", "Area", "Level", "Level Requirement",
+              "Upgrade Slots", "Physical Damage", "Magic Damage", "Physical Defense", "Knockback", "Lifespan", "Hunger",
+              "Commands to Lv 30", "Cooldown", "Duration", "Damage", "Targets", "MP cost", "Effect value", "Range",
+              "Damage over time", "Defense bonus", "Attack Power", "Job", "Job Rank", "Max Level", "Prerequisite",
+              "Target Cap", "Cast Context", "Attack Delivery", "Base Animation Time", "Effect Area At Max Level",
+              "Hits Per Cast", "Skills", "Second-Job Branches", "Third-Job Branches",
+              "Physical EHP (community tier list)", "Damage/MP (community tier list)"]
+    assert [f for f in fields if recent.field_label(he, f) == f] == []
+    assert all(recent.field_label(he, s) == s for s in stats)
+
+
 def test_ai_hears_about_recent_changes(tiny):
     assert recent.ai_lines(tiny, ["item/10"]) == \
         [f"Recent KB change ({TODAY.isoformat()}): Scimitar: Weapon Attack 50 -> 53 (COT2 -> Launch)"]

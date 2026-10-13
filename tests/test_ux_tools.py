@@ -205,6 +205,28 @@ def test_patch_note_item_lists_keep_names_whole_and_cut_long_lists():
 
 
 @needs_kb
+@pytest.mark.parametrize("lang, label, added", [("he", "מפות מחוברות", "נוספה"), ("en", "Connected maps", "Added")])
+def test_a_map_card_in_the_patch_notes_names_the_one_map_it_gained(app, real_kb, lang, label, added):
+    """The owner's Hebrew card read "Connected maps Kerning City Civic Center, ..., Thieves' Hideout → Backalley
+    Semi-Basement, Kerning City Civic Center, ...": an English field name and two whole lists to compare by eye."""
+    from PySide6.QtWidgets import QLabel
+
+    from maplehelper import bidi
+    from maplehelper.ui import patchnotes
+    old = "Kerning City Civic Center, Niora Hospital, Subway Ticketing Booth, Thieves' Hideout"
+    entry = {"version": "2026.10.12.0100", "date": "2026-10-12", "counts": {"changed": 1},
+             "changed": [{"key": "map/103000000", "name": "Kerning City", "category": "map",
+                          "props": [["Connected maps", old, "Backalley Semi-Basement, " + old]]}]}
+    d = patchnotes.PatchNotesDialog([entry], lang, "", real_kb)
+    stats = [lb.text() for card in d.findChildren(patchnotes.ChangeCard) for lb in card.findChildren(QLabel)
+             if lb.objectName() == "CardStat"]
+    shown = ["".join(c for c in s if c not in bidi.LRE + bidi.PDF + bidi.LRI + bidi.PDI + bidi.RLM + "\u2060")
+             .replace("\u00a0", " ") for s in stats]
+    assert shown == [f"{label}: {added}: Backalley Semi-Basement"]
+    d.close()
+
+
+@needs_kb
 def test_patch_notes_show_fast_and_the_rest_on_demand(app, real_kb):
     """PERF-04 / TOOL-21: every card at once held the window blank for 1.3-1.8 s; "and N more" was a dead end."""
     from PySide6.QtWidgets import QPushButton
