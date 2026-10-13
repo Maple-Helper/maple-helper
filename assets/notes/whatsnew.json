@@ -1,5 +1,18 @@
 [
  {
+  "version": "0.18.2",
+  "he": [
+   "חדשות רשמיות מ-Nexon: החדשות באפליקציה מגיעות עכשיו ישירות מ-Nexon, במילים שלהם, ורק ממה שמתפרסם מעכשיו.",
+   "מאגר המידע מתעדכן מהר יותר: אפליקציה פתוחה בודקת אם יש מאגר חדש כל 15 דקות, במקום כל שעה.",
+   "רשימת השינויים במאגר בעברית: שמות השדות בעברית, ובמקום רשימה ארוכה רואים רק מה נוסף ומה הוסר (למשל \"מפות מחוברות: נוספה: Backalley Semi-Basement\")."
+  ],
+  "en": [
+   "Official news from Nexon: the app's news now come straight from Nexon, in their own words, from now on only.",
+   "Faster knowledge base updates: an open app looks for a new one every 15 minutes, not every hour.",
+   "Clearer knowledge base changes: field names in your language, and only what was added or removed instead of the whole list (\"Connected maps: added Backalley Semi-Basement\")."
+  ]
+ },
+ {
   "version": "0.18.1",
   "he": [
    "תיקונים ושיפורים קטנים ביציבות האפליקציה."
