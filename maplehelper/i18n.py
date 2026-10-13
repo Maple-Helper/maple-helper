@@ -544,7 +544,7 @@ STRINGS = {
     "pf_knockback": {"he": "נוקבק", "en": "Knockback"},
     "pf_lifespan": {"he": "תוחלת חיים", "en": "Lifespan"},
     "pf_hunger": {"he": "רעב", "en": "Hunger"},
-    "pf_commands_to_lv_30": {"he": "פקודות עד רמה 30", "en": "Commands to Lv 30"},
+    "pf_commands_to_lv_30": {"he": "פקודות עד רמה 30", "en": "Commands to Lv. 30"},
     "pf_attack_power": {"he": "כוח התקפה", "en": "Attack Power"},
     "pf_cooldown": {"he": "זמן המתנה", "en": "Cooldown"},
     "pf_job": {"he": "ג'וב", "en": "Job"},

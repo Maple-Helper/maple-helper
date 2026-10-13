@@ -171,12 +171,14 @@ def field_label(t, f: str) -> str:
     if m:
         col = "tier_col_" + re.sub(r"[^a-z0-9]+", "_", m["col"].lower()).strip("_")
         return t("pf_tier", col=t(col) if col in STRINGS else m["col"])
-    if "pf_" + slug in STRINGS:
-        return t("pf_" + slug)
+    key = "pf_" + slug
+    if key in STRINGS:
+        return t(key)
     # a skill change's field (sitedata.field_name), by its exact English: the skill's "Magic attack" is "התקפה
     # מגית", an item's "Magic Attack" the game's stat name
-    skf = STRINGS.get("skf_" + slug)
-    return t("skf_" + slug) if skf and skf.get("en") == f else f
+    key = "skf_" + slug
+    skf = STRINGS.get(key)
+    return t(key) if skf and skf.get("en") == f else f
 
 
 def _comma_names(kb) -> list[str]:
