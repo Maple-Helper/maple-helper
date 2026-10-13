@@ -222,6 +222,10 @@ def _translate(key: str, texts: list[str]) -> list[str]:
         try:
             return translate(key, texts)
         except urllib.error.HTTPError as e:
+            if e.code == 400:
+                # the API refuses this very request (a text it won't take): a bad answer, so run() tries the batch's
+                # texts one at a time and only the refused one waits; it stopped the whole backlog at 1,898 of 2,882
+                raise ValueError(f"HTTP 400: {e.read().decode('utf-8', 'replace')[:200]}") from e
             if attempt == 2 or not (e.code == 429 or e.code >= 500):
                 raise
         except (urllib.error.URLError, TimeoutError):

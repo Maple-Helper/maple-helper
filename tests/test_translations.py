@@ -137,6 +137,20 @@ def test_a_busy_api_is_tried_again(tmp_path, monkeypatch):
     assert count == 3 and len(calls) == 3
 
 
+def test_a_text_the_api_refuses_waits_alone_and_the_rest_is_translated(tmp_path, monkeypatch, capsys):
+    """An HTTP 400 on one batch stopped the whole run: 787 texts of the backlog waited behind it, every night."""
+    import io
+    import urllib.error
+
+    def translate(key, texts):
+        if any("2" in t for t in texts):
+            raise urllib.error.HTTPError("u", 400, "Bad Request", {}, io.BytesIO(b'{"error": "invalid"}'))
+        return [f"דברו עם Arthur על {t.split()[-2]} המכתבים." for t in texts]
+    count, made = _night(tmp_path, monkeypatch, translate)
+    assert count == 2 and set(made["quest_tasks"]) == {"quest/0", "quest/1"}
+    assert "HTTP 400" in capsys.readouterr().out
+
+
 @pytest.mark.parametrize("bad", ["Talk to Arthur about the letters.", "עלו לבל 10 ודברו עם Arthur."])
 def test_a_translation_in_english_or_with_the_wrong_term_is_not_stored(tmp_path, monkeypatch, bad):
     count, made = _night(tmp_path, monkeypatch, lambda key, texts: [bad for _ in texts])
