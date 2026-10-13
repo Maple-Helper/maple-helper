@@ -1,13 +1,16 @@
-"""MeowDB's news, server status and Free Market sections in the app, from recorded answers (tests/fixtures/meowdb,
-fetched 2026-10-04, two days before Founder's Access): no network.
+"""Nexon's news, MeowDB's server status and Free Market sections in the app, from recorded answers: no network.
 
-news_page.html is the real news page's payload cut to five items; server_status_prelaunch.json and the
-item_*_298.json / market_listings_298.json files are the real endpoints' answers that day (the game wasn't open,
-so the market ones are empty). The filled market answers below use the field names the site's own item page reads.
+tests/fixtures/nexon: Nexon's news list (news_list.json, the real answer of 2026-10-12 cut to the 16 articles since
+September 29) and five Classic World articles (article_<id>.json, recorded the same day: the short ones as
+published, the long ones with their styling and pictures stripped, the same text). tests/fixtures/meowdb:
+server_status_prelaunch.json and the item_*_298.json / market_listings_298.json files are the real endpoints'
+answers of 2026-10-04 (the game wasn't open, so the market ones are empty). The filled market answers below use the
+field names the site's own item page reads.
 """
 import json
 import os
 import re
+import sys
 import time
 from datetime import date
 from pathlib import Path
@@ -20,31 +23,87 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from maplehelper import market, news, serverstatus  # noqa: E402
 from maplehelper.i18n import I18n  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
+import scrape_news  # noqa: E402
+
 app = QApplication.instance() or QApplication([])
 FIX = Path(__file__).parent / "fixtures" / "meowdb"
-PAGE = (FIX / "news_page.html").read_text(encoding="utf-8")
+NX = Path(__file__).parent / "fixtures" / "nexon"
+LIST = (NX / "news_list.json").read_text(encoding="utf-8")
 TODAY = date(2026, 10, 4)
+# the Classic World articles since 2026-10-02, newest first: a maintenance, Founder's Access opening, its Cash Shop,
+# its release notes, and the Inkwell interview (not marked Classic World by Nexon, but named so)
+IDS = ["nexon-46321", "nexon-45490", "nexon-45819", "nexon-45621", "nexon-45681"]
+
+
+FIXTURE_SINCE = "2026-10-02"     # the recorded articles are from October 2-8, before the app's news start
+REAL_SINCE = {"test_news_start_today", "test_today_the_recorded_list_is_no_news",
+              "test_an_empty_news_json_shows_nothing_anywhere"}
 
 
 @pytest.fixture(autouse=True)
-def every_fixture_item(monkeypatch, request):
-    """The five recorded items reach back to April: the app's cut (news.SINCE, from 2026-10-02) is off here, so the
-    tests see them all; test_news_start_at_the_cut puts it back."""
-    import sys
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
-    import scrape_news
-    if request.node.name != "test_news_start_at_the_cut":
-        monkeypatch.setattr(news, "SINCE", "2000-01-01")
-        monkeypatch.setattr(scrape_news, "SINCE", "2000-01-01")
+def no_pause(monkeypatch, request):
+    """No pauses; and the cut moved back to the recorded week, so the fixtures are news (the tests in REAL_SINCE
+    keep the app's real one)."""
+    monkeypatch.setattr(scrape_news, "PAUSE", 0)
+    if request.node.originalname not in REAL_SINCE:
+        monkeypatch.setattr(scrape_news, "SINCE", FIXTURE_SINCE)
+        monkeypatch.setattr(news, "SINCE", FIXTURE_SINCE)
+
+
+def nexon(url, broken=()):
+    """Nexon's site as recorded: the list, and the articles there is a fixture of (any other: no answer)."""
+    if url == scrape_news.NEWS_LIST:
+        return LIST
+    m = re.fullmatch(r"https://g\.nexonstatic\.com/maplestory/cms/v1/news/(\d+)", url)
+    f = NX / f"article_{m.group(1)}.json" if m and m.group(1) not in broken else None
+    return f.read_text(encoding="utf-8") if f and f.is_file() else None
+
+
+def article(nid: int) -> dict:
+    return json.loads((NX / f"article_{nid}.json").read_text(encoding="utf-8"))
+
+
+def scraped(kb: Path) -> dict:
+    return {i["id"]: i for i in json.loads((kb / "news.json").read_text(encoding="utf-8"))["items"]}
+
+
+def test_news_start_today():
+    """The owner's call of 2026-10-12: the news are Nexon's, from that day on; nothing older, not even the week
+    before (the maintenance of October 8)."""
+    assert scrape_news.SINCE == news.SINCE == "2026-10-12"
+
+
+def test_today_the_recorded_list_is_no_news(tmp_path):
+    """Every recorded article is older than the cut: a list read fine with no Classic World article since is a quiet
+    night, not a failure. news.json says so (items []), and what an older KB had is gone, its pictures too."""
+    assert scrape_news.selected(scrape_news.entries(LIST)) == []
+    assert scrape_news.update(tmp_path, nexon) == 0
+    assert json.loads((tmp_path / "news.json").read_text(encoding="utf-8"))["items"] == []
+    old = tmp_path / "old"
+    (old / "img" / "news").mkdir(parents=True)
+    (old / "img" / "news" / "founders-access-release-notes.webp").write_bytes(b"x")
+    (old / "news.json").write_text(json.dumps({"items": [
+        {"id": "founders-access-release-notes", "title": "x", "date": "2026-10-03",
+         "image": "img/news/founders-access-release-notes.webp"},
+        {"id": "classic-world-founders-access-live", "title": "y", "date": "2026-10-06"}]}), encoding="utf-8")
+    assert scrape_news.update(old, nexon) == 3                     # two items gone, one picture deleted
+    assert json.loads((old / "news.json").read_text(encoding="utf-8"))["items"] == []
+    assert not list((old / "img" / "news").rglob("*.webp"))
+    assert scrape_news.update(old, nexon) == 0                     # and the next quiet night changes nothing
+    # a list that can't be read still keeps what there is
+    (old / "news.json").write_text(json.dumps({"items": [{"id": "a", "title": "A", "date": "2026-10-13"}]}),
+                                   encoding="utf-8")
+    for night in (lambda url: None, lambda url: "<html>", lambda url: "[]"):
+        assert scrape_news.update(old, night) == 0 and scraped(old) == {"a": {"id": "a", "title": "A",
+                                                                               "date": "2026-10-13"}}
 
 
 def test_news_start_at_the_cut(tmp_path):
-    """Only news from 2026-10-02 on (the owner's call): the scrape keeps none older, and the app shows none older
-    from a KB that still has them; everything after it comes in."""
-    import scrape_news
-    assert scrape_news.SINCE == news.SINCE == "2026-10-02"
-    kept = scrape_news.build(PAGE, he={})
-    assert kept and all(i["date"] >= "2026-10-02" for i in kept)
+    """Only news from the cut on: the scrape keeps none older (the FAQ and the pre-download steps of September 29
+    are Classic World's too), and the app shows none older from a KB that still has them."""
+    kept = scrape_news.selected(scrape_news.entries(LIST))
+    assert [e["id"] for e in kept] == [int(i.split("-")[1]) for i in IDS]
     (tmp_path / "news.json").write_text(json.dumps({"items": [
         {"id": "old", "title": "Old", "date": "2026-09-29"}, {"id": "new", "title": "New", "date": "2026-10-09"}]}),
         encoding="utf-8")
@@ -65,59 +124,205 @@ def _load(name: str):
 
 # ------------------------------------------------------------------ the nightly scrape (tools/scrape_news.py)
 
-def test_the_news_page_payload_becomes_news_items():
-    import scrape_news
-    items = scrape_news.build(PAGE, he={})
-    assert [i["id"] for i in items] == ["founders-access-release-notes", "classic-world-opening-time-confirmed",
-                                        "cot2-meowdb-exploration-report", "cms-classic-opening-august-3",
-                                        "second-cot-signups-open"]          # newest first
-    first = items[0]
-    assert first["date"] == "2026-10-03" and first["region"] == "gms" and first["publisher"] == "Nexon"
-    assert first["official"] and first["url"] == "https://meowdb.com/msclassic/news/founders-access-release-notes"
-    assert first["title"].startswith("Founder's Access release notes") and "level 100" in first["summary"]
-    assert first["highlights"] and "summary_he" not in first
-    # NiaMeowDB's own report is community news; China's operator is official for its region
-    by = {i["id"]: i for i in items}
-    assert not by["cot2-meowdb-exploration-report"]["official"]
-    assert by["cms-classic-opening-august-3"]["official"] and by["cms-classic-opening-august-3"]["region"] == "cms"
-    # what an item names, as a hint for the AI and the owner (never for availability)
-    assert {"Orbis", "El Nath", "3rd job"} <= set(by["second-cot-signups-open"]["mentions"])
+def test_nexons_classic_world_articles_become_news_items(tmp_path):
+    """Nexon's own title and summary, its article's address, official: nothing in the item is anyone else's."""
+    assert scrape_news.update(tmp_path, nexon) == 5
+    by = scraped(tmp_path)
+    assert list(by) == IDS                                                 # newest first
+    notes = by["nexon-45621"]
+    assert notes["date"] == "2026-10-03" and notes["title"] == "Founder's Access Release Notes"
+    assert notes["summary"] == ("Click here to read the release notes for the Global MapleStory Classic World "
+                                "Founder's Access.")
+    assert notes["url"] == notes["source_url"] == "https://www.nexon.com/maplestory/news/general/45621"
+    assert scrape_news.NEXON_ARTICLE.match(notes["url"]).group(1) == "45621"
+    assert (notes["publisher"], notes["official"], notes["region"], notes["commentary"]) == ("Nexon", True, "gms", "")
+    assert notes["tags"] == ["general"] and by["nexon-45819"]["tags"] == ["sale"]
+    assert notes["hash"] == scrape_news._hash(notes["title"], notes["summary"])
+    assert "Cash Shop" in by["nexon-45819"]["mentions"]
+    assert json.loads((tmp_path / "news.json").read_text(encoding="utf-8"))["source"] == \
+        "Nexon (nexon.com/maplestory/news)"
 
 
-def test_a_hebrew_summary_is_kept_only_for_the_english_it_was_made_from():
-    import scrape_news
-    plain = scrape_news.build(PAGE, he={})
-    h = {i["id"]: i["hash"] for i in plain}
-    he = {"founders-access-release-notes": {"summary": "תקציר", "source_hash": h["founders-access-release-notes"]},
-          "classic-world-opening-time-confirmed": {"summary": "ישן", "source_hash": "0000"}}
-    by = {i["id"]: i for i in scrape_news.build(PAGE, he=he)}
-    assert by["founders-access-release-notes"]["summary_he"] == "תקציר"
-    assert "summary_he" not in by["classic-world-opening-time-confirmed"]      # NiaMeowDB rewrote it since
+@pytest.mark.parametrize("entry,shown", [
+    ({"isMSCW": True, "name": "Patch"}, True),
+    ({"isMSCW": "True", "name": "Patch"}, True),                 # an article's flags are strings
+    ({"isMSCW": False, "name": "Inkwell on the Future of Global MapleStory and Classic World"}, True),
+    ({"name": "Patch", "summary": "Classic World servers are back."}, True),     # no flag at all
+    ({"isMSCW": "False", "name": "Cash Shop Update for October 7"}, False),
+    ({"name": "v.271 Known Issues"}, False),
+])
+def test_classic_world_is_nexons_flag_or_its_name(entry, shown):
+    assert scrape_news.classic(entry) is shown
 
 
-def test_update_writes_news_json_and_a_bad_night_keeps_it(tmp_path):
-    import scrape_news
-    assert scrape_news.update(tmp_path, lambda url: PAGE) == 5
+def test_the_global_games_news_and_older_news_stay_out():
+    found = scrape_news.entries(LIST)
+    by = {e["id"]: e for e in found}
+    assert not scrape_news.classic(by[46249])            # Global MapleStory's own maintenance that day
+    assert scrape_news.classic(by[45385]) and 45385 not in {e["id"] for e in scrape_news.selected(found)}
+    assert by[45681].get("isMSCW") is False and 45681 in {e["id"] for e in scrape_news.selected(found)}
+
+
+# ------------------------------------------------------------------ the highlights: Nexon's sentences, chosen alike
+
+def _points(nid: int) -> list[str]:
+    a = article(nid)
+    return scrape_news.highlights(a["body"], a["summary"], a["name"])
+
+
+def test_a_maintenance_says_its_times_and_what_is_down():
+    """Every line of a short notice, "Times:" read with the times it introduces."""
+    p = _points(46321)
+    assert p[0].startswith("[Updated 10/8 at 8:25 AM PDT] The maintenance has been completed")
+    assert p[2].startswith("Times: Thursday, October 8, 2026; PDT (UTC -7): 7:00 AM - 9:00 AM; EDT (UTC -4): 10:00")
+    assert "What will be unavailable: All MapleStory Classic World game servers." in p
+    assert p[-1] == "Resolved an issue where some players were unable to connect to Channels 1, 2, 3, and 4."
+    assert len(p) == 8 and not any(x.endswith(":") for x in p)
+
+
+def test_a_short_announcement_is_its_paragraphs_without_the_pictures():
+    p = _points(45490)
+    assert len(p) == 5 and p[0].startswith("Founder's Access for Global MapleStory Classic World is now live!")
+    assert p[3].startswith("All Founder's Package items can be fully equipped")       # a picture's caption
+    # the last paragraph is over MAX_HIGHLIGHT: it ends at its last whole sentence that fits
+    assert len(p[4]) <= scrape_news.MAX_HIGHLIGHT and p[4].endswith("November 30 at 11:59 PM (UTC).")
+
+
+def test_the_cash_shop_is_its_sales_each_with_its_first_line():
+    """421 lines: each section and the first thing under it (its dates), from the top heading level only, since the
+    sub-headings ("Male Hairs" under each coupon) made more than MAX_HIGHLIGHTS."""
+    p = _points(45819)
+    assert p[:4] == [
+        "Limited-Time and Rotational Sales: The following sales will only be available for a limited time, or will "
+        "have their sales details periodically update over time.",
+        "Founder's Mystery Fashion Crate: UTC: Tuesday, October 6 (End of Maintenance) - Wednesday, October 28 7:59 AM",
+        "Aurora Stamp Shop Season 1: UTC: Tuesday, October 6, 2026 (End of Maintenance) - Wednesday, January 13, 2027 "
+        "7:59 AM",
+        "Aurora Mystery Fashion Crate: UTC: Tuesday, October 6, 2026 (End of Maintenance) - Wednesday, January 13, "
+        "2027 7:59 AM"]
+    assert len(p) == scrape_news.MAX_HIGHLIGHTS and not any(x.startswith(("Male Hairs", "A Note on Gifting"))
+                                                             for x in p)
+
+
+def test_the_release_notes_are_their_sections_then_their_bold_lines():
+    """Nexon's words as written (its "by 30, 2026" too); a section whose first lines are the greeting has its heading
+    alone. Five sections leave room for the bold lines, the level cap among them: both there are (7, under
+    MAX_BOLD)."""
+    assert _points(45621) == [
+        "October 6, 2026 6:00 PM UTC",
+        "Accessing Classic World: Download and install the official Nexon Launcher from the Nexon website.",
+        "General Key Details: Your Founder’s Package will be available to claim from your in-game mailbox. Items must "
+        "be claimed by 30, 2026 at 11:59 PM UTC.",
+        "Founder’s First Step: How to Participate",
+        "Join Founder’s Access: There’s still time to join us! Founder’s Packages are available on the Nexon website "
+        "and Steam through October 14, 2026 at 11:59 PM PDT. Choose the Orange Mushroom or Zakum Package to get "
+        "Founder’s Access and start your MapleStory Classic World adventure before Grand Launch!",
+        "The maximum character level is Lv. 100",
+        "Founder’s First Step Rewards"]
+
+
+def test_the_interview_is_its_parts_then_its_questions():
+    """Three sections (the title's heading isn't one), then the bold paragraphs, the interviewer's questions, up to
+    MAX_BOLD."""
+    p = _points(45681)
+    assert len(p) == scrape_news.MAX_BOLD
+    assert p[:4] == [
+        "A Conversation with Inkwell: There is one name that has been continually brought up amongst MMORPG players "
+        "lately: Global MapleStory Classic World.",
+        "Global MapleStory: A deeper, evolving experience.",
+        "Classic World: A fresh beginning with a modern approach.",
+        "To start, could you introduce yourself for readers who may not know much about Inkwell yet? You have a very "
+        "long history with MapleStory."]
+    assert p[5] == "Wasn’t one of those companies Embark Studios?"
+
+
+def test_a_heading_with_nothing_or_only_itself_under_it_stands_alone():
+    body = ("<h2>Times</h2><p><strong>Times</strong></p><p>Noon.</p><h2>Rewards</h2><h2>Events:</h2><p>Hi Maplers!</p>"
+            "<p>Coconut Harvest.</p>" + "".join(f"<li>Line {n}.</li>" for n in range(12)))
+    assert scrape_news.highlights(body)[:3] == ["Times: Noon.", "Rewards", "Events: Coconut Harvest."]
+    # the bold paragraphs come after the sections, never the same text twice
+    assert scrape_news.highlights(body + "<p><b>Why?</b></p><p><b>Noon.</b></p>")[3:] == ["Why?"]
+
+
+def test_the_bold_lines_never_take_a_sections_place():
+    """MAX_BOLD is a ceiling for the bold lines, not for the sections: nine sections stay nine, the Cash Shop's
+    twelve stay twelve with none of its bold lines."""
+    body = "".join(f"<h2>Part {n}</h2><p>Text {n}.</p>" for n in range(9)) + "<p><strong>Bold.</strong></p>"
+    assert scrape_news.highlights(body) == [f"Part {n}: Text {n}." for n in range(9)]
+    assert len(_points(45819)) == scrape_news.MAX_HIGHLIGHTS > scrape_news.MAX_BOLD
+
+
+def test_greetings_the_summary_and_empty_lines_are_no_highlight():
+    body = ("<p>Hi Maplers! Welcome back.</p><p>The summary.</p><p><img src='x.png'></p><p>&nbsp;</p>"
+            "<ul><li><strong>Patch</strong><ul><li>Fixed A.</li></ul></li></ul><p>Thank you for playing!</p>"
+            "<p>Join our official Discord.</p><p>Ends &amp; starts<br>at noon<br></p>")
+    assert scrape_news.highlights(body, "The summary.") == ["Patch", "Fixed A.", "Ends & starts; at noon"]
+    long = "<h4>x</h4>" + "".join(f"<p>Line {n}.</p>" for n in range(20))
+    assert scrape_news.highlights(long) == [f"Line {n}." for n in range(scrape_news.SHORT_HEADINGS)]
+    assert scrape_news.clip("word " * 100).endswith("…") and len(scrape_news.clip("word " * 100)) <= 401
+
+
+# ------------------------------------------------------------------ ids, failures, Hebrew
+
+def test_an_item_keeps_the_id_it_had_so_read_marks_and_hebrew_stay(tmp_path):
+    """The KB's news before Nexon's: the release notes linked Nexon's article, the interview had its pictures;
+    their ids stay. Founder's Access opening had no Nexon link: it comes back under Nexon's id."""
+    old = [{"id": "founders-access-release-notes", "title": "x", "date": "2026-10-03",
+            "source_url": "https://www.nexon.com/maplestory/news/general/45621/founder-s-access-release-notes",
+            "url": "https://meowdb.com/msclassic/news/founders-access-release-notes", "highlights": ["MeowDB's"]},
+           {"id": "inkwell-interview", "title": "y", "date": "2026-10-02", "source_url": "https://example.com/i",
+            "nexon": {"id": 45681, "pictures": []}},
+           {"id": "classic-world-founders-access-live", "title": "z", "date": "2026-10-06"}]
+    (tmp_path / "news.json").write_text(json.dumps({"items": old}), encoding="utf-8")
+    assert scrape_news.update(tmp_path, lambda url: nexon(url, broken={"45621"})) == 6     # 5 new or changed, 1 gone
+    by = scraped(tmp_path)
+    assert list(by) == ["nexon-46321", "nexon-45490", "nexon-45819", "founders-access-release-notes",
+                        "inkwell-interview"]
+    # its article unreadable tonight: no highlights rather than the community site's
+    assert by["founders-access-release-notes"]["highlights"] == []
+    assert by["founders-access-release-notes"]["url"] == "https://www.nexon.com/maplestory/news/general/45621"
+    assert scrape_news.update(tmp_path, nexon) == 1
+    kept = scraped(tmp_path)["founders-access-release-notes"]["highlights"]
+    assert kept == _points(45621)
+    assert scrape_news.update(tmp_path, lambda url: nexon(url, broken={"45621"})) == 0     # Nexon's highlights stay
+
+
+def test_a_bad_night_keeps_the_news_there_is(tmp_path):
+    assert scrape_news.update(tmp_path, nexon) == 5
     first = (tmp_path / "news.json").read_text(encoding="utf-8")
-    assert len(json.loads(first)["items"]) == 5
-    assert scrape_news.update(tmp_path, lambda url: PAGE) == 0                     # nothing new: not a change
-    assert scrape_news.update(tmp_path, lambda url: None) == 0                     # the site was down
-    assert scrape_news.update(tmp_path, lambda url: "<html>new layout</html>") == 0
-    assert (tmp_path / "news.json").read_text(encoding="utf-8") == first
+    assert scrape_news.update(tmp_path, nexon) == 0                                 # nothing new: not a change
+
+    def down(url):
+        raise OSError("refused")
+    for night in (lambda url: None, down, lambda url: "<html>new layout</html>", lambda url: "[]",
+                  lambda url: json.dumps({"items": []})):
+        assert scrape_news.update(tmp_path, night) == 0
+        assert (tmp_path / "news.json").read_text(encoding="utf-8") == first
+
+
+def test_a_hebrew_summary_is_kept_only_for_the_english_it_was_made_from(tmp_path):
+    scrape_news.update(tmp_path, nexon)
+    h = {k: i["hash"] for k, i in scraped(tmp_path).items()}
+    he = {"nexon-45621": {"summary": "תקציר", "source_hash": h["nexon-45621"]},
+          "nexon-45681": {"summary": "ישן", "source_hash": "0000"}}
+    by = scraped(tmp_path)
+    for i in by.values():
+        scrape_news._with_he(i, he)
+    assert by["nexon-45621"]["summary_he"] == "תקציר"
+    assert "summary_he" not in by["nexon-45681"]                         # Nexon edited it since
 
 
 def test_news_go_into_the_changelog_and_the_validator(tmp_path):
     import kb_release
-    import scrape_news
     old, new = tmp_path / "old", tmp_path / "new"
     for d in (old, new):
         d.mkdir()
         (d / "index.json").write_text("[]", encoding="utf-8")
-    items = scrape_news.build(PAGE, he={})
+    scrape_news.update(new, nexon)
+    items = list(scraped(new).values())
     (old / "news.json").write_text(json.dumps({"items": items[1:]}), encoding="utf-8")
-    (new / "news.json").write_text(json.dumps({"items": items}), encoding="utf-8")
     d = kb_release.diff_kb(old, new)
-    assert d["counts"]["news"] == 1 and d["news"][0]["id"] == "founders-access-release-notes"
+    assert d["counts"]["news"] == 1 and d["news"][0]["id"] == "nexon-46321"
     assert kb_release.diff_kb(new, new)["counts"] == {"added": 0, "removed": 0, "changed": 0, "updated": 0}
     (new / "news.json").write_text(json.dumps({"items": [{"id": "x"}]}), encoding="utf-8")
     with pytest.raises(kb_release.InvalidKB, match="news.json"):
@@ -125,12 +330,11 @@ def test_news_go_into_the_changelog_and_the_validator(tmp_path):
 
 
 def test_translate_news_round_trip(tmp_path, monkeypatch):
-    import scrape_news
     import translate_news
     monkeypatch.setattr(translate_news, "OUT", tmp_path / "assets")
     kb = tmp_path / "kb"
     kb.mkdir()
-    scrape_news.update(kb, lambda url: PAGE)
+    scrape_news.update(kb, nexon)
     out = tmp_path / "export.json"
     assert translate_news.export("he", out, kb) == 5
     done = json.loads(out.read_text(encoding="utf-8"))
@@ -140,23 +344,37 @@ def test_translate_news_round_trip(tmp_path, monkeypatch):
     assert translate_news.export("he", out, kb) == 3            # only what still needs a translation
 
 
+def test_nothing_fetches_meowdbs_news_page_any_more():
+    """The owner's rule: the news come from Nexon, never from a community site's summary of them."""
+    root = Path(__file__).resolve().parents[1]
+    for f in [*(root / "tools").glob("*.py"), *(root / "maplehelper").rglob("*.py"),
+              *(root / ".github" / "workflows").glob("*.yml")]:
+        assert "meowdb.com/msclassic/news" not in f.read_text(encoding="utf-8"), f
+
+
 # ------------------------------------------------------------------ the app's news (news.py)
 
 @pytest.fixture
-def news_kb(kb_copy):
-    import scrape_news
-    scrape_news.update(kb_copy, lambda url: PAGE)
+def news_kb(kb_copy, tmp_path, monkeypatch):
+    """The recorded news, the release notes with a Hebrew title made from their current English."""
+    notes = next(e for e in json.loads(LIST) if e["id"] == 45621)
+    tr = tmp_path / "news_he"
+    tr.mkdir()
+    (tr / "he.json").write_text(json.dumps({"nexon-45621": {
+        "title": "הערות השחרור של Founder's Access", "summary": "הערות השחרור.",
+        "source_hash": scrape_news._hash(notes["name"], notes["summary"])}}, ensure_ascii=False), encoding="utf-8")
+    monkeypatch.setattr(scrape_news, "TRANSLATIONS", tr)
+    scrape_news.update(kb_copy, nexon)
     from maplehelper.kb import KnowledgeBase
     return KnowledgeBase(kb_copy)
 
 
 def test_unread_is_recent_global_news_not_yet_read(news_kb):
     ids = [i["id"] for i in news.unread(news_kb, [], today=TODAY)]
-    # the last NEW_DAYS days only: August's report, China's news and July's stay in the News tab
-    assert ids == ["founders-access-release-notes", "classic-world-opening-time-confirmed"]
-    assert [i["id"] for i in news.unread(news_kb, [], today=date(2026, 8, 20))] == ["cot2-meowdb-exploration-report"]
-    assert [i["id"] for i in news.unread(news_kb, ["founders-access-release-notes"], today=TODAY)][0] == \
-        "classic-world-opening-time-confirmed"
+    # the last NEW_DAYS days, up to today: what came out after October 4 isn't news yet on the 4th
+    assert ids == ["nexon-45621", "nexon-45681"]
+    assert [i["id"] for i in news.unread(news_kb, [], today=date(2026, 10, 9))] == IDS
+    assert [i["id"] for i in news.unread(news_kb, ["nexon-45621"], today=TODAY)] == ["nexon-45681"]
     assert news.unread(news_kb, [], today=date(2027, 1, 1)) == []
 
 
@@ -177,11 +395,11 @@ def test_hebrew_summary_falls_back_to_english():
 def test_the_ai_gets_news_only_when_asked_and_as_announcements(news_kb):
     from maplehelper.brain import build_prompt
     lines = news.ai_lines(news_kb, today=TODAY)
-    assert "announcements, not the game's data" in lines[0]
-    assert lines[1].startswith("News 2026-10-03 (official, Nexon): Founder's Access release notes")
-    assert not any("China" in ln or "CMS" in ln for ln in lines)
+    assert "Nexon's official announcements" in lines[0] and "announcements, not the game's data" in lines[0]
+    assert "NiaMeowDB" not in lines[0]
+    assert lines[1].startswith("News 2026-10-03 (official, Nexon): Founder's Access Release Notes")
     asked = build_prompt("When does Orbis open?", None, None, news_kb, False)
-    assert "News 2026-10-03 (official, Nexon)" in asked
+    assert "(official, Nexon): [Completed] Unscheduled Maintenance" in asked
     assert "official, Nexon" not in build_prompt("What does Mano drop?", None, None, news_kb, False)
 
 
@@ -277,19 +495,19 @@ def chat(isolated_store, news_kb, monkeypatch):
 def test_the_news_strip_shows_the_newest_unread_and_dismisses_per_item(chat):
     chat.show_news()
     assert chat.news_strip.isVisible()
-    # the Hebrew title (assets/news/he.json), its English names kept whole
-    assert "תקרת רמה" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
+    # the Hebrew title (news_kb's he.json), its English names kept whole
+    assert "הערות השחרור" in chat.news_strip.title.text() and "Founder's" in chat.news_strip.title.text()
     assert "ועוד כתבה אחת שלא קראתם" in chat.news_strip.head.text() and "כתבה מ-" in chat.news_strip.head.text()
     chat.news_strip.close_btn.click()
-    assert chat.settings["news_read"] == ["founders-access-release-notes"]
-    assert "Classic World opens" in chat.news_strip.title.text()
+    assert chat.settings["news_read"] == ["nexon-45621"]
+    assert "Inkwell" in chat.news_strip.title.text()
     asked = []
     chat.news_requested.connect(lambda: asked.append(True))
     from PySide6.QtCore import QPoint, Qt
     from PySide6.QtTest import QTest
     QTest.mouseClick(chat.news_strip, Qt.LeftButton, pos=QPoint(40, 10))
     assert asked == [True]
-    news.mark_read(chat.settings, ["classic-world-opening-time-confirmed"])
+    news.mark_read(chat.settings, ["nexon-45681"])
     chat.show_news()
     assert not chat.news_strip.isVisible()
 
@@ -324,10 +542,10 @@ def test_the_news_tab_lists_news_and_reports_what_was_seen(news_kb):
     from maplehelper.ui.newsview import NewsCard
     from maplehelper.ui.patchnotes import PatchNotesDialog
     seen = []
-    d = PatchNotesDialog([], "he", "", news_kb, tab="news", unread=["founders-access-release-notes"])
+    d = PatchNotesDialog([], "he", "", news_kb, tab="news", unread=["nexon-45621"])
     d.news_seen.connect(seen.append)
     pump(30)
-    assert d.tab == "news" and seen == [["founders-access-release-notes"]]
+    assert d.tab == "news" and seen == [["nexon-45621"]]
     cards = d.findChildren(NewsCard)
     assert len(cards) == 5
     d.tabs.group.buttons()[0].click()
@@ -434,8 +652,8 @@ def test_the_megaphone_opens_the_news_window_and_marks_it_read(chat, news_kb):
 
 
 def test_an_article_reads_in_full_in_the_app_and_back_returns_to_the_list(news_kb):
-    """The whole item in the News window, like a guide: summary, every highlight and NiaMeowDB's note, in Hebrew
-    when translated; Back and Esc return to the list."""
+    """The whole item in the News window, like a guide: summary and every highlight, in Hebrew when translated;
+    Back and Esc return to the list."""
     from PySide6.QtCore import Qt
     from PySide6.QtTest import QTest
     from PySide6.QtWidgets import QLabel, QPushButton
@@ -480,11 +698,33 @@ def test_only_a_news_question_asks_for_the_news(q, asks):
     assert news.asks_news(q) is asks
 
 
-def test_one_more_article_on_meowdb_is_singular():
-    """"עוד 1 כתבות ב-MeowDB" for a section of 31 (review2 UI2-5)."""
+def test_one_more_article_on_nexons_site_is_singular():
+    """"עוד 1 כתבות" for a section of 31 (review2 UI2-5); the rest are on Nexon's site, where the news come from."""
     from maplehelper.i18n import I18n
-    assert I18n("he")("news_more_site", n=1) == "עוד כתבה אחת ב-MeowDB"
-    assert I18n("he")("news_more_site", n=3) == "עוד 3 כתבות ב-MeowDB"
+    assert I18n("he")("news_more_site", n=1) == "עוד כתבה אחת באתר של Nexon"
+    assert I18n("he")("news_more_site", n=3) == "עוד 3 כתבות באתר של Nexon"
+    assert I18n("en")("news_more_site", n=1) == "1 more on Nexon's site"
+    assert news.NEWS_PAGE == "https://www.nexon.com/maplestory/news"
+
+
+def test_a_nexon_item_links_its_article_once_and_an_older_kbs_item_both():
+    """A Nexon item's page is its source: one link. An older KB's item still links MeowDB's summary and Nexon's."""
+    from PySide6.QtWidgets import QPushButton
+
+    from maplehelper.ui.newsview import NewsCard
+    from maplehelper.ui.newsview import article as page
+    t = I18n("en")
+    url = "https://www.nexon.com/maplestory/news/general/45621"
+    mine = {"id": "nexon-45621", "title": "T", "date": "2026-10-03", "summary": "S", "highlights": [],
+            "url": url, "source_url": url, "publisher": "Nexon", "official": True}
+    older = dict(mine, url="https://meowdb.com/x")
+    for build in (lambda i: NewsCard(t, i), lambda i: page(t, i)):
+        w, w_old = build(mine), build(older)
+        links = [b.text() for b in w.findChildren(QPushButton)]
+        assert not any("MeowDB" in x for x in links) and any("Nexon" in x for x in links), links
+        assert any("MeowDB" in b.text() for b in w_old.findChildren(QPushButton))
+    tip = I18n("en")("news_official_tip", who="Nexon")
+    assert "NiaMeowDB" not in tip and "NiaMeowDB" not in I18n("he")("news_official_tip", who="Nexon")
 
 
 def test_the_maintenance_notice_redraws_its_date_in_the_new_language(chat):
@@ -505,3 +745,44 @@ def test_the_maintenance_notice_redraws_its_date_in_the_new_language(chat):
     chat.settings["language"] = "en"
     chat.apply_language()
     assert dates.day(day, False, False) in notice.msg.text() and "until about" in notice.msg.text()
+
+
+@pytest.mark.parametrize("items", [[], [
+    {"id": "founders-access-release-notes", "title": "Founder's Access release notes", "date": "2026-10-03",
+     "region": "gms", "official": True, "publisher": "Nexon", "summary": "Level cap 100."},
+    {"id": "nexon-46321", "title": "Unscheduled Maintenance", "date": "2026-10-08", "region": "gms", "official": True,
+     "publisher": "Nexon", "summary": "Servers down."}]])
+def test_an_empty_news_json_shows_nothing_anywhere(kb_copy, isolated_store, monkeypatch, items):
+    """news.json with no items (a night with no news since the cut), or an older KB whose items all predate it: no
+    strip in the chat, the News tab's empty state, no news for the AI."""
+    from maplehelper import osapi
+    from maplehelper.brain import build_prompt
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.newsview import NewsCard, news_page
+    from maplehelper.ui.overlay import Overlay
+    (kb_copy / "news.json").write_text(json.dumps({"source": "x", "items": items}), encoding="utf-8")
+    kb = KnowledgeBase(kb_copy)
+    assert news.items(kb) == [] and news.unread(kb, [], today=date(2026, 10, 9)) == []
+    assert news.ai_lines(kb, today=date(2026, 10, 12)) == []
+    assert "official, Nexon" not in build_prompt("When does Orbis open?", None, None, kb, False)
+    for lang in ("he", "en"):
+        t = I18n(lang)
+        page = news_page(t, kb)
+        assert not page.findChildren(NewsCard)
+        from PySide6.QtWidgets import QLabel
+        assert any(lb.text().strip("‎‏⁦⁧⁨⁩") == t("news_empty")
+                   for lb in page.findChildren(QLabel))
+    for name in ("float_over_fullscreen", "activate_self", "focus_window"):
+        monkeypatch.setattr(osapi, name, lambda *a: None)
+    monkeypatch.setattr(osapi, "find_game_window", lambda: None)
+    s, p = isolated_store.Settings(), isolated_store.Profiles()
+    s["language"], s["tour_done"] = "he", True
+    p.add("Kiwi", "Thief", "Assassin", 34)
+    ov = Overlay(s, p, kb, None)
+    ov.show()
+    pump()
+    ov.show_news()
+    assert not ov.news_strip.isVisible() and ov.news_btn.property("unread") == "false"
+    ov.hide()
+    ov.deleteLater()
+    pump()

@@ -1,6 +1,7 @@
-"""The news' pictures: the nightly scrape keeps NiaMeowDB's cover and the pictures of Nexon's announcement that show
-what the item names (tools/scrape_news.py), the KB validator checks them, and the News window shows them
-(maplehelper/news.py, ui/newsview.py). No network: the fetches are fakes, the pictures made here with Pillow."""
+"""The news' pictures: the nightly scrape keeps each Nexon article's thumbnail as its cover and the pictures of the
+article that show what the item names (tools/scrape_news.py), the KB validator checks them, and the News window
+shows them (maplehelper/news.py, ui/newsview.py). No network: Nexon's list and articles are recorded
+(tests/fixtures/nexon), the release notes' article is a small stand-in, the pictures made here with Pillow."""
 import io
 import json
 import os
@@ -19,8 +20,11 @@ from maplehelper.i18n import I18n  # noqa: E402
 app = QApplication.instance() or QApplication([])
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
-PAGE = (ROOT / "tests" / "fixtures" / "meowdb" / "news_page.html").read_text(encoding="utf-8")
-NOTES = "founders-access-release-notes"         # the fixture's Nexon item (Nexon's article 45621)
+NX = ROOT / "tests" / "fixtures" / "nexon"
+LIST = (NX / "news_list.json").read_text(encoding="utf-8")
+NOTES = "nexon-45621"         # Nexon's release notes (article 45621)
+COVER = ("https://g.nexonstatic.com/media/pgtfk5sl/"
+         "540x304-global-maplestory-classic-world-founders-access-release-notes.png")
 
 
 def image(fmt: str = "PNG", size=(40, 30), color=(200, 80, 40)) -> bytes:
@@ -34,6 +38,7 @@ KIND = {"webp": "WEBP", "png": "PNG", "jpg": "JPEG", "jpeg": "JPEG"}
 MEDIA = "https://g.nexonstatic.com/media"
 ARTICLE = {"id": 45621, "name": "Founder's Access Release Notes", "body": f"""
 <p><img src="{MEDIA}/aaa1/in-post-banner-1100x225-founders-access-release-notes.jpg" alt="Founder's Access Release Notes"></p>
+<p>Bosses: Mano, Mushmom, Shade, Zombie Mushmom, and Jr. Balrog.</p>
 <p><img src="{MEDIA}/bbb2/jr-balrog-founders-access-release-notes.png" alt="Jr. Balrog Founder's Access Release Notes Global MapleStory Classic World"></p>
 <p><img src="{MEDIA}/ccc3/mano-founders-access-release-notes.png" alt="Mano Founder's Access Release Notes Global MapleStory Classic World"></p>
 <p><img src="{MEDIA}/ccc3/mano-founders-access-release-notes.png" alt="Mano Founder's Access Release Notes Global MapleStory Classic World"></p>
@@ -45,26 +50,31 @@ ARTICLE = {"id": 45621, "name": "Founder's Access Release Notes", "body": f"""
 
 
 @pytest.fixture(autouse=True)
-def every_item(monkeypatch):
-    """The fixture's items reach back to April (the app's cut is off here, as in test_site_news); no pauses."""
+def no_pause(monkeypatch):
+    """No pauses; the cut moved back to the recorded week (October 2-8, before the app's news start)."""
     import scrape_news
-    monkeypatch.setattr(news, "SINCE", "2000-01-01")
-    monkeypatch.setattr(scrape_news, "SINCE", "2000-01-01")
     monkeypatch.setattr(scrape_news, "PAUSE", 0)
+    monkeypatch.setattr(scrape_news, "SINCE", "2026-10-02")
+    monkeypatch.setattr(news, "SINCE", "2026-10-02")
 
 
 class Site:
-    """The fake web: the news page, Nexon's article JSON, and a picture for every picture address."""
+    """The fake web: Nexon's list, its articles (the release notes' is ARTICLE), a picture for every address."""
 
     def __init__(self, article=ARTICLE, broken=(), big=()):
         self.article, self.broken, self.big = article, set(broken), set(big)
         self.pages, self.pictures = [], []
 
     def fetch(self, url):
+        import scrape_news
         self.pages.append(url)
-        if url.startswith("https://g.nexonstatic.com/maplestory/cms/v1/news/"):
+        if url == scrape_news.NEWS_LIST:
+            return LIST
+        nid = url.rsplit("/", 1)[-1]
+        if nid == "45621":
             return json.dumps(self.article) if self.article else None
-        return PAGE
+        f = NX / f"article_{nid}.json"
+        return f.read_text(encoding="utf-8") if f.is_file() else None
 
     def fetch_bytes(self, url):
         self.pictures.append(url)
@@ -87,17 +97,17 @@ def test_the_scrape_keeps_the_covers_and_downloads_each_once(tmp_path):
     assert scrape_news.update(tmp_path, site.fetch, site.fetch_bytes) == 5
     by = read(tmp_path)
     first = by[NOTES]
-    assert first["image"] == f"img/news/{NOTES}.webp" and (tmp_path / first["image"]).is_file()
+    assert first["image"] == f"img/news/{NOTES}.png" and (tmp_path / first["image"]).is_file()
     assert (first["image_w"], first["image_h"]) == (40, 30)
-    assert first["image_src"] == "https://meowdb.com/msclassic/news-img/founders-access-release-notes-2026.webp"
-    # MeowDB's covers only, each as the format it is (jpg, png and webp as published)
-    assert by["second-cot-signups-open"]["image"].endswith(".jpg")
-    assert by["cot2-meowdb-exploration-report"]["image"].endswith(".png")
-    assert all(u.startswith(("https://meowdb.com/", MEDIA + "/")) for u in site.pictures)
+    assert first["image_src"] == COVER
+    # Nexon's thumbnails, each as the format it is (jpg and png as published)
+    assert by["nexon-45819"]["image"] == "img/news/nexon-45819.jpg"
+    assert all(u.startswith(MEDIA + "/") for u in site.pictures)
     # the next night downloads nothing and changes nothing (no fake "updated" every night)
     again = Site()
     assert scrape_news.update(tmp_path, again.fetch, again.fetch_bytes) == 0
-    assert again.pictures == [] and again.pages == [scrape_news.NEWS_URL]
+    assert again.pictures == [] and again.pages[0] == scrape_news.NEWS_LIST
+    assert not any("meowdb" in u for u in again.pages)
     # without a picture fetch (an old caller) the pictures there are stay
     assert scrape_news.update(tmp_path, again.fetch) == 0 and read(tmp_path) == by
 
@@ -114,10 +124,9 @@ def test_nexons_pictures_are_the_ones_the_text_names_with_alt_and_file_agreeing(
     assert [(p["name"], p["file"]) for p in nx["pictures"]] == [
         ("Mano", f"img/news/{NOTES}/ccc3.png"), ("Jr. Balrog", f"img/news/{NOTES}/bbb2.png")]
     assert all((tmp_path / p["file"]).is_file() for p in nx["pictures"])
+    # the article is asked once a night: its text and its pictures from the same answer
     assert sum(1 for u in site.pages if "cms/v1/news/45621" in u) == 1
     assert not any("ddd4" in u or "eee5" in u or "example.com" in u for u in site.pictures)
-    # only Nexon's own items ask Nexon (the China item's source is Shengqu's site)
-    assert not any("cms/v1/news/" in u and "45621" not in u and "45385" not in u for u in site.pages)
 
 
 def test_a_name_inside_a_longer_one_is_not_named():
@@ -146,7 +155,7 @@ def test_a_refused_picture_is_not_asked_again_but_a_failed_one_is(tmp_path):
     assert not any("aaa1" in u for u in nxt.pictures)                      # the banner it had stays
     last = Site(big={"bbb2"})
     assert scrape_news.update(tmp_path, last.fetch, last.fetch_bytes) == 0
-    assert last.pictures == [] and not any("cms/v1" in u for u in last.pages)
+    assert last.pictures == []
 
 
 def test_a_site_answer_that_is_no_picture_is_refused(tmp_path):
@@ -156,9 +165,16 @@ def test_a_site_answer_that_is_no_picture_is_refused(tmp_path):
     scrape_news.update(tmp_path, site.fetch, site.fetch_bytes)
     assert not any("image" in i for i in read(tmp_path).values())
     assert not [f for f in (tmp_path / "img").rglob("*") if f.is_file()]
-    assert scrape_news.cover_src({"image_url": "https://g.nexonstatic.com/media/x/y.png"}) is None
-    assert scrape_news.cover_src({"image_url": "//evil.example/x.webp"}) is None
-    assert scrape_news.cover_src({"image_url": "/msclassic/news-img/a.webp"}) == "https://meowdb.com/msclassic/news-img/a.webp"
+
+
+def test_a_cover_is_a_picture_on_nexons_media_server_only():
+    import scrape_news
+    assert scrape_news.cover_src({"imageThumbnail": "/media/p4vmp5ad/540x304-founders-access.png"}) == \
+        "https://g.nexonstatic.com/media/p4vmp5ad/540x304-founders-access.png"
+    assert scrape_news.cover_src({"imageThumbnail": "https://g.nexonstatic.com/media/x1/y_z.jpg"})
+    for bad in ("//evil.example/x.webp", "https://meowdb.com/msclassic/news-img/a.webp", "/media/x/y.gif",
+                "/media/../../x.png", "", None):
+        assert scrape_news.cover_src({"imageThumbnail": bad}) is None, bad
 
 
 def test_old_pictures_are_deleted(tmp_path):
@@ -171,6 +187,26 @@ def test_old_pictures_are_deleted(tmp_path):
     assert not (tmp_path / "img" / "news" / NOTES).exists()
     assert all((tmp_path / i["image"]).is_file() for i in keep if i.get("image"))
     assert scrape_news.prune_pictures(tmp_path, keep) == 0
+
+
+def test_an_older_kbs_cover_is_replaced_by_nexons(tmp_path):
+    """The KB's items from before had NiaMeowDB's covers: the same item (its id kept) gets Nexon's thumbnail, and
+    the old picture goes."""
+    import scrape_news
+    old = tmp_path / "img" / "news" / "founders-access-release-notes.webp"
+    old.parent.mkdir(parents=True)
+    old.write_bytes(image("WEBP"))
+    (tmp_path / "news.json").write_text(json.dumps({"items": [{
+        "id": "founders-access-release-notes", "title": "x", "date": "2026-10-03",
+        "source_url": "https://www.nexon.com/maplestory/news/general/45621/founder-s-access-release-notes",
+        "image": "img/news/founders-access-release-notes.webp", "image_w": 40, "image_h": 30,
+        "image_src": "https://meowdb.com/msclassic/news-img/founders-access-release-notes-2026.webp"}]}),
+        encoding="utf-8")
+    site = Site()
+    scrape_news.update(tmp_path, site.fetch, site.fetch_bytes)
+    i = read(tmp_path)["founders-access-release-notes"]
+    assert i["image"] == "img/news/founders-access-release-notes.png" and i["image_src"] == COVER
+    assert not old.exists() and (tmp_path / i["image"]).is_file()
 
 
 def test_the_validator_checks_the_news_pictures(tmp_path):
@@ -204,7 +240,7 @@ def test_the_kb_zip_carries_the_news_pictures(tmp_path):
     scrape_news.update(kb, site.fetch, site.fetch_bytes)
     kb_release.pack(kb, tmp_path / "out", "2026.10.06.0000")
     names = zipfile.ZipFile(tmp_path / "out" / "kb.zip").namelist()
-    assert f"img/news/{NOTES}.webp" in names and f"img/news/{NOTES}/ccc3.png" in names
+    assert f"img/news/{NOTES}.png" in names and f"img/news/{NOTES}/ccc3.png" in names
 
 
 # ------------------------------------------------------------------ the app
@@ -231,7 +267,7 @@ def test_an_article_shows_its_picture_and_what_it_names(pictured, lang):
     from maplehelper.ui.newsview import Picture, article
     t = I18n(lang)
     i = next(x for x in news.items(pictured) if x["id"] == NOTES)
-    assert news.header(pictured, i).name == "aaa1.jpg"              # Nexon's banner over MeowDB's cover
+    assert news.header(pictured, i).name == "aaa1.jpg"              # Nexon's banner over the cover
     page = article(t, i, pictured)
     pics = page.findChildren(Picture)
     assert len(pics) == 1 and pics[0].objectName() == "NewsPicture"

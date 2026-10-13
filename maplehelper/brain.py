@@ -445,7 +445,7 @@ def build_prompt(question: str, character: Character | None, history: History | 
     if sold:
         ctx.append("\n".join(sold))
 
-    # the KB's news (NiaMeowDB's news section) for a question about news, launch or maintenance: what was
+    # the KB's news (Nexon's own announcements) for a question about news, launch or maintenance: what was
     # announced, never what is released (the game scope says that)
     if news.asks_news(question) and (announced := news.ai_lines(kb)):
         ctx.append("\n".join(announced))
