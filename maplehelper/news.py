@@ -1,5 +1,5 @@
-"""MapleStory Classic news, from the knowledge base's news.json (tools/scrape_news.py: NiaMeowDB's news section,
-scraped nightly with the rest of the KB).
+"""MapleStory Classic news, from the knowledge base's news.json (tools/scrape_news.py: Nexon's own Classic World
+announcements on nexon.com, in Nexon's words, fetched nightly with the rest of the KB).
 
 The chat's news card shows Global news the player hasn't dismissed, from the last NEW_DAYS days (a first start
 doesn't greet the player with half a year of news); the patch notes window's News tab lists everything. Titles stay
@@ -18,10 +18,12 @@ from pathlib import Path
 
 from . import dates
 
-NEWS_PAGE = "https://meowdb.com/msclassic/news"
+NEWS_PAGE = "https://www.nexon.com/maplestory/news"
 SETTING = "news_read"   # the ids the player dismissed or read (store.Settings), newest kept
 KEEP = 300
-SINCE = "2026-10-02"    # news start here (the owner's call, 2026-10-04); tools/scrape_news.py cuts the same
+# news start here (the owner's call, 2026-10-12: Nexon's news only, from that day on); tools/scrape_news.py cuts
+# the same, and a KB from before still carries older items: they never show
+SINCE = "2026-10-12"
 NEW_DAYS = 14          # how long an item can still come up as unread news in the chat
 SHOWN_REGION = "gms"   # the app is for Global Classic: China / Taiwan news stay in the News tab only
 REGIONS = ("gms", "cms", "tms")
@@ -88,8 +90,8 @@ def summary(i: dict, lang: str) -> tuple[str, bool]:
 
 
 def body(i: dict, lang: str) -> tuple[list[str], str, bool]:
-    """The article's body: (highlights, NiaMeowDB's note, whether in the UI's language). Hebrew when translated from
-    the current English (highlights_he / commentary_he), else the English."""
+    """The article's body: (highlights, a note (only an older KB's items have one), whether in the UI's language).
+    Hebrew when translated from the current English (highlights_he / commentary_he), else the English."""
     hl, note = [str(x) for x in i.get("highlights") or []], str(i.get("commentary") or "")
     if lang != "he":
         return hl, note, True
@@ -128,12 +130,12 @@ def _nexon(i: dict) -> dict:
 
 
 def cover(kb, i: dict) -> Path | None:
-    """NiaMeowDB's cover picture of the item (a card's thumbnail)."""
+    """The item's cover picture (a card's thumbnail): Nexon's thumbnail of the article (an older KB's: NiaMeowDB's)."""
     return _file(kb, i.get("image"))
 
 
 def header(kb, i: dict) -> Path | None:
-    """The picture under an article's title: Nexon's banner of its announcement, else NiaMeowDB's cover."""
+    """The picture under an article's title: Nexon's banner of its announcement, else its cover."""
     b = _nexon(i).get("banner")
     return (_file(kb, b.get("file")) if isinstance(b, dict) else None) or cover(kb, i)
 
@@ -217,9 +219,11 @@ def ai_lines(kb, limit: int = 6, today: date | None = None) -> list[str]:
     pool.sort(key=lambda i: (str(i["date"]), str(i["id"])), reverse=True)
     out = []
     for i in pool:
+        # (an item without a publisher is an older KB's, from NiaMeowDB's news section)
         who = ("official, " if i.get("official") else "community, ") + (i.get("publisher") or "NiaMeowDB")
         out.append(f"News {i['date']} ({who}): {i['title']}. {i.get('summary') or ''}".strip())
     if out:
-        out.insert(0, "MapleStory Classic news from NiaMeowDB's news section (announcements, not the game's data: what is "
-                      "in the game is the game scope in your instructions, not these; say when a date is only announced):")
+        out.insert(0, "MapleStory Classic news, Nexon's official announcements (announcements, not the game's data: "
+                      "what is in the game is the game scope in your instructions, not these; say when a date is only "
+                      "announced):")
     return out

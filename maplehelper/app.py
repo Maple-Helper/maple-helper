@@ -28,8 +28,8 @@ INSTANCE_SERVER = "MapleHelper-" + (os.environ.get("USERNAME") or os.environ.get
 BACKGROUND_ARG = "--background"   # start in the tray only (autostart at login, silent updates)
 UPDATED_ARG = "--updated"         # the installer reopens the app with it after "Update now": show what's new
 KB_RETRY_MS = 5 * 60 * 1000      # a failed or postponed KB update tries again this soon (then doubling)
-KB_CHECK_MS = 60 * 60 * 1000     # an open app looks for a new KB this often: the night's KB within the hour (only a
-                                 # small manifest is read when there is nothing new)
+KB_CHECK_MS = 15 * 60 * 1000    # an open app looks for a new KB this often: a KB published by hand reaches the player
+                                 # within 15 minutes, not an hour (only a ~200-byte manifest is read when nothing is new)
 APP_CHECK_MS = 15 * 60 * 1000    # and for a new app release this often: one small GitHub API call (60 an hour allowed)
 # the .ico carries every Windows size; macOS draws the menu bar and Dock from a PNG
 APP_ICON = "app.ico" if sys.platform == "win32" else "icon-256.png"
@@ -283,7 +283,7 @@ class MapleHelperApp:
         QTimer.singleShot(9000, lambda: threading.Thread(target=_remove_stray_screenshots, daemon=True).start())
         from . import inventory     # the icon index for "check the inventory", built before it's needed
         QTimer.singleShot(10000, lambda: threading.Thread(target=inventory.warm, args=(self.kb,), daemon=True).start())
-        # a session can run for hours: look again for a new KB every hour, for a new release every 15 minutes
+        # a session can run for hours: look again for a new KB and a new release every 15 minutes
         self._update_timer = QTimer(interval=KB_CHECK_MS,
                                     timeout=lambda: self._update_kb_in_background(interactive=False))
         self._update_timer.start()
@@ -904,7 +904,7 @@ class MapleHelperApp:
 
     def _update_kb_in_background(self, interactive: bool):
         if getattr(self, "_kb_updating", False):
-            # "Update knowledge base" clicked while the start-up/hourly check runs: that check's result is toasted,
+            # "Update knowledge base" clicked while the start-up/15-minute check runs: that check's result is toasted,
             # or the click did nothing at all
             self._kb_interactive = getattr(self, "_kb_interactive", False) or interactive
             return
@@ -945,7 +945,7 @@ class MapleHelperApp:
         threading.Thread(target=self.brain.prewarm, daemon=True).start()     # whatever happened, warm again
 
     def _retry_kb_update(self, status: str):
-        """A failed or postponed update tries again in minutes, not at the next hourly check: the night's KB
+        """A failed or postponed update tries again in minutes, not at the next check: the night's KB
         reached the player hours late (the AI's warm process held the folder at the start-up check). 5, 10, 20…
         minutes, never more often than that, so a lasting fault doesn't download 20 MB again and again."""
         if status in ("updated", "uptodate"):

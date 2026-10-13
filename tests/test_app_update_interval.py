@@ -30,14 +30,14 @@ def _fake_app(monkeypatch, frozen=True, mac=False, installed=True):
 
 def test_an_open_app_looks_for_a_release_every_15_minutes():
     assert app.APP_CHECK_MS == 15 * 60 * 1000
-    assert app.KB_CHECK_MS == 60 * 60 * 1000
+    assert app.KB_CHECK_MS == 15 * 60 * 1000
 
 
 def test_the_release_check_finds_and_downloads_a_new_version(monkeypatch):
     fake, calls = _fake_app(monkeypatch)
     monkeypatch.setattr(updater, "newer_release", lambda current: ("9.9.9", "url"))
     app.MapleHelperApp.check_app_update_silently(fake)
-    assert calls == [("found", "9.9.9")]           # and no KB fetch: that stays on the hourly timer
+    assert calls == [("found", "9.9.9")]           # and no KB fetch: that stays on its own timer
 
 
 def test_the_release_check_points_at_the_release_on_macos(monkeypatch):

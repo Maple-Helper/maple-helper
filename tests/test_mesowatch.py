@@ -1,12 +1,15 @@
 """MesoWatch's Free Market sales (mesowatch.py): the slim copy, the polite refresh, the KB match and the AI lines."""
 import json
 import time
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from maplehelper import mesowatch, sellkeep, sources
 
-NOW = "2026-10-10T07:47:36+00:00"
+# an hour ago, not a fixed date: a fixed 2026-10-10 went stale three days later and failed every run (2026-10-13)
+_NOW = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(hours=1)
+NOW = _NOW.isoformat()
 
 
 def market_doc(**over):
@@ -165,7 +168,7 @@ def test_a_newer_market_is_fetched_with_its_etag(site, monkeypatch):
     mesowatch.snapshot()
     monkeypatch.setattr(mesowatch, "_checked", 0.0)
     mesowatch._snap.fetched = 0
-    site["index"] = index_doc("2026-10-10T08:00:00+00:00")
+    site["index"] = index_doc((_NOW + timedelta(minutes=13)).isoformat())
     site["calls"].clear()
     assert mesowatch.snapshot() is not None
     assert site["calls"] == [(mesowatch.INDEX_URL, ""), (mesowatch.MARKET_URL, '"v1"')]    # 304: kept as it was
@@ -312,7 +315,7 @@ def test_the_index_a_second_after_the_file_is_the_same_publish(site, monkeypatch
     mesowatch.snapshot()
     monkeypatch.setattr(mesowatch, "_checked", 0.0)
     mesowatch._snap.fetched = 0
-    site["index"] = index_doc("2026-10-10T07:47:37+00:00")          # NOW + 1 second
+    site["index"] = index_doc((_NOW + timedelta(seconds=1)).isoformat())          # NOW + 1 second
     site["calls"].clear()
     mesowatch.snapshot()
     assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL]
