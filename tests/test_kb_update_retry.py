@@ -157,13 +157,14 @@ def test_a_deleted_picker_never_fits_its_list(qapp, monkeypatch):
     assert errors == []
 
 
-def test_an_open_app_checks_every_hour_and_retries_within_it(qapp, monkeypatch):
-    assert app.KB_CHECK_MS == 60 * 60 * 1000
+def test_an_open_app_checks_every_15_minutes_and_retries_within_it(qapp, monkeypatch):
+    """The owner saw two KBs published by hand reach the open app only at the next hourly check."""
+    assert app.KB_CHECK_MS == 15 * 60 * 1000
     fake, shots = _fake_app(qapp, monkeypatch)
     fake._update_timer.setInterval(app.KB_CHECK_MS)
     for _ in range(10):
         app.MapleHelperApp._retry_kb_update(fake, "failed")
-    assert shots == [5 * 60 * 1000, 10 * 60 * 1000, 20 * 60 * 1000, 40 * 60 * 1000]
+    assert shots == [5 * 60 * 1000, 10 * 60 * 1000]       # then the 15-minute check is as soon
 
 
 def test_a_click_during_a_running_check_gets_its_result(monkeypatch):
