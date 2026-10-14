@@ -49,8 +49,11 @@ def test_droppers_put_community_sightings_first_and_say_how_they_fit(kb):
 
 @needs_kb
 def test_a_monster_only_in_a_party_quest_says_where_it_is(kb):
-    """King Slime lives only on KPQ's last stage: it was listed with no map as a farm (audit GAM-11)."""
-    for item in ("item/429", "item/1368"):                       # Coupon, Squishy Shoes (the players' list)
+    """King Slime lives only on KPQ's last stage: it was listed with no map as a farm (audit GAM-11). Every item
+    the players' list gives it (it changes: Coupon became Pass on 2026-10-14), not a pinned one."""
+    drops = kb.monster_drops("monster/800003")
+    assert drops
+    for item in drops:
         king = next(d for d in farm.droppers(kb, item, 25) if d.key == "monster/800003")
         assert king.closed and king.boss and "Accompaniment" in king.map
 
