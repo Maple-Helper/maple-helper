@@ -58,6 +58,14 @@ def test_the_sites_controls_and_placeholders_are_not_page_text():
     assert lines == ["Mesos per kill", "HP", "8", "Base 1", "no rolls yet", "Snail Shell"]
 
 
+def test_an_items_watchlist_button_and_its_watch_count_are_not_page_text():
+    """The site added a watch count next to "Add to watchlist": the item window showed it as an untranslated stat."""
+    page = """<html><body><div>Explore the database</div><div>Items / Lie Detector Test</div>
+<div>Use · Misc · No. 0268</div><div><button>Add to watchlist</button> <span>Loading watch count...</span></div>
+<div>Loading watch count…</div><div>Required Level 10</div></body></html>"""
+    assert scrape_meowdb.main_text(page, "Lie Detector Test").split("\n") == ["Use · Misc · No. 0268", "Required Level 10"]
+
+
 # ---------------------------------------------------------------- a night's scrape, simulated
 
 def _night(tmp_path, monkeypatch, site: dict[str, str | None], refresh: bool):
