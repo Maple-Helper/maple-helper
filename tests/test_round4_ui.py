@@ -476,6 +476,27 @@ def test_unpriced_sellers_and_citizen_grades(tmp_path):
     assert prices.ranks[prices.shops[0][:2]] == "Recognized Guest"
 
 
+def test_a_shut_towns_shop_notes_dont_break_the_price_blocks(tmp_path):
+    # pages/item/4.md and 262.md (October 2026): "Not open in this release" between a shut town's shop and its
+    # price, and "No shop in the current release sells this. ..." over a list of only shut ones
+    import json
+
+    from maplehelper import market
+    from maplehelper.kb import KnowledgeBase
+    page = ("---\n{}\n---\n# Scroll\nWhere to buy\n"
+            "No shop in the current release sells this. The shops below are in areas that are not open.\n"
+            "El Moth Scroll Seller\nVictoria Road: The Tree That Grew III · Victoria Road\n30,000\nmesos\nLaunch prices\n"
+            "Barun Scroll Seller\nOrbis: Orbis Tower <11th Floor> · Orbis\nNot open in this release\n25,000\nmesos\n"
+            "COT2 prices\nDropped By\n")
+    (tmp_path / "index.json").write_text(json.dumps([{"key": "item/1", "name": "Scroll", "category": "item"}]))
+    (tmp_path / "pages" / "item").mkdir(parents=True)
+    (tmp_path / "pages" / "item" / "1.md").write_text(page, encoding="utf-8")
+    prices = market.npc_prices(KnowledgeBase(tmp_path), "item/1")
+    assert prices.shops == [("Barun Scroll Seller", "Orbis: Orbis Tower <11th Floor> · Orbis", 25000),
+                            ("El Moth Scroll Seller", "Victoria Road: The Tree That Grew III · Victoria Road", 30000)]
+    assert sorted(prices.labels.values()) == ["COT2", "Launch"]
+
+
 # ------------------------------------------------------------------ S2, S3: the ⟳ sync
 
 def test_sync_shows_what_it_does_and_times_out(overlay, monkeypatch):
@@ -654,7 +675,11 @@ def test_real_kb_shop_grades_and_unpriced_sellers():
         for key, e in real.entities.items():
             if e.get("category") != "item":
                 continue
-            lines = [ln.strip() for ln in real.page(key).split("\n---", 2)[-1].splitlines()]
+            # (a shut town's notes aren't part of a shop's block: "Not open in this release", "No shop in the current
+            # release sells this. ...")
+            lines = [ln.strip() for ln in real.page(key).split("\n---", 2)[-1].splitlines()
+                     if ln.strip() != "Not open in this release"
+                     and not ln.startswith("No shop in the current release sells this")]
             if "Where to buy" not in lines:
                 continue
             i, blocks = lines.index("Where to buy") + 1, []

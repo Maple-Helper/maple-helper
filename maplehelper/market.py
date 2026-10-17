@@ -26,6 +26,7 @@ CACHE_SECONDS = 600
 CACHE_ITEMS = 40            # items remembered at once (the oldest lookup goes first)
 TREND_DAYS = 30             # the price-history window the trend is read over (the site offers 14, 30, 90)
 LISTINGS_SHOWN = 3
+_SHUT_NOTE = re.compile(r"Not open in this release$|No shop in the current release sells this\b")
 _cache: dict[str, tuple[float, dict | None]] = {}
 _item_cache: dict[int, tuple[float, "ItemMarket | None"]] = {}
 # the price card's and the sell check's threads both use the cache: an insert while the other picked the oldest
@@ -72,7 +73,11 @@ def npc_prices(kb, key: str) -> NpcPrices:
 
 
 def _npc_prices(kb, key: str) -> NpcPrices:
-    lines = [ln.strip() for ln in kb.page(key).split("\n---", 2)[-1].splitlines()]
+    # "Not open in this release" under a shut town's shop, and "No shop in the current release sells this. ..." over
+    # a list of only shut ones (October 2026), would push the blocks out of step: whether a place is open is the KB's
+    # own question (combat.released), not these lines'
+    lines = [ln.strip() for ln in kb.page(key).split("\n---", 2)[-1].splitlines()
+             if not _SHUT_NOTE.match(ln.strip())]
     sell = next((_int(ln) for ln in lines if ln.startswith("NPC Sell-back")), None)
     out = NpcPrices(sell)
     if "Where to buy" in lines:

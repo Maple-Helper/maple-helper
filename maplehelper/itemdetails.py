@@ -20,6 +20,9 @@ NOTES_HEADS = ("Nia Notes", "Meow Notes")
 NOTE_MIN = 40               # a line this short isn't a note's text (a heading, a label, a list's name)
 # where the stat lines under the header end: the gender / trade line, or the page's next block
 _STATS_END = ("Male", "Female", "Tradeable", "Untradeable", "Weapon Details", "Worn on", "Try on avatar")
+# the site's own note among the stats, in sentences ("The Selective 5-slot Coupon bought with NX can be traded once
+# before use. Buying that copy ...", pages/item/1536.md, October 2026): a stat line is never two sentences
+_PROSE = re.compile(r"[a-z]\. [A-Z].*\.$")
 
 
 @dataclass
@@ -48,7 +51,8 @@ def details(kb, key: str) -> Details:
         for ln in lines[at + 1:at + 30]:
             if not ln or ln.startswith(_STATS_END):
                 break
-            out.stats.append(ln)
+            if not _PROSE.search(ln):
+                out.stats.append(ln)
         out.trade = next((ln for ln in lines[at + 1:at + 40] if ln in ("Tradeable", "Untradeable")), "")
     title = next((n for n, ln in enumerate(lines) if ln.startswith("# ")), None)
     if title is not None:

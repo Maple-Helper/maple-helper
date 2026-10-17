@@ -68,6 +68,7 @@ _PHRASES = [
     ("mesos / unit", "mesos ליחידה"),
     ("Attack Power", "כוח התקפה"),
     ("Footing No sliding on ice", "אחיזה: לא מחליקים על קרח"),
+    ("Fits over Any weapon", "מתאים מעל כל נשק"),
     ("Fits over", "מתאים מעל"),
     ("EXP Bonus", "בונוס EXP"),
     ("Fullness", "שובע"),
@@ -89,10 +90,17 @@ _PHRASES = [
 ]
 _REQ_STAT = re.compile(r"\bREQ (STR|DEX|INT|LUK) (\d+)")
 _UNITS = [(re.compile(r"(\d) min\b"), r"\1 דק'"), (re.compile(r"(\d) days\b"), r"\1 ימים"),
+          (re.compile(r"(\d) hours\b"), r"\1 שעות"), (re.compile(r"(\d) hour\b"), r"\1 שעה"),
           (re.compile(r"(\d)s\b"), r"\1 שנ'"), (re.compile(r"(\d)m\b"), r"\1 דק'"),
           (re.compile(r"(\d) to (\d)"), r"\1 עד \2"), (re.compile(r"\bx(\d)"), r"פי \1"),
           (re.compile(r"(?<=\s)ו(?=[^א-ת\s])"), "ו-"),      # "ו" before a number or English letters takes a hyphen
-          (re.compile(r"מ- (\d)"), r"מ-\1")]
+          (re.compile(r"מ- (\d)"), r"מ-\1"),
+          # a pet's lifespan as an end date ("Lifespan Until November 19, 2026", October 2026) -> "עד 19.11.2026"
+          (re.compile(r"\bUntil (January|February|March|April|May|June|July|August|September|October|November|December)"
+                      r" (\d{1,2}), (\d{4})"),
+           lambda m: f"עד {m.group(2)}.{_MONTHS.index(m.group(1)) + 1}.{m.group(3)}")]
+_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
+           "November", "December"]
 
 
 def stat_line(line: str, lang: str) -> str:

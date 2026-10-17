@@ -43,7 +43,7 @@ DELAY_SECONDS = 1.0
 WORKERS = 3
 # how a page is turned into text: bump it with every change to main_text/scrape_one's output, so the patch notes
 # don't call every re-parsed page "updated" (the SITE_TOOLS change did: 186 monsters "updated", nothing new)
-PARSER_VERSION = 2
+PARSER_VERSION = 4
 
 # sitemap path prefix -> (category name, path depth that marks an entity page)
 CATEGORIES = {
@@ -136,9 +136,13 @@ SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard i
                         r"|Ad blocked\? |Buy us a coffee|Upvote what you've seen|Items players have personally seen drop")
 # the site's own controls and placeholders, whole lines ("Next →" on 3,917 pages, "Log in to sell or buy" on 2,577)
 SITE_LINES = {"Loading...", "Loading…", "Calculate", "Add to watchlist", "Next →", "🐾", "Log in to sell or buy",
-              "Loading leaderboard...", "Loading drops", "Loading community builds...", "Loading community guides..."}
+              "Loading leaderboard...", "Loading drops", "Loading community builds...", "Loading community guides...",
+              "Loading watch count...", "Loading watch count…"}
 # ...and at the end of a value line: "Mesos per kill Loading...", "Base 1 Calculate", "no rolls yet Log in to submit"
 SITE_TAILS = re.compile(r" (?:Loading\.\.\.|Loading…|Calculate|Log in to submit)$")
+# ...and inside one: the watch count after "Add to watchlist" (October 2026), mid-line on a map page
+# ("Add to watchlist Loading watch count... Find path here"), last on an item page
+WATCH_COUNT = re.compile(r" Loading watch count(?:\.\.\.|…)(?= |$)")
 # the site-wide notice banner ("[ Notice ] Beginner's guide refreshed..."): one text change re-hashed 29 pages
 NOTICE = re.compile(r'<section[^>]*aria-label="Notice".*?</section>', re.S)
 
@@ -177,7 +181,7 @@ def main_text(page: str, name: str) -> str:
         i = text.find(marker)
         if i > 200:
             text = text[:i]
-    lines = [SITE_TAILS.sub("", ln.strip()) for ln in text.split("\n")]
+    lines = [SITE_TAILS.sub("", WATCH_COUNT.sub("", ln.strip())) for ln in text.split("\n")]
     lines = [ln for ln in lines if ln and ln not in SITE_LINES and not SITE_TOOLS.match(ln)]
     return "\n".join(lines).strip()
 
