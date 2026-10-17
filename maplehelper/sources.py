@@ -49,7 +49,9 @@ _TABLE = re.compile(r"^Stat \| (?P<old>.+?) \| (?P<new>.+?) \| Change\s*$")
 # a label line, not a sentence: bare, with a citizen grade ("... +") or a link ("... →"); "Buyable-ingredient
 # prices pulled from the NPC shop database" and an NPC's "Great prices around here!" are prose
 _PRICES = re.compile(r"^(?P<label>[A-Z0-9][\w'-]*(?: [A-Z][\w'-]*)?) prices(?P<rest>(?: .*[+→])?)\s*$")
-_MAP_DATA = re.compile(r"^(?P<label>.+?) map data stores (?P<rest>.*)$")
+# one word before it ("COT2 map data stores ...", "The map data stores ..."): a boss's description that says it mid-
+# sentence ("The iconic mushroom boss of MapleStory. The map data stores ...", October 2026) is prose, not the label
+_MAP_DATA = re.compile(r"^(?P<label>\S+) map data stores (?P<rest>.*)$")
 _PARTY_EXP = re.compile(r"^Party EXP\. (?P<label>.+?) grants ")
 # not "use current spawn data"; since the official launch "use current MapleStory Classic World data" (was "COT2")
 _GUIDE_DATA = re.compile(r"\buse current (?P<label>[A-Z0-9]\S*(?: [A-Z]\S*)*) data\b")
@@ -58,9 +60,11 @@ _CLOSED_PRICE = re.compile(r"^Closed-test price\b(?P<rest>.*)$")
 _EXP_REFERENCE = re.compile(r"Levels (\d+) to (\d+) reproduce a historical reference")
 # the Free Market's player price reports on an item page; NiaMeowDB renamed the section on 2026-10-04 ("Community price
 # check" became "Free Market / Player reported ... Saw it in a shop? Add a price"), and the nightly test stopped the KB
-# (and on 2026-10-11 "Saw it in a shop, or sold one? Add a shop price · Add a sold price")
+# (and on 2026-10-11 "Saw it in a shop, or sold one? Add a shop price · Add a sold price", on 2026-10-17
+# "Add a price: Seen in a shop · Sold for")
 FM_REPORTS = ("Community price check", "Player reported", "Saw it in a shop? Add a price",
-              "Saw it in a shop, or sold one? Add a shop price · Add a sold price")
+              "Saw it in a shop, or sold one? Add a shop price · Add a sold price",
+              "Add a price: Seen in a shop · Sold for")
 _MSEA_DROPS = re.compile(r"^MSEA reference drops$", re.I)
 EXP_GUIDE = "guide/exp-table-level-1-to-100"
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"

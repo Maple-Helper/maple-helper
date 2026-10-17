@@ -18,6 +18,10 @@ def test_stat_lines_read_in_hebrew_and_keep_stats_numbers_and_jobs():
     assert he("Fits over 2H Axe & 2H Blunt") == "מתאים מעל גרזן לשתי ידיים ונשק קהה לשתי ידיים"
     assert he("Shared with Power Elixir and Mana Elixir") == "משותף עם Power Elixir ו-Mana Elixir"
     assert he("Duration 60 min") == "משך 60 דק'" and he("EXP Bonus x2") == "בונוס EXP פי 2"
+    # October 2026's new shapes: a lifespan in hours or to a date, a cash cover for any weapon
+    assert he("Lifespan 5 hours") == "תוחלת חיים 5 שעות" and he("Lifespan 1 hour") == "תוחלת חיים 1 שעה"
+    assert he("Lifespan Until November 19, 2026") == "תוחלת חיים עד 19.11.2026"
+    assert he("Fits over Any weapon") == "מתאים מעל כל נשק"
     assert itemterms.stat_line("Upgrade Slots 7", "en") == "Upgrade Slots 7"
 
 
