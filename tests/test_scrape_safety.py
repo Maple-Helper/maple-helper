@@ -59,11 +59,15 @@ def test_the_sites_controls_and_placeholders_are_not_page_text():
 
 
 def test_an_items_watchlist_button_and_its_watch_count_are_not_page_text():
-    """The site added a watch count next to "Add to watchlist": the item window showed it as an untranslated stat."""
+    """The site added a watch count next to "Add to watchlist": the item window showed it as an untranslated stat,
+    and 220 map pages carried it before "Find path here"."""
     page = """<html><body><div>Explore the database</div><div>Items / Lie Detector Test</div>
 <div>Use · Misc · No. 0268</div><div><button>Add to watchlist</button> <span>Loading watch count...</span></div>
 <div>Loading watch count…</div><div>Required Level 10</div></body></html>"""
     assert scrape_meowdb.main_text(page, "Lie Detector Test").split("\n") == ["Use · Misc · No. 0268", "Required Level 10"]
+    page = """<html><body><div>Explore the database</div><div>Maps / Henesys Hunting Ground I</div>
+<div><button>Add to watchlist</button> <span>Loading watch count...</span> <a>Find path here</a></div></body></html>"""
+    assert scrape_meowdb.main_text(page, "Henesys Hunting Ground I").split("\n") == ["Add to watchlist Find path here"]
 
 
 # ---------------------------------------------------------------- a night's scrape, simulated
