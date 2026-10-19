@@ -161,7 +161,9 @@ class Availability:
         for name in sorted(self.map_place_by_name, key=len, reverse=True):
             if not (self.map_place_by_name[name] & self.confirmed) or not self._named(name, self.not_at_launch_text):
                 continue
-            mentions = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])[^.]*\b(closed|not open|not included|"
+            # its paragraph, not just its sentence: "Forgotten Hollow opens November 18. It stays closed at Grand
+            # Launch" (the guide's 2026-10-18 wording) opened it while it was still shut
+            mentions = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])[^\n]*\b(closed|not open|not included|"
                                  r"later date|not part)\b", self.not_at_launch_text, re.I)
             if not mentions:
                 continue
