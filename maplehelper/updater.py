@@ -235,13 +235,32 @@ def _failed(why: str) -> str:
 # ---------------------------------------------------------------- app updates
 
 SETUP_ASSET = "MapleHelper-Setup.exe"
+MAC_ASSET = "MapleHelper-macOS.dmg"
 SUMS_ASSET = "SHA256SUMS.txt"     # "<sha256>  <file name>" lines, published with every release
+
+
+def _update_file(platform: str) -> tuple[str, str, str]:
+    """(release asset, downloaded file's prefix, its extension) for the platform's update."""
+    if platform == "darwin":
+        return MAC_ASSET, "MapleHelper-macOS-", ".dmg"
+    return SETUP_ASSET, "MapleHelper-Setup-", ".exe"
 
 
 def _version_tuple(v: str) -> tuple[int, ...]:
     """'1.0' and '1.0.0' compare equal (padded to three parts)."""
     parts = [int(x) for x in re.findall(r"\d+", v)[:3]]
     return tuple(parts + [0] * (3 - len(parts)))
+
+
+def self_updates(platform: str = sys.platform) -> bool:
+    """This copy downloads and installs new releases itself. Windows: the installed copy (not the portable zip).
+    macOS: an app in a folder the player can write to (Applications), not one opened from the disk image."""
+    if not getattr(sys, "frozen", False):
+        return False
+    if platform == "darwin":
+        from . import macapi
+        return macapi.can_self_update()
+    return installed_copy()
 
 
 def installed_copy() -> bool:
@@ -313,8 +332,8 @@ def _download(url: str, progress=None, timeout: int = 600) -> bytes | None:
         return None
 
 
-def download_app_update(current: str, progress=None) -> str | None:
-    """If GitHub has a newer release, download its installer. Returns the installer path.
+def download_app_update(current: str, progress=None, platform: str = sys.platform) -> str | None:
+    """If GitHub has a newer release, download its installer (macOS: its disk image). Returns the file's path.
     progress(done_bytes, total_bytes) is called while it downloads.
 
     The installer is only kept when it comes from this repository's release of that tag over HTTPS, has the size
@@ -325,15 +344,16 @@ def download_app_update(current: str, progress=None) -> str | None:
     rel = _latest_release()
     if not rel or _version_tuple(rel["tag_name"]) <= _version_tuple(current):
         return None
-    asset = _asset(rel, SETUP_ASSET)
-    if not (asset and release_url_ok(asset.get("browser_download_url"), rel["tag_name"], SETUP_ASSET)
+    name, prefix, ext = _update_file(platform)
+    asset = _asset(rel, name)
+    if not (asset and release_url_ok(asset.get("browser_download_url"), rel["tag_name"], name)
             and asset.get("state", "uploaded") == "uploaded"):
         return None
     size = asset.get("size")
-    want = _published_sha256(rel, SETUP_ASSET)
+    want = _published_sha256(rel, name)
     if not want or not isinstance(size, int) or size <= 0:
         return None
-    path = USER_KB.parent / "updates" / f"MapleHelper-Setup-{rel['tag_name']}.exe"
+    path = USER_KB.parent / "updates" / f"{prefix}{rel['tag_name']}{ext}"
     try:
         if path.exists() and path.stat().st_size == size and hashlib.sha256(path.read_bytes()).hexdigest() == want:
             return str(path)       # downloaded before (an update skipped at shutdown): no second download
@@ -355,17 +375,19 @@ def download_app_update(current: str, progress=None) -> str | None:
 
 
 def remove_old_installers() -> None:
-    """Downloaded installers for this version or older are no longer needed (~100 MB each)."""
+    """Downloaded installers (and Mac disk images) for this version or older are no longer needed (~100 MB each)."""
     from . import __version__
     folder = USER_KB.parent / "updates"
-    for f in folder.glob("MapleHelper-Setup-*.exe") if folder.exists() else []:
+    found = [*folder.glob("MapleHelper-Setup-*.exe"), *folder.glob("MapleHelper-macOS-*.dmg")] if folder.exists() else []
+    for f in found:
         if _version_tuple(installer_version(str(f))) <= _version_tuple(__version__):
             try:
                 f.unlink()
             except OSError:
                 pass
     # a half-written download (MapleHelper-Setup-v0.9.6.part) is never used: the next download writes it again
-    for f in folder.glob("MapleHelper-Setup-*.part") if folder.exists() else []:
+    parts = [*folder.glob("MapleHelper-Setup-*.part"), *folder.glob("MapleHelper-macOS-*.part")] if folder.exists() else []
+    for f in parts:
         try:
             f.unlink()
         except OSError:
@@ -373,8 +395,8 @@ def remove_old_installers() -> None:
 
 
 def installer_version(path: str) -> str:
-    """'0.4.0' from '.../MapleHelper-Setup-v0.4.0.exe'."""
-    m = re.search(r"Setup-v?([\d.]+)\.exe$", str(path))
+    """'0.4.0' from '.../MapleHelper-Setup-v0.4.0.exe' or '.../MapleHelper-macOS-v0.4.0.dmg'."""
+    m = re.search(r"(?:Setup|macOS)-v?(\d+(?:\.\d+)*)\.(?:exe|dmg)$", str(path))
     return m.group(1) if m else ""
 
 

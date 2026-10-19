@@ -259,3 +259,102 @@ def set_autostart(enabled: bool, args: list[str], path: Path = LAUNCH_AGENT) -> 
     except OSError:
         pass
     return True
+
+
+# ---------------------------------------------------------------- self-update
+
+APP_IN_DMG = "Maple Helper.app"
+
+
+def app_bundle(exe: str | None = None) -> Path | None:
+    """The .app this frozen executable runs from (…/Maple Helper.app/Contents/MacOS/Maple Helper), or None."""
+    p = Path(exe or sys.executable)
+    bundle = p.parents[2] if len(p.parents) > 2 else None
+    if bundle is None or bundle.suffix != ".app" or p.parent.name != "MacOS" or p.parents[1].name != "Contents":
+        return None
+    return bundle
+
+
+def can_self_update(exe: str | None = None) -> bool:
+    """The app can replace itself: it runs from a lasting place (not the disk image or a translocated copy) whose
+    folder the player may write to. Otherwise the menu bar only links to the new release, as before."""
+    exe = exe or sys.executable
+    if runs_from_a_temporary_place(exe):
+        return False
+    bundle = app_bundle(exe)
+    return bool(bundle and bundle.is_dir() and os.access(bundle.parent, os.W_OK) and os.access(bundle, os.W_OK))
+
+
+def _q(s) -> str:
+    """A string as one shell word."""
+    return "'" + str(s).replace("'", "'\\''") + "'"
+
+
+def update_script(dmg: str, app: str, pid: int, reopen: bool, log: str) -> str:
+    """The shell script that installs a downloaded disk image once the app has quit.
+
+    Waits for the app's process to end, mounts the image read-only, checks the new app's signature, copies it next
+    to the old one (the slow part, while the old app is still whole), then swaps the two with renames on the same
+    volume: a shutdown midway leaves the old app or the new one, never half of either. On any failure the old app
+    stays. With reopen ("Update now") the app opens again, the new one showing what's new, the old one if it failed.
+    """
+    new, old = f"{app}.update", f"{app}.old"
+    return f"""#!/bin/bash
+# Maple Helper update: installs {Path(dmg).name} over {Path(app).name}
+set -u
+exec >> {_q(log)} 2>&1
+DMG={_q(dmg)}; APP={_q(app)}; NEW={_q(new)}; OLD={_q(old)}; PID={int(pid)}; REOPEN={1 if reopen else 0}
+MNT=""
+echo "== $(date '+%Y-%m-%d %H:%M:%S') update from $DMG"
+cleanup() {{
+  if [ -n "$MNT" ]; then hdiutil detach "$MNT" -force >/dev/null 2>&1; rmdir "$MNT" 2>/dev/null; fi
+  rm -rf "$NEW"
+}}
+fail() {{
+  echo "FAILED: $1"
+  cleanup
+  if [ "$REOPEN" = 1 ]; then open "$APP"; fi
+  exit 1
+}}
+# the app quits within a few seconds; never replace it while it runs
+for _ in $(seq 1 240); do kill -0 "$PID" 2>/dev/null || break; sleep 0.25; done
+if kill -0 "$PID" 2>/dev/null; then echo "FAILED: the app is still running"; exit 1; fi
+MNT=$(mktemp -d "${{TMPDIR:-/tmp}}/maplehelper-update.XXXXXX") || fail "no temporary folder"
+hdiutil attach "$DMG" -nobrowse -readonly -noautoopen -mountpoint "$MNT" >/dev/null || fail "could not mount the disk image"
+SRC="$MNT/{APP_IN_DMG}"
+[ -d "$SRC" ] || fail "no {APP_IN_DMG} in the disk image"
+codesign --verify --deep --strict "$SRC" || fail "the new app's signature is broken"
+rm -rf "$NEW" "$OLD"
+ditto "$SRC" "$NEW" || fail "could not copy the new app"
+xattr -dr com.apple.quarantine "$NEW" 2>/dev/null
+codesign --verify --deep --strict "$NEW" || fail "the copied app's signature is broken"
+mv "$APP" "$OLD" || fail "could not move the old app aside"
+if ! mv "$NEW" "$APP"; then mv "$OLD" "$APP"; fail "could not put the new app in place"; fi
+rm -rf "$OLD"
+cleanup
+rm -f "$DMG" "$0"
+echo "installed"
+if [ "$REOPEN" = 1 ]; then open "$APP" --args --updated; fi
+exit 0
+"""
+
+
+def run_update(dmg: str, reopen: bool, log_dir: Path) -> bool:
+    """Start the update script detached: it outlives the app, which quits right after. False when it can't start."""
+    import subprocess
+    bundle = app_bundle()
+    if bundle is None:
+        return False
+    log_dir.mkdir(parents=True, exist_ok=True)
+    for stale in sorted(log_dir.glob("update-*.log"))[:-2]:      # the last few kept, like on Windows
+        stale.unlink(missing_ok=True)
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    log = log_dir / f"update-{stamp}.log"
+    script = Path(dmg).with_suffix(".sh")
+    try:
+        script.write_text(update_script(dmg, str(bundle), os.getpid(), reopen, str(log)), encoding="utf-8")
+        subprocess.Popen(["/bin/bash", str(script)], start_new_session=True, close_fds=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    return True

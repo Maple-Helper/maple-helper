@@ -585,7 +585,9 @@ STRINGS = {
     # a Windows shutdown postpones the install (app.py shutdown): only "Update now" or the tray's Quit installs it
     "update_ready": {"he": "גרסה חדשה של Maple Helper מוכנה. היא תותקן כשתלחצו על \"לעדכן עכשיו\" או כשתצאו מ-Maple Helper דרך \"יציאה\" במגש.",
                      "en": "A new Maple Helper version is ready. It installs when you click Update now or choose Quit in the tray."},
-    # macOS: no silent self-update (the installer is a Windows program); the menu bar links to the new DMG
+    "update_ready_mac": {"he": "גרסה חדשה של Maple Helper מוכנה. היא תותקן כשתלחצו על \"לעדכן עכשיו\" או כשתצאו מ-Maple Helper דרך \"יציאה\" בשורת התפריטים.",
+                         "en": "A new Maple Helper version is ready. It installs when you click Update now or choose Quit in the menu bar."},
+    # a copy that can't update itself (Windows' portable zip, a Mac app run from the disk image): the menu links to it
     "update_available": {"he": "גרסה חדשה זמינה: {version}", "en": "New version available: {version}"},
     "update_available_win": {"he": "הורידו אותה מתפריט Maple Helper במגש, ליד השעון.",
                              "en": "Download it from the Maple Helper menu in the tray, next to the clock."},

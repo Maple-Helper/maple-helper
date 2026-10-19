@@ -135,7 +135,7 @@ def app_env(tmp_path, monkeypatch):
 def test_verified_installer_is_downloaded(app_env):
     tmp, _, publish = app_env
     publish()
-    path = updater.download_app_update("0.1.0")
+    path = updater.download_app_update("0.1.0", platform="win32")
     assert path and open(path, "rb").read() == SETUP
     assert path.endswith("MapleHelper-Setup-v0.2.0.exe")
 
@@ -143,7 +143,7 @@ def test_verified_installer_is_downloaded(app_env):
 def test_installer_with_wrong_hash_is_never_kept(app_env):
     tmp, _, publish = app_env
     publish(sums=f"{'0' * 64}  MapleHelper-Setup.exe\n")
-    assert updater.download_app_update("0.1.0") is None
+    assert updater.download_app_update("0.1.0", platform="win32") is None
     assert not (tmp / "updates").exists()
 
 
@@ -152,7 +152,7 @@ def test_same_size_corruption_is_caught(app_env):
     tmp, net, publish = app_env
     publish()
     net[dl("v0.2.0", "MapleHelper-Setup.exe")] = bytes(len(SETUP))
-    assert updater.download_app_update("0.1.0") is None
+    assert updater.download_app_update("0.1.0", platform="win32") is None
 
 
 @pytest.mark.parametrize("kwargs", [
@@ -163,7 +163,7 @@ def test_same_size_corruption_is_caught(app_env):
 def test_no_trusted_checksum_means_no_update(app_env, kwargs):
     _, _, publish = app_env
     publish(**kwargs)
-    assert updater.download_app_update("0.1.0") is None
+    assert updater.download_app_update("0.1.0", platform="win32") is None
 
 
 @pytest.mark.parametrize("kwargs,current", [
@@ -175,26 +175,26 @@ def test_no_trusted_checksum_means_no_update(app_env, kwargs):
 def test_nothing_newer(app_env, kwargs, current):
     _, _, publish = app_env
     publish(**kwargs)
-    assert updater.download_app_update(current) is None
+    assert updater.download_app_update(current, platform="win32") is None
 
 
 def test_numeric_version_order(app_env):
     _, _, publish = app_env
     publish(tag="v0.10.0")
-    assert updater.download_app_update("0.9.0") is not None
+    assert updater.download_app_update("0.9.0", platform="win32") is not None
 
 
 @pytest.mark.parametrize("api", [None, b"{oops", b"[]", b'{"message": "Not Found"}'])
 def test_offline_or_odd_api_answers(app_env, api):
     _, net, _ = app_env
     net[API] = api
-    assert updater.download_app_update("0.1.0") is None
+    assert updater.download_app_update("0.1.0", platform="win32") is None
 
 
 def test_sums_line_with_binary_marker(app_env):
     _, _, publish = app_env
     publish(sums=f"{hashlib.sha256(SETUP).hexdigest()} *MapleHelper-Setup.exe\n")
-    assert updater.download_app_update("0.1.0") is not None
+    assert updater.download_app_update("0.1.0", platform="win32") is not None
 
 
 def test_mac_update_notice_names_the_new_release(app_env):
@@ -323,7 +323,7 @@ def test_installer_must_come_from_this_release(app_env, kwargs):
         net[API] = json.dumps(rel).encode()
     else:
         publish(**kwargs)
-    assert updater.download_app_update("0.1.0") is None
+    assert updater.download_app_update("0.1.0", platform="win32") is None
     assert not (tmp / "kb" / "updates").exists() or not any((tmp / "kb" / "updates").iterdir())
 
 
@@ -333,7 +333,7 @@ def test_never_a_downgrade_even_from_a_cached_installer(app_env):
     cached = tmp / "updates" / "MapleHelper-Setup-v0.1.0.exe"
     cached.parent.mkdir(parents=True)
     cached.write_bytes(SETUP)
-    assert updater.download_app_update("0.2.0") is None
+    assert updater.download_app_update("0.2.0", platform="win32") is None
 
 
 @pytest.mark.parametrize("change", [
@@ -390,7 +390,7 @@ def test_a_cut_installer_write_leaves_no_part_file(app_env, monkeypatch):
         raise OSError(28, "No space left on device")
     monkeypatch.setattr(pathlib.Path, "write_bytes", full)
     with pytest.raises(OSError):
-        updater.download_app_update("0.1.0")
+        updater.download_app_update("0.1.0", platform="win32")
     assert not list((tmp / "updates").glob("*.part"))
 
 

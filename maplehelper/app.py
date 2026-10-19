@@ -875,9 +875,9 @@ class MapleHelperApp:
         self._update_kb_in_background(interactive=False)
 
     def check_app_update_silently(self):
-        if getattr(sys, "frozen", False) and (osapi.IS_MAC or not updater.installed_copy()):
-            # no silent self-update on macOS (the installer is a Windows .exe) or for a portable copy: point at
-            # the new release instead
+        if getattr(sys, "frozen", False) and not updater.self_updates("darwin" if osapi.IS_MAC else "win32"):
+            # a copy that can't replace itself (Windows' portable zip; a Mac app run from the disk image or from a
+            # folder the player can't write to): point at the new release instead
             def mac_update():
                 rel = updater.newer_release(__version__)
                 if rel:
@@ -1021,7 +1021,7 @@ class MapleHelperApp:
             return
         t = I18n(self.settings["language"])
         self.overlay.show_update(version, "ready")
-        self.toast(t("update_bar", version=version), t("update_ready"))
+        self.toast(t("update_bar", version=version), t("update_ready_mac" if osapi.IS_MAC else "update_ready"))
         self.tray.hide()
         self.make_tray()   # adds "Update to X" to the tray menu
 
@@ -1369,8 +1369,14 @@ class MapleHelperApp:
                 # Qt quits on shutdown/sign-out too: the next start downloads nothing and offers it again
                 report.log.info("update postponed: Windows is shutting down")
                 return
-            updater.run_installer_silently(self.pending_installer, reopen=getattr(self, "_reopen_after_update", False),
-                                           lang=self.settings["language"] or "he")
+            reopen = getattr(self, "_reopen_after_update", False)
+            if osapi.IS_MAC:
+                # the disk image is installed by a script that waits for this process to end, then swaps the app
+                from . import macapi
+                if not macapi.run_update(self.pending_installer, reopen, report.LOG_DIR):
+                    report.log.warning("update could not start: %s", self.pending_installer)
+                return
+            updater.run_installer_silently(self.pending_installer, reopen=reopen, lang=self.settings["language"] or "he")
 
 
 
