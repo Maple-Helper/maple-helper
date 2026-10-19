@@ -111,6 +111,27 @@ def test_third_job_opens_only_when_the_guide_confirms_it(tmp_path, guide, tier):
     assert availability.of(kb).job_tier == tier and jobs.open_tier(kb) == tier
 
 
+
+@pytest.mark.parametrize("says,closed", [
+    ("Forgotten Hollow is closed during Founder's Access.", True),
+    ("Forgotten Hollow opens November 18. It stays closed at Grand Launch on October 21.", True),
+    ("Forgotten Hollow opens November 18.", False),
+])
+def test_an_area_is_closed_when_its_paragraph_says_so(tmp_path, says, closed):
+    """The guide's 2026-10-18 wording names the Hollow in one sentence and says it is closed in the next: read by the
+    sentence, the Hollow, its maps and Rotten Mushmom counted as open three weeks before it opens."""
+    from maplehelper import availability
+    guide = ("Confirmed content\nClassic maps on Victoria Island.\nNot at launch\nOssyria and 3rd job are "
+             f"not initial-launch content.\n{says} See the Forgotten Hollow guide .\n")
+    kb = small_kb(tmp_path, [ent("guide/maplestory-classic-worlds-release-date", "Release"),
+                             ent("map/1", "Forgotten Hollow"), ent("map/2", "Henesys")], {},
+                  {"guide/maplestory-classic-worlds-release-date": "---\n{}\n---\n\n# Release\n\n" + guide,
+                   "map/1": "# Forgotten Hollow\nLocation Shallow Passage / Victoria Island\n",
+                   "map/2": "# Henesys\nLocation Victoria Road / Victoria Island\n"})
+    a = availability.of(kb)
+    assert (a.closed_areas == ["Forgotten Hollow"]) == closed
+    assert a.place_open("Forgotten Hollow") != closed and a.place_open("Henesys")
+
 # ------------------------------------------------------------------ 2, 3, 10, 11, 23: quests
 
 QUEST = """---
