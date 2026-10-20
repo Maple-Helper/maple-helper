@@ -216,9 +216,12 @@ class MapleHelperApp:
         # the little bar over the game (ui/gametoolbar.py): its buttons flip the windows over the game, and Tools
         # opens the app's own Tools window (everything not about where the player stands lives there)
         from .ui.gametoolbar import GameToolbar
+        # always on while the app runs (the owner, 2026-10-20): an older version's ✕ switched it off for good
+        self.settings["game_toolbar"] = True
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
         self.game_toolbar.window_toggled.connect(self._game_window_toggled)
         self.game_toolbar.tools_requested.connect(self._tools_from_bar)
+        self.game_toolbar.quit_requested.connect(self.qapp.quit)       # its ✕ closes the app
         self.game_toolbar.chat_requested.connect(self.show_chat)
         self.npc_overlay.closed.connect(self.game_toolbar.refresh)
         self.monster_overlay.closed.connect(self.game_toolbar.refresh)
@@ -229,7 +232,6 @@ class MapleHelperApp:
         # its timer as long as the app (ui/lootscan.py)
         from .ui.lootscan import LootScanner
         self.loot_scanner = LootScanner(self.kb, self.profiles, self.settings)
-        self.loot_scanner.changed.connect(lambda: self._tools_call("loot_changed"))
         # ... and its own card over the game while a log runs (not inside a Maple Helper window: ui/lootoverlay.py)
         from .ui.lootoverlay import LootOverlay
         self.loot_overlay = LootOverlay(self.loot_scanner, self.settings, self.kb,
@@ -238,6 +240,7 @@ class MapleHelperApp:
         self.loot_overlay.sync()
         # the bar over the game's Loot log button shows / hides that window (lit while it shows), as NPCs here does
         self.loot_overlay.closed.connect(self.game_toolbar.refresh)
+        self.loot_overlay.full_requested.connect(self.show_tracker)     # its "Full tracker": the tracker's window
         self.loot_scanner.changed.connect(self.game_toolbar.refresh)     # a log starting opens it: the button follows
         from .ui.widgets import ITEM_REQUESTS, MAP_REQUESTS, MARKET_REQUESTS, ROUTE_REQUESTS
         ROUTE_REQUESTS.requested.connect(self.show_route)       # a map card's "How to get here"
@@ -530,12 +533,6 @@ class MapleHelperApp:
         a_quit = QAction(t("tray_quit"), menu, triggered=self.qapp.quit)
         menu.addAction(a_show)
         menu.addAction(a_set)
-        # the bar over the game, on or off from here too (its ✕ hides it; Settings > Minimap was the only way back)
-        a_bar = QAction(bidi.plain(t("tray_toolbar"), t.rtl), menu, checkable=True)
-        a_bar.toggled.connect(self._toolbar_from_tray)
-        menu.aboutToShow.connect(lambda: a_bar.setChecked(bool(self.settings["game_toolbar"])))
-        menu.addAction(a_bar)
-        self._tray_bar = a_bar
         if getattr(self, "pending_installer", None):
             a_upd = QAction(t("update_now_tray", version=updater.installer_version(self.pending_installer)), menu,
                             triggered=self.update_now)
@@ -550,15 +547,6 @@ class MapleHelperApp:
         self.tray.show()
         self._tray_menu = menu
         self._add_announced_item()
-
-    def _toolbar_from_tray(self, on: bool) -> None:
-        """The tray's "In-game toolbar": the bar's setting, and the bar follows at once."""
-        if bool(self.settings["game_toolbar"]) == on:
-            return                  # the menu only showed the setting as it is
-        self.settings["game_toolbar"] = on
-        bar = getattr(self, "game_toolbar", None)
-        if bar is not None:
-            bar.refresh()
 
     def open_settings(self):
         def make():
@@ -1077,8 +1065,7 @@ class MapleHelperApp:
 
         def make():
             dlg = ToolsDialog(self.kb, self.profiles, self.settings, self.settings["language"], self.style(),
-                              self.grind, page, loot=self.loot_scanner)
-            dlg.loot_area_requested.connect(self.pick_loot_area)
+                              self.grind, page)
             dlg.sync_requested.connect(self.overlay.sync_profile)
             dlg.grind_sync_requested.connect(lambda: self.overlay.sync_profile(grind=True))
             dlg.ask_requested.connect(self.ask_from_tools)
@@ -1088,6 +1075,19 @@ class MapleHelperApp:
             dlg.add_character_requested.connect(lambda: (self.add_character(), self.on_profile_changed()))
             return dlg
         return self.open_window("tools", make)
+
+    def show_tracker(self, tab: str = "now"):
+        """The grind tracker's own window (ui/grindtracker.py): the session in tables, its history, the maps compared."""
+        from .ui.grindtracker import GrindTracker
+
+        def make():
+            dlg = GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
+            dlg.area_requested.connect(self.pick_loot_area)
+            return dlg
+        dlg = self.open_window("tracker", make)
+        if dlg is not None and tab != "now":
+            dlg.show_tab(tab)
+        return dlg
 
     def _tools_from_bar(self, page: str) -> None:
         """The bar's Tools menu: the Tools window on that tab ("": as it opens), the open one switching to it."""

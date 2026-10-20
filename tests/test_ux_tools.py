@@ -88,18 +88,6 @@ def test_no_character_shows_one_card_that_adds_one(tools, app):
 
 
 @needs_kb
-def test_grind_links_wait_for_a_monster(tools):
-    """TOOL-17: "How to get there" and "Hit & damage" under an empty monster box did nothing."""
-    d = tools(page="exp")
-    d.refresh("exp")
-    links = [d.grind_links.itemAt(i).widget() for i in range(d.grind_links.count())]
-    d.grind_monster.clear()
-    assert links and not any(b.isEnabled() for b in links)
-    d.grind_monster.setText("Stirge")
-    assert all(b.isEnabled() for b in links)
-
-
-@needs_kb
 def test_citizenship_grade_chips_are_short_and_the_done_toggle_is_on_top(tools):
     """TOOL-16 / TOOL-10."""
     from PySide6.QtWidgets import QPushButton

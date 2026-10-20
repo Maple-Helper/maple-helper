@@ -175,7 +175,8 @@ def test_it_lists_the_maps_npcs_and_asks_for_a_pick(overlay):
     w, _, loc = overlay
     loc.set(_here())
     assert [r.text() for r in w._rows] == ["Al", "bob", "Cara"]
-    assert w._title.text() == "NPCs Here · Fake Town"
+    assert w._title.text() == "NPCs Here"
+    assert w._map_name.text() == "Fake Town" and not w._map_name.isHidden()
     assert w._status.text() == "Click an NPC to be guided to it"
 
 
@@ -359,9 +360,10 @@ def test_apply_language_retexts_and_mirrors(overlay):
     loc.set(_here())
     w.apply_language(I18n("he"))
     assert w.layoutDirection() == Qt.RightToLeft
-    title = w._title.text().replace("\xa0", " ")    # RTL rendering keeps "Fake Town" one run: its space an NBSP
-    plain = BIDI_MARKS.sub("", title)
-    assert "Fake Town" in title and "NPC במפה" in plain
+    plain = BIDI_MARKS.sub("", w._title.text())
+    assert plain == "NPC במפה"
+    from maplehelper import bidi
+    assert w._map_name.text() == bidi.ltr_name("Fake Town", True)     # one left-to-right block, under the title
     from maplehelper import bidi
     assert w._status.text() == bidi.plain("לחצו על NPC כדי להגיע אליו", True)
 
@@ -487,3 +489,112 @@ def test_the_default_look_follows_the_apps_appearance_live(overlay, monkeypatch)
             assert theme.ORANGE_DEEP in w.styleSheet()               # the app's orange lights the picked row
     finally:
         npcoverlay.apply_look({})
+
+
+# ------------------------------------------------------------ pictures, the way there, the title
+
+
+def _png(path, w=60, h=90):
+    from PySide6.QtGui import QColor, QPixmap
+    pm = QPixmap(w, h)
+    pm.fill(QColor("#3a7"))
+    assert pm.save(str(path))
+    return path
+
+
+def test_each_npc_row_has_its_picture(overlay, tmp_path, monkeypatch):
+    """Every row starts with the NPC's KB picture, scaled into a 32 px box with its shape kept."""
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    pics = {"npc/1": _png(tmp_path / "cara.png")}
+    monkeypatch.setattr(w._kb, "picture", lambda key: pics.get(key))
+    loc.set(_here())
+    cara, al = _row(w, "Cara"), _row(w, "Al")
+    assert cara.pic.size() == QSize(npcoverlay.PIC, npcoverlay.PIC)
+    pm = cara.pic.pixmap()
+    assert pm.height() == npcoverlay.PIC and pm.width() < npcoverlay.PIC      # 60x90 kept its shape
+    assert al.pic.pixmap().isNull()              # no picture to read: an empty box, the names still lined up
+    assert cara.text() == "Cara" and cara.name.wordWrap()                     # a long name wraps, never cut
+
+
+def test_a_long_npc_name_wraps_inside_the_list_and_keeps_its_way_button(overlay, qapp, monkeypatch):
+    """A button's own text neither wraps nor elides: a long name pushed the row past the list's width, its start
+    and the way button cut off. Now the name wraps and the row stays inside the list."""
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    g = _FakeGraph()
+    long = "Community Board of the Very Long Kerning City Construction Site"
+    g.known[MID] = MapInfo(MID, "Fake Town", "", True, "", MM, [{"id": "9", "name": long, "x": 0, "y": 0}])
+    monkeypatch.setattr(npcoverlay.routes, "of", lambda kb: g)
+    w.apply_language(I18n("he"))
+    loc.set(_here())
+    w.resize(npcoverlay.MIN_W, 400)
+    w.show()
+    qapp.processEvents()
+    row, way, view = w._rows[0], w._ways[0], w._scroll.viewport()
+    assert BIDI_MARKS.sub("", row.text()) == long
+    for part in (row, way):
+        left = part.mapTo(view, part.rect().topLeft()).x()
+        assert left >= 0 and left + part.width() <= view.width()
+    assert row.name.height() >= row.name.heightForWidth(row.name.width())
+
+
+def test_picture_reads_the_kbs_own_or_its_category_icon(kb):
+    """kb.picture: an NPC the KB has no picture of still gets its category's icon, never nothing."""
+    from maplehelper.ui import npcoverlay
+    pm = npcoverlay.picture(kb, "npc/999999")
+    assert not pm.isNull() and max(pm.width(), pm.height()) == npcoverlay.PIC
+    assert npcoverlay.picture(object(), "npc/1").isNull()     # no KB to ask
+
+
+def test_how_to_get_there_beside_each_npc_opens_the_way_from_here(overlay):
+    """Beside each row, "How to get there": the map window on the way to that NPC (MAP_REQUESTS, as an NPC card's
+    button) — and the row itself still guides on the minimap, without asking for the window."""
+    from maplehelper.ui.widgets import MAP_REQUESTS
+    w, _, loc = overlay
+    loc.set(_here())
+    asked = []
+    MAP_REQUESTS.requested.connect(asked.append)
+    try:
+        assert len(w._ways) == len(w._rows) == 3
+        way = w._ways[[n.name for n in w._npcs].index("Cara")]
+        assert way.toolTip() == "How to get there" and way.accessibleName() == "How to get there"
+        way.click()
+        assert asked == ["npc/1"] and loc.guide is None          # the way asked for, nothing picked
+        _row(w, "Cara").click()
+        assert asked == ["npc/1"] and loc.guide == (MID, (0.6, 0.5), "npc/1")
+        w.apply_language(I18n("he"))
+        assert way.toolTip() == "איך מגיעים"
+    finally:
+        MAP_REQUESTS.requested.disconnect(asked.append)
+
+
+def test_the_way_button_sits_at_the_rows_end_and_the_picture_at_its_start_in_hebrew(overlay, qapp):
+    """Hebrew reads from the right: the row (its picture first) on the right, the way button on its left."""
+    w, _, loc = overlay
+    w.apply_language(I18n("he"))
+    loc.set(_here())
+    qapp.processEvents()
+    row, way = w._rows[0], w._ways[0]
+    assert row.isRightToLeft()
+    assert way.mapTo(w, way.rect().topLeft()).x() < row.mapTo(w, row.rect().topLeft()).x()
+
+
+def test_a_long_map_name_shows_in_full_under_the_title(overlay, monkeypatch, qapp):
+    """The window's name on its own line and the map's under it, wrapped — never one line with its start cut off
+    ("rest North of Ellinia • NPC במפה", the owner's)."""
+    from maplehelper.ui import npcoverlay
+    w, _, loc = overlay
+    long = "The Forest North of Ellinia, Deep Inside the Very Long Mushroom Valley"
+    g = _FakeGraph()
+    g.known[MID] = MapInfo(MID, long, "", True, "", MM, g.known[MID].npcs)
+    monkeypatch.setattr(npcoverlay.routes, "of", lambda kb: g)
+    w.apply_language(I18n("he"))
+    loc.set(_here())
+    w.resize(npcoverlay.MIN_W, npcoverlay.MIN_H)
+    qapp.processEvents()
+    lb = w._map_name
+    assert BIDI_MARKS.sub("", lb.text()) == long and lb.wordWrap()
+    assert BIDI_MARKS.sub("", w._title.text()) == "NPC במפה"
+    assert lb.height() >= lb.heightForWidth(lb.width())             # every wrapped line fits
+    assert lb.mapTo(w, lb.rect().topRight()).x() < w.width()         # inside the window

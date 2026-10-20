@@ -34,8 +34,14 @@ LINES_MIN = 0.45                    # the lines must be this dark on average (li
 INNER_MAX = 0.2                     # ... and the slots' middles mostly not dark (live: 0.02)
 NATIVE_PITCH = 39.0                 # a slot's pitch when the game draws icons at their KB size
 CLIP = 60.0                         # a pixel's error counts at most this much: the key name and the count over the icon
-FIT_MAX = 38.0                      # a best fit worse than this names no potion (an empty slot, a skill)
-FIT_MARGIN = 3.0                    # ... and it must beat a potion with another picture by this much
+HUE_WEIGHT = 200.0                  # a hue difference (colour ratios, 0-2) in the error's units
+SCALES = (0.8, 0.86, 0.92, 1.0, 1.08)   # the picture's size around pitch / NATIVE_PITCH (a smaller window drew it 0.8x)
+BG_LIGHT = 238.0                    # a slot's light background on a panel drawn in full (bg_level)
+# measured on bright, faded and see-through panels (live, 2026-10-20): potions matched at 37.8 at worst, beating the
+# next picture by 2.9 at least; a skill, the attack key and a box no potion has came closest at 36.4 but by 2.4 at most
+FIT_MAX = 39.0                      # a best fit worse than this names no potion
+FIT_MARGIN = 2.7                    # ... and it must beat a potion with another picture by this much
+SURE_MARGIN = 4.0                   # a slot named by this much keeps its name while its picture's shape stays
 
 
 @dataclass(frozen=True)
@@ -199,9 +205,11 @@ def _scaled(pic: _Picture, k: float) -> tuple[np.ndarray, np.ndarray]:
     return a[..., :3], a[..., 3] / 255.0
 
 
-def _fit(slot: np.ndarray, pic: _Picture, k: float) -> float:
-    """How far the slot is from the picture scaled by k and laid on the slot's background, at the best of a few
-    places around the slot's middle (mean clipped error over the picture's own pixels)."""
+def _fit(slot: np.ndarray, pic: _Picture, k: float, gain: float = 1.0) -> float:
+    """How far the slot is from the picture scaled by k, at the best of a few places around the slot's middle: per
+    pixel of the picture, half its hue (the colour ratios, which a dimmed panel keeps: a lemon stays yellow, an
+    orange orange) and half its brightness after `gain` (the panel's dimming undone), clipped at CLIP so the key's
+    name and the count over the picture can't decide it."""
     rgb, alpha = _scaled(pic, k)
     ph, pw = alpha.shape
     sh, sw = slot.shape[:2]
@@ -210,6 +218,8 @@ def _fit(slot: np.ndarray, pic: _Picture, k: float) -> float:
     solid = alpha > 0.5
     if solid.sum() < 20:
         return float("inf")
+    ref = rgb[solid]
+    ref_hue = ref[:, :2] / (ref.sum(axis=1, keepdims=True) + 30)
     best = float("inf")
     cy, cx = (sh - ph) / 2, (sw - pw) / 2
     reach = max(2, round(sh * 0.1))
@@ -218,33 +228,41 @@ def _fit(slot: np.ndarray, pic: _Picture, k: float) -> float:
             y0, x0 = round(cy + dy), round(cx + dx)
             if y0 < 0 or x0 < 0 or y0 + ph > sh or x0 + pw > sw:
                 continue
-            part = slot[y0:y0 + ph, x0:x0 + pw]
-            err = np.minimum(np.abs(part - rgb).mean(axis=2), CLIP)
-            d = float(err[solid].mean())
-            best = min(best, d)
+            part = slot[y0:y0 + ph, x0:x0 + pw][solid]
+            hue = np.abs(part[:, :2] / (part.sum(axis=1, keepdims=True) + 30) - ref_hue).sum(axis=1) * HUE_WEIGHT
+            lum = np.abs(part * gain - ref).mean(axis=1)
+            best = min(best, float(np.minimum(0.5 * hue + 0.5 * lum, CLIP).mean()))
     return best
 
 
-def identify(slot: np.ndarray, kb, pitch: float) -> str | None:
-    """The KB potion a slot's picture (RGB array of its inside) shows, or None (empty, or no potion fits)."""
+def bg_level(slot: np.ndarray) -> float | None:
+    """How bright the slot's own light background is (its rim, without the picture): 238 on a panel drawn in full,
+    lower when the game dims it (a fade, the panel's transparency over a dark scene)."""
     s = slot.astype(np.float32)
-    sat = s.max(axis=2) - s.min(axis=2)
+    k = max(2, s.shape[0] // 10)
+    ring = np.concatenate([s[:k].reshape(-1, 3), s[-k:].reshape(-1, 3), s[:, :k].reshape(-1, 3),
+                           s[:, -k:].reshape(-1, 3)])
+    grey = ring[(ring.max(axis=1) - ring.min(axis=1)) < 25].mean(axis=1)
+    return float(np.percentile(grey, 80)) if len(grey) > 20 else None
+
+
+def identify(slot: np.ndarray, kb, pitch: float, gain: float = 1.0) -> tuple[str | None, float]:
+    """(the KB potion a slot's picture shows or None, by how much it beat the next one). `gain`: what undoes the
+    panel's dimming (BG_LIGHT / the panel's bg_level)."""
+    s = slot.astype(np.float32)
+    sat = (s.max(axis=2) - s.min(axis=2)) * gain
     if (sat > 60).mean() < 0.05:
-        return None                 # just the light slot and its key name: empty
+        return None, 0.0            # just the light slot and its key name: empty
     pics = _potion_pictures(kb)
     base = pitch / NATIVE_PITCH
-    scored: list[tuple[float, _Picture]] = []
-    for pic in pics:
-        d = min(_fit(s, pic, base * f) for f in (0.92, 1.0, 1.08))
-        scored.append((d, pic))
+    scored = sorted(((min(_fit(s, pic, base * f, gain) for f in SCALES), pic) for pic in pics), key=lambda r: r[0])
     if not scored:
-        return None
-    scored.sort(key=lambda r: r[0])
+        return None, 0.0
     d, best = scored[0]
     other = next((dd for dd, p in scored[1:] if p.group != best.group), float("inf"))
     if d > FIT_MAX or other - d < FIT_MARGIN:
-        return None
-    return best.key
+        return None, 0.0
+    return best.key, other - d
 
 
 # ---------------------------------------------------------------- counts
@@ -349,10 +367,18 @@ class Reader:
         self.kb = kb
         self._grid: Grid | None = None
         self._grid_size: tuple[int, int] | None = None
-        self._items: dict[int, tuple[bytes, str | None]] = {}
+        self._items: dict[int, tuple] = {}   # slot -> (sig, key, sure, shape)
 
     def reset(self) -> None:
         self._grid, self._grid_size, self._items = None, None, {}
+
+    @staticmethod
+    def _shape(slot: np.ndarray) -> bytes:
+        """The slot's picture as light and dark, whatever the brightness: the same item reads the same dimmed."""
+        h = slot.shape[0]
+        lum = _lum(slot[int(h * 0.15): int(h * 0.6)])
+        small = np.asarray(Image.fromarray(lum.astype(np.uint8)).resize((6, 4), Image.BILINEAR), np.float32)
+        return (small > np.median(small)).tobytes()
 
     def _sig(self, slot: np.ndarray) -> bytes:
         """A slot's picture without its count (bottom left), coarse: the same item reads the same."""
@@ -375,12 +401,18 @@ class Reader:
                 return None
             self._grid, self._grid_size = grid, size
         out = Read()
-        for i, (x0, y0, x1, y1) in enumerate(grid.slots()):
-            slot = rgb[y0:y1, x0:x1]
+        slots = [rgb[y0:y1, x0:x1] for x0, y0, x1, y1 in grid.slots()]
+        levels = [v for v in map(bg_level, slots) if v]
+        gain = BG_LIGHT / float(np.median(levels)) if levels else 1.0
+        for i, slot in enumerate(slots):
             sig = self._sig(slot)
             known = self._items.get(i)
             if known is None or known[0] != sig:
-                self._items[i] = (sig, identify(slot, self.kb, grid.pitch))
+                key, margin = identify(slot, self.kb, grid.pitch, gain)
+                if key is None and known is not None and known[2] and self._shape(slot) == known[3]:
+                    key = known[1]          # named for sure before, the same shape now: a dimmed frame, not a new item
+                    margin = SURE_MARGIN
+                self._items[i] = (sig, key, margin >= SURE_MARGIN, self._shape(slot))
             key = self._items[i][1]
             if key:
                 n = read_count(_count_area(rgb, grid, i))

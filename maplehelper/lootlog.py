@@ -600,6 +600,11 @@ class Store:
         self.put(cid, lg)
         return rec
 
+    def drop(self, cid: str) -> None:
+        """The character's last log goes (it counted nothing): the one shown is none, not an empty one."""
+        self._active.pop(cid, None)
+        self.save()
+
     def recent(self, cid: str) -> list[dict]:
         return [r for r in self._recent.get(cid, []) if isinstance(r, dict)]
 

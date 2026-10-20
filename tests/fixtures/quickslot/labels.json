@@ -73,5 +73,30 @@
   "file": "q0555.png",
   "slot": 5,
   "count": 422
+ },
+ {
+  "file": "dim.png",
+  "slot": 1,
+  "count": 300
+ },
+ {
+  "file": "dim.png",
+  "slot": 2,
+  "count": 0
+ },
+ {
+  "file": "dim.png",
+  "slot": 3,
+  "count": 43
+ },
+ {
+  "file": "dim.png",
+  "slot": 5,
+  "count": 150
+ },
+ {
+  "file": "dim.png",
+  "slot": 7,
+  "count": 10
  }
 ]

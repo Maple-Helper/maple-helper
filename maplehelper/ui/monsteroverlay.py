@@ -5,10 +5,10 @@ minimap is left alone."""
 from __future__ import annotations
 
 from PySide6.QtCore import QPoint, QSize, Qt
-from PySide6.QtWidgets import QLabel
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel
 
-from .. import bidi, combat, gamelookup, routes
-from .npcoverlay import GAP, NpcHere, NpcOverlay, look_palette, qss
+from .. import bidi, combat, gamelookup
+from .npcoverlay import GAP, PIC, NpcHere, NpcOverlay, look_palette, picture, qss
 
 
 def mob_qss(settings) -> str:
@@ -16,7 +16,8 @@ def mob_qss(settings) -> str:
     (the rest is that window's style sheet)."""
     c = look_palette(settings)
     return f"""
-#Mob {{ background: {c['fill1']}; color: {c['text']}; border-radius: 8px; padding: 6px 10px; }}
+#Mob {{ background: {c['fill1']}; color: {c['text']}; border-radius: 8px; }}
+#MobPic {{ background: transparent; }}
 """
 
 
@@ -28,6 +29,7 @@ class MonsterOverlay(NpcOverlay):
 
     def _build(self) -> None:
         self._mobs: dict[str, tuple[int, int]] = {}      # monster key -> (level, how many spawn)
+        self._pics: list[QLabel] = []                    # each row's picture
         super()._build()
 
     def _qss(self) -> str:
@@ -41,17 +43,32 @@ class MonsterOverlay(NpcOverlay):
         mobs = gamelookup.map_monsters(self._kb, mid) if mid else []
         self._npcs = [NpcHere(key, name, None) for key, name, _lv, _n in mobs]
         self._mobs = {key: (lv, n) for key, _name, lv, n in mobs}
-        while self._rows:
-            w = self._rows.pop()
-            self._rows_lay.removeWidget(w)
-            w.deleteLater()
-        for _mob in self._npcs:
-            row = QLabel(objectName="Mob")
-            row.setWordWrap(True)
-            row.setTextFormat(Qt.PlainText)
-            self._rows.append(row)
-            self._rows_lay.insertWidget(self._rows_lay.count() - 1, row)
+        self._clear_list()
+        self._pics = []
+        for mob in self._npcs:
+            self._add_item(self._mob_row(mob))
         self._retext()
+
+    def _mob_row(self, mob: NpcHere) -> QFrame:
+        """One monster's row: its picture at the reading start (the right in Hebrew), then its name and numbers."""
+        box = QFrame(objectName="Mob")
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(8, 6, 10, 6)
+        lay.setSpacing(8)
+        pic = QLabel(objectName="MobPic")
+        pic.setFixedSize(PIC, PIC)
+        pic.setAlignment(Qt.AlignCenter)
+        pm = picture(self._kb, mob.key)
+        if not pm.isNull():
+            pic.setPixmap(pm)
+        row = QLabel()
+        row.setWordWrap(True)
+        row.setTextFormat(Qt.PlainText)
+        lay.addWidget(pic, 0, Qt.AlignVCenter)
+        lay.addWidget(row, 1)
+        self._rows.append(row)
+        self._pics.append(pic)
+        return box
 
     def _row_text(self, mob: NpcHere) -> str:
         t, rtl = self.t, self.t.rtl
@@ -63,10 +80,8 @@ class MonsterOverlay(NpcOverlay):
         return f"{bidi.ltr_name(mob.name, rtl)}\n{bidi.plain(sub, rtl)}"
 
     def _retext(self) -> None:
-        t, rtl = self.t, self.t.rtl
-        name = routes.of(self._kb).name(self._mid) if self._mid else ""
-        title = t("monster_overlay_title")
-        self._title.setText(bidi.plain(f"{title} · {name}" if name and name != self._mid else title, rtl))
+        t = self.t
+        self._retitle("monster_overlay_title")
         self._close.setAccessibleName(t("npc_overlay_close"))
         self._close.setToolTip(t("npc_overlay_close"))
         for row, mob in zip(self._rows, self._npcs):
@@ -77,6 +92,7 @@ class MonsterOverlay(NpcOverlay):
         t = self.t
         key = ("npc_overlay_unknown" if self._mid is None else "monster_overlay_none" if not self._npcs else "")
         self._status.setText(bidi.plain(t(key), t.rtl) if key else "")
+        self._status.setVisible(bool(key))
         self._fit()
 
     def _pick(self, npc: NpcHere) -> None:

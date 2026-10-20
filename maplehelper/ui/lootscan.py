@@ -215,6 +215,19 @@ class LootScanner(QObject):
             return None
         cid, lg = self._cid, self._log
         rec = self.store.end(cid, self.kb, lg)
+        if not lg.events and not lg.base["exp"] and not lg.base["mesos"] and not lg.base["items"]:
+            # it counted nothing (Reset, then Stop): no history row, and the last real session stays the one shown
+            if lg.db_id is not None:
+                try:
+                    lootdb.delete_log(lg.db_id)
+                except Exception as e:  # noqa: BLE001 - an empty row left behind is harmless
+                    self._complain(f"loot database: {type(e).__name__}: {e}")
+            self.store.drop(cid)
+            self._cid, self._log = None, None
+            self._save_timer.stop()
+            self.restart()
+            self.changed.emit()
+            return None
         self._to_db(lg, final=True)         # the rest of its pickups, and its end
         self.store.put(cid, lg)             # (which of them are in the database)
         self._cid, self._log = None, None

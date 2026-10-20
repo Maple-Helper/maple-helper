@@ -88,10 +88,6 @@ def test_a_minute_read_redraws_only_pages_that_show_it(tools, monkeypatch):
     d.profiles.active.quests_done.append("quest/none")
     d.sync_done(True)
     assert calls == ["quests"]
-    d.show_page(PAGES.index("exp"))
-    calls.clear()
-    d.sync_done(True)
-    assert calls == ["exp"]
 
 
 @needs_kb

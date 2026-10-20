@@ -80,7 +80,7 @@ def test_a_slot_shows_the_potion_in_it_never_a_skill(kb):
     grid = quickslot.locate(rgb, (50, 80))
     names = []
     for x0, y0, x1, y1 in grid.slots():
-        key = quickslot.identify(rgb[y0:y1, x0:x1], kb, grid.pitch)
+        key, _ = quickslot.identify(rgb[y0:y1, x0:x1], kb, grid.pitch)
         names.append(kb.get(key)["name"] if key else None)
     # the pink milk box is no potion the KB has: not named
     assert names == [None, "Lemon", "Orange", "Blue Potion", None, "Meat", None, "Red Potion"]
@@ -140,3 +140,14 @@ def test_two_slots_of_one_potion_that_disagree_are_skipped():
     assert w.read(quickslot.Read({0: ("lemon", 10), 1: ("lemon", 99)}), 4) == {}
     assert w.read(quickslot.Read({0: ("lemon", 99), 1: ("lemon", 99)}), 6) == {}
     assert w.read(quickslot.Read({0: ("lemon", 99), 1: ("lemon", 99)}), 8) == {"lemon": 1}
+
+
+def test_a_dimmed_see_through_panel_still_names_every_potion(kb):
+    """The panel drawn see-through over a dark window (its slots grey, not white): the hue of each picture still
+    names it, after the panel's dimming is undone (a lemon was read as an orange, the meat not at all, live)."""
+    rgb = _crop("dim.png")
+    r = quickslot.Reader(kb)
+    r._grid, r._grid_size = quickslot.locate(rgb, (50, 80)), (rgb.shape[1], rgb.shape[0])
+    rd = r.read(rgb)
+    got = {i: (kb.get(k)["name"], n) for i, (k, n) in rd.potions.items()}
+    assert got == {1: ("Lemon", 300), 2: ("Orange", 0), 3: ("Blue Potion", 43), 5: ("Meat", 150), 7: ("Red Potion", 10)}

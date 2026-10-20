@@ -888,31 +888,20 @@ def test_a_one_line_answer_has_copy_and_pin_on_its_row():
     assert long.text_row.count() == 1 and long.layout().count() == 2
 
 
-def test_the_tray_menu_turns_the_bar_over_the_game_on_and_off():
-    """The bar's ✕ hid it with only Settings > Minimap to bring it back: the tray menu has it too (the owner,
-    2026-10-11), ticked as the setting is each time the menu opens."""
+def test_the_tray_menu_has_no_switch_for_the_bar_over_the_game():
+    """The bar is always on while the app runs (the owner, 2026-10-20): no "In-game toolbar" in the tray menu."""
     from types import SimpleNamespace
 
     from PySide6.QtWidgets import QApplication
 
     from maplehelper.app import MapleHelperApp
     QApplication.instance() or QApplication([])
-    refreshed = []
-    fake = SimpleNamespace(settings={"language": "en", "game_toolbar": False}, qapp=QApplication.instance(),
+    fake = SimpleNamespace(settings={"language": "en", "game_toolbar": True}, qapp=QApplication.instance(),
                            overlay=SimpleNamespace(toggle=lambda c: None), capture=None, show_chat=lambda: None,
-                           open_settings=lambda: None, _add_announced_item=lambda: None,
-                           game_toolbar=SimpleNamespace(refresh=lambda: refreshed.append(True)))
-    fake._toolbar_from_tray = lambda on: MapleHelperApp._toolbar_from_tray(fake, on)
+                           open_settings=lambda: None, _add_announced_item=lambda: None)
     MapleHelperApp.make_tray(fake)
     try:
-        bar = fake._tray_bar
-        assert bar.text() == "In-game toolbar" and bar.isCheckable()
-        fake._tray_menu.aboutToShow.emit()
-        assert not bar.isChecked()
-        bar.setChecked(True)
-        assert fake.settings["game_toolbar"] is True and refreshed == [True]
-        fake.settings["game_toolbar"] = False             # the bar's ✕, meanwhile
-        fake._tray_menu.aboutToShow.emit()                # the menu shows it as it is, and changes nothing
-        assert not bar.isChecked() and fake.settings["game_toolbar"] is False and refreshed == [True]
+        texts = [a.text() for a in fake._tray_menu.actions()]
+        assert "In-game toolbar" not in texts and not hasattr(fake, "_tray_bar")
     finally:
         fake.tray.hide()

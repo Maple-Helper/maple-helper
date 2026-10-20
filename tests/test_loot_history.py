@@ -163,83 +163,74 @@ def test_no_potions_read_anywhere_is_said():
 
 @pytest.fixture
 def page(isolated_store, kb):
-    from maplehelper.ui.tools import ToolsDialog
+    from maplehelper.ui.grindtracker import GrindTracker
+    from maplehelper.ui.lootscan import LootScanner
     p = isolated_store.Profiles()
     p.add("Kiwi", "Magician", "Magician", 21)
     s = isolated_store.Settings()
-    d = ToolsDialog(kb, p, s, "en", "", {}, "loot")
+    scan = LootScanner(kb, p, s)
+    d = GrindTracker(scan, kb, s, "en", "")
     yield d
-    d.loot.stop()
+    scan.stop()
     d.close()
 
 
-def _texts(layout):
-    from PySide6.QtWidgets import QLabel
-    out = []
-    for i in range(layout.count()):
-        it = layout.itemAt(i)
-        if it.widget() is not None:
-            out += [it.widget().text()] if isinstance(it.widget(), QLabel) else \
-                [w.text() for w in it.widget().findChildren(QLabel)]
-        elif it.layout() is not None:
-            out += _texts(it.layout())
-    return out
-
-
-def test_the_page_shows_the_history_and_compares_the_maps(page, kb):
+def test_the_window_shows_the_history_and_compares_the_maps(page, kb):
     d = page
-    cid = d.c.id
+    cid = d.scanner.cid()
     _db_log(kb, cid, 1000, 3600, 21, {A: 3600}, [lootlog.Event(1100, "exp", 20000, map=A),
                                                   lootlog.Event(1200, "mesos", 9000, map=A)])
     _db_log(kb, cid, 9000, 3600, 22, {B: 3600}, [lootlog.Event(9100, "exp", 8000, map=B),
                                                   lootlog.Event(9200, "mesos", 30000, map=B),
                                                   lootlog.Event(9300, "potion", 10, "Red Potion", RED, map=B)])
-    d._loot_hist_sig = None
-    d.loot_changed()
-    hist = " | ".join(_texts(d.loot_recent))
-    assert "Mushroom Town" in hist and "EXP 20,000" in hist and "Potions −" in hist
-    cmp_ = " | ".join(_texts(d.loot_compare))
-    assert "Most EXP" in cmp_ and "Pays best" in cmp_ and "trade-off" in cmp_
-    assert not d.loot_more.isVisibleTo(d)
+    d.show_tab("history")
+    hist = " | ".join(d.lines())
+    assert "Mushroom Town" in hist and "20,000" in hist and "Spent on potions" in hist and "Details" in hist
+    d._toggle(next(iter(lootdb.sessions(cid, kb))).id)        # the newest one opened: what it used
+    assert "Red Potion" in " | ".join(d.lines())
+    d.show_tab("compare")
+    cmp_ = " | ".join(d.lines())
+    assert "Most EXP" in cmp_ and "Pays best" in cmp_ and "trade-off" in cmp_ and "EXP/h" in cmp_
 
 
-def test_the_page_and_the_card_show_potions_and_the_net(page, kb):
+def test_the_window_and_the_card_show_potions_etc_items_and_the_net(page, kb):
+    from maplehelper.i18n import I18n
     from maplehelper.ui.lootoverlay import LootOverlay
     d = page
-    d.loot_changed()
-    d.loot_start.click()
-    d.loot._log.add([lootlog.Event(1.0, "mesos", 1000), lootlog.Event(2.0, "item", 2, "Leaf", LEAF),
-                     lootlog.Event(3.0, "potion", 3, "Red Potion", RED)])
-    d.loot.changed.emit()
-    red = lootlog.potion_cost(kb, RED)
-    assert d.loot_cells["potions"][1].text() == f"-{3 * red:,}"
-    assert d.loot_cells["net"][1].text() == f"{1000 + 22 - 3 * red:,}"
-    assert d.loot_cells["etc"][1].text() == "22"
-    assert any("Red Potion" in x for x in _texts(d.loot_items))
-    from maplehelper.i18n import I18n
-    card = LootOverlay(d.loot, d.settings, kb, I18n("en"))
+    scan = d.scanner
+    scan.start()
+    scan._log.add([lootlog.Event(1.0, "mesos", 1000), lootlog.Event(2.0, "item", 2, "Leaf", LEAF),
+                   lootlog.Event(2.5, "item", 1, "Old Gladius", GLADIUS),
+                   lootlog.Event(3.0, "potion", 3, "Red Potion", RED)])
+    scan.changed.emit()
+    red, leaf, gl = lootlog.potion_cost(kb, RED), lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
+    text = " | ".join(d.lines())
+    assert f"-{3 * red:,}" in text and f"{1000 + 2 * leaf + gl - 3 * red:,}" in text
+    assert "ETC you picked up" in text and "Items you picked up" in text and "Old Gladius" in text
+    assert "Potions used" in text and "Red Potion" in text and "MesoWatch" in text
+    card = LootOverlay(scan, d.settings, kb, I18n("en"))
     try:
         card.refresh()
-        assert any(x.startswith("Potions") and "3" in x for x in card.lines())
-        assert any(x.startswith("ETC") for x in card.lines()) and any(x.startswith("Net") for x in card.lines())
+        lines = card.lines()
+        assert any(x.startswith("Potions") and f"-{3 * red:,}" in x for x in lines)
+        assert any(x.startswith("ETC") for x in lines) and any(x.startswith("Net") for x in lines)
     finally:
         card.close()
-    d.loot.end()
+    scan.end()
 
 
 def test_the_scanner_counts_a_potion_used_on_the_map_it_was_on(page, kb):
     from maplehelper.minimap import Here
     from maplehelper.ui.location import LOCATION
-    d = page
-    scan = d.loot
+    scan = page.scanner
     scan.start()
     LOCATION.set(Here(A))
     try:
-        for t, n in ((1.0, 50), (2.0, 50), (3.0, 48), (4.0, 48)):
+        for t, n in ((1.0, 50), (2.0, 50), (3.0, 50), (4.0, 48), (5.0, 48)):
             scan._deliver_quick(quickslot.Read({1: (RED, n)}), t)
         assert scan.quick_state == "ok"
         assert [(e.kind, e.amount, e.key, e.map) for e in scan._log.events] == [("potion", 2, RED, A)]
-        scan._deliver_quick(quickslot.Read(), 5.0)
+        scan._deliver_quick(quickslot.Read(), 6.0)
         assert scan.quick_state == "none"
         scan._reading = True                    # (a read "still going": the ticks start no real screen read)
         scan._tick_at = None

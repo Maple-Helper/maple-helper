@@ -46,9 +46,11 @@ GRIP = "⋮⋮"                                               # the drag handle'
 FLOW_GAP = 6                                              # between the buttons, and between the rows they wrap into
 # the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
 WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
-# the Tools button's menu: straight to these Tools window tabs (one click from the game, each tool still in one
-# place: the owner, 2026-10-11), then the whole window
-QUICK = ("prices", "route", "scrolls", "gear", "crafting", "quests", "farm", "loot")
+# the Play tools button's menu: every tab of the Tools window, straight to it (the owner, 2026-10-20: all of them,
+# by their names), then the whole window
+def quick_pages() -> tuple[str, ...]:
+    from .tools import PAGES
+    return PAGES
 
 
 def qss(settings) -> str:
@@ -302,6 +304,7 @@ class GameToolbar(EdgeResize, QWidget):
     window_toggled = Signal(str)       # a WINDOWS setting flipped ("npc_overlay" | "monster_overlay" | "loot_overlay")
     chat_requested = Signal()          # the Chat button: the chat window opens (or comes forward)
     tools_requested = Signal(str)      # the Tools menu: the app's Tools window opens on that tab ("": its own)
+    quit_requested = Signal()          # its ✕: the app closes
     look_changed = Signal()            # a ⚙ panel choice: every window over the game re-styles and repaints
 
     def __init__(self, settings: Settings, t: I18n):
@@ -379,7 +382,7 @@ class GameToolbar(EdgeResize, QWidget):
         m.clear()
         m.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
         m.setStyleSheet(menu_qss(self._settings))
-        for page in QUICK:
+        for page in quick_pages():
             m.addAction(bidi.plain(t(f"tool_{page}"), rtl), lambda p=page: self.tools_requested.emit(p))
         m.addSeparator()
         m.addAction(bidi.plain(t("tb_tools_all"), rtl), lambda: self.tools_requested.emit(""))
@@ -473,9 +476,8 @@ class GameToolbar(EdgeResize, QWidget):
         self.window_toggled.emit(key)
 
     def _close_clicked(self, _=False) -> None:
-        """The ✕: the setting off (the Settings switch follows), the bar hidden until it's switched back on."""
-        self._settings["game_toolbar"] = False
-        self.hide()
+        """The ✕: Maple Helper closes (the bar is always on while the app runs: the owner, 2026-10-20)."""
+        self.quit_requested.emit()
 
     # ------------------------------------------------------------ the ⚙ panel
 

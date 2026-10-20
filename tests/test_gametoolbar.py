@@ -62,7 +62,7 @@ def test_only_the_map_windows_loot_log_and_tools_are_on_the_bar(bar):
     from PySide6.QtWidgets import QPushButton
     w, _ = bar
     texts = [b.text() for b in w.findChildren(QPushButton)]
-    assert texts == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
+    assert texts == ["Chat", "NPCs on map", "Monsters on map", "Grind tracker", "Play tools"]
 
 
 @pytest.mark.parametrize("key", ["npc_overlay", "monster_overlay", "loot_overlay"])
@@ -83,37 +83,43 @@ def test_each_window_button_is_its_windows_setting(bar, key):
     assert [k for k, b in w._windows.items() if b.isChecked()] == [key]
 
 
-def test_the_tools_button_opens_a_menu_of_tabs_then_the_whole_window(bar):
-    """One click from the game to a Tools tab (the owner, 2026-10-11); the last entry opens the window as it is."""
+def test_the_play_tools_button_opens_a_menu_of_every_tab_then_the_whole_window(bar):
+    """One click from the game to any Tools tab, every one of them (the owner, 2026-10-20); the last entry opens the
+    window as it is. The removed pages (Grind tracker, loot log, Gear, Scroll planner) are no tabs."""
     from maplehelper.ui import gametoolbar
+    from maplehelper.ui.tools import PAGES
     w, _ = bar
     seen = []
     w.tools_requested.connect(seen.append)
     w._tools.click()
     acts = [a for a in w._menu.actions() if not a.isSeparator()]
-    assert len(acts) == len(gametoolbar.QUICK) + 1 and not w._tools.isCheckable()
-    acts[gametoolbar.QUICK.index("gear")].trigger()
+    assert gametoolbar.quick_pages() == PAGES and len(acts) == len(PAGES) + 1 and not w._tools.isCheckable()
+    assert not {"exp", "loot", "gear", "scrolls"} & set(PAGES)
+    acts[PAGES.index("crafting")].trigger()
     acts[-1].trigger()
-    assert seen == ["gear", ""]
+    assert seen == ["crafting", ""]
     w._menu.hide()
 
 
-def test_the_x_turns_the_setting_off_and_hides(bar):
+def test_the_x_closes_the_app_and_the_bar_stays_on(bar):
+    """The bar is always on while the app runs (the owner, 2026-10-20): its ✕ asks the app to quit."""
     w, s = bar
     w.refresh()
+    quit_ = []
+    w.quit_requested.connect(lambda: quit_.append(True))
     w._close.click()
-    assert s["game_toolbar"] is False and not w.isVisible()
+    assert quit_ == [True] and s["game_toolbar"] is True
 
 
 def test_apply_language_retexts_and_mirrors(bar):
     w, _ = bar
     w.apply_language(I18n("he"))
     assert [w._windows[k].text() for k in ("npc_overlay", "monster_overlay")] == [
-        bidi.plain("NPC", True), bidi.plain("מפלצות", True)]
-    assert w._tools.text() == bidi.plain("כלים", True)
+        bidi.plain("NPC במפה", True), bidi.plain("מפלצות במפה", True)]
+    assert w._tools.text() == bidi.plain("כלי משחק", True)
     assert w.layoutDirection() == Qt.RightToLeft
     w.apply_language(I18n("en"))
-    assert w._windows["npc_overlay"].text() == "NPCs" and w.layoutDirection() == Qt.LeftToRight
+    assert w._windows["npc_overlay"].text() == "NPCs on map" and w.layoutDirection() == Qt.LeftToRight
 
 
 # ------------------------------------------------------------ its width (the buttons wrap)
@@ -227,7 +233,7 @@ def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
     assert "game_toolbar_icons" not in store.DEFAULT_SETTINGS
     assert "game_toolbar_icons" not in report.REPORT_SETTINGS
     assert not hasattr(gametoolbar, "ICONS") and not hasattr(w._panel, "_icons")
-    assert [b.text() for b, _ in w._buttons()] == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
+    assert [b.text() for b, _ in w._buttons()] == ["Chat", "NPCs on map", "Monsters on map", "Grind tracker", "Play tools"]
     assert w._tools.toolTip() == w.t("tb_tools_tip")
     assert "Emoji" not in w.styleSheet()
     assert "tbs_icons" not in STRINGS and "tbs_icons_hint" not in STRINGS
@@ -296,7 +302,7 @@ def test_the_default_look_is_the_apps(bar, monkeypatch):
     w.refresh()
     assert npcoverlay.current_tint() == theme.PALETTES[s["appearance"]]["glass"]
     assert npcoverlay.ACCENTS["app"][1] == theme.ORANGE_DEEP and theme.ORANGE_DEEP in w.styleSheet()
-    assert w._windows["npc_overlay"].text() == "NPCs"
+    assert w._windows["npc_overlay"].text() == "NPCs on map"
 
 
 def _lum(css: str) -> float:

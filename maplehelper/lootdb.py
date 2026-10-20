@@ -142,6 +142,12 @@ def set_spots(log_id: int, maps: dict[str, float]) -> None:
         con.executemany("INSERT INTO spots (log_id, map, seconds) VALUES (?, ?, ?)", rows)
 
 
+def delete_log(log_id: int) -> None:
+    """A log that counted nothing (started and stopped at once): it isn't history."""
+    with closing(_connect()) as con, con:
+        con.execute("DELETE FROM logs WHERE id = ?", (log_id,))
+
+
 def forget(character_id: str) -> None:
     """A deleted character's logs go with it."""
     if not PATH.exists():
@@ -251,6 +257,7 @@ class Session(Totals):
     level: int | None = None
     maps: dict[str, float] = field(default_factory=dict)     # map id -> seconds on it, longest first
     items: list[tuple[str, int, str, int | None]] = field(default_factory=list)  # (name, count, key, price)
+    potion_list: list[tuple[str, int, str, int | None]] = field(default_factory=list)  # (name, used, key, cost)
 
 
 @dataclass
@@ -307,7 +314,10 @@ def sessions(character_id: str, kb=None, limit: int = 50, now: float | None = No
                 _add_event(s, kind, amount, worth, key in etc)
                 if kind == "item":
                     items[(item, key)] = [amount, price]
+                elif kind == "potion":
+                    s.potion_list.append((item, amount, key, price))
             s.items = sorted(((n, c, k, p) for (n, k), (c, p) in items.items()), key=lambda r: (-r[1], r[0].lower()))
+            s.potion_list.sort(key=lambda r: (-r[1], r[0].lower()))
             s.maps = dict(con.execute("SELECT map, seconds FROM spots WHERE log_id = ? ORDER BY seconds DESC",
                                       (lid,)).fetchall())
             out.append(s)

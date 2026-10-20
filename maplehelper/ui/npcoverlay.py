@@ -12,8 +12,9 @@ import sys
 from dataclasses import dataclass
 
 from PySide6.QtCore import QPoint, QRect, QRectF, QSize, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QToolButton,
+                               QVBoxLayout, QWidget)
 
 from .. import bidi, routes
 from ..i18n import I18n
@@ -26,7 +27,7 @@ from .regionpick import from_capture
 
 log = logging.getLogger("maplehelper")
 
-MIN_W, MIN_H = 220, 260             # the smallest the player can drag the window to
+MIN_W, MIN_H = 260, 260             # the smallest the player can drag the window to (a row: picture, a word, the way)
 QWIDGETSIZE_MAX = 16777215           # Qt's "no maximum" (the fold's fixed height lifted again)
 DEFAULT_W, DEFAULT_H = 320, 440     # what opens beside the minimap box before it is ever resized
 RADIUS = 16                         # the panel's own rounding (a touch tighter than the app's windows)
@@ -38,6 +39,7 @@ GEOM_DEBOUNCE_MS = 400              # a move/resize saves the window's place onc
 H_NEAR, V_NEAR = 60, 90             # map units: nearer than this aside / above-below is "right by you"
 OPACITY_MIN, OPACITY_MAX, OPACITY_DEFAULT = 0.3, 1.0, 0.85
 WDA_NONE, WDA_EXCLUDEFROMCAPTURE = 0x0, 0x11   # Windows 10 2004+: screen captures see / never see the window
+PIC = 32                            # an NPC's / a monster's picture at the start of its row
 
 # the dark glass presets' own look: light text and see-through white fills, whatever theme the app is in
 PANEL = (24, 24, 27)
@@ -140,16 +142,23 @@ def qss(settings) -> str:
     return f"""
 QLabel {{ color: {c['text']}; }}
 #Title {{ color: {c['text']}; font-weight: 600; }}
+#MapName {{ color: {c['muted']}; font-size: 14px; }}
 #Status {{ color: {c['muted']}; }}
-#Inside {{ color: {c['muted']}; font-size: 11px; font-weight: 600; padding: 6px 2px 0 2px; }}
+#Inside {{ color: {c['muted']}; font-size: 14px; font-weight: 600; padding: 6px 2px 0 2px; }}
 #GuideLine {{ color: {c['text']}; }}
 QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px;
               padding: 6px 10px; text-align: left; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton[sel="true"] {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
+#NpcName {{ background: transparent; color: {c['text']}; }}
+QPushButton[sel="true"] #NpcName {{ color: {on_accent}; font-weight: 600; }}
+#NpcPic {{ background: transparent; }}
 QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
+QToolButton#Way {{ font-family: "{theme.ICON_FONT}"; font-size: 16px; background: {c['fill1']}; color: {c['text']};
+                  border-radius: 8px; padding: 0; }}
+QToolButton#Way:hover {{ background: {c['fill2']}; }}
 QScrollArea {{ background: transparent; border: none; }}
 #Rows {{ background: transparent; }}
 QScrollBar:vertical {{ background: transparent; width: 8px; margin: 0; }}
@@ -228,6 +237,18 @@ def direction(g, mid: str, you, spot) -> str:
     if h and v:
         return f"npc_guide_{h}_{v}"
     return f"npc_guide_{h or v}" if h or v else "npc_guide_here"
+
+
+def picture(kb, key: str, side: int = PIC) -> QPixmap:
+    """The KB's picture of an NPC or a monster (kb.picture: its own, else its category's icon; an own file that
+    won't read: the icon too), scaled to fit a side x side box; a null pixmap when there is none to read."""
+    find = getattr(kb, "picture", None)
+    path = find(key) if find is not None else None
+    pm = QPixmap(str(path)) if path else QPixmap()
+    if pm.isNull() and path:
+        from ..kb import FALLBACK_DIR
+        pm = QPixmap(str(FALLBACK_DIR / f"{key.partition('/')[0]}.png"))
+    return pm if pm.isNull() else pm.scaled(side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
 
 def _paint_glass(w: QWidget, opacity: float) -> None:
@@ -426,6 +447,52 @@ class GuideWindow(QWidget):
         dock_beside(self, self._owner, settings=self._owner._settings)
 
 
+class NpcButton(QPushButton):
+    """An NPC's row: a button (its click guides to the NPC, [sel] lights it) holding the NPC's picture at the reading
+    start and its name beside it, wrapped rather than cut (a button's own text neither wraps nor elides: a long
+    name pushed the row wider than the list, cutting off its start and the way button at its end). text() is the
+    name as shown."""
+
+    def __init__(self, name: str, pm: QPixmap):
+        super().__init__()
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(6, 4, 8, 4)
+        lay.setSpacing(8)
+        self.pic = QLabel(objectName="NpcPic")
+        self.pic.setFixedSize(PIC, PIC)
+        self.pic.setAlignment(Qt.AlignCenter)
+        if not pm.isNull():
+            self.pic.setPixmap(pm)
+        self.name = QLabel(objectName="NpcName")
+        self.name.setWordWrap(True)
+        self.name.setTextFormat(Qt.PlainText)
+        for lb in (self.pic, self.name):
+            lb.setAttribute(Qt.WA_TransparentForMouseEvents)     # the button takes every click
+        lay.addWidget(self.pic, 0, Qt.AlignVCenter)
+        lay.addWidget(self.name, 1)
+        self.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+        self.setText(name)
+
+    def text(self) -> str:                  # the name label's: the button paints no text of its own
+        return self.name.text()
+
+    def setText(self, text: str) -> None:
+        self.name.setText(text)
+        self.updateGeometry()
+
+    def sizeHint(self) -> QSize:
+        return self.layout().sizeHint()
+
+    def minimumSizeHint(self) -> QSize:
+        return self.layout().minimumSize()
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, w: int) -> int:
+        return self.layout().totalHeightForWidth(w)
+
+
 class _Header(QWidget):
     """The title row: dragging it moves the window (the ✕ in it still clicks)."""
 
@@ -468,7 +535,9 @@ class NpcOverlay(EdgeResize, QWidget):
         self._opacity = OPACITY_DEFAULT
         self._mid: str | None = None         # the map the list is of
         self._npcs: list[NpcHere] = []
-        self._rows: list[QPushButton] = []
+        self._rows: list[QWidget] = []       # each NPC's NpcButton (MonsterOverlay: each monster's text)
+        self._ways: list[QToolButton] = []   # each NPC row's "How to get there" (the map window's way from here)
+        self._items: list[QWidget] = []      # everything in the list's layout, for the next map's rebuild
         self._heads: list[tuple[QLabel, str]] = []     # each building's heading over its NPCs, with its map id
         self._sel: NpcHere | None = None
         self._placed = False                 # geometry applied at least once: there is a place to remember
@@ -489,12 +558,23 @@ class NpcOverlay(EdgeResize, QWidget):
         hrow = QHBoxLayout(head)
         hrow.setContentsMargins(0, 0, 0, 0)
         hrow.setSpacing(8)
+        # two lines, never one cut: the window's name, and under it the map's in full (wrapped, muted) - on one
+        # line a long map name had its start cut off ("rest North of Ellinia - NPCs Here")
+        names = QVBoxLayout()
+        names.setContentsMargins(0, 0, 0, 0)
+        names.setSpacing(0)
         self._title = QLabel(objectName="Title")
+        self._title.setWordWrap(True)
+        self._map_name = QLabel(objectName="MapName")
+        self._map_name.setWordWrap(True)
+        self._map_name.hide()
+        names.addWidget(self._title)
+        names.addWidget(self._map_name)
         self._close = QToolButton(objectName="Close", text=theme.SYMBOL_ICONS["close"])
         self._close.setCursor(Qt.PointingHandCursor)
         self._close.setFocusPolicy(Qt.NoFocus)
         self._close.clicked.connect(self._close_clicked)
-        hrow.addWidget(self._title, 1)
+        hrow.addLayout(names, 1)
         hrow.addWidget(self._close, 0, Qt.AlignTop)
         col.addWidget(head)
         self._status = QLabel(objectName="Status")       # the map unknown / no NPCs / the pick hint
@@ -521,11 +601,19 @@ class NpcOverlay(EdgeResize, QWidget):
 
     # ------------------------------------------------------------ text (all of it, for apply_language)
 
-    def _retext(self) -> None:
+    def _retitle(self, key: str) -> None:
+        """The header's two lines: the window's name, and the map's under it (none while the map is unknown or the
+        KB has no name for it). The map's English name is one left-to-right block, wrapped rather than cut."""
         t, rtl = self.t, self.t.rtl
         name = routes.of(self._kb).name(self._mid) if self._mid else ""
-        title = t("npc_overlay_title")
-        self._title.setText(bidi.plain(f"{title} · {name}" if name and name != self._mid else title, rtl))
+        self._title.setText(bidi.plain(t(key), rtl))
+        shown = bool(name and name != self._mid)
+        self._map_name.setText(bidi.ltr_name(name, rtl) if shown else "")
+        self._map_name.setVisible(shown)
+
+    def _retext(self) -> None:
+        t, rtl = self.t, self.t.rtl
+        self._retitle("npc_overlay_title")
         self._close.setAccessibleName(t("npc_overlay_close"))
         self._close.setToolTip(t("npc_overlay_close"))
         self._clear.setText(bidi.plain(t("npc_overlay_clear"), rtl))
@@ -533,6 +621,9 @@ class NpcOverlay(EdgeResize, QWidget):
         self._guide.close_btn.setToolTip(t("npc_overlay_clear"))
         for row, npc in zip(self._rows, self._npcs):
             row.setText(bidi.ltr_name(npc.name, rtl))
+        for way in self._ways:
+            way.setToolTip(t("tool_route"))
+            way.setAccessibleName(t("tool_route"))
         g = routes.of(self._kb)
         for head, inside in self._heads:
             head.setText(bidi.plain(t("npc_overlay_inside", place=g.name(inside)), rtl))
@@ -545,6 +636,7 @@ class NpcOverlay(EdgeResize, QWidget):
                "npc_overlay_none" if not self._npcs else
                "" if self._sel is not None else "npc_overlay_pick")
         self._status.setText(bidi.plain(t(key), t.rtl) if key else "")
+        self._status.setVisible(bool(key))      # nothing to say: no empty line between the header and the list
         self._fit()
 
     def _fit(self) -> None:
@@ -552,20 +644,66 @@ class NpcOverlay(EdgeResize, QWidget):
         line saying so, and can't be stretched taller; NPCs again, and it opens back to the height it had."""
         empty = not self._npcs
         if empty == self._collapsed:
+            if empty:
+                self._fold()        # the header's map name may wrap to more lines, or fewer
             return
         self._collapsed = empty
         self._scroll.setVisible(not empty)
         if empty:
             self._full_h = self.height()
-            self.setMinimumHeight(0)
-            self.layout().activate()
-            self.setFixedHeight(self.layout().sizeHint().height())
+            self._fold()
         else:
             self.setMaximumHeight(QWIDGETSIZE_MAX)
             self.setMinimumHeight(MIN_H)
             self.resize(self.width(), max(MIN_H, self._full_h or DEFAULT_H))
 
+    def _fold(self) -> None:
+        """Folded: as tall as the header and the status line need at the window's width (a long map name wraps)."""
+        lay = self.layout()
+        self.setMinimumHeight(0)
+        lay.activate()
+        h = lay.heightForWidth(self.width()) if lay.hasHeightForWidth() else -1
+        self.setFixedHeight(h if h > 0 else lay.sizeHint().height())
+
     # ------------------------------------------------------------ the list
+
+    def _clear_list(self) -> None:
+        """Every row and heading out of the list (the next map's are built anew)."""
+        for w in self._items:
+            self._rows_lay.removeWidget(w)
+            w.deleteLater()
+        self._items, self._rows, self._ways, self._heads = [], [], [], []
+
+    def _add_item(self, w: QWidget) -> None:
+        self._items.append(w)
+        self._rows_lay.insertWidget(self._rows_lay.count() - 1, w)
+
+    def _npc_row(self, npc: NpcHere) -> QWidget:
+        """One NPC's row: its picture and name at the reading start (a click guides to it on the minimap), and at
+        the row's end "How to get there": the map window on the way from the player's map to it (MAP_REQUESTS, the
+        button an NPC's card has; one in a shop: to the shop's door, then inside)."""
+        from .widgets import MAP_REQUESTS
+        box = QWidget(objectName="NpcRow")
+        lay = QHBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        row = NpcButton(bidi.ltr_name(npc.name, self.t.rtl), picture(self._kb, npc.key))
+        row.setFocusPolicy(Qt.NoFocus)
+        row.setCursor(Qt.PointingHandCursor)
+        row.clicked.connect(lambda _=False, n=npc: self._pick(n))
+        way = QToolButton(objectName="Way", text=theme.ICON["route"])
+        way.setFocusPolicy(Qt.NoFocus)
+        way.setCursor(Qt.PointingHandCursor)
+        way.setFixedWidth(PIC + 4)
+        way.setSizePolicy(way.sizePolicy().horizontalPolicy(), QSizePolicy.Expanding)
+        way.setToolTip(self.t("tool_route"))
+        way.setAccessibleName(self.t("tool_route"))
+        way.clicked.connect(lambda _=False, k=npc.key: MAP_REQUESTS.requested.emit(k))
+        lay.addWidget(row, 1)
+        lay.addWidget(way)
+        self._rows.append(row)
+        self._ways.append(way)
+        return box
 
     def _rebuild(self, mid: str | None) -> None:
         """The rows for this map (a Qt slot too: LOCATION.changed names the map), each building's under a heading
@@ -573,10 +711,7 @@ class NpcOverlay(EdgeResize, QWidget):
         picture."""
         self._mid = mid
         self._npcs = npcs_on(routes.of(self._kb), mid) if mid else []
-        while self._rows or self._heads:
-            w = self._rows.pop() if self._rows else self._heads.pop()[0]
-            self._rows_lay.removeWidget(w)
-            w.deleteLater()
+        self._clear_list()
         self._sel = None
         LOCATION.set_guide(None)
         inside = ""
@@ -586,13 +721,8 @@ class NpcOverlay(EdgeResize, QWidget):
                 head = QLabel(objectName="Inside")
                 head.setWordWrap(True)
                 self._heads.append((head, inside))
-                self._rows_lay.insertWidget(self._rows_lay.count() - 1, head)
-            row = QPushButton(bidi.ltr_name(npc.name, self.t.rtl))
-            row.setFocusPolicy(Qt.NoFocus)
-            row.setCursor(Qt.PointingHandCursor)
-            row.clicked.connect(lambda _=False, n=npc: self._pick(n))
-            self._rows.append(row)
-            self._rows_lay.insertWidget(self._rows_lay.count() - 1, row)
+                self._add_item(head)
+            self._add_item(self._npc_row(npc))
         self._guide.hide()
         self._retext()
 
@@ -620,8 +750,9 @@ class NpcOverlay(EdgeResize, QWidget):
             on = self._sel is not None and npc.key == self._sel.key
             if row.property("sel") != on:
                 row.setProperty("sel", on)
-                row.style().unpolish(row)
-                row.style().polish(row)
+                for w in (row, *row.findChildren(QLabel)):      # its name follows: [sel] #NpcName
+                    w.style().unpolish(w)
+                    w.style().polish(w)
 
     # ------------------------------------------------------------ the guide window
 

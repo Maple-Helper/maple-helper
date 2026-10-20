@@ -13,7 +13,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
+                               QWidget)
 
 from .. import bidi, lootlog
 from ..i18n import I18n
@@ -62,6 +63,7 @@ def _short(n: int | None) -> str:
 
 class LootOverlay(QWidget):
     closed = Signal()               # the ✕ turned the setting off: the bar's Loot log button unchecks
+    full_requested = Signal()       # "Full tracker": the grind tracker's own window (ui/grindtracker.py)
 
     def __init__(self, scanner, settings, kb, t: I18n | None = None):
         super().__init__(None, _flags())
@@ -121,18 +123,27 @@ class LootOverlay(QWidget):
         self._status = QLabel(objectName="Status")      # not running / stopped / no game / covered
         self._status.setWordWrap(True)
         body.addWidget(self._status)
-        self._stats: dict[str, tuple[QFrame, QLabel, QLabel]] = {}
-        for key in STATS:
-            row = QFrame(objectName="Stat")
-            lay = QHBoxLayout(row)
-            lay.setContentsMargins(10, 6, 10, 6)
-            lay.setSpacing(8)
-            name, value = QLabel(objectName="StatName"), QLabel(objectName="StatValue")
-            lay.addWidget(name)
-            lay.addStretch(1)
-            lay.addWidget(value)
-            body.addWidget(row)
-            self._stats[key] = (row, name, value)
+        # the figures as a table: each category, so far and per hour, the numbers under their headings
+        self._table = QFrame(objectName="Stat")
+        grid = QGridLayout(self._table)
+        grid.setContentsMargins(10, 6, 10, 6)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(5)
+        self._heads = [QLabel(objectName="StatName") for _ in range(3)]
+        for c, lb in enumerate(self._heads):
+            lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
+            grid.addWidget(lb, 0, c)
+        self._stats: dict[str, tuple[QLabel, QLabel, QLabel]] = {}
+        for r, key in enumerate(STATS, start=1):
+            name, total, hour = QLabel(objectName="StatName"), QLabel(objectName="StatValue"), QLabel(objectName="StatValue")
+            for c, lb in enumerate((name, total, hour)):
+                lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
+                grid.addWidget(lb, r, c)
+            self._stats[key] = (name, total, hour)
+        grid.setColumnStretch(0, 3)
+        grid.setColumnStretch(1, 2)
+        grid.setColumnStretch(2, 2)
+        body.addWidget(self._table)
         self._feed_head = QLabel(objectName="Head")
         body.addWidget(self._feed_head)
         self._feed = [QLabel(objectName="Feed") for _ in range(FEED)]
@@ -147,6 +158,8 @@ class LootOverlay(QWidget):
         for b in (self._start, self._stop, self._reset):
             btns.addWidget(b, 1)
         body.addLayout(btns)
+        self._full = self._button(self.full_requested.emit)
+        body.addWidget(self._full)
         col.addWidget(self._body)
 
     def paintEvent(self, e) -> None:
@@ -163,9 +176,9 @@ class LootOverlay(QWidget):
         if self._status.isVisibleTo(self):
             out.append(self._status.text())
         for key in STATS:
-            row, name, value = self._stats[key]
-            if row.isVisibleTo(self):
-                out.append(f"{name.text()} {value.text()}")
+            name, total, hour = self._stats[key]
+            if name.isVisibleTo(self):
+                out.append(f"{name.text()} {total.text()} {hour.text()}")
         return out + [lb.text() for lb in self._feed if lb.isVisibleTo(self)]
 
     def refresh(self) -> None:
@@ -193,21 +206,24 @@ class LootOverlay(QWidget):
                   f"loot_{state}" if state in ("no_game", "covered") else "")
         self._status.setText(bidi.plain(t(status), rtl) if status else "")
         self._status.setVisible(bool(status))
+        ph = (lambda v: lootlog.per_hour(v, sm.seconds)) if sm is not None else (lambda v: None)
+        neg = lambda v: num(-v) if v else num(0)  # noqa: E731
         values = {} if sm is None else {
-            "exp": t("loot_card_rate", n=num(sm.exp), h=num(sm.exp_h)),
-            "mesos": t("loot_card_rate", n=num(sm.mesos), h=num(sm.mesos_h)),
-            "etc": t("loot_card_worth", n=num(sm.etc), v=num(sm.etc_value)),
-            "items": t("loot_card_worth", n=num(sm.picked), v=num(sm.value)),
-            "potions": t("loot_card_used", n=num(sm.used), v=num(sm.potions_cost)),
-            "net": t("loot_card_rate", n=num(sm.net), h=num(sm.net_h))}
+            "exp": (num(sm.exp), num(sm.exp_h)),
+            "mesos": (num(sm.mesos), num(sm.mesos_h)),
+            "etc": (num(sm.etc_value), num(ph(sm.etc_value))),
+            "items": (num(sm.other_value), num(ph(sm.other_value))),
+            "potions": (neg(sm.potions_cost), neg(ph(sm.potions_cost) or 0) if sm.seconds >= 60 else num(None)),
+            "net": (num(sm.net), num(sm.net_h))}
+        self._table.setVisible(sm is not None)
+        for c, key in enumerate(("", "trk_col_total", "trk_col_hour")):
+            self._heads[c].setText(bidi.plain(t(key), rtl) if key else "")
         for key in STATS:
-            row, name, value = self._stats[key]
-            # ETC only once some was picked up; potions once the quick slots were read (or some were used)
-            shown = sm is not None and (key != "etc" or sm.etc > 0) and (
-                key != "potions" or sm.used > 0 or self.scanner.quick_state == "ok")
-            row.setVisible(shown)
+            name, total, hour = self._stats[key]
             name.setText(bidi.plain(t(f"loot_card_{key}"), rtl))
-            value.setText(bidi.plain(values.get(key, ""), rtl))
+            got = values.get(key, ("", ""))
+            total.setText(bidi.plain(got[0], rtl))
+            hour.setText(bidi.plain(got[1], rtl))
         evs = lg.events[-FEED:][::-1] if lg is not None else []
         self._feed_head.setText(bidi.plain(t("loot_feed_head"), rtl))
         self._feed_head.setVisible(bool(evs))
@@ -224,6 +240,8 @@ class LootOverlay(QWidget):
         for b, key in ((self._start, "loot_start"), (self._stop, "loot_card_stop"), (self._reset, "loot_card_reset")):
             b.setText(bidi.plain(t(key), rtl))
         self._reset.setToolTip(t("loot_card_reset_tip"))
+        self._full.setText(bidi.plain(t("loot_card_full") + " ↗", rtl))
+        self._full.setToolTip(t("loot_card_full_tip"))
         self._stop.setToolTip(t("loot_card_stop_tip"))
         fold = self.folded()
         self._body.setVisible(not fold)
