@@ -42,6 +42,8 @@ QLabel {{ color: {c['text']}; }}
 #StatName {{ color: {c['muted']}; }}
 #StatValue {{ color: {c['text']}; font-weight: 600; }}
 #Feed {{ color: {c['muted']}; padding: 0 2px; }}
+#Alert {{ color: {c['text']}; background: rgba(217,83,79,0.18); border-radius: 8px; padding: 6px 8px; }}
+#Goal {{ color: {c['text']}; background: rgba(255,149,51,0.14); border-radius: 8px; padding: 6px 8px; }}
 QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px; padding: 6px 12px; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton#Go {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
@@ -123,6 +125,12 @@ class LootOverlay(QWidget):
         self._status = QLabel(objectName="Status")      # not running / stopped / no game / covered
         self._status.setWordWrap(True)
         body.addWidget(self._status)
+        self._alert = QLabel(objectName="Alert")        # a potion running low, and where to buy it
+        self._alert.setWordWrap(True)
+        body.addWidget(self._alert)
+        self._goal = QLabel(objectName="Goal")          # the next level and when it comes at this rate
+        self._goal.setWordWrap(True)
+        body.addWidget(self._goal)
         # the figures as a table: each category, so far and per hour, the numbers under their headings
         self._table = QFrame(objectName="Stat")
         grid = QGridLayout(self._table)
@@ -175,6 +183,9 @@ class LootOverlay(QWidget):
         out = [self._title.text()]
         if self._status.isVisibleTo(self):
             out.append(self._status.text())
+        for lb in (self._alert, self._goal):
+            if lb.isVisibleTo(self):
+                out.append(lb.text())
         for key in STATS:
             name, total, hour = self._stats[key]
             if name.isVisibleTo(self):
@@ -216,6 +227,7 @@ class LootOverlay(QWidget):
             "potions": (neg(sm.potions_cost), neg(ph(sm.potions_cost) or 0) if sm.seconds >= 60 else num(None)),
             "net": (num(sm.net), num(sm.net_h))}
         self._table.setVisible(sm is not None)
+        self._fill_extras(sm, running)
         for c, key in enumerate(("", "trk_col_total", "trk_col_hour")):
             self._heads[c].setText(bidi.plain(t(key), rtl) if key else "")
         for key in STATS:
@@ -252,6 +264,37 @@ class LootOverlay(QWidget):
         self.layout().activate()
         self.setFixedHeight(self.layout().sizeHint().height())
         self.update()
+
+    def _fill_extras(self, sm, running: bool) -> None:
+        """A potion running low (the first one) and the next level's countdown, while the session runs."""
+        from .. import lootextras
+        from .location import LOCATION
+        t, rtl = self.t, self.t.rtl
+        alert = goal = ""
+        if sm is not None and running:
+            here = LOCATION.here
+            used = {k for _, _, k, _ in sm.potions}
+            low = lootextras.low_potions(self.kb, self.scanner.potion_counts, used, here.map if here else None)
+            if low:
+                x = low[0]
+                alert = t("trk_low_none" if x.left == 0 else "trk_low", name=bidi.ltr_block(x.name, rtl),
+                          n=f"{x.left:,}")
+                if x.shop:
+                    alert += chr(10) + t("trk_low_shop", npc=bidi.ltr_block(x.shop[0], rtl),
+                                       where=bidi.ltr_block(x.shop[1], rtl), price=f"{x.shop[2]:,}")
+            hud = self.scanner.hud
+            g = lootextras.level_goal(self.kb, hud.level, hud.exp, sm.exp_h) if hud is not None else None
+            if g is not None:
+                goal = t("trk_goal", level=g.level + 1, left=bidi.ltr_block(_short(g.left), rtl))
+                if g.seconds is not None:
+                    m = int(g.seconds) // 60
+                    when = t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m)
+                    goal += " · " + t("trk_goal_eta", time=when)
+        alert, goal = alert.replace("**", ""), goal.replace("**", "")     # (plain labels: no bold marks)
+        self._alert.setText(bidi.plain(alert, rtl))
+        self._alert.setVisible(bool(alert))
+        self._goal.setText(bidi.plain(goal, rtl))
+        self._goal.setVisible(bool(goal))
 
     def _restyle(self) -> None:
         """The accent the settings pick, in the window's own style sheet (its glass is painted in the tint by

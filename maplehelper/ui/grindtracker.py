@@ -3,11 +3,15 @@ running session in tables, its history and the grind spots compared. It reads wh
 (ui/lootscan.py): the game's pickup messages and the quick slots' potion counts, read on this computer.
 
 Three tabs:
-- This session: start / stop / reset, a table of every category so far and per hour (EXP, mesos, ETC, items, the
-  income they make, what the potions cost, the net profit), then what was picked up: the ETC and the other items each
-  with how many, what an NPC pays and what MesoWatch's players usually sell it for (its "usual sale price", with
-  credit and a link), the potions used at the NPC shop's price, and the live tracking of every pickup as it comes.
-- History: every past session (the loot database), each with its totals and, opened, what it picked up and used.
+- This session: start / stop / reset / share, the next level and when it comes at this rate (the bottom bar's
+  EXP, read on this computer), potions running low with the nearest shop, a table of every category so far and per
+  hour (EXP, mesos, ETC, items, the income they make, what the potions cost, the net profit), how that compares with
+  the last session on the same map, the rate over the session as a graph, then what was picked up: the ETC and the
+  other items each with how many, what an NPC pays, what MesoWatch's players usually sell it for (its "usual sale
+  price", with credit and a link) and whether to keep it, sell it to players or to an NPC; the potions used at the
+  NPC shop's price, and the live tracking of every pickup as it comes.
+- History: every past session (the loot database), filtered by map or level, each with its totals and, opened, what
+  it picked up and used; one can be shared as a picture or deleted.
 - Where it pays best: the maps compared per hour, and what that shows (lootinsights.py)."""
 from __future__ import annotations
 
@@ -16,17 +20,19 @@ import time
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPixmap
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QStackedWidget,
-                               QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel,
+                               QProgressBar, QPushButton, QScrollArea, QStackedWidget, QToolButton, QVBoxLayout,
+                               QWidget)
 
-from .. import bidi, glossary, lootlog, mesowatch, routes
+from .. import bidi, glossary, lootextras, lootlog, mesowatch, routes
 from ..i18n import I18n
 from . import terms
 from .controls import Section, Segmented, Switch, rtl_buttons
 from .glass import GlassDialog
 from .location import LOCATION
 from .patchnotes import gutter
-from .widgets import tip_html
+from .rategraph import RateGraph
+from .widgets import MAP_REQUESTS, on_solid_background, tip_html
 
 log = logging.getLogger("maplehelper")
 
@@ -65,6 +71,9 @@ class GrindTracker(GlassDialog):
         self.scanner, self.kb, self.settings = scanner, kb, settings
         self._hist_n = HISTORY
         self._hist_sig = None
+        self._prev_sig = None            # (the main map, the log): the last session there, looked up once
+        self._prev = None
+        self._delete_armed: int | None = None   # a session whose Delete was pressed once (a second press deletes)
         self._open: set[int] = set()     # the history sessions opened to their details
         outer = QVBoxLayout(self.content)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -81,7 +90,11 @@ class GrindTracker(GlassDialog):
         self.stop_btn = self._button("loot_card_stop", "Secondary", lambda: self.scanner.end())
         self.reset_btn = self._button("loot_card_reset", "Secondary", lambda: self.scanner.start())
         self.reset_btn.setToolTip(t("loot_card_reset_tip"))
-        for b in (self.start_btn, self.stop_btn, self.reset_btn):
+        self.share_btn = self._button("trk_share", "Secondary", self._share_now)
+        self.share_btn.setToolTip(t("trk_share_tip"))
+        self.save_btn = self._button("trk_save_card", "Secondary", self.save_last_card)
+        self.save_btn.hide()                    # after a share: the same picture, to a file
+        for b in (self.start_btn, self.stop_btn, self.reset_btn, self.share_btn, self.save_btn):
             top.addWidget(b)
         outer.addLayout(top)
         self.tabs = Segmented([(t(f"trk_tab_{k}"), k) for k in TABS], "now", t.rtl)
@@ -112,6 +125,13 @@ class GrindTracker(GlassDialog):
 #TrkStrong { padding: 8px 8px; font-weight: 700; }
 #TrkBad { padding: 6px 8px; font-weight: 600; color: #D9534F; }
 #TrkGood { padding: 8px 8px; font-weight: 700; color: #2E9E5B; }
+#TrkAlert { background: rgba(217,83,79,0.12); border: 1px solid rgba(217,83,79,0.45); border-radius: 12px; }
+#TrkGoal { background: rgba(255,149,51,0.10); border: 1px solid rgba(255,149,51,0.40); border-radius: 12px; }
+#TrkKeep { padding: 6px 8px; font-weight: 600; color: #0A6CD6; }
+#TrkPlayers { padding: 6px 8px; font-weight: 600; color: #2E9E5B; }
+#TrkNpc { padding: 6px 8px; font-weight: 600; }
+QProgressBar#TrkGoalBar { background: rgba(127,127,127,0.18); border: none; border-radius: 4px; }
+QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
 """
 
     def _scroll(self) -> tuple[QScrollArea, QVBoxLayout]:
@@ -190,6 +210,9 @@ class GrindTracker(GlassDialog):
             grid.addWidget(line, 2 * r - 1, 0, 1, len(heads))
             obj = (styles or {}).get(r - 1) or ("TrkStrong" if strong and r - 1 in strong else None)
             for c, cell in enumerate(row):
+                if isinstance(cell, tuple) and cell and cell[0] == "advice":     # sell or keep
+                    grid.addWidget(self._advice_cell(cell[1]), 2 * r, c)
+                    continue
                 if isinstance(cell, tuple):         # (key, name): the item's picture and name
                     key, name = cell
                     w = QWidget()
@@ -217,8 +240,32 @@ class GrindTracker(GlassDialog):
         lay = self._pages["now"]
         self.now_status = self._label("", "RowHint")
         lay.addWidget(self.now_status)
+        self.alerts = QVBoxLayout()              # potions running low
+        lay.addLayout(self.alerts)
+        self.goal = QFrame(objectName="TrkGoal")     # the next level and when
+        gl = QVBoxLayout(self.goal)
+        gl.setContentsMargins(14, 10, 14, 10)
+        gl.setSpacing(6)
+        self.goal_text = self._label("", "RowLabel")
+        self.goal_bar = QProgressBar(objectName="TrkGoalBar")
+        self.goal_bar.setTextVisible(False)
+        self.goal_bar.setFixedHeight(8)
+        self.goal_bar.setLayoutDirection(Qt.RightToLeft if self.t.rtl else Qt.LeftToRight)
+        gl.addWidget(self.goal_text)
+        gl.addWidget(self.goal_bar)
+        lay.addWidget(self.goal)
         self.summary = QVBoxLayout()
         lay.addLayout(self.summary)
+        self.compare_line = self._label("", "RowLabel")      # the last session on this map
+        lay.addWidget(self.compare_line)
+        self.graph_box = QFrame(objectName="Group")
+        gbl = QVBoxLayout(self.graph_box)
+        gbl.setContentsMargins(10, 8, 10, 8)
+        self.graph = RateGraph((t("trk_c_exp_h"), t("trk_c_net_h"), t("trk_minutes_short")), t.rtl)
+        gbl.addWidget(self.graph)
+        self.graph_head = self._label(t("trk_graph"), "SectionHeader")
+        lay.addWidget(self.graph_head)
+        lay.addWidget(self.graph_box)
         self.etc_box = QVBoxLayout()
         lay.addLayout(self.etc_box)
         self.items_box = QVBoxLayout()
@@ -266,7 +313,7 @@ class GrindTracker(GlassDialog):
         cid = scan.cid()
         lg = scan.log_for(cid)
         running = scan.running(cid)
-        for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box):
+        for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts):
             _clear(box)
         region = scan.region()
         self.area_state.setText(self._html(t("loot_area_set", w=region["w"], h=region["h"]) if region
@@ -288,9 +335,14 @@ class GrindTracker(GlassDialog):
             status = t("trk_intro")
         self.now_status.setText(self._html(status))
         self.now_status.setVisible(bool(status))
+        for w in (self.goal, self.compare_line, self.graph_head, self.graph_box):
+            w.setVisible(lg is not None)
+        self.share_btn.setVisible(lg is not None)
         if lg is None:
             return
         sm = lootlog.summarize(self.kb, lg)
+        self._fill_goal(sm, running)
+        self._fill_alerts(sm, running)
         h = sm.seconds
         rate = lambda v: lootlog.per_hour(v, h)  # noqa: E731
         income = sm.value
@@ -309,6 +361,8 @@ class GrindTracker(GlassDialog):
                                            strong={4}, styles={5: "TrkBad", 6: "TrkGood" if sm.net >= 0 else "TrkBad"}))
         if h < 60:
             self.summary.addWidget(self._label(t("loot_tip_wait"), "RowHint"))
+        self._fill_compare_line(lg, sm)
+        self.graph.set_points(lootextras.rate_series(self.kb, lg.events, lg.start, lg.ended or time.time()))
         self._fill_items(sm)
         self._fill_potions(sm, running and scan.quick_state == "none")
         self._fill_live(lg)
@@ -323,10 +377,12 @@ class GrindTracker(GlassDialog):
             return None, False, ""
         return int(s.price), bool(s.low_data or s.scrolled_only), mesowatch.item_url(s.mw_id or s.game_id)
 
-    def _item_rows(self, items) -> tuple[list[list], bool]:
+    def _item_rows(self, items, advice: bool = False) -> tuple[list[list], bool]:
+        """advice: a last column, keep it / sell it to players / to an NPC (lootextras.sell_advice)."""
         t = self.t
         rows, guessed = [], False
         tot_n = tot_npc = tot_mw = 0
+        self._advice_tips: list[str] = []
         for name, n, key, price in items:
             mw, low, _ = self._mw(key) if key else (None, False, "")
             guessed |= low
@@ -334,16 +390,39 @@ class GrindTracker(GlassDialog):
             tot_n += n
             tot_npc += n * (price or 0)
             tot_mw += n * (mw or 0)
-            rows.append([(key, name), self._num(n), self._num(price) if price else "–",
-                         self._num(n * price) if price else "–",
-                         (mark + self._num(mw)) if mw else "–", (mark + self._num(n * mw)) if mw else "–"])
-        rows.append([t("trk_total"), self._num(tot_n), "", self._num(tot_npc), "", self._num(tot_mw) if tot_mw else "–"])
+            row = [(key, name), self._num(n), self._num(price) if price else "–",
+                   self._num(n * price) if price else "–",
+                   (mark + self._num(mw)) if mw else "–", (mark + self._num(n * mw)) if mw else "–"]
+            if advice:
+                a = lootextras.sell_advice(self.kb, key, price, mw, low)
+                row.append(("advice", a))
+            rows.append(row)
+        total = [t("trk_total"), self._num(tot_n), "", self._num(tot_npc), "", self._num(tot_mw) if tot_mw else "–"]
+        rows.append(total + ([""] if advice else []))
         return rows, guessed
+
+    def _advice_cell(self, a) -> QLabel:
+        t = self.t
+        if a.verdict == "keep":
+            what = ([t("sell_quests_n", n=a.quests)] if a.quests else []) + \
+                   ([t("sell_recipes_n", n=a.recipes)] if a.recipes else [])
+            lb = self._label(t("trk_keep_short"), "TrkKeep", explain=False)
+            lb.setToolTip(tip_html(t("trk_keep", what=", ".join(what)) + chr(10) + a.tip, t.rtl))
+        elif a.verdict == "players":
+            lb = self._label(t("trk_sell_players"), "TrkPlayers", explain=False)
+            lb.setToolTip(t("trk_sell_players_tip"))
+        elif a.verdict == "npc":
+            lb = self._label(t("trk_sell_npc"), "TrkNpc", explain=False)
+            lb.setToolTip(t("trk_sell_npc_tip"))
+        else:
+            lb = self._label("–", "TrkNpc", explain=False)
+        lb.setAlignment(Qt.AlignCenter)
+        return lb
 
     def _fill_items(self, sm) -> None:
         t = self.t
         heads = [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_npc_total"), t("trk_c_mw"),
-                 t("trk_c_mw_total")]
+                 t("trk_c_mw_total"), t("trk_c_advice")]
         guessed = False
         etc = [i for i in sm.items if lootlog.is_etc(self.kb, i[2])]
         other = [i for i in sm.items if not lootlog.is_etc(self.kb, i[2])]
@@ -353,7 +432,7 @@ class GrindTracker(GlassDialog):
             if not items:
                 box.addWidget(self._label(t(none), "RowHint"))
                 continue
-            rows, low = self._item_rows(items)
+            rows, low = self._item_rows(items, advice=True)
             guessed |= low
             box.addWidget(self._table(heads, rows, strong={len(rows) - 1}))
         if etc or other:            # MesoWatch's prices: credited, with a link (its terms), once under both tables
@@ -366,6 +445,148 @@ class GrindTracker(GlassDialog):
         unknown = [bidi.ltr_block(n, t.rtl) for n, _, k, _ in sm.items if not k]
         if unknown:
             self.items_box.addWidget(self._label(t("loot_unknown", names=", ".join(unknown)), "RowHint"))
+
+    def _fill_goal(self, sm, running: bool) -> None:
+        """The next level: the EXP still to go (the bar's points against the KB's EXP table) and, at this session's
+        EXP per hour, how long it takes."""
+        t = self.t
+        hud = self.scanner.hud
+        g = lootextras.level_goal(self.kb, hud.level, hud.exp, sm.exp_h) if hud is not None else None
+        if g is None:
+            self.goal_text.setText(self._html(t("trk_goal_wait") if running else ""))
+            self.goal.setVisible(running)
+            self.goal_bar.hide()
+            return
+        need = g.left + (hud.exp or 0)
+        when = self._clock(g.seconds) if g.seconds is not None else ""
+        text = t("trk_goal", level=g.level + 1, left=self._num(g.left)) + \
+            (" · " + t("trk_goal_eta", time=when) if when else " · " + t("trk_goal_no_rate"))
+        self.goal_text.setText(self._html(text))
+        self.goal_bar.setRange(0, max(1, need))
+        self.goal_bar.setValue(hud.exp or 0)
+        self.goal_bar.show()
+        self.goal.show()
+
+    def _fill_alerts(self, sm, running: bool) -> None:
+        """Potions running low (used this session, LOW_POTIONS or fewer left) and the nearest shop that sells them."""
+        t = self.t
+        if not running:
+            return
+        here = LOCATION.here
+        used = {k for _, _, k, _ in sm.potions}
+        for low in lootextras.low_potions(self.kb, self.scanner.potion_counts, used, here.map if here else None):
+            box = QFrame(objectName="TrkAlert")
+            row = QHBoxLayout(box)
+            row.setContentsMargins(12, 8, 12, 8)
+            row.setSpacing(8)
+            pic = self._pic(low.key)
+            if pic is not None:
+                row.addWidget(pic)
+            name = bidi.ltr_block(low.name, t.rtl)
+            text = t("trk_low_none" if low.left == 0 else "trk_low", name=name, n=self._num(low.left))
+            if low.shop:
+                npc, where, price = low.shop
+                text += "\n" + t("trk_low_shop", npc=bidi.ltr_block(npc, t.rtl), where=bidi.ltr_block(where, t.rtl),
+                                  price=self._num(price))
+                if low.hops is not None:
+                    text += " · " + (t("trk_low_here") if low.hops == 0 else t("trk_low_hops", n=low.hops))
+            row.addWidget(self._label(text, "RowLabel"), 1)
+            if low.npc_key:
+                go = self._button("tool_route", "Secondary", lambda k=low.npc_key: MAP_REQUESTS.requested.emit(k))
+                row.addWidget(go, 0, Qt.AlignVCenter)
+            self.alerts.addWidget(box)
+
+    def _fill_compare_line(self, lg, sm) -> None:
+        """How this session does against the last one on its main map (the map it spent the most time on)."""
+        from .. import lootdb
+        t = self.t
+        mid = max(lg.maps, key=lg.maps.get) if lg.maps else None
+        if not mid or sm.seconds < 120:
+            self.compare_line.hide()
+            return
+        sig = (mid, lg.db_id, lg.start)
+        if sig != self._prev_sig:
+            self._prev_sig = sig
+            try:
+                self._prev = lootextras.previous_on_map(lootdb.sessions(self.scanner.cid(), self.kb, limit=40), mid,
+                                                        exclude=lg.db_id)
+            except Exception:  # noqa: BLE001 - no history to compare with: no line
+                self._prev = None
+        prev = self._prev
+        if prev is None:
+            self.compare_line.hide()
+            return
+        def pct(now, before):
+            v = lootextras.change_pct(now, before)
+            if v is None:
+                return "–"
+            arrow = "▲" if v > 0 else "▼" if v < 0 else "="
+            return f"{arrow} {bidi.ltr_block(f'{v:+d}%', t.rtl)}"
+        when = bidi.ltr_block(time.strftime("%d/%m", time.localtime(prev.started)), t.rtl)
+        self.compare_line.setText(self._html(t(
+            "trk_vs_prev", map=bidi.ltr_block(self._map_name(mid), t.rtl), when=when,
+            exp=pct(sm.exp_h, prev.per_hour(prev.exp)), net=pct(sm.net_h, prev.per_hour(prev.net)))))
+        self.compare_line.show()
+
+    def _card_image(self, title: str, rows: list[list], items: list) -> QPixmap:
+        """A session as a picture for Discord or WhatsApp: its title, the summary table and the top pickups."""
+        t = self.t
+        w = QFrame(objectName="ShareCard")
+        w.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
+        w.setFixedWidth(460)
+        w.setStyleSheet(self.styleSheet())
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(18, 16, 18, 14)
+        lay.setSpacing(8)
+        lay.addWidget(self._label(title, "ShareName"))
+        lay.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
+                                  styles={len(rows) - 2: "TrkBad", len(rows) - 1: "TrkGood"}))
+        if items:
+            top = ", ".join(f"{bidi.ltr_block(n, t.rtl)} ×{c:,}" for n, c, _, _ in items[:4])
+            lay.addWidget(self._label(t("loot_session_items", items=top), "RowHint"))
+        lay.addWidget(self._label("Maple Helper · maplehelper.app", "RowHint"))
+        w.adjustSize()
+        return on_solid_background(w.grab(), 18)
+
+    def _share(self, pm: QPixmap) -> None:
+        QApplication.clipboard().setPixmap(pm)
+        self._shared = pm
+        self.save_btn.show()
+        self._shared_note = self.t("trk_shared")
+        self.state.setText(self._html(self._shared_note))
+        QTimer.singleShot(6000, self._clear_note)
+
+    def _clear_note(self) -> None:
+        try:
+            self._shared_note = ""
+            self.refresh()
+        except RuntimeError:
+            pass
+
+    def save_last_card(self) -> None:
+        pm = getattr(self, "_shared", None)
+        if pm is None:
+            return
+        path, _ = QFileDialog.getSaveFileName(self, self.t("trk_save_card"), "grind.png", "PNG (*.png)")
+        if path:
+            pm.save(path, "PNG")
+
+    def _share_now(self) -> None:
+        t, scan = self.t, self.scanner
+        lg = scan.log_for(scan.cid())
+        if lg is None:
+            return
+        sm = lootlog.summarize(self.kb, lg)
+        rate = lambda v: lootlog.per_hour(v, sm.seconds)  # noqa: E731
+        mid = max(lg.maps, key=lg.maps.get) if lg.maps else None
+        title = " · ".join(x for x in (t("tracker_title"), self._clock(sm.seconds),
+                                       bidi.ltr_block(self._map_name(mid), t.rtl) if mid else "") if x)
+        rows = [[t("trk_row_exp"), self._num(sm.exp), self._num(rate(sm.exp))],
+                [t("trk_row_income"), self._num(sm.value), self._num(rate(sm.value))],
+                [t("trk_row_spent"), self._num(-sm.potions_cost if sm.potions_cost else 0),
+                 self._num(-rate(sm.potions_cost) if sm.potions_cost and rate(sm.potions_cost) else 0)],
+                [t("trk_row_net"), self._num(sm.net), self._num(rate(sm.net))]]
+        self._share(self._card_image(title, rows, sm.items))
 
     def _fill_potions(self, sm, unseen: bool) -> None:
         t = self.t
@@ -416,16 +637,17 @@ class GrindTracker(GlassDialog):
     def _fill_history(self, force: bool = False) -> None:
         from .. import lootdb
         cid = self.scanner.cid()
-        sig = (cid, self.scanner.running(cid), self._hist_n, tuple(sorted(self._open)))
+        sig = (cid, self.scanner.running(cid), self._hist_n)
         if sig == self._hist_sig and not force:
             return
         self._hist_sig = sig
         try:
-            sessions = lootdb.sessions(cid, self.kb, limit=self._hist_n + 1)
+            sessions = lootdb.sessions(cid, self.kb, limit=max(200, self._hist_n + 1))
             spots = lootdb.spots(cid, self.kb)
         except Exception as e:  # noqa: BLE001 - an unreadable database shows no history, never a broken window
             log.warning("grind tracker history: %s: %s", type(e).__name__, e)
             sessions, spots = [], []
+        self._all_sessions = sessions
         self._fill_sessions(sessions)
         self._fill_compare(spots, sessions)
 
@@ -438,6 +660,32 @@ class GrindTracker(GlassDialog):
             lay.addStretch(1)
             return
         lay.addWidget(self._label(t("trk_history_intro"), "RowHint"))
+        # the filters: a map, a level band (the sessions' own)
+        maps = sorted({next(iter(s.maps)) for s in sessions if s.maps}, key=lambda m: self._map_name(m).lower())
+        bands = sorted({s.level // 10 * 10 for s in sessions if s.level})
+        filt = QHBoxLayout()
+        filt.setSpacing(8)
+        self.map_filter = QComboBox()
+        self.map_filter.addItem(self._p(t("trk_all_maps")), "")
+        for m in maps:
+            self.map_filter.addItem(self._map_name(m), m)
+        self.level_filter = QComboBox()
+        self.level_filter.addItem(self._p(t("trk_all_levels")), None)
+        for b in bands:
+            self.level_filter.addItem(self._p(t("loot_spot_levels", lo=max(1, b), hi=b + 9)), b)
+        for combo, val in ((self.map_filter, self.__dict__.get("_map_pick", "")),
+                           (self.level_filter, self.__dict__.get("_level_pick"))):
+            i = combo.findData(val)
+            combo.setCurrentIndex(i if i >= 0 else 0)
+            combo.currentIndexChanged.connect(self._filter_changed)
+            filt.addWidget(combo)
+        filt.addStretch(1)
+        lay.addLayout(filt)
+        mpick, lpick = self.map_filter.currentData(), self.level_filter.currentData()
+        sessions = [s for s in sessions if (not mpick or (s.maps and next(iter(s.maps)) == mpick))
+                    and (lpick is None or (s.level and s.level // 10 * 10 == lpick))]
+        if not sessions:
+            lay.addWidget(self._label(t("trk_filter_none"), "RowHint"))
         for s in sessions[:self._hist_n]:
             card = QFrame(objectName="Group")
             cl = QVBoxLayout(card)
@@ -456,6 +704,17 @@ class GrindTracker(GlassDialog):
             more.setCursor(Qt.PointingHandCursor)
             more.clicked.connect(lambda *_, i=s.id: self._toggle(i))
             top.addWidget(more)
+            share = QToolButton(objectName="Link", text=self._p(t("trk_share")))
+            share.setCursor(Qt.PointingHandCursor)
+            share.setToolTip(t("trk_share_tip"))
+            share.clicked.connect(lambda *_, x=s: self._share_session(x))
+            top.addWidget(share)
+            if s.ended is not None:         # (the running session isn't history yet: no Delete)
+                armed = self._delete_armed == s.id
+                delete = QToolButton(objectName="Link", text=self._p(t("trk_delete_sure" if armed else "trk_delete")))
+                delete.setCursor(Qt.PointingHandCursor)
+                delete.clicked.connect(lambda *_, i=s.id: self._delete(i))
+                top.addWidget(delete)
             cl.addLayout(top)
             ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
             rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
@@ -483,9 +742,55 @@ class GrindTracker(GlassDialog):
             lay.addWidget(self._button("loot_history_more", "Secondary", self._more), 0, Qt.AlignLeading)
         lay.addStretch(1)
 
+    def _filter_changed(self, *_) -> None:
+        self._map_pick = self.map_filter.currentData()
+        self._level_pick = self.level_filter.currentData()
+        self._fill_sessions(self.__dict__.get("_all_sessions") or [])
+
+    def _delete(self, sid: int) -> None:
+        """A session gone from the history: the first press asks ("Delete? Press again"), the second deletes."""
+        from .. import lootdb
+        if self._delete_armed != sid:
+            self._delete_armed = sid
+            QTimer.singleShot(5000, lambda: self._disarm(sid))
+            self._fill_sessions(self.__dict__.get("_all_sessions") or [])
+            return
+        self._delete_armed = None
+        lg = self.scanner.log_for(self.scanner.cid())
+        if lg is not None and lg.db_id == sid:
+            self.scanner.forget_shown()          # the window showed it: it shows nothing now
+        try:
+            lootdb.delete_log(sid)
+        except Exception as e:  # noqa: BLE001 - a failed delete leaves the session; the list says nothing new
+            log.warning("grind tracker delete: %s: %s", type(e).__name__, e)
+        self._open.discard(sid)
+        self._fill_history(force=True)
+
+    def _disarm(self, sid: int) -> None:
+        try:
+            if self._delete_armed == sid:
+                self._delete_armed = None
+                self._fill_sessions(self.__dict__.get("_all_sessions") or [])
+        except RuntimeError:
+            pass
+
+    def _share_session(self, s) -> None:
+        t = self.t
+        when = bidi.ltr_block(time.strftime("%d/%m %H:%M", time.localtime(s.started)), t.rtl)
+        mid = next(iter(s.maps)) if s.maps else None
+        title = " · ".join(x for x in (t("tracker_title"), when, self._clock(s.seconds),
+                                       bidi.ltr_block(self._map_name(mid), t.rtl) if mid else "") if x)
+        ph = s.per_hour
+        rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
+                [t("trk_row_income"), self._num(s.value), self._num(ph(s.value))],
+                [t("trk_row_spent"), self._num(-s.potions_cost if s.potions_cost else 0),
+                 self._num(-ph(s.potions_cost) if s.potions_cost and ph(s.potions_cost) else 0)],
+                [t("trk_row_net"), self._num(s.net), self._num(ph(s.net))]]
+        self._share(self._card_image(title, rows, s.items))
+
     def _toggle(self, sid: int) -> None:
         self._open ^= {sid}
-        self._fill_history()
+        self._fill_sessions(self.__dict__.get("_all_sessions") or [])
 
     def _more(self) -> None:
         self._hist_n += HISTORY
@@ -580,6 +885,8 @@ class GrindTracker(GlassDialog):
                     state += " · " + where
             else:
                 state = t("trk_state_stopped", time=self._clock(lg.seconds()))
+            if self.__dict__.get("_shared_note"):
+                state = self._shared_note       # "Copied: paste it in Discord", for a few seconds
             self.state.setText(self._html(state))
             self._fill_now()
             if self.stack.currentIndex():
@@ -593,7 +900,8 @@ class GrindTracker(GlassDialog):
         """Every text shown on the current tab (for tests)."""
         page = self.stack.currentWidget().widget()
         return [lb.text() for lb in page.findChildren(QLabel) if lb.isVisibleTo(self)] + \
-            [b.text() for b in page.findChildren(QPushButton) if b.isVisibleTo(self)]
+            [b.text() for b in page.findChildren(QPushButton) if b.isVisibleTo(self)] + [
+                b.text() for b in page.findChildren(QToolButton) if b.isVisibleTo(self)]
 
     def tip(self, text: str) -> str:
         return tip_html(text, self.t.rtl)

@@ -36,6 +36,7 @@ SETTLE_S = lootlog.LIFETIME_S + 3   # a pickup older than this is final (no read
 BARS_EVERY_S = 30.0     # how often the game's black bars are measured again (one whole-window grab); and on a resize
 QUICK_INTERVAL = 2.0    # s between reads of the quick slots (a potion's count changes once per use; OCR takes ~0.3 s)
 MAP_STEP_MAX = 5.0      # s: a longer gap between two ticks (the computer slept) adds no time to the map
+HUD_INTERVAL = 15.0     # s between reads of the bottom bar (level, EXP points): the next level's countdown
 
 
 def valid_region(region) -> bool:
@@ -98,6 +99,7 @@ class LootScanner(QObject):
     changed = Signal()            # the log counted something, started or ended
     _read_done = Signal(object, float, object)   # (lines read or None, the read's time, (the box read, its state))
     _quick_done = Signal(object, float)          # (quickslot.Read or None, the read's time)
+    _hud_done = Signal(object)                   # hud.Hud or None
     _failed = Signal(str)
 
     def __init__(self, kb: KnowledgeBase, profiles: Profiles, settings: Settings, parent=None):
@@ -113,6 +115,9 @@ class LootScanner(QObject):
         self._quick_at = 0.0                  # when the quick slots were last read (time.monotonic)
         self._tick_at: float | None = None    # the last tick (time.monotonic): the time on the map runs from it
         self.quick_state = ""                 # "ok": the quick slots are read; "none": not found; "" not read yet
+        self.potion_counts: dict[str, int] = {}  # potion key -> the count its quick slot showed last
+        self.hud = None                       # the bottom bar's last read (hud.Hud: level, EXP points), or None
+        self._hud_at = 0.0
         self._cid: str | None = None          # whose log runs
         self._log: lootlog.Log | None = None  # ... live
         self._timer = QTimer(self)
@@ -128,6 +133,7 @@ class LootScanner(QObject):
         self.last_read: float | None = None   # when a read last found a message line
         self._read_done.connect(self._deliver)
         self._quick_done.connect(self._deliver_quick)
+        self._hud_done.connect(self._deliver_hud)
         self._failed.connect(self._complain)
         lootlog.on_forget(self._forgot)
         self.resume()
@@ -173,8 +179,10 @@ class LootScanner(QObject):
         self._quick.reset()
         self._potions.reset()
         self._quick_at = 0.0
+        self._hud_at = 0.0
         self._tick_at = None
         self.quick_state = ""
+        self.potion_counts = {}
         if self._log is not None:
             self._timer.start(int(READ_INTERVAL * 1000))
         else:
@@ -193,6 +201,13 @@ class LootScanner(QObject):
         if cid == self._cid and self._log is not None:
             return self._log
         return self.store.log(cid)
+
+    def forget_shown(self) -> None:
+        """The stopped session shown was deleted from the history: none is shown now."""
+        cid = self.cid()
+        if not self.running(cid):
+            self.store.drop(cid)
+            self.changed.emit()
 
     def running(self, cid: str) -> bool:
         return cid == self._cid and self._log is not None
@@ -285,7 +300,10 @@ class LootScanner(QObject):
         quick = now - self._quick_at >= QUICK_INTERVAL
         if quick:
             self._quick_at = now
-        threading.Thread(target=self._read, args=(self.region(), quick), daemon=True).start()
+        bar = now - self._hud_at >= HUD_INTERVAL
+        if bar:
+            self._hud_at = now
+        threading.Thread(target=self._read, args=(self.region(), quick, bar), daemon=True).start()
 
     def _read_quick(self, play: tuple[int, int, int, int] | None) -> None:
         """The quick slots, in the part of the game's picture they can be in (worker thread)."""
@@ -303,9 +321,27 @@ class LootScanner(QObject):
                                              round(w * kx), round(h * ky)))
         self._quick_done.emit(got, time.time())
 
-    def _read(self, drawn: dict | None, quick: bool = False) -> None:
+    def _read_hud(self, play: tuple[int, int, int, int] | None) -> None:
+        """The bottom bar: the level and the EXP points, read on this computer (hud.py), for the next level."""
+        from .. import hud, plan
+        got = None
+        if play is not None:
+            x, y, w, h = play
+            top = y + int(h * (1 - hud.STRIP * 1.2))
+            box = {"x": x, "y": top, "w": w, "h": y + h - top}
+            if not self._game.covered(box):
+                img = capture.grab_image(x, y, w, h)
+                got = hud.read(img, plan.exp_table(self.kb))
+        self._hud_done.emit(got)
+
+    def _read(self, drawn: dict | None, quick: bool = False, bar: bool = False) -> None:
         try:
-            play = self._game.find() if (drawn is None or quick) else None
+            play = self._game.find() if (drawn is None or quick or bar) else None
+            if bar:
+                try:
+                    self._read_hud(play)
+                except Exception as e:  # noqa: BLE001 - a bad read of the bar never stops the messages
+                    self._failed.emit(f"bottom bar: {type(e).__name__}: {e}")
             if quick:
                 try:
                     self._read_quick(play)
@@ -375,6 +411,8 @@ class LootScanner(QObject):
             self.changed.emit()
         if rd is None:
             return
+        for key, n in rd.potions.values():
+            self.potion_counts[key] = n
         used = self._potions.read(rd, at)
         if not used:
             return
@@ -389,6 +427,14 @@ class LootScanner(QObject):
         if not self._save_timer.isActive():
             self._save_timer.start(SAVE_EVERY_MS)
         self.changed.emit()
+
+    def _deliver_hud(self, got) -> None:
+        if self._log is None or got is None or got.level is None or got.exp is None:
+            return
+        changed = self.hud is None or (self.hud.level, self.hud.exp) != (got.level, got.exp)
+        self.hud = got
+        if changed:
+            self.changed.emit()
 
     def _complain(self, error: str) -> None:
         if error not in self._logged:

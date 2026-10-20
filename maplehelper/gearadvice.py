@@ -1,8 +1,8 @@
 """What a character can wear now and what would beat what they wear: the KB's equips and drops tables turned
 into per-slot upgrade advice. No number is invented here — every stat, price and dropper comes from a table, and
 the ranking only compares columns those tables have (main attack first, then the class's main and secondary
-stat, then weapon attack speed or W.DEF/HP), in the order the KB's own class guides set. ui/gearadvisor.py only
-draws what this finds; combat.py has no damage formula that fits (its maths start from the stat window's damage
+stat, then weapon attack speed or W.DEF/HP), in the order the KB's own class guides set (the craft plan uses it;
+the Gear page that drew it is gone, the owner 2026-10-20); combat.py has no damage formula that fits (its maths start from the stat window's damage
 range, which the tables cannot give), so nothing here tries to compute damage.
 """
 from __future__ import annotations
