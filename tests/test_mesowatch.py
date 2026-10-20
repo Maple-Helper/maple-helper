@@ -1,6 +1,7 @@
 """MesoWatch's Free Market sales (mesowatch.py): the slim copy, the polite refresh, the KB match and the AI lines."""
 import json
 import time
+import urllib.error
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -82,12 +83,19 @@ def site(monkeypatch, tmp_path):
     monkeypatch.setattr(mesowatch, "_checked", 0.0)
     monkeypatch.setattr(mesowatch, "_failed", False)
     monkeypatch.setattr(mesowatch, "_file", lambda: tmp_path / "mesowatch.json")
-    state = {"index": index_doc(), "market": market_doc(), "etag": '"v1"', "calls": [], "down": False}
+    state = {"index": index_doc(), "market": market_doc(), "etag": '"v1"', "calls": [], "down": False, "split": None}
 
     def request(url, etag="", timeout=30):
         if url == mesowatch.FACES_URL and not state["down"]:
             return 200, b'{"faces": {}}', ""          # the sellers' pictures: not what these tests count
+        if url == mesowatch.LIST_URL and state["split"] is None and not state["down"]:
+            raise urllib.error.HTTPError(url, 404, "Not Found", {}, None)    # a whole-file site: no list published
         state["calls"].append((url, etag))
+        if state["split"] is not None and not state["down"] and url in state["split"]:
+            body = state["split"][url]
+            if isinstance(body, int):
+                raise urllib.error.HTTPError(url, body, "error", {}, None)
+            return 200, json.dumps(body).encode(), '"L1"' if url == mesowatch.LIST_URL else ""
         if state["down"]:
             raise OSError("offline")
         if url == mesowatch.INDEX_URL:
@@ -319,3 +327,67 @@ def test_the_index_a_second_after_the_file_is_the_same_publish(site, monkeypatch
     site["calls"].clear()
     mesowatch.snapshot()
     assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL]
+
+
+def split_site(site):
+    """meso.watch since 2026-10-17: a list with the last week, the newest sales, and a file per item (js/data.js)."""
+    doc = market_doc()
+    items = []
+    for it in doc["items"]:
+        row = {k: v for k, v in it.items() if k != "listings"}
+        row["history"] = (it.get("history") or [])[-2:]                  # the list's week, not the whole history
+        row["firstSold"] = (it.get("history") or [{}])[0].get("date")
+        items.append(row)
+    home = mesowatch.SITE + "data/markets/Classic%20World/"
+    ore = doc["items"][0]
+    site["split"] = {
+        mesowatch.LIST_URL: {"kind": "list", "version": 2, "market": "Classic World", "preview": False,
+                             "generated_at": NOW, "items": items},
+        home + "recent.json": {"kind": "recent", "market": "Classic World", "generated_at": NOW,
+                               "sales": doc["sales"][:3]},             # the market's newest: not the ore's
+        home + "item/basil_04010001.json": {"kind": "item", "market": "Classic World", "generated_at": NOW,
+                                            "id": "basil:04010001", "history": ore["history"],
+                                            "listings": ore["listings"], "sales": [doc["sales"][3]]},
+        home + "item/basil_02060000.json": 404,
+    }
+    return home
+
+
+def test_the_split_market_is_read_from_its_list_and_newest_sales(site):
+    """MesoWatch stopped updating data/market.json on 2026-10-17 (the app showed 'can't reach MesoWatch' three
+    days later): the live market is the list and the newest sales, and the whole file is not asked for."""
+    home = split_site(site)
+    snap = mesowatch.snapshot()
+    assert [u for u, _ in site["calls"]] == [mesowatch.INDEX_URL, mesowatch.LIST_URL, home + "recent.json"]
+    ore, hat = snap.items[4010001], snap.items[1007145]
+    assert (ore.price, ore.sold, ore.listing_shops) == (375, 2243, 1170) and not ore.shops and not ore.detailed
+    assert ore.days == 0                                 # the week doesn't reach its first sale: unknown, not 2
+    assert hat.recent[0].seller == "Space Ghost"         # the newest sales are there before any item file
+    assert not ore.empty                                 # shops listing it: something to show before its file
+
+
+def test_an_items_own_file_brings_its_shops_sales_and_whole_history(site):
+    home = split_site(site)
+    before = mesowatch.version()
+    snap, ore = mesowatch.for_item(KB, "item/414")
+    assert site["calls"][-1] == (home + "item/basil_04010001.json", "")
+    assert ore.detailed and ore.shops[0].seller == "Thorfein" and ore.recent[0].price == 399
+    assert len(ore.history) == 3 and ore.days == 3 and mesowatch.version() == before + 2
+    n = len(site["calls"])
+    mesowatch.for_item(KB, "item/414")
+    mesowatch.for_item(KB, "item/414", refresh=False)
+    assert len(site["calls"]) == n                       # once per publish
+    _, arrows = mesowatch.for_item(KB, "item/209")       # no file for it: the list's numbers stand, asked once
+    assert arrows.detailed and arrows.price == 0.76
+    mesowatch.for_item(KB, "item/209")
+    assert len(site["calls"]) == n + 1
+
+
+def test_the_split_market_is_kept_on_disk_and_reread_as_split(site, monkeypatch):
+    split_site(site)
+    mesowatch.snapshot()
+    monkeypatch.setattr(mesowatch, "_snap", None)
+    monkeypatch.setattr(mesowatch, "_loaded", False)
+    snap = mesowatch.snapshot(refresh=False)
+    assert snap.items[4010001].price == 375 and not snap.items[4010001].detailed
+    assert json.loads(mesowatch._file().read_text(encoding="utf-8"))["etag"] == '"L1"'
