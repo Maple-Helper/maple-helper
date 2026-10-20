@@ -1,6 +1,6 @@
 """The loot log over the game: a window of its own (not inside a Maple Helper window) with the log's time, EXP, mesos
-and items, each per hour, the latest pickups, and its buttons: Start, or Stop and Reset while a log runs, and in its
-title row a – that folds it to that row and a ✕ that hides it.
+and items (ETC on its own), the potions used and the net profit, each per hour, the latest pickups, and its buttons:
+Start, or Stop and Reset while a log runs, and in its title row a – that folds it to that row and a ✕ that hides it.
 
 It is built like the other windows over the game (the NPCs here window, the searches): the same glass at the
 opacity the player picked for them (npc_overlay_opacity), the title row that drags it, muted status text and the
@@ -24,7 +24,7 @@ from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX,
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 4                        # the latest pickups shown under the totals
-STATS = ("exp", "mesos", "items")
+STATS = ("exp", "mesos", "etc", "items", "potions", "net")
 
 def qss(settings) -> str:
     """The window's own style at the look the settings pick: its text and fills in the glass's palette, the Go
@@ -182,7 +182,7 @@ class LootOverlay(QWidget):
         num = lambda v: bidi.ltr_block(_short(v), rtl)      # a number stays one block beside Hebrew words
         title = t("tool_loot")
         if sm is not None and self.folded():
-            title += " · " + t("loot_card_made", v=num(sm.value))     # folded: what it made, nothing longer
+            title += " · " + t("loot_card_made", v=num(sm.net))       # folded: what it made, nothing longer
         elif sm is not None:
             m = int(sm.seconds) // 60
             title += " · " + (t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m))
@@ -196,10 +196,16 @@ class LootOverlay(QWidget):
         values = {} if sm is None else {
             "exp": t("loot_card_rate", n=num(sm.exp), h=num(sm.exp_h)),
             "mesos": t("loot_card_rate", n=num(sm.mesos), h=num(sm.mesos_h)),
-            "items": t("loot_card_worth", n=num(sm.picked), v=num(sm.value))}
+            "etc": t("loot_card_worth", n=num(sm.etc), v=num(sm.etc_value)),
+            "items": t("loot_card_worth", n=num(sm.picked), v=num(sm.value)),
+            "potions": t("loot_card_used", n=num(sm.used), v=num(sm.potions_cost)),
+            "net": t("loot_card_rate", n=num(sm.net), h=num(sm.net_h))}
         for key in STATS:
             row, name, value = self._stats[key]
-            row.setVisible(sm is not None)
+            # ETC only once some was picked up; potions once the quick slots were read (or some were used)
+            shown = sm is not None and (key != "etc" or sm.etc > 0) and (
+                key != "potions" or sm.used > 0 or self.scanner.quick_state == "ok")
+            row.setVisible(shown)
             name.setText(bidi.plain(t(f"loot_card_{key}"), rtl))
             value.setText(bidi.plain(values.get(key, ""), rtl))
         evs = lg.events[-FEED:][::-1] if lg is not None else []
@@ -208,8 +214,8 @@ class LootOverlay(QWidget):
         for i, lb in enumerate(self._feed):
             if i < len(evs):
                 e = evs[i]
-                text = (t("loot_feed_item", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}") if e.kind == "item"
-                        else t(f"loot_feed_{e.kind}", n=f"{e.amount:,}"))
+                text = (t(f"loot_feed_{e.kind}", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}")
+                        if e.kind in ("item", "potion") else t(f"loot_feed_{e.kind}", n=f"{e.amount:,}"))
                 lb.setText(bidi.plain(text, rtl))
             lb.setVisible(i < len(evs))
         self._start.setVisible(not running)

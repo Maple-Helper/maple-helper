@@ -4000,8 +4000,10 @@ class ToolsDialog(GlassDialog):
     # The game's pickup messages ("You received EXP (+21)", "You have gained mesos (+27)", "Leaf x1 earned. (Etc)"),
     # read on this computer from the box the player drew around them while a log runs (lootlog.py, ui/lootscan.py).
 
-    LOOT_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "picked", "value", "value_h")
+    LOOT_CELLS = ("time", "exp", "exp_h", "mesos", "mesos_h", "picked", "etc", "value", "potions", "net", "net_h",
+                  "value_h")
     LOOT_FEED = 8               # the newest counted messages shown under the totals
+    LOOT_HISTORY = 8            # past logs shown at first ("More logs" shows LOOT_HISTORY more each time)
 
     def _loot_cid(self) -> str:
         return self.c.id if self.c else ""
@@ -4092,14 +4094,34 @@ class ToolsDialog(GlassDialog):
         sec.add_row(t("loot_overlay"), self.loot_overlay_switch, hint=t("loot_overlay_hint"))
         lay.addWidget(sec)
 
-        rec = Section(t("loot_recent"), t.rtl)
+        # every map a log ran on, compared, and what that shows (lootinsights.py)
+        cmp_ = Section(t("loot_compare"), t.rtl)
+        cbox = QWidget()
+        self.loot_compare = QVBoxLayout(cbox)
+        self.loot_compare.setContentsMargins(0, 8, 0, 8)
+        self.loot_compare.setSpacing(6)
+        cmp_.add_widget(cbox)
+        lay.addWidget(cmp_)
+        # every past log (the loot database)
+        rec = Section(t("loot_history"), t.rtl)
         rbox = QWidget()
         self.loot_recent = QVBoxLayout(rbox)
         self.loot_recent.setContentsMargins(0, 8, 0, 8)
-        self.loot_recent.setSpacing(6)
+        self.loot_recent.setSpacing(10)
         rec.add_widget(rbox)
+        self.loot_more = QPushButton(self._p(t("loot_history_more")), objectName="Secondary")
+        self.loot_more.setCursor(Qt.PointingHandCursor)
+        self.loot_more.clicked.connect(self._loot_more_history)
+        more = QHBoxLayout()
+        more.addWidget(self.loot_more)
+        more.addStretch(1)
+        mbox = QWidget()
+        mbox.setLayout(more)
+        rec.add_widget(mbox)
         lay.addWidget(rec)
         lay.addStretch(1)
+        self._loot_hist_n = self.LOOT_HISTORY
+        self._loot_hist_sig = None
         # the clock and the per-hour cells move between reads too
         self._loot_clock = QTimer(self)
         self._loot_clock.timeout.connect(self._loot_tick)
@@ -4184,9 +4206,16 @@ class ToolsDialog(GlassDialog):
             self._loot_cell("mesos", self._num(sm.mesos))
             self._loot_cell("mesos_h", self._num(sm.mesos_h), "" if sm.mesos_h is not None else wait)
             self._loot_cell("picked", self._num(sm.picked))
+            self._loot_cell("etc", self._num(sm.etc_value), t("loot_tip_etc"))
             self._loot_cell("value", self._num(sm.value), t("loot_tip_value"))
+            unseen = running and scan.quick_state == "none"
+            self._loot_cell("potions", self._num(-sm.potions_cost if sm.potions_cost else 0),
+                            t("loot_potions_unseen") if unseen else t("loot_tip_potions"))
+            self._loot_cell("net", self._num(sm.net), t("loot_tip_net"))
+            self._loot_cell("net_h", self._num(sm.net_h), t("loot_tip_net") if sm.net_h is not None else wait)
             self._loot_cell("value_h", self._num(sm.value_h), t("loot_tip_value") if sm.value_h is not None else wait)
             self._loot_lines(sm)
+            self._loot_potion_lines(sm, unseen)
             self._loot_feed_lines(lg)
         self.loot_items.parentWidget().setVisible(self.loot_items.count() > 0)
         self.loot_feed.parentWidget().setVisible(self.loot_feed.count() > 0)
@@ -4201,7 +4230,37 @@ class ToolsDialog(GlassDialog):
         self._ls(self.loot_status, status)
         self._fill_loot_recent(cid)
 
+    def _loot_potion_lines(self, sm, unseen: bool):
+        """The potions the quick slots showed used, each with what it cost at an NPC shop."""
+        t = self.t
+        self.loot_items.addWidget(self._ll(t("loot_potions_head"), "SectionHeader"))
+        if unseen:
+            self.loot_items.addWidget(self._ll(t("loot_potions_unseen"), "RowHint"))
+        if not sm.potions:
+            if not unseen:
+                self.loot_items.addWidget(self._ll(t("loot_potions_none"), "RowHint"))
+            return
+        for name, n, key, price in sm.potions:
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            path = self.kb.picture(key) if key else None
+            if path:
+                pic = QLabel()
+                pic.setPixmap(QPixmap(str(path)).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                pic.setFixedSize(30, 30)
+                pic.setAlignment(Qt.AlignCenter)
+                row.addWidget(pic)
+            bits = [bidi.ltr_block(name, t.rtl), t("loot_potion_count", n=f"{n:,}")]
+            if price:
+                bits.append(t("loot_potion_cost", n=f"{n * price:,}"))
+            row.addWidget(self._ll(" · ".join(bits), "RowLabel"), 1)
+            self.loot_items.addLayout(row)
+        unpriced = [bidi.ltr_block(name, t.rtl) for name, _, _, price in sm.potions if not price]
+        if unpriced:
+            self.loot_items.addWidget(self._ll(t("loot_potions_unpriced", names=", ".join(unpriced)), "RowHint"))
+
     def _loot_lines(self, sm):
+        from ..lootlog import is_etc
         t = self.t
         if not sm.items:
             self.loot_items.addWidget(self._ll(t("loot_items_none"), "RowHint"))
@@ -4220,6 +4279,8 @@ class ToolsDialog(GlassDialog):
             bits = [bidi.ltr_block(name, t.rtl), t("loot_count", n=f"{n:,}")]
             if price:
                 bits.append(t("farm_loot_value", n=f"{n * price:,}"))
+            if is_etc(self.kb, key):
+                row.addWidget(tag(t("loot_etc_tag")), 0, Qt.AlignVCenter)
             row.addWidget(self._ll(" · ".join(bits), "RowLabel"), 1)
             self.loot_items.addLayout(row)
         unknown = [bidi.ltr_block(name, t.rtl) for name, _, key, _ in sm.items if not key]
@@ -4234,25 +4295,123 @@ class ToolsDialog(GlassDialog):
         self.loot_feed.addWidget(self._ll(t("loot_feed_head"), "SectionHeader"))
         for e in reversed(evs):
             when = time.strftime("%H:%M:%S", time.localtime(e.t))
-            if e.kind == "item":
-                what = t("loot_feed_item", name=bidi.ltr_block(e.name, t.rtl), n=f"{e.amount:,}")
+            if e.kind in ("item", "potion"):
+                what = t(f"loot_feed_{e.kind}", name=bidi.ltr_block(e.name, t.rtl), n=f"{e.amount:,}")
             else:
                 what = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
             self.loot_feed.addWidget(self._ll(f"{what} · {bidi.ltr_block(when, t.rtl)}", "RowHint"))
 
+    def _loot_more_history(self):
+        self._loot_hist_n += self.LOOT_HISTORY
+        self._loot_hist_sig = None
+        self._fill_loot_recent(self._loot_cid())
+
+    def _map_name(self, mid: str) -> str:
+        try:
+            return routes.of(self.kb).name(mid) or mid
+        except Exception:  # noqa: BLE001 - a map the routes no longer have keeps its id
+            return mid
+
     def _fill_loot_recent(self, cid: str):
+        """The history and the maps compared, from the loot database: read again only when a log started or ended,
+        another character is picked or more logs are asked for (not on every 5 s tick)."""
+        from .. import lootdb
+        running = self.loot.running(cid)
+        sig = (cid, running, self._loot_hist_n, self.t.lang)
+        if sig == self._loot_hist_sig:
+            return
+        self._loot_hist_sig = sig
+        try:
+            sessions = lootdb.sessions(cid, self.kb, limit=self._loot_hist_n + 1)
+            spots = lootdb.spots(cid, self.kb)
+        except Exception as e:  # noqa: BLE001 - an unreadable database shows no history, never a broken page
+            logging.getLogger("maplehelper").warning("loot history: %s: %s", type(e).__name__, e)
+            sessions, spots = [], []
+        self._fill_loot_sessions(sessions)
+        self._fill_loot_compare(spots, sessions)
+
+    def _fill_loot_sessions(self, sessions):
         t = self.t
         clear(self.loot_recent)
-        rows = self.loot.store.recent(cid)
-        if not rows:
-            self.loot_recent.addWidget(self._ll(t("loot_recent_none"), "RowHint"))
+        self.loot_more.setVisible(len(sessions) > self._loot_hist_n)
+        sessions = sessions[:self._loot_hist_n]
+        if not sessions:
+            self.loot_recent.addWidget(self._ll(t("loot_history_none"), "RowHint"))
             return
-        for r in rows[:10]:
-            when = time.strftime("%d/%m %H:%M", time.localtime(r.get("start") or 0))
-            bits = [bidi.ltr_block(when, t.rtl), self._clock(r.get("seconds")),
-                    t("loot_recent_exp", n=f"{r.get('exp') or 0:,}"), t("loot_recent_mesos", n=f"{r.get('mesos') or 0:,}"),
-                    t("loot_recent_items", n=f"{r.get('picked') or 0:,}")]
-            self.loot_recent.addWidget(self._ll(" · ".join(bits), "RowLabel"))
+        for s in sessions:
+            when = time.strftime("%d/%m %H:%M", time.localtime(s.started))
+            head = [bidi.ltr_block(when, t.rtl), self._clock(s.seconds)]
+            if s.maps:
+                first = bidi.ltr_block(self._map_name(next(iter(s.maps))), t.rtl)
+                head.append(t("loot_session_map_more", map=first, n=len(s.maps) - 1) if len(s.maps) > 1 else first)
+            if s.level:
+                head.append(t("loot_session_level", n=s.level))
+            body = [t("loot_session_exp", v=t("loot_rate", n=self._num(s.exp), h=self._num(s.per_hour(s.exp)))),
+                    t("loot_session_net", v=t("loot_rate", n=self._num(s.net), h=self._num(s.per_hour(s.net))))]
+            if s.etc_value:
+                body.append(t("loot_session_etc", v=self._num(s.etc_value)))
+            if s.potions_cost:
+                body.append(t("loot_session_potions", v=self._num(s.potions_cost)))
+            box = QVBoxLayout()
+            box.setSpacing(2)
+            box.addWidget(self._ll(" · ".join(head), "RowLabel"))
+            box.addWidget(self._ll(" · ".join(body), "RowHint"))
+            if s.items:
+                top = ", ".join(f"{bidi.ltr_block(n, t.rtl)} ×{c:,}" for n, c, _, _ in s.items[:3])
+                box.addWidget(self._ll(t("loot_session_items", items=top), "RowHint"))
+            self.loot_recent.addLayout(box)
+
+    def _fill_loot_compare(self, spots, sessions):
+        from .. import lootinsights
+        t = self.t
+        clear(self.loot_compare)
+        m = lootinsights.MIN_SPOT_S // 60
+        ok = lootinsights.comparable(spots)
+        if not ok:
+            self.loot_compare.addWidget(self._ll(t("loot_compare_none", m=m), "RowHint"))
+            return
+        self.loot_compare.addWidget(self._ll(t("loot_compare_intro", m=m), "RowHint"))
+        name = lambda mid: bidi.ltr_block(self._map_name(mid), t.rtl)  # noqa: E731
+        best_exp = max(ok, key=lambda sp: sp.per_hour(sp.exp) or 0).map if len(ok) > 1 else None
+        best_net = max(ok, key=lambda sp: sp.per_hour(sp.net) or 0).map if len(ok) > 1 else None
+        for sp in sorted(ok, key=lambda sp: -(sp.per_hour(sp.net) or 0)):
+            box = QVBoxLayout()
+            box.setSpacing(2)
+            chips = []
+            if sp.map == best_net:
+                chips.append(tag(t("loot_tag_best_net"), "TagGood"))
+            if sp.map == best_exp:
+                chips.append(tag(t("loot_tag_best_exp"), "TagGood"))
+            line = self._ll(f"**{name(sp.map)}** · " + t("loot_spot_line", time=self._clock(sp.seconds), n=sp.sessions),
+                            "RowLabel")
+            if chips:                       # (their own row: beside a line that starts with a map's English name
+                box.addLayout(chip_row(chips))  # they drifted to its far end in Hebrew)
+            box.addWidget(line)
+            bits = [t("loot_spot_exp_h", v=self._num(sp.per_hour(sp.exp))),
+                    t("loot_spot_net_h", v=self._num(sp.per_hour(sp.net)))]
+            if sp.etc_value:
+                bits.append(t("loot_spot_etc_h", v=self._num(sp.per_hour(sp.etc_value))))
+            if sp.potions_cost:
+                bits.append(t("loot_spot_potions_h", v=self._num(sp.per_hour(sp.potions_cost))))
+            if sp.levels:
+                lo, hi = sp.levels
+                bits.append(t("loot_session_level", n=lo) if lo == hi else t("loot_spot_levels", lo=lo, hi=hi))
+            box.addWidget(self._ll(" · ".join(bits), "RowHint"))
+            self.loot_compare.addLayout(box)
+        found = lootinsights.insights(spots, sessions)
+        if found:
+            self.loot_compare.addWidget(self._ll(t("loot_insights"), "SectionHeader"))
+        for ins in found:
+            args = dict(ins.args)
+            for k in ("map", "other", "exp_map", "net_map"):
+                if k in args:
+                    args[k] = name(args[k])
+            for k in ("exp", "net"):
+                if k in args:
+                    args[k] = self._num(args[k])
+            if "when" in args:
+                args["when"] = bidi.ltr_block(time.strftime("%d/%m %H:%M", time.localtime(args["when"])), t.rtl)
+            self.loot_compare.addWidget(self._ll("• " + t(ins.key, **args), "RowLabel"))
 
     # gear upgrades and the scroll planner -----------------------------------
 

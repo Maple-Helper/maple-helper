@@ -7,7 +7,12 @@ one. A QTimer ticks on the GUI thread; finding the window, the grab and the OCR 
 freezes on them), and the read lines come back through a signal to lootlog.Tracker, which turns them into the log's
 events. Nothing reads while no log runs. The running log is kept here, live, and saved to loot.json every few seconds
 and when it ends (a log outlives the tools window and an app restart); each pickup, once no later read can correct
-it, also goes into the loot database for good (lootdb.py)."""
+it, also goes into the loot database for good (lootdb.py).
+
+Every QUICK_INTERVAL seconds the same read also grabs the game's quick slots (quickslot.py): a potion's count going
+down there is potions used, counted in the log at what an NPC shop asks for them. Each pickup and potion is marked
+with the map the minimap last read (ui/location.py), and the log keeps how long it ran on each map: the history
+compares the maps by that."""
 from __future__ import annotations
 
 import logging
@@ -18,9 +23,10 @@ import time
 import numpy as np
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from .. import capture, lootdb, lootlog, osapi
+from .. import capture, lootdb, lootlog, osapi, quickslot
 from ..kb import KnowledgeBase
 from ..store import Profiles, Settings
+from .location import LOCATION
 
 log = logging.getLogger("maplehelper")
 
@@ -28,6 +34,8 @@ READ_INTERVAL = 0.5     # s: a message stays ~6 s and a kill writes up to 3 at o
 SAVE_EVERY_MS = 5000    # the running log goes to disk this often while it counts (and at once when it ends)
 SETTLE_S = lootlog.LIFETIME_S + 3   # a pickup older than this is final (no read corrects it): it goes in the database
 BARS_EVERY_S = 30.0     # how often the game's black bars are measured again (one whole-window grab); and on a resize
+QUICK_INTERVAL = 2.0    # s between reads of the quick slots (a potion's count changes once per use; OCR takes ~0.3 s)
+MAP_STEP_MAX = 5.0      # s: a longer gap between two ticks (the computer slept) adds no time to the map
 
 
 def valid_region(region) -> bool:
@@ -89,6 +97,7 @@ class GameArea:
 class LootScanner(QObject):
     changed = Signal()            # the log counted something, started or ended
     _read_done = Signal(object, float, object)   # (lines read or None, the read's time, (the box read, its state))
+    _quick_done = Signal(object, float)          # (quickslot.Read or None, the read's time)
     _failed = Signal(str)
 
     def __init__(self, kb: KnowledgeBase, profiles: Profiles, settings: Settings, parent=None):
@@ -99,6 +108,11 @@ class LootScanner(QObject):
         self.store = lootlog.Store()
         self._tracker = lootlog.Tracker(lootlog.item_names(kb))
         self._game = GameArea()
+        self._quick = quickslot.Reader(kb)
+        self._potions = quickslot.Watcher()
+        self._quick_at = 0.0                  # when the quick slots were last read (time.monotonic)
+        self._tick_at: float | None = None    # the last tick (time.monotonic): the time on the map runs from it
+        self.quick_state = ""                 # "ok": the quick slots are read; "none": not found; "" not read yet
         self._cid: str | None = None          # whose log runs
         self._log: lootlog.Log | None = None  # ... live
         self._timer = QTimer(self)
@@ -113,6 +127,7 @@ class LootScanner(QObject):
                                               # and the card say why nothing counts)
         self.last_read: float | None = None   # when a read last found a message line
         self._read_done.connect(self._deliver)
+        self._quick_done.connect(self._deliver_quick)
         self._failed.connect(self._complain)
         lootlog.on_forget(self._forgot)
         self.resume()
@@ -141,6 +156,7 @@ class LootScanner(QObject):
     def set_kb(self, kb: KnowledgeBase) -> None:
         self.kb = kb
         self._tracker = lootlog.Tracker(lootlog.item_names(kb))
+        self._quick = quickslot.Reader(kb)
 
     def resume(self) -> None:
         """A log running when the app last closed goes on (and gets its database row if it had none)."""
@@ -154,6 +170,11 @@ class LootScanner(QObject):
         """The box changed (or a log started / ended): read, from a clean start, while a log runs."""
         self._tracker.reset()
         self._box_size = None
+        self._quick.reset()
+        self._potions.reset()
+        self._quick_at = 0.0
+        self._tick_at = None
+        self.quick_state = ""
         if self._log is not None:
             self._timer.start(int(READ_INTERVAL * 1000))
         else:
@@ -181,6 +202,8 @@ class LootScanner(QObject):
             self.end()
         cid = self.cid()
         self._cid, self._log = cid, self.store.start(cid, self.kb)
+        c = self._profiles.active
+        self._log.level = c.level if c and isinstance(c.level, int) and c.level > 0 else None
         self.last_read = None
         self.state = "ok"
         self._save()                        # (its database row, at once)
@@ -216,12 +239,15 @@ class LootScanner(QObject):
         try:
             if lg.db_id is None:
                 name = next((c.name for c in self._profiles.characters if c.id == self._cid), "")
-                lg.db_id = lootdb.open_log(self._cid or "", name, lg.start)
+                lg.db_id = lootdb.open_log(self._cid or "", name, lg.start, lg.level)
             cut = time.time() - SETTLE_S
-            ready = [e for e in lg.events if not e.saved and (final or e.t <= cut)]
+            # (a potion's count is final when it's counted: only pickups wait for a clearer read)
+            ready = [e for e in lg.events if not e.saved and (final or e.t <= cut or e.kind == "potion")]
             lootdb.add_events(lg.db_id, ready, self.kb)
             for e in ready:
                 e.saved = True
+            if lg.maps:
+                lootdb.set_spots(lg.db_id, lg.maps)
             if lg.ended is not None:
                 lootdb.end_log(lg.db_id, lg.ended)
         except Exception as e:  # noqa: BLE001 - a missed save keeps the pickups for the next try (also at quit)
@@ -232,19 +258,47 @@ class LootScanner(QObject):
     def _tick(self) -> None:
         if self._log is None:
             return
+        now = time.monotonic()
+        if self._tick_at is not None:
+            here = LOCATION.here
+            step = now - self._tick_at
+            if here is not None and step <= MAP_STEP_MAX:
+                self._log.on_map(here.map, step)
+        self._tick_at = now
         with self._guard:
             if self._reading:
                 return          # the last read is still going: skip this tick, don't pile up
             self._reading = True
-        threading.Thread(target=self._read, args=(self.region(),), daemon=True).start()
+        quick = now - self._quick_at >= QUICK_INTERVAL
+        if quick:
+            self._quick_at = now
+        threading.Thread(target=self._read, args=(self.region(), quick), daemon=True).start()
 
-    def _read(self, drawn: dict | None) -> None:
+    def _read_quick(self, play: tuple[int, int, int, int] | None) -> None:
+        """The quick slots, in the part of the game's picture they can be in (worker thread)."""
+        got = None
+        if play is not None:
+            x, y, w, h = play
+            left, top, right, bottom = quickslot.SEARCH
+            box = {"x": x + int(w * left), "y": y + int(h * top)}
+            box["w"], box["h"] = x + int(w * right) - box["x"], y + int(h * bottom) - box["y"]
+            if not self._game.covered(box):
+                img = capture.grab_image(box["x"], box["y"], box["w"], box["h"])
+                rgb = np.asarray(img.convert("RGB"))
+                kx, ky = rgb.shape[1] / box["w"], rgb.shape[0] / box["h"]   # (a Retina grab has more pixels)
+                got = self._quick.read(rgb, (round((x - box["x"]) * kx), round((y - box["y"]) * ky),
+                                             round(w * kx), round(h * ky)))
+        self._quick_done.emit(got, time.time())
+
+    def _read(self, drawn: dict | None, quick: bool = False) -> None:
         try:
-            if drawn is None:
-                play = self._game.find()
-                box = lootlog.auto_box(play) if play else None
-            else:
-                box = drawn
+            play = self._game.find() if (drawn is None or quick) else None
+            if quick:
+                try:
+                    self._read_quick(play)
+                except Exception as e:  # noqa: BLE001 - a bad read of the quick slots never stops the messages
+                    self._failed.emit(f"quick slots: {type(e).__name__}: {e}")
+            box = (lootlog.auto_box(play) if play else None) if drawn is None else drawn
             rows, state = None, "ok"
             if box is None:
                 state = "no_game"
@@ -286,6 +340,9 @@ class LootScanner(QObject):
         evs = self._tracker.read(rows, at)
         if any(lootlog.parse(r[0]) for r in rows):
             self.last_read = at
+        here = LOCATION.here
+        for e in evs:
+            e.map = here.map if here is not None else ""
         if evs:
             self._log.add(evs)
             log.debug("loot: %s", ", ".join(f"{e.kind} {e.amount} {e.name}".strip() for e in evs))
@@ -294,6 +351,31 @@ class LootScanner(QObject):
         # (a later read may correct an earlier event's value: redraw on every read with a message in it)
         if evs or self.last_read == at:
             self.changed.emit()
+
+    def _deliver_quick(self, rd, at: float) -> None:
+        """A read of the quick slots: the potions whose count went down are counted as used."""
+        if self._log is None:
+            return
+        state = "ok" if rd is not None and rd.potions else "none"
+        if state != self.quick_state:
+            self.quick_state = state
+            self.changed.emit()
+        if rd is None:
+            return
+        used = self._potions.read(rd, at)
+        if not used:
+            return
+        here = LOCATION.here
+        evs = []
+        for key, n in used.items():
+            e = self.kb.get(key)
+            evs.append(lootlog.Event(at, "potion", n, e["name"] if e else key, key,
+                                     map=here.map if here is not None else ""))
+        self._log.add(evs)
+        log.debug("loot: potions used %s", ", ".join(f"{e.name} {e.amount}" for e in evs))
+        if not self._save_timer.isActive():
+            self._save_timer.start(SAVE_EVERY_MS)
+        self.changed.emit()
 
     def _complain(self, error: str) -> None:
         if error not in self._logged:

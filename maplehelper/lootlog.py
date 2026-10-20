@@ -175,15 +175,20 @@ def agree(a: Line, b: Line) -> bool:
     return match(a, b) >= 0
 
 
+KINDS = ("exp", "mesos", "item", "potion")
+
+
 @dataclass
 class Event:
-    """A gain, counted once: kind, value and when."""
+    """A gain, counted once: kind, value and when. "potion" is the other way: potions used, read off the game's quick
+    slots (quickslot.py), not from a pickup message."""
     t: float
     kind: str
-    amount: int = 0             # EXP / mesos; an item's count
+    amount: int = 0             # EXP / mesos; an item's count; potions used
     name: str = ""              # the item as the KB names it (or as read when the KB has no such item)
     key: str = ""               # the KB item, "" when unknown
     saved: bool = False         # written to the loot database (lootdb.py)
+    map: str = ""               # the map the player was on (the minimap's read, ui/location.py), "" when unknown
 
     def to_json(self) -> dict:
         out = {k: v for k, v in asdict(self).items() if v not in ("", None)}
@@ -193,13 +198,13 @@ class Event:
 
     @classmethod
     def from_json(cls, raw) -> Event | None:
-        if not isinstance(raw, dict) or raw.get("kind") not in ("exp", "mesos", "item"):
+        if not isinstance(raw, dict) or raw.get("kind") not in KINDS:
             return None
         t, amount = raw.get("t"), raw.get("amount", 0)
         if not isinstance(t, (int, float)) or not isinstance(amount, int) or isinstance(amount, bool):
             return None
         return cls(float(t), raw["kind"], amount, str(raw.get("name") or ""), str(raw.get("key") or ""),
-                   raw.get("saved") is True)
+                   raw.get("saved") is True, str(raw.get("map") or ""))
 
 
 @dataclass
@@ -386,8 +391,10 @@ class Log:
     start: float = field(default_factory=time.time)
     ended: float | None = None
     events: list[Event] = field(default_factory=list)
-    base: dict = field(default_factory=lambda: {"exp": 0, "mesos": 0, "items": {}})
+    base: dict = field(default_factory=lambda: {"exp": 0, "mesos": 0, "items": {}, "potions": {}})
     db_id: int | None = None    # its row in the loot database (lootdb.py); None until it has one
+    maps: dict = field(default_factory=dict)    # map id -> seconds the log ran on it (the minimap's reads)
+    level: int | None = None    # the character's level when it started
 
     def add(self, evs: list[Event]) -> None:
         self.events.extend(evs)
@@ -399,17 +406,32 @@ class Log:
     def totals(self) -> tuple[int, int, dict[str, list]]:
         """(EXP, mesos, {item name: [count, key]}), from the events as they read now (a later read of a line can
         still correct a value)."""
-        out = {"exp": self.base["exp"], "mesos": self.base["mesos"],
-               "items": {n: list(v) for n, v in self.base["items"].items()}}
-        _total(self.events, out)
+        out = self.sums()
         return out["exp"], out["mesos"], out["items"]
+
+    def potions(self) -> dict[str, list]:
+        """{potion name: [used, key]}."""
+        return self.sums()["potions"]
+
+    def sums(self) -> dict:
+        """{"exp", "mesos", "items": {name: [count, key]}, "potions": {name: [used, key]}}."""
+        out = {"exp": self.base["exp"], "mesos": self.base["mesos"],
+               "items": {n: list(v) for n, v in self.base["items"].items()},
+               "potions": {n: list(v) for n, v in self.base.get("potions", {}).items()}}
+        _total(self.events, out)
+        return out
+
+    def on_map(self, mid: str, seconds: float) -> None:
+        """`seconds` more of the log on map `mid`."""
+        if mid and seconds > 0:
+            self.maps[mid] = self.maps.get(mid, 0.0) + seconds
 
     def seconds(self, now: float | None = None) -> float:
         return max(0.0, (self.ended or now or time.time()) - self.start)
 
     def to_json(self) -> dict:
         return {"start": self.start, "ended": self.ended, "events": [e.to_json() for e in self.events],
-                "base": self.base, "db_id": self.db_id}
+                "base": self.base, "db_id": self.db_id, "maps": self.maps, "level": self.level}
 
     @classmethod
     def from_json(cls, raw) -> Log | None:
@@ -420,9 +442,18 @@ class Log:
                  [e for r in raw.get("events") or [] if (e := Event.from_json(r))])
         base = raw.get("base")
         if isinstance(base, dict) and isinstance(base.get("items"), dict):
+            pots = base.get("potions") if isinstance(base.get("potions"), dict) else {}
             lg.base = {"exp": _int(base.get("exp")), "mesos": _int(base.get("mesos")),
                        "items": {str(n): [_int(v[0]), str(v[1] or "")] for n, v in base["items"].items()
-                                 if isinstance(v, list) and len(v) == 2}}
+                                 if isinstance(v, list) and len(v) == 2},
+                       "potions": {str(n): [_int(v[0]), str(v[1] or "")] for n, v in pots.items()
+                                   if isinstance(v, list) and len(v) == 2}}
+        maps = raw.get("maps")
+        if isinstance(maps, dict):
+            lg.maps = {str(k): float(v) for k, v in maps.items()
+                       if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0}
+        level = raw.get("level")
+        lg.level = level if isinstance(level, int) and not isinstance(level, bool) and level > 0 else None
         db_id = raw.get("db_id")
         lg.db_id = db_id if isinstance(db_id, int) and not isinstance(db_id, bool) else None
         return lg
@@ -434,8 +465,8 @@ def _int(v) -> int:
 
 def _total(evs: list[Event], out: dict) -> None:
     for e in evs:
-        if e.kind == "item":
-            got = out["items"].setdefault(e.name, [0, e.key])
+        if e.kind in ("item", "potion"):
+            got = out["items" if e.kind == "item" else "potions"].setdefault(e.name, [0, e.key])
             got[0] += e.amount
         else:
             out[e.kind] += e.amount
@@ -443,6 +474,28 @@ def _total(evs: list[Event], out: dict) -> None:
 
 def per_hour(value: float, seconds: float) -> int | None:
     return round(value * 3600 / seconds) if seconds >= 60 else None     # under a minute a rate means nothing
+
+
+def is_etc(kb, key: str) -> bool:
+    """An Etc item (the inventory's Etc tab: monster drops, ores, quest items), by its KB type."""
+    e = kb.get(key) if key else None
+    return bool(e) and str(e.get("type", "")).startswith("Etc")
+
+
+def sell_price(kb, key: str) -> int | None:
+    """What an NPC pays for one (the KB's item page), None when it has no sell price."""
+    from . import farm
+    v = farm.value(kb, key) if key else None
+    return v.price if v else None
+
+
+def potion_cost(kb, key: str) -> int | None:
+    """What one costs at the cheapest NPC shop the game has open (grind.potion_price, the KB's shops), None when no
+    open shop sells it."""
+    from . import grind
+    e = kb.get(key) if key else None
+    got = grind.potion_price(kb, e["name"]) if e else None
+    return got[0] if got else None
 
 
 @dataclass
@@ -456,28 +509,47 @@ class Summary:
     picked: int                                     # items picked up, all counted
     value: int                                      # what an NPC pays for them all, plus the mesos
     value_h: int | None
+    etc: int = 0                                    # Etc items picked up (is_etc) ...
+    etc_value: int = 0                              # ... and what an NPC pays for them
+    other_value: int = 0                            # what an NPC pays for the other items (equips, use items)
+    potions: list = field(default_factory=list)     # (name, used, key, NPC shop price each), most first
+    used: int = 0                                   # potions used, all counted
+    potions_cost: int = 0                           # what the potions used cost at an NPC shop
+    net: int = 0                                    # value - potions_cost: what the log made, all told
+    net_h: int | None = None
 
 
 def summarize(kb, log: Log, now: float | None = None) -> Summary:
-    from . import farm
     secs = log.seconds(now)
-    exp, mesos, got = log.totals()
+    sums = log.sums()
+    exp, mesos, got = sums["exp"], sums["mesos"], sums["items"]
     items = []
-    worth = 0
+    worth = etc = etc_value = 0
     for name, (n, key) in sorted(got.items(), key=lambda kv: (-kv[1][0], kv[0].lower())):
-        v = farm.value(kb, key) if key else None
-        price = v.price if v else None
+        price = sell_price(kb, key)
         worth += n * (price or 0)
+        if is_etc(kb, key):
+            etc += n
+            etc_value += n * (price or 0)
         items.append((name, n, key, price))
+    pots = []
+    cost = 0
+    for name, (n, key) in sorted(sums["potions"].items(), key=lambda kv: (-kv[1][0], kv[0].lower())):
+        price = potion_cost(kb, key)
+        cost += n * (price or 0)
+        pots.append((name, n, key, price))
     value = worth + mesos
+    net = value - cost
     return Summary(secs, exp, per_hour(exp, secs), mesos, per_hour(mesos, secs), items,
-                   sum(n for _, n, _, _ in items), value, per_hour(value, secs))
+                   sum(n for _, n, _, _ in items), value, per_hour(value, secs), etc, etc_value, worth - etc_value,
+                   pots, sum(n for _, n, _, _ in pots), cost, net, per_hour(net, secs))
 
 
 def record(s: Summary, start: float) -> dict:
     """A finished log as the Recent logs list keeps it."""
     return {"start": start, "seconds": round(s.seconds), "exp": s.exp, "mesos": s.mesos, "picked": s.picked,
-            "value": s.value, "top": [[name, n] for name, n, _, _ in s.items[:5]]}
+            "value": s.value, "top": [[name, n] for name, n, _, _ in s.items[:5]], "etc_value": s.etc_value,
+            "potions_cost": s.potions_cost, "net": s.net}
 
 
 class Store:
