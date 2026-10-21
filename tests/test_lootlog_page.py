@@ -93,6 +93,9 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
         texts = card.lines()
         assert any("1,234" in x for x in texts) and any("Leaf" in x for x in texts)
         assert not any("the moment it's picked up" in x for x in texts)
+        # the pickup's worth at the better price, tagged NPC or FM; Stop is red, here and in the full tracker
+        assert any("Leaf" in x and (">NPC</span>" in x or ">FM</span>" in x) for x in texts)
+        assert card._stop.objectName() == "Stop" and d.stop_btn.objectName() == "TrkStop"
         assert any(x.startswith("Net") for x in texts)
         card._close.click()
         assert not card.isVisible() and s["loot_overlay"] is False

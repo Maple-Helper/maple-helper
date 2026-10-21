@@ -271,4 +271,4 @@ def test_a_past_session_shows_every_category_and_details_or_delete_keep_the_scro
         for _ in range(3):
             app.processEvents()
         assert bar.value() == 300
-    assert "Profit by how you sell" in " | ".join(d.lines())
+    assert "Where to sell" in " | ".join(d.lines())

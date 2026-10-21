@@ -2,13 +2,14 @@
 this rate, potions running low with the nearest shop, the monsters killed, the last session on the same map, sell or
 keep, and the history's Delete."""
 import os
+import re
 import time
 from pathlib import Path
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QLabel  # noqa: E402
 
 from maplehelper import lootdb, lootextras, lootlog, quickslot  # noqa: E402
 
@@ -94,7 +95,8 @@ def test_sell_or_keep(kb):
     free = next(k for k, e in kb.entities.items() if e.get("category") == "item" and k not in sell.needs
                 and lootlog.sell_price(kb, k))
     assert lootextras.sell_advice(kb, free, 10, 100).verdict == "players"
-    assert lootextras.sell_advice(kb, free, 10, 12).verdict == "npc"
+    assert lootextras.sell_advice(kb, free, 10, 12).verdict == "players"      # whoever pays more
+    assert lootextras.sell_advice(kb, free, 10, 9).verdict == "npc"
     assert lootextras.sell_advice(kb, free, 10, 100, low_data=True).verdict == "npc"    # a guess on few sales
 
 
@@ -140,7 +142,7 @@ def test_the_window_shows_the_goal_the_alert_the_kills_and_the_advice(window, kb
         text = " | ".join(d.lines())
         assert "To level 41:" in text and "5,000 EXP to go" in text and "at this rate in" in text
         assert "Only 14 Lemon left" in text and "Buy them from" in text
-        assert "What to do" in text and "Monsters you killed" in text
+        assert "Where to sell" in text and "Monsters you killed" in text
         route = next(b for b in d.findChildren(type(d.start_btn)) if b.text() == "How to get there")
         route.click()
         assert asked and asked[-1].startswith("npc/")
@@ -203,18 +205,20 @@ def test_a_refresh_moves_the_numbers_in_place_never_a_new_table(window):
         scan.end()
 
 
-def test_the_loot_sold_three_ways(kb, monkeypatch):
-    """To an NPC, to players (MesoWatch's usual sale price; one without counts at the NPC's) and each item where it
-    pays more (a players' guess on few sales is never the better one)."""
+def test_each_item_counts_at_whoever_pays_more(kb, monkeypatch):
+    """An NPC or the players (MesoWatch's usual sale price), whichever pays more; a players' guess on few sales never
+    wins; no price at all counts nothing."""
     prices = {LEAF: (30, False), GLADIUS: (5, False)}
     monkeypatch.setattr(lootextras, "market_price", lambda kb, key: prices.get(key, (None, False)))
     leaf, glad = lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
+    assert lootextras.best_sale(kb, LEAF, leaf) == ((30, "fm") if 30 > leaf else (leaf, "npc"))
+    assert lootextras.best_sale(kb, GLADIUS, glad) == ((glad, "npc") if glad >= 5 else (5, "fm"))
+    assert lootextras.best_sale(kb, LEMON, None) == (None, "")
     items = [("Leaf", 10, LEAF, leaf), ("Old Gladius", 1, GLADIUS, glad), ("Lemon", 2, LEMON, None)]
-    w = lootextras.sale_ways(kb, items)
-    assert w.npc == (10 * leaf, glad) and w.players == (300, 5) and w.unpriced == 1
-    assert w.best == (max(10 * leaf, 300), max(glad, 5))
-    prices[LEAF] = (999, True)                                 # few sales: a guess, not the best price
-    assert lootextras.sale_ways(kb, items).best[0] == 10 * leaf
+    v = lootextras.loot_value(kb, items)
+    assert (v.etc_n, v.etc_v) == (10, 10 * max(30, leaf)) and v.items_n == 3 and v.items_v == max(glad, 5)
+    prices[LEAF] = (999, True)                                 # few sales: a guess, not the better price
+    assert lootextras.best_sale(kb, LEAF, leaf) == (leaf, "npc")
 
 
 def test_the_bars_monsters_button_shows_a_real_monster(kb):
@@ -231,23 +235,26 @@ def test_the_bars_monsters_button_shows_a_real_monster(kb):
         bar.close()
 
 
-def test_the_summary_shows_etc_and_items_sold_to_an_npc_and_to_players(window, kb, monkeypatch):
-    """Both prices in the session's table, each its own row (the owner: it showed only the NPC's)."""
+def test_the_summary_counts_etc_and_items_at_the_better_price_with_tags(window, kb, monkeypatch):
+    """ETC and items in the session's table: what they're worth (each at whoever pays more) and how many, no per
+    hour; income, potions and net no per hour either (the owner); the item tables tag each NPC or FM."""
     monkeypatch.setattr(lootextras, "market_price", lambda kb, key: (40, False) if key == LEAF else (None, False))
     d = window
     scan = d.scanner
     scan.start()
     try:
-        scan._log.add([lootlog.Event(time.time(), "item", 3, "Leaf", LEAF),
+        scan._log.add([lootlog.Event(time.time(), "mesos", 100), lootlog.Event(time.time(), "item", 3, "Leaf", LEAF),
                        lootlog.Event(time.time(), "item", 1, "Old Gladius", GLADIUS)])
         d.refresh()
         leaf, glad = lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
-        lines = [x for x in d.lines()]
-        text = " | ".join(lines)
-        assert "ETC (sold to an NPC)" in text and "ETC (sold to players)" in text
-        assert "Items (sold to an NPC)" in text and "Items (sold to players)" in text
-        cells = d._sum_card._cells
-        assert f"{3 * leaf:,}" in cells[(2, 1)].text() and "120" in cells[(3, 1)].text()
-        assert f"{glad:,}" in cells[(4, 1)].text() and f"{glad:,}" in cells[(5, 1)].text()   # no players' price
+        cell = lambda r, c: re.sub(r"<[^>]+>", "", d._sum_card._cells[(r, c)].text()).replace("&nbsp;", "").strip()  # noqa: E731
+        assert cell(2, 1) == f"{3 * max(40, leaf):,}" and "3" in cell(2, 2)
+        assert cell(3, 1) == f"{glad:,}" and "1" in cell(3, 2)
+        assert cell(4, 1) == f"{100 + 3 * max(40, leaf) + glad:,}" and cell(4, 2) == ""
+        assert cell(0, 2) and cell(1, 2)                              # EXP and mesos keep their per hour
+        text = " | ".join(d.lines())
+        assert "Where to sell" in text and "Profit by how you sell" not in text
+        tags = {w.objectName() for w in d.findChildren(QLabel) if w.objectName().startswith("TrkTag")}
+        assert {"TrkTagFm", "TrkTagNpc"} <= tags          # (and Keep beside a tag, for a quest's item)
     finally:
         scan.end()

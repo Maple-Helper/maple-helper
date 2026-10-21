@@ -90,7 +90,7 @@ class GrindTracker(EdgeResize, GlassDialog):
         top.addWidget(self.chip, 0, Qt.AlignVCenter)
         top.addWidget(self.state, 1)
         self.start_btn = self._button("loot_start", "Primary", lambda: self.scanner.start())
-        self.stop_btn = self._button("loot_card_stop", "Secondary", lambda: self.scanner.end())
+        self.stop_btn = self._button("loot_card_stop", "TrkStop", lambda: self.scanner.end())     # red (the owner)
         self.reset_btn = self._button("loot_card_reset", "Secondary", lambda: self.scanner.start())
         self.reset_btn.setToolTip(t("loot_card_reset_tip"))
         self.guide_btn = self._button("trk_guide", "Secondary", self.guide_requested.emit)
@@ -127,9 +127,15 @@ class GrindTracker(EdgeResize, GlassDialog):
 #TrkGood { padding: 8px 8px; font-weight: 700; color: #2E9E5B; }
 #TrkAlert { background: rgba(217,83,79,0.12); border: 1px solid rgba(217,83,79,0.45); border-radius: 12px; }
 #TrkGoal { background: rgba(255,149,51,0.10); border: 1px solid rgba(255,149,51,0.40); border-radius: 12px; }
-#TrkKeep { padding: 6px 8px; font-weight: 600; color: #0A6CD6; }
-#TrkPlayers { padding: 6px 8px; font-weight: 600; color: #2E9E5B; }
 #TrkNpc { padding: 6px 8px; font-weight: 600; }
+#TrkTagFm { background: rgba(46,158,91,0.16); color: #2E9E5B; border-radius: 8px; padding: 2px 10px; font-weight: 700; }
+#TrkTagNpc { background: rgba(240,122,18,0.16); color: #D9680A; border-radius: 8px; padding: 2px 10px;
+             font-weight: 700; }
+#TrkTagKeep { background: rgba(10,108,214,0.14); color: #0A6CD6; border-radius: 8px; padding: 2px 10px;
+              font-weight: 700; }
+QPushButton#TrkStop { background: #D9534F; color: #FFFFFF; border: 1px solid #C9433F; border-radius: 12px;
+                      min-height: 26px; padding: 4px 18px; font-weight: 600; }
+QPushButton#TrkStop:hover { background: #C9433F; }
 QProgressBar#TrkGoalBar { background: rgba(127,127,127,0.18); border: none; border-radius: 4px; }
 QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
 QPushButton#TrkSmall { background: rgba(127,127,127,0.14); border: none; border-radius: 9px; padding: 4px 12px;
@@ -234,8 +240,8 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             grid.addWidget(line, 2 * r - 1, 0, 1, len(heads))
             obj = (styles or {}).get(r - 1) or ("TrkStrong" if strong and r - 1 in strong else None)
             for c, cell in enumerate(row):
-                if isinstance(cell, tuple) and cell and cell[0] == "advice":     # sell or keep
-                    grid.addWidget(self._advice_cell(cell[1]), 2 * r, c)
+                if isinstance(cell, tuple) and cell and cell[0] == "advice":     # where to sell, keep
+                    grid.addWidget(self._advice_cell(*cell[1:]), 2 * r, c)
                     continue
                 if isinstance(cell, tuple):         # (key, name): the item's picture and name
                     key, name = cell
@@ -282,8 +288,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         lay.addWidget(self.goal)
         self.summary = QVBoxLayout()
         lay.addLayout(self.summary)
-        self.ways_box = QVBoxLayout()                # the money by how the loot is sold
-        lay.addLayout(self.ways_box)
         self.compare_line = self._label("", "RowLabel")      # the last session on this map
         lay.addWidget(self.compare_line)
         self.kills_box = QVBoxLayout()               # the monsters killed
@@ -316,9 +320,9 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         running = scan.running(cid)
         if lg is None:
             for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.alerts,
-                        self.kills_box, self.ways_box):
+                        self.kills_box):
                 self._changed(box, None)
-            self._sum_card = self._ways_card = None
+            self._sum_card = None
         status = ""
         if running and scan.state in ("no_game", "covered"):
             status = t(f"loot_{scan.state}")
@@ -339,9 +343,8 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         self._fill_alerts(sm, running)
         h = sm.seconds
         rate = lambda v: lootlog.per_hour(v, h)  # noqa: E731
-        rows, styles, top = self._money_rows(sm.exp, sm.mesos, sm.etc_value, sm.other_value, sm.value,
-                                             lootextras.by_kind(self.kb, sm.potions), sm.net, rate,
-                                             lootextras.sale_ways(self.kb, sm.items).players)
+        rows, styles, top = self._money_rows(sm.exp, sm.mesos, lootextras.loot_value(self.kb, sm.items),
+                                             lootextras.by_kind(self.kb, sm.potions), sm.potions_cost, rate)
         heads = [t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")]
         card = self.__dict__.get("_sum_card")
         shape = (tuple(heads), tuple(str(r[0]) for r in rows), tuple(len(r) for r in rows))
@@ -364,7 +367,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             self._sum_card = self._table(heads, rows, strong={top}, styles=styles)
             self.summary.addWidget(self._sum_card)
             self.summary.addWidget(self._label(t("trk_summary_note"), "RowHint"))
-        self._fill_ways(sm)
         self._fill_compare_line(lg, sm)
         counts: dict[int, int] = {}
         for e in lg.events:
@@ -389,52 +391,59 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             return None, False, ""
         return int(s.price), bool(s.low_data or s.scrolled_only), mesowatch.item_url(s.mw_id or s.game_id)
 
+    def _item_heads(self) -> list[str]:
+        t = self.t
+        return [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_mw"), t("trk_c_value"), t("trk_c_advice")]
+
     def _item_rows(self, items, advice: bool = False) -> tuple[list[list], bool]:
-        """advice: a last column, keep it / sell it to players / to an NPC (lootextras.sell_advice)."""
+        """Each item: how many, an NPC's price and the players' (MesoWatch), what they bring at whichever pays more
+        and where that is: an NPC or FM tag (lootextras.best_sale); advice: Keep instead, when a quest or recipe
+        needs it (lootextras.sell_advice). A total row last."""
         t = self.t
         rows, guessed = [], False
-        tot_n = tot_npc = tot_mw = 0
-        self._advice_tips: list[str] = []
+        tot_n = tot_v = 0
         for name, n, key, price in items:
             mw, low, _ = self._mw(key) if key else (None, False, "")
             guessed |= low
-            mark = "~" if low else ""
+            each, where = lootextras.best_sale(self.kb, key, price)
             tot_n += n
-            tot_npc += n * (price or 0)
-            tot_mw += n * (mw or 0)
-            row = [(key, name), self._num(n), self._num(price) if price else "–",
-                   self._num(n * price) if price else "–",
-                   (mark + self._num(mw)) if mw else "–", (mark + self._num(n * mw)) if mw else "–"]
-            if advice:
-                a = lootextras.sell_advice(self.kb, key, price, mw, low)
-                row.append(("advice", a))
-            rows.append(row)
-        total = [t("trk_total"), self._num(tot_n), "", self._num(tot_npc), "", self._num(tot_mw) if tot_mw else "–"]
-        rows.append(total + ([""] if advice else []))
+            tot_v += n * (each or 0)
+            a = lootextras.sell_advice(self.kb, key, price, mw, low) if advice else None
+            rows.append([(key, name), self._num(n), self._num(price) if price else "–",
+                         (("~" if low else "") + self._num(mw)) if mw else "–",
+                         self._num(n * each) if each else "–",
+                         ("advice", where, a if a is not None and a.verdict == "keep" else None)])
+        rows.append([t("trk_total"), self._num(tot_n), "", "", self._num(tot_v), ""])
         return rows, guessed
 
-    def _advice_cell(self, a) -> QLabel:
+    def _advice_cell(self, where: str, keep=None) -> QWidget:
+        """Where it sells for more: an FM or NPC tag (lootextras.best_sale), always; and Keep beside it when a current
+        quest or recipe needs it (keep: lootextras.sell_advice's "keep", its tooltip saying which)."""
         t = self.t
-        if a.verdict == "keep":
-            what = ([t("sell_quests_n", n=a.quests)] if a.quests else []) + \
-                   ([t("sell_recipes_n", n=a.recipes)] if a.recipes else [])
-            lb = self._label(t("trk_keep_short"), "TrkKeep", explain=False)
-            lb.setToolTip(tip_html(t("trk_keep", what=", ".join(what)) + chr(10) + a.tip, t.rtl))
-        elif a.verdict == "players":
-            lb = self._label(t("trk_sell_players"), "TrkPlayers", explain=False)
-            lb.setToolTip(t("trk_sell_players_tip"))
-        elif a.verdict == "npc":
-            lb = self._label(t("trk_sell_npc"), "TrkNpc", explain=False)
-            lb.setToolTip(t("trk_sell_npc_tip"))
-        else:
-            lb = self._label("–", "TrkNpc", explain=False)
-        lb.setAlignment(Qt.AlignCenter)
-        return lb
+        box = QWidget()                 # the tags their own size, centred in their cell
+        hl = QHBoxLayout(box)
+        hl.setContentsMargins(0, 4, 0, 4)
+        hl.setSpacing(6)
+        hl.addStretch(1)
+        if where in ("fm", "npc"):
+            fm = where == "fm"
+            lb = QLabel(t("trk_at_fm" if fm else "trk_at_npc"), objectName="TrkTagFm" if fm else "TrkTagNpc")
+            lb.setToolTip(t("trk_sell_players_tip" if fm else "trk_sell_npc_tip"))
+            hl.addWidget(lb)
+        if keep is not None:
+            what = ([t("sell_quests_n", n=keep.quests)] if keep.quests else []) + \
+                   ([t("sell_recipes_n", n=keep.recipes)] if keep.recipes else [])
+            lb = QLabel(t("trk_keep_short"), objectName="TrkTagKeep")
+            lb.setToolTip(tip_html(t("trk_keep", what=", ".join(what)) + chr(10) + keep.tip, t.rtl))
+            hl.addWidget(lb)
+        if hl.count() == 1:
+            hl.addWidget(QLabel("–", objectName="TrkNpc"))
+        hl.addStretch(1)
+        return box
 
     def _fill_items(self, sm) -> None:
         t = self.t
-        heads = [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_npc_total"), t("trk_c_mw"),
-                 t("trk_c_mw_total"), t("trk_c_advice")]
+        heads = self._item_heads()
         guessed = False
         etc = [i for i in sm.items if lootlog.is_etc(self.kb, i[2])]
         other = [i for i in sm.items if not lootlog.is_etc(self.kb, i[2])]
@@ -572,76 +581,25 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         if not compact:
             box.addWidget(self._label(t("trk_kills_note"), "RowHint"))
 
-    def _fill_ways(self, sm) -> None:
-        """The money three ways: the loot sold to an NPC, to players (MesoWatch's usual sale price) and each item where
-        it pays more, so far and per hour; the mesos and the potions the same in all three. Its numbers change in
-        place, as the summary's do."""
+    def _money_rows(self, exp, mesos, loot, kinds, spent, rate):
+        """The summary's rows, their colours and the income row's index: EXP and mesos so far and per hour; ETC and
+        the other items what they bring (each at whichever pays more, an NPC or the players: lootextras.best_sale)
+        and how many; the income they all make, the potions HP / MP, the net. Only EXP and mesos have a per hour
+        (the owner); the "so far" column is the money, top to bottom. The live session's and each past one's alike,
+        so the history shows every category the tracker does."""
         t = self.t
-        ways = lootextras.sale_ways(self.kb, sm.items)
-        rate = lambda v: lootlog.per_hour(v, sm.seconds)  # noqa: E731
-        heads, rows, styles = self._ways_rows(ways, sm.mesos, sm.potions_cost, rate)
-        shape = (tuple(heads), tuple(str(r[0]) for r in rows), ways.unpriced > 0)
-        card = self.__dict__.get("_ways_card")
-        if card is not None and getattr(card, "_wshape", None) == shape:
-            for r, row in enumerate(rows):
-                for c in range(1, len(row)):
-                    lb = card._cells.get((r, c))
-                    if lb is not None:
-                        self._set(lb, self._html(str(row[c]), False))
-            return
-        self._changed(self.ways_box, shape)
-        self._section(self.ways_box, t("trk_ways"))
-        self._ways_card = self._table(heads, rows, strong={3}, styles=styles)
-        self._ways_card._wshape = shape
-        self.ways_box.addWidget(self._ways_card)
-        note = t("trk_ways_note") + (" " + t("trk_ways_unpriced") if ways.unpriced else "")
-        self.ways_box.addWidget(self._label(note, "RowHint"))
-
-    def _ways_table(self, ways, mesos: int, spent: int, rate) -> QFrame:
-        heads, rows, styles = self._ways_rows(ways, mesos, spent, rate)
-        return self._table(heads, rows, strong={3}, styles=styles)
-
-    def _ways_rows(self, ways, mesos: int, spent: int, rate):
-        """The ways table's heads, rows and colours: mesos, ETC, items, income, the potions, net, each way sold."""
-        t = self.t
-        cols = (ways.npc, ways.players, ways.best)
-
-        def cells(v):
-            return [x for w in v for x in (self._num(w), self._num(rate(w)))]
-        etc = [c[0] for c in cols]
-        other = [c[1] for c in cols]
-        income = [mesos + c[0] + c[1] for c in cols]
-        net = [i - spent for i in income]
-        rows = [[t("trk_row_mesos"), *cells([mesos] * 3)],
-                [t("trk_way_etc"), *cells(etc)],
-                [t("trk_way_items"), *cells(other)],
-                [t("trk_row_income"), *cells(income)],
-                [t("trk_row_spent"), *cells([-spent if spent else 0] * 3)],
-                [t("trk_row_net"), *cells(net)]]
-        heads = [t("trk_col_cat"), t("trk_way_npc"), t("trk_way_npc_h"), t("trk_way_players"), t("trk_way_players_h"),
-                 t("trk_way_best"), t("trk_way_best_h")]
-        styles = {4: "TrkBad", 5: "TrkGood" if min(net) >= 0 else "TrkBad"}
-        return heads, rows, styles
-
-    def _money_rows(self, exp, mesos, etc, other, income, kinds, net, rate, players=(0, 0)):
-        """The summary's rows (EXP, mesos, ETC and items each sold to an NPC and to players, income, the potions HP /
-        MP, net), their colours and the income row's index: the live session's and each past one's alike, so the
-        history shows every category the tracker does (the owner). players: (ETC, items) at MesoWatch's usual sale
-        price (an item with none at the NPC's); the income and the net count the NPC's prices, the ways table the
-        rest."""
-        t = self.t
+        income = mesos + loot.value
+        net = income - spent
         rows = [
             [t("trk_row_exp"), self._num(exp), self._num(rate(exp))],
             [t("trk_row_mesos"), self._num(mesos), self._num(rate(mesos))],
-            [t("trk_row_etc"), self._num(etc), self._num(rate(etc))],
-            [t("trk_row_etc_mw"), self._num(players[0]), self._num(rate(players[0]))],
-            [t("trk_row_items"), self._num(other), self._num(rate(other))],
-            [t("trk_row_items_mw"), self._num(players[1]), self._num(rate(players[1]))],
-            [t("trk_row_income"), self._num(income), self._num(rate(income))],
-            *self._spent_rows(kinds, rate),
-            [t("trk_row_net"), self._num(net), self._num(rate(net))],
+            [t("trk_row_etc"), self._num(loot.etc_v), t("trk_units", n=self._num(loot.etc_n))],
+            [t("trk_row_items"), self._num(loot.items_v), t("trk_units", n=self._num(loot.items_n))],
+            [t("trk_row_income"), self._num(income), ""],
+            *[[r[0], r[1], ""] for r in self._spent_rows(kinds, rate)],
+            [t("trk_row_net"), self._num(net), ""],
         ]
-        top = 6
+        top = 4
         bad = {i: "TrkBad" for i in range(top + 1, len(rows) - 1)}
         return rows, {**bad, len(rows) - 1: "TrkGood" if net >= 0 else "TrkBad"}, top
 
@@ -767,18 +725,13 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             cl.addLayout(top)
             self._fill_kills(cl, s.exp_counts, list(s.maps), s.level, compact=True)
             ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
-            rows, styles, top = self._money_rows(s.exp, s.mesos, s.etc_value, s.other_value, s.value,
-                                                 lootextras.by_kind(self.kb, s.potion_list), s.net, ph,
-                                                 lootextras.sale_ways(self.kb, s.items).players)
-            cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows, strong={top},
+            rows, styles, inc = self._money_rows(s.exp, s.mesos, lootextras.loot_value(self.kb, s.items),
+                                                 lootextras.by_kind(self.kb, s.potion_list), s.potions_cost, ph)
+            cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows, strong={inc},
                                      styles=styles))
             if s.id in self._open:
                 if s.items:
-                    cl.addWidget(self._label(t("trk_ways"), "SectionHeader"))
-                    cl.addWidget(self._ways_table(lootextras.sale_ways(self.kb, s.items), s.mesos, s.potions_cost, ph))
-                if s.items:
-                    heads = [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_npc_total"), t("trk_c_mw"),
-                             t("trk_c_mw_total")]
+                    heads = self._item_heads()
                     rows, _ = self._item_rows(s.items)
                     cl.addWidget(self._label(t("trk_picked_head"), "SectionHeader"))
                     cl.addWidget(self._table(heads, rows, strong={len(rows) - 1}))

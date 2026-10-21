@@ -8,7 +8,6 @@ from dataclasses import dataclass
 
 LOW_POTIONS = 20            # a potion used this session with this many left or fewer is running low
 KILL_LEVELS = 15            # a session with no map read: its level's monsters this close, by a unique EXP
-MARKET_BETTER = 1.5         # players pay this much more than an NPC (after the market's own cost): sell to players
 
 
 # ---------------------------------------------------------------- the next level
@@ -109,32 +108,44 @@ def market_price(kb, key: str) -> tuple[int | None, bool]:
     return int(s.price), bool(s.low_data or s.scrolled_only)
 
 
+def best_sale(kb, key: str, npc_price: int | None) -> tuple[int | None, str]:
+    """(the price each, where it sells for that: "npc" | "fm"): whichever pays more, an NPC or the players
+    (MesoWatch's usual sale price, a real one: never a guess on few sales). Checked as each item is picked up, and
+    that price is the one every total counts (the owner: "whoever pays more is shown"). (None, "") with neither."""
+    mp, low = market_price(kb, key) if key else (None, False)
+    if mp and not low and mp > (npc_price or 0):
+        return mp, "fm"
+    if npc_price:
+        return npc_price, "npc"
+    return None, ""
+
+
 @dataclass
-class SaleWays:
-    """What the loot brings, sold each way: (ETC, the other items) to an NPC, to players, and each item where it pays
-    more. An item with no players' price counts at the NPC's in the players' column (unpriced counts them)."""
-    npc: tuple[int, int] = (0, 0)
-    players: tuple[int, int] = (0, 0)
-    best: tuple[int, int] = (0, 0)
-    unpriced: int = 0           # items (kinds) with no players' price: the players' column used the NPC's for them
+class LootValue:
+    """The loot picked up, at the best price each: how many and what it brings, ETC and the other items apart."""
+    etc_n: int = 0
+    etc_v: int = 0
+    items_n: int = 0
+    items_v: int = 0
+
+    @property
+    def value(self) -> int:
+        return self.etc_v + self.items_v
 
 
-def sale_ways(kb, items) -> SaleWays:
+def loot_value(kb, items) -> LootValue:
     """items: summary rows (name, count, key, NPC price each)."""
     from . import lootlog
-    out = {"npc": [0, 0], "players": [0, 0], "best": [0, 0]}
-    unpriced = 0
+    out = LootValue()
     for _name, n, key, price in items:
-        i = 0 if lootlog.is_etc(kb, key) else 1
-        npc = n * (price or 0)
-        mp, low = market_price(kb, key) if key else (None, False)
-        players = n * mp if mp else npc
-        if not mp:
-            unpriced += 1
-        out["npc"][i] += npc
-        out["players"][i] += players
-        out["best"][i] += max(npc, players if mp and not low else npc)
-    return SaleWays(tuple(out["npc"]), tuple(out["players"]), tuple(out["best"]), unpriced)
+        each, _ = best_sale(kb, key, price)
+        if lootlog.is_etc(kb, key):
+            out.etc_n += n
+            out.etc_v += n * (each or 0)
+        else:
+            out.items_n += n
+            out.items_v += n * (each or 0)
+    return out
 
 
 # ---------------------------------------------------------------- HP or MP
@@ -225,16 +236,16 @@ class Advice:
 
 
 def sell_advice(kb, key: str, npc_price: int | None, market_price: int | None, low_data: bool = False) -> Advice:
-    """Keep it when a current quest or recipe needs it (NiaMeowDB's Safe to Sell? list), else sell it to players
-    when they pay clearly more than an NPC (MesoWatch's usual sale price, a real one: not a guess on few sales), else
-    to an NPC. No list in this KB: no keep advice, only the prices."""
+    """Keep it when a current quest or recipe needs it (NiaMeowDB's Safe to Sell? list), else sell it where it pays
+    more (best_sale's rule: players when MesoWatch's usual sale price, a real one, beats the NPC's), else to an NPC.
+    No list in this KB: no keep advice, only the prices."""
     from . import sitedata
     sell = sitedata.sell_list(kb)
     need = sell.needs.get(key) if sell is not None and key else None
     if need and (need.quests or need.recipes):
         tip = "\n".join([q[1] for q in need.quests[:8]] + [r[1] for r in need.recipes[:8]])
         return Advice("keep", len(need.quests), len(need.recipes), tip)
-    if market_price and not low_data and market_price >= (npc_price or 0) * MARKET_BETTER and market_price > 0:
+    if market_price and not low_data and market_price > (npc_price or 0):
         return Advice("players")
     if npc_price:
         return Advice("npc")

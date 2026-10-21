@@ -11,10 +11,11 @@ fold ("loot_overlay_folded"). Like the others it stays out of screen captures un
 screenshots" is on (its lines never read as pickup messages anyway: no "received", "gained" or "earned" in them)."""
 from __future__ import annotations
 
+import html
 import time
 
-from PySide6.QtCore import QRect, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QGuiApplication, QPainter
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
                                QWidget)
 
@@ -49,6 +50,10 @@ QLabel {{ color: {c['text']}; }}
 QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px; padding: 6px 12px; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton#Go {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
+QPushButton#Stop {{ background: #D9534F; color: #FFFFFF; font-weight: 600; }}
+QPushButton#Stop:hover {{ background: #C9433F; }}
+#TagFm {{ color: #2E9E5B; font-weight: 700; }}
+#TagNpc {{ color: #D9680A; font-weight: 700; }}
 QToolButton#Icon {{ font-family: "{theme.ICON_FONT}"; font-size: 13px; color: {c['muted']}; background: transparent;
                    border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
 QToolButton#Icon:hover {{ background: {c['fill2']}; color: {c['text']}; }}
@@ -67,6 +72,25 @@ def _short(n: int | None) -> str:
     if n >= 100_000:
         return f"{n / 1000:.1f}K"
     return f"{n:,}"
+
+
+class _Elided(QLabel):
+    """One line that shortens itself with "…" to the width it gets (a long item name in the live tracking): never
+    cut off mid-letter, never wrapped. text() keeps the whole line."""
+
+    def minimumSizeHint(self):
+        return QSize(20, super().minimumSizeHint().height())
+
+    def sizeHint(self):
+        return QSize(20, super().sizeHint().height())
+
+    def paintEvent(self, e) -> None:
+        p = QPainter(self)
+        r = self.contentsRect()
+        text = self.fontMetrics().elidedText(self.text(), Qt.ElideRight, r.width())
+        p.setPen(self.palette().color(self.foregroundRole()))
+        align = Qt.AlignVCenter | (Qt.AlignRight if self.layoutDirection() == Qt.RightToLeft else Qt.AlignLeft)
+        p.drawText(r, int(align), text)
 
 
 class LootOverlay(QWidget):
@@ -171,15 +195,26 @@ class LootOverlay(QWidget):
         self._feed_none = QLabel(objectName="Feed")
         self._feed_none.setWordWrap(True)
         fl.addWidget(self._feed_none)
-        self._feed = [QLabel(objectName="Feed") for _ in range(FEED)]
-        for lb in self._feed:
-            fl.addWidget(lb)
+        # a row each: the time and what (a long name shortened with "…"), and at its end the worth and its tag
+        self._feed: list[tuple[QWidget, QLabel, QLabel]] = []
+        for _ in range(FEED):
+            row = QWidget()
+            hl = QHBoxLayout(row)
+            hl.setContentsMargins(0, 0, 0, 0)
+            hl.setSpacing(8)
+            what, worth = _Elided(objectName="Feed"), QLabel(objectName="Feed")
+            what.setTextFormat(Qt.PlainText)
+            worth.setTextFormat(Qt.RichText)
+            hl.addWidget(what, 1)
+            hl.addWidget(worth, 0)
+            fl.addWidget(row)
+            self._feed.append((row, what, worth))
         body.addWidget(self._live)
         btns = QHBoxLayout()
         btns.setContentsMargins(0, 4, 0, 0)
         btns.setSpacing(6)
         self._start = self._button(self._start_clicked, "Go")
-        self._stop = self._button(self._stop_clicked)
+        self._stop = self._button(self._stop_clicked, "Stop")       # red (the owner)
         self._reset = self._button(self._reset_clicked)
         for b in (self._start, self._stop, self._reset):
             btns.addWidget(b, 1)
@@ -210,7 +245,10 @@ class LootOverlay(QWidget):
                 out.append(f"{name.text()} {total.text()} {hour.text()}")
         if self._feed_head.isVisibleTo(self):
             out.append(self._feed_head.text())
-        return out + [lb.text() for lb in (self._feed_none, *self._feed) if lb.isVisibleTo(self)]
+        if self._feed_none.isVisibleTo(self):
+            out.append(self._feed_none.text())
+        return out + [f"{what.text()} {worth.text()}".strip() for row, what, worth in self._feed
+                      if row.isVisibleTo(self)]
 
     def refresh(self) -> None:
         self._restyle()
@@ -224,9 +262,12 @@ class LootOverlay(QWidget):
         running = self.scanner.running(cid)
         sm = lootlog.summarize(self.kb, lg) if lg is not None else None
         num = lambda v: bidi.ltr_block(_short(v), rtl)      # a number stays one block beside Hebrew words
+        from .. import lootextras
+        loot = lootextras.loot_value(self.kb, sm.items) if sm is not None else lootextras.LootValue()
+        net = sm.mesos + loot.value - sm.potions_cost if sm is not None else 0
         title = t("tool_loot")
         if sm is not None and self.folded():
-            title += " · " + t("loot_card_made", v=num(sm.net))       # folded: what it made, nothing longer
+            title += " · " + t("loot_card_made", v=num(net))          # folded: what it made, nothing longer
         elif sm is not None:
             m = int(sm.seconds) // 60
             title += " · " + (t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m))
@@ -237,20 +278,18 @@ class LootOverlay(QWidget):
                   f"loot_{state}" if state in ("no_game", "covered") else "")
         self._status.setText(bidi.plain(t(status), rtl) if status else "")
         self._status.setVisible(bool(status))
-        ph = (lambda v: lootlog.per_hour(v, sm.seconds)) if sm is not None else (lambda v: None)
-        from .. import lootextras
         kinds = lootextras.by_kind(self.kb, sm.potions) if sm is not None else {}
         both = kinds.get("both", (0, 0))[1]           # an Elixir: half to each row
         kind_costs = {"hp": kinds.get("hp", (0, 0))[1] + both // 2, "mp": kinds.get("mp", (0, 0))[1] + both - both // 2}
         neg = lambda v: num(-v) if v else num(0)  # noqa: E731
+        units = lambda n: bidi.ltr_block(t("trk_units", n=f"{n:,}"), rtl)  # noqa: E731
         values = {} if sm is None else {
             "exp": (num(sm.exp), num(sm.exp_h)),
             "mesos": (num(sm.mesos), num(sm.mesos_h)),
-            "etc": (num(sm.etc_value), num(ph(sm.etc_value))),
-            "items": (num(sm.other_value), num(ph(sm.other_value))),
-            **{f"potions_{k}": (neg(c), neg(ph(c) or 0) if ph(1) is not None else num(None))
-               for k, c in kind_costs.items()},
-            "net": (num(sm.net), num(sm.net_h))}
+            "etc": (num(loot.etc_v), units(loot.etc_n)),
+            "items": (num(loot.items_v), units(loot.items_n)),
+            **{f"potions_{k}": (neg(c), "") for k, c in kind_costs.items()},
+            "net": (num(net), "")}
         self._table.setVisible(sm is not None)
         self._fill_extras(sm, running)
         for c, key in enumerate(("", "trk_col_total", "trk_col_hour")):
@@ -268,14 +307,29 @@ class LootOverlay(QWidget):
         self._live.setVisible(sm is not None)
         self._feed_none.setText(bidi.plain(t("loot_card_live_none"), rtl))
         self._feed_none.setVisible(not evs)
-        for i, lb in enumerate(self._feed):
+        for i, (row, lb, worth) in enumerate(self._feed):
             if i < len(evs):
                 e = evs[i]
-                text = (t(f"loot_feed_{e.kind}", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}")
-                        if e.kind in ("item", "potion") else t(f"loot_feed_{e.kind}", n=f"{e.amount:,}"))
-                when = bidi.ltr_block(time.strftime("%H:%M:%S", time.localtime(e.t)), rtl)
-                lb.setText(bidi.plain(f"{when}  {text}", rtl))
-            lb.setVisible(i < len(evs))
+                if e.kind == "item":        # short: how many, the name (shortened last), its worth and tag
+                    text = f"{t('trk_units', n=f'{e.amount:,}')} · {bidi.ltr_block(e.name, rtl)}"
+                elif e.kind == "potion":
+                    text = t("loot_feed_potion", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}")
+                else:
+                    text = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
+                when = bidi.ltr_block(time.strftime("%H:%M", time.localtime(e.t)), rtl)
+                tail = ""
+                if e.kind == "item":        # checked as it is picked up: an NPC or the players, whoever pays more
+                    each, where = lootextras.best_sale(self.kb, e.key, lootlog.sell_price(self.kb, e.key))
+                    if each:
+                        tag = t("trk_at_fm" if where == "fm" else "trk_at_npc")
+                        colour = "#2E9E5B" if where == "fm" else "#D9680A"
+                        v = num(each * e.amount)
+                        tail = f'{html.escape(v)} <span style="color:{colour}; font-weight:700;">{tag}</span>'
+                worth.setText(tail)
+                worth.setVisible(bool(tail))
+                line = bidi.plain(f"{when}  {text}", rtl)
+                lb.setText(line)
+            row.setVisible(i < len(evs))
         self._start.setVisible(not running)
         self._stop.setVisible(running)
         self._reset.setVisible(running)

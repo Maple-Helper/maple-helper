@@ -155,7 +155,6 @@ def main(lang: str) -> None:
         body.grab(r.adjusted(-pad, -pad, pad, pad)).save(str(out / f"{name}.png"))
     part("top", d.alerts, d.goal)
     part("summary", d.summary)
-    part("ways", d.ways_box)
     part("kills", d.compare_line, d.kills_box)
     part("items", d.etc_box, d.items_box)
     part("potions", d.potions_box)
