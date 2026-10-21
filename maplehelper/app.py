@@ -386,13 +386,16 @@ class MapleHelperApp:
         seen = self.settings["seen_version"] or ("" if fresh_install else whatsnew.FIRST_TRACKED)
         self.settings["seen_version"] = __version__
         if fresh_install:
+            self.settings["tracker_guide_seen"] = True     # a new player: no popup (the tracker's Guide button has it)
             return            # a new player gets the welcome screen, not a changelog
         if seen != __version__:
             telemetry.track("app_updated", from_version=seen)
+            if not _guide_seen(self.settings):
+                # the grind tracker's guide pops up once, for a player who updated (the owner), and counts as seen
+                # the moment it shows: closing the app over it never brings it back
+                self.settings["tracker_guide_seen"] = True
+                QTimer.singleShot(2500, self.show_tracker_guide)
         notes = whatsnew.since(seen, __version__)
-        if not _guide_seen(self.settings):
-            # the grind tracker's guide, once after the update that brought it (the owner: a popup, in detail)
-            QTimer.singleShot(2500, self.show_tracker_guide)
         if notes:
             self.overlay.add_notice(lambda t: t("whats_new_notice", version=__version__), lambda t: t("whats_new_show"),
                                     lambda: self.show_whats_new(notes))
@@ -1116,8 +1119,6 @@ class MapleHelperApp:
             dlg.recipe_requested.connect(self._tracker_recipe)
             return dlg
         dlg = self.open_window("tracker", make)
-        if not _guide_seen(self.settings):
-            QTimer.singleShot(400, self.show_tracker_guide)     # a new player's first look at the tracker
         if dlg is not None and tab != "now":
             dlg.show_tab(tab)
         return dlg

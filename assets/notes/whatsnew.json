@@ -1,5 +1,28 @@
 [
  {
+  "version": "0.19.0",
+  "he": [
+   "מעקב גריינד (במקום יומן שלל): כרטיס מעל המשחק עם שלוש טבלאות מחוברות: EXP ו-mesos עד עכשיו ולשעה; ETC, פריטים ושיקויי HP / MP, בכמות ובעלות; וסה\"כ הכנסה, הוצאה על שיקויים ורווח נקי. כסף שנכנס בירוק, כסף שיוצא באדום.",
+   "שיקויים נספרים לבד: האפליקציה קוראת את חלונות הקיצור של המשחק, ומחשבת כמה שיקויים השתמשתם ובכמה, לפי מחיר החנות.",
+   "המחיר הכי משתלם: כל ETC ופריט נבדק ברגע שהרמתם אותו, ונספר לפי מי שמשלם עליו יותר: NPC או הקהילה (FM, לפי MesoWatch). המעקב בלייב מראה כל איסוף עם השווי שלו ותג NPC או FM.",
+   "המעקב המלא: המפלצות שהרגתם, השוואה לפעם הקודמת באותה מפה, כמה נשאר לרמה הבאה, אזהרה כששיקוי עומד להיגמר עם החנות הקרובה, ומה כדאי לשמור לקווסטים ולמתכונים, עם קישור לכל אחד.",
+   "היסטוריה של כל הסשנים, ו\"איפה הכי משתלם\": השוואה בין המפות שעשיתם בהן גריינד.",
+   "הסרגל מעל המשחק בעיצוב חדש: הלוגו והשם, NPC במפה, מפלצות במפה, מעקב גריינד וכלי משחק. הוא פתוח תמיד, וה-X שלו סוגר את האפליקציה. חלון שנפתח מהסרגל נפתח מתחת לכפתור שלו.",
+   "מחירי MesoWatch חזרו: MesoWatch שינה את צורת הנתונים ב-17 באוקטובר, והאפליקציה קוראת עכשיו את הצורה החדשה.",
+   "תמונות בחלונות NPC ומפלצות, כפתור \"איך מגיעים\" לכל NPC, ומדריך מצולם למעקב הגריינד. עמודי הציוד ותכנון הסקרולים הוסרו מכלי משחק."
+  ],
+  "en": [
+   "Grind tracker (instead of the loot log): a card over the game with three joined tables: EXP and mesos so far and per hour; ETC, items and HP / MP potions, how many and their value; then total income, spent on potions and net profit. Money in is green, money out red.",
+   "Potions counted by themselves: the app reads the game's quick slots and works out how many potions you used and what they cost, at the shop's price.",
+   "The best price: every ETC and item is checked the moment you pick it up and counts at whoever pays more: an NPC or players (FM, by MesoWatch). Live tracking shows each pickup with its worth and an NPC or FM tag.",
+   "The full tracker: the monsters you killed, how you compare with your last time on the same map, how long to your next level, a warning when a potion runs low with the nearest shop, and what to keep for quests and recipes, each one a link.",
+   "A history of every session, and \"Where it pays best\": the maps you grinded on, side by side.",
+   "A new look for the bar over the game: the logo and name, NPCs here, Monsters here, Grind tracker and Play tools. It's always on, and its ✕ closes the app. A window opened from the bar opens right under its button.",
+   "MesoWatch prices are back: MesoWatch changed how it publishes its data on October 17, and the app now reads the new format.",
+   "Pictures in the NPC and monster windows, a \"How to get there\" button for each NPC, and an illustrated guide to the grind tracker. The Gear and Scroll planner pages are gone from Play tools."
+  ]
+ },
+ {
   "version": "0.18.3",
   "he": [
    "Forgotten Hollow נשאר סגור עד שייפתח ב-18 בנובמבר: האפליקציה כבר לא מציעה את המפות שלו, את Rotten Mushmom או את החנויות שלו כאילו הם במשחק."

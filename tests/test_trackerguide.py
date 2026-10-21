@@ -63,3 +63,41 @@ def test_the_tracker_window_has_a_guide_button(isolated_store):
     finally:
         scan.stop()
         d.close()
+
+
+def _fake_app(monkeypatch, settings):
+    from types import SimpleNamespace
+
+    from maplehelper import app as app_mod, whatsnew
+    popped = []
+    ov = SimpleNamespace(add_notice=lambda *a: None)
+    fake = SimpleNamespace(settings=settings, overlay=ov, show_whats_new=lambda notes: None,
+                           show_tracker_guide=lambda: popped.append(True))
+    monkeypatch.setattr(whatsnew, "since", lambda a, b: [])
+    monkeypatch.setattr(app_mod.telemetry, "track", lambda *a, **k: None)
+    monkeypatch.setattr(app_mod.QTimer, "singleShot", staticmethod(lambda ms, fn: fn()))
+    return app_mod, fake, popped
+
+
+def test_the_guide_pops_up_once_for_a_player_who_updated(monkeypatch):
+    """After the update: once, and seen the moment it shows (closing the app over it never brings it back). A start
+    with nothing new, or the next one: nothing."""
+    s = {"seen_version": "0.1.0", "tracker_guide_seen": False}
+    app_mod, fake, popped = _fake_app(monkeypatch, s)
+    app_mod.MapleHelperApp.announce_whats_new(fake, False)
+    assert popped == [True] and s["tracker_guide_seen"] is True
+    s["seen_version"] = "0.1.0"                      # (even another update later: it was seen)
+    app_mod.MapleHelperApp.announce_whats_new(fake, False)
+    app_mod.MapleHelperApp.announce_whats_new(fake, False)
+    assert popped == [True]
+
+
+def test_a_new_player_gets_no_guide_popup(monkeypatch):
+    """A fresh install: no popup at all, then or on opening the tracker (its Guide button has it)."""
+    s = {"seen_version": "", "tracker_guide_seen": False}
+    app_mod, fake, popped = _fake_app(monkeypatch, s)
+    app_mod.MapleHelperApp.announce_whats_new(fake, True)
+    assert popped == [] and s["tracker_guide_seen"] is True
+    import inspect
+    assert "show_tracker_guide" not in inspect.getsource(app_mod.MapleHelperApp.show_tracker).split("def make")[0] \
+        .replace("dlg.guide_requested.connect(self.show_tracker_guide)", "")
