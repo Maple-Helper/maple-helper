@@ -284,3 +284,30 @@ def test_the_announcement_strip(fresh):
     assert got == ["a"]
     strip.show_items([], I18n("he"))
     assert strip.isHidden()
+
+
+def test_a_new_featured_article_comes_live_once_it_is_whole(fresh):
+    from maplehelper import featured
+    src = ROOT / "assets/featured/nexon-46506"
+    m = json.loads((src / "manifest.json").read_text(encoding="utf-8"))
+    m["id"] = "live-article"
+    m.pop("news_id", None)
+    names = {t["file"] for page in m["langs"].values() for t in page["tiles"]}
+    names |= {a["file"] for page in m["langs"].values() for a in page.get("anims") or []}
+    files = {f"featured/live-article/{n}": (src / n).read_bytes() for n in names}
+    files["featured/live-article/manifest.json"] = json.dumps(m).encode()
+    missing = sorted(n for n in files if "/he/" in n)[0]
+    half = {k: v for k, v in files.items() if k != missing}
+    live.sync("9.9.9", _server(half))
+    got = {a["id"]: a for a in featured.articles()}
+    assert "live-article" in got and set(got["live-article"]["langs"]) == {"en"}     # Hebrew lacks a tile: not yet
+    live.sync("9.9.9", _server(files))
+    a = {a["id"]: a for a in featured.articles()}["live-article"]
+    assert set(a["langs"]) == {"he", "en"}
+    tile = a["langs"]["he"]["tiles"][0]
+    assert featured.tile_path(a, tile) == live.FILES_DIR / "featured/live-article" / tile["file"]
+    # a picture that isn't one never lands
+    bad = dict(files)
+    bad[missing] = b"<html>not a picture</html>"
+    live.sync("9.9.9", _server(bad))
+    assert (live.FILES_DIR / missing).read_bytes() == files[missing]

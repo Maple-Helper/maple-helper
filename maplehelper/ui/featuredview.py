@@ -37,7 +37,7 @@ class ArticleCanvas(QWidget):
             lb.deleteLater()
         self._anims = []
         for a in self.page.get("anims") or []:
-            path = Path(m["dir"]) / a["file"]
+            path = featured.file_path(m, a["file"])
             if not path.is_file():
                 continue
             lb = QLabel(self)

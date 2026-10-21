@@ -4,6 +4,9 @@ player who opens the chat while it runs (the owner's call, 2026-10-21: the Grand
 assets/featured/<id>/manifest.json (written by tools/featured_article.py) holds, per language, the article as
 pictures (tiles from the top down, in CSS pixels times "scale"), its animations' and links' places on it, and the
 dates it is shown between. ui/featuredview.py draws it; to_pdf saves the same pictures as a PDF.
+
+A new article needs no app release: its folder comes live (live.py, kind "featured"), every file through
+file_path(), and it shows once all its tiles are on disk.
 """
 from __future__ import annotations
 
@@ -13,6 +16,7 @@ from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
+from . import live
 from .store import ASSETS
 
 log = logging.getLogger(__name__)
@@ -20,22 +24,30 @@ ROOT = ASSETS / "featured"
 SETTING = "featured_seen"          # ids of the featured articles already shown to this player
 
 
-@lru_cache(maxsize=1)
 def articles() -> tuple[dict, ...]:
-    """Every featured article that is complete on disk (a missing tile drops its language), newest "from" first."""
+    """Every featured article that is complete on disk (a missing tile drops its language), newest "from" first:
+    the shipped ones and the live ones (live.py)."""
+    return _articles(live.generation())
+
+
+@lru_cache(maxsize=1)
+def _articles(_gen: int) -> tuple[dict, ...]:
+    folders = {p.parent.name for p in ROOT.glob("*/manifest.json")} if ROOT.is_dir() else set()
+    folders |= {rel.split("/")[1] for rel in live.files("featured/") if rel.endswith("/manifest.json")}
     out = []
-    for path in sorted(ROOT.glob("*/manifest.json")) if ROOT.is_dir() else ():
+    for folder in sorted(folders):
+        path = live.asset(f"featured/{folder}/manifest.json")
         try:
             m = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as e:
+            langs = {lang: v for lang, v in (m.get("langs") or {}).items()
+                     if v.get("tiles") and all(live.asset(f"featured/{folder}/{t['file']}").is_file()
+                                               for t in v["tiles"])}
+        except (OSError, ValueError, AttributeError, KeyError, TypeError) as e:
             log.warning("featured article unreadable: %s: %s", path, e)
             continue
-        base = path.parent
-        langs = {lang: v for lang, v in (m.get("langs") or {}).items()
-                 if v.get("tiles") and all((base / t["file"]).is_file() for t in v["tiles"])}
         if not (m.get("id") and langs):
             continue
-        out.append({**m, "langs": langs, "dir": base})
+        out.append({**m, "langs": langs, "dir": ROOT / folder, "folder": folder})
     return tuple(sorted(out, key=lambda m: m.get("from", ""), reverse=True))
 
 
@@ -79,8 +91,13 @@ def text(m: dict, field: str, lang: str) -> str:
     return v.get(lang) or v.get("en") or "" if isinstance(v, dict) else str(v)
 
 
+def file_path(m: dict, name: str) -> Path:
+    """One of the article's files (a tile, an animation): the live copy when there is one, else the shipped one."""
+    return live.asset(f"featured/{m.get('folder') or Path(m['dir']).name}/{name}")
+
+
 def tile_path(m: dict, tile: dict) -> Path:
-    return Path(m["dir"]) / tile["file"]
+    return file_path(m, tile["file"])
 
 
 def to_pdf(m: dict, lang: str, dest: Path) -> Path:

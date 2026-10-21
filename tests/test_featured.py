@@ -28,7 +28,7 @@ def test_the_grand_launch_article_ships_whole_in_hebrew_and_english():
             y += t["h"]
         assert y == pytest.approx(page["height"], abs=1)
         for a in page["anims"]:
-            assert (m["dir"] / a["file"]).is_file()
+            assert featured.file_path(m, a["file"]).is_file()
             x, top, w, h = a["rect"]
             assert 0 <= x and x + w <= page["width"] + 1 and 0 <= top and top + h <= page["height"] + 1
         assert all(ln["href"].startswith(("https://", "http://")) for ln in page["links"])

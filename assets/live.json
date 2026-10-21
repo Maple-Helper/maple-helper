@@ -16,6 +16,262 @@
    "contract": 1,
    "sha256": "465a7c8eb455e4d19c740c7092d9393fe557e3893101cb3301b92c1b05ffa3b2"
   },
+  "featured/nexon-46506/anim/beautyalbum.webp": {
+   "contract": 1,
+   "sha256": "b197207b24177aafe73e3e0e2cd1214a14471ce6594c4d893d5dc8c9d1c80a29"
+  },
+  "featured/nexon-46506/anim/housing.webp": {
+   "contract": 1,
+   "sha256": "198018b2f500134fd8253bfff4cc885076884fa99a615a6d648967d53aaec2d5"
+  },
+  "featured/nexon-46506/anim/kpq1.webp": {
+   "contract": 1,
+   "sha256": "421be248f8f3061d5ffba3c4999cf490c6d46fdc23e676464172ce6e8c919c9d"
+  },
+  "featured/nexon-46506/anim/kpq2.webp": {
+   "contract": 1,
+   "sha256": "4a64989e674257f40001b3279633b40fd4039e533a967193a15b3bf53609a6dc"
+  },
+  "featured/nexon-46506/anim/up-and-up.webp": {
+   "contract": 1,
+   "sha256": "a1dd0061ae64b37db264b75f37c52fbdb66e0219332c6df0ae0f86baf661ef80"
+  },
+  "featured/nexon-46506/en/tile00.webp": {
+   "contract": 1,
+   "sha256": "89b4fbab326a63d2031d8409a0efbecfe95313d3bd35c71a3c2c815d84a93e89"
+  },
+  "featured/nexon-46506/en/tile01.webp": {
+   "contract": 1,
+   "sha256": "29bbc9999dfe321fe2f606c3217a7c8fa713acbc50cb46d886bd92c87f131638"
+  },
+  "featured/nexon-46506/en/tile02.webp": {
+   "contract": 1,
+   "sha256": "2f43cdcbce41de56dd6dd636c64829f083a9d30262f6eda994f1b41bc660f63d"
+  },
+  "featured/nexon-46506/en/tile03.webp": {
+   "contract": 1,
+   "sha256": "ff1580b2e0756bd0c2f8ee9d5993a2be2809ece11f9fbfa3e488ac00a18058f0"
+  },
+  "featured/nexon-46506/en/tile04.webp": {
+   "contract": 1,
+   "sha256": "73e70688ce374d5f71339ee7c2751ff2b0bf5e97c1e4f79a2d21e13230ab1627"
+  },
+  "featured/nexon-46506/en/tile05.webp": {
+   "contract": 1,
+   "sha256": "20dfd3f1ce7d50fad7a590ebbf9992598ba1bcbbebc0347e69284c0f0d219d89"
+  },
+  "featured/nexon-46506/en/tile06.webp": {
+   "contract": 1,
+   "sha256": "eeb13fdff3a87072362a10044a41bf56a5788e0d834661147484ffe74f8f0189"
+  },
+  "featured/nexon-46506/en/tile07.webp": {
+   "contract": 1,
+   "sha256": "01ccd4a2d6585c7354f3acbf4ff50a467fe7cffd6b961490e7fcf4989a1ef28f"
+  },
+  "featured/nexon-46506/en/tile08.webp": {
+   "contract": 1,
+   "sha256": "d2de2355daa9ce3e9888f576d191b365ab3efa9e1fdbad6beeebd5cb199b5943"
+  },
+  "featured/nexon-46506/en/tile09.webp": {
+   "contract": 1,
+   "sha256": "232c502f4ec63279ed13ebb7ad589e2b31587f75bc859ba53eff37acc7e8087f"
+  },
+  "featured/nexon-46506/en/tile10.webp": {
+   "contract": 1,
+   "sha256": "1479dfa493f028f611c73e8b257426e5ec95366f0e5814ea0a3a0516c74038fd"
+  },
+  "featured/nexon-46506/en/tile11.webp": {
+   "contract": 1,
+   "sha256": "a91141e57434ba76965323f2c6c8ffe6840fefb1ea5cd84409d4f0c6d13a8072"
+  },
+  "featured/nexon-46506/en/tile12.webp": {
+   "contract": 1,
+   "sha256": "d0ac9c11d94c874c55287c710fffcc84188f94587943a80b5f831405e880469b"
+  },
+  "featured/nexon-46506/en/tile13.webp": {
+   "contract": 1,
+   "sha256": "57fcfa74889b729d2aa641323b5a0f612279ca311d24ae6dd0254740f57e3e4d"
+  },
+  "featured/nexon-46506/en/tile14.webp": {
+   "contract": 1,
+   "sha256": "2f9ae506dd17daae428c995d8e5402f6805920be917c1dac872134024e49a4b0"
+  },
+  "featured/nexon-46506/en/tile15.webp": {
+   "contract": 1,
+   "sha256": "e3ae84d3a89dd98acdb36eca4d0a8b04cee8cb93227f1f5469bb4b047c1d85ca"
+  },
+  "featured/nexon-46506/en/tile16.webp": {
+   "contract": 1,
+   "sha256": "ccd31531ca8ceaf94c9ec97e36dc55cae51476f21618b63eb0b0c6e91d24a8d1"
+  },
+  "featured/nexon-46506/en/tile17.webp": {
+   "contract": 1,
+   "sha256": "ab29ef667c2c2c9a8186ddab820bd1cb1705e49a669e19f9e073680f527e9a23"
+  },
+  "featured/nexon-46506/en/tile18.webp": {
+   "contract": 1,
+   "sha256": "ccca1429f3b13408ffc0cfb0e040af2558a13aaaee0ab4078b40c2507bc3be11"
+  },
+  "featured/nexon-46506/en/tile19.webp": {
+   "contract": 1,
+   "sha256": "b29517fd7db6c7c1f187ffd785ccab17998340d50ee4622c73caef47e6c415a4"
+  },
+  "featured/nexon-46506/en/tile20.webp": {
+   "contract": 1,
+   "sha256": "ec309a5904dd5abc3c9ec369f911db1817d0dd2a84be6d52b6be955943711322"
+  },
+  "featured/nexon-46506/en/tile21.webp": {
+   "contract": 1,
+   "sha256": "f2fc4274e9150971242590ade75eb4f091cabb14ccb50b86fdcc520f44493b48"
+  },
+  "featured/nexon-46506/en/tile22.webp": {
+   "contract": 1,
+   "sha256": "688d2e503a117a56755fa968df00eabdf7206a1970f99bba48ed56cfeee7ac99"
+  },
+  "featured/nexon-46506/en/tile23.webp": {
+   "contract": 1,
+   "sha256": "89099f9fac8fdbc9c375e9e09a6238f23ca20fb5fbccd187f50a4186b4d27560"
+  },
+  "featured/nexon-46506/en/tile24.webp": {
+   "contract": 1,
+   "sha256": "d358bf23dcea3d1cdfd2302013fe079a1c92fce770d7071f0b69dfb2303f2cb8"
+  },
+  "featured/nexon-46506/en/tile25.webp": {
+   "contract": 1,
+   "sha256": "aa78a53503d25867b31953260d37bec6c448923ec5267a2719ee328bbb59263c"
+  },
+  "featured/nexon-46506/en/tile26.webp": {
+   "contract": 1,
+   "sha256": "483cacba96aa48eef81add496634cd306a8d6b25a69bcb30640d2c4fca0df6bc"
+  },
+  "featured/nexon-46506/en/tile27.webp": {
+   "contract": 1,
+   "sha256": "7e054ddbd53504046911d08d96a4a06136eb7db4d0538000284b08ed88f0c2e3"
+  },
+  "featured/nexon-46506/en/tile28.webp": {
+   "contract": 1,
+   "sha256": "218febe76cdb8d0c3e32415f8d8bf48008a4bbad2a7fb7a60c0820fbc9566b04"
+  },
+  "featured/nexon-46506/en/tile29.webp": {
+   "contract": 1,
+   "sha256": "d79cd2f1a1d0e24ed86c15da88542a21a418832a80d0dd01e799a0cc9e5c0d2d"
+  },
+  "featured/nexon-46506/he/tile00.webp": {
+   "contract": 1,
+   "sha256": "52fd4422569c122a255b10fb28fd602b66d9b64bc15aa172eb04425dfe0c45e7"
+  },
+  "featured/nexon-46506/he/tile01.webp": {
+   "contract": 1,
+   "sha256": "98965e4d1d3709f13234c7b1f551f65aba0e8799e984bfbb4704523117581fa9"
+  },
+  "featured/nexon-46506/he/tile02.webp": {
+   "contract": 1,
+   "sha256": "be1df79cdd93086d53472d862e8eb29630ffc9fa46fe7bf750c33c4e164fca1e"
+  },
+  "featured/nexon-46506/he/tile03.webp": {
+   "contract": 1,
+   "sha256": "57bad9394d666c6cda8923553be011f3d023d9d84dc4bb6f770f87eead2f1c38"
+  },
+  "featured/nexon-46506/he/tile04.webp": {
+   "contract": 1,
+   "sha256": "aad0704f370930c39138b81ebb00b30f4a5135cff0b5e7fe989b313933e2627e"
+  },
+  "featured/nexon-46506/he/tile05.webp": {
+   "contract": 1,
+   "sha256": "3cb744f243af9775302e64c9bc3fd3f7f9551ae436b1ae893b83681b0e353c3f"
+  },
+  "featured/nexon-46506/he/tile06.webp": {
+   "contract": 1,
+   "sha256": "c474d2422ee6142c927af50b6e1dc6c1303efe661a5f650378692fc4faa1fbef"
+  },
+  "featured/nexon-46506/he/tile07.webp": {
+   "contract": 1,
+   "sha256": "a243ee3a205d86eb8c109e18e4c5f053a4d18613dfe912334268f0eab833a0dc"
+  },
+  "featured/nexon-46506/he/tile08.webp": {
+   "contract": 1,
+   "sha256": "adf65c813eaee99a34484f7cf7a8b6b35efbd56ee125fc63fcb50385d2cf9a1f"
+  },
+  "featured/nexon-46506/he/tile09.webp": {
+   "contract": 1,
+   "sha256": "410a53ded51d2d9aa28e75c4e167b2d147683051938082ad377274fd15ba5054"
+  },
+  "featured/nexon-46506/he/tile10.webp": {
+   "contract": 1,
+   "sha256": "2ea30bfb8a074e48bce2a6c68cda305393b8d168bad893b88ef1ccb12a2a7e04"
+  },
+  "featured/nexon-46506/he/tile11.webp": {
+   "contract": 1,
+   "sha256": "f2718a23320eba3e64326556047b3a02c3f36fd2f65f975e0e9e4a8d3a779598"
+  },
+  "featured/nexon-46506/he/tile12.webp": {
+   "contract": 1,
+   "sha256": "9e0769f9ffa2ac826d4a0751ae076e94500fce462df64d2272b8f2e9ab5255bf"
+  },
+  "featured/nexon-46506/he/tile13.webp": {
+   "contract": 1,
+   "sha256": "4092c8a4cc8b73ea5c5de62bae8dc44b130a6455494096d8e88fe6a67387206b"
+  },
+  "featured/nexon-46506/he/tile14.webp": {
+   "contract": 1,
+   "sha256": "d386624f89ef0af712d4d86cb4f18835712d0abc235d424cbb2911baf437aa1a"
+  },
+  "featured/nexon-46506/he/tile15.webp": {
+   "contract": 1,
+   "sha256": "8ed574a8b3c5afacfd5e4b74b7fe7c0d99a63ba4cd36615f46a8fc3cbe54137a"
+  },
+  "featured/nexon-46506/he/tile16.webp": {
+   "contract": 1,
+   "sha256": "4804cc4d385610b53027cab91ca33c5178bf81f24e02e164f22a8740b02232f9"
+  },
+  "featured/nexon-46506/he/tile17.webp": {
+   "contract": 1,
+   "sha256": "9895ba66b084a967170e2a61343b057db58eb94d55358b7feb6709be45ca67ad"
+  },
+  "featured/nexon-46506/he/tile18.webp": {
+   "contract": 1,
+   "sha256": "7e665851c1a437d61ccfe52f024905626b3949c3dc9499a7d273b55293f64659"
+  },
+  "featured/nexon-46506/he/tile19.webp": {
+   "contract": 1,
+   "sha256": "927b4601bd946fe1f07e8c97e756db5a921146abcfccb3e4da3eae43454334f6"
+  },
+  "featured/nexon-46506/he/tile20.webp": {
+   "contract": 1,
+   "sha256": "5809f04883e7d44e92fc516feb64580273aeb153ff7f6330faf7d3ef09cf8ccc"
+  },
+  "featured/nexon-46506/he/tile21.webp": {
+   "contract": 1,
+   "sha256": "4da32b23627e2e64896194bf146f2c15d4418f813521fcf7852c4e1935dc666e"
+  },
+  "featured/nexon-46506/he/tile22.webp": {
+   "contract": 1,
+   "sha256": "545e4a0922c45c96755e6668b01c4e589dbe5ebf047642c5303fabb6032eb315"
+  },
+  "featured/nexon-46506/he/tile23.webp": {
+   "contract": 1,
+   "sha256": "ad39f5ee71c108efdc9e82fb2e22e8789e5f31a229905288a85385d3ab4271d1"
+  },
+  "featured/nexon-46506/he/tile24.webp": {
+   "contract": 1,
+   "sha256": "deff6a722c356ce6ab9d9749980d904600d7789db15278f1567b71284b1319e2"
+  },
+  "featured/nexon-46506/he/tile25.webp": {
+   "contract": 1,
+   "sha256": "d64c4095cf8039a6f9c482dd4df5b1e965a0d4c6d5deeccde50a2fb390407fb8"
+  },
+  "featured/nexon-46506/he/tile26.webp": {
+   "contract": 1,
+   "sha256": "cb21140924c5227ed098850d4bec9c4927526541e5d5a16ab9216d66d6658435"
+  },
+  "featured/nexon-46506/he/tile27.webp": {
+   "contract": 1,
+   "sha256": "d637a4dab0147d75c6484ecdf60e96696b948cc71ff245fb9cc8cee45c454b36"
+  },
+  "featured/nexon-46506/manifest.json": {
+   "contract": 1,
+   "sha256": "a2bed64f7f32acb3dc90e9829d48cac82a648bbe521f65f29127b0d3695762c8"
+  },
   "guides/en/assassin-class-guide.json": {
    "contract": 1,
    "sha256": "002caa4418ed2c20bcc230df30934186dd886b6b1413f12cfa90ae8c5ffc4a8d"

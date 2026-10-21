@@ -10,6 +10,7 @@ being merged to `main`, with no new version (`maplehelper/live.py`):
 | `ai/system.md`, `ai/reply_rules.md`, `ai/rules.json` | The AI's instructions (system prompt, reply rules, the shorter rules) |
 | `items/he.json`, `skills/he.json`, `news/he.json`, `cashshop/he.json`, `pet_skills/he.json`, `quest_tasks/he.json`, `skill_changes/he.json` | The curated Hebrew of the KB's texts |
 | `guides/he/*.json`, `guides/en/*.json` | The guides (and the glossary inside them) |
+| `featured/<id>/...` | Featured articles (the one-time popup with Nexon's page as pictures): a **new** article too. Make one with `tools/featured_article.py`; it shows once every tile is downloaded (~18 MB per article, once per player) |
 
 The knowledge base itself (game data, Nexon news, the nightly's translations) already updates with no release:
 see [RELEASING.md](RELEASING.md).
@@ -20,7 +21,8 @@ see [RELEASING.md](RELEASING.md).
 list from `raw.githubusercontent.com/Maple-Helper/maple-helper/main/assets/live.json`, and downloads each file that
 differs from the copy it shipped with into `%APPDATA%\MapleHelper\live\assets`, where it wins over the shipped one.
 
-- Only a file the app already ships can be replaced, never a new one, and nothing downloaded is ever run.
+- Only a file the app already ships can be replaced (a featured article excepted: a new one comes whole), and nothing
+  downloaded is ever run.
 - A file must match its checksum and parse; otherwise it is skipped until the next check.
 - Every reader falls back to the shipped copy when a live one doesn't fit (the AI's instructions are checked for
   their markers and placeholders; a text fix must keep the text's `{placeholders}`).

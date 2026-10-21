@@ -2,15 +2,17 @@
 
 Some of the app's own files are content, not code: the owner's announcements, feature switches and text fixes
 (assets/live/config.json), the official game facts, the AI's instructions (assets/ai), the curated Hebrew of items,
-skills, news and guides. assets/live.json lists every one of them as the repository's main branch has it now
-(tools/live_manifest.py writes it; a test keeps it current). Every 15 minutes, with the KB check, the app reads that
-list from GitHub and downloads each file that differs from the copy it shipped with into DATA_DIR/live/assets, where
-asset() finds it first. A merge to main reaches every open app within about 20 minutes.
+skills, news and guides, and the featured articles (a new one too, see NEW_FILES). assets/live.json lists every one
+of them as the repository's main branch has it now (tools/live_manifest.py writes it; a test keeps it current).
+Every 15 minutes, with the KB check, the app reads that list from GitHub and downloads each file that differs from
+the copy it shipped with into DATA_DIR/live/assets, where asset() finds it first. A merge to main reaches every open
+app within about 20 minutes.
 
 What is trusted, and its limit: files come over HTTPS from this repository only, each must match the checksum the
-list gives (a half-served or mixed-up file is skipped until the next check), parse as JSON / UTF-8 text, and be no
-bigger than MAX_BYTES. Nothing downloaded here is ever run: these are texts and tables, read the way the shipped
-copies are, and each reader falls back to the shipped copy when a live one doesn't fit (see bundled()).
+list gives (a half-served or mixed-up file is skipped until the next check), parse as JSON / UTF-8 text (or be a
+picture of its type), and be no bigger than MAX_BYTES. Nothing downloaded here is ever run: these are texts, tables
+and pictures, read the way the shipped copies are, and each reader falls back to the shipped copy when a live one
+doesn't fit (see bundled()).
 
 Format changes: each kind of file carries a contract number (CONTRACTS). A release that reads a kind in a new way
 bumps its number here; the list then says the new number, and an older app keeps its shipped copy of that kind
@@ -42,12 +44,12 @@ MANIFEST = "live.json"               # in assets/: {"schema": 1, "files": {path:
 LIVE_DIR = DATA_DIR / "live"
 FILES_DIR = LIVE_DIR / "assets"
 STATE_FILE = LIVE_DIR / "state.json"  # {"app": version, "files": {path: sha256}}: what FILES_DIR holds
-MAX_BYTES = 8 * 1024 * 1024          # the biggest live file (the items' Hebrew) is ~1.3 MB
+MAX_BYTES = 8 * 1024 * 1024          # the biggest live file (a featured article's animation) is ~4 MB
 CONFIG = "live/config.json"
 
 # the format version this app reads each kind of live file in (see the module docstring); a kind not listed here
 # never comes live
-CONTRACTS = {"config": 1, "facts": 1, "ai": 1, "translations": 1, "guides": 1}
+CONTRACTS = {"config": 1, "facts": 1, "ai": 1, "translations": 1, "guides": 1, "featured": 1}
 _TRANSLATION_DIRS = ("items", "news", "cashshop", "pet_skills", "quest_tasks", "skill_changes", "skills")
 
 
@@ -63,7 +65,15 @@ def kind(rel: str) -> str | None:
         return "translations"
     if re.fullmatch(r"guides/(he|en)/[A-Za-z0-9_.-]+\.json", rel):
         return "guides"
+    if re.fullmatch(r"featured/[a-z0-9][a-z0-9-]*/(?:[a-z0-9_-]+/)?[A-Za-z0-9_.-]+\.(?:json|webp|png|jpg)", rel):
+        return "featured"
     return None
+
+
+# kinds whose new files may come live too (not only changed copies of shipped ones): a featured article is a folder
+# of pictures and its manifest, drawn by code every copy has (featured.py)
+NEW_FILES = {"featured"}
+_MAGIC = {".webp": (b"RIFF", 8, b"WEBP"), ".png": (b"\x89PNG", 0, b""), ".jpg": (b"\xff\xd8\xff", 0, b"")}
 
 
 def text_sha(data: bytes) -> str:
@@ -107,6 +117,12 @@ def asset(rel: str) -> Path:
         if p.is_file():
             return p
     return ASSETS / rel
+
+
+def files(prefix: str) -> list[str]:
+    """The live files in use under a folder ("featured/"): new ones the shipped folder doesn't have, among them."""
+    with _lock:
+        return sorted(r for r in _files if r.startswith(prefix))
 
 
 def start(version: str) -> None:
@@ -163,7 +179,11 @@ def _bundled_sha(rel: str) -> str:
 
 
 def _usable(rel: str, data: bytes) -> bool:
-    """It reads the way its kind is read: JSON with an object at the top, or UTF-8 text."""
+    """It reads the way its kind is read: JSON with an object at the top, UTF-8 text, or a picture of its type."""
+    ext = Path(rel).suffix
+    if ext in _MAGIC:
+        head, at, tag = _MAGIC[ext]
+        return data.startswith(head) and data[at:at + len(tag)] == tag
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
@@ -197,9 +217,10 @@ def sync(version: str, get=_get) -> set[str] | None:
             return None
         want: dict[str, str] = {}
         for rel, entry in listed.items():
-            # only a file the app ships is replaced: a new one would need code (or pictures) that this copy lacks
+            # only a file the app ships is replaced: a new one would need code (or pictures) that this copy lacks;
+            # but a new featured article (NEW_FILES)
             k = kind(rel) if isinstance(rel, str) and "\\" not in rel and ".." not in rel else None
-            k = k if k and (ASSETS / rel).is_file() else None
+            k = k if k and (k in NEW_FILES or (ASSETS / rel).is_file()) else None
             sha = entry.get("sha256") if isinstance(entry, dict) else None
             if (k and isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{64}", sha)
                     and entry.get("contract") == CONTRACTS[k] and sha != _bundled_sha(rel)):
