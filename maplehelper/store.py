@@ -164,6 +164,7 @@ DEFAULT_SETTINGS = {
     "seen_version": "",           # the app version whose "what's new" the player has seen
     "tracker_guide_seen": False,  # the grind tracker's guide was shown (ui/trackerguide.py): once, after its update
     "news_read": [],              # news ids the player dismissed or read (news.py), so they come up once
+    "featured_seen": [],          # featured articles already shown once (featured.py)
     "last_session": None,         # summary of the previous play session, shown when the chat next opens
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
     "install_id": "",             # the install's lasting random id for the usage stats (telemetry.py, presence.py)

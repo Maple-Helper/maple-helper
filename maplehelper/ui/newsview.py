@@ -482,9 +482,10 @@ def _pictured(t, i: dict, kb, lay: QVBoxLayout) -> None:
         lay.addWidget(grid)
 
 
-def news_dialog(lang: str, stylesheet: str, kb, unread=()):
+def news_dialog(lang: str, stylesheet: str, kb, unread=(), open_featured=None):
     """The News window (the megaphone in the chat's header, or the news strip tapped): every news item, newest
-    first; the unread ones are marked "New" and count as read once it shows (news_seen)."""
+    first; the unread ones are marked "New" and count as read once it shows (news_seen). An item the app holds a
+    full copy of (featured.py) opens that copy, through open_featured(article)."""
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QScrollArea, QStackedWidget
 
@@ -523,6 +524,11 @@ def news_dialog(lang: str, stylesheet: str, kb, unread=()):
             return scroll
 
         def open_article(self, i: dict) -> None:
+            from .. import featured
+            copy = featured.for_news(i.get("id", "")) if open_featured else None
+            if copy:
+                open_featured(copy)
+                return
             self.close_article()
             t, rtl = self.t, self.t.rtl
             box = QWidget()

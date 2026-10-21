@@ -577,6 +577,7 @@ class Overlay(EdgeResize, QWidget):
     avatar_cropped = Signal(object)    # (character id, PNG bytes or None, on_done), worker thread
     local_grind_done = Signal(object)  # (token, shot, full, cursor, (update, grind) or None), worker thread
     tour_ended = Signal()              # the first-run tour was skipped or finished
+    opened = Signal()                  # the chat came up (open_overlay)
     news_requested = Signal()          # the megaphone or the news strip: the News window
     minimap_requested = Signal()       # the minimap icon: choose the game's minimap box to read where the player is
 
@@ -1608,6 +1609,7 @@ class Overlay(EdgeResize, QWidget):
             # the first time the chat shows, however it opens (a start in the tray, autostart or a silent update,
             # never ran the tour: only a foreground start did); once it is up and laid out
             QTimer.singleShot(700, self.start_tour)
+        self.opened.emit()
 
     def _tell_brain_shown(self, shown: bool):
         """Brain keeps a process warm only while the chat is in use (audit PRF-1): opening warms one."""

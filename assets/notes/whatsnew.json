@@ -1,5 +1,20 @@
 [
  {
+  "version": "0.20.0",
+  "he": [
+   "הודעת השחרור של ה-Grand Launch בתוך האפליקציה: הכתבה המלאה של Nexon, בדיוק כמו באתר שלהם, עם כל התמונות והאנימציות, בעברית ובמקור באנגלית. היא נפתחת פעם אחת לבד, ואפשר לחזור אליה מחלון החדשות.",
+   "ברשימת הפרסים של ה-Magic Box (קווסט Scroll of Secrets) כל פריט מופיע עם התמונה שלו.",
+   "כפתור \"שמירת קובץ PDF\": שומר את הכתבה למחשב, כמו שהיא נראית באפליקציה.",
+   "האפליקציה יודעת על האזור החדש ב-Perion, Excavation Site, ועל המפלצות שלו, לפי ההודעה הרשמית."
+  ],
+  "en": [
+   "The Grand Launch release notes in the app: Nexon's full article, exactly as on their site, with every picture and animation, in Hebrew and in the English original. It opens once by itself, and the News window opens it again.",
+   "The Magic Box prize list (the Scroll of Secrets quest) shows every item with its picture.",
+   "\"Save as PDF\" saves the article to your computer, as it looks in the app.",
+   "The app knows about Perion's new area, Excavation Site, and its monsters, from the official notes."
+  ]
+ },
+ {
   "version": "0.19.0",
   "he": [
    "מעקב גריינד (במקום יומן שלל): כרטיס מעל המשחק עם שלוש טבלאות מחוברות: EXP ו-mesos עד עכשיו ולשעה; ETC, פריטים ושיקויי HP / MP, בכמות ובעלות; וסה\"כ הכנסה, הוצאה על שיקויים ורווח נקי. כסף שנכנס בירוק, כסף שיוצא באדום.",
