@@ -30,7 +30,7 @@
 
 Maple Helper is a desktop assistant for Windows and macOS that puts a chat overlay on top of MapleStory Classic World. Open it from the Maple Helper icon by the clock (the menu bar on macOS), then type a question or click the microphone to speak (click again to stop). Answers come from your own AI account (Claude, ChatGPT, Gemini or Grok) and draw on a screenshot of your game, your character profile, previous conversations, and a local copy of the NiaMeowDB game database.
 
-Use it to look up drops, find quest NPCs, or ask where to train without switching away from the game. The **play tools** window adds calculators and planners that read the same database: where to train, hit and damage, your build, quests for your level, crafting, citizenship and prices.
+Use it to look up drops, find quest NPCs, or ask where to train without switching away from the game. A small bar over the game shows the NPCs and monsters on the map you're on, and its **grind tracker** counts your EXP, mesos, loot and potions per hour, with your net profit, straight from the game's own messages. The **play tools** window adds calculators and planners that read the same database: where to train, hit and damage, your build, quests for your level, crafting, citizenship, real Free Market prices and the Cash Shop.
 
 Website: **https://maplehelper.app/** (source: [maple-helper-site](https://github.com/Maple-Helper/maple-helper-site))
 
@@ -44,6 +44,28 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 </p>
 <h3 align="center">Ask about anything in the game</h3>
 <p align="center">Open the chat in game and ask. Instant answers come straight from the game database, with a card for the monster and pictures of everything it drops.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/bar-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/bar-light.webp" width="620" alt="The bar over the game">
+  </picture>
+</p>
+<h3 align="center">A bar over the game</h3>
+<p align="center">Chat, the NPCs and monsters on your map, the grind tracker and the play tools, one click each, right above your minimap.</p>
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tracker-dark.webp">
+    <img src="https://www.maplehelper.app/assets/shots/en/tracker-light.webp" width="300" alt="Grind tracker">
+  </picture>
+</p>
+<h3 align="center">Grind tracker</h3>
+<p align="center">EXP, mesos, loot and potions so far and per hour, with your income, what the potions cost and your net profit. Read from the game's own messages on your computer, no AI.</p>
 
 <br>
 
@@ -160,11 +182,11 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://www.maplehelper.app/assets/shots/en/tools-pets-dark.webp">
-    <img src="https://www.maplehelper.app/assets/shots/en/tools-pets-light.webp" width="380" alt="Pets">
+    <img src="https://www.maplehelper.app/assets/shots/en/tools-pets-light.webp" width="380" alt="Cash Shop and pets">
   </picture>
 </p>
-<h3 align="center">Pets</h3>
-<p align="center">Lifespan, hunger, commands to level 30, the fastest command at each stage, Cash Shop prices and the pet skills.</p>
+<h3 align="center">Cash Shop and pets</h3>
+<p align="center">What the Cash Shop sells now and for how many NX, in the game's own tabs. Its Pets tab: lifespan, hunger, commands to level 30, the fastest command at each stage and the pet skills.</p>
 
 <br>
 
@@ -205,19 +227,15 @@ Website: **https://maplehelper.app/** (source: [maple-helper-site](https://githu
 - **Visual reference cards:** See images of relevant monsters, items, maps, NPCs, and quests alongside answers, grouped under titles (for example, what a monster drops).
 - **Where it is on the map:** The ◎ on a map, NPC or quest (on its card, or its tile under "Maps", "NPCs" or "Quests") opens a window beside the chat. A map shows the map next door with an orange dot on the portal that leads in, as NiaMeowDB marks it ("Leads back here"); an NPC, its map with a green dot where it stands (one inside a shop: the shop's door); a quest, where to start it and where to turn it in. The window reopens wherever you last left it.
 - **Where you are, from the minimap:** The minimap button on the character card (beside ⟳) lets you drag a box around the game's minimap. Maple Helper then reads it every half second, reading the map you're in from the minimap's title, and shows it under your level. While it knows where you are, the ◎ window draws the way there from your map, step by step with your blue dot on the first map (a legend tells it from the portal's orange one), and the play tools' "How to get there" starts from your map.
-- **Over the game:** a small see-through bar above the minimap box (Settings → Minimap) with what is about the map you're on: **NPCs** (every NPC on your map; click one and you're guided to it, with a green ring on the game's minimap), **Monsters** (what spawns on your map, with level, HP, EXP and how many), the **Loot Log** card, and **Tools**, which opens the Tools window. Drag the bar's sides to wrap its buttons into rows; its ⚙ picks the glass colour, the accent colour and the transparency of every window over the game, and icons instead of words. Blue dots mark the map's invisible teleports. These windows never take the keyboard from the game, and they show in screenshots and streams (only the dots on the minimap stay out, so the minimap reads never see them).
+- **Over the game:** a small see-through bar above the minimap box (Settings → Minimap), drawn like the chat's own title bar: the Maple Helper mark and name, then **Chat**, **NPCs on map** (every NPC on your map, inside buildings too, with its picture and a "How to get there" button; click one and you're guided to it, with a green ring on the game's minimap), **Monsters on map** (what spawns on your map, with its picture, level, HP, EXP and how many), **Grind tracker** and **Play tools**. A window opened from the bar opens right under its button. The bar is always on, and its ✕ closes the app. Drag its sides to wrap its buttons into rows; its ⚙ picks the glass colour, the accent colour and the transparency of every window over the game, and icons instead of words. Blue dots mark the map's invisible teleports. These windows never take the keyboard from the game, and they show in screenshots and streams (only the dots on the minimap stay out, so the minimap reads never see them).
 - **Tag cards:** Tap one or more cards to ask follow-up questions about them, such as "where is it?" or "which one is easier for me?".
 - **Who drops it:** Ask which monsters drop an item and get the answer grouped by monster, with pictures.
 - **Item details:** The ⓘ on an item's card or tile opens a window to the right of the chat with all the item's stats from its NiaMeowDB page, the monsters that drop it (with their level, map and an "Ask in chat" button), and NiaMeowDB's "Meow Notes". The window reopens wherever you last left it.
 - **Guides library:** 32 full guides (every class, grind maps, the EXP table, the damage formula and more) with skill and item icons, character art, tables and tips, in English and Hebrew. The ones that fit your character come first.
 - **Plan usage:** See how much of your Claude, ChatGPT or Gemini plan is used, with a heads-up in the chat before the 5-hour limit runs out, and a saver mode.
+- **Grind tracker:** press Start on the bar's Grind tracker card and keep playing. Every "You received EXP", "You have gained mesos" and "x1 earned" message is counted on your computer, each one once, and the potions you use are counted from the counts on the game's quick slots (each slot's potion recognised by its picture). The card over the game shows three joined tables: EXP and mesos so far and per hour; ETC, items and HP / MP potions, how many and their value; then total income, spent on potions and net profit (money in green, money out red). Each ETC and item counts at whoever pays more for it the moment you pick it up: an NPC, or players on the Free Market at MesoWatch's usual price, and the live tracking tags each pickup NPC or FM. Potions count at the cheapest NPC shop's price. **The full tracker** adds the monsters you killed, how you compare with your last time on the same map, how long to your next level at this rate, a warning when a potion runs low with the nearest shop, and what to keep for quests and recipes (each one a link). Its history lists every session, and "Where it pays best" puts the maps you grinded on side by side. The messages are found on their own at the game window's bottom right, at any resolution or window size (or mark the area yourself). Every session and pickup is also kept in a database on your computer (`loot.sqlite` in the app's data folder). No AI and no screenshots sent anywhere; an illustrated guide opens the first time after the update.
 - **Play tools:** A window of calculators and planners beside the chat, built from the game database and your character, every page linked to the others (a monster's way there, its hit & damage, an item's droppers and price):
   - **Grind spots:** maps for your level, ranked, with your hit chance, hits to kill, EXP per kill and kills to level.
-  - **Grind tracker:** a grind session measured from screenshots (EXP, mesos and potions per hour, estimated kills, recent sessions to compare). Level and EXP are read off the bottom bar on your computer; the AI is asked only while the inventory is open (mesos, potions, loot).
-  - **Farming:** who drops each item, where and at what level; monsters that drop what your quests, recipes and starred items need come first, then what an NPC pays most for; a farm session counts what lands in your bag.
-  - **Loot log:** press Start and every "You received EXP", "You have gained mesos" and "x1 earned" message is counted on your computer, each one once: EXP, mesos and items picked up, per hour, what an NPC pays for the items (ETC on its own), the latest pickups and your saved logs. The potions you use are counted too, from the counts on the game's quick slots (each slot's potion is recognised by its picture, the count digit by digit), at what the cheapest NPC shop asks, so the log shows your net profit. Its History lists every past log and compares the maps you ran logs on (the map is read off the minimap): where the EXP is best, where the profit is, how much the potions took, how much of it is ETC still to sell. The messages are found on their own at the game window's bottom right, at any resolution or window size (or mark the area yourself). A small see-through card over the game shows the running totals (drag it anywhere, its × hides it). Every log and pickup is also kept for good in a database on your computer (`loot.sqlite` in the app's data folder), with the time and what an NPC paid for each item, so any day can be looked back on. No AI and no screenshots sent anywhere.
-  - **Gear:** for each slot, what you wear and what your level, job, gender and stats can wear that beats it, plus what opens in the next 5 levels, where to buy it or what drops it, and a button to plan its scrolls.
-  - **Scrolls:** pick an equip and a stat and see, for each scroll grade, the success rate, the chance every slot passes, the odds of each final bonus and the cost (NPC price, the Free Market's usual price, or your own).
   - **Quests:** by level, a full card for each quest (where to get it, what to do, what to bring and where to get it, who to finish with, the rewards), daily and weekly quests that come back, and a search that forgives typos.
   - **Crafting:** each profession's teacher and quests, and every recipe by level, searchable by name or ingredient, with who drops each ingredient. Its **Craft plan** tab: pick what to make and say what's in your bag and where each profession stands, and it lists what to farm (and where it drops) and what to craft in which order, profession level-ups included, with the cost in mesos.
   - **Citizenship:** the Henesys and Kerning City quests by citizenship grade, and the town the guide recommends for your class.
@@ -313,7 +331,7 @@ Open PowerShell (Windows) or Terminal (macOS) in the repository folder. On macOS
 | **Window buttons** | Minimize the overlay to the taskbar or close it (the tray icon opens it again). |
 | **Tap a card** | Tag it for the next question; tap again to untag. |
 | **Camera button** | Take a fresh screenshot of the game window. |
-| **Tools button** | Open the play tools (grind spots, grind tracker, farm, quests, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, pets). |
+| **Tools button** | Open the play tools (grind spots, farm, quests, crafting, citizenship, build, hit & damage, item price, sell or keep, how to get there, Cash Shop and pets). |
 | **Character card** | Open its menu to switch, edit, delete, add or copy characters; **What now?** asks for the best next step. |
 | **Orange ?** | Hover it to see what a game term means. |
 | **System tray menu** | Show the overlay, open settings, or quit the app. |
