@@ -12,7 +12,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, live, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, featured, live, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n, system_language
 from .kb import KnowledgeBase
@@ -316,6 +316,7 @@ class MapleHelperApp:
         QTimer.singleShot(1500, self.check_permissions)
         self.announce_whats_new(fresh_install)
         QTimer.singleShot(3000, self._toast_announcement)
+        self.overlay.opened.connect(self.show_featured_once)
         self.qapp.aboutToQuit.connect(self.shutdown)
         return True
 
@@ -435,6 +436,39 @@ class MapleHelperApp:
         dlg.raise_()
         dlg.activateWindow()
         return dlg
+
+    def show_featured_once(self):
+        """The chat came up: a featured article (featured.py) this player hasn't seen yet, once, after the first-run
+        tour and after the "what's new" window when either is showing."""
+        if not featured.due(self.settings[featured.SETTING]) or getattr(self, "_featured_waiting", False):
+            return
+        if not self.settings["tour_done"]:
+            self._featured_waiting = True
+            self.overlay.tour_ended.connect(self._featured_after_wait, Qt.SingleShotConnection)
+            return
+        news_win = self.__dict__.get("_windows", {}).get("whats_new")
+        if news_win is not None and news_win.isVisible():
+            self._featured_waiting = True
+            news_win.finished.connect(lambda *_: self._featured_after_wait(), Qt.SingleShotConnection)
+            return
+        self._featured_waiting = True
+        QTimer.singleShot(1500, self._featured_after_wait)
+
+    def _featured_after_wait(self):
+        self._featured_waiting = False
+        m = featured.due(self.settings[featured.SETTING])
+        if m is None:
+            return
+        if self.__dict__.get("_windows", {}).get("whats_new") is not None:
+            if self._windows["whats_new"].isVisible():      # opened meanwhile (back from an update)
+                return self.show_featured_once()
+        featured.mark_seen(self.settings, m["id"])
+        telemetry.track("featured_shown", article=m["id"])
+        self.show_featured(m)
+
+    def show_featured(self, m: dict):
+        from .ui.featuredview import FeaturedDialog
+        return self.open_window("featured", lambda: FeaturedDialog(m, self.settings["language"], self.style()))
 
     def show_whats_new(self, notes: list[dict] | None = None):
         self.open_window("whats_new", lambda: WhatsNewDialog(
@@ -1189,7 +1223,7 @@ class MapleHelperApp:
 
         def make():
             unread = [i["id"] for i in news.unread(self.kb, self.settings[news.SETTING])]
-            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread)
+            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread, self.show_featured)
             dlg.news_seen.connect(self._news_seen)
             return dlg
         return self.open_window("news", make)

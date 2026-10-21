@@ -166,6 +166,7 @@ DEFAULT_SETTINGS = {
     "news_read": [],              # news ids the player dismissed or read (news.py), so they come up once
     "live_dismissed": [],         # the owner's announcements the player closed (live.py, ui/announce.py)
     "live_toasted": [],           # announcements already popped up as a notification ("toast": true), once each
+    "featured_seen": [],          # featured articles already shown once (featured.py)
     "last_session": None,         # summary of the previous play session, shown when the chat next opens
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude
     "install_id": "",             # the install's lasting random id for the usage stats (telemetry.py, presence.py)

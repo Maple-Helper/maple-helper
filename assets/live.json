@@ -286,7 +286,7 @@
   },
   "official/facts.json": {
    "contract": 1,
-   "sha256": "1b685e12c2f8c8f62733688dc0683bb614fead5f98bf10b9702c18e7c6cf26d6"
+   "sha256": "ddbb6a13ba337d0ea5ba84f53e356a33b49c1e54519b31c12f2f834964bd9fe6"
   },
   "pet_skills/he.json": {
    "contract": 1,
