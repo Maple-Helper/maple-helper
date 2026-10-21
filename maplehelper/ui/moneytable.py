@@ -8,7 +8,8 @@ card over the game, the full tracker and each past session of the history:
 Money coming in is green (mesos, the loot's worth, the income), money going out red (the potions, the spending); the
 net green or red as it stands.
 
-One grid holds the three, so their columns line up and they read as one; a stronger line parts them. Its rows are
+One grid holds the three, so their columns line up and they read as one; a stronger line parts them, and
+vertical lines part the names from the numbers. Its rows are
 fixed: an update only sets the numbers (and the net's colour), never builds anew (a rebuild every second flickered).
 The look comes from object names (the card's and the tracker's style sheets each style them their own way)."""
 from __future__ import annotations
@@ -36,13 +37,14 @@ class Look:
     hair: str = "Hair"
     split: str = "TrkSplit"
     gain: str = "TrkGain"
+    vline: str = "TrkVLine"
     pad: tuple[int, int, int, int] = (10, 6, 10, 6)
     row_gap: int = 0
 
 
 TRACKER = Look()
 CARD = Look("Stat", "StatName", "StatName", "StatValue", "StatValue", "StatBad", "StatGood", "", "StatSplit",
-            "StatGain", (10, 6, 10, 6), 4)
+            "StatGain", "StatVLine", (10, 6, 10, 6), 4)
 
 # (table, its rows): a row is its key; the first two tables have headings, the third none
 ROWS = (("rate", ("exp", "mesos")), ("loot", ("etc", "items", "hp", "mp")), ("total", ("income", "spent", "net")))
@@ -64,40 +66,48 @@ class MoneyTable(QFrame):
         self._heads: dict[tuple[str, int], QLabel] = {}
         self._names: dict[str, QLabel] = {}
         self._cells: dict[tuple[str, int], QLabel] = {}
+        # the grid's columns: the name 0, a vertical line 1, a number 2, a line 3, a number 4 (a number's column c of
+        # 1 / 2 is grid column 2c); the lines part the names from the numbers and the two numbers (the owner)
+        col = {1: 2, 2: 4}
         r = 0
         for i, (table, keys) in enumerate(ROWS):
             if i:                       # the line between two tables: they stay one card, parted
                 line = QFrame(objectName=look.split)
                 line.setFixedHeight(2)
-                grid.addWidget(line, r, 0, 1, 3)
+                grid.addWidget(line, r, 0, 1, 5)
                 r += 1
+            top = r
+            one = table not in HEADS            # the totals: one number, so the name has the first number's room
             if table in HEADS:
                 for c in (1, 2):
                     lb = QLabel(objectName=look.head)
                     lb.setAlignment(Qt.AlignCenter)
-                    grid.addWidget(lb, r, c)
+                    grid.addWidget(lb, r, col[c])
                     self._heads[(table, c)] = lb
                 r += 1
             for j, key in enumerate(keys):
                 if j and look.hair:
                     hair = QFrame(objectName=look.hair)
                     hair.setFixedHeight(1)
-                    grid.addWidget(hair, r, 0, 1, 3)
+                    grid.addWidget(hair, r, 0, 1, 5)
                     r += 1
                 name = QLabel(objectName=look.name)
                 name.setAlignment(Qt.AlignVCenter | Qt.AlignLeading)
-                one = table not in HEADS            # the totals: one number, so the name has two columns' room
-                grid.addWidget(name, r, 0, 1, 2 if one else 1)
+                grid.addWidget(name, r, 0, 1, 3 if one else 1)
                 self._names[key] = name
                 for c in ((2,) if one else (1, 2)):
                     lb = QLabel(objectName=look.num)
                     lb.setAlignment(Qt.AlignCenter)
-                    grid.addWidget(lb, r, c)
+                    grid.addWidget(lb, r, col[c])
                     self._cells[(key, c)] = lb
                 r += 1
+            for gc in ((3,) if one else (1, 3)):   # this table's vertical lines, top to bottom
+                v = QFrame(objectName=look.vline)
+                v.setFixedWidth(1)
+                grid.addWidget(v, top, gc, r - top, 1)
         grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 2)
         grid.setColumnStretch(2, 2)
+        grid.setColumnStretch(4, 2)
         self.retext()
 
     def retext(self) -> None:

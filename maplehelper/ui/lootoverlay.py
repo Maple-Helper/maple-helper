@@ -48,6 +48,7 @@ QLabel {{ color: {c['text']}; }}
 #StatBad {{ color: #D9534F; font-weight: 600; }}
 #StatGood {{ color: #2E9E5B; font-weight: 700; }}
 #StatGain {{ color: #2E9E5B; font-weight: 600; }}
+#StatVLine {{ background: {c['muted']}; border: none; }}
 #StatSplit {{ background: {c['muted']}; border: none; margin: 3px 0; }}
 #Alert {{ color: {c['text']}; background: rgba(217,83,79,0.18); border-radius: 8px; padding: 6px 8px; }}
 #Goal {{ color: {c['text']}; background: rgba(255,149,51,0.14); border-radius: 8px; padding: 6px 8px; }}

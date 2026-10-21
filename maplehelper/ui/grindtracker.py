@@ -130,6 +130,7 @@ class GrindTracker(EdgeResize, GlassDialog):
 #TrkGoal { background: rgba(255,149,51,0.10); border: 1px solid rgba(255,149,51,0.40); border-radius: 12px; }
 #TrkNpc { padding: 6px 8px; font-weight: 600; }
 #TrkGain { padding: 6px 8px; font-weight: 600; color: #2E9E5B; }
+#TrkVLine { background: rgba(127,127,127,0.28); border: none; }
 #TrkSplit { background: rgba(127,127,127,0.35); border: none; margin: 4px 0; }
 #TrkTagFm { background: rgba(46,158,91,0.16); color: #2E9E5B; border-radius: 8px; padding: 2px 10px; font-weight: 700; }
 #TrkTagNpc { background: rgba(240,122,18,0.16); color: #D9680A; border-radius: 8px; padding: 2px 10px;
