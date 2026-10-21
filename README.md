@@ -370,9 +370,9 @@ For a small knowledge-base download during development, limit the scraper to fiv
 
 ## Credits
 
-- Game data and images: [NiaMeowDB](https://meowdb.com), used with permission. Game assets belong to their rights holders.
-- Free Market sale prices: [MesoWatch](https://meso.watch), used with written permission.
-- Cash Shop data: [OSMS Data Explorer](https://osmsdataexplorer.com) by ohmi, used with permission.
+- Game data and images: [NiaMeowDB](https://meowdb.com).
+- Free Market sale prices: [MesoWatch](https://meso.watch).
+- Cash Shop data: [OSMS Data Explorer](https://osmsdataexplorer.com).
 - Font: [Rubik](https://fonts.google.com/specimen/Rubik), distributed under the [SIL Open Font License](assets/fonts/OFL.txt).
 - Speech recognition: [ivrit.ai](https://huggingface.co/ivrit-ai) Whisper models.
 - MapleStory Classic World is a trademark of Nexon. This project is not affiliated with or endorsed by Nexon.
