@@ -364,8 +364,11 @@ def test_the_tools_menu_items_are_in_the_bars_text_colour(bar, appearance, tint)
     s["appearance"], s["overlay_tint"] = appearance, tint
     w._tools.click()
     sheet, look = w._menu.styleSheet(), npcoverlay.look_palette(s)
+    accent, on_accent = npcoverlay.accent_of(s)
     assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item ")
-    assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item:selected")
+    # the row under the mouse as the app's own menus have it: filled in the accent, in the accent's text colour
+    sel = _menu_rule(sheet, "QMenu::item:selected")
+    assert f"color: {on_accent};" in sel and f"background: {accent};" in sel
     assert f"color: {look['muted']};" in _menu_rule(sheet, "QMenu::item:disabled")
     w._menu.hide()
 
@@ -399,7 +402,7 @@ def test_the_tools_menu_mirrors_in_hebrew(bar):
     w.apply_language(I18n("he"))
     w._tools.click()
     assert w._menu.layoutDirection() == Qt.RightToLeft
-    assert "padding: 5px 14px;" in _menu_rule(w._menu.styleSheet(), "QMenu::item ")
+    assert "padding: 8px 16px;" in _menu_rule(w._menu.styleSheet(), "QMenu::item ")
     w._menu.hide()
     w.apply_language(I18n("en"))
     w._tools.click()

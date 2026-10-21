@@ -110,7 +110,7 @@ def menu_qss(settings) -> str:
     # in the bar's glass colours so it reads on any tint the ⚙ panel picks (the owner, 2026-10-21)
     return (f"QMenu {{ background: {_hex(c['glass'])}; color: {c['text']}; border: 1px solid {c['stroke']};"
             f" border-radius: 12px; padding: 6px; }}"
-            f" QMenu::item {{ color: {c['text']}; background: transparent; padding: 8px 18px 8px 14px;"
+            f" QMenu::item {{ color: {c['text']}; background: transparent; padding: 8px 16px;"
             f" border-radius: 8px; min-width: 190px; font-size: 14px; font-weight: 500; }}"
             f" QMenu::item:selected {{ color: {on_accent}; background: {accent}; }}"
             f" QMenu::item:disabled {{ color: {c['muted']}; }}"
