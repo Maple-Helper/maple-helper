@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 import time
 
-from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPixmap
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QScrollArea,
                                QStackedWidget, QVBoxLayout, QWidget)
@@ -62,6 +62,8 @@ def _tag(text: str, kind: str = "Tag") -> QLabel:
 
 
 class GrindTracker(EdgeResize, GlassDialog):
+    guide_requested = Signal()          # "Guide": the tracker's guide (ui/trackerguide.py)
+
     def __init__(self, scanner, kb, settings, lang: str, stylesheet: str):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tracker_title"), t.rtl)
@@ -91,7 +93,8 @@ class GrindTracker(EdgeResize, GlassDialog):
         self.stop_btn = self._button("loot_card_stop", "Secondary", lambda: self.scanner.end())
         self.reset_btn = self._button("loot_card_reset", "Secondary", lambda: self.scanner.start())
         self.reset_btn.setToolTip(t("loot_card_reset_tip"))
-        for b in (self.start_btn, self.stop_btn, self.reset_btn):
+        self.guide_btn = self._button("trk_guide", "Secondary", self.guide_requested.emit)
+        for b in (self.start_btn, self.stop_btn, self.reset_btn, self.guide_btn):
             top.addWidget(b)
         outer.addLayout(top)
         self.tabs = Segmented([(t(f"trk_tab_{k}"), k) for k in TABS], "now", t.rtl)
@@ -240,7 +243,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                 lb = self._label(str(cell), obj or ("TrkCell" if c == 0 else "TrkNum"), wrap=c == 0, explain=False)
                 lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
                 grid.addWidget(lb, 2 * r, c)
-        grid.setColumnStretch(0, 3)
+        grid.setColumnStretch(0, 5 if len(heads) > 5 else 3)     # a wide table: its names get the room
         for c in range(1, len(heads)):
             grid.setColumnStretch(c, 2)
         return card
@@ -319,13 +322,14 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             [t("trk_row_etc"), self._num(sm.etc_value), self._num(rate(sm.etc_value))],
             [t("trk_row_items"), self._num(sm.other_value), self._num(rate(sm.other_value))],
             [t("trk_row_income"), self._num(income), self._num(rate(income))],
-            [t("trk_row_spent"), self._num(-sm.potions_cost if sm.potions_cost else 0),
-             self._num(-rate(sm.potions_cost) if sm.potions_cost and rate(sm.potions_cost) else 0)],
+            *self._spent_rows(lootextras.by_kind(self.kb, sm.potions), rate),
             [t("trk_row_net"), self._num(sm.net), self._num(rate(sm.net))],
         ]
+        bad = {i: "TrkBad" for i in range(5, len(rows) - 1)}
         self._section(self.summary, t("trk_summary"))
         self.summary.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
-                                           strong={4}, styles={5: "TrkBad", 6: "TrkGood" if sm.net >= 0 else "TrkBad"}))
+                                           strong={4}, styles={**bad, len(rows) - 1: "TrkGood" if sm.net >= 0 else
+                                                               "TrkBad"}))
         self._fill_compare_line(lg, sm)
         counts: dict[int, int] = {}
         for e in lg.events:
@@ -527,18 +531,43 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         if not compact:
             box.addWidget(self._label(t("trk_kills_note"), "RowHint"))
 
+    def _spent_rows(self, kinds: dict[str, tuple[int, int]], rate) -> list[list]:
+        """What the potions cost, HP and MP apart (an Elixir's both on a row of its own); one row of 0 with none."""
+        t = self.t
+        if not kinds:
+            return [[t("trk_row_spent"), self._num(0), self._num(0)]]
+        out = []
+        for k in lootextras.KINDS:
+            if k in kinds:
+                n, cost = kinds[k]
+                out.append([t(f"trk_row_spent_{k}"), self._num(-cost if cost else 0),
+                            self._num(-rate(cost) if cost and rate(cost) else 0)])
+        return out
+
     def _fill_potions(self, sm, unseen: bool) -> None:
+        """The potions used, HP and MP apart: each potion's count and cost, then each kind's total, then all."""
         t = self.t
         self._section(self.potions_box, t("loot_potions_head"))
         if not sm.potions:
             self.potions_box.addWidget(self._label(t("loot_potions_unseen" if unseen else "loot_potions_none"),
                                                    "RowHint"))
             return
-        rows = [[(key, name), self._num(n), self._num(price) if price else "–",
-                 self._num(-n * price) if price else "–"] for name, n, key, price in sm.potions]
-        rows.append([t("trk_total"), self._num(sm.used), "", self._num(-sm.potions_cost)])
-        self.potions_box.addWidget(self._table([t("trk_c_potion"), t("trk_c_used"), t("trk_c_shop"),
-                                                t("trk_c_cost")], rows, strong={len(rows) - 1}))
+        rows, strong = [], set()
+        kinds = lootextras.by_kind(self.kb, sm.potions)
+        for k in lootextras.KINDS:
+            mine = [p for p in sm.potions if (lootextras.potion_kind(self.kb, p[2]) or "hp") == k]
+            if not mine:
+                continue
+            rows += [[(key, name), t(f"trk_kind_{k}"), self._num(n), self._num(price) if price else "–",
+                      self._num(-n * price) if price else "–"] for name, n, key, price in mine]
+            n, cost = kinds[k]
+            if len(kinds) > 1:              # a kind's own total, when there are two kinds to tell apart
+                strong.add(len(rows))
+                rows.append([t(f"trk_total_{k}"), "", self._num(n), "", self._num(-cost)])
+        strong.add(len(rows))
+        rows.append([t("trk_total"), "", self._num(sm.used), "", self._num(-sm.potions_cost)])
+        self.potions_box.addWidget(self._table([t("trk_c_potion"), t("trk_c_kind"), t("trk_c_used"),
+                                                t("trk_c_shop"), t("trk_c_cost")], rows, strong=strong))
         unpriced = [bidi.ltr_block(n, t.rtl) for n, _, _, p in sm.potions if not p]
         if unpriced:
             self.potions_box.addWidget(self._label(t("loot_potions_unpriced", names=", ".join(unpriced)), "RowHint"))
@@ -627,11 +656,11 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
             rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
                     [t("trk_row_income"), self._num(s.value), self._num(ph(s.value))],
-                    [t("trk_row_spent"), self._num(-s.potions_cost if s.potions_cost else 0),
-                     self._num(-ph(s.potions_cost) if s.potions_cost and ph(s.potions_cost) else 0)],
+                    *self._spent_rows(lootextras.by_kind(self.kb, s.potion_list), ph),
                     [t("trk_row_net"), self._num(s.net), self._num(ph(s.net))]]
+            bad = {i: "TrkBad" for i in range(2, len(rows) - 1)}
             cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
-                                     styles={2: "TrkBad", 3: "TrkGood" if s.net >= 0 else "TrkBad"}))
+                                     styles={**bad, len(rows) - 1: "TrkGood" if s.net >= 0 else "TrkBad"}))
             if s.id in self._open:
                 if s.items:
                     heads = [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_npc_total"), t("trk_c_mw"),
@@ -640,11 +669,12 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                     cl.addWidget(self._label(t("trk_picked_head"), "SectionHeader"))
                     cl.addWidget(self._table(heads, rows, strong={len(rows) - 1}))
                 if s.potion_list:
-                    rows = [[(k, n), self._num(c), self._num(p) if p else "–", self._num(-c * p) if p else "–"]
+                    rows = [[(k, n), t("trk_kind_" + (lootextras.potion_kind(self.kb, k) or "hp")), self._num(c),
+                             self._num(p) if p else "–", self._num(-c * p) if p else "–"]
                             for n, c, k, p in s.potion_list]
                     cl.addWidget(self._label(t("loot_potions_head"), "SectionHeader"))
-                    cl.addWidget(self._table([t("trk_c_potion"), t("trk_c_used"), t("trk_c_shop"), t("trk_c_cost")],
-                                             rows))
+                    cl.addWidget(self._table([t("trk_c_potion"), t("trk_c_kind"), t("trk_c_used"), t("trk_c_shop"),
+                                              t("trk_c_cost")], rows))
             lay.addWidget(card)
         if len(sessions) > self._hist_n:
             lay.addWidget(self._button("loot_history_more", "Secondary", self._more), 0, Qt.AlignLeading)

@@ -212,7 +212,7 @@ def test_the_window_and_the_card_show_potions_etc_items_and_the_net(page, kb):
     try:
         card.refresh()
         lines = card.lines()
-        assert any(x.startswith("Potions") and f"-{3 * red:,}" in x for x in lines)
+        assert any(x.startswith("HP potions") and f"-{3 * red:,}" in x for x in lines)
         assert any(x.startswith("ETC") for x in lines) and any(x.startswith("Net") for x in lines)
     finally:
         card.close()

@@ -376,6 +376,9 @@ class MapleHelperApp:
         if seen != __version__:
             telemetry.track("app_updated", from_version=seen)
         notes = whatsnew.since(seen, __version__)
+        if not self.settings["tracker_guide_seen"]:
+            # the grind tracker's guide, once after the update that brought it (the owner: a popup, in detail)
+            QTimer.singleShot(2500, self.show_tracker_guide)
         if notes:
             self.overlay.add_notice(lambda t: t("whats_new_notice", version=__version__), lambda t: t("whats_new_show"),
                                     lambda: self.show_whats_new(notes))
@@ -1076,13 +1079,23 @@ class MapleHelperApp:
             return dlg
         return self.open_window("tools", make)
 
+    def show_tracker_guide(self):
+        """The grind tracker's guide (ui/trackerguide.py): every part of it, a page each, with its picture."""
+        from .ui.trackerguide import TrackerGuide
+        return self.open_window("tracker_guide", lambda: TrackerGuide(self.settings, self.settings["language"],
+                                                                        self.style()))
+
     def show_tracker(self, tab: str = "now"):
         """The grind tracker's own window (ui/grindtracker.py): the session in tables, its history, the maps compared."""
         from .ui.grindtracker import GrindTracker
 
         def make():
-            return GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
+            dlg = GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
+            dlg.guide_requested.connect(self.show_tracker_guide)
+            return dlg
         dlg = self.open_window("tracker", make)
+        if not self.settings["tracker_guide_seen"]:
+            QTimer.singleShot(400, self.show_tracker_guide)     # a new player's first look at the tracker
         if dlg is not None and tab != "now":
             dlg.show_tab(tab)
         return dlg

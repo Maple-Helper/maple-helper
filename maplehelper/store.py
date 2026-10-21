@@ -162,6 +162,7 @@ DEFAULT_SETTINGS = {
     "wishlist": {},               # character id -> item keys the player is hunting for
     "farm_target": {},            # character id -> the item key the Farm tab shows the droppers of (farm.py)
     "seen_version": "",           # the app version whose "what's new" the player has seen
+    "tracker_guide_seen": False,  # the grind tracker's guide was shown (ui/trackerguide.py): once, after its update
     "news_read": [],              # news ids the player dismissed or read (news.py), so they come up once
     "last_session": None,         # summary of the previous play session, shown when the chat next opens
     "instant_answers": True,      # simple factual questions answered from the KB, without Claude

@@ -53,6 +53,10 @@ FLOW_GAP = 6                                              # between the buttons,
 GLYPHS = {"tb_chat": "\ue8bd", "tb_npcs_here": "\ue716", "tb_monsters": "\uebe8", "tb_loot": "\ue9d9",
           "tb_tools": "\ue90f"}
 GLYPH_PX = 16
+# each Tools tab's icon in the Play tools menu (the app's icon font)
+PAGE_GLYPHS = {"train": "", "farm": "", "quests": "", "crafting": "", "town": "",
+               "build": "", "calc": "", "prices": "", "more": "", "route": "",
+               "shop": ""}
 # the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
 WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
 # the Play tools button's menu: every tab of the Tools window, straight to it (the owner, 2026-10-20: all of them,
@@ -101,12 +105,17 @@ def menu_qss(settings) -> str:
     menu alone, and read dark grey on the dark glass. The padding is the same both sides, so a right-to-left
     menu reads as a left-to-right one."""
     c = look_palette(settings)
+    accent, on_accent = accent_of(settings)
+    # the app's own menu (theme.py's QMenu: 12 px corners, roomy rows, the row under the mouse filled in the accent),
+    # in the bar's glass colours so it reads on any tint the ⚙ panel picks (the owner, 2026-10-21)
     return (f"QMenu {{ background: {_hex(c['glass'])}; color: {c['text']}; border: 1px solid {c['stroke']};"
-            f" border-radius: 8px; padding: 4px; }}"
-            f" QMenu::item {{ color: {c['text']}; background: transparent; padding: 5px 14px; border-radius: 6px; }}"
-            f" QMenu::item:selected {{ color: {c['text']}; background: {c['fill2']}; }}"
+            f" border-radius: 12px; padding: 6px; }}"
+            f" QMenu::item {{ color: {c['text']}; background: transparent; padding: 8px 18px 8px 14px;"
+            f" border-radius: 8px; min-width: 190px; font-size: 14px; font-weight: 500; }}"
+            f" QMenu::item:selected {{ color: {on_accent}; background: {accent}; }}"
             f" QMenu::item:disabled {{ color: {c['muted']}; }}"
-            f" QMenu::separator {{ height: 1px; background: {c['stroke']}; margin: 4px 6px; }}")
+            f" QMenu::icon {{ padding-left: 10px; padding-right: 10px; }}"
+            f" QMenu::separator {{ height: 1px; background: {c['stroke']}; margin: 5px 8px; }}")
 
 
 def _hex(rgb: tuple[int, int, int]) -> str:
@@ -121,8 +130,7 @@ def _swatch_qss(colour: str, on: bool, c: dict) -> str:
             f"QPushButton:hover {{ border: 2px solid {c['text']}; }}")
 
 
-def glyph_icon(glyph: str, colour: str, px: int = GLYPH_PX) -> QIcon:
-    """An icon of the app's icon font in one colour, drawn at the screen's pixels (a button keeps its own word)."""
+def _glyph_pixmap(glyph: str, colour: str, px: int) -> QPixmap:
     dpr = (QGuiApplication.primaryScreen().devicePixelRatio() if QGuiApplication.primaryScreen() else 1.0) or 1.0
     side = round(px * dpr)
     pm = QPixmap(side, side)
@@ -135,7 +143,18 @@ def glyph_icon(glyph: str, colour: str, px: int = GLYPH_PX) -> QIcon:
     p.drawText(pm.rect(), Qt.AlignCenter, glyph)
     p.end()
     pm.setDevicePixelRatio(dpr)
-    return QIcon(pm)
+    return pm
+
+
+def glyph_icon(glyph: str, colour: str, px: int = GLYPH_PX, active: str | None = None) -> QIcon:
+    """An icon of the app's icon font in one colour, drawn at the screen's pixels (a button keeps its own word);
+    active: its colour on a menu's highlighted row (the text's colour there)."""
+    icon = QIcon(_glyph_pixmap(glyph, colour, px))
+    if active:
+        on = _glyph_pixmap(glyph, active, px)
+        icon.addPixmap(on, QIcon.Active)
+        icon.addPixmap(on, QIcon.Selected)
+    return icon
 
 
 class _Grip(QWidget):
@@ -453,10 +472,15 @@ class GameToolbar(EdgeResize, QWidget):
         m.clear()
         m.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
         m.setStyleSheet(menu_qss(self._settings))
+        colour = look_palette(self._settings)["text"]
+        _, on_accent = accent_of(self._settings)
         for page in quick_pages():
-            m.addAction(bidi.plain(t(f"tool_{page}"), rtl), lambda p=page: self.tools_requested.emit(p))
+            a = m.addAction(bidi.plain(t(f"tool_{page}"), rtl), lambda p=page: self.tools_requested.emit(p))
+            if page in PAGE_GLYPHS:
+                a.setIcon(glyph_icon(PAGE_GLYPHS[page], colour, active=on_accent))
         m.addSeparator()
-        m.addAction(bidi.plain(t("tb_tools_all"), rtl), lambda: self.tools_requested.emit(""))
+        a = m.addAction(bidi.plain(t("tb_tools_all"), rtl), lambda: self.tools_requested.emit(""))
+        a.setIcon(glyph_icon(GLYPHS["tb_tools"], colour, active=on_accent))
         m.popup(self._tools.mapToGlobal(QPoint(0, self._tools.height())))
 
     def _buttons(self):

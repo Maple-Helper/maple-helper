@@ -95,6 +95,36 @@ def low_potions(kb, counts: dict[str, int], used: set[str], here_map: str | None
     return out
 
 
+# ---------------------------------------------------------------- HP or MP
+
+KINDS = ("hp", "mp", "both")
+
+
+def potion_kind(kb, key: str) -> str:
+    """"hp", "mp" or "both" (an Elixir) as the KB's consumables table gives it (its HP and MP columns); "" when it
+    has neither (a buff food)."""
+    from . import tables
+    from .kb import memo
+    seen = memo(kb, "_potion_kinds")
+    if not seen:
+        for r in tables.rows(kb, "consumables"):
+            hp, mp = bool(str(r.get("hp") or "").strip()), bool(str(r.get("mp") or "").strip())
+            if r.get("key"):
+                seen[r["key"]] = "both" if hp and mp else "hp" if hp else "mp" if mp else ""
+        seen.setdefault("", "")
+    return seen.get(key, "")
+
+
+def by_kind(kb, potions) -> dict[str, tuple[int, int]]:
+    """kind -> (used, what they cost) over summary potions [(name, used, key, price)]."""
+    out: dict[str, tuple[int, int]] = {}
+    for _name, n, key, price in potions:
+        k = potion_kind(kb, key) or "hp"
+        used, cost = out.get(k, (0, 0))
+        out[k] = (used + n, cost + n * (price or 0))
+    return out
+
+
 # ---------------------------------------------------------------- the monsters killed
 
 def kills(kb, exp_counts: dict[int, int], maps: list[str], level: int | None = None) -> list[tuple[str, str, int]]:

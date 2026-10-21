@@ -25,7 +25,7 @@ from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX,
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 4                        # the latest pickups shown under the totals
-STATS = ("exp", "mesos", "etc", "items", "potions", "net")
+STATS = ("exp", "mesos", "etc", "items", "potions_hp", "potions_mp", "net")
 
 def qss(settings) -> str:
     """The window's own style at the look the settings pick: its text and fills in the glass's palette, the Go
@@ -226,13 +226,18 @@ class LootOverlay(QWidget):
         self._status.setText(bidi.plain(t(status), rtl) if status else "")
         self._status.setVisible(bool(status))
         ph = (lambda v: lootlog.per_hour(v, sm.seconds)) if sm is not None else (lambda v: None)
+        from .. import lootextras
+        kinds = lootextras.by_kind(self.kb, sm.potions) if sm is not None else {}
+        both = kinds.get("both", (0, 0))[1]           # an Elixir: half to each row
+        kind_costs = {"hp": kinds.get("hp", (0, 0))[1] + both // 2, "mp": kinds.get("mp", (0, 0))[1] + both - both // 2}
         neg = lambda v: num(-v) if v else num(0)  # noqa: E731
         values = {} if sm is None else {
             "exp": (num(sm.exp), num(sm.exp_h)),
             "mesos": (num(sm.mesos), num(sm.mesos_h)),
             "etc": (num(sm.etc_value), num(ph(sm.etc_value))),
             "items": (num(sm.other_value), num(ph(sm.other_value))),
-            "potions": (neg(sm.potions_cost), neg(ph(sm.potions_cost) or 0) if ph(1) is not None else num(None)),
+            **{f"potions_{k}": (neg(c), neg(ph(c) or 0) if ph(1) is not None else num(None))
+               for k, c in kind_costs.items()},
             "net": (num(sm.net), num(sm.net_h))}
         self._table.setVisible(sm is not None)
         self._fill_extras(sm, running)
