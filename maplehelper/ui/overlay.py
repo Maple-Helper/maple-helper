@@ -659,12 +659,7 @@ class Overlay(EdgeResize, QWidget):
         tb.addWidget(self.logo)
         self.title = QLabel("Maple Helper", objectName="Title")
         tb.addWidget(self.title)
-        # the app is still in beta: always shown beside the name, never hidden for room like the version
-        self.beta_badge = QLabel("BETA", objectName="BetaBadge")
-        self.beta_badge.setLayoutDirection(Qt.LeftToRight)
-        self.beta_badge.setAlignment(Qt.AlignCenter)
-        self.beta_badge.setFixedHeight(17)
-        tb.addWidget(self.beta_badge, 0, Qt.AlignVCenter)
+        # (no BETA beside the name any more: the owner, 2026-10-21, out of beta)
         # the game servers' state, in the footer beside the version. Live from MeowDB, not the KB (a nightly copy can't follow a
         # maintenance): polled only while the chat is open (showEvent / hideEvent), see serverdot.py
         from .serverdot import ServerDot, StatusPoller
@@ -678,10 +673,9 @@ class Overlay(EdgeResize, QWidget):
         self.saver_badge.hide()
         self._saver_on = False
         tb.addWidget(self.saver_badge)
-        # the saver badge and BETA never hold the window wide: _fit_header shortens them when the header has no
-        # room (at 470 px with a large font the chat could not get that narrow)
-        for w in (self.saver_badge, self.beta_badge):
-            w.setMinimumWidth(1)
+        # the saver badge never holds the window wide: _fit_header shortens it when the header has no room (at 470 px
+        # with a large font the chat could not get that narrow)
+        self.saver_badge.setMinimumWidth(1)
         tb.addStretch(1)
         # in reading order (the owner's, 2026-10-04): search, news, guides, wishlist, play tools, settings | minimize, close
         # (the minimap button sits on the character card, beside ⟳)
@@ -919,15 +913,12 @@ class Overlay(EdgeResize, QWidget):
 
     def _fit_header(self):
         """The saver badge in full only when the header has room: first the buttons move closer, then narrower still,
-        then the badge shrinks to its leaf (its tooltip still explains it), then BETA becomes "β", and only at the
-        narrowest width with the largest font does it step aside. (The version sits in the footer, beside the scope
-        line.)"""
+        then the badge shrinks to its leaf (its tooltip still explains it). (The version sits in the footer, beside the
+        scope line.)"""
         tb = self.title_bar.layout()
         room = self.title_bar.width()
         self.saver_badge.setText("🍃 " + self.t("saver_on_badge"))
         self.saver_badge.setVisible(self._saver_on)
-        self.beta_badge.setText("BETA")
-        self.beta_badge.show()
         buttons = (self.history_btn, self.news_btn, self.guides_btn, self.wish_btn, self.tools_btn,
                    self.settings_btn, self.min_btn, self.close_btn)
         for b in buttons:
@@ -935,7 +926,7 @@ class Overlay(EdgeResize, QWidget):
             b.setMinimumWidth(24)
             b.setMaximumWidth(16777215)
         tb.setSpacing(8)
-        for step in ("tight", "tighter", "badge", "beta", "nobeta", "done"):
+        for step in ("tight", "tighter", "badge", "done"):
             tb.invalidate()
             if tb.sizeHint().width() <= room or step == "done":
                 return
@@ -949,10 +940,6 @@ class Overlay(EdgeResize, QWidget):
                     b.setFixedWidth(24)
             elif step == "badge":
                 self.saver_badge.setText("🍃")
-            elif step == "beta":
-                self.beta_badge.setText("β")
-            else:
-                self.beta_badge.hide()
 
     def resizeEvent(self, e):
         super().resizeEvent(e)
@@ -981,7 +968,6 @@ class Overlay(EdgeResize, QWidget):
         self.scope_note.setText(terms.hint_badge_html() + html.escape(bidi.plain(text, self.t.rtl)))
         tip = self.t("scope_tip") + ("\n" + self.t("scope_tip_changed", date=changed, checked=checked or changed) if changed else "")
         self.scope_note.setToolTip(tip)
-        self.beta_badge.setToolTip(self.t("beta_tip"))
 
     def apply_language(self):
         from . import terms

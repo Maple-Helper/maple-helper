@@ -36,9 +36,9 @@ def clean_location():
 
 @pytest.fixture
 def overlay(qapp, isolated_store, kb, clean_location, monkeypatch):
-    from maplehelper.ui import monsteroverlay
+    from maplehelper.ui import monsteroverlay, npcoverlay
     names = {MID: "Snail Hunting Ground I", OTHER: "Snail Hunting Ground II"}
-    monkeypatch.setattr(monsteroverlay.routes, "of", lambda kb: SimpleNamespace(name=lambda mid: names.get(mid, mid)))
+    monkeypatch.setattr(npcoverlay.routes, "of", lambda kb: SimpleNamespace(name=lambda mid: names.get(mid, mid)))
     monkeypatch.setattr(monsteroverlay.gamelookup, "map_monsters", lambda kb, mid: MOBS.get(mid, []))
     monkeypatch.setattr(monsteroverlay.combat, "monster", lambda kb, key: STATS.get(key))
     s = isolated_store.Settings()
@@ -58,7 +58,7 @@ def test_it_lists_the_monsters_on_the_players_map_with_their_numbers(overlay):
     w, _, loc = overlay
     loc.set(_here())
     assert w.isVisible()
-    assert w._title.text() == "Monsters Here · Snail Hunting Ground I"
+    assert w._title.text() == "Monsters Here" and w._map_name.text() == "Snail Hunting Ground I"
     assert [r.text() for r in w._rows] == ["Snail\nLv. 1 · 8 HP · 3 EXP · 40 on the map",
                                            "Blue Snail\nLv. 2 · 15 HP · 4 EXP · 12 on the map"]
     assert w._status.text() == ""
@@ -114,8 +114,8 @@ def test_hebrew_retexts_and_mirrors(overlay):
 
 
 def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
-    """The ⚙ panel's choices reach this window as they reach the NPCs one: the accent in its own style sheet (its
-    monster rows' look kept), the transparency on the next refresh, and the glass tint every window paints. The
+    """The ⚙ panel's choices reach this window as they reach the NPCs one: the app's accent in its own style sheet
+    (its monster rows' look kept), the transparency on the next refresh, and the glass tint every window paints. The
     app's look_changed refresh is what the panel's signal runs."""
     from maplehelper.ui import gametoolbar, npcoverlay
     w, s, loc = overlay
@@ -125,11 +125,10 @@ def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
     try:
         bar.refresh()
         bar._gear.click()
-        bar._panel._pick_accent("purple")
         bar._panel._pick_opacity(0.5)
         bar._panel._pick_tint("forest")
-        assert npcoverlay.ACCENTS["purple"][1] in w.styleSheet() and "#Mob" in w.styleSheet()
-        assert npcoverlay.ACCENTS["app"][1] not in w.styleSheet()
+        # (the accent is always the app's orange now: the owner, 2026-10-21)
+        assert npcoverlay.ACCENTS["app"][1] in w.styleSheet() and "#Mob" in w.styleSheet()
         assert w._opacity == 0.5
         assert npcoverlay.current_tint() == npcoverlay.TINTS["forest"][1]
         assert w._guide.styleSheet() == npcoverlay.qss(s)      # its (never shown) guide in the plain style
@@ -142,3 +141,39 @@ def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
         if bar._panel is not None:
             bar._panel.deleteLater()
         bar.deleteLater()
+
+
+def test_each_monster_row_starts_with_its_picture(overlay, monkeypatch, tmp_path):
+    """Every row has the monster's KB picture (kb.picture), scaled into 32 px with its shape kept; one the KB has no
+    picture of, or whose file won't read (the fixture KB's monster/130101 is a stub), gets the monster icon."""
+    from PySide6.QtGui import QColor, QPixmap
+
+    from maplehelper.ui import monsteroverlay, npcoverlay
+    w, _, loc = overlay
+    big = QPixmap(120, 60)
+    big.fill(QColor("#c33"))
+    assert big.save(str(tmp_path / "snail.png"))
+    pics = {"monster/2": tmp_path / "snail.png"}
+    real = w._kb.picture
+    monkeypatch.setattr(w._kb, "picture", lambda key: pics.get(key) or real(key))
+    mobs = {MID: [("monster/2", "Snail", 1, 40), ("monster/130101", "Stump", 4, 9), ("monster/77", "Nobody", 3, 2)]}
+    monkeypatch.setattr(monsteroverlay.gamelookup, "map_monsters", lambda kb, mid: mobs.get(mid, []))
+    loc.set(_here())
+    assert len(w._pics) == len(w._rows) == 3
+    snail = w._pics[0].pixmap()
+    assert (snail.width(), snail.height()) == (npcoverlay.PIC, npcoverlay.PIC // 2)
+    for pic in w._pics[1:]:
+        pm = pic.pixmap()
+        assert not pm.isNull() and max(pm.width(), pm.height()) == npcoverlay.PIC
+    assert w._rows[0].text().startswith("Snail" + chr(10))
+
+
+def test_in_hebrew_the_picture_is_on_the_right_and_the_map_name_whole(overlay, qapp):
+    w, _, loc = overlay
+    w.apply_language(I18n("he"))
+    loc.set(_here())
+    qapp.processEvents()
+    pic, row = w._pics[0], w._rows[0]
+    assert pic.mapTo(w, pic.rect().topLeft()).x() > row.mapTo(w, row.rect().topLeft()).x()
+    assert BIDI_MARKS.sub("", w._map_name.text()) == "Snail Hunting Ground I"
+    assert BIDI_MARKS.sub("", w._title.text()) == "מפלצות במפה"

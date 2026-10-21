@@ -62,7 +62,7 @@ def test_only_the_map_windows_loot_log_and_tools_are_on_the_bar(bar):
     from PySide6.QtWidgets import QPushButton
     w, _ = bar
     texts = [b.text() for b in w.findChildren(QPushButton)]
-    assert texts == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
+    assert texts == ["Chat", "NPCs on map", "Monsters on map", "Grind tracker", "Play tools"]
 
 
 @pytest.mark.parametrize("key", ["npc_overlay", "monster_overlay", "loot_overlay"])
@@ -83,37 +83,43 @@ def test_each_window_button_is_its_windows_setting(bar, key):
     assert [k for k, b in w._windows.items() if b.isChecked()] == [key]
 
 
-def test_the_tools_button_opens_a_menu_of_tabs_then_the_whole_window(bar):
-    """One click from the game to a Tools tab (the owner, 2026-10-11); the last entry opens the window as it is."""
+def test_the_play_tools_button_opens_a_menu_of_every_tab_then_the_whole_window(bar):
+    """One click from the game to any Tools tab, every one of them (the owner, 2026-10-20); the last entry opens the
+    window as it is. The removed pages (Grind tracker, loot log, Gear, Scroll planner) are no tabs."""
     from maplehelper.ui import gametoolbar
+    from maplehelper.ui.tools import PAGES
     w, _ = bar
     seen = []
     w.tools_requested.connect(seen.append)
     w._tools.click()
     acts = [a for a in w._menu.actions() if not a.isSeparator()]
-    assert len(acts) == len(gametoolbar.QUICK) + 1 and not w._tools.isCheckable()
-    acts[gametoolbar.QUICK.index("gear")].trigger()
+    assert gametoolbar.quick_pages() == PAGES and len(acts) == len(PAGES) + 1 and not w._tools.isCheckable()
+    assert not {"exp", "loot", "gear", "scrolls"} & set(PAGES)
+    acts[PAGES.index("crafting")].trigger()
     acts[-1].trigger()
-    assert seen == ["gear", ""]
+    assert seen == ["crafting", ""]
     w._menu.hide()
 
 
-def test_the_x_turns_the_setting_off_and_hides(bar):
+def test_the_x_closes_the_app_and_the_bar_stays_on(bar):
+    """The bar is always on while the app runs (the owner, 2026-10-20): its ✕ asks the app to quit."""
     w, s = bar
     w.refresh()
+    quit_ = []
+    w.quit_requested.connect(lambda: quit_.append(True))
     w._close.click()
-    assert s["game_toolbar"] is False and not w.isVisible()
+    assert quit_ == [True] and s["game_toolbar"] is True
 
 
 def test_apply_language_retexts_and_mirrors(bar):
     w, _ = bar
     w.apply_language(I18n("he"))
     assert [w._windows[k].text() for k in ("npc_overlay", "monster_overlay")] == [
-        bidi.plain("NPC", True), bidi.plain("מפלצות", True)]
-    assert w._tools.text() == bidi.plain("כלים", True)
+        bidi.plain("NPC במפה", True), bidi.plain("מפלצות במפה", True)]
+    assert w._tools.text() == bidi.plain("כלי משחק", True)
     assert w.layoutDirection() == Qt.RightToLeft
     w.apply_language(I18n("en"))
-    assert w._windows["npc_overlay"].text() == "NPCs" and w.layoutDirection() == Qt.LeftToRight
+    assert w._windows["npc_overlay"].text() == "NPCs on map" and w.layoutDirection() == Qt.LeftToRight
 
 
 # ------------------------------------------------------------ its width (the buttons wrap)
@@ -197,14 +203,16 @@ def test_a_tint_choice_is_written_and_painted_by_the_glass(bar):
     assert npcoverlay.current_tint() == npcoverlay.TINTS["midnight"][1]
 
 
-def test_an_accent_choice_restyles_the_bar(bar):
-    from maplehelper.ui import npcoverlay
+def test_the_bar_is_always_in_the_apps_orange(bar):
+    """The owner, 2026-10-21: "the app is in orange" — a green accent picked once in the ⚙ panel made the chat button
+    and the lit pages green. No accent row any more, and an old choice is no longer followed."""
+    from maplehelper.ui import npcoverlay, theme
     w, s = bar
+    s["overlay_accent"] = "green"
     w.refresh()
     w._gear.click()
-    w._panel._pick_accent("blue")
-    assert s["overlay_accent"] == "blue"
-    assert npcoverlay.ACCENTS["blue"][1] in w.styleSheet()           # the lit buttons' new colour
+    assert npcoverlay.accent_of(s)[0] == theme.ORANGE_DEEP and npcoverlay.ACCENTS["green"][1] not in w.styleSheet()
+    assert not w._panel._accents.isVisibleTo(w._panel) and not w._panel._accent_label.isVisibleTo(w._panel)
 
 
 def test_the_panel_rings_the_chosen_swatches(bar):
@@ -212,7 +220,6 @@ def test_the_panel_rings_the_chosen_swatches(bar):
     s["overlay_tint"], s["overlay_accent"] = "wine", "pink"
     w._gear.click()
     assert [b.property("key") for b in w._panel._tints.findChildren(QPushButton) if b.isChecked()] == ["wine"]
-    assert [b.property("key") for b in w._panel._accents.findChildren(QPushButton) if b.isChecked()] == ["pink"]
 
 
 def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
@@ -227,7 +234,7 @@ def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
     assert "game_toolbar_icons" not in store.DEFAULT_SETTINGS
     assert "game_toolbar_icons" not in report.REPORT_SETTINGS
     assert not hasattr(gametoolbar, "ICONS") and not hasattr(w._panel, "_icons")
-    assert [b.text() for b, _ in w._buttons()] == ["Chat", "NPCs", "Monsters", "Loot Log", "Tools"]
+    assert [b.text() for b, _ in w._buttons()] == ["Chat", "NPCs on map", "Monsters on map", "Grind tracker", "Play tools"]
     assert w._tools.toolTip() == w.t("tb_tools_tip")
     assert "Emoji" not in w.styleSheet()
     assert "tbs_icons" not in STRINGS and "tbs_icons_hint" not in STRINGS
@@ -296,7 +303,7 @@ def test_the_default_look_is_the_apps(bar, monkeypatch):
     w.refresh()
     assert npcoverlay.current_tint() == theme.PALETTES[s["appearance"]]["glass"]
     assert npcoverlay.ACCENTS["app"][1] == theme.ORANGE_DEEP and theme.ORANGE_DEEP in w.styleSheet()
-    assert w._windows["npc_overlay"].text() == "NPCs"
+    assert w._windows["npc_overlay"].text() == "NPCs on map"
 
 
 def _lum(css: str) -> float:
@@ -358,8 +365,11 @@ def test_the_tools_menu_items_are_in_the_bars_text_colour(bar, appearance, tint)
     s["appearance"], s["overlay_tint"] = appearance, tint
     w._tools.click()
     sheet, look = w._menu.styleSheet(), npcoverlay.look_palette(s)
+    accent, on_accent = npcoverlay.accent_of(s)
     assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item ")
-    assert f"color: {look['text']};" in _menu_rule(sheet, "QMenu::item:selected")
+    # the row under the mouse as the app's own menus have it: filled in the accent, in the accent's text colour
+    sel = _menu_rule(sheet, "QMenu::item:selected")
+    assert f"color: {on_accent};" in sel and f"background: {accent};" in sel
     assert f"color: {look['muted']};" in _menu_rule(sheet, "QMenu::item:disabled")
     w._menu.hide()
 
@@ -393,7 +403,7 @@ def test_the_tools_menu_mirrors_in_hebrew(bar):
     w.apply_language(I18n("he"))
     w._tools.click()
     assert w._menu.layoutDirection() == Qt.RightToLeft
-    assert "padding: 5px 14px;" in _menu_rule(w._menu.styleSheet(), "QMenu::item ")
+    assert "padding: 8px 16px;" in _menu_rule(w._menu.styleSheet(), "QMenu::item ")
     w._menu.hide()
     w.apply_language(I18n("en"))
     w._tools.click()
@@ -465,3 +475,51 @@ def test_the_chat_button_comes_first_lit_and_opens_the_chat(bar):
     assert "#Chat" in w.styleSheet()
     w._chat.click()
     assert seen == [True]
+
+
+def test_the_bar_looks_like_the_app_its_mark_name_icons_and_window_buttons(bar):
+    """The owner, 2026-10-21: it looked like another app. Now the chat's title bar look: the app's mark and name at
+    its start (which drag it), an icon beside every button's word, the chat's filled, and the window ✕."""
+    w, s = bar
+    w.refresh()
+    assert w._grip.name.text() == "Maple Helper" and w._grip.logo.pixmap() is not None
+    assert all(not b.icon().isNull() for b, _ in w._buttons())
+    assert w._chat.objectName() == "Chat" and w._close.objectName() == "Close"
+    s["npc_overlay"] = True
+    w.refresh()
+    assert w._windows["npc_overlay"].isChecked()
+
+
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_a_window_the_bar_opens_goes_under_its_button(qapp, isolated_store, lang):
+    """Not at a screen corner far from the bar (the owner): right under the button, its start edge lined up with it;
+    above the bar when the bar sits at the screen's bottom."""
+    from PySide6.QtWidgets import QWidget
+
+    from maplehelper.ui import gametoolbar
+    from maplehelper.ui.glass import SHADOW
+    s = isolated_store.Settings()
+    bar = gametoolbar.GameToolbar(s, I18n(lang))
+    win = QWidget()
+    win.resize(320, 240)
+    try:
+        bar.show()
+        room = QGuiApplication.primaryScreen().availableGeometry()
+        bar.move(room.left() + 200, room.top() + 40)
+        qapp.processEvents()
+        b = bar._windows["npc_overlay"]
+        at = b.mapToGlobal(QPoint(0, 0))
+        bar.dock_under("npc_overlay", win)
+        assert win.y() + SHADOW > bar.y() + bar.height() - 2 * SHADOW               # under the bar's panel
+        assert win.y() + SHADOW - (bar.y() + bar.height() - SHADOW) < 20            # ... just under it
+        if lang == "he":
+            assert win.x() + win.width() - SHADOW == at.x() + b.width()
+        else:
+            assert win.x() + SHADOW == at.x()
+        bar.move(bar.x(), room.bottom() - bar.height() + SHADOW)
+        qapp.processEvents()
+        bar.dock_under("npc_overlay", win)
+        assert win.y() + win.height() - SHADOW < bar.y() + SHADOW                   # above it now
+    finally:
+        win.close()
+        bar.close()

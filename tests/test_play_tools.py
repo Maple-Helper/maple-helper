@@ -347,14 +347,6 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     assert [type(d.q_done.itemAt(i).widget()) for i in range(d.q_done.count())].count(QFrame) == 1
     d._quest_undo(first)
     assert first not in c.quests_done and d.q_done_toggle.isHidden()
-    d.show_page(PAGES.index("exp"))
-    from maplehelper import plan
-    from maplehelper.grind import Reading
-    top = max(plan.exp_table(d.kb))                    # Lv. 99 tonight: the KB's EXP table's last level
-    d.grind.start(c.id, Reading(0, top, 90.0))
-    d.grind.add(c.id, Reading(600, top + 1, 1.0))      # across its last level: past the KB's EXP table
-    d._fill_exp()
-    assert f"past level {top}" in d.grind_cells["exp"][0].toolTip()
     d.close()
     app.processEvents()
 

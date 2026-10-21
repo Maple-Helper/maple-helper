@@ -27,7 +27,7 @@ REPORT_SETTINGS = ("language", "appearance", "font_size", "answer_length",
                    "gemini_model", "last_model", "api_key_fallback", "onboarding_done", "tour_done", "shot_hints_seen", "usage",
                    "saver_mode", "seen_version", "instant_answers", "grind_auto", "route_taxi",
                    "npc_overlay", "npc_overlay_opacity", "monster_overlay", "game_toolbar",
-                   "loot_overlay", "loot_overlay_folded", "overlay_tint",
+                   "loot_overlay", "loot_overlay_folded", "overlay_tint", "tracker_guide_seen",
                    "overlay_accent")
 log = logging.getLogger("maplehelper")
 # libraries that log every request at INFO: httpx/huggingface_hub wrote each model download's URL, a signed CDN link

@@ -22,7 +22,8 @@ from ..i18n import I18n
 from ..kb import KnowledgeBase
 from ..store import Character, Profiles, Settings
 from .controls import Segmented, Stepper
-from .scrollplanner import CARD_PAD
+
+CARD_PAD = 12                   # a card's own margin, each side (as the tools window's other cards)
 
 TYPE_DEBOUNCE_MS = 150      # a pause in the search before its rows are read again
 EDIT_DEBOUNCE_MS = 350      # a pause in a number box before the character is saved and the plan re-read

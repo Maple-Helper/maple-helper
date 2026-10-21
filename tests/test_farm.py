@@ -244,11 +244,9 @@ def test_farm_tab_flow(tmp_path, monkeypatch):
     d.farm_input.setText("zzz no such item")
     d._farm_pick()
     assert s["farm_target"] == {} and "zzz no such item" in texts(page)
-    # "Farm it" makes the monster the next session's, on the grind tracker too
+    # "Farm it" makes the monster the next session's
     d._farm_hunt("Horny Mushroom")
     assert d._grind_choice == "Horny Mushroom"
-    d.show_page(PAGES.index("exp"))
-    assert d.grind_monster.text() == "Horny Mushroom"
     # a session with two Etc reads: the loot lines and, once it ends, the player's own drop counts
     st = d.grind
     t0 = 1_000_000.0
@@ -320,11 +318,9 @@ def test_the_pages_link_to_each_other(monkeypatch, tmp_path):
         card = next(w for i in range(d.train_list.count()) if (w := d.train_list.itemAt(i).widget())
                     and w.objectName() == "Card")
         links = [b.text().replace("&&", "&") for b in card.findChildren(QPushButton) if b.objectName() == "Link"]
-        assert links[:3] == ["How to get there", "Hit & damage", "Grind tracker"]
+        assert links[:3] == ["How to get there", "Hit & damage", "Ask in chat"]     # (no Grind tracker page)
         d._nav("calc:Stirge")
         assert PAGES[d.stack.currentIndex()] == "calc" and d.calc_input.text() == "Stirge"
-        d._nav("track:Stirge")
-        assert PAGES[d.stack.currentIndex()] == "exp" and d.grind_monster.text() == "Stirge"
         d._nav("farm:Stirge%20Wing")
         assert PAGES[d.stack.currentIndex()] == "farm"
         d._nav("price:Stirge%20Wing")

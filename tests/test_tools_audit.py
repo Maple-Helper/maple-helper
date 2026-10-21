@@ -77,7 +77,6 @@ def test_a_minute_read_redraws_only_pages_that_show_it(tools, monkeypatch):
     calls = []
     monkeypatch.setattr(d, "_fill_build", lambda: calls.append("build"))
     monkeypatch.setattr(d, "_fill_quests", lambda: calls.append("quests"))
-    monkeypatch.setattr(d, "_fill_exp", lambda: calls.append("exp"))
     d.sync_done(True)
     assert calls == []
     d.show_page(PAGES.index("quests"))                    # (built first: a placeholder page swapped the index)
@@ -88,10 +87,6 @@ def test_a_minute_read_redraws_only_pages_that_show_it(tools, monkeypatch):
     d.profiles.active.quests_done.append("quest/none")
     d.sync_done(True)
     assert calls == ["quests"]
-    d.show_page(PAGES.index("exp"))
-    calls.clear()
-    d.sync_done(True)
-    assert calls == ["exp"]
 
 
 @needs_kb
@@ -181,7 +176,7 @@ def test_another_character_drops_the_last_ones_picks_and_sell_verdicts(tools):
     a = p.add("Kiwi", "Thief", "Assassin", 35)
     b = p.add("Lime", "Warrior", "Fighter", 30)
     p.set_active(a.id)
-    d = tools(None, profiles=p, page="exp")
+    d = tools(None, profiles=p, page="farm")
     d._grind_choice = "Stirge"
     d._sell_verdicts = ["A's"]
     read = d._sell_read = 7
@@ -230,15 +225,8 @@ def test_sell_check_without_a_character_doesnt_take_a_screenshot(tools, monkeypa
 @needs_kb
 def test_big_numbers_never_read_1000_k(tools):
     # TL2-19: 999,960 was "1000.0K"
-    d = tools(page="exp")
+    d = tools(page="farm")
     assert "1.00M" in d._num(999_960) and "999.9K" in d._num(999_940) and "123.4K" in d._num(123_400)
-
-
-def test_one_community_report_is_singular():
-    # TL2-15
-    from maplehelper.i18n import I18n
-    for lang, word in (("en", "By 1 community report,"), ("he", "דיווח אחד")):
-        assert word in I18n(lang)("grind_expected_one", n="5", k="10", r=1)
 
 
 def test_market_cache_is_shared_safely_between_threads(monkeypatch):

@@ -48,13 +48,78 @@
   "body_hash": "6f41cf94948f42eb"
  },
  "nexon-46523": {
-  "summary": "Nexon תבצע תחזוקה מתוכננת ביום חמישי, 15 באוקטובר 2026, מ-18:00 עד 21:00 שעון ישראל.",
-  "source_hash": "ef4e95d0072ebf64",
-  "title": "תחזוקה מתוכננת לעדכון קטן - 15 באוקטובר 2026",
+  "summary": "התחזוקה הסתיימה, ו-Nexon האריכה ב-3 שעות את פריטי ה-Cash Shop שבאינבנטורי שלכם.",
+  "source_hash": "0e103dcdc93f204b",
+  "title": "[הסתיימה] תחזוקה מתוכננת לעדכון קטן - 15 באוקטובר 2026",
   "highlights": [
    "השעות: יום חמישי, 15 באוקטובר 2026, 18:00-21:00 שעון ישראל (8:00-11:00 PDT)."
   ],
   "commentary": "",
   "body_hash": "97a11db1ee238e38"
+ },
+ "nexon-46730": {
+  "summary": "דרישת הרמה לשימוש בכל פריטי ה-Megaphone עולה מרמה 10 לרמה 15 אחרי ה-Grand Launch, ב-21 באוקטובר 2026 ב-21:00 שעון ישראל. פריטי Megaphone שכבר יש לכם באינבנטורי לא מושפעים.",
+  "source_hash": "d71ab987cae6338c",
+  "title": "הודעה על שינוי דרישות הרמה של ה-Megaphones",
+  "highlights": [
+   "Monthly Essentials: יש בה קופוני החלפה ל-Megaphone ול-Double Item Megaphone. תממשו אותם לפני ה-Grand Launch ותקבלו פריטים של רמה 10, אחריו - של רמה 15.",
+   "Convenience Essentials Pack: יש בה 10 קופוני החלפה ל-Super Megaphone. תממשו אותם לפני ה-Grand Launch ותקבלו Super Megaphones של רמה 10, אחריו - של רמה 15.",
+   "פריטי Megaphone שנמכרים לבד או בחבילות: מה שתקנו ב-Cash Shop לפני ה-Grand Launch יישאר עם דרישה של רמה 10. מה שתקנו אחריו, וגם פרסים מאירועים, ידרוש רמה 15."
+  ],
+  "commentary": "",
+  "body_hash": "f12ebc99497e372b"
+ },
+ "nexon-46800": {
+  "summary": "Nexon תבצע תחזוקה מתוכננת לקראת ה-Grand Launch ביום רביעי, 21 באוקטובר 2026, החל מ-16:00 שעון ישראל.",
+  "source_hash": "9fe7fd23acec304d",
+  "title": "תחזוקה מתוכננת ל-Grand Launch - 21 באוקטובר 2026",
+  "highlights": [
+   "התחזוקה המתוכננת מתחילה ביום רביעי, 21 באוקטובר 2026, ב-16:00 שעון ישראל (6:00 PDT). היא אמורה להימשך כ-5 שעות ולהסתיים בסביבות 21:00 שעון ישראל (11:00 PDT).",
+   "השעות: יום רביעי, 21 באוקטובר 2026, 16:00-21:00 שעון ישראל (6:00-11:00 PDT).",
+   "מה לא יהיה זמין: כל שרתי המשחק של MapleStory Classic World.",
+   "שינויים ועדכונים: MapleStory Classic World תתעדכן לגרסה v.1.0.0.",
+   "עדכון Windows החודשי.",
+   "ה-release notes של ה-Grand Launch יפורסמו בקרוב!",
+   "פרטים נוספים על השינויים והעדכונים יפורסמו כאן אחרי שהתחזוקה תסתיים."
+  ],
+  "commentary": "",
+  "body_hash": "b4b54559f5210b4f"
+ },
+ "nexon-46506": {
+  "summary": "לחצו כאן כדי לקרוא את ה-release notes של ה-Grand Launch של MapleStory Classic World הגלובלי!",
+  "source_hash": "0105b757ec368b22",
+  "title": "ה-release notes של ה-Grand Launch",
+  "highlights": [
+   "21 באוקטובר 2026, 18:00 UTC (21:00 שעון ישראל)",
+   "הכניסה ל-Classic World",
+   "פרטים עיקריים: הרמה המקסימלית של דמות היא 100",
+   "The Journey Begins: איך משתתפים",
+   "The Marks We Leave Behind: איך משתתפים",
+   "To Classic Beginners: איך משתתפים",
+   "הפרסים של The Journey Begins"
+  ],
+  "commentary": "",
+  "body_hash": "bbdfb1a126ccd2d6"
+ },
+ "nexon-46362": {
+  "summary": "Beauty Essentials Pack, Mystery Fashion Crate ועוד!",
+  "source_hash": "62db74161daf6947",
+  "title": "עדכון ה-Cash Shop ל-Grand Launch",
+  "highlights": [
+   "Beauty Essentials Pack: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Mystery Fashion Crate: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - יום רביעי, 4 בנובמבר, 7:59",
+   "Beauty Album Slot Expansion Films: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "מבצעים שעודכנו",
+   "Megaphones: אפשר יהיה להשתמש ב-Megaphones רק מרמה 15 ומעלה. כל הפרטים בהודעה Changes to Megaphone Level Requirements.",
+   "מבצעים שממשיכים",
+   "Founder's Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 28 באוקטובר, 7:59",
+   "Aurora Stamp Shop Season 1: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Aurora Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Mystery Style Coupons: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 28 באוקטובר, 7:59",
+   "Signature Style Coupons: זמינים ב-Classic World: Signature Hair Coupon",
+   "10-Day Equip Covers: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר, 17:59"
+  ],
+  "commentary": "",
+  "body_hash": "517176c8b300f8d7"
  }
 }

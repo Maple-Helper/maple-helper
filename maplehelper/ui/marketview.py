@@ -237,6 +237,10 @@ class MarketDetailsDialog(GlassDialog):
         self.setWindowTitle(name)
         snap, s = mesowatch.for_item(self.kb, key, refresh=False)
         self.sales, self.snap = s, snap
+        if s is not None and not s.detailed:
+            # the item's shops and newest sales are in its own file: fetched in the background, and the version it
+            # moves redraws this window (_follow)
+            threading.Thread(target=mesowatch.details, args=(s,), daemon=True, name="mesowatch-item").start()
         self._avatars = {}
         self._header(key, name, s)
         if snap is None:
