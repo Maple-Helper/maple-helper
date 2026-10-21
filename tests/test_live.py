@@ -63,9 +63,20 @@ def test_every_live_kind_has_a_contract_and_the_config_only_names_real_switches(
     assert {"live/config.json", "official/facts.json", "ai/system.md", "items/he.json"} <= set(listed)
     for rel, e in listed.items():
         assert e["contract"] == live.CONTRACTS[live.kind(rel)]
+    # what the owner writes into the config reads: a switch that switches something, an announcement that shows
     cfg = json.loads((ROOT / "assets/live/config.json").read_text(encoding="utf-8"))
-    assert set(cfg["flags"]) <= set(live.FLAGS) and all(v is True for v in cfg["flags"].values())
-    assert cfg["announcements"] == [] and cfg["min_app"] == "" and cfg["strings"] == {}
+    assert set(cfg["flags"]) <= set(live.FLAGS) and all(isinstance(v, bool) for v in cfg["flags"].values())
+    assert cfg["min_app"] == "" or re.fullmatch(r"\d+\.\d+(\.\d+)?", cfg["min_app"])
+    ids = [a["id"] for a in cfg["announcements"]]
+    assert len(ids) == len(set(ids)) and all(i.strip() for i in ids)
+    for a in cfg["announcements"]:
+        assert a.get("he") or a.get("en"), a["id"]
+        assert not a.get("link") or live.SAFE_LINK.fullmatch(a["link"]), a["id"]
+        for d in ("from", "until"):
+            assert not a.get(d) or live._when(a[d], False), (a["id"], d)
+    from maplehelper.i18n import STRINGS
+    for key, row in cfg["strings"].items():
+        assert key in STRINGS and set(row) <= {"he", "en"}, key
 
 
 def test_every_switch_is_read_somewhere():
