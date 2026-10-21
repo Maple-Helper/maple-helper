@@ -50,8 +50,8 @@ def test_a_running_session_shows_its_table_and_ends_into_the_history(page):
                    lootlog.Event(3.0, "item", 2, "Leaf", "item/358")])
     scan.changed.emit()
     text = _text(d)
-    for word in ("So far", "Per hour (est.)", "EXP", "Mesos picked up", "Total income", "Spent on potions", "Net profit",
-                 "ETC you picked up", "Leaf"):
+    for word in ("So far", "Per hour (est.)", "Qty", "Value", "EXP", "Mesos", "HP potions", "MP potions",
+                 "Total income", "Spent on potions", "Net profit", "ETC you picked up", "Leaf"):
         assert word in text, word
     d.stop_btn.click()
     assert not scan.running(scan.cid()) and scan.store.recent(scan.cid())[0]["exp"] == 21

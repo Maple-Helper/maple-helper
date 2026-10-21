@@ -30,6 +30,7 @@ from .. import bidi, glossary, lootextras, lootlog, mesowatch, routes
 from ..i18n import I18n
 from . import terms
 from .controls import Segmented, rtl_buttons
+from .moneytable import TRACKER, MoneyTable
 from .glass import EdgeResize, GlassDialog
 from .location import LOCATION
 from .patchnotes import gutter
@@ -128,6 +129,8 @@ class GrindTracker(EdgeResize, GlassDialog):
 #TrkAlert { background: rgba(217,83,79,0.12); border: 1px solid rgba(217,83,79,0.45); border-radius: 12px; }
 #TrkGoal { background: rgba(255,149,51,0.10); border: 1px solid rgba(255,149,51,0.40); border-radius: 12px; }
 #TrkNpc { padding: 6px 8px; font-weight: 600; }
+#TrkGain { padding: 6px 8px; font-weight: 600; color: #2E9E5B; }
+#TrkSplit { background: rgba(127,127,127,0.35); border: none; margin: 4px 0; }
 #TrkTagFm { background: rgba(46,158,91,0.16); color: #2E9E5B; border-radius: 8px; padding: 2px 10px; font-weight: 700; }
 #TrkTagNpc { background: rgba(240,122,18,0.16); color: #D9680A; border-radius: 8px; padding: 2px 10px;
              font-weight: 700; }
@@ -341,32 +344,15 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         sm = lootlog.summarize(self.kb, lg)
         self._fill_goal(sm, running)
         self._fill_alerts(sm, running)
-        h = sm.seconds
-        rate = lambda v: lootlog.per_hour(v, h)  # noqa: E731
-        rows, styles, top = self._money_rows(sm.exp, sm.mesos, lootextras.loot_value(self.kb, sm.items),
-                                             lootextras.by_kind(self.kb, sm.potions), sm.potions_cost, rate)
-        heads = [t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")]
+        money = lootextras.money(self.kb, sm.exp, sm.mesos, sm.items, sm.potions, sm.seconds)
         card = self.__dict__.get("_sum_card")
-        shape = (tuple(heads), tuple(str(r[0]) for r in rows), tuple(len(r) for r in rows))
-        if card is not None and getattr(card, "_shape", None) == shape:
-            # the same table: only its numbers move (and the net's colour when it turns)
-            for r, row in enumerate(rows):
-                for c in (1, 2):
-                    lb = card._cells.get((r, c))
-                    if lb is None:
-                        continue
-                    self._set(lb, self._html(str(row[c]), False))
-                    want = styles.get(r) or ("TrkStrong" if r == top else "TrkNum")
-                    if lb.objectName() != want:
-                        lb.setObjectName(want)
-                        lb.style().unpolish(lb)
-                        lb.style().polish(lb)
-        else:
-            self._changed(self.summary, shape)
+        if card is None:
+            self._changed(self.summary, "money")
             self._section(self.summary, t("trk_summary"))
-            self._sum_card = self._table(heads, rows, strong={top}, styles=styles)
-            self.summary.addWidget(self._sum_card)
+            self._sum_card = card = MoneyTable(t, TRACKER, self._num)
+            self.summary.addWidget(card)
             self.summary.addWidget(self._label(t("trk_summary_note"), "RowHint"))
+        card.set_money(money)
         self._fill_compare_line(lg, sm)
         counts: dict[int, int] = {}
         for e in lg.events:
@@ -581,41 +567,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         if not compact:
             box.addWidget(self._label(t("trk_kills_note"), "RowHint"))
 
-    def _money_rows(self, exp, mesos, loot, kinds, spent, rate):
-        """The summary's rows, their colours and the income row's index: EXP and mesos so far and per hour; ETC and
-        the other items what they bring (each at whichever pays more, an NPC or the players: lootextras.best_sale)
-        and how many; the income they all make, the potions HP / MP, the net. Only EXP and mesos have a per hour
-        (the owner); the "so far" column is the money, top to bottom. The live session's and each past one's alike,
-        so the history shows every category the tracker does."""
-        t = self.t
-        income = mesos + loot.value
-        net = income - spent
-        rows = [
-            [t("trk_row_exp"), self._num(exp), self._num(rate(exp))],
-            [t("trk_row_mesos"), self._num(mesos), self._num(rate(mesos))],
-            [t("trk_row_etc"), self._num(loot.etc_v), t("trk_units", n=self._num(loot.etc_n))],
-            [t("trk_row_items"), self._num(loot.items_v), t("trk_units", n=self._num(loot.items_n))],
-            [t("trk_row_income"), self._num(income), ""],
-            *[[r[0], r[1], ""] for r in self._spent_rows(kinds, rate)],
-            [t("trk_row_net"), self._num(net), ""],
-        ]
-        top = 4
-        bad = {i: "TrkBad" for i in range(top + 1, len(rows) - 1)}
-        return rows, {**bad, len(rows) - 1: "TrkGood" if net >= 0 else "TrkBad"}, top
-
-    def _spent_rows(self, kinds: dict[str, tuple[int, int]], rate) -> list[list]:
-        """What the potions cost, HP and MP apart (an Elixir's both on a row of its own); one row of 0 with none."""
-        t = self.t
-        if not kinds:
-            return [[t("trk_row_spent"), self._num(0), self._num(0)]]
-        out = []
-        for k in lootextras.KINDS:
-            if k in kinds:
-                n, cost = kinds[k]
-                out.append([t(f"trk_row_spent_{k}"), self._num(-cost if cost else 0),
-                            self._num(-rate(cost) if cost and rate(cost) else 0)])
-        return out
-
     def _fill_potions(self, sm, unseen: bool) -> None:
         """The potions used, HP and MP apart: each potion's count and cost, then each kind's total, then all."""
         t = self.t
@@ -724,11 +675,9 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                 top.addWidget(delete, 0, Qt.AlignVCenter)
             cl.addLayout(top)
             self._fill_kills(cl, s.exp_counts, list(s.maps), s.level, compact=True)
-            ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
-            rows, styles, inc = self._money_rows(s.exp, s.mesos, lootextras.loot_value(self.kb, s.items),
-                                                 lootextras.by_kind(self.kb, s.potion_list), s.potions_cost, ph)
-            cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows, strong={inc},
-                                     styles=styles))
+            past = MoneyTable(t, TRACKER, self._num)
+            past.set_money(lootextras.money(self.kb, s.exp, s.mesos, s.items, s.potion_list, s.seconds))
+            cl.addWidget(past)
             if s.id in self._open:
                 if s.items:
                     heads = self._item_heads()

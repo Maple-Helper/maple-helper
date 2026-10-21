@@ -16,19 +16,19 @@ import time
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QPainter
-from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
                                QWidget)
 
 from .. import bidi, lootlog
 from ..i18n import I18n
 from . import theme
 from .glass import SHADOW
+from .moneytable import CARD, MoneyTable
 from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TOP, _Header,
                          _flags, _paint_glass, accent_of, keep_off_minimap, look_palette, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
 FEED = 5                        # the latest pickups shown under the totals (the live tracking)
-STATS = ("exp", "mesos", "etc", "items", "potions_hp", "potions_mp", "net")
 
 def qss(settings) -> str:
     """The window's own style at the look the settings pick: its text and fills in the glass's palette, the Go
@@ -45,6 +45,10 @@ QLabel {{ color: {c['text']}; }}
 #StatName {{ color: {c['muted']}; }}
 #StatValue {{ color: {c['text']}; font-weight: 600; }}
 #Feed {{ color: {c['muted']}; padding: 0 2px; }}
+#StatBad {{ color: #D9534F; font-weight: 600; }}
+#StatGood {{ color: #2E9E5B; font-weight: 700; }}
+#StatGain {{ color: #2E9E5B; font-weight: 600; }}
+#StatSplit {{ background: {c['muted']}; border: none; margin: 3px 0; }}
 #Alert {{ color: {c['text']}; background: rgba(217,83,79,0.18); border-radius: 8px; padding: 6px 8px; }}
 #Goal {{ color: {c['text']}; background: rgba(255,149,51,0.14); border-radius: 8px; padding: 6px 8px; }}
 QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px; padding: 6px 12px; }}
@@ -164,26 +168,8 @@ class LootOverlay(QWidget):
         body.addWidget(self._goal)
         self._kills = QLabel(objectName="Kills")        # the monsters killed (lootextras.kills)
         self._kills.setWordWrap(True)
-        # the figures as a table: each category, so far and per hour, the numbers under their headings
-        self._table = QFrame(objectName="Stat")
-        grid = QGridLayout(self._table)
-        grid.setContentsMargins(10, 6, 10, 6)
-        grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(5)
-        self._heads = [QLabel(objectName="StatName") for _ in range(3)]
-        for c, lb in enumerate(self._heads):
-            lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
-            grid.addWidget(lb, 0, c)
-        self._stats: dict[str, tuple[QLabel, QLabel, QLabel]] = {}
-        for r, key in enumerate(STATS, start=1):
-            name, total, hour = QLabel(objectName="StatName"), QLabel(objectName="StatValue"), QLabel(objectName="StatValue")
-            for c, lb in enumerate((name, total, hour)):
-                lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
-                grid.addWidget(lb, r, c)
-            self._stats[key] = (name, total, hour)
-        grid.setColumnStretch(0, 3)
-        grid.setColumnStretch(1, 2)
-        grid.setColumnStretch(2, 2)
+        # the figures: the tracker's three joined tables (ui/moneytable.py), the same as the full tracker's
+        self._table = MoneyTable(self.t, CARD, lambda v: _short(v))
         body.addWidget(self._table)
         body.addWidget(self._kills)
         self._feed_head = QLabel(objectName="Head")
@@ -239,10 +225,8 @@ class LootOverlay(QWidget):
         for lb in (self._alert, self._goal, self._kills):
             if lb.isVisibleTo(self):
                 out.append(lb.text())
-        for key in STATS:
-            name, total, hour = self._stats[key]
-            if name.isVisibleTo(self):
-                out.append(f"{name.text()} {total.text()} {hour.text()}")
+        if self._table.isVisibleTo(self):
+            out += self._table.lines()
         if self._feed_head.isVisibleTo(self):
             out.append(self._feed_head.text())
         if self._feed_none.isVisibleTo(self):
@@ -263,8 +247,9 @@ class LootOverlay(QWidget):
         sm = lootlog.summarize(self.kb, lg) if lg is not None else None
         num = lambda v: bidi.ltr_block(_short(v), rtl)      # a number stays one block beside Hebrew words
         from .. import lootextras
-        loot = lootextras.loot_value(self.kb, sm.items) if sm is not None else lootextras.LootValue()
-        net = sm.mesos + loot.value - sm.potions_cost if sm is not None else 0
+        money = lootextras.money(self.kb, sm.exp, sm.mesos, sm.items, sm.potions, sm.seconds) \
+            if sm is not None else None
+        net = money.net if money is not None else 0
         title = t("tool_loot")
         if sm is not None and self.folded():
             title += " · " + t("loot_card_made", v=num(net))          # folded: what it made, nothing longer
@@ -278,29 +263,12 @@ class LootOverlay(QWidget):
                   f"loot_{state}" if state in ("no_game", "covered") else "")
         self._status.setText(bidi.plain(t(status), rtl) if status else "")
         self._status.setVisible(bool(status))
-        kinds = lootextras.by_kind(self.kb, sm.potions) if sm is not None else {}
-        both = kinds.get("both", (0, 0))[1]           # an Elixir: half to each row
-        kind_costs = {"hp": kinds.get("hp", (0, 0))[1] + both // 2, "mp": kinds.get("mp", (0, 0))[1] + both - both // 2}
-        neg = lambda v: num(-v) if v else num(0)  # noqa: E731
-        units = lambda n: bidi.ltr_block(t("trk_units", n=f"{n:,}"), rtl)  # noqa: E731
-        values = {} if sm is None else {
-            "exp": (num(sm.exp), num(sm.exp_h)),
-            "mesos": (num(sm.mesos), num(sm.mesos_h)),
-            "etc": (num(loot.etc_v), units(loot.etc_n)),
-            "items": (num(loot.items_v), units(loot.items_n)),
-            **{f"potions_{k}": (neg(c), "") for k, c in kind_costs.items()},
-            "net": (num(net), "")}
         self._table.setVisible(sm is not None)
         self._fill_extras(sm, running)
-        for c, key in enumerate(("", "trk_col_total", "trk_col_hour")):
-            self._heads[c].setText(bidi.plain(t(key), rtl) if key else "")
-        self._heads[2].setToolTip(t("trk_col_hour_tip"))
-        for key in STATS:
-            name, total, hour = self._stats[key]
-            name.setText(bidi.plain(t(f"loot_card_{key}"), rtl))
-            got = values.get(key, ("", ""))
-            total.setText(bidi.plain(got[0], rtl))
-            hour.setText(bidi.plain(got[1], rtl))
+        if self._table.t is not t:
+            self._table.t = t
+            self._table.retext()
+        self._table.set_money(money)
         evs = lg.events[-FEED:][::-1] if lg is not None else []
         self._feed_head.setText(bidi.plain(t("loot_feed_head"), rtl))
         self._feed_head.setVisible(sm is not None)

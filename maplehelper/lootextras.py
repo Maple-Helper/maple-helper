@@ -178,6 +178,51 @@ def by_kind(kb, potions) -> dict[str, tuple[int, int]]:
     return out
 
 
+@dataclass
+class Money:
+    """A session's figures as the tracker's three tables show them (the card, the full tracker and the history
+    alike): EXP and mesos so far and per hour; the ETC, the other items (each at whichever pays more: best_sale)
+    and the HP and MP potions, how many and what they made or cost (an Elixir, both: half each); then the income,
+    what the potions cost and the net."""
+    exp: int = 0
+    exp_h: int | None = None
+    mesos: int = 0
+    mesos_h: int | None = None
+    etc_n: int = 0
+    etc_v: int = 0
+    items_n: int = 0
+    items_v: int = 0
+    hp_n: int = 0
+    hp_cost: int = 0
+    mp_n: int = 0
+    mp_cost: int = 0
+
+    @property
+    def income(self) -> int:
+        return self.mesos + self.etc_v + self.items_v
+
+    @property
+    def spent(self) -> int:
+        return self.hp_cost + self.mp_cost
+
+    @property
+    def net(self) -> int:
+        return self.income - self.spent
+
+
+def money(kb, exp: int, mesos: int, items, potions, seconds: float) -> Money:
+    """items, potions: summary rows (name, count, key, price each); seconds: the session's length."""
+    from . import lootlog
+    loot = loot_value(kb, items)
+    kinds = by_kind(kb, potions)
+    both_n, both = kinds.get("both", (0, 0))
+    hp_n, hp = kinds.get("hp", (0, 0))
+    mp_n, mp = kinds.get("mp", (0, 0))
+    return Money(exp, lootlog.per_hour(exp, seconds), mesos, lootlog.per_hour(mesos, seconds),
+                 loot.etc_n, loot.etc_v, loot.items_n, loot.items_v,
+                 hp_n + both_n, hp + both // 2, mp_n + both_n, mp + both - both // 2)
+
+
 # ---------------------------------------------------------------- the monsters killed
 
 def kills(kb, exp_counts: dict[int, int], maps: list[str], level: int | None = None) -> list[tuple[str, str, int]]:

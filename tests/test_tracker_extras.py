@@ -199,7 +199,7 @@ def test_a_refresh_moves_the_numbers_in_place_never_a_new_table(window):
         assert d._sum_card is table and box() == items
         scan._log.add([lootlog.Event(time.time(), "mesos", 50), lootlog.Event(time.time(), "item", 1, "Leaf", LEAF)])
         d.refresh()
-        assert d._sum_card is table and "150" in table._cells[(1, 1)].text()
+        assert d._sum_card is table and "150" in table._cells[("mesos", 1)].text()
         assert box() != items
     finally:
         scan.end()
@@ -247,14 +247,35 @@ def test_the_summary_counts_etc_and_items_at_the_better_price_with_tags(window, 
                        lootlog.Event(time.time(), "item", 1, "Old Gladius", GLADIUS)])
         d.refresh()
         leaf, glad = lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
-        cell = lambda r, c: re.sub(r"<[^>]+>", "", d._sum_card._cells[(r, c)].text()).replace("&nbsp;", "").strip()  # noqa: E731
-        assert cell(2, 1) == f"{3 * max(40, leaf):,}" and "3" in cell(2, 2)
-        assert cell(3, 1) == f"{glad:,}" and "1" in cell(3, 2)
-        assert cell(4, 1) == f"{100 + 3 * max(40, leaf) + glad:,}" and cell(4, 2) == ""
-        assert cell(0, 2) and cell(1, 2)                              # EXP and mesos keep their per hour
+        cell = lambda k, c: re.sub("[\u200e\u200f\u2066-\u2069]", "", d._sum_card._cells[(k, c)].text())  # noqa: E731
+        assert cell("etc", 1) == "3" and cell("etc", 2) == f"{3 * max(40, leaf):,}"       # how many, then worth
+        assert cell("items", 1) == "1" and cell("items", 2) == f"{glad:,}"
+        assert cell("income", 2) == f"{100 + 3 * max(40, leaf) + glad:,}"
+        assert ("income", 1) not in d._sum_card._cells               # the totals: a number each, no per hour
+        assert cell("exp", 2) and cell("mesos", 2)                    # EXP and mesos keep their per hour
         text = " | ".join(d.lines())
         assert "Where to sell" in text and "Profit by how you sell" not in text
         tags = {w.objectName() for w in d.findChildren(QLabel) if w.objectName().startswith("TrkTag")}
         assert {"TrkTagFm", "TrkTagNpc"} <= tags          # (and Keep beside a tag, for a quest's item)
     finally:
         scan.end()
+
+
+def test_the_three_tables_colour_money_in_green_and_out_in_red():
+    """Mesos, the loot's worth and the income green; the potions and the spending red; the net as it stands; EXP,
+    the counts and a 0 plain. The same widget in the card, the full tracker and the history."""
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.moneytable import CARD, TRACKER, MoneyTable
+    m = lootextras.Money(exp=500, exp_h=1000, mesos=300, mesos_h=600, etc_n=4, etc_v=80, items_n=0, items_v=0,
+                         hp_n=3, hp_cost=150, mp_n=0, mp_cost=0)
+    for look in (TRACKER, CARD):
+        w = MoneyTable(I18n("en"), look)
+        w.set_money(m)
+        name = lambda k, c, w=w: w._cells[(k, c)].objectName()  # noqa: E731
+        assert name("mesos", 1) == name("etc", 2) == look.gain and name("income", 2) == look.good
+        assert name("hp", 2) == name("spent", 2) == look.bad and name("net", 2) == look.good   # 380 - 150 > 0
+        assert name("exp", 1) == name("etc", 1) == name("items", 2) == name("mp", 2) == look.num
+        assert w._cells[("hp", 2)].text().endswith("-150") and "230" in w._cells[("net", 2)].text()
+        w.set_money(lootextras.Money(mesos=10, hp_cost=50))
+        assert w._cells[("net", 2)].objectName() == look.bad
+        w.close()
