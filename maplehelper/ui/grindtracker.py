@@ -712,7 +712,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                     cl.addWidget(self._label(t("trk_picked_head"), "SectionHeader"))
                     cl.addWidget(self._table(heads, rows, strong={len(rows) - 1}))
                 if s.potion_list:
-                    rows = [[(k, n), t("trk_kind_" + (lootextras.potion_kind(self.kb, k) or "hp")), self._num(c),
+                    rows = [[(k, n), t(f"trk_kind_{lootextras.potion_kind(self.kb, k) or 'hp'}"), self._num(c),
                              self._num(p) if p else "–", self._num(-c * p) if p else "–"]
                             for n, c, k, p in s.potion_list]
                     cl.addWidget(self._label(t("loot_potions_head"), "SectionHeader"))
