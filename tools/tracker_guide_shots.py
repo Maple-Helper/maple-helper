@@ -156,7 +156,7 @@ def main(lang: str) -> None:
     part("top", d.alerts, d.goal)
     part("summary", d.summary)
     part("kills", d.compare_line, d.kills_box)
-    part("items", d.etc_box, d.items_box)
+    part("items", d.etc_box)                    # the ETC table and its "worth keeping" list (both: too tall)
     part("potions", d.potions_box)
     d.grab().save(str(out / "window.png"))
     for tab in ("history", "compare"):
