@@ -1,6 +1,7 @@
 """The grind tracker's extras (lootextras.py, ui/grindtracker.py, ui/lootoverlay.py): the next level and its time at
 this rate, potions running low with the nearest shop, the monsters killed, the last session on the same map, sell or
 keep, and the history's Delete."""
+import html
 import os
 import re
 import time
@@ -142,7 +143,7 @@ def test_the_window_shows_the_goal_the_alert_the_kills_and_the_advice(window, kb
         text = " | ".join(d.lines())
         assert "To level 41:" in text and "5,000 EXP to go" in text and "at this rate in" in text
         assert "Only 14 Lemon left" in text and "Buy them from" in text
-        assert "Where to sell" in text and "Monsters you killed" in text
+        assert "Sell where / keep" in text and "Monsters you killed" in text
         route = next(b for b in d.findChildren(type(d.start_btn)) if b.text() == "How to get there")
         route.click()
         assert asked and asked[-1].startswith("npc/")
@@ -254,7 +255,7 @@ def test_the_summary_counts_etc_and_items_at_the_better_price_with_tags(window, 
         assert ("income", 1) not in d._sum_card._cells               # the totals: a number each, no per hour
         assert cell("exp", 2) and cell("mesos", 2)                    # EXP and mesos keep their per hour
         text = " | ".join(d.lines())
-        assert "Where to sell" in text and "Profit by how you sell" not in text
+        assert "Sell where / keep" in text and "Profit by how you sell" not in text
         tags = {w.objectName() for w in d.findChildren(QLabel) if w.objectName().startswith("TrkTag")}
         assert {"TrkTagFm", "TrkTagNpc"} <= tags          # (and Keep beside a tag, for a quest's item)
     finally:
@@ -279,3 +280,94 @@ def test_the_three_tables_colour_money_in_green_and_out_in_red():
         w.set_money(lootextras.Money(mesos=10, hp_cost=50))
         assert w._cells[("net", 2)].objectName() == look.bad
         w.close()
+
+
+def test_the_card_lists_the_monsters_killed_a_row_each_without_pictures(window, kb, ant):
+    """The card: a "Monsters you killed" heading, then a row each (its name and how many), the most first, and no
+    pictures (those are the full tracker's); before any kill a short line says none yet."""
+    from maplehelper import tables
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.lootoverlay import LootOverlay
+    exp = {r["key"]: r["exp"] for r in tables.rows(kb, "monsters")}
+    scan = window.scanner
+    card = LootOverlay(scan, window.settings, kb, I18n("en"))
+    scan.start()
+    try:
+        scan._log.on_map(ant, 60)
+        card.refresh()
+        lines = card.lines()
+        assert "Monsters you killed" in lines and "No kills yet." in lines
+        scan._log.add([lootlog.Event(time.time(), "exp", exp["monster/19"]) for _ in range(5)]
+                      + [lootlog.Event(time.time(), "exp", exp["monster/21"]) for _ in range(2)])
+        card.refresh()
+        lines = card.lines()
+        rows = [x for x in lines if x.startswith(("Horny Mushroom", "Zombie Mushroom"))]
+        assert rows == ["Horny Mushroom ×5", "Zombie Mushroom ×2"] or \
+            [r.replace("⁦", "").replace("⁩", "").replace("‎", "") for r in rows] == \
+            ["Horny Mushroom ×5", "Zombie Mushroom ×2"]
+        assert "No kills yet." not in lines
+        assert not any(lb.pixmap() and not lb.pixmap().isNull() for lb in card._kills.findChildren(QLabel))
+    finally:
+        scan.end()
+        card.close()
+
+
+def test_what_to_keep_is_listed_in_plain_sight_with_its_quests(window, kb):
+    """An item a quest or recipe needs: a Keep tag in the table, and under the table a list naming what needs it
+    (not only a tooltip: the owner). The column says both: where to sell, or keep."""
+    from maplehelper import sitedata
+    sell = sitedata.sell_list(kb)
+    if sell is None or not sell.needs.get(LEAF) or not sell.needs[LEAF].quests:
+        pytest.skip("this KB has no Safe to Sell? list for Leaf")
+    d = window
+    scan = d.scanner
+    scan.start()
+    try:
+        scan._log.add([lootlog.Event(time.time(), "item", 2, "Leaf", LEAF)])
+        d.refresh()
+        text = " | ".join(d.lines())
+        assert "Sell where / keep" in text and "Worth keeping: something needs them" in text
+        quest = sell.needs[LEAF].quests[0][1]
+        assert any(quest in html.unescape(x) and "Quests:" in x for x in d.lines())
+    finally:
+        scan.end()
+
+
+def test_a_quest_or_recipe_to_keep_for_opens_on_its_page(window, kb, isolated_store):
+    """Each quest and recipe under "worth keeping" is a link, a name a line under its heading: a click asks for the
+    quests page on that quest or the crafting page on that recipe, and the Tools window goes there."""
+    from urllib.parse import quote
+
+    from maplehelper import sitedata
+    from maplehelper.ui.tools import ToolsDialog
+    sell = sitedata.sell_list(kb)
+    need = sell.needs.get(LEAF) if sell is not None else None
+    if need is None or not need.quests or not need.recipes:
+        pytest.skip("this KB has no quests and recipes for Leaf")
+    d = window
+    scan = d.scanner
+    scan.start()
+    try:
+        scan._log.add([lootlog.Event(time.time(), "item", 2, "Leaf", LEAF)])
+        d.refresh()
+        links = [lb for lb in d.findChildren(QLabel) if 'href="quest:' in lb.text()]
+        assert links and links[0].text().count("<p") >= 3          # the heading, then a quest a line
+        got = []
+        d.quest_requested.connect(lambda n: got.append(("quest", n)))
+        d.recipe_requested.connect(lambda p, n: got.append(("recipe", p, n)))
+        quest, (prof, recipe) = need.quests[0][1], need.recipes[0][:2]
+        d._open_link("quest:" + quote(quest))
+        d._open_link("recipe:" + quote(prof) + "|" + quote(recipe))
+        assert got == [("quest", quest), ("recipe", prof, recipe)]
+    finally:
+        scan.end()
+    p = isolated_store.Profiles()
+    p.add("Kiwi", "Magician", "Magician", 40)
+    tools = ToolsDialog(kb, p, isolated_store.Settings(), "en", "", {}, "train")
+    try:
+        tools.goto_recipe(prof, recipe)
+        assert tools.stack.currentIndex() == __import__("maplehelper.ui.tools", fromlist=["PAGES"]).PAGES.index("crafting")
+        assert tools.craft_pick.checkedButton().property("prof") == prof.lower()
+        assert tools.craft_mode.value() == "recipes" and tools.craft_search.text() == recipe
+    finally:
+        tools.close()

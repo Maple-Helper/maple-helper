@@ -278,6 +278,9 @@ class Advice:
     quests: int = 0             # current quests that need it
     recipes: int = 0            # crafting recipes that need it
     tip: str = ""               # what needs it, a line each (quest / recipe names), for a tooltip
+    quest_names: tuple[str, ...] = ()       # the quests that need it, by name (the first few)
+    recipe_names: tuple[str, ...] = ()      # the recipes that need it
+    recipe_profs: tuple[str, ...] = ()      # each recipe's profession ("Smithing"), as recipe_names
 
 
 def sell_advice(kb, key: str, npc_price: int | None, market_price: int | None, low_data: bool = False) -> Advice:
@@ -289,7 +292,9 @@ def sell_advice(kb, key: str, npc_price: int | None, market_price: int | None, l
     need = sell.needs.get(key) if sell is not None and key else None
     if need and (need.quests or need.recipes):
         tip = "\n".join([q[1] for q in need.quests[:8]] + [r[1] for r in need.recipes[:8]])
-        return Advice("keep", len(need.quests), len(need.recipes), tip)
+        return Advice("keep", len(need.quests), len(need.recipes), tip,
+                      tuple(q[1] for q in need.quests[:8]), tuple(r[1] for r in need.recipes[:8]),
+                      tuple(r[0] for r in need.recipes[:8]))
     if market_price and not low_data and market_price > (npc_price or 0):
         return Advice("players")
     if npc_price:

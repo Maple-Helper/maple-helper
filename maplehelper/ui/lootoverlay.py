@@ -16,7 +16,7 @@ import time
 
 from PySide6.QtCore import QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication, QPainter
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QToolButton, QVBoxLayout,
                                QWidget)
 
 from .. import bidi, lootlog
@@ -28,6 +28,7 @@ from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX,
                          _flags, _paint_glass, accent_of, keep_off_minimap, look_palette, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
+KILLS = 4                       # the monsters killed shown, the most first
 FEED = 5                        # the latest pickups shown under the totals (the live tracking)
 
 def qss(settings) -> str:
@@ -65,7 +66,9 @@ QToolButton#Icon:hover {{ background: {c['fill2']}; color: {c['text']}; }}
 QToolButton#IconClose {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; color: {theme.accent_text()};
                         background: transparent; border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
 QToolButton#IconClose:hover {{ background: {theme.ORANGE}; color: #FFFFFF; }}
-#Kills {{ color: {c['text']}; padding: 0 2px; }}
+#KillName {{ color: {c['text']}; padding: 0 2px; }}
+#KillCount {{ color: {c['text']}; font-weight: 600; padding: 0 2px; }}
+#Note {{ color: {c['muted']}; font-size: 11px; padding: 0 2px; }}
 """
 
 
@@ -153,6 +156,7 @@ class LootOverlay(QWidget):
         hrow.addWidget(self._title, 1)
         hrow.addWidget(self._fold, 0, Qt.AlignTop)
         hrow.addWidget(self._close, 0, Qt.AlignTop)
+        head.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)     # its own height: the rest is the body's
         col.addWidget(head)
         self._body = QWidget()
         body = QVBoxLayout(self._body)
@@ -167,11 +171,34 @@ class LootOverlay(QWidget):
         self._goal = QLabel(objectName="Goal")          # the next level and when it comes at this rate
         self._goal.setWordWrap(True)
         body.addWidget(self._goal)
-        self._kills = QLabel(objectName="Kills")        # the monsters killed (lootextras.kills)
-        self._kills.setWordWrap(True)
+        # the monsters killed (lootextras.kills): a heading, then a row each, its name and how many (no pictures
+        # here: those are the full tracker's)
+        self._kills_head = QLabel(objectName="Head")
+        self._kills = QFrame(objectName="Stat")
+        kl = QVBoxLayout(self._kills)
+        kl.setContentsMargins(10, 6, 10, 6)
+        kl.setSpacing(3)
+        self._kills_none = QLabel(objectName="Feed")
+        self._kills_none.setWordWrap(True)
+        kl.addWidget(self._kills_none)
+        self._kill_rows: list[tuple[QWidget, QLabel, QLabel]] = []
+        for _ in range(KILLS):
+            row = QWidget()
+            hl = QHBoxLayout(row)
+            hl.setContentsMargins(0, 0, 0, 0)
+            hl.setSpacing(8)
+            name, count = _Elided(objectName="KillName"), QLabel(objectName="KillCount")
+            hl.addWidget(count, 0)      # how many first: right of the name in Hebrew (the owner)
+            hl.addWidget(name, 1)
+            kl.addWidget(row)
+            self._kill_rows.append((row, name, count))
         # the figures: the tracker's three joined tables (ui/moneytable.py), the same as the full tracker's
         self._table = MoneyTable(self.t, CARD, lambda v: _short(v))
         body.addWidget(self._table)
+        self._note = QLabel(objectName="Note")          # how the loot is priced: whoever pays more, NPC or FM
+        self._note.setWordWrap(True)
+        body.addWidget(self._note)
+        body.addWidget(self._kills_head)
         body.addWidget(self._kills)
         self._feed_head = QLabel(objectName="Head")
         body.addWidget(self._feed_head)
@@ -206,9 +233,32 @@ class LootOverlay(QWidget):
         for b in (self._start, self._stop, self._reset):
             btns.addWidget(b, 1)
         body.addLayout(btns)
-        self._full = self._button(self.full_requested.emit)
+        self._full = self._button(lambda *_: self.full_requested.emit())     # (clicked's bool never passed on)
         body.addWidget(self._full)
-        col.addWidget(self._body)
+        col.addWidget(self._body, 1)
+
+    def _fit_height(self) -> None:
+        try:
+            self.layout().activate()
+            h = self.needed_height()
+            if h != self.height():
+                self.setFixedHeight(h)
+        except RuntimeError:        # closed meanwhile
+            pass
+
+    def needed_height(self) -> int:
+        """The height its rows need at its fixed width, each asked itself (a wrapped line, the status at a big font
+        size, counted at the lines it wraps into). The layout's own figure came out short (it keeps its rows'
+        heights from before a font change), its rows were squeezed, and a click on Stop hit the button under it
+        (the owner, 2026-10-21)."""
+        lay = self.layout()
+        m = lay.contentsMargins()
+        w = self.width() - m.left() - m.right()
+        rows = [it.widget() for it in (lay.itemAt(i) for i in range(lay.count()))
+                if it.widget() is not None and not it.widget().isHidden()]
+        h = sum(max(x.heightForWidth(w) if x.hasHeightForWidth() else x.sizeHint().height(),
+                    x.minimumSizeHint().height()) for x in rows)
+        return h + lay.spacing() * max(0, len(rows) - 1) + m.top() + m.bottom()
 
     def paintEvent(self, e) -> None:
         _paint_glass(self, self._opacity)
@@ -223,11 +273,16 @@ class LootOverlay(QWidget):
         out = [self._title.text()]
         if self._status.isVisibleTo(self):
             out.append(self._status.text())
-        for lb in (self._alert, self._goal, self._kills):
+        for lb in (self._alert, self._goal):
             if lb.isVisibleTo(self):
                 out.append(lb.text())
         if self._table.isVisibleTo(self):
-            out += self._table.lines()
+            out += self._table.lines() + [self._note.text()]
+        if self._kills.isVisibleTo(self):
+            out.append(self._kills_head.text())
+            if self._kills_none.isVisibleTo(self):
+                out.append(self._kills_none.text())
+            out += [f"{name.text()} {count.text()}" for row, name, count in self._kill_rows if row.isVisibleTo(self)]
         if self._feed_head.isVisibleTo(self):
             out.append(self._feed_head.text())
         if self._feed_none.isVisibleTo(self):
@@ -265,6 +320,8 @@ class LootOverlay(QWidget):
         self._status.setText(bidi.plain(t(status), rtl) if status else "")
         self._status.setVisible(bool(status))
         self._table.setVisible(sm is not None)
+        self._note.setText(bidi.plain(t("trk_summary_note"), rtl))
+        self._note.setVisible(sm is not None)
         self._fill_extras(sm, running)
         if self._table.t is not t:
             self._table.t = t
@@ -314,8 +371,8 @@ class LootOverlay(QWidget):
         for b, key in ((self._fold, "loot_card_unfold" if fold else "loot_card_fold"), (self._close, "loot_card_close")):
             b.setAccessibleName(t(key))
             b.setToolTip(t(key))
-        self.layout().activate()
-        self.setFixedHeight(self.layout().sizeHint().height())
+        self._fit_height()
+        QTimer.singleShot(0, self._fit_height)     # again once its rows have their widths (a wrapped line's height)
         self.update()
 
     def _fill_extras(self, sm, running: bool) -> None:
@@ -343,7 +400,7 @@ class LootOverlay(QWidget):
                     m = int(g.seconds) // 60
                     when = t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m)
                     goal += " · " + t("trk_goal_eta", time=when)
-        kills = ""
+        kills: list = []
         if sm is not None:
             lg = self.scanner.log_for(self.scanner.cid())
             counts: dict[int, int] = {}
@@ -351,10 +408,18 @@ class LootOverlay(QWidget):
                 if e.kind == "exp":
                     counts[e.amount] = counts.get(e.amount, 0) + 1
             got = lootextras.kills(self.kb, counts, list(lg.maps) if lg else [], lg.level if lg else None)
-            if got:
-                kills = t("trk_kills_card", list=", ".join(bidi.ltr_block(f"{n} ×{c:,}", rtl) for _, n, c in got[:3]))
-        self._kills.setText(bidi.plain(kills, rtl))
-        self._kills.setVisible(bool(kills))
+            kills = got
+        self._kills_head.setText(bidi.plain(t("trk_kills_head"), rtl))
+        self._kills_none.setText(bidi.plain(t("loot_card_kills_none"), rtl))
+        self._kills_none.setVisible(not kills)
+        for i, (row, name, count) in enumerate(self._kill_rows):
+            if i < len(kills):
+                _, n, c = kills[i]
+                name.setText(bidi.plain(n, rtl))
+                count.setText(bidi.ltr_block(f"×{c:,}", rtl))
+            row.setVisible(i < len(kills))
+        for w in (self._kills_head, self._kills):
+            w.setVisible(sm is not None)
         alert, goal = alert.replace("**", ""), goal.replace("**", "")     # (plain labels: no bold marks)
         self._alert.setText(bidi.plain(alert, rtl))
         self._alert.setVisible(bool(alert))

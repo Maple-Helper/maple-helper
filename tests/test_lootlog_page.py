@@ -177,3 +177,38 @@ def test_reads_follow_the_game_window_and_skip_a_covered_one(page, monkeypatch):
     d.refresh()
     assert "covers the game" in d.now_status.text()
     scan.end()
+
+
+def test_the_card_is_tall_enough_for_its_wrapped_lines_and_full_opens(page, kb):
+    """At a big font size the status wraps into more lines: the card counts them (it came out short, its rows were
+    squeezed, and a click on Stop hit "The full tracker" under it: the owner). And The full tracker's click asks for
+    the window (its clicked bool never reaches the signal)."""
+    from PySide6.QtWidgets import QApplication
+
+    from maplehelper.ui.lootoverlay import LootOverlay
+    d, s = page
+    app = QApplication.instance()
+    before = app.styleSheet()
+    app.setStyleSheet(before + " QLabel { font-size: 19px; }")
+    card = LootOverlay(d.scanner, s, kb, I18n("he"))
+    try:
+        d.start_btn.click()
+        d.scanner.state = "no_game"
+        card.show()                     # (shown: its labels take the style's font, as over the game)
+        QApplication.processEvents()
+        card.refresh()
+        for _ in range(3):
+            QApplication.processEvents()
+        lay = card.layout()
+        assert lay.hasHeightForWidth() and card.height() == lay.totalHeightForWidth(card.width())
+        for w in (card._table, card._stop, card._full):        # every row whole: none squeezed, none stretched
+            assert w.height() == w.sizeHint().height(), w
+        assert card._stop.geometry().bottom() < card._full.geometry().top()
+        asked = []
+        card.full_requested.connect(lambda: asked.append(True))
+        card._full.click()
+        assert asked == [True]
+        assert any("whoever pays more" in x or "שמשלם" in x for x in card.lines())   # the pricing note
+    finally:
+        app.setStyleSheet(before)
+        card.close()

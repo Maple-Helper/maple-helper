@@ -1648,6 +1648,28 @@ class ToolsDialog(GlassDialog):
         # what is on screen now (a tab or a search changed it here, not through refresh): a switch back keeps it
         self.__dict__.setdefault("_filled", {})["quests"] = self._page_state("quests")
 
+    def goto_quest(self, name: str) -> None:
+        """A quest named elsewhere (the grind tracker's "worth keeping" list): its card on the quests page."""
+        self._goto_quest(name)
+
+    def goto_recipe(self, prof: str, name: str) -> None:
+        """A recipe named elsewhere (the grind tracker's "worth keeping" list): the crafting page, its profession
+        picked, every recipe, searched by its name."""
+        self.show_page(PAGES.index("crafting"))
+        self.craft_tabs.set_value("recipes")
+        self.craft_stack.setCurrentIndex(0)
+        for b in self.craft_pick.buttons():
+            if str(b.property("prof")).lower() == prof.lower():
+                b.setChecked(True)
+        self.craft_mode.set_value("recipes")
+        self.craft_recipe_mode.set_value("all")
+        self._craft_level_pick = None
+        self.craft_search.blockSignals(True)
+        self.craft_search.setText(name)
+        self.craft_search.blockSignals(False)
+        self._fill_crafting()
+        self.craft_scroll.verticalScrollBar().setValue(0)
+
     def _goto_quest(self, name: str) -> None:
         """Show one quest by its name: the tab it is on, the whole level range, the search set to its name."""
         c, t = self.c, self.t

@@ -18,8 +18,10 @@ The window resizes from every edge (EdgeResize), and keeps its scroll while the 
 - Where it pays best: the maps compared per hour, and what that shows (lootinsights.py)."""
 from __future__ import annotations
 
+import html
 import logging
 import time
+from urllib.parse import quote, unquote
 
 from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QPixmap
@@ -63,7 +65,9 @@ def _tag(text: str, kind: str = "Tag") -> QLabel:
 
 
 class GrindTracker(EdgeResize, GlassDialog):
-    guide_requested = Signal()          # "Guide": the tracker's guide (ui/trackerguide.py)
+    guide_requested = Signal()
+    quest_requested = Signal(str)              # a quest's name clicked (what to keep): the quests page, on it
+    recipe_requested = Signal(str, str)        # (profession, recipe) clicked: the crafting page, on it          # "Guide": the tracker's guide (ui/trackerguide.py)
 
     def __init__(self, scanner, kb, settings, lang: str, stylesheet: str):
         self.t = t = I18n(lang or "he")
@@ -135,6 +139,8 @@ class GrindTracker(EdgeResize, GlassDialog):
 #TrkTagFm { background: rgba(46,158,91,0.16); color: #2E9E5B; border-radius: 8px; padding: 2px 10px; font-weight: 700; }
 #TrkTagNpc { background: rgba(240,122,18,0.16); color: #D9680A; border-radius: 8px; padding: 2px 10px;
              font-weight: 700; }
+#TrkKeepBox { background: rgba(10,108,214,0.07); border: 1px solid rgba(10,108,214,0.30); border-radius: 12px; }
+#TrkKeepHead { color: #0A6CD6; font-weight: 700; }
 #TrkTagKeep { background: rgba(10,108,214,0.14); color: #0A6CD6; border-radius: 8px; padding: 2px 10px;
               font-weight: 700; }
 QPushButton#TrkStop { background: #D9534F; color: #FFFFFF; border: 1px solid #C9433F; border-radius: 12px;
@@ -389,6 +395,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         t = self.t
         rows, guessed = [], False
         tot_n = tot_v = 0
+        self._keeps: list[tuple[str, str, object]] = []     # (key, name, its keep advice): the list under the table
         for name, n, key, price in items:
             mw, low, _ = self._mw(key) if key else (None, False, "")
             guessed |= low
@@ -396,12 +403,73 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             tot_n += n
             tot_v += n * (each or 0)
             a = lootextras.sell_advice(self.kb, key, price, mw, low) if advice else None
+            if a is not None and a.verdict == "keep":
+                self._keeps.append((key, name, a))
             rows.append([(key, name), self._num(n), self._num(price) if price else "–",
                          (("~" if low else "") + self._num(mw)) if mw else "–",
                          self._num(n * each) if each else "–",
                          ("advice", where, a if a is not None and a.verdict == "keep" else None)])
         rows.append([t("trk_total"), self._num(tot_n), "", "", self._num(tot_v), ""])
         return rows, guessed
+
+    def _keep_box(self, keeps) -> QFrame:
+        """What to keep and why, in plain sight under its table (not a tooltip: the owner): each item with the
+        quests and recipes that need it, by name."""
+        t = self.t
+        box = QFrame(objectName="TrkKeepBox")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(12, 8, 12, 8)
+        lay.setSpacing(4)
+        lay.addWidget(self._label(t("trk_keep_head"), "TrkKeepHead", explain=False))
+        for key, name, a in keeps:
+            parts = []                     # (its words, its links: (href, name) a click opens)
+            if a.quest_names:
+                parts.append(("trk_keep_quests", a.quests - len(a.quest_names),
+                              [("quest:" + quote(x), x) for x in a.quest_names]))
+            if a.recipe_names:
+                parts.append(("trk_keep_recipes", a.recipes - len(a.recipe_names),
+                              [("recipe:" + quote(p) + "|" + quote(x), x)
+                               for p, x in zip(a.recipe_profs or ("",) * len(a.recipe_names), a.recipe_names)]))
+            row = QHBoxLayout()            # the item's picture, its name, then a line each: its quests, its recipes
+            row.setSpacing(8)
+            pic = self._pic(key, 22)
+            if pic is not None:
+                row.addWidget(pic, 0, Qt.AlignTop)
+            text = QVBoxLayout()
+            text.setSpacing(0)
+            text.addWidget(self._label(f"**{bidi.ltr_block(name, t.rtl)}**", "RowLabel", explain=False))
+            for key_, more, links in parts:
+                text.addWidget(self._links_label(key_, more, links))
+            row.addLayout(text, 1)
+            lay.addLayout(row)
+        return box
+
+    def _links_label(self, key: str, more: int, links) -> QLabel:
+        """"Quests:" then a name a line (the owner), each a link that opens it: the quests page on that quest, the
+        crafting page on that recipe; "and N more" last when the list was cut."""
+        t = self.t
+        d = "rtl" if t.rtl else "ltr"
+        lines = [f'<p dir="{d}" style="margin:4px 0 0 0;"><b>{html.escape(t(key))}</b></p>']
+        for h, n in links:
+            link = f'<a href="{h}" style="color:#0A6CD6; text-decoration:none;">{html.escape(n)}</a>'
+            lines.append(f'<p dir="{d}" style="margin:0 12px 0 12px;">• \u2066{link}\u2069</p>')
+        if more > 0:
+            lines.append(f'<p dir="{d}" style="margin:0 12px 0 12px;">{html.escape(t("trk_keep_more", n=more))}</p>')
+        lb = QLabel("".join(lines), objectName="RowHint")
+        lb.setTextFormat(Qt.RichText)
+        lb.setWordWrap(True)
+        lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse | Qt.LinksAccessibleByKeyboard)
+        lb.setOpenExternalLinks(False)
+        lb.linkActivated.connect(self._open_link)
+        return lb
+
+    def _open_link(self, href: str) -> None:
+        kind, _, rest = href.partition(":")
+        if kind == "quest":
+            self.quest_requested.emit(unquote(rest))
+        elif kind == "recipe":
+            prof, _, name = rest.partition("|")
+            self.recipe_requested.emit(unquote(prof), unquote(name))
 
     def _advice_cell(self, where: str, keep=None) -> QWidget:
         """Where it sells for more: an FM or NPC tag (lootextras.best_sale), always; and Keep beside it when a current
@@ -443,6 +511,8 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             rows, low = self._item_rows(items, advice=True)
             guessed |= low
             box.addWidget(self._table(heads, rows, strong={len(rows) - 1}))
+            if self._keeps:
+                box.addWidget(self._keep_box(self._keeps))
         if etc or other:            # MesoWatch's prices: credited, with a link (its terms), once under both tables
             note = t("trk_mw_credit") + (" " + t("trk_mw_guess") if guessed else "")
             credit = QPushButton(self._p(note), objectName="Link")

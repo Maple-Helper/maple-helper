@@ -1112,6 +1112,8 @@ class MapleHelperApp:
         def make():
             dlg = GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
             dlg.guide_requested.connect(self.show_tracker_guide)
+            dlg.quest_requested.connect(self._tracker_quest)
+            dlg.recipe_requested.connect(self._tracker_recipe)
             return dlg
         dlg = self.open_window("tracker", make)
         if not _guide_seen(self.settings):
@@ -1119,6 +1121,18 @@ class MapleHelperApp:
         if dlg is not None and tab != "now":
             dlg.show_tab(tab)
         return dlg
+
+    def _tracker_quest(self, name: str) -> None:
+        """A quest clicked in the tracker's "worth keeping" list: the Play tools, on that quest."""
+        dlg = self.show_tools("quests")
+        if dlg is not None:
+            dlg.goto_quest(name)
+
+    def _tracker_recipe(self, prof: str, name: str) -> None:
+        """A recipe clicked there: the Play tools' crafting page, on that recipe."""
+        dlg = self.show_tools("crafting")
+        if dlg is not None:
+            dlg.goto_recipe(prof, name)
 
     def _tools_from_bar(self, page: str) -> None:
         """The bar's Tools menu: the Tools window on that tab ("": as it opens), the open one switching to it."""
