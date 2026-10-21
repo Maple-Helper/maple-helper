@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from . import market
+from . import live, market
 
 SITE = "https://meso.watch/"
 INDEX_URL = SITE + "data/markets/index.json"
@@ -522,7 +522,7 @@ def details(s: Sales | None, timeout: float = TIMEOUT) -> bool:
     the last week, and no shops). Once per item per publish (a newer market brings new Sales); True when it came in,
     and the version moves so an open details window redraws."""
     global _version
-    if s is None or s.detailed or not s.mw_id:
+    if s is None or s.detailed or not s.mw_id or not live.enabled("mesowatch"):
         return False
     try:
         _, body, _ = _request(item_file_url(s.mw_id), timeout=timeout)
@@ -557,6 +557,8 @@ def snapshot(refresh: bool = True, timeout: float = TIMEOUT) -> Snapshot | None:
     """The live market's prices: the copy on hand, checked against the site once REFRESH_SECONDS have gone by
     (refresh=False: never asks the site, for the chat, which must not wait on a download). None: nothing on hand."""
     global _snap, _loaded, _checked, _failed
+    if not live.enabled("mesowatch"):
+        return None                 # the owner's switch (live.py): no prices, no checks, until it is on again
     with _lock:
         if not _loaded:
             _loaded = True

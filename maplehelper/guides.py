@@ -11,7 +11,7 @@ import json
 import re
 from dataclasses import dataclass, field
 
-from . import bidi
+from . import bidi, live
 from .store import ASSETS
 
 TRANSLATIONS = ASSETS / "guides"     # <lang>/<slug>.json, translated once and shipped with the app
@@ -227,7 +227,7 @@ def translation(key: str, lang: str) -> dict | None:
     """The shipped translation of a guide, or None (English is the original)."""
     if lang == "en":
         return None
-    path = TRANSLATIONS / lang / f"{key.split('/', 1)[1]}.json"
+    path = live.asset(f"guides/{lang}/{key.split('/', 1)[1]}.json")
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -272,11 +272,11 @@ def book(key: str, lang: str) -> dict | None:
     this guide wasn't built. Adds "lang" (the language of the text) and "stale" (the English changed
     since the translation)."""
     slug = key.split("/", 1)[1]
-    en = _load(TRANSLATIONS / "en" / f"{slug}.json")
+    en = _load(live.asset(f"guides/en/{slug}.json"))
     if not en:
         return None
     if lang != "en":
-        tr = _load(TRANSLATIONS / lang / f"{slug}.json")
+        tr = _load(live.asset(f"guides/{lang}/{slug}.json"))
         if tr and tr.get("blocks"):
             return {**en, **tr, "hero": en.get("hero"), "minutes": en.get("minutes"), "lang": lang,
                     "stale": tr.get("source_hash") != en.get("hash")}

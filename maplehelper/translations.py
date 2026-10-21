@@ -1,7 +1,7 @@
 """Hebrew for texts the knowledge base brings in English: a quest's journal line, a pet skill's description, a skill
 change's note, a skill's description and effects (the Skills tab). tools/translate_kb.py makes them every night into the KB's own he.json, so a new quest or note reads in
-Hebrew from the next night on, with no app release; the files the app ships (assets/<kind>/he.json) are the owner's
-own and win whenever they were made from the same English.
+Hebrew from the next night on, with no app release; the files the app ships (assets/<kind>/he.json, live: the
+owner fixes them with no release, see live.py) are the owner's own and win whenever they were made from the same English.
 
 A translation is used only while it was made from the very English the KB has now ("en"): a text NiaMeowDB rewrites
 shows in English until the next night translates it again.
@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+
+from . import live
 
 FILE = "he.json"                    # in the KB: {kind: {key: {"en", "he"}}, "news": {...}}
 KINDS = ("quest_tasks", "pet_skills", "skill_changes", "skill_desc", "item_desc", "item_notes", "cash_desc")
@@ -51,7 +53,7 @@ def he(root: Path | None, kind: str, key: str, en: str) -> str | None:
     en = (en or "").strip()
     if not en:
         return None
-    for table in (_load(ASSETS / ASSET_DIRS.get(kind, kind) / "he.json"), kb_table(root, kind)):
+    for table in (_load(live.asset(f"{ASSET_DIRS.get(kind, kind)}/he.json")), kb_table(root, kind)):
         found = made_from(table.get(key), en)
         if found:
             return found

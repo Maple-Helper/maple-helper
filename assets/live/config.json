@@ -1,0 +1,19 @@
+{
+ "announcements": [],
+ "flags": {
+  "mesowatch": true,
+  "osms_shop": true,
+  "server_status": true,
+  "game_toolbar": true,
+  "quickslot": true,
+  "provider_claude": true,
+  "provider_codex": true,
+  "provider_gemini": true,
+  "provider_grok": true,
+  "kb_update": true,
+  "app_update": true,
+  "telemetry": true
+ },
+ "min_app": "",
+ "strings": {}
+}

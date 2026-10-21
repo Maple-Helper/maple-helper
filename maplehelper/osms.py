@@ -22,7 +22,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import market
+from . import live, market
 
 SITE = "https://osmsdataexplorer.com/"
 CREDIT = "OSMS Data Explorer by ohmi"
@@ -145,6 +145,8 @@ def _check(timeout: float) -> None:
 def items(refresh: bool = True, timeout: float = TIMEOUT) -> list[Item] | None:
     """What the Cash Shop sells now: the copy on hand, checked against OSMS once an hour. None: nothing on hand."""
     global _items, _loaded, _checked, _failed
+    if not live.enabled("osms_shop"):
+        return None                 # the owner's switch (live.py): the Shop page says it has nothing now
     with _lock:
         if not _loaded:
             _loaded = True

@@ -123,6 +123,9 @@ def track(event: str, person: dict | None = None, **values) -> None:
     (version, character...), kept up to date on the install's person ($set)."""
     if not _state["enabled"]:
         return
+    from . import live
+    if not live.enabled("telemetry"):
+        return                       # the owner's switch (live.py): nothing is sent while it is off
     try:
         properties = {**props(), **_clean(values)}
         if person:

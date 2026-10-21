@@ -20,7 +20,7 @@ from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
 
-from .. import bidi
+from .. import bidi, live
 from ..i18n import I18n
 from ..store import Settings
 from . import mapview, theme
@@ -709,7 +709,7 @@ class GameToolbar(EdgeResize, QWidget):
         for key, b in self._windows.items():
             b.setChecked(bool(self._settings[key]))
         self._icons()
-        if not self._settings["game_toolbar"]:
+        if not self._settings["game_toolbar"] or not live.enabled("game_toolbar"):    # (the owner's switch, live.py)
             if self.isVisible():
                 self.hide()
             return

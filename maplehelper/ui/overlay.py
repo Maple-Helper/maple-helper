@@ -750,6 +750,13 @@ class Overlay(EdgeResize, QWidget):
         self.update_bar.hide()
         lay.addWidget(self.update_bar)
 
+        # the owner's announcement (live.py, changed with no app release): ✕ dismisses it for good
+        from .announce import AnnouncementStrip
+        self.announce_strip = AnnouncementStrip()
+        self.announce_strip.dismissed.connect(self._dismiss_announcement)
+        self.announce_strip.link_opened.connect(lambda aid: telemetry.track("announcement_opened", id=aid))
+        lay.addWidget(self.announce_strip)
+
         # unread MapleStory Classic news (the KB's news.json): tap for the News tab, ✕ to dismiss that item
         from .newsview import NewsStrip
         self.news_strip = NewsStrip()
@@ -994,6 +1001,7 @@ class Overlay(EdgeResize, QWidget):
         set_tip(self.wish_btn, self.t("wishlist"))
         self.server_dot.set_status(self._server_answer, self.t, asked=self._server_asked)
         self.show_news()
+        self.show_announcements()
         set_tip(self.guides_btn, self.t("guides"))
         set_tip(self.history_btn, self.t("history"))
         set_tip(self.profile_card.refresh, self.t("refresh_tip"))
@@ -1150,6 +1158,34 @@ class Overlay(EdgeResize, QWidget):
         self.news_btn.style().unpolish(self.news_btn)
         self.news_btn.style().polish(self.news_btn)
         set_tip(self.news_btn, self.t("news_btn_new", n=len(unread)) if unread else self.t("news_btn"))
+
+    def announcements(self) -> list[dict]:
+        """The owner's announcements for this player now (live.py), "this version is no longer supported" first."""
+        from .. import live
+        items = live.announcements(__version__, self.t.lang, self.settings["live_dismissed"] or [])
+        if live.outdated(__version__):
+            low = str(live.config().get("min_app"))
+            aid = f"outdated-{low}"
+            if aid not in (self.settings["live_dismissed"] or []):
+                items.insert(0, {"id": aid, "text": self.t("live_outdated", version=__version__), "title": "",
+                                 "link": "https://github.com/Maple-Helper/maple-helper/releases/latest",
+                                 "link_text": self.t("live_outdated_link"), "level": "warning", "toast": False})
+        return items
+
+    def show_announcements(self) -> None:
+        items = self.announcements()
+        shown = self.announce_strip.item()
+        self.announce_strip.show_items(items, self.t)
+        first = items[0] if items else None
+        if first and (not shown or shown["id"] != first["id"]) and self.isVisible():
+            telemetry.track("announcement_seen", id=first["id"])
+
+    def _dismiss_announcement(self, aid: str) -> None:
+        have = [x for x in (self.settings["live_dismissed"] or []) if isinstance(x, str)]
+        if aid not in have:
+            self.settings["live_dismissed"] = (have + [aid])[-200:]
+        telemetry.track("announcement_dismissed", id=aid)
+        self.show_announcements()       # the next one, if any
 
     def _dismiss_news(self, nid: str) -> None:
         from .. import news
@@ -1584,6 +1620,7 @@ class Overlay(EdgeResize, QWidget):
         self.shot, self.shot_used, self.game_hwnd = shot, False, game_hwnd
         self._tell_brain_shown(True)          # the first answer's AI process starts now, while the player types
         self.show_news()               # news a KB update brought since, or that aged out of "new"
+        self.show_announcements()      # and the owner's announcements, by their dates
         if not self.settings["window"]:
             self.place_default(game_hwnd)
         self._keep_in_play_area()
@@ -1747,7 +1784,7 @@ class Overlay(EdgeResize, QWidget):
         pins, the conversation, the tagged cards, then the input row. (Qt's own chain is creation order: the chips
         and the chat's buttons, made later, came after the header, and the header after the input.)"""
         from PySide6.QtWidgets import QAbstractScrollArea
-        sections = [self.title_bar, self.update_bar, self.news_strip, self.profile_card, self.no_char_card, self.tip_strip,
+        sections = [self.title_bar, self.update_bar, self.announce_strip, self.news_strip, self.profile_card, self.no_char_card, self.tip_strip,
                     self.pins_bar, self.feed, self.focus_bar, self.capsule]
         rtl = self.t.rtl
         found = []
@@ -2808,7 +2845,7 @@ class Overlay(EdgeResize, QWidget):
     def _error_key(error: str) -> str:
         """The text for an answer's error: the kinds the player can act on have their own, the rest are generic."""
         return f"err_{error}" if error in ("offline", "not_logged_in", "usage_limit", "not_installed", "no_credit",
-                                           "timeout", "cli_outdated") else "err_generic"
+                                           "timeout", "cli_outdated", "live_off") else "err_generic"
 
     def _on_done_main(self, ans: Answer):
         if self.sender() is not None and self.sender() in getattr(self, "_dropped_workers", []):

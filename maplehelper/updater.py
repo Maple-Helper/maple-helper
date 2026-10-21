@@ -26,6 +26,7 @@ import urllib.error
 import urllib.request
 import zipfile
 
+from . import live
 from .store import DATA_DIR, USER_KB, kb_dir
 
 log = logging.getLogger("maplehelper")
@@ -135,8 +136,8 @@ def _kb_date() -> str:
 def fetch_kb(before_swap=None) -> str:
     """"updated", "uptodate", "postponed" or "failed". before_swap() runs right before the folders are swapped (the app
     stops the AI process working inside the KB there); returning False postpones the update."""
-    if not MANIFEST_URL:
-        return "uptodate"
+    if not MANIFEST_URL or not live.enabled("kb_update"):
+        return "uptodate"            # (the owner's switch, live.py: holds a bad KB back from everyone)
     raw = _get(MANIFEST_URL, timeout=15)
     if not raw:
         return _failed("the manifest didn't download")
@@ -273,6 +274,8 @@ def _published_sha256(rel: dict, name: str) -> str | None:
 
 
 def _latest_release() -> dict | None:
+    if not live.enabled("app_update"):
+        return None                  # the owner's switch (live.py): holds a bad release back from everyone
     raw = _get(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest", timeout=15) if GITHUB_REPO else None
     try:
         rel = json.loads(raw) if raw else None

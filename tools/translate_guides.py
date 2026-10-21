@@ -105,3 +105,5 @@ def import_(lang: str, in_dir: Path) -> None:
 if __name__ == "__main__":
     cmd, lang, folder = sys.argv[1], sys.argv[2], Path(sys.argv[3])
     export(lang, folder) if cmd == "export" else import_(lang, folder)
+    import live_manifest        # the guides come live (docs/LIVE.md): their list follows them
+    live_manifest.write()

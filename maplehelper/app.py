@@ -12,7 +12,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, live, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n, system_language
 from .kb import KnowledgeBase
@@ -98,6 +98,10 @@ def _guide_seen(settings) -> bool:
 class MapleHelperApp:
     def __init__(self, qapp: QApplication):
         self.qapp = qapp
+        # the owner's live content downloaded before (live.py), before anything reads the app's own files
+        live.start(__version__)
+        from . import brain
+        brain.load_prompts()
         self.settings = Settings()
         self.profiles = Profiles()
         self.kb = load_kb()
@@ -311,6 +315,7 @@ class MapleHelperApp:
             QTimer.singleShot(0, lambda: self.overlay.toggle(self.capture))
         QTimer.singleShot(1500, self.check_permissions)
         self.announce_whats_new(fresh_install)
+        QTimer.singleShot(3000, self._toast_announcement)
         self.qapp.aboutToQuit.connect(self.shutdown)
         return True
 
@@ -920,6 +925,14 @@ class MapleHelperApp:
         self._kb_interactive = interactive
 
         def work():
+            # the owner's live content first (a switch in it can stop the KB update below)
+            try:
+                changed = live.sync(__version__)
+            except Exception:              # noqa: BLE001 - never stops the KB check
+                report.log.exception("live content check failed")
+                changed = None
+            if changed:
+                self.main_thread.call.emit(lambda: self._live_changed(changed))
             before = updater.local_version()
             try:
                 status = updater.fetch_kb(self._stop_ai_for_kb_swap)
@@ -932,6 +945,34 @@ class MapleHelperApp:
                 report.log.info("knowledge base updated to %s", updater.local_version())
             self.main_thread.call.emit(lambda: self._kb_update_done(status, before, shown))
         threading.Thread(target=work, daemon=True).start()
+
+    def _live_changed(self, changed: set[str]) -> None:
+        """New live content came in (live.py): what reads it once reads it again; the rest reads it at its next use."""
+        if any(r.startswith("ai/") or r == "official/facts.json" for r in changed):
+            from . import brain
+            brain.load_prompts()
+            if not self.overlay._is_busy():
+                self.brain.drop_warm()      # the warm AI process was started with the old instructions
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        if live.CONFIG in changed:
+            self.overlay.apply_language()       # a fixed text ("strings")
+            self.overlay.show_announcements()
+            toolbar = getattr(self, "game_toolbar", None)
+            if toolbar is not None:
+                toolbar.refresh()               # its switch
+            self._toast_announcement()
+            if live.outdated(__version__):
+                self.check_app_update_silently()
+
+    def _toast_announcement(self) -> None:
+        """An announcement the owner marked "toast": a notification too, once, even with the chat closed."""
+        done = [x for x in (self.settings["live_toasted"] or []) if isinstance(x, str)]
+        for a in self.overlay.announcements():
+            if a["toast"] and a["id"] not in done:
+                self.settings["live_toasted"] = (done + [a["id"]])[-200:]
+                self.toast(a["title"] or APP_NAME, a["text"], timeout_ms=15000, on_click=self.show_chat)
+                telemetry.track("announcement_toasted", id=a["id"])
+                return
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):
         t = I18n(self.settings["language"])
