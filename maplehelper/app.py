@@ -87,6 +87,14 @@ class _MainThread(QObject):
         self.call.connect(lambda fn: fn())
 
 
+
+def _guide_seen(settings) -> bool:
+    """The grind tracker's guide was shown (settings without the key, a test's stub: as shown, no window pops up)."""
+    try:
+        return bool(settings["tracker_guide_seen"])
+    except (KeyError, TypeError):
+        return True
+
 class MapleHelperApp:
     def __init__(self, qapp: QApplication):
         self.qapp = qapp
@@ -376,7 +384,7 @@ class MapleHelperApp:
         if seen != __version__:
             telemetry.track("app_updated", from_version=seen)
         notes = whatsnew.since(seen, __version__)
-        if not self.settings["tracker_guide_seen"]:
+        if not _guide_seen(self.settings):
             # the grind tracker's guide, once after the update that brought it (the owner: a popup, in detail)
             QTimer.singleShot(2500, self.show_tracker_guide)
         if notes:
@@ -1094,7 +1102,7 @@ class MapleHelperApp:
             dlg.guide_requested.connect(self.show_tracker_guide)
             return dlg
         dlg = self.open_window("tracker", make)
-        if not self.settings["tracker_guide_seen"]:
+        if not _guide_seen(self.settings):
             QTimer.singleShot(400, self.show_tracker_guide)     # a new player's first look at the tracker
         if dlg is not None and tab != "now":
             dlg.show_tab(tab)
