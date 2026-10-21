@@ -209,6 +209,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         """A table card: a header row, then each row (a cell: text, or (key, name) for an item with its picture);
         numbers stand centred under their headings. strong: rows set in bold (totals); styles: row -> object name."""
         card = QFrame(objectName="Group")
+        cells: dict[tuple[int, int], QLabel] = {}
         grid = QGridLayout(card)
         grid.setContentsMargins(10, 6, 10, 6)
         grid.setHorizontalSpacing(4)
@@ -243,6 +244,9 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                 lb = self._label(str(cell), obj or ("TrkCell" if c == 0 else "TrkNum"), wrap=c == 0, explain=False)
                 lb.setAlignment(Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading))
                 grid.addWidget(lb, 2 * r, c)
+                cells[(r - 1, c)] = lb
+        card._cells = cells
+        card._shape = (tuple(heads), tuple(str(r[0]) for r in rows), tuple(len(r) for r in rows))
         grid.setColumnStretch(0, 5 if len(heads) > 5 else 3)     # a wide table: its names get the room
         for c in range(1, len(heads)):
             grid.setColumnStretch(c, 2)
@@ -287,14 +291,26 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
     def _section(self, box: QVBoxLayout, title: str) -> None:
         box.addWidget(self._label(title, "SectionHeader"))
 
+    def _changed(self, box, sig) -> bool:
+        """The section's content is new: it is cleared, to be filled again. The same as last time: left as it is
+        (rebuilt every second, the whole window flickered while a session ran)."""
+        sigs = self.__dict__.setdefault("_sigs", {})
+        if sigs.get(id(box)) == sig:
+            return False
+        sigs[id(box)] = sig
+        _clear(box)
+        return True
+
     def _fill_now(self) -> None:
         t, scan = self.t, self.scanner
         cid = scan.cid()
         lg = scan.log_for(cid)
         running = scan.running(cid)
-        for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts,
-                    self.kills_box):
-            _clear(box)
+        if lg is None:
+            for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts,
+                        self.kills_box):
+                self._changed(box, None)
+            self._sum_card = None
         status = ""
         if running and scan.state in ("no_game", "covered"):
             status = t(f"loot_{scan.state}")
@@ -326,19 +342,44 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             [t("trk_row_net"), self._num(sm.net), self._num(rate(sm.net))],
         ]
         bad = {i: "TrkBad" for i in range(5, len(rows) - 1)}
-        self._section(self.summary, t("trk_summary"))
-        self.summary.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
-                                           strong={4}, styles={**bad, len(rows) - 1: "TrkGood" if sm.net >= 0 else
-                                                               "TrkBad"}))
+        styles = {**bad, len(rows) - 1: "TrkGood" if sm.net >= 0 else "TrkBad"}
+        heads = [t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")]
+        card = self.__dict__.get("_sum_card")
+        shape = (tuple(heads), tuple(str(r[0]) for r in rows), tuple(len(r) for r in rows))
+        if card is not None and getattr(card, "_shape", None) == shape:
+            # the same table: only its numbers move (and the net's colour when it turns)
+            for r, row in enumerate(rows):
+                for c in (1, 2):
+                    lb = card._cells.get((r, c))
+                    if lb is None:
+                        continue
+                    lb.setText(self._html(str(row[c]), False))
+                    want = styles.get(r) or ("TrkStrong" if r == 4 else "TrkNum")
+                    if lb.objectName() != want:
+                        lb.setObjectName(want)
+                        lb.style().unpolish(lb)
+                        lb.style().polish(lb)
+        else:
+            self._changed(self.summary, shape)
+            self._section(self.summary, t("trk_summary"))
+            self._sum_card = self._table(heads, rows, strong={4}, styles=styles)
+            self.summary.addWidget(self._sum_card)
         self._fill_compare_line(lg, sm)
         counts: dict[int, int] = {}
         for e in lg.events:
             if e.kind == "exp":
                 counts[e.amount] = counts.get(e.amount, 0) + 1
-        self._fill_kills(self.kills_box, counts, list(lg.maps), lg.level)
-        self._fill_items(sm)
-        self._fill_potions(sm, running and scan.quick_state == "none")
-        self._fill_live(lg)
+        if self._changed(self.kills_box, (tuple(sorted(counts.items())), tuple(lg.maps), lg.level)):
+            self._fill_kills(self.kills_box, counts, list(lg.maps), lg.level)
+        if self._changed(self.etc_box, (tuple(sm.items), mesowatch.version())):
+            _clear(self.items_box)
+            self._fill_items(sm)
+        unseen = running and scan.quick_state == "none"
+        if self._changed(self.potions_box, (tuple(sm.potions), unseen)):
+            self._fill_potions(sm, unseen)
+        last = lg.events[-1] if lg.events else None
+        if self._changed(self.live_box, (len(lg.events), last and (last.t, last.amount, last.name))):
+            self._fill_live(lg)
 
     def _mw(self, key: str) -> tuple[int | None, bool, str]:
         """(MesoWatch's usual sale price, it is a guess on few sales, the item's MesoWatch link)."""
@@ -443,11 +484,13 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
     def _fill_alerts(self, sm, running: bool) -> None:
         """Potions running low (used this session, LOW_POTIONS or fewer left) and the nearest shop that sells them."""
         t = self.t
-        if not running:
-            return
         here = LOCATION.here
         used = {k for _, _, k, _ in sm.potions}
-        for low in lootextras.low_potions(self.kb, self.scanner.potion_counts, used, here.map if here else None):
+        lows = lootextras.low_potions(self.kb, self.scanner.potion_counts, used, here.map if here else None) \
+            if running else []
+        if not self._changed(self.alerts, tuple((x.key, x.left, x.shop, x.hops) for x in lows)):
+            return
+        for low in lows:
             box = QFrame(objectName="TrkAlert")
             row = QHBoxLayout(box)
             row.setContentsMargins(12, 8, 12, 8)
@@ -805,10 +848,14 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             else:
                 state = t("trk_state_stopped", time=self._clock(lg.seconds()))
             self.state.setText(self._html(state))
-            # the figures redraw every second: each tab keeps where it was scrolled to
+            # the figures redraw every second: each tab keeps where it was scrolled to, and nothing paints half done
             bars = [self.stack.widget(i).verticalScrollBar() for i in range(self.stack.count())]
             at = [b.value() for b in bars]
-            self._fill_now()
+            self.setUpdatesEnabled(False)
+            try:
+                self._fill_now()
+            finally:
+                self.setUpdatesEnabled(True)
             if self.stack.currentIndex():
                 self._fill_history()
             else:

@@ -179,3 +179,24 @@ def test_the_history_shows_each_sessions_monsters_and_deletes_with_a_second_pres
     assert "Delete? Press again" in " | ".join(d.lines()) and len(lootdb.sessions(cid, kb)) == 2
     d._delete(newest)
     assert [s.id for s in lootdb.sessions(cid, kb)] != [] and newest not in [s.id for s in lootdb.sessions(cid, kb)]
+
+
+def test_a_refresh_moves_the_numbers_in_place_never_a_new_table(window):
+    """The window flickered while a session ran: every second it built its tables anew. Now the summary's numbers
+    change in its table, and a section is built again only when what it shows changed."""
+    d = window
+    scan = d.scanner
+    scan.start()
+    try:
+        scan._log.add([lootlog.Event(time.time() - 30, "mesos", 100)])
+        d.refresh()
+        table, live = d._sum_card, [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())]
+        scan._log.start -= 60                   # a minute later, nothing new picked up
+        d.refresh()
+        assert d._sum_card is table and [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())] == live
+        scan._log.add([lootlog.Event(time.time(), "mesos", 50)])
+        d.refresh()
+        assert d._sum_card is table and "150" in table._cells[(1, 1)].text()
+        assert [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())] != live
+    finally:
+        scan.end()
