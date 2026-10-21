@@ -234,10 +234,11 @@ class _SettingsPanel(QWidget):
         col.addWidget(self._tint_label)
         self._tints = self._swatches(TINTS, self._pick_tint)
         col.addWidget(self._tints)
+        # (no accent row any more: the windows over the game are in the app's orange, as the app is)
         self._accent_label = QLabel(objectName="Status")
-        col.addWidget(self._accent_label)
         self._accents = self._swatches(ACCENTS, self._pick_accent)
-        col.addWidget(self._accents)
+        self._accent_label.hide()
+        self._accents.hide()
         col.addSpacing(4)
         # the transparency: OPACITY_STEPS, one chip each (only here: Settings has no look rows)
         self._opacity_label = QLabel(objectName="Status")
@@ -451,11 +452,28 @@ class GameToolbar(EdgeResize, QWidget):
         line.setFixedSize(1, 22)
         return line
 
+    def set_monster_picture(self, path) -> None:
+        """The Monsters button's icon: a real monster of the game (the KB's picture, the app passes it), not a bug
+        drawn from the icon font (the owner, 2026-10-21). None: the glyph stays."""
+        pm = QPixmap(str(path)) if path else QPixmap()
+        self._mob_pic = None if pm.isNull() else pm
+        self._icons()
+
     def _icons(self) -> None:
-        """Each button's icon in its text's colour: the accent on a lit button, the accent's own text on the chat's."""
+        """Each button's icon in its text's colour: the accent on a lit button, the accent's own text on the chat's;
+        the Monsters button a monster's own picture when the app gave one."""
         c = look_palette(self._settings)
         accent, on_accent = accent_of(self._settings)
+        mob = self.__dict__.get("_mob_pic")
         for b, key in self._buttons():
+            if key == "tb_monsters" and mob is not None:
+                dpr = self.devicePixelRatioF() or 1.0
+                side = round((GLYPH_PX + 4) * dpr)
+                pm = mob.scaled(side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                pm.setDevicePixelRatio(dpr)
+                b.setIcon(QIcon(pm))
+                b.setIconSize(QSize(GLYPH_PX + 4, GLYPH_PX + 4))
+                continue
             colour = on_accent if b is self._chat else accent if b.isChecked() else c["text"]
             b.setIcon(glyph_icon(GLYPHS[key], colour))
             b.setIconSize(QSize(GLYPH_PX, GLYPH_PX))
@@ -564,6 +582,28 @@ class GameToolbar(EdgeResize, QWidget):
         self._settings["game_toolbar_width"] = self.width() if self.width() != natural else None
 
     # ------------------------------------------------------------ the buttons
+
+    def dock_under(self, key: str, win: QWidget) -> None:
+        """A window the bar just opened goes right under the button that opened it (above it, where the screen has
+        no room under the bar): its start edge lined up with the button's, kept whole on that screen and off the
+        drawn minimap box (keep_off_minimap, from its move). It opened at its last spot or a screen corner, far from
+        the bar (the owner, 2026-10-21)."""
+        b = self._windows.get(key)
+        if b is None or not self.isVisible():
+            return
+        at = b.mapToGlobal(QPoint(0, 0))
+        screen = QGuiApplication.screenAt(self.geometry().center()) or QGuiApplication.primaryScreen()
+        room = screen.availableGeometry()
+        w, h = win.width(), win.height()
+        x = at.x() + b.width() - w + SHADOW if self._rtl() else at.x() - SHADOW
+        below = self.y() + self.height() - 2 * SHADOW + GAP
+        above = self.y() + 2 * SHADOW - GAP - h
+        y = below if below + h - SHADOW <= room.bottom() + 1 or above + SHADOW < room.top() else above
+        x = min(max(x, room.left() - SHADOW), room.right() + 1 + SHADOW - w)
+        win.move(x, y)
+
+    def _rtl(self) -> bool:
+        return self.layoutDirection() == Qt.RightToLeft
 
     def _window_clicked(self, key: str) -> None:
         """A window over the game on or off: the checkable button is its setting (the window follows)."""

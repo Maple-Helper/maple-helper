@@ -114,8 +114,8 @@ def test_hebrew_retexts_and_mirrors(overlay):
 
 
 def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
-    """The ⚙ panel's choices reach this window as they reach the NPCs one: the accent in its own style sheet (its
-    monster rows' look kept), the transparency on the next refresh, and the glass tint every window paints. The
+    """The ⚙ panel's choices reach this window as they reach the NPCs one: the app's accent in its own style sheet
+    (its monster rows' look kept), the transparency on the next refresh, and the glass tint every window paints. The
     app's look_changed refresh is what the panel's signal runs."""
     from maplehelper.ui import gametoolbar, npcoverlay
     w, s, loc = overlay
@@ -125,11 +125,10 @@ def test_it_follows_the_look_the_bars_panel_picks(overlay, qapp):
     try:
         bar.refresh()
         bar._gear.click()
-        bar._panel._pick_accent("purple")
         bar._panel._pick_opacity(0.5)
         bar._panel._pick_tint("forest")
-        assert npcoverlay.ACCENTS["purple"][1] in w.styleSheet() and "#Mob" in w.styleSheet()
-        assert npcoverlay.ACCENTS["app"][1] not in w.styleSheet()
+        # (the accent is always the app's orange now: the owner, 2026-10-21)
+        assert npcoverlay.ACCENTS["app"][1] in w.styleSheet() and "#Mob" in w.styleSheet()
         assert w._opacity == 0.5
         assert npcoverlay.current_tint() == npcoverlay.TINTS["forest"][1]
         assert w._guide.styleSheet() == npcoverlay.qss(s)      # its (never shown) guide in the plain style

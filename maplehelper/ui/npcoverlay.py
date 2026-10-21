@@ -109,10 +109,10 @@ def tint_of(settings) -> tuple[int, int, int]:
 
 
 def accent_of(settings) -> tuple[str, str]:
-    """The colour that lights a lit or selected button, and the text colour on it (a name ACCENTS doesn't
-    know: the app's orange)."""
-    name = _picked(settings, "overlay_accent")
-    entry = (ACCENTS.get(name) if isinstance(name, str) else None) or ACCENTS["app"]
+    """The colour that lights a lit or selected button, and the text colour on it: always the app's orange (the
+    owner, 2026-10-21: "the app is in orange", a green chat button and lit pages looked like another app). An
+    accent picked before in the ⚙ panel is no longer followed."""
+    entry = ACCENTS["app"]
     return entry[1], entry[2]
 
 

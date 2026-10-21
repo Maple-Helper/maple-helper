@@ -242,3 +242,33 @@ def test_the_scanner_counts_a_potion_used_on_the_map_it_was_on(page, kb):
         scan._reading = False
         LOCATION.set(None)
         scan.end()
+
+
+def test_a_past_session_shows_every_category_and_details_or_delete_keep_the_scroll(page, kb):
+    """Each history card has the live summary's rows (mesos, ETC, items, HP potions...), Details adds the ways the loot
+    sells; pressing Details or Delete leaves the page where it was scrolled (it jumped to the bottom: the owner)."""
+    d = page
+    cid = d.scanner.cid()
+    for i in range(8):
+        _db_log(kb, cid, 1000 + i * 5000, 3600, 21, {A: 3600}, [
+            lootlog.Event(1100 + i * 5000, "exp", 20000, map=A), lootlog.Event(1200 + i * 5000, "mesos", 9000, map=A),
+            lootlog.Event(1300 + i * 5000, "item", 5, "Leaf", LEAF, map=A),
+            lootlog.Event(1400 + i * 5000, "potion", 4, "Red Potion", RED, map=A)])
+    d.resize(700, 500)
+    d.show()
+    d.show_tab("history")
+    for _ in range(5):
+        app.processEvents()
+    hist = " | ".join(d.lines())
+    for row in ("Mesos", "ETC", "Items", "Total income", "HP potions", "Net"):
+        assert row in hist, row
+    bar = d.stack.widget(1).verticalScrollBar()
+    assert bar.maximum() > 300, (bar.maximum(), d.stack.currentIndex(), d.stack.widget(1).widget().sizeHint())
+    sid = lootdb.sessions(cid, kb)[3].id
+    for press in (lambda: d._toggle(sid), lambda: d._delete(sid)):
+        bar.setValue(300)
+        press()
+        for _ in range(3):
+            app.processEvents()
+        assert bar.value() == 300
+    assert "Profit by how you sell" in " | ".join(d.lines())

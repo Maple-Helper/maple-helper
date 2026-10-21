@@ -227,6 +227,7 @@ class MapleHelperApp:
         # always on while the app runs (the owner, 2026-10-20): an older version's ✕ switched it off for good
         self.settings["game_toolbar"] = True
         self.game_toolbar = GameToolbar(self.settings, I18n(self.settings["language"] or "he"))
+        self._toolbar_monster()
         self.game_toolbar.window_toggled.connect(self._game_window_toggled)
         self.game_toolbar.tools_requested.connect(self._tools_from_bar)
         self.game_toolbar.quit_requested.connect(self.qapp.quit)       # its ✕ closes the app
@@ -327,12 +328,17 @@ class MapleHelperApp:
 
     def _game_window_toggled(self, key: str) -> None:
         """A bar button flipped its window's setting: that window follows."""
-        if key == "npc_overlay":
-            self.npc_overlay.refresh()
-        elif key == "monster_overlay":
-            self.monster_overlay.refresh()
-        elif key == "loot_overlay":
-            self.loot_overlay.sync()
+        win = {"npc_overlay": self.npc_overlay, "monster_overlay": self.monster_overlay,
+               "loot_overlay": self.loot_overlay}.get(key)
+        if win is None:
+            return
+        was = win.isVisible()
+        if key == "loot_overlay":
+            win.sync()
+        else:
+            win.refresh()
+        if win.isVisible() and not was:     # just opened: under the bar's button that opened it
+            self.game_toolbar.dock_under(key, win)
 
     def _listen_for_second_launch(self):
         """The app runs in the tray (autostart): opening it again from the desktop or Start menu shows the chat."""
@@ -1087,6 +1093,12 @@ class MapleHelperApp:
             return dlg
         return self.open_window("tools", make)
 
+    def _toolbar_monster(self) -> None:
+        """The bar's Monsters button shows a monster of the game: the KB's Orange Mushroom (a new KB: again)."""
+        key = next((k for k, e in self.kb.entities.items() if e.get("category") == "monster"
+                    and e.get("name") == "Orange Mushroom"), None) if self.kb else None
+        self.game_toolbar.set_monster_picture(self.kb.picture(key) if key else None)
+
     def show_tracker_guide(self):
         """The grind tracker's guide (ui/trackerguide.py): every part of it, a page each, with its picture."""
         from .ui.trackerguide import TrackerGuide
@@ -1311,6 +1323,8 @@ class MapleHelperApp:
         mobs = getattr(self, "monster_overlay", None)
         if mobs is not None:
             mobs.set_kb(self.kb)       # ... and monster lists
+        if getattr(self, "game_toolbar", None) is not None:
+            self._toolbar_monster()    # the bar's monster picture from the new KB
         loot = getattr(self, "loot_scanner", None)
         if loot is not None:
             loot.set_kb(self.kb)        # the item names it matches reads against

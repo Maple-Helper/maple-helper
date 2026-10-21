@@ -190,13 +190,64 @@ def test_a_refresh_moves_the_numbers_in_place_never_a_new_table(window):
     try:
         scan._log.add([lootlog.Event(time.time() - 30, "mesos", 100)])
         d.refresh()
-        table, live = d._sum_card, [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())]
+        box = lambda: [d.etc_box.itemAt(i).widget() for i in range(d.etc_box.count())]  # noqa: E731
+        table, items = d._sum_card, box()
         scan._log.start -= 60                   # a minute later, nothing new picked up
         d.refresh()
-        assert d._sum_card is table and [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())] == live
-        scan._log.add([lootlog.Event(time.time(), "mesos", 50)])
+        assert d._sum_card is table and box() == items
+        scan._log.add([lootlog.Event(time.time(), "mesos", 50), lootlog.Event(time.time(), "item", 1, "Leaf", LEAF)])
         d.refresh()
         assert d._sum_card is table and "150" in table._cells[(1, 1)].text()
-        assert [d.live_box.itemAt(i).widget() for i in range(d.live_box.count())] != live
+        assert box() != items
+    finally:
+        scan.end()
+
+
+def test_the_loot_sold_three_ways(kb, monkeypatch):
+    """To an NPC, to players (MesoWatch's usual sale price; one without counts at the NPC's) and each item where it
+    pays more (a players' guess on few sales is never the better one)."""
+    prices = {LEAF: (30, False), GLADIUS: (5, False)}
+    monkeypatch.setattr(lootextras, "market_price", lambda kb, key: prices.get(key, (None, False)))
+    leaf, glad = lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
+    items = [("Leaf", 10, LEAF, leaf), ("Old Gladius", 1, GLADIUS, glad), ("Lemon", 2, LEMON, None)]
+    w = lootextras.sale_ways(kb, items)
+    assert w.npc == (10 * leaf, glad) and w.players == (300, 5) and w.unpriced == 1
+    assert w.best == (max(10 * leaf, 300), max(glad, 5))
+    prices[LEAF] = (999, True)                                 # few sales: a guess, not the best price
+    assert lootextras.sale_ways(kb, items).best[0] == 10 * leaf
+
+
+def test_the_bars_monsters_button_shows_a_real_monster(kb):
+    from maplehelper.i18n import I18n
+    from maplehelper.store import Settings
+    from maplehelper.ui.gametoolbar import GameToolbar
+    bar = GameToolbar(Settings(), I18n("en"))
+    try:
+        bar.set_monster_picture(kb.picture("monster/9"))
+        assert bar._mob_pic is not None and not bar._windows["monster_overlay"].icon().isNull()
+        bar.set_monster_picture(None)                          # no picture: the icon font's glyph stays
+        assert bar._mob_pic is None and not bar._windows["monster_overlay"].icon().isNull()
+    finally:
+        bar.close()
+
+
+def test_the_summary_shows_etc_and_items_sold_to_an_npc_and_to_players(window, kb, monkeypatch):
+    """Both prices in the session's table, each its own row (the owner: it showed only the NPC's)."""
+    monkeypatch.setattr(lootextras, "market_price", lambda kb, key: (40, False) if key == LEAF else (None, False))
+    d = window
+    scan = d.scanner
+    scan.start()
+    try:
+        scan._log.add([lootlog.Event(time.time(), "item", 3, "Leaf", LEAF),
+                       lootlog.Event(time.time(), "item", 1, "Old Gladius", GLADIUS)])
+        d.refresh()
+        leaf, glad = lootlog.sell_price(kb, LEAF), lootlog.sell_price(kb, GLADIUS)
+        lines = [x for x in d.lines()]
+        text = " | ".join(lines)
+        assert "ETC (sold to an NPC)" in text and "ETC (sold to players)" in text
+        assert "Items (sold to an NPC)" in text and "Items (sold to players)" in text
+        cells = d._sum_card._cells
+        assert f"{3 * leaf:,}" in cells[(2, 1)].text() and "120" in cells[(3, 1)].text()
+        assert f"{glad:,}" in cells[(4, 1)].text() and f"{glad:,}" in cells[(5, 1)].text()   # no players' price
     finally:
         scan.end()

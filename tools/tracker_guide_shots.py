@@ -18,6 +18,11 @@ _tmp = tempfile.mkdtemp()
 os.environ["APPDATA"] = os.environ["LOCALAPPDATA"] = _tmp
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+# the players' prices as MesoWatch had them last on this computer (the made-up session's loot is real items)
+_mw = Path(os.environ.get("USERPROFILE", "")) / "AppData" / "Roaming" / "MapleHelper" / "mesowatch.json"
+if _mw.exists():
+    (Path(_tmp) / "MapleHelper").mkdir(exist_ok=True)
+    (Path(_tmp) / "MapleHelper" / "mesowatch.json").write_bytes(_mw.read_bytes())
 
 from PySide6.QtCore import QRect, Qt  # noqa: E402
 from PySide6.QtGui import QFontDatabase  # noqa: E402
@@ -115,7 +120,10 @@ def main(lang: str) -> None:
     out = OUT / lang
     out.mkdir(parents=True, exist_ok=True)
 
+    from maplehelper import mesowatch
+    mesowatch.Snapshot.stale = property(lambda self: False)      # last night's copy is fine for a picture
     bar = GameToolbar(s, t)
+    bar.set_monster_picture(kb.picture("monster/9"))           # the Orange Mushroom, as the app gives it
     s["loot_overlay"] = True
     bar.refresh()
     bar.show()
@@ -147,10 +155,10 @@ def main(lang: str) -> None:
         body.grab(r.adjusted(-pad, -pad, pad, pad)).save(str(out / f"{name}.png"))
     part("top", d.alerts, d.goal)
     part("summary", d.summary)
+    part("ways", d.ways_box)
     part("kills", d.compare_line, d.kills_box)
     part("items", d.etc_box, d.items_box)
     part("potions", d.potions_box)
-    part("live", d.live_box)
     d.grab().save(str(out / "window.png"))
     for tab in ("history", "compare"):
         d.show_tab(tab)

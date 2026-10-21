@@ -95,6 +95,48 @@ def low_potions(kb, counts: dict[str, int], used: set[str], here_map: str | None
     return out
 
 
+# ---------------------------------------------------------------- selling: to an NPC, to players
+
+def market_price(kb, key: str) -> tuple[int | None, bool]:
+    """(MesoWatch's usual sale price, it is a guess on few sales); (None, False) with none on hand."""
+    from . import mesowatch
+    try:
+        _, s = mesowatch.for_item(kb, key, refresh=False)
+    except Exception:  # noqa: BLE001 - no market on hand: no players' price
+        return None, False
+    if s is None or not s.price:
+        return None, False
+    return int(s.price), bool(s.low_data or s.scrolled_only)
+
+
+@dataclass
+class SaleWays:
+    """What the loot brings, sold each way: (ETC, the other items) to an NPC, to players, and each item where it pays
+    more. An item with no players' price counts at the NPC's in the players' column (unpriced counts them)."""
+    npc: tuple[int, int] = (0, 0)
+    players: tuple[int, int] = (0, 0)
+    best: tuple[int, int] = (0, 0)
+    unpriced: int = 0           # items (kinds) with no players' price: the players' column used the NPC's for them
+
+
+def sale_ways(kb, items) -> SaleWays:
+    """items: summary rows (name, count, key, NPC price each)."""
+    from . import lootlog
+    out = {"npc": [0, 0], "players": [0, 0], "best": [0, 0]}
+    unpriced = 0
+    for _name, n, key, price in items:
+        i = 0 if lootlog.is_etc(kb, key) else 1
+        npc = n * (price or 0)
+        mp, low = market_price(kb, key) if key else (None, False)
+        players = n * mp if mp else npc
+        if not mp:
+            unpriced += 1
+        out["npc"][i] += npc
+        out["players"][i] += players
+        out["best"][i] += max(npc, players if mp and not low else npc)
+    return SaleWays(tuple(out["npc"]), tuple(out["players"]), tuple(out["best"]), unpriced)
+
+
 # ---------------------------------------------------------------- HP or MP
 
 KINDS = ("hp", "mp", "both")

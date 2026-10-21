@@ -51,7 +51,7 @@ def test_a_running_session_shows_its_table_and_ends_into_the_history(page):
     scan.changed.emit()
     text = _text(d)
     for word in ("So far", "Per hour (est.)", "EXP", "Mesos picked up", "Total income", "Spent on potions", "Net profit",
-                 "ETC you picked up", "Leaf", "Live tracking"):
+                 "ETC you picked up", "Leaf"):
         assert word in text, word
     d.stop_btn.click()
     assert not scan.running(scan.cid()) and scan.store.recent(scan.cid())[0]["exp"] == 21
@@ -85,10 +85,14 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
         assert card.isWindow() and card.parent() is None and not card.isVisible()
         d.start_btn.click()
         assert card.isVisible() and card._opacity == 0.5 and s["loot_overlay"] is True
+        # the live tracking is the card's (not the full tracker's), there from the start
+        assert "Live tracking" in card.lines() and any("the moment it's picked up" in x for x in card.lines())
+        assert "Live tracking" not in _text(d)
         d.scanner._log.add([lootlog.Event(1.0, "mesos", 1234), lootlog.Event(2.0, "item", 1, "Leaf", "item/358")])
         d.scanner.changed.emit()
         texts = card.lines()
         assert any("1,234" in x for x in texts) and any("Leaf" in x for x in texts)
+        assert not any("the moment it's picked up" in x for x in texts)
         assert any(x.startswith("Net") for x in texts)
         card._close.click()
         assert not card.isVisible() and s["loot_overlay"] is False

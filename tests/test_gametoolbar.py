@@ -203,14 +203,16 @@ def test_a_tint_choice_is_written_and_painted_by_the_glass(bar):
     assert npcoverlay.current_tint() == npcoverlay.TINTS["midnight"][1]
 
 
-def test_an_accent_choice_restyles_the_bar(bar):
-    from maplehelper.ui import npcoverlay
+def test_the_bar_is_always_in_the_apps_orange(bar):
+    """The owner, 2026-10-21: "the app is in orange" — a green accent picked once in the ⚙ panel made the chat button
+    and the lit pages green. No accent row any more, and an old choice is no longer followed."""
+    from maplehelper.ui import npcoverlay, theme
     w, s = bar
+    s["overlay_accent"] = "green"
     w.refresh()
     w._gear.click()
-    w._panel._pick_accent("blue")
-    assert s["overlay_accent"] == "blue"
-    assert npcoverlay.ACCENTS["blue"][1] in w.styleSheet()           # the lit buttons' new colour
+    assert npcoverlay.accent_of(s)[0] == theme.ORANGE_DEEP and npcoverlay.ACCENTS["green"][1] not in w.styleSheet()
+    assert not w._panel._accents.isVisibleTo(w._panel) and not w._panel._accent_label.isVisibleTo(w._panel)
 
 
 def test_the_panel_rings_the_chosen_swatches(bar):
@@ -218,7 +220,6 @@ def test_the_panel_rings_the_chosen_swatches(bar):
     s["overlay_tint"], s["overlay_accent"] = "wine", "pink"
     w._gear.click()
     assert [b.property("key") for b in w._panel._tints.findChildren(QPushButton) if b.isChecked()] == ["wine"]
-    assert [b.property("key") for b in w._panel._accents.findChildren(QPushButton) if b.isChecked()] == ["pink"]
 
 
 def test_the_buttons_always_show_words_and_no_icons_setting_is_left(bar):
@@ -487,3 +488,38 @@ def test_the_bar_looks_like_the_app_its_mark_name_icons_and_window_buttons(bar):
     s["npc_overlay"] = True
     w.refresh()
     assert w._windows["npc_overlay"].isChecked()
+
+
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_a_window_the_bar_opens_goes_under_its_button(qapp, isolated_store, lang):
+    """Not at a screen corner far from the bar (the owner): right under the button, its start edge lined up with it;
+    above the bar when the bar sits at the screen's bottom."""
+    from PySide6.QtWidgets import QWidget
+
+    from maplehelper.ui import gametoolbar
+    from maplehelper.ui.glass import SHADOW
+    s = isolated_store.Settings()
+    bar = gametoolbar.GameToolbar(s, I18n(lang))
+    win = QWidget()
+    win.resize(320, 240)
+    try:
+        bar.show()
+        room = QGuiApplication.primaryScreen().availableGeometry()
+        bar.move(room.left() + 200, room.top() + 40)
+        qapp.processEvents()
+        b = bar._windows["npc_overlay"]
+        at = b.mapToGlobal(QPoint(0, 0))
+        bar.dock_under("npc_overlay", win)
+        assert win.y() + SHADOW > bar.y() + bar.height() - 2 * SHADOW               # under the bar's panel
+        assert win.y() + SHADOW - (bar.y() + bar.height() - SHADOW) < 20            # ... just under it
+        if lang == "he":
+            assert win.x() + win.width() - SHADOW == at.x() + b.width()
+        else:
+            assert win.x() + SHADOW == at.x()
+        bar.move(bar.x(), room.bottom() - bar.height() + SHADOW)
+        qapp.processEvents()
+        bar.dock_under("npc_overlay", win)
+        assert win.y() + win.height() - SHADOW < bar.y() + SHADOW                   # above it now
+    finally:
+        win.close()
+        bar.close()

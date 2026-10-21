@@ -11,6 +11,8 @@ fold ("loot_overlay_folded"). Like the others it stays out of screen captures un
 screenshots" is on (its lines never read as pickup messages anyway: no "received", "gained" or "earned" in them)."""
 from __future__ import annotations
 
+import time
+
 from PySide6.QtCore import QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QToolButton, QVBoxLayout,
@@ -24,7 +26,7 @@ from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX,
                          _flags, _paint_glass, accent_of, keep_off_minimap, look_palette, set_capturable)
 
 WIDTH = 280 + 2 * SHADOW        # the panel 280 px wide, past its shadow rim
-FEED = 4                        # the latest pickups shown under the totals
+FEED = 5                        # the latest pickups shown under the totals (the live tracking)
 STATS = ("exp", "mesos", "etc", "items", "potions_hp", "potions_mp", "net")
 
 def qss(settings) -> str:
@@ -162,9 +164,17 @@ class LootOverlay(QWidget):
         body.addWidget(self._kills)
         self._feed_head = QLabel(objectName="Head")
         body.addWidget(self._feed_head)
+        self._live = QFrame(objectName="Stat")          # the live tracking: each pickup the moment it is picked up
+        fl = QVBoxLayout(self._live)
+        fl.setContentsMargins(10, 6, 10, 6)
+        fl.setSpacing(3)
+        self._feed_none = QLabel(objectName="Feed")
+        self._feed_none.setWordWrap(True)
+        fl.addWidget(self._feed_none)
         self._feed = [QLabel(objectName="Feed") for _ in range(FEED)]
         for lb in self._feed:
-            body.addWidget(lb)
+            fl.addWidget(lb)
+        body.addWidget(self._live)
         btns = QHBoxLayout()
         btns.setContentsMargins(0, 4, 0, 0)
         btns.setSpacing(6)
@@ -198,7 +208,9 @@ class LootOverlay(QWidget):
             name, total, hour = self._stats[key]
             if name.isVisibleTo(self):
                 out.append(f"{name.text()} {total.text()} {hour.text()}")
-        return out + [lb.text() for lb in self._feed if lb.isVisibleTo(self)]
+        if self._feed_head.isVisibleTo(self):
+            out.append(self._feed_head.text())
+        return out + [lb.text() for lb in (self._feed_none, *self._feed) if lb.isVisibleTo(self)]
 
     def refresh(self) -> None:
         self._restyle()
@@ -252,13 +264,17 @@ class LootOverlay(QWidget):
             hour.setText(bidi.plain(got[1], rtl))
         evs = lg.events[-FEED:][::-1] if lg is not None else []
         self._feed_head.setText(bidi.plain(t("loot_feed_head"), rtl))
-        self._feed_head.setVisible(bool(evs))
+        self._feed_head.setVisible(sm is not None)
+        self._live.setVisible(sm is not None)
+        self._feed_none.setText(bidi.plain(t("loot_card_live_none"), rtl))
+        self._feed_none.setVisible(not evs)
         for i, lb in enumerate(self._feed):
             if i < len(evs):
                 e = evs[i]
                 text = (t(f"loot_feed_{e.kind}", name=bidi.ltr_block(e.name, rtl), n=f"{e.amount:,}")
                         if e.kind in ("item", "potion") else t(f"loot_feed_{e.kind}", n=f"{e.amount:,}"))
-                lb.setText(bidi.plain(text, rtl))
+                when = bidi.ltr_block(time.strftime("%H:%M:%S", time.localtime(e.t)), rtl)
+                lb.setText(bidi.plain(f"{when}  {text}", rtl))
             lb.setVisible(i < len(evs))
         self._start.setVisible(not running)
         self._stop.setVisible(running)

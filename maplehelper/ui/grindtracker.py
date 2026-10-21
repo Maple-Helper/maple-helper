@@ -9,10 +9,11 @@ Three tabs:
   how that compares with the last session on the same map, the monsters killed (each EXP message is a kill, named by
   the EXP of the monsters on the maps it ran on), then what was picked up: the ETC and the other items each with how
   many, what an NPC pays, what MesoWatch's players usually sell it for (its "usual sale price", with credit and a
-  link) and whether to keep it, sell it to players or to an NPC; the potions used at the NPC shop's price, and the
-  live tracking of every pickup as it comes.
+  link) and whether to keep it, sell it to players or to an NPC; the potions used at the NPC shop's price. (The live
+  tracking of every pickup as it comes is the card's over the game, ui/lootoverlay.py, not this window's.)
 - History: every past session (the loot database), each with its totals, its monsters and, opened, what it picked
-  up and used; one can be deleted.
+  up and used; one can be deleted. Its cards show the same categories the session's table does, and a press on
+  Details or Delete leaves the page where it was scrolled.
 The window resizes from every edge (EdgeResize), and keeps its scroll while the figures update every second.
 - Where it pays best: the maps compared per hour, and what that shows (lootinsights.py)."""
 from __future__ import annotations
@@ -38,7 +39,6 @@ log = logging.getLogger("maplehelper")
 
 WIDTH, HEIGHT = 760, 900
 MIN_W, MIN_H = 560, 420     # the smallest the edges drag it to
-LIVE = 12                   # pickups shown in the live tracking
 HISTORY = 10                # past sessions shown at first; "More" adds as many again
 TABS = ("now", "history", "compare")
 
@@ -172,11 +172,19 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         lb.setText(self._html(text, explain))
         return terms.watch(lb, self.t.lang)
 
+    @staticmethod
+    def _set(label, text: str) -> None:
+        """A label's text, only when it changes: the window refreshes every second, and an unchanged label set again
+        repainted it (with the glass under it)."""
+        if label.text() != text:
+            label.setText(text)
+
     def _small(self, text: str, kind: str, then) -> QPushButton:
         """A small rounded button in a history card's head (Details, Delete)."""
         b = QPushButton(self._p(text), objectName=kind)
         b.setCursor(Qt.PointingHandCursor)
         b.setAutoDefault(False)
+        b.setFocusPolicy(Qt.NoFocus)        # (focus passed on from a deleted button scrolled the page to it)
         b.clicked.connect(lambda *_: then())
         return b
 
@@ -274,6 +282,8 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         lay.addWidget(self.goal)
         self.summary = QVBoxLayout()
         lay.addLayout(self.summary)
+        self.ways_box = QVBoxLayout()                # the money by how the loot is sold
+        lay.addLayout(self.ways_box)
         self.compare_line = self._label("", "RowLabel")      # the last session on this map
         lay.addWidget(self.compare_line)
         self.kills_box = QVBoxLayout()               # the monsters killed
@@ -284,8 +294,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         lay.addLayout(self.items_box)
         self.potions_box = QVBoxLayout()
         lay.addLayout(self.potions_box)
-        self.live_box = QVBoxLayout()
-        lay.addLayout(self.live_box)
         lay.addStretch(1)
 
     def _section(self, box: QVBoxLayout, title: str) -> None:
@@ -307,10 +315,10 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         lg = scan.log_for(cid)
         running = scan.running(cid)
         if lg is None:
-            for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts,
-                        self.kills_box):
+            for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.alerts,
+                        self.kills_box, self.ways_box):
                 self._changed(box, None)
-            self._sum_card = None
+            self._sum_card = self._ways_card = None
         status = ""
         if running and scan.state in ("no_game", "covered"):
             status = t(f"loot_{scan.state}")
@@ -320,7 +328,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             status = t("loot_potions_unseen")
         elif not lg:
             status = t("trk_intro")
-        self.now_status.setText(self._html(status))
+        self._set(self.now_status, self._html(status))
         self.now_status.setVisible(bool(status))
         for w in (self.goal, self.compare_line):
             w.setVisible(lg is not None)
@@ -331,18 +339,9 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         self._fill_alerts(sm, running)
         h = sm.seconds
         rate = lambda v: lootlog.per_hour(v, h)  # noqa: E731
-        income = sm.value
-        rows = [
-            [t("trk_row_exp"), self._num(sm.exp), self._num(rate(sm.exp))],
-            [t("trk_row_mesos"), self._num(sm.mesos), self._num(rate(sm.mesos))],
-            [t("trk_row_etc"), self._num(sm.etc_value), self._num(rate(sm.etc_value))],
-            [t("trk_row_items"), self._num(sm.other_value), self._num(rate(sm.other_value))],
-            [t("trk_row_income"), self._num(income), self._num(rate(income))],
-            *self._spent_rows(lootextras.by_kind(self.kb, sm.potions), rate),
-            [t("trk_row_net"), self._num(sm.net), self._num(rate(sm.net))],
-        ]
-        bad = {i: "TrkBad" for i in range(5, len(rows) - 1)}
-        styles = {**bad, len(rows) - 1: "TrkGood" if sm.net >= 0 else "TrkBad"}
+        rows, styles, top = self._money_rows(sm.exp, sm.mesos, sm.etc_value, sm.other_value, sm.value,
+                                             lootextras.by_kind(self.kb, sm.potions), sm.net, rate,
+                                             lootextras.sale_ways(self.kb, sm.items).players)
         heads = [t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")]
         card = self.__dict__.get("_sum_card")
         shape = (tuple(heads), tuple(str(r[0]) for r in rows), tuple(len(r) for r in rows))
@@ -353,8 +352,8 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                     lb = card._cells.get((r, c))
                     if lb is None:
                         continue
-                    lb.setText(self._html(str(row[c]), False))
-                    want = styles.get(r) or ("TrkStrong" if r == 4 else "TrkNum")
+                    self._set(lb, self._html(str(row[c]), False))
+                    want = styles.get(r) or ("TrkStrong" if r == top else "TrkNum")
                     if lb.objectName() != want:
                         lb.setObjectName(want)
                         lb.style().unpolish(lb)
@@ -362,8 +361,10 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         else:
             self._changed(self.summary, shape)
             self._section(self.summary, t("trk_summary"))
-            self._sum_card = self._table(heads, rows, strong={4}, styles=styles)
+            self._sum_card = self._table(heads, rows, strong={top}, styles=styles)
             self.summary.addWidget(self._sum_card)
+            self.summary.addWidget(self._label(t("trk_summary_note"), "RowHint"))
+        self._fill_ways(sm)
         self._fill_compare_line(lg, sm)
         counts: dict[int, int] = {}
         for e in lg.events:
@@ -377,9 +378,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         unseen = running and scan.quick_state == "none"
         if self._changed(self.potions_box, (tuple(sm.potions), unseen)):
             self._fill_potions(sm, unseen)
-        last = lg.events[-1] if lg.events else None
-        if self._changed(self.live_box, (len(lg.events), last and (last.t, last.amount, last.name))):
-            self._fill_live(lg)
 
     def _mw(self, key: str) -> tuple[int | None, bool, str]:
         """(MesoWatch's usual sale price, it is a guess on few sales, the item's MesoWatch link)."""
@@ -467,7 +465,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         hud = self.scanner.hud
         g = lootextras.level_goal(self.kb, hud.level, hud.exp, sm.exp_h) if hud is not None else None
         if g is None:
-            self.goal_text.setText(self._html(t("trk_goal_wait") if running else ""))
+            self._set(self.goal_text, self._html(t("trk_goal_wait") if running else ""))
             self.goal.setVisible(running)
             self.goal_bar.hide()
             return
@@ -475,7 +473,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         when = self._clock(g.seconds) if g.seconds is not None else ""
         text = t("trk_goal", level=g.level + 1, left=self._num(g.left)) + \
             (" · " + t("trk_goal_eta", time=when) if when else " · " + t("trk_goal_no_rate"))
-        self.goal_text.setText(self._html(text))
+        self._set(self.goal_text, self._html(text))
         self.goal_bar.setRange(0, max(1, need))
         self.goal_bar.setValue(hud.exp or 0)
         self.goal_bar.show()
@@ -539,7 +537,7 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             arrow = "▲" if v > 0 else "▼" if v < 0 else "="
             return f"{arrow} {bidi.ltr_block(f'{v:+d}%', t.rtl)}"
         when = bidi.ltr_block(time.strftime("%d/%m", time.localtime(prev.started)), t.rtl)
-        self.compare_line.setText(self._html(t(
+        self._set(self.compare_line, self._html(t(
             "trk_vs_prev", map=bidi.ltr_block(self._map_name(mid), t.rtl), when=when,
             exp=pct(sm.exp_h, prev.per_hour(prev.exp)), net=pct(sm.net_h, prev.per_hour(prev.net)))))
         self.compare_line.show()
@@ -573,6 +571,79 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         box.addWidget(wrap)
         if not compact:
             box.addWidget(self._label(t("trk_kills_note"), "RowHint"))
+
+    def _fill_ways(self, sm) -> None:
+        """The money three ways: the loot sold to an NPC, to players (MesoWatch's usual sale price) and each item where
+        it pays more, so far and per hour; the mesos and the potions the same in all three. Its numbers change in
+        place, as the summary's do."""
+        t = self.t
+        ways = lootextras.sale_ways(self.kb, sm.items)
+        rate = lambda v: lootlog.per_hour(v, sm.seconds)  # noqa: E731
+        heads, rows, styles = self._ways_rows(ways, sm.mesos, sm.potions_cost, rate)
+        shape = (tuple(heads), tuple(str(r[0]) for r in rows), ways.unpriced > 0)
+        card = self.__dict__.get("_ways_card")
+        if card is not None and getattr(card, "_wshape", None) == shape:
+            for r, row in enumerate(rows):
+                for c in range(1, len(row)):
+                    lb = card._cells.get((r, c))
+                    if lb is not None:
+                        self._set(lb, self._html(str(row[c]), False))
+            return
+        self._changed(self.ways_box, shape)
+        self._section(self.ways_box, t("trk_ways"))
+        self._ways_card = self._table(heads, rows, strong={3}, styles=styles)
+        self._ways_card._wshape = shape
+        self.ways_box.addWidget(self._ways_card)
+        note = t("trk_ways_note") + (" " + t("trk_ways_unpriced") if ways.unpriced else "")
+        self.ways_box.addWidget(self._label(note, "RowHint"))
+
+    def _ways_table(self, ways, mesos: int, spent: int, rate) -> QFrame:
+        heads, rows, styles = self._ways_rows(ways, mesos, spent, rate)
+        return self._table(heads, rows, strong={3}, styles=styles)
+
+    def _ways_rows(self, ways, mesos: int, spent: int, rate):
+        """The ways table's heads, rows and colours: mesos, ETC, items, income, the potions, net, each way sold."""
+        t = self.t
+        cols = (ways.npc, ways.players, ways.best)
+
+        def cells(v):
+            return [x for w in v for x in (self._num(w), self._num(rate(w)))]
+        etc = [c[0] for c in cols]
+        other = [c[1] for c in cols]
+        income = [mesos + c[0] + c[1] for c in cols]
+        net = [i - spent for i in income]
+        rows = [[t("trk_row_mesos"), *cells([mesos] * 3)],
+                [t("trk_way_etc"), *cells(etc)],
+                [t("trk_way_items"), *cells(other)],
+                [t("trk_row_income"), *cells(income)],
+                [t("trk_row_spent"), *cells([-spent if spent else 0] * 3)],
+                [t("trk_row_net"), *cells(net)]]
+        heads = [t("trk_col_cat"), t("trk_way_npc"), t("trk_way_npc_h"), t("trk_way_players"), t("trk_way_players_h"),
+                 t("trk_way_best"), t("trk_way_best_h")]
+        styles = {4: "TrkBad", 5: "TrkGood" if min(net) >= 0 else "TrkBad"}
+        return heads, rows, styles
+
+    def _money_rows(self, exp, mesos, etc, other, income, kinds, net, rate, players=(0, 0)):
+        """The summary's rows (EXP, mesos, ETC and items each sold to an NPC and to players, income, the potions HP /
+        MP, net), their colours and the income row's index: the live session's and each past one's alike, so the
+        history shows every category the tracker does (the owner). players: (ETC, items) at MesoWatch's usual sale
+        price (an item with none at the NPC's); the income and the net count the NPC's prices, the ways table the
+        rest."""
+        t = self.t
+        rows = [
+            [t("trk_row_exp"), self._num(exp), self._num(rate(exp))],
+            [t("trk_row_mesos"), self._num(mesos), self._num(rate(mesos))],
+            [t("trk_row_etc"), self._num(etc), self._num(rate(etc))],
+            [t("trk_row_etc_mw"), self._num(players[0]), self._num(rate(players[0]))],
+            [t("trk_row_items"), self._num(other), self._num(rate(other))],
+            [t("trk_row_items_mw"), self._num(players[1]), self._num(rate(players[1]))],
+            [t("trk_row_income"), self._num(income), self._num(rate(income))],
+            *self._spent_rows(kinds, rate),
+            [t("trk_row_net"), self._num(net), self._num(rate(net))],
+        ]
+        top = 6
+        bad = {i: "TrkBad" for i in range(top + 1, len(rows) - 1)}
+        return rows, {**bad, len(rows) - 1: "TrkGood" if net >= 0 else "TrkBad"}, top
 
     def _spent_rows(self, kinds: dict[str, tuple[int, int]], rate) -> list[list]:
         """What the potions cost, HP and MP apart (an Elixir's both on a row of its own); one row of 0 with none."""
@@ -615,28 +686,6 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         if unpriced:
             self.potions_box.addWidget(self._label(t("loot_potions_unpriced", names=", ".join(unpriced)), "RowHint"))
 
-    def _fill_live(self, lg) -> None:
-        t = self.t
-        self._section(self.live_box, t("loot_feed_head"))
-        evs = lg.events[-LIVE:][::-1]
-        if not evs:
-            self.live_box.addWidget(self._label(t("trk_live_none"), "RowHint"))
-            return
-        for e in evs:
-            row = QHBoxLayout()
-            row.setSpacing(8)
-            when = bidi.ltr_block(time.strftime("%H:%M:%S", time.localtime(e.t)), t.rtl)
-            row.addWidget(self._label(when, "RowHint", wrap=False))
-            pic = self._pic(e.key, 22) if e.kind in ("item", "potion") else None
-            if pic is not None:
-                row.addWidget(pic)
-            if e.kind in ("item", "potion"):
-                what = t(f"loot_feed_{e.kind}", name=bidi.ltr_block(e.name, t.rtl), n=f"{e.amount:,}")
-            else:
-                what = t(f"loot_feed_{e.kind}", n=f"{e.amount:,}")
-            row.addWidget(self._label(what, "RowLabel"), 1)
-            self.live_box.addLayout(row)
-
     # ---------------------------------------------------------------- history and the maps compared
 
     def _map_name(self, mid: str) -> str:
@@ -663,6 +712,27 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
         self._fill_compare(spots, sessions)
 
     def _fill_sessions(self, sessions) -> None:
+        """The history's cards, rebuilt where the page was scrolled to (a press on Details or Delete, the clock)."""
+        sc = self.stack.widget(TABS.index("history"))
+        bar, inner = sc.verticalScrollBar(), sc.widget()
+        at = bar.value()
+        inner.setMinimumHeight(inner.height())     # the page keeps its height while its cards are rebuilt ...
+        self._build_sessions(sessions)
+        inner.layout().activate()
+        bar.setValue(at)
+        QTimer.singleShot(0, lambda: self._back_to(sc, at))
+
+    @staticmethod
+    def _back_to(sc, at: int) -> None:
+        """... until the new cards are laid out: then its own height again, where it was scrolled to."""
+        try:
+            sc.widget().setMinimumHeight(0)
+            sc.widget().layout().activate()
+            sc.verticalScrollBar().setValue(at)
+        except RuntimeError:        # the window closed meanwhile
+            pass
+
+    def _build_sessions(self, sessions) -> None:
         t = self.t
         lay = self._pages["history"]
         _clear(lay)
@@ -697,14 +767,15 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             cl.addLayout(top)
             self._fill_kills(cl, s.exp_counts, list(s.maps), s.level, compact=True)
             ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
-            rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
-                    [t("trk_row_income"), self._num(s.value), self._num(ph(s.value))],
-                    *self._spent_rows(lootextras.by_kind(self.kb, s.potion_list), ph),
-                    [t("trk_row_net"), self._num(s.net), self._num(ph(s.net))]]
-            bad = {i: "TrkBad" for i in range(2, len(rows) - 1)}
-            cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
-                                     styles={**bad, len(rows) - 1: "TrkGood" if s.net >= 0 else "TrkBad"}))
+            rows, styles, top = self._money_rows(s.exp, s.mesos, s.etc_value, s.other_value, s.value,
+                                                 lootextras.by_kind(self.kb, s.potion_list), s.net, ph,
+                                                 lootextras.sale_ways(self.kb, s.items).players)
+            cl.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows, strong={top},
+                                     styles=styles))
             if s.id in self._open:
+                if s.items:
+                    cl.addWidget(self._label(t("trk_ways"), "SectionHeader"))
+                    cl.addWidget(self._ways_table(lootextras.sale_ways(self.kb, s.items), s.mesos, s.potions_cost, ph))
                 if s.items:
                     heads = [t("trk_c_item"), t("trk_c_qty"), t("trk_c_npc"), t("trk_c_npc_total"), t("trk_c_mw"),
                              t("trk_c_mw_total")]
@@ -832,10 +903,12 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
             self.stop_btn.setVisible(running)
             self.reset_btn.setVisible(running)
             self.chip.setVisible(lg is not None)
-            self.chip.setObjectName("TagGood" if running else "Tag")
-            self.chip.setText(self._p(t("grind_tag_running" if running else "grind_tag_ended")))
-            self.chip.style().unpolish(self.chip)
-            self.chip.style().polish(self.chip)
+            kind = "TagGood" if running else "Tag"
+            if self.chip.objectName() != kind:          # restyled only when it changes (a repaint each second)
+                self.chip.setObjectName(kind)
+                self.chip.style().unpolish(self.chip)
+                self.chip.style().polish(self.chip)
+            self._set(self.chip, self._p(t("grind_tag_running" if running else "grind_tag_ended")))
             here = LOCATION.here
             where = bidi.ltr_block(self._map_name(here.map), t.rtl) if here is not None else ""
             if lg is None:
@@ -847,22 +920,20 @@ QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; 
                     state += " · " + where
             else:
                 state = t("trk_state_stopped", time=self._clock(lg.seconds()))
-            self.state.setText(self._html(state))
-            # the figures redraw every second: each tab keeps where it was scrolled to, and nothing paints half done
+            self._set(self.state, self._html(state))
+            # the figures redraw every second: each tab keeps where it was scrolled to. (No setUpdatesEnabled around
+            # it: turning updates back on repainted the whole window every second, the flicker the owner saw)
             bars = [self.stack.widget(i).verticalScrollBar() for i in range(self.stack.count())]
             at = [b.value() for b in bars]
-            self.setUpdatesEnabled(False)
-            try:
-                self._fill_now()
-            finally:
-                self.setUpdatesEnabled(True)
+            self._fill_now()
             if self.stack.currentIndex():
                 self._fill_history()
             else:
                 self._hist_sig = None if self._hist_sig and self._hist_sig[1] != running else self._hist_sig
             for b, v in zip(bars, at):
-                b.setValue(v)
-                QTimer.singleShot(0, lambda b=b, v=v: b.setValue(v))     # (again once the new rows are laid out)
+                if b.value() != v:
+                    b.setValue(v)
+                    QTimer.singleShot(0, lambda b=b, v=v: b.setValue(v))     # (again once the new rows are laid out)
         except RuntimeError:        # the window closed meanwhile
             pass
 

@@ -18,7 +18,7 @@ from .glass import GlassDialog
 SEEN = "tracker_guide_seen"     # the setting: the guide was shown (closed, skipped or finished)
 DIR = ASSETS / "tracker_guide"
 # (page, its picture or ""): the tracker from the bar to the maps compared, then the tips
-PAGES = (("intro", "bar"), ("card", "card"), ("top", "top"), ("summary", "summary"), ("kills", "kills"),
+PAGES = (("intro", "bar"), ("card", "card"), ("top", "top"), ("summary", "ways"), ("kills", "kills"),
          ("items", "items"), ("potions", "potions"), ("history", "history"), ("compare", "compare"), ("tips", ""))
 PIC_W, PIC_H = 620, 330       # the picture's room on a page (scaled down to fit, never up)
 
