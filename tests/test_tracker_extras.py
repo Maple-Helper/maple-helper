@@ -1,6 +1,6 @@
 """The grind tracker's extras (lootextras.py, ui/grindtracker.py, ui/lootoverlay.py): the next level and its time at
-this rate, potions running low with the nearest shop, the rate graph, the last session on the same map, sell or keep,
-sharing a session as a picture, and the history's filters and Delete."""
+this rate, potions running low with the nearest shop, the monsters killed, the last session on the same map, sell or
+keep, and the history's Delete."""
 import os
 import time
 from pathlib import Path
@@ -56,16 +56,17 @@ def test_only_potions_used_this_session_and_running_low_raise_the_alert(kb, ant)
     assert low[0].shop and low[0].npc_key
 
 
-def test_the_rate_series_is_a_point_a_minute_over_the_last_five(kb):
-    start = 1_000_000.0
-    evs = [lootlog.Event(start + 30 + 60 * i, "exp", 100) for i in range(10)]
-    evs.append(lootlog.Event(start + 90, "potion", 2, "Red Potion", RED))
-    pts = lootextras.rate_series(kb, evs, start, start + 600)
-    assert len(pts) == 10 and pts[0][0] == 1
-    assert pts[0][1] == 6000                                   # 100 EXP in the first minute: 6,000 an hour
-    assert pts[-1][1] == round(500 * 3600 / 300)               # the last five minutes' 500 EXP
-    assert pts[1][2] < 0                                       # the potions' cost in the net
-    assert lootextras.rate_series(kb, evs, start, start + 30) == []
+def test_the_monsters_killed_are_named_by_their_exp_on_the_maps(kb, ant):
+    """Each EXP message is a kill: 41 EXP on Ant Tunnel I is a Horny Mushroom (the KB's EXP for it); an amount no
+    monster there gives (a quest's) is none. With no map read, the level's monsters with a unique EXP."""
+    from maplehelper import tables
+    exp = {r["key"]: r["exp"] for r in tables.rows(kb, "monsters")}
+    horny, zombie = exp["monster/19"], exp["monster/21"]
+    got = lootextras.kills(kb, {horny: 30, zombie: 4, 99999: 2}, [ant])
+    assert [(k, n) for k, _, n in got] == [("monster/19", 30), ("monster/21", 4)]
+    assert got[0][1] == "Horny Mushroom"
+    assert lootextras.kills(kb, {horny: 3}, []) == []                  # no map, no level: nothing to name
+    assert lootextras.kills(kb, {}, [ant]) == []
 
 
 def test_the_last_session_on_the_same_map(isolated_store, kb, ant):
@@ -111,7 +112,7 @@ def window(isolated_store, kb):
     d.close()
 
 
-def test_the_window_shows_the_goal_the_alert_the_graph_and_the_advice(window, kb, ant):
+def test_the_window_shows_the_goal_the_alert_the_kills_and_the_advice(window, kb, ant):
     from maplehelper import plan
     from maplehelper.hud import Hud
     from maplehelper.minimap import Here
@@ -139,8 +140,8 @@ def test_the_window_shows_the_goal_the_alert_the_graph_and_the_advice(window, kb
         text = " | ".join(d.lines())
         assert "To level 41:" in text and "5,000 EXP to go" in text and "at this rate in" in text
         assert "Only 14 Lemon left" in text and "Buy them from" in text
-        assert len(d.graph.points) >= 10 and "What to do" in text
-        route = next(b for b in d.findChildren(type(d.share_btn)) if b.text() == "How to get there")
+        assert "What to do" in text and "Monsters you killed" in text
+        route = next(b for b in d.findChildren(type(d.start_btn)) if b.text() == "How to get there")
         route.click()
         assert asked and asked[-1].startswith("npc/")
         # the card over the game says the same, short
@@ -154,32 +155,27 @@ def test_the_window_shows_the_goal_the_alert_the_graph_and_the_advice(window, kb
             assert not any("**" in x for x in lines)
         finally:
             card.close()
-        # sharing: a picture on the clipboard, then Save as picture shows
-        d._share_now()
-        assert not QApplication.clipboard().pixmap().isNull() and d.save_btn.isVisibleTo(d)
     finally:
         MAP_REQUESTS.requested.disconnect(asked.append)
         LOCATION.set(None)
         scan.end()
 
 
-def test_the_history_filters_and_deletes_with_a_second_press(window, kb, ant):
+def test_the_history_shows_each_sessions_monsters_and_deletes_with_a_second_press(window, kb, ant):
+    from maplehelper import tables
+    horny = next(r["exp"] for r in tables.rows(kb, "monsters") if r["key"] == "monster/19")
     d = window
     cid = d.scanner.cid()
-    for i, (mid, lvl) in enumerate(((ant, 35), ("other", 42), (ant, 41))):
-        lid = lootdb.open_log(cid, "Kiwi", 1000 + 10_000 * i, lvl)
-        lootdb.add_events(lid, [lootlog.Event(1100 + 10_000 * i, "mesos", 100 + i, map=mid)], kb)
-        lootdb.set_spots(lid, {mid: 600})
+    for i in range(2):
+        lid = lootdb.open_log(cid, "Kiwi", 1000 + 10_000 * i, 22)
+        lootdb.add_events(lid, [lootlog.Event(1100 + 10_000 * i + k, "exp", horny, map=ant) for k in range(5)], kb)
+        lootdb.set_spots(lid, {ant: 600})
         lootdb.end_log(lid, 1600 + 10_000 * i)
     d.show_tab("history")
-    assert len(d._all_sessions) == 3
-    d.map_filter.setCurrentIndex(d.map_filter.findData(ant))
-    shown = [lb for lb in d.lines() if "Ant Tunnel I" in lb]
-    assert len(shown) == 2
-    d.level_filter.setCurrentIndex(d.level_filter.findData(40))
-    assert len([lb for lb in d.lines() if "Ant Tunnel I" in lb]) == 1
+    text = " | ".join(d.lines())
+    assert "Horny Mushroom" in text and "×5" in text and "Details" in text
     newest = lootdb.sessions(cid, kb)[0].id
     d._delete(newest)
-    assert "Delete? Press again" in " | ".join(d.lines()) and len(lootdb.sessions(cid, kb)) == 3
+    assert "Delete? Press again" in " | ".join(d.lines()) and len(lootdb.sessions(cid, kb)) == 2
     d._delete(newest)
-    assert newest not in [s.id for s in lootdb.sessions(cid, kb)] and len(lootdb.sessions(cid, kb)) == 2
+    assert [s.id for s in lootdb.sessions(cid, kb)] != [] and newest not in [s.id for s in lootdb.sessions(cid, kb)]

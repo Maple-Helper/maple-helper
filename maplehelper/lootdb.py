@@ -245,7 +245,8 @@ class Totals:
         return self.value - self.potions_cost
 
     def per_hour(self, v: float) -> int | None:
-        return round(v * 3600 / self.seconds) if self.seconds >= 60 else None
+        from .lootlog import RATE_FROM_S
+        return round(v * 3600 / self.seconds) if self.seconds >= RATE_FROM_S else None
 
 
 @dataclass
@@ -258,6 +259,7 @@ class Session(Totals):
     maps: dict[str, float] = field(default_factory=dict)     # map id -> seconds on it, longest first
     items: list[tuple[str, int, str, int | None]] = field(default_factory=list)  # (name, count, key, price)
     potion_list: list[tuple[str, int, str, int | None]] = field(default_factory=list)  # (name, used, key, cost)
+    exp_counts: dict[int, int] = field(default_factory=dict)     # an EXP message's amount -> how many (its kills)
 
 
 @dataclass
@@ -320,6 +322,8 @@ def sessions(character_id: str, kb=None, limit: int = 50, now: float | None = No
             s.potion_list.sort(key=lambda r: (-r[1], r[0].lower()))
             s.maps = dict(con.execute("SELECT map, seconds FROM spots WHERE log_id = ? ORDER BY seconds DESC",
                                       (lid,)).fetchall())
+            s.exp_counts = dict(con.execute("SELECT amount, COUNT(*) FROM events WHERE log_id = ? AND kind = 'exp' "
+                                            "GROUP BY amount", (lid,)).fetchall())
             out.append(s)
     return out
 

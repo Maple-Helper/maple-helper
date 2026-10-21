@@ -3,40 +3,41 @@ running session in tables, its history and the grind spots compared. It reads wh
 (ui/lootscan.py): the game's pickup messages and the quick slots' potion counts, read on this computer.
 
 Three tabs:
-- This session: start / stop / reset / share, the next level and when it comes at this rate (the bottom bar's
-  EXP, read on this computer), potions running low with the nearest shop, a table of every category so far and per
-  hour (EXP, mesos, ETC, items, the income they make, what the potions cost, the net profit), how that compares with
-  the last session on the same map, the rate over the session as a graph, then what was picked up: the ETC and the
-  other items each with how many, what an NPC pays, what MesoWatch's players usually sell it for (its "usual sale
-  price", with credit and a link) and whether to keep it, sell it to players or to an NPC; the potions used at the
-  NPC shop's price, and the live tracking of every pickup as it comes.
-- History: every past session (the loot database), filtered by map or level, each with its totals and, opened, what
-  it picked up and used; one can be shared as a picture or deleted.
+- This session: start / stop / reset, the next level and when it comes at this rate (the bottom bar's EXP, read on
+  this computer), potions running low with the nearest shop, a table of every category so far and per hour (an
+  estimate from the start, live: EXP, mesos, ETC, items, the income they make, what the potions cost, the net profit),
+  how that compares with the last session on the same map, the monsters killed (each EXP message is a kill, named by
+  the EXP of the monsters on the maps it ran on), then what was picked up: the ETC and the other items each with how
+  many, what an NPC pays, what MesoWatch's players usually sell it for (its "usual sale price", with credit and a
+  link) and whether to keep it, sell it to players or to an NPC; the potions used at the NPC shop's price, and the
+  live tracking of every pickup as it comes.
+- History: every past session (the loot database), each with its totals, its monsters and, opened, what it picked
+  up and used; one can be deleted.
+The window resizes from every edge (EdgeResize), and keeps its scroll while the figures update every second.
 - Where it pays best: the maps compared per hour, and what that shows (lootinsights.py)."""
 from __future__ import annotations
 
 import logging
 import time
 
-from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QDesktopServices, QPixmap
-from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout, QLabel,
-                               QProgressBar, QPushButton, QScrollArea, QStackedWidget, QToolButton, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QProgressBar, QPushButton, QScrollArea,
+                               QStackedWidget, QVBoxLayout, QWidget)
 
 from .. import bidi, glossary, lootextras, lootlog, mesowatch, routes
 from ..i18n import I18n
 from . import terms
-from .controls import Section, Segmented, Switch, rtl_buttons
-from .glass import GlassDialog
+from .controls import Segmented, rtl_buttons
+from .glass import EdgeResize, GlassDialog
 from .location import LOCATION
 from .patchnotes import gutter
-from .rategraph import RateGraph
-from .widgets import MAP_REQUESTS, on_solid_background, tip_html
+from .widgets import MAP_REQUESTS, tip_html
 
 log = logging.getLogger("maplehelper")
 
 WIDTH, HEIGHT = 760, 900
+MIN_W, MIN_H = 560, 420     # the smallest the edges drag it to
 LIVE = 12                   # pickups shown in the live tracking
 HISTORY = 10                # past sessions shown at first; "More" adds as many again
 TABS = ("now", "history", "compare")
@@ -60,13 +61,13 @@ def _tag(text: str, kind: str = "Tag") -> QLabel:
     return lb
 
 
-class GrindTracker(GlassDialog):
-    area_requested = Signal()           # "Mark the messages area yourself": the app draws the box
-
+class GrindTracker(EdgeResize, GlassDialog):
     def __init__(self, scanner, kb, settings, lang: str, stylesheet: str):
         self.t = t = I18n(lang or "he")
         super().__init__(t("tracker_title"), t.rtl)
         self.setStyleSheet(stylesheet + self._style())
+        self.setMinimumSize(MIN_W, MIN_H)
+        self.setMouseTracking(True)           # hovering the rim shows the resize cursor (the map window does too)
         self.fit_screen(WIDTH, HEIGHT)
         self.scanner, self.kb, self.settings = scanner, kb, settings
         self._hist_n = HISTORY
@@ -90,11 +91,7 @@ class GrindTracker(GlassDialog):
         self.stop_btn = self._button("loot_card_stop", "Secondary", lambda: self.scanner.end())
         self.reset_btn = self._button("loot_card_reset", "Secondary", lambda: self.scanner.start())
         self.reset_btn.setToolTip(t("loot_card_reset_tip"))
-        self.share_btn = self._button("trk_share", "Secondary", self._share_now)
-        self.share_btn.setToolTip(t("trk_share_tip"))
-        self.save_btn = self._button("trk_save_card", "Secondary", self.save_last_card)
-        self.save_btn.hide()                    # after a share: the same picture, to a file
-        for b in (self.start_btn, self.stop_btn, self.reset_btn, self.share_btn, self.save_btn):
+        for b in (self.start_btn, self.stop_btn, self.reset_btn):
             top.addWidget(b)
         outer.addLayout(top)
         self.tabs = Segmented([(t(f"trk_tab_{k}"), k) for k in TABS], "now", t.rtl)
@@ -110,8 +107,8 @@ class GrindTracker(GlassDialog):
         self._build_now()
         rtl_buttons(self, t.rtl)
         scanner.changed.connect(self.refresh)
-        # the clock and the per-hour figures move between pickups too
-        self._ticker = QTimer(self, interval=5000, timeout=lambda: self.isVisible() and self.refresh())
+        # the clock and the per-hour figures move between pickups too: every second, live (the owner)
+        self._ticker = QTimer(self, interval=1000, timeout=lambda: self.isVisible() and self.refresh())
         self._ticker.start()
         self.refresh()
 
@@ -132,6 +129,11 @@ class GrindTracker(GlassDialog):
 #TrkNpc { padding: 6px 8px; font-weight: 600; }
 QProgressBar#TrkGoalBar { background: rgba(127,127,127,0.18); border: none; border-radius: 4px; }
 QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
+QPushButton#TrkSmall { background: rgba(127,127,127,0.14); border: none; border-radius: 9px; padding: 4px 12px;
+                       font-weight: 600; }
+QPushButton#TrkSmall:hover { background: rgba(255,149,51,0.22); }
+QPushButton#TrkSmallDanger { background: #D9534F; color: #FFFFFF; border: none; border-radius: 9px;
+                             padding: 4px 12px; font-weight: 600; }
 """
 
     def _scroll(self) -> tuple[QScrollArea, QVBoxLayout]:
@@ -166,6 +168,14 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         lb.setWordWrap(wrap)
         lb.setText(self._html(text, explain))
         return terms.watch(lb, self.t.lang)
+
+    def _small(self, text: str, kind: str, then) -> QPushButton:
+        """A small rounded button in a history card's head (Details, Delete)."""
+        b = QPushButton(self._p(text), objectName=kind)
+        b.setCursor(Qt.PointingHandCursor)
+        b.setAutoDefault(False)
+        b.clicked.connect(lambda *_: then())
+        return b
 
     def _button(self, key: str, kind: str, then) -> QPushButton:
         b = QPushButton(self._p(self.t(key)), objectName=kind)
@@ -202,6 +212,8 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         grid.setVerticalSpacing(0)
         for c, h in enumerate(heads):
             lb = self._label(h, "TrkHead", wrap=True, explain=False)
+            if h == self.t("trk_col_hour"):
+                lb.setToolTip(tip_html(self.t("trk_col_hour_tip"), self.t.rtl))
             lb.setAlignment((Qt.AlignVCenter | (Qt.AlignCenter if c else Qt.AlignLeading)))
             grid.addWidget(lb, 0, c)
         for r, row in enumerate(rows, start=1):
@@ -236,7 +248,6 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
     # ---------------------------------------------------------------- this session
 
     def _build_now(self) -> None:
-        t = self.t
         lay = self._pages["now"]
         self.now_status = self._label("", "RowHint")
         lay.addWidget(self.now_status)
@@ -258,14 +269,8 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         lay.addLayout(self.summary)
         self.compare_line = self._label("", "RowLabel")      # the last session on this map
         lay.addWidget(self.compare_line)
-        self.graph_box = QFrame(objectName="Group")
-        gbl = QVBoxLayout(self.graph_box)
-        gbl.setContentsMargins(10, 8, 10, 8)
-        self.graph = RateGraph((t("trk_c_exp_h"), t("trk_c_net_h"), t("trk_minutes_short")), t.rtl)
-        gbl.addWidget(self.graph)
-        self.graph_head = self._label(t("trk_graph"), "SectionHeader")
-        lay.addWidget(self.graph_head)
-        lay.addWidget(self.graph_box)
+        self.kills_box = QVBoxLayout()               # the monsters killed
+        lay.addLayout(self.kills_box)
         self.etc_box = QVBoxLayout()
         lay.addLayout(self.etc_box)
         self.items_box = QVBoxLayout()
@@ -274,36 +279,7 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         lay.addLayout(self.potions_box)
         self.live_box = QVBoxLayout()
         lay.addLayout(self.live_box)
-        # how the tracker reads the game, last: rarely touched
-        sec = Section(t("trk_settings"), t.rtl)
-        self.card_switch = Switch(bool(self.settings["loot_overlay"]))
-        self.card_switch.setAccessibleName(t("loot_overlay"))
-        self.card_switch.toggled.connect(self._set_card)
-        sec.add_row(t("loot_overlay"), self.card_switch, hint=t("loot_overlay_hint"))
-        area = QWidget()
-        al = QVBoxLayout(area)
-        al.setContentsMargins(0, 8, 0, 8)
-        self.area_state = self._label("", "RowHint")
-        al.addWidget(self.area_state)
-        row = QHBoxLayout()
-        self.pick_btn = self._button("loot_pick", "Secondary", self.area_requested.emit)
-        self.auto_btn = self._button("loot_area_auto_again", "Secondary", self._back_to_auto)
-        row.addWidget(self.pick_btn)
-        row.addWidget(self.auto_btn)
-        row.addStretch(1)
-        al.addLayout(row)
-        sec.add_widget(area)
-        lay.addWidget(sec)
         lay.addStretch(1)
-
-    def _set_card(self, on: bool) -> None:
-        self.settings["loot_overlay"] = bool(on)
-        self.scanner.changed.emit()
-
-    def _back_to_auto(self) -> None:
-        self.settings["loot_region"] = None
-        self.scanner.restart()
-        self.scanner.changed.emit()
 
     def _section(self, box: QVBoxLayout, title: str) -> None:
         box.addWidget(self._label(title, "SectionHeader"))
@@ -313,17 +289,9 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         cid = scan.cid()
         lg = scan.log_for(cid)
         running = scan.running(cid)
-        for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts):
+        for box in (self.summary, self.etc_box, self.items_box, self.potions_box, self.live_box, self.alerts,
+                    self.kills_box):
             _clear(box)
-        region = scan.region()
-        self.area_state.setText(self._html(t("loot_area_set", w=region["w"], h=region["h"]) if region
-                                           else t("loot_area_auto")))
-        self.pick_btn.setText(self._p(t("loot_pick_again" if region else "loot_pick")))
-        self.auto_btn.setVisible(region is not None)
-        if self.card_switch.isChecked() != bool(self.settings["loot_overlay"]):
-            self.card_switch.blockSignals(True)
-            self.card_switch.setChecked(bool(self.settings["loot_overlay"]))
-            self.card_switch.blockSignals(False)
         status = ""
         if running and scan.state in ("no_game", "covered"):
             status = t(f"loot_{scan.state}")
@@ -335,9 +303,8 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
             status = t("trk_intro")
         self.now_status.setText(self._html(status))
         self.now_status.setVisible(bool(status))
-        for w in (self.goal, self.compare_line, self.graph_head, self.graph_box):
+        for w in (self.goal, self.compare_line):
             w.setVisible(lg is not None)
-        self.share_btn.setVisible(lg is not None)
         if lg is None:
             return
         sm = lootlog.summarize(self.kb, lg)
@@ -359,10 +326,12 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         self._section(self.summary, t("trk_summary"))
         self.summary.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
                                            strong={4}, styles={5: "TrkBad", 6: "TrkGood" if sm.net >= 0 else "TrkBad"}))
-        if h < 60:
-            self.summary.addWidget(self._label(t("loot_tip_wait"), "RowHint"))
         self._fill_compare_line(lg, sm)
-        self.graph.set_points(lootextras.rate_series(self.kb, lg.events, lg.start, lg.ended or time.time()))
+        counts: dict[int, int] = {}
+        for e in lg.events:
+            if e.kind == "exp":
+                counts[e.amount] = counts.get(e.amount, 0) + 1
+        self._fill_kills(self.kills_box, counts, list(lg.maps), lg.level)
         self._fill_items(sm)
         self._fill_potions(sm, running and scan.quick_state == "none")
         self._fill_live(lg)
@@ -528,65 +497,35 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
             exp=pct(sm.exp_h, prev.per_hour(prev.exp)), net=pct(sm.net_h, prev.per_hour(prev.net)))))
         self.compare_line.show()
 
-    def _card_image(self, title: str, rows: list[list], items: list) -> QPixmap:
-        """A session as a picture for Discord or WhatsApp: its title, the summary table and the top pickups."""
+    def _fill_kills(self, box: QVBoxLayout, counts: dict[int, int], maps: list[str], level: int | None,
+                    compact: bool = False) -> None:
+        """The monsters killed, with their pictures: each EXP message is a kill, named by the EXP the KB gives the
+        monsters that spawn on the session's maps (lootextras.kills)."""
         t = self.t
-        w = QFrame(objectName="ShareCard")
-        w.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)
-        w.setFixedWidth(460)
-        w.setStyleSheet(self.styleSheet())
-        lay = QVBoxLayout(w)
-        lay.setContentsMargins(18, 16, 18, 14)
-        lay.setSpacing(8)
-        lay.addWidget(self._label(title, "ShareName"))
-        lay.addWidget(self._table([t("trk_col_cat"), t("trk_col_total"), t("trk_col_hour")], rows,
-                                  styles={len(rows) - 2: "TrkBad", len(rows) - 1: "TrkGood"}))
-        if items:
-            top = ", ".join(f"{bidi.ltr_block(n, t.rtl)} ×{c:,}" for n, c, _, _ in items[:4])
-            lay.addWidget(self._label(t("loot_session_items", items=top), "RowHint"))
-        lay.addWidget(self._label("Maple Helper · maplehelper.app", "RowHint"))
-        w.adjustSize()
-        return on_solid_background(w.grab(), 18)
-
-    def _share(self, pm: QPixmap) -> None:
-        QApplication.clipboard().setPixmap(pm)
-        self._shared = pm
-        self.save_btn.show()
-        self._shared_note = self.t("trk_shared")
-        self.state.setText(self._html(self._shared_note))
-        QTimer.singleShot(6000, self._clear_note)
-
-    def _clear_note(self) -> None:
-        try:
-            self._shared_note = ""
-            self.refresh()
-        except RuntimeError:
-            pass
-
-    def save_last_card(self) -> None:
-        pm = getattr(self, "_shared", None)
-        if pm is None:
+        got = lootextras.kills(self.kb, counts, maps, level)
+        if not compact:
+            self._section(box, t("trk_kills_head"))
+        if not got:
+            if not compact:
+                box.addWidget(self._label(t("trk_kills_none"), "RowHint"))
             return
-        path, _ = QFileDialog.getSaveFileName(self, self.t("trk_save_card"), "grind.png", "PNG (*.png)")
-        if path:
-            pm.save(path, "PNG")
-
-    def _share_now(self) -> None:
-        t, scan = self.t, self.scanner
-        lg = scan.log_for(scan.cid())
-        if lg is None:
-            return
-        sm = lootlog.summarize(self.kb, lg)
-        rate = lambda v: lootlog.per_hour(v, sm.seconds)  # noqa: E731
-        mid = max(lg.maps, key=lg.maps.get) if lg.maps else None
-        title = " · ".join(x for x in (t("tracker_title"), self._clock(sm.seconds),
-                                       bidi.ltr_block(self._map_name(mid), t.rtl) if mid else "") if x)
-        rows = [[t("trk_row_exp"), self._num(sm.exp), self._num(rate(sm.exp))],
-                [t("trk_row_income"), self._num(sm.value), self._num(rate(sm.value))],
-                [t("trk_row_spent"), self._num(-sm.potions_cost if sm.potions_cost else 0),
-                 self._num(-rate(sm.potions_cost) if sm.potions_cost and rate(sm.potions_cost) else 0)],
-                [t("trk_row_net"), self._num(sm.net), self._num(rate(sm.net))]]
-        self._share(self._card_image(title, rows, sm.items))
+        row = QHBoxLayout()
+        row.setSpacing(10)
+        for key, name, n in got[:6 if compact else 10]:
+            cell = QHBoxLayout()
+            cell.setSpacing(4)
+            pic = self._pic(key, 22 if compact else 30)
+            if pic is not None:
+                cell.addWidget(pic)
+            cell.addWidget(self._label(bidi.ltr_block(f"{name} ×{n:,}", t.rtl), "RowLabel", wrap=False,
+                                       explain=False))
+            row.addLayout(cell)
+        row.addStretch(1)
+        wrap = QWidget()
+        wrap.setLayout(row)
+        box.addWidget(wrap)
+        if not compact:
+            box.addWidget(self._label(t("trk_kills_note"), "RowHint"))
 
     def _fill_potions(self, sm, unseen: bool) -> None:
         t = self.t
@@ -660,32 +599,6 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
             lay.addStretch(1)
             return
         lay.addWidget(self._label(t("trk_history_intro"), "RowHint"))
-        # the filters: a map, a level band (the sessions' own)
-        maps = sorted({next(iter(s.maps)) for s in sessions if s.maps}, key=lambda m: self._map_name(m).lower())
-        bands = sorted({s.level // 10 * 10 for s in sessions if s.level})
-        filt = QHBoxLayout()
-        filt.setSpacing(8)
-        self.map_filter = QComboBox()
-        self.map_filter.addItem(self._p(t("trk_all_maps")), "")
-        for m in maps:
-            self.map_filter.addItem(self._map_name(m), m)
-        self.level_filter = QComboBox()
-        self.level_filter.addItem(self._p(t("trk_all_levels")), None)
-        for b in bands:
-            self.level_filter.addItem(self._p(t("loot_spot_levels", lo=max(1, b), hi=b + 9)), b)
-        for combo, val in ((self.map_filter, self.__dict__.get("_map_pick", "")),
-                           (self.level_filter, self.__dict__.get("_level_pick"))):
-            i = combo.findData(val)
-            combo.setCurrentIndex(i if i >= 0 else 0)
-            combo.currentIndexChanged.connect(self._filter_changed)
-            filt.addWidget(combo)
-        filt.addStretch(1)
-        lay.addLayout(filt)
-        mpick, lpick = self.map_filter.currentData(), self.level_filter.currentData()
-        sessions = [s for s in sessions if (not mpick or (s.maps and next(iter(s.maps)) == mpick))
-                    and (lpick is None or (s.level and s.level // 10 * 10 == lpick))]
-        if not sessions:
-            lay.addWidget(self._label(t("trk_filter_none"), "RowHint"))
         for s in sessions[:self._hist_n]:
             card = QFrame(objectName="Group")
             cl = QVBoxLayout(card)
@@ -699,23 +612,18 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
             if s.level:
                 head.append(t("loot_session_level", n=s.level))
             top = QHBoxLayout()
+            top.setSpacing(6)
             top.addWidget(self._label(" · ".join(head), "RowLabel"), 1)
-            more = QToolButton(objectName="Link", text=self._p(t("trk_less" if s.id in self._open else "trk_more")))
-            more.setCursor(Qt.PointingHandCursor)
-            more.clicked.connect(lambda *_, i=s.id: self._toggle(i))
-            top.addWidget(more)
-            share = QToolButton(objectName="Link", text=self._p(t("trk_share")))
-            share.setCursor(Qt.PointingHandCursor)
-            share.setToolTip(t("trk_share_tip"))
-            share.clicked.connect(lambda *_, x=s: self._share_session(x))
-            top.addWidget(share)
+            more = self._small(t("trk_less" if s.id in self._open else "trk_more"), "TrkSmall",
+                               lambda i=s.id: self._toggle(i))
+            top.addWidget(more, 0, Qt.AlignVCenter)
             if s.ended is not None:         # (the running session isn't history yet: no Delete)
                 armed = self._delete_armed == s.id
-                delete = QToolButton(objectName="Link", text=self._p(t("trk_delete_sure" if armed else "trk_delete")))
-                delete.setCursor(Qt.PointingHandCursor)
-                delete.clicked.connect(lambda *_, i=s.id: self._delete(i))
-                top.addWidget(delete)
+                delete = self._small(t("trk_delete_sure" if armed else "trk_delete"),
+                                     "TrkSmallDanger" if armed else "TrkSmall", lambda i=s.id: self._delete(i))
+                top.addWidget(delete, 0, Qt.AlignVCenter)
             cl.addLayout(top)
+            self._fill_kills(cl, s.exp_counts, list(s.maps), s.level, compact=True)
             ph = lambda v, s=s: s.per_hour(v)  # noqa: E731
             rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
                     [t("trk_row_income"), self._num(s.value), self._num(ph(s.value))],
@@ -741,11 +649,6 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         if len(sessions) > self._hist_n:
             lay.addWidget(self._button("loot_history_more", "Secondary", self._more), 0, Qt.AlignLeading)
         lay.addStretch(1)
-
-    def _filter_changed(self, *_) -> None:
-        self._map_pick = self.map_filter.currentData()
-        self._level_pick = self.level_filter.currentData()
-        self._fill_sessions(self.__dict__.get("_all_sessions") or [])
 
     def _delete(self, sid: int) -> None:
         """A session gone from the history: the first press asks ("Delete? Press again"), the second deletes."""
@@ -773,20 +676,6 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
                 self._fill_sessions(self.__dict__.get("_all_sessions") or [])
         except RuntimeError:
             pass
-
-    def _share_session(self, s) -> None:
-        t = self.t
-        when = bidi.ltr_block(time.strftime("%d/%m %H:%M", time.localtime(s.started)), t.rtl)
-        mid = next(iter(s.maps)) if s.maps else None
-        title = " · ".join(x for x in (t("tracker_title"), when, self._clock(s.seconds),
-                                       bidi.ltr_block(self._map_name(mid), t.rtl) if mid else "") if x)
-        ph = s.per_hour
-        rows = [[t("trk_row_exp"), self._num(s.exp), self._num(ph(s.exp))],
-                [t("trk_row_income"), self._num(s.value), self._num(ph(s.value))],
-                [t("trk_row_spent"), self._num(-s.potions_cost if s.potions_cost else 0),
-                 self._num(-ph(s.potions_cost) if s.potions_cost and ph(s.potions_cost) else 0)],
-                [t("trk_row_net"), self._num(s.net), self._num(ph(s.net))]]
-        self._share(self._card_image(title, rows, s.items))
 
     def _toggle(self, sid: int) -> None:
         self._open ^= {sid}
@@ -885,14 +774,18 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
                     state += " · " + where
             else:
                 state = t("trk_state_stopped", time=self._clock(lg.seconds()))
-            if self.__dict__.get("_shared_note"):
-                state = self._shared_note       # "Copied: paste it in Discord", for a few seconds
             self.state.setText(self._html(state))
+            # the figures redraw every second: each tab keeps where it was scrolled to
+            bars = [self.stack.widget(i).verticalScrollBar() for i in range(self.stack.count())]
+            at = [b.value() for b in bars]
             self._fill_now()
             if self.stack.currentIndex():
                 self._fill_history()
             else:
                 self._hist_sig = None if self._hist_sig and self._hist_sig[1] != running else self._hist_sig
+            for b, v in zip(bars, at):
+                b.setValue(v)
+                QTimer.singleShot(0, lambda b=b, v=v: b.setValue(v))     # (again once the new rows are laid out)
         except RuntimeError:        # the window closed meanwhile
             pass
 
@@ -900,8 +793,7 @@ QProgressBar#TrkGoalBar::chunk { background: #F07A12; border-radius: 4px; }
         """Every text shown on the current tab (for tests)."""
         page = self.stack.currentWidget().widget()
         return [lb.text() for lb in page.findChildren(QLabel) if lb.isVisibleTo(self)] + \
-            [b.text() for b in page.findChildren(QPushButton) if b.isVisibleTo(self)] + [
-                b.text() for b in page.findChildren(QToolButton) if b.isVisibleTo(self)]
+            [b.text() for b in page.findChildren(QPushButton) if b.isVisibleTo(self)]
 
     def tip(self, text: str) -> str:
         return tip_html(text, self.t.rtl)

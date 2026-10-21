@@ -1081,9 +1081,7 @@ class MapleHelperApp:
         from .ui.grindtracker import GrindTracker
 
         def make():
-            dlg = GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
-            dlg.area_requested.connect(self.pick_loot_area)
-            return dlg
+            return GrindTracker(self.loot_scanner, self.kb, self.settings, self.settings["language"], self.style())
         dlg = self.open_window("tracker", make)
         if dlg is not None and tab != "now":
             dlg.show_tab(tab)

@@ -47,9 +47,13 @@ QLabel {{ color: {c['text']}; }}
 QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px; padding: 6px 12px; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
 QPushButton#Go {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
-QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
-              padding: 2px 7px; font-size: 13px; }}
-QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
+QToolButton#Icon {{ font-family: "{theme.ICON_FONT}"; font-size: 13px; color: {c['muted']}; background: transparent;
+                   border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
+QToolButton#Icon:hover {{ background: {c['fill2']}; color: {c['text']}; }}
+QToolButton#IconClose {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; color: {theme.accent_text()};
+                        background: transparent; border: none; border-radius: 14px; min-width: 28px; min-height: 28px; }}
+QToolButton#IconClose:hover {{ background: {theme.ORANGE}; color: #FFFFFF; }}
+#Kills {{ color: {c['text']}; padding: 0 2px; }}
 """
 
 
@@ -84,13 +88,14 @@ class LootOverlay(QWidget):
         self.setStyleSheet(qss(self.settings))
         self._build()
         # the clock and the per-hour figures move between pickups too
-        self._clock = QTimer(self, interval=5000, timeout=lambda: self.isVisible() and self.refresh())
+        self._clock = QTimer(self, interval=1000, timeout=lambda: self.isVisible() and self.refresh())   # live
         self._clock.start()
 
     # ---------------------------------------------------------------- the panel
 
     def _tool(self, icon: str, then) -> QToolButton:
-        b = QToolButton(text=theme.SYMBOL_ICONS[icon])
+        """The title row's – and ✕ as the app draws them (its icon font; the ✕ orange like a window's close)."""
+        b = QToolButton(text=theme.ICON[icon], objectName="IconClose" if icon == "close" else "Icon")
         b.setCursor(Qt.PointingHandCursor)
         b.setFocusPolicy(Qt.NoFocus)
         b.clicked.connect(then)
@@ -131,6 +136,8 @@ class LootOverlay(QWidget):
         self._goal = QLabel(objectName="Goal")          # the next level and when it comes at this rate
         self._goal.setWordWrap(True)
         body.addWidget(self._goal)
+        self._kills = QLabel(objectName="Kills")        # the monsters killed (lootextras.kills)
+        self._kills.setWordWrap(True)
         # the figures as a table: each category, so far and per hour, the numbers under their headings
         self._table = QFrame(objectName="Stat")
         grid = QGridLayout(self._table)
@@ -152,6 +159,7 @@ class LootOverlay(QWidget):
         grid.setColumnStretch(1, 2)
         grid.setColumnStretch(2, 2)
         body.addWidget(self._table)
+        body.addWidget(self._kills)
         self._feed_head = QLabel(objectName="Head")
         body.addWidget(self._feed_head)
         self._feed = [QLabel(objectName="Feed") for _ in range(FEED)]
@@ -183,7 +191,7 @@ class LootOverlay(QWidget):
         out = [self._title.text()]
         if self._status.isVisibleTo(self):
             out.append(self._status.text())
-        for lb in (self._alert, self._goal):
+        for lb in (self._alert, self._goal, self._kills):
             if lb.isVisibleTo(self):
                 out.append(lb.text())
         for key in STATS:
@@ -224,12 +232,13 @@ class LootOverlay(QWidget):
             "mesos": (num(sm.mesos), num(sm.mesos_h)),
             "etc": (num(sm.etc_value), num(ph(sm.etc_value))),
             "items": (num(sm.other_value), num(ph(sm.other_value))),
-            "potions": (neg(sm.potions_cost), neg(ph(sm.potions_cost) or 0) if sm.seconds >= 60 else num(None)),
+            "potions": (neg(sm.potions_cost), neg(ph(sm.potions_cost) or 0) if ph(1) is not None else num(None)),
             "net": (num(sm.net), num(sm.net_h))}
         self._table.setVisible(sm is not None)
         self._fill_extras(sm, running)
         for c, key in enumerate(("", "trk_col_total", "trk_col_hour")):
             self._heads[c].setText(bidi.plain(t(key), rtl) if key else "")
+        self._heads[2].setToolTip(t("trk_col_hour_tip"))
         for key in STATS:
             name, total, hour = self._stats[key]
             name.setText(bidi.plain(t(f"loot_card_{key}"), rtl))
@@ -252,12 +261,12 @@ class LootOverlay(QWidget):
         for b, key in ((self._start, "loot_start"), (self._stop, "loot_card_stop"), (self._reset, "loot_card_reset")):
             b.setText(bidi.plain(t(key), rtl))
         self._reset.setToolTip(t("loot_card_reset_tip"))
-        self._full.setText(bidi.plain(t("loot_card_full") + " ↗", rtl))
+        self._full.setText(bidi.plain(t("loot_card_full"), rtl))
         self._full.setToolTip(t("loot_card_full_tip"))
         self._stop.setToolTip(t("loot_card_stop_tip"))
         fold = self.folded()
         self._body.setVisible(not fold)
-        self._fold.setText(theme.SYMBOL_ICONS["add" if fold else "minimize"])
+        self._fold.setText(theme.ICON["add" if fold else "minimize"])
         for b, key in ((self._fold, "loot_card_unfold" if fold else "loot_card_fold"), (self._close, "loot_card_close")):
             b.setAccessibleName(t(key))
             b.setToolTip(t(key))
@@ -290,6 +299,18 @@ class LootOverlay(QWidget):
                     m = int(g.seconds) // 60
                     when = t("grind_hours", h=m // 60, m=f"{m % 60:02d}") if m >= 60 else t("grind_minutes", m=m)
                     goal += " · " + t("trk_goal_eta", time=when)
+        kills = ""
+        if sm is not None:
+            lg = self.scanner.log_for(self.scanner.cid())
+            counts: dict[int, int] = {}
+            for e in lg.events if lg is not None else []:
+                if e.kind == "exp":
+                    counts[e.amount] = counts.get(e.amount, 0) + 1
+            got = lootextras.kills(self.kb, counts, list(lg.maps) if lg else [], lg.level if lg else None)
+            if got:
+                kills = t("trk_kills_card", list=", ".join(bidi.ltr_block(f"{n} ×{c:,}", rtl) for _, n, c in got[:3]))
+        self._kills.setText(bidi.plain(kills, rtl))
+        self._kills.setVisible(bool(kills))
         alert, goal = alert.replace("**", ""), goal.replace("**", "")     # (plain labels: no bold marks)
         self._alert.setText(bidi.plain(alert, rtl))
         self._alert.setVisible(bool(alert))

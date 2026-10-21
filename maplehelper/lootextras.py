@@ -1,5 +1,5 @@
 """The grind tracker's helpers beyond the counts (no Qt): the next level and when it comes at this rate, potions
-running low and the nearest NPC shop that sells them, the rate over the session (for the graph), the last session on
+running low and the nearest NPC shop that sells them, the monsters killed (named by their EXP), the last session on
 the same map to compare with, and whether to sell an ETC to an NPC, to players, or keep it. Every figure is the
 KB's or the player's own logs and reads; nothing is guessed. No Qt of its own (a route comes from ui/mapview)."""
 from __future__ import annotations
@@ -7,8 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 LOW_POTIONS = 20            # a potion used this session with this many left or fewer is running low
-GRAPH_STEP_S = 60           # the rate graph: a point a minute ...
-GRAPH_WINDOW_S = 5 * 60     # ... each the rate over the last five minutes (a single pickup is no rate)
+KILL_LEVELS = 15            # a session with no map read: its level's monsters this close, by a unique EXP
 MARKET_BETTER = 1.5         # players pay this much more than an NPC (after the market's own cost): sell to players
 
 
@@ -96,39 +95,35 @@ def low_potions(kb, counts: dict[str, int], used: set[str], here_map: str | None
     return out
 
 
-# ---------------------------------------------------------------- the rate over the session
+# ---------------------------------------------------------------- the monsters killed
 
-def rate_series(kb, events, start: float, end: float) -> list[tuple[float, int, int]]:
-    """(minutes since the start, EXP per hour, net mesos per hour) a point a GRAPH_STEP_S, each over the last
-    GRAPH_WINDOW_S (or the session so far, in its first minutes). Net: mesos + what an NPC pays for the items -
-    what the potions cost."""
-    from . import lootlog
-    if end - start < GRAPH_STEP_S:
-        return []
-    price: dict[str, int] = {}
-
-    def worth(e) -> int:
-        if e.kind == "mesos":
-            return e.amount
-        if e.kind in ("item", "potion") and e.key:
-            if (e.kind, e.key) not in price:
-                p = lootlog.sell_price(kb, e.key) if e.kind == "item" else lootlog.potion_cost(kb, e.key)
-                price[(e.kind, e.key)] = p or 0
-            v = e.amount * price[(e.kind, e.key)]
-            return v if e.kind == "item" else -v
-        return 0
-    evs = sorted(events, key=lambda e: e.t)
-    out = []
-    t = start + GRAPH_STEP_S
-    while t <= end + 1:
-        lo = max(start, t - GRAPH_WINDOW_S)
-        span = t - lo
-        inside = [e for e in evs if lo < e.t <= t]
-        exp = sum(e.amount for e in inside if e.kind == "exp")
-        net = sum(worth(e) for e in inside)
-        out.append(((t - start) / 60, round(exp * 3600 / span), round(net * 3600 / span)))
-        t += GRAPH_STEP_S
-    return out
+def kills(kb, exp_counts: dict[int, int], maps: list[str], level: int | None = None) -> list[tuple[str, str, int]]:
+    """(monster key, name, kills), most first: each "You received EXP (+N)" is one kill, and N is the EXP the KB gives
+    the monster (seen live: 78 EXP x401 = Lorang, 75 x273 = Lupin; 10 x3 = Stump, 12 x2 = Slime). The monsters
+    compared are the ones that spawn on the session's maps; with no map read, the ones within KILL_LEVELS of its
+    level whose EXP no other such monster shares. An EXP no monster there gives (a quest, a party's share) is no kill."""
+    from . import gamelookup, tables
+    exp_of: dict[str, int] = {}
+    for r in tables.rows(kb, "monsters"):
+        v = r.get("exp")
+        if r.get("key") and isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+            exp_of[r["key"]] = int(v)
+    names: dict[str, str] = {}
+    by_exp: dict[int, list[str]] = {}
+    pool = [(k, n) for mid in maps for k, n, _lv, _c in gamelookup.map_monsters(kb, mid)]
+    if not pool and level:
+        pool = [(r["key"], r.get("monster") or r["key"]) for r in tables.rows(kb, "monsters")
+                if isinstance(r.get("level"), (int, float)) and abs(int(r["level"]) - level) <= KILL_LEVELS]
+    for k, n in pool:
+        if k in exp_of and k not in names:
+            names[k] = n
+            by_exp.setdefault(exp_of[k], []).append(k)
+    out: dict[str, int] = {}
+    for amount, n in exp_counts.items():
+        ks = by_exp.get(int(amount))
+        if ks and len(ks) == 1:             # two monsters there with this EXP: no telling which
+            out[ks[0]] = out.get(ks[0], 0) + n
+    return sorted(((k, names[k], n) for k, n in out.items()), key=lambda r: (-r[2], r[1]))
 
 
 # ---------------------------------------------------------------- the last time on this map

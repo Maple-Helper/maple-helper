@@ -41,26 +41,6 @@ def _text(d) -> str:
     return " | ".join(d.lines())
 
 
-def test_the_area_button_asks_the_app_to_draw_the_box(page):
-    d, _ = page
-    asked = []
-    d.area_requested.connect(lambda: asked.append(True))
-    d.pick_btn.click()
-    assert asked == [True]
-
-
-def test_the_messages_are_found_on_their_own_unless_a_box_was_drawn(page):
-    """Start needs no box; a drawn one shows "Find it on its own", which forgets it."""
-    d, s = page
-    d.refresh()
-    assert d.start_btn.isEnabled() and not d.auto_btn.isVisibleTo(d)
-    s["loot_region"] = {"x": 0, "y": 0, "w": 400, "h": 260}
-    d.refresh()
-    assert d.auto_btn.isVisibleTo(d) and d.scanner.region() is not None
-    d.auto_btn.click()
-    assert s["loot_region"] is None and d.scanner.region() is None and not d.auto_btn.isVisibleTo(d)
-
-
 def test_a_running_session_shows_its_table_and_ends_into_the_history(page):
     d, _ = page
     scan = d.scanner
@@ -70,7 +50,7 @@ def test_a_running_session_shows_its_table_and_ends_into_the_history(page):
                    lootlog.Event(3.0, "item", 2, "Leaf", "item/358")])
     scan.changed.emit()
     text = _text(d)
-    for word in ("So far", "Per hour", "EXP", "Mesos picked up", "Total income", "Spent on potions", "Net profit",
+    for word in ("So far", "Per hour (est.)", "EXP", "Mesos picked up", "Total income", "Spent on potions", "Net profit",
                  "ETC you picked up", "Leaf", "Live tracking"):
         assert word in text, word
     d.stop_btn.click()
@@ -111,9 +91,10 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
         assert any("1,234" in x for x in texts) and any("Leaf" in x for x in texts)
         assert any(x.startswith("Net") for x in texts)
         card._close.click()
-        assert not card.isVisible() and s["loot_overlay"] is False and not d.card_switch.isChecked()
+        assert not card.isVisible() and s["loot_overlay"] is False
         assert d.scanner.running(d.scanner.cid())          # hiding the window never stops the log
-        d.card_switch.setChecked(True)
+        s["loot_overlay"] = True                           # (the bar's Grind tracker button)
+        card.sync()
         assert card.isVisible()
         d.stop_btn.click()
         assert card.isVisible() and any("1,234" in x for x in card.lines())
@@ -124,7 +105,8 @@ def test_the_card_over_the_game_follows_the_log_and_its_switch(page, kb):
 
 def test_the_cards_buttons_start_stop_reset_fold_and_open_the_full_tracker(page, kb):
     """Start when no log runs; Stop and Reset while one does (Reset: the session so far saved, a new one from zero);
-    the – folds it to its title row, with what the session made in the title; "Full tracker" asks for the window."""
+    the – folds it to its title row, with what the session made in the title; "The full tracker" asks for the
+    window. Its – and ✕ are the app's own icon buttons."""
     from maplehelper.ui.lootoverlay import LootOverlay
     d, s = page
     scan = d.scanner
@@ -136,6 +118,8 @@ def test_the_cards_buttons_start_stop_reset_fold_and_open_the_full_tracker(page,
     card.full_requested.connect(lambda: full.append(True))
     try:
         assert card._start.isVisibleTo(card) and not card._stop.isVisibleTo(card)
+        assert (card._fold.objectName(), card._close.objectName()) == ("Icon", "IconClose")
+        assert card._full.text() == "The full tracker"
         card._start.click()
         assert scan.running(scan.cid()) and card._stop.isVisibleTo(card) and card._reset.isVisibleTo(card)
         scan._log.add([lootlog.Event(1.0, "mesos", 500)])

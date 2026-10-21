@@ -131,7 +131,10 @@ def parse(text: str) -> Line | None:
         name = m.group("name") if m else _EARNED.sub("", t)
         q = None
         if m:
-            q = int(m.group("n").translate(str.maketrans("lIi|", "1111")) or 0) or None
+            # the pattern ignores case, so "x1L" reads too: an "L" is a 1 as an "l" is (it crashed the reader live,
+            # 2026-10-19); anything else that isn't a digit leaves the count unread
+            digits = m.group("n").translate(str.maketrans("lLIi|", "11111"))
+            q = (int(digits) or None) if digits.isdigit() else None
         name = _QTY.sub("", name).strip(" .,:;-")
         return Line("item", name=name, qty=q, sure=bool(m and name))
     return None
@@ -472,8 +475,11 @@ def _total(evs: list[Event], out: dict) -> None:
             out[e.kind] += e.amount
 
 
+RATE_FROM_S = 5             # per hour shown from this many seconds in: live, an estimate that settles with time
+
+
 def per_hour(value: float, seconds: float) -> int | None:
-    return round(value * 3600 / seconds) if seconds >= 60 else None     # under a minute a rate means nothing
+    return round(value * 3600 / seconds) if seconds >= RATE_FROM_S else None
 
 
 def is_etc(kb, key: str) -> bool:
@@ -560,6 +566,10 @@ class Store:
     def __init__(self):
         raw = _read_json(self.path, {"active": {}, "recent": {}})
         self._active = raw.get("active") if isinstance(raw.get("active"), dict) else {}
+        # a stopped log that counted nothing (an older version kept them: "Stopped after 0 min") is no summary to show
+        for cid in [c for c, v in self._active.items() if (lg := Log.from_json(v)) is not None and lg.ended
+                    and not lg.events and not lg.base["exp"] and not lg.base["mesos"] and not lg.base["items"]]:
+            self._active.pop(cid)
         self._recent = raw.get("recent") if isinstance(raw.get("recent"), dict) else {}
         _LIVE.add(self)
 
