@@ -103,3 +103,5 @@ if __name__ == "__main__":
     ap.add_argument("--kb", type=Path, default=ROOT / "data" / "kb")
     a = ap.parse_args()
     export(a.lang, a.file, a.kb) if a.cmd == "export" else import_(a.lang, a.file)
+    import live_manifest        # the news' Hebrew comes live (docs/LIVE.md): its list follows it
+    live_manifest.write()

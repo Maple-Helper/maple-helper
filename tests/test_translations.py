@@ -217,7 +217,8 @@ def test_the_owners_curated_hebrew_beats_the_nights(tmp_path, monkeypatch):
     (assets / "quest_tasks").mkdir(parents=True)
     (assets / "quest_tasks" / "he.json").write_text(json.dumps(
         {"quest/1": {"en": "Talk to Arthur.", "he": "דברו עם Arthur."}}, ensure_ascii=False), encoding="utf-8")
-    monkeypatch.setattr(translations, "ASSETS", assets)
+    from maplehelper import live
+    monkeypatch.setattr(live, "ASSETS", assets)        # (the shipped files; live.asset reads them)
     assert translations.he(tmp_path, "quest_tasks", "quest/1", "Talk to Arthur.") == "דברו עם Arthur."
     news_dir = tmp_path / "news_tr"
     news_dir.mkdir()

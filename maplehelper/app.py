@@ -12,7 +12,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
-from . import APP_NAME, __version__, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
+from . import APP_NAME, __version__, featured, live, news, osapi, presence, providers, report, tables, telemetry, updater, whatsnew, wishlist
 from .brain import Brain
 from .i18n import I18n, system_language
 from .kb import KnowledgeBase
@@ -98,6 +98,10 @@ def _guide_seen(settings) -> bool:
 class MapleHelperApp:
     def __init__(self, qapp: QApplication):
         self.qapp = qapp
+        # the owner's live content downloaded before (live.py), before anything reads the app's own files
+        live.start(__version__)
+        from . import brain
+        brain.load_prompts()
         self.settings = Settings()
         self.profiles = Profiles()
         self.kb = load_kb()
@@ -311,6 +315,8 @@ class MapleHelperApp:
             QTimer.singleShot(0, lambda: self.overlay.toggle(self.capture))
         QTimer.singleShot(1500, self.check_permissions)
         self.announce_whats_new(fresh_install)
+        QTimer.singleShot(3000, self._toast_announcement)
+        self.overlay.opened.connect(self.show_featured_once)
         self.qapp.aboutToQuit.connect(self.shutdown)
         return True
 
@@ -430,6 +436,39 @@ class MapleHelperApp:
         dlg.raise_()
         dlg.activateWindow()
         return dlg
+
+    def show_featured_once(self):
+        """The chat came up: a featured article (featured.py) this player hasn't seen yet, once, after the first-run
+        tour and after the "what's new" window when either is showing."""
+        if not featured.due(self.settings[featured.SETTING]) or getattr(self, "_featured_waiting", False):
+            return
+        if not self.settings["tour_done"]:
+            self._featured_waiting = True
+            self.overlay.tour_ended.connect(self._featured_after_wait, Qt.SingleShotConnection)
+            return
+        news_win = self.__dict__.get("_windows", {}).get("whats_new")
+        if news_win is not None and news_win.isVisible():
+            self._featured_waiting = True
+            news_win.finished.connect(lambda *_: self._featured_after_wait(), Qt.SingleShotConnection)
+            return
+        self._featured_waiting = True
+        QTimer.singleShot(1500, self._featured_after_wait)
+
+    def _featured_after_wait(self):
+        self._featured_waiting = False
+        m = featured.due(self.settings[featured.SETTING])
+        if m is None:
+            return
+        if self.__dict__.get("_windows", {}).get("whats_new") is not None:
+            if self._windows["whats_new"].isVisible():      # opened meanwhile (back from an update)
+                return self.show_featured_once()
+        featured.mark_seen(self.settings, m["id"])
+        telemetry.track("featured_shown", article=m["id"])
+        self.show_featured(m)
+
+    def show_featured(self, m: dict):
+        from .ui.featuredview import FeaturedDialog
+        return self.open_window("featured", lambda: FeaturedDialog(m, self.settings["language"], self.style()))
 
     def show_whats_new(self, notes: list[dict] | None = None):
         self.open_window("whats_new", lambda: WhatsNewDialog(
@@ -920,6 +959,14 @@ class MapleHelperApp:
         self._kb_interactive = interactive
 
         def work():
+            # the owner's live content first (a switch in it can stop the KB update below)
+            try:
+                changed = live.sync(__version__)
+            except Exception:              # noqa: BLE001 - never stops the KB check
+                report.log.exception("live content check failed")
+                changed = None
+            if changed:
+                self.main_thread.call.emit(lambda: self._live_changed(changed))
             before = updater.local_version()
             try:
                 status = updater.fetch_kb(self._stop_ai_for_kb_swap)
@@ -932,6 +979,34 @@ class MapleHelperApp:
                 report.log.info("knowledge base updated to %s", updater.local_version())
             self.main_thread.call.emit(lambda: self._kb_update_done(status, before, shown))
         threading.Thread(target=work, daemon=True).start()
+
+    def _live_changed(self, changed: set[str]) -> None:
+        """New live content came in (live.py): what reads it once reads it again; the rest reads it at its next use."""
+        if any(r.startswith("ai/") or r == "official/facts.json" for r in changed):
+            from . import brain
+            brain.load_prompts()
+            if not self.overlay._is_busy():
+                self.brain.drop_warm()      # the warm AI process was started with the old instructions
+                threading.Thread(target=self.brain.prewarm, daemon=True).start()
+        if live.CONFIG in changed:
+            self.overlay.apply_language()       # a fixed text ("strings")
+            self.overlay.show_announcements()
+            toolbar = getattr(self, "game_toolbar", None)
+            if toolbar is not None:
+                toolbar.refresh()               # its switch
+            self._toast_announcement()
+            if live.outdated(__version__):
+                self.check_app_update_silently()
+
+    def _toast_announcement(self) -> None:
+        """An announcement the owner marked "toast": a notification too, once, even with the chat closed."""
+        done = [x for x in (self.settings["live_toasted"] or []) if isinstance(x, str)]
+        for a in self.overlay.announcements():
+            if a["toast"] and a["id"] not in done:
+                self.settings["live_toasted"] = (done + [a["id"]])[-200:]
+                self.toast(a["title"] or APP_NAME, a["text"], timeout_ms=15000, on_click=self.show_chat)
+                telemetry.track("announcement_toasted", id=a["id"])
+                return
 
     def _kb_update_done(self, status: str, before: str, interactive: bool):
         t = I18n(self.settings["language"])
@@ -1148,7 +1223,7 @@ class MapleHelperApp:
 
         def make():
             unread = [i["id"] for i in news.unread(self.kb, self.settings[news.SETTING])]
-            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread)
+            dlg = news_dialog(self.settings["language"], self.style(), self.kb, unread, self.show_featured)
             dlg.news_seen.connect(self._news_seen)
             return dlg
         return self.open_window("news", make)

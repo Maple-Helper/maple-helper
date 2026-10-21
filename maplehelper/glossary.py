@@ -11,8 +11,7 @@ import json
 import re
 from functools import lru_cache
 
-from . import bidi
-from .store import ASSETS
+from . import bidi, live
 
 GLOSSARY = "maplestory-classic-glossary"
 
@@ -97,15 +96,16 @@ def _clean(term: str) -> str:
     return re.sub(r"\*\*|\s*\(.*?\)", "", term).strip()
 
 
-@lru_cache(maxsize=2)
-def _book(lang: str) -> dict[str, str]:
-    """Glossary entry name -> definition, in one language (English when there's no translation)."""
+@lru_cache(maxsize=4)
+def _book(lang: str, _gen: int = 0) -> dict[str, str]:
+    """Glossary entry name -> definition, in one language (English when there's no translation). _gen: live.py's
+    generation, so a live fix to the glossary is read again."""
     out = {}
     try:
-        en = json.loads((ASSETS / "guides" / "en" / f"{GLOSSARY}.json").read_text(encoding="utf-8"))
+        en = json.loads(live.asset(f"guides/en/{GLOSSARY}.json").read_text(encoding="utf-8"))
         local = en
         if lang != "en":
-            local = json.loads((ASSETS / "guides" / lang / f"{GLOSSARY}.json").read_text(encoding="utf-8"))
+            local = json.loads(live.asset(f"guides/{lang}/{GLOSSARY}.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return out
     same = len(local.get("blocks", [])) == len(en.get("blocks", []))
@@ -130,7 +130,7 @@ def explain(term: str, lang: str) -> str | None:
     if entry in APP:
         he, en = APP[entry]
         return en if lang == "en" else he
-    book = _book(lang)
+    book = _book(lang, live.generation())
     text = book.get(entry) or book.get(term)
     return re.sub(r"\*\*", "", text) if text else None
 

@@ -38,6 +38,17 @@ STRINGS = {
     "server_maint_ended": {"he": "התחזוקה הסתיימה: שרתי המשחק פעילים שוב.", "en": "Maintenance is over: the game servers are up again."},
     "server_notice_open": {"he": "ההודעה של Nexon", "en": "Nexon's notice"},
 
+    # the owner's announcements and switches (live.py, ui/announce.py), changed with no app release
+    "live_more": {"he": "ועוד {n} הודעות", "en": "{n} more"},
+    "live_more_one": {"he": "ועוד הודעה אחת", "en": "1 more"},
+    "live_link": {"he": "לפרטים", "en": "Learn more"},
+    "live_dismiss": {"he": "סגירת ההודעה", "en": "Close this message"},
+    "live_outdated": {"he": "הגרסה הזאת ({version}) כבר לא נתמכת. עדכנו את Maple Helper כדי שהכול ימשיך לעבוד.",
+                      "en": "This version ({version}) is no longer supported. Update Maple Helper to keep everything working."},
+    "live_outdated_link": {"he": "להורדת הגרסה החדשה", "en": "Download the new version"},
+    "err_live_off": {"he": "ה-AI הזה כבוי זמנית מצדנו בגלל תקלה. אפשר לבחור AI אחר בהגדרות, או לנסות שוב מאוחר יותר.",
+                     "en": "We've turned this AI off for now because of a problem. Pick another AI in Settings, or try again later."},
+
     # MapleStory Classic news (news.py: the chat's news strip, the News tab of the patch notes window)
     "news_title": {"he": "חדשות MapleStory Classic", "en": "MapleStory Classic news"},
     "news_btn": {"he": "חדשות", "en": "News"},
@@ -61,6 +72,13 @@ STRINGS = {
     "news_english_summary": {"he": "התקציר באנגלית (עוד לא תורגם):", "en": "Summary in English:"},
     "news_read_full": {"he": "לקריאת הכתבה", "en": "Read the article"},
     "news_back": {"he": "→ חזרה לחדשות", "en": "← Back to the news"},
+    "featured_pdf": {"he": "שמירת קובץ PDF", "en": "Save as PDF"},
+    "featured_pdf_saving": {"he": "שומרים…", "en": "Saving…"},
+    "featured_pdf_saved": {"he": "נשמר", "en": "Saved"},
+    "featured_pdf_failed": {"he": "השמירה לא הצליחה", "en": "Couldn't save the file"},
+    "featured_in_en": {"he": "המקור באנגלית", "en": "English original"},
+    "featured_in_he": {"he": "בעברית", "en": "In Hebrew"},
+    "featured_source": {"he": "באתר של {who}", "en": "On {who}'s site"},
     "news_key_points": {"he": "העיקר", "en": "Key points"},
     "news_english_body": {"he": "הכתבה עוד לא תורגמה, אז היא באנגלית:", "en": "Not translated yet:"},
     "news_meowdb_note": {"he": "הערת NiaMeowDB", "en": "NiaMeowDB's note"},
@@ -2197,6 +2215,25 @@ def system_language() -> str:
     return "he" if first in ("he", "iw") else "en"
 
 
+_FIELD = re.compile(r"\{(\w*)\}")
+
+
+def _fixed(key: str, lang: str, s: str) -> str:
+    """The owner's live fix for a text (live.py, "strings" in assets/live/config.json), when it has the very same
+    {placeholders} as the shipped one: a fix that drops or renames one would fail at .format, or say less."""
+    if key not in STRINGS:
+        return s
+    from . import live
+    fix = live.string(key, lang)
+    if fix is None or sorted(_FIELD.findall(fix)) != sorted(_FIELD.findall(s)):
+        return s
+    try:
+        fix.format(**{f: "" for f in _FIELD.findall(fix)})
+    except (ValueError, IndexError, KeyError):
+        return s
+    return fix
+
+
 class I18n:
     mac = sys.platform == "darwin"
 
@@ -2213,6 +2250,7 @@ class I18n:
         if self.mac and _key in MAC_VARIANTS:
             _key = f"{_key}_mac"
         s = STRINGS.get(_key, {}).get(self.lang) or STRINGS.get(_key, {}).get("en") or _key
+        s = _fixed(_key, self.lang, s)
         if self.lang == "he":
             s = keep_names_whole(s)
             # a short name that comes in through a placeholder ("Red Snail") is kept whole too; only a value that

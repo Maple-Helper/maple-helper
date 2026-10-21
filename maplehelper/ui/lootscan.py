@@ -23,7 +23,7 @@ import time
 import numpy as np
 from PySide6.QtCore import QObject, QTimer, Signal
 
-from .. import capture, lootdb, lootlog, osapi, quickslot
+from .. import capture, live, lootdb, lootlog, osapi, quickslot
 from ..kb import KnowledgeBase
 from ..store import Profiles, Settings
 from .location import LOCATION
@@ -297,7 +297,7 @@ class LootScanner(QObject):
             if self._reading:
                 return          # the last read is still going: skip this tick, don't pile up
             self._reading = True
-        quick = now - self._quick_at >= QUICK_INTERVAL
+        quick = now - self._quick_at >= QUICK_INTERVAL and live.enabled("quickslot")     # (the owner's switch)
         if quick:
             self._quick_at = now
         bar = now - self._hud_at >= HUD_INTERVAL

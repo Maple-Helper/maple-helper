@@ -1,27 +1,41 @@
 """Official game facts (assets/official/facts.json), stated by the app's owner.
 
 They outrank the knowledge base and every other source: the AI is told so, and code that holds the same value
-(jobs.JOBS) is checked against them in tests/test_official.py.
+(jobs.JOBS) is checked against them in tests/test_official.py. The owner changes them with no app release: the file
+comes live (live.py), and a live copy that doesn't read falls back to the shipped one.
 """
 from __future__ import annotations
 
 import json
 import logging
-from functools import lru_cache
 
-from .store import ASSETS
+from . import live
 
 log = logging.getLogger(__name__)
-PATH = ASSETS / "official" / "facts.json"
+REL = "official/facts.json"
+PATH = live.bundled(REL)
+_cache: tuple[int, tuple[dict, ...]] | None = None
 
 
-@lru_cache(maxsize=1)
-def facts() -> tuple[dict, ...]:
+def _read(path) -> tuple[dict, ...] | None:
     try:
-        return tuple(json.loads(PATH.read_text(encoding="utf-8")).get("facts", []))
-    except (OSError, ValueError) as e:
-        log.warning("official facts unreadable: %s", e)
-        return ()
+        rows = json.loads(path.read_text(encoding="utf-8")).get("facts", [])
+    except (OSError, ValueError, AttributeError) as e:
+        log.warning("official facts unreadable (%s): %s", path, e)
+        return None
+    return tuple(f for f in rows if isinstance(f, dict)) if isinstance(rows, list) else None
+
+
+def facts() -> tuple[dict, ...]:
+    global _cache
+    if _cache and _cache[0] == live.generation():
+        return _cache[1]
+    got = _read(live.asset(REL))
+    if got is None:
+        got = _read(PATH) or ()
+    _cache = (live.generation(), got)
+    return got
+
 
 
 def prompt_note() -> str:

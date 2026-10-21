@@ -8,6 +8,10 @@ Everything runs in GitHub Actions. You decide *when*; CI does the rest.
 | **Release** (`release.yml`) | pushing a tag `vX.Y.Z` | the same checks with the real knowledge base bundled (both builds run alongside the tests), then, once everything passed, publishes the GitHub Release with the Windows installer + portable zip and the macOS DMG (both platforms or nothing). Installed Windows apps update themselves to it; Mac apps show a download notice. |
 | **Update knowledge base** (`kb-update.yml`) | nightly (changed pages), full refresh on Sundays, or the *Run workflow* button | scrapes NiaMeowDB politely, **validates**, and replaces `kb.zip` + `kb-manifest.json` on the latest release when content changed. |
 
+Not everything needs a release: announcements, feature switches, the lowest supported version, UI text fixes,
+the official facts, the AI's instructions and the curated Hebrew reach every app within ~20 minutes of a merge to
+`main`. See [LIVE.md](LIVE.md).
+
 ## Cut a release
 
 If the release changes how Claude answers (prompts, `brain.py`, the model), run the Claude answer evals on your

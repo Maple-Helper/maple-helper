@@ -72,7 +72,8 @@ def payload(settings, version: str, run_id: str, now: datetime) -> tuple[dict, d
 def ping(now: datetime | None = None) -> bool:
     """Post one ping; True when PostHog took it. Never raises (telemetry._post swallows every error)."""
     settings = _state["settings"]
-    if not _state["enabled"] or settings is None:
+    from . import live
+    if not _state["enabled"] or settings is None or not live.enabled("telemetry"):
         return False
     event, sent = payload(settings, _state["version"], _state["run_id"], now or datetime.now(timezone.utc))
     if not telemetry._post([event], key=telemetry._key()):

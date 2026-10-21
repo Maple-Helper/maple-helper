@@ -2,11 +2,9 @@
 what they pay. Done quests are kept per character (Character.quests_done)."""
 from __future__ import annotations
 
-import json
 import re
 from dataclasses import dataclass, field
 from functools import lru_cache
-from pathlib import Path
 
 from . import availability
 
@@ -269,26 +267,17 @@ def expire_cycles(kb, c, now: float | None = None) -> bool:
     return changed
 
 
-_TASKS_HE: dict | None = None
-
-
 def task_text(q: Quest, lang: str, kb=None) -> str:
     """What to do, in the player's language: the Hebrew of assets/quest_tasks/he.json while its English is still
     the page's (a changed journal line falls back to the English until it is translated again)."""
-    global _TASKS_HE
     if lang != "he" or not q.task:
         return q.task
     from . import translations
     made = translations.he(getattr(kb, "root", None), "quest_tasks", q.key, q.task)
     if made:
         return made
-    if _TASKS_HE is None:
-        path = Path(__file__).resolve().parent.parent / "assets" / "quest_tasks" / "he.json"
-        try:
-            _TASKS_HE = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            _TASKS_HE = {}
-    row = _TASKS_HE.get(q.key) or {}
+    from . import live
+    row = translations._load(live.asset("quest_tasks/he.json")).get(q.key) or {}
     return row.get("he") if row.get("en") == q.task and row.get("he") else q.task
 
 

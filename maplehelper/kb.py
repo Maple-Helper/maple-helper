@@ -536,7 +536,9 @@ class KnowledgeBase:
             elif isinstance(x, list):
                 for v in x:
                     walk(v)
-        for p in [*(ASSETS / "guides" / "he").glob("*.json"), ASSETS / "news" / "he.json"]:
+        from . import live
+        for p in [*(live.asset(f"guides/he/{p.name}") for p in (ASSETS / "guides" / "he").glob("*.json")),
+                  live.asset("news/he.json")]:
             try:
                 walk(json.loads(p.read_text(encoding="utf-8")))
             except (OSError, ValueError):

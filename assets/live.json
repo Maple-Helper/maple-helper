@@ -1,0 +1,565 @@
+{
+ "files": {
+  "ai/reply_rules.md": {
+   "contract": 1,
+   "sha256": "847861a9847ee26c4d6abae6678a6d3d6dbe9437428f0a03189ca09633a00aaa"
+  },
+  "ai/rules.json": {
+   "contract": 1,
+   "sha256": "5f4763e55a4a1eddab2b47ab8fa0c4fdbae7d7dc292842f33e2d9f733f59c27f"
+  },
+  "ai/system.md": {
+   "contract": 1,
+   "sha256": "d4ce84ff104f4244a4a03026a8c64746de3c7e9cef15b37cd47446b02c908fe4"
+  },
+  "cashshop/he.json": {
+   "contract": 1,
+   "sha256": "465a7c8eb455e4d19c740c7092d9393fe557e3893101cb3301b92c1b05ffa3b2"
+  },
+  "featured/nexon-46506/anim/beautyalbum.webp": {
+   "contract": 1,
+   "sha256": "b197207b24177aafe73e3e0e2cd1214a14471ce6594c4d893d5dc8c9d1c80a29"
+  },
+  "featured/nexon-46506/anim/housing.webp": {
+   "contract": 1,
+   "sha256": "198018b2f500134fd8253bfff4cc885076884fa99a615a6d648967d53aaec2d5"
+  },
+  "featured/nexon-46506/anim/kpq1.webp": {
+   "contract": 1,
+   "sha256": "421be248f8f3061d5ffba3c4999cf490c6d46fdc23e676464172ce6e8c919c9d"
+  },
+  "featured/nexon-46506/anim/kpq2.webp": {
+   "contract": 1,
+   "sha256": "4a64989e674257f40001b3279633b40fd4039e533a967193a15b3bf53609a6dc"
+  },
+  "featured/nexon-46506/anim/up-and-up.webp": {
+   "contract": 1,
+   "sha256": "a1dd0061ae64b37db264b75f37c52fbdb66e0219332c6df0ae0f86baf661ef80"
+  },
+  "featured/nexon-46506/en/tile00.webp": {
+   "contract": 1,
+   "sha256": "89b4fbab326a63d2031d8409a0efbecfe95313d3bd35c71a3c2c815d84a93e89"
+  },
+  "featured/nexon-46506/en/tile01.webp": {
+   "contract": 1,
+   "sha256": "29bbc9999dfe321fe2f606c3217a7c8fa713acbc50cb46d886bd92c87f131638"
+  },
+  "featured/nexon-46506/en/tile02.webp": {
+   "contract": 1,
+   "sha256": "2f43cdcbce41de56dd6dd636c64829f083a9d30262f6eda994f1b41bc660f63d"
+  },
+  "featured/nexon-46506/en/tile03.webp": {
+   "contract": 1,
+   "sha256": "ff1580b2e0756bd0c2f8ee9d5993a2be2809ece11f9fbfa3e488ac00a18058f0"
+  },
+  "featured/nexon-46506/en/tile04.webp": {
+   "contract": 1,
+   "sha256": "73e70688ce374d5f71339ee7c2751ff2b0bf5e97c1e4f79a2d21e13230ab1627"
+  },
+  "featured/nexon-46506/en/tile05.webp": {
+   "contract": 1,
+   "sha256": "20dfd3f1ce7d50fad7a590ebbf9992598ba1bcbbebc0347e69284c0f0d219d89"
+  },
+  "featured/nexon-46506/en/tile06.webp": {
+   "contract": 1,
+   "sha256": "eeb13fdff3a87072362a10044a41bf56a5788e0d834661147484ffe74f8f0189"
+  },
+  "featured/nexon-46506/en/tile07.webp": {
+   "contract": 1,
+   "sha256": "01ccd4a2d6585c7354f3acbf4ff50a467fe7cffd6b961490e7fcf4989a1ef28f"
+  },
+  "featured/nexon-46506/en/tile08.webp": {
+   "contract": 1,
+   "sha256": "d2de2355daa9ce3e9888f576d191b365ab3efa9e1fdbad6beeebd5cb199b5943"
+  },
+  "featured/nexon-46506/en/tile09.webp": {
+   "contract": 1,
+   "sha256": "232c502f4ec63279ed13ebb7ad589e2b31587f75bc859ba53eff37acc7e8087f"
+  },
+  "featured/nexon-46506/en/tile10.webp": {
+   "contract": 1,
+   "sha256": "1479dfa493f028f611c73e8b257426e5ec95366f0e5814ea0a3a0516c74038fd"
+  },
+  "featured/nexon-46506/en/tile11.webp": {
+   "contract": 1,
+   "sha256": "a91141e57434ba76965323f2c6c8ffe6840fefb1ea5cd84409d4f0c6d13a8072"
+  },
+  "featured/nexon-46506/en/tile12.webp": {
+   "contract": 1,
+   "sha256": "d0ac9c11d94c874c55287c710fffcc84188f94587943a80b5f831405e880469b"
+  },
+  "featured/nexon-46506/en/tile13.webp": {
+   "contract": 1,
+   "sha256": "57fcfa74889b729d2aa641323b5a0f612279ca311d24ae6dd0254740f57e3e4d"
+  },
+  "featured/nexon-46506/en/tile14.webp": {
+   "contract": 1,
+   "sha256": "2f9ae506dd17daae428c995d8e5402f6805920be917c1dac872134024e49a4b0"
+  },
+  "featured/nexon-46506/en/tile15.webp": {
+   "contract": 1,
+   "sha256": "e3ae84d3a89dd98acdb36eca4d0a8b04cee8cb93227f1f5469bb4b047c1d85ca"
+  },
+  "featured/nexon-46506/en/tile16.webp": {
+   "contract": 1,
+   "sha256": "ccd31531ca8ceaf94c9ec97e36dc55cae51476f21618b63eb0b0c6e91d24a8d1"
+  },
+  "featured/nexon-46506/en/tile17.webp": {
+   "contract": 1,
+   "sha256": "ab29ef667c2c2c9a8186ddab820bd1cb1705e49a669e19f9e073680f527e9a23"
+  },
+  "featured/nexon-46506/en/tile18.webp": {
+   "contract": 1,
+   "sha256": "ccca1429f3b13408ffc0cfb0e040af2558a13aaaee0ab4078b40c2507bc3be11"
+  },
+  "featured/nexon-46506/en/tile19.webp": {
+   "contract": 1,
+   "sha256": "b29517fd7db6c7c1f187ffd785ccab17998340d50ee4622c73caef47e6c415a4"
+  },
+  "featured/nexon-46506/en/tile20.webp": {
+   "contract": 1,
+   "sha256": "ec309a5904dd5abc3c9ec369f911db1817d0dd2a84be6d52b6be955943711322"
+  },
+  "featured/nexon-46506/en/tile21.webp": {
+   "contract": 1,
+   "sha256": "f2fc4274e9150971242590ade75eb4f091cabb14ccb50b86fdcc520f44493b48"
+  },
+  "featured/nexon-46506/en/tile22.webp": {
+   "contract": 1,
+   "sha256": "688d2e503a117a56755fa968df00eabdf7206a1970f99bba48ed56cfeee7ac99"
+  },
+  "featured/nexon-46506/en/tile23.webp": {
+   "contract": 1,
+   "sha256": "89099f9fac8fdbc9c375e9e09a6238f23ca20fb5fbccd187f50a4186b4d27560"
+  },
+  "featured/nexon-46506/en/tile24.webp": {
+   "contract": 1,
+   "sha256": "d358bf23dcea3d1cdfd2302013fe079a1c92fce770d7071f0b69dfb2303f2cb8"
+  },
+  "featured/nexon-46506/en/tile25.webp": {
+   "contract": 1,
+   "sha256": "aa78a53503d25867b31953260d37bec6c448923ec5267a2719ee328bbb59263c"
+  },
+  "featured/nexon-46506/en/tile26.webp": {
+   "contract": 1,
+   "sha256": "483cacba96aa48eef81add496634cd306a8d6b25a69bcb30640d2c4fca0df6bc"
+  },
+  "featured/nexon-46506/en/tile27.webp": {
+   "contract": 1,
+   "sha256": "7e054ddbd53504046911d08d96a4a06136eb7db4d0538000284b08ed88f0c2e3"
+  },
+  "featured/nexon-46506/en/tile28.webp": {
+   "contract": 1,
+   "sha256": "218febe76cdb8d0c3e32415f8d8bf48008a4bbad2a7fb7a60c0820fbc9566b04"
+  },
+  "featured/nexon-46506/en/tile29.webp": {
+   "contract": 1,
+   "sha256": "d79cd2f1a1d0e24ed86c15da88542a21a418832a80d0dd01e799a0cc9e5c0d2d"
+  },
+  "featured/nexon-46506/he/tile00.webp": {
+   "contract": 1,
+   "sha256": "52fd4422569c122a255b10fb28fd602b66d9b64bc15aa172eb04425dfe0c45e7"
+  },
+  "featured/nexon-46506/he/tile01.webp": {
+   "contract": 1,
+   "sha256": "98965e4d1d3709f13234c7b1f551f65aba0e8799e984bfbb4704523117581fa9"
+  },
+  "featured/nexon-46506/he/tile02.webp": {
+   "contract": 1,
+   "sha256": "be1df79cdd93086d53472d862e8eb29630ffc9fa46fe7bf750c33c4e164fca1e"
+  },
+  "featured/nexon-46506/he/tile03.webp": {
+   "contract": 1,
+   "sha256": "57bad9394d666c6cda8923553be011f3d023d9d84dc4bb6f770f87eead2f1c38"
+  },
+  "featured/nexon-46506/he/tile04.webp": {
+   "contract": 1,
+   "sha256": "aad0704f370930c39138b81ebb00b30f4a5135cff0b5e7fe989b313933e2627e"
+  },
+  "featured/nexon-46506/he/tile05.webp": {
+   "contract": 1,
+   "sha256": "3cb744f243af9775302e64c9bc3fd3f7f9551ae436b1ae893b83681b0e353c3f"
+  },
+  "featured/nexon-46506/he/tile06.webp": {
+   "contract": 1,
+   "sha256": "c474d2422ee6142c927af50b6e1dc6c1303efe661a5f650378692fc4faa1fbef"
+  },
+  "featured/nexon-46506/he/tile07.webp": {
+   "contract": 1,
+   "sha256": "a243ee3a205d86eb8c109e18e4c5f053a4d18613dfe912334268f0eab833a0dc"
+  },
+  "featured/nexon-46506/he/tile08.webp": {
+   "contract": 1,
+   "sha256": "adf65c813eaee99a34484f7cf7a8b6b35efbd56ee125fc63fcb50385d2cf9a1f"
+  },
+  "featured/nexon-46506/he/tile09.webp": {
+   "contract": 1,
+   "sha256": "410a53ded51d2d9aa28e75c4e167b2d147683051938082ad377274fd15ba5054"
+  },
+  "featured/nexon-46506/he/tile10.webp": {
+   "contract": 1,
+   "sha256": "2ea30bfb8a074e48bce2a6c68cda305393b8d168bad893b88ef1ccb12a2a7e04"
+  },
+  "featured/nexon-46506/he/tile11.webp": {
+   "contract": 1,
+   "sha256": "f2718a23320eba3e64326556047b3a02c3f36fd2f65f975e0e9e4a8d3a779598"
+  },
+  "featured/nexon-46506/he/tile12.webp": {
+   "contract": 1,
+   "sha256": "9e0769f9ffa2ac826d4a0751ae076e94500fce462df64d2272b8f2e9ab5255bf"
+  },
+  "featured/nexon-46506/he/tile13.webp": {
+   "contract": 1,
+   "sha256": "4092c8a4cc8b73ea5c5de62bae8dc44b130a6455494096d8e88fe6a67387206b"
+  },
+  "featured/nexon-46506/he/tile14.webp": {
+   "contract": 1,
+   "sha256": "d386624f89ef0af712d4d86cb4f18835712d0abc235d424cbb2911baf437aa1a"
+  },
+  "featured/nexon-46506/he/tile15.webp": {
+   "contract": 1,
+   "sha256": "8ed574a8b3c5afacfd5e4b74b7fe7c0d99a63ba4cd36615f46a8fc3cbe54137a"
+  },
+  "featured/nexon-46506/he/tile16.webp": {
+   "contract": 1,
+   "sha256": "4804cc4d385610b53027cab91ca33c5178bf81f24e02e164f22a8740b02232f9"
+  },
+  "featured/nexon-46506/he/tile17.webp": {
+   "contract": 1,
+   "sha256": "9895ba66b084a967170e2a61343b057db58eb94d55358b7feb6709be45ca67ad"
+  },
+  "featured/nexon-46506/he/tile18.webp": {
+   "contract": 1,
+   "sha256": "7e665851c1a437d61ccfe52f024905626b3949c3dc9499a7d273b55293f64659"
+  },
+  "featured/nexon-46506/he/tile19.webp": {
+   "contract": 1,
+   "sha256": "927b4601bd946fe1f07e8c97e756db5a921146abcfccb3e4da3eae43454334f6"
+  },
+  "featured/nexon-46506/he/tile20.webp": {
+   "contract": 1,
+   "sha256": "5809f04883e7d44e92fc516feb64580273aeb153ff7f6330faf7d3ef09cf8ccc"
+  },
+  "featured/nexon-46506/he/tile21.webp": {
+   "contract": 1,
+   "sha256": "4da32b23627e2e64896194bf146f2c15d4418f813521fcf7852c4e1935dc666e"
+  },
+  "featured/nexon-46506/he/tile22.webp": {
+   "contract": 1,
+   "sha256": "545e4a0922c45c96755e6668b01c4e589dbe5ebf047642c5303fabb6032eb315"
+  },
+  "featured/nexon-46506/he/tile23.webp": {
+   "contract": 1,
+   "sha256": "ad39f5ee71c108efdc9e82fb2e22e8789e5f31a229905288a85385d3ab4271d1"
+  },
+  "featured/nexon-46506/he/tile24.webp": {
+   "contract": 1,
+   "sha256": "deff6a722c356ce6ab9d9749980d904600d7789db15278f1567b71284b1319e2"
+  },
+  "featured/nexon-46506/he/tile25.webp": {
+   "contract": 1,
+   "sha256": "d64c4095cf8039a6f9c482dd4df5b1e965a0d4c6d5deeccde50a2fb390407fb8"
+  },
+  "featured/nexon-46506/he/tile26.webp": {
+   "contract": 1,
+   "sha256": "cb21140924c5227ed098850d4bec9c4927526541e5d5a16ab9216d66d6658435"
+  },
+  "featured/nexon-46506/he/tile27.webp": {
+   "contract": 1,
+   "sha256": "d637a4dab0147d75c6484ecdf60e96696b948cc71ff245fb9cc8cee45c454b36"
+  },
+  "featured/nexon-46506/manifest.json": {
+   "contract": 1,
+   "sha256": "a2bed64f7f32acb3dc90e9829d48cac82a648bbe521f65f29127b0d3695762c8"
+  },
+  "guides/en/assassin-class-guide.json": {
+   "contract": 1,
+   "sha256": "002caa4418ed2c20bcc230df30934186dd886b6b1413f12cfa90ae8c5ffc4a8d"
+  },
+  "guides/en/attack-speed-and-animation-times.json": {
+   "contract": 1,
+   "sha256": "2a099b6d74e73e0900a4aceb59a87a66237d43f8d6d39ade37bf79b22f0caafd"
+  },
+  "guides/en/attacks-you-can-use-mid-jump.json": {
+   "contract": 1,
+   "sha256": "814f29cbbbe734817ddbb9474dc298040429c2b450cd2b08105e587e21ca8b75"
+  },
+  "guides/en/bandit-class-guide.json": {
+   "contract": 1,
+   "sha256": "4b8332f53fee3a09b5cdc37bb9062aca91db33ca1807eae153cd9282b5c34b85"
+  },
+  "guides/en/beginners-guide-first-steps-in-maple-world.json": {
+   "contract": 1,
+   "sha256": "71e89a8498af317558476b635003be4cd97e5f6c180e539be5f9255240822929"
+  },
+  "guides/en/best-grind-maps-every-level.json": {
+   "contract": 1,
+   "sha256": "ff3def62b4bf9d7908f6bb7dc5c9aa4be95ad3d3829f7db391993f76a390a149"
+  },
+  "guides/en/bowman-class-guide.json": {
+   "contract": 1,
+   "sha256": "531a169c4e1b2307594588a04371e613e52444d364f748faac5b1cfe7626d5f5"
+  },
+  "guides/en/class-dps-rankings.json": {
+   "contract": 1,
+   "sha256": "96d03f57852366d923726803fcad0fb9e09ccf04434c2c4dcf0f393465f74f13"
+  },
+  "guides/en/cleric-class-guide.json": {
+   "contract": 1,
+   "sha256": "d75878c827a85450dcb69b0fb589fafa125de10e077c0ece28d2820835fb1cbf"
+  },
+  "guides/en/controls-and-settings.json": {
+   "contract": 1,
+   "sha256": "a0679a82f1b0e816a66dce65e81af3c9618c5ab357ef3414c0bb49ba255de167"
+  },
+  "guides/en/crossbowman-class-guide.json": {
+   "contract": 1,
+   "sha256": "42d9924d84b2e872d3b13e000b578ec85c912d0c55bd6f1971bd7524bc2b714f"
+  },
+  "guides/en/exp-table-level-1-to-100.json": {
+   "contract": 1,
+   "sha256": "16671bca3f7fcb03c74d9273475d66cc6ee18a51ecb45529e32b7411ccc8aa57"
+  },
+  "guides/en/explaining-the-damage-formula.json": {
+   "contract": 1,
+   "sha256": "a7b781693cf87c0092bf324466bfac9761f5cf540343b6f28417b0008abcf386"
+  },
+  "guides/en/fighter-class-guide.json": {
+   "contract": 1,
+   "sha256": "e5869913ed2064967fb43a17e4e0a27dc96cd4a467b1174bdb570dc6b5556659"
+  },
+  "guides/en/forgotten-hollow-the-new-endgame-area.json": {
+   "contract": 1,
+   "sha256": "89918b60b8f6d76df9ae415031628969a46e3c45c73aa5f1da82af9cdc371a0d"
+  },
+  "guides/en/founders-package-outfits.json": {
+   "contract": 1,
+   "sha256": "6596f634c6a22805344f421bbc05414f41d25aa4f930ca4e63d70d5739806fed"
+  },
+  "guides/en/fp-wizard-class-guide.json": {
+   "contract": 1,
+   "sha256": "1f31e8eafb23ca4676762d0e7f77884360ec16735e843ab8aa7ca83889cfa319"
+  },
+  "guides/en/hp-mp-gain-explained.json": {
+   "contract": 1,
+   "sha256": "e99727fd5c85bb1fff5a284724e3605404c4b02f0a60afe68af30239e0e99ea9"
+  },
+  "guides/en/hunter-class-guide.json": {
+   "contract": 1,
+   "sha256": "a2af5206139ae1fc67e31b1e5acdc08257d0c849e934e36977f620aa09691ef7"
+  },
+  "guides/en/il-wizard-class-guide.json": {
+   "contract": 1,
+   "sha256": "f103f9da2a87a5a99fc87ac2b25d3510c857d99ed043aca3d6b0ecc9b23da005"
+  },
+  "guides/en/kerning-city-party-quest-kpq-guide.json": {
+   "contract": 1,
+   "sha256": "5ddacfdc0bbcff2b6297f913876e94d28d7b1270873c434425a7976538e37dc4"
+  },
+  "guides/en/magician-class-guide.json": {
+   "contract": 1,
+   "sha256": "61febb3d60d739890e864721a8e4aff80b681b2ec1e70d2ab909b9084d748e2a"
+  },
+  "guides/en/maplestory-classic-glossary.json": {
+   "contract": 1,
+   "sha256": "56e43863cbffcb0c5e28caf059a4151188f358ea2fb94e3a5559cc32f5dbf46b"
+  },
+  "guides/en/maplestory-classic-worlds-release-date.json": {
+   "contract": 1,
+   "sha256": "a5fce070a9cfb98499e16254cf7171aa1e37c2d194c114a90f331d3981cc4607"
+  },
+  "guides/en/page-class-guide.json": {
+   "contract": 1,
+   "sha256": "6a344c9333767a7e661dd9776158cd02b8867a342bfb739967ab967bf34bc096"
+  },
+  "guides/en/spawn-engine-respawn-and-map-capacity.json": {
+   "contract": 1,
+   "sha256": "f1c1f28df260db47da53582f903f399008ace4d36de7c10b55d48d1342199e70"
+  },
+  "guides/en/spearman-class-guide.json": {
+   "contract": 1,
+   "sha256": "58e56a27c68221d0056a66be15e4a03f43104fc1341dc77ce0810e41ad87fa24"
+  },
+  "guides/en/speed-jump-and-movement.json": {
+   "contract": 1,
+   "sha256": "c8ae84f13dc75f341a9a4c85d06dbfa71e26805330d50f075a8b6818367e096f"
+  },
+  "guides/en/thief-class-guide.json": {
+   "contract": 1,
+   "sha256": "277cd0f75d4ed55da9846578d41d4003c2d1704939657afc70b5dd98ea54a673"
+  },
+  "guides/en/warrior-class-guide.json": {
+   "contract": 1,
+   "sha256": "86565869e78ee4bb0b8b52e2b975dbf82040d9b2aac82951b4451128a824347c"
+  },
+  "guides/en/weapon-reach.json": {
+   "contract": 1,
+   "sha256": "a5e9e876eeb5796c652358c2e6a42f6a47d683d974402fa1bab7b345ee9af6ee"
+  },
+  "guides/en/what-is-maplestory-classic-worlds.json": {
+   "contract": 1,
+   "sha256": "902286efc487935c455db57c94e364a1392969a52fb025b90dbe639617c34ac5"
+  },
+  "guides/he/assassin-class-guide.json": {
+   "contract": 1,
+   "sha256": "bd49e47e3d02da89ee0b0d9076ee99b233811fcc853a772e4aa847c49131fc87"
+  },
+  "guides/he/attack-speed-and-animation-times.json": {
+   "contract": 1,
+   "sha256": "97866881f8454af13ea9ca0dd7e526bd35d6adb903f421254c5b8ecacbbd31f2"
+  },
+  "guides/he/attacks-you-can-use-mid-jump.json": {
+   "contract": 1,
+   "sha256": "f953517f61f15dc0a6c40b7f65dc6d1dec744e5ea4423a5d0d918b2b16812881"
+  },
+  "guides/he/bandit-class-guide.json": {
+   "contract": 1,
+   "sha256": "c52cea4d33110aee0d0d0571bba97efd105d6f9e4fb9d77c306033018fe57933"
+  },
+  "guides/he/beginners-guide-first-steps-in-maple-world.json": {
+   "contract": 1,
+   "sha256": "fc32e0ac94cfec09ed11bc1b3ccd0ff92956aa21dc91568f63bae022a9c6ffe2"
+  },
+  "guides/he/best-grind-maps-every-level.json": {
+   "contract": 1,
+   "sha256": "ce17bcd1b4ba01d1a23e0d4afdcb3a27b108f7066d76d198ce25e178f616fc61"
+  },
+  "guides/he/bowman-class-guide.json": {
+   "contract": 1,
+   "sha256": "99f3345bc89cfbb5767054f66e7d1cdc4fb159c06dced5cbd1593383e4a92bb8"
+  },
+  "guides/he/class-dps-rankings.json": {
+   "contract": 1,
+   "sha256": "7a855d820a17f1f41d2c92a0f74f092f70ae439c0c55a74717b90f0a83faa16c"
+  },
+  "guides/he/cleric-class-guide.json": {
+   "contract": 1,
+   "sha256": "9382024562dab41839b31b2de707f3d2701c843221e600fdaf9496e0a3b8c4dd"
+  },
+  "guides/he/controls-and-settings.json": {
+   "contract": 1,
+   "sha256": "da80335984237cf555434394f4aaee6b21484b352d519534698443c6b78250d6"
+  },
+  "guides/he/crossbowman-class-guide.json": {
+   "contract": 1,
+   "sha256": "48549d3dde8211fa4eab3583796806c1104be3ab86b5fb97d7044b4c80262c0b"
+  },
+  "guides/he/exp-table-level-1-to-100.json": {
+   "contract": 1,
+   "sha256": "c36f96038ed4262e57c565116548ac041aee6bef8bcd89e6ee2d8e839025bf45"
+  },
+  "guides/he/explaining-the-damage-formula.json": {
+   "contract": 1,
+   "sha256": "0f6fd4a6eac3db6ca2b89cc0f1aeaba34dfa64de9461aa4d63381ddbd27ea291"
+  },
+  "guides/he/fighter-class-guide.json": {
+   "contract": 1,
+   "sha256": "b395e7bdedec28ea104866af0f966cddb19b010696319295c65266218811683d"
+  },
+  "guides/he/forgotten-hollow-the-new-endgame-area.json": {
+   "contract": 1,
+   "sha256": "8b89310b850bc87c0c36de5a694e310d898aad70cd765c443d33776b6f86ed3b"
+  },
+  "guides/he/founders-package-outfits.json": {
+   "contract": 1,
+   "sha256": "641720da31b0c13d54ae28a1054a8f78d30644df165c56089592e190859bbbe9"
+  },
+  "guides/he/fp-wizard-class-guide.json": {
+   "contract": 1,
+   "sha256": "1f209d6b4d99ce8e91ab5734e87de86e0e0e48aa542c3c8d99f652f393194b4e"
+  },
+  "guides/he/hp-mp-gain-explained.json": {
+   "contract": 1,
+   "sha256": "a6891817d6fe8609a5a63eb0223da9b4554acca722703c7c239ceb3c6ac31860"
+  },
+  "guides/he/hunter-class-guide.json": {
+   "contract": 1,
+   "sha256": "f3e68413ab913af340c5dbfa740002a47c7ce407f4c16e0316cfac9cba64afea"
+  },
+  "guides/he/il-wizard-class-guide.json": {
+   "contract": 1,
+   "sha256": "26489cc06ab7ec719e9546b6d97b9f985915f5e2c645bb2e2e58932361021967"
+  },
+  "guides/he/kerning-city-party-quest-kpq-guide.json": {
+   "contract": 1,
+   "sha256": "cabaed658a4d1153468cd031f8e2d99cb594a36a9740a13f615975ccb2319eef"
+  },
+  "guides/he/magician-class-guide.json": {
+   "contract": 1,
+   "sha256": "ed27e03537e5d62840fae9acfb5f4731094f4ed887f4ae537399e5f297cba9b9"
+  },
+  "guides/he/maplestory-classic-glossary.json": {
+   "contract": 1,
+   "sha256": "a90e3b56e7282278fa01324c5f86248fc919541df5ba1374eadc80eed015c2f8"
+  },
+  "guides/he/maplestory-classic-worlds-release-date.json": {
+   "contract": 1,
+   "sha256": "5fa54e49a7b1b4c1d2c09d376251a252c2c5ff15524f172b4a0be9d059ca98ad"
+  },
+  "guides/he/page-class-guide.json": {
+   "contract": 1,
+   "sha256": "55e0743f0c005cba16b6d906b32b75c94999ff144ea7a6ac7f72335507a73297"
+  },
+  "guides/he/spawn-engine-respawn-and-map-capacity.json": {
+   "contract": 1,
+   "sha256": "e80eadf3066abe64e342a6b76d71a0a2f1e4a56163d524398cb619fe39c03004"
+  },
+  "guides/he/spearman-class-guide.json": {
+   "contract": 1,
+   "sha256": "9e356086a9078837c0aba4abdd4fe304796c2b062bec606b136ab458839114e6"
+  },
+  "guides/he/speed-jump-and-movement.json": {
+   "contract": 1,
+   "sha256": "51f38f0caab4068c9c1551dd9e6739a6da6f681ee8093368d0f78fc4ca63c1da"
+  },
+  "guides/he/thief-class-guide.json": {
+   "contract": 1,
+   "sha256": "d22b99fdf198fd8241bbd8cc237fb5460dc96d174aeff69ca83b70c4a7d2e8d1"
+  },
+  "guides/he/warrior-class-guide.json": {
+   "contract": 1,
+   "sha256": "b1be8065db9d6ad15f99ac80413f7526d445b38c9bf1cd17d713ae8bd951c54a"
+  },
+  "guides/he/weapon-reach.json": {
+   "contract": 1,
+   "sha256": "850134f320362c6ff7b40a209f44d75844013b81ce9963fd25bb66a0ede74a59"
+  },
+  "guides/he/what-is-maplestory-classic-worlds.json": {
+   "contract": 1,
+   "sha256": "dd2da799ba346f2c2b14dd363a7b37069ad81d9ea13170f78375949881228ea0"
+  },
+  "items/he.json": {
+   "contract": 1,
+   "sha256": "b92b1bc2959656649de9e63d56ec05dd6d7c29353f67592aecc02f01898f8529"
+  },
+  "live/config.json": {
+   "contract": 1,
+   "sha256": "9b6d8192e9fff1029b82810fa9590bc348bfb79dc41d4546131b519735d37810"
+  },
+  "news/he.json": {
+   "contract": 1,
+   "sha256": "44b2c4b8648ea31513a254d0fb388dfcfdf675bfc0efc67afb158624fd18681c"
+  },
+  "official/facts.json": {
+   "contract": 1,
+   "sha256": "ddbb6a13ba337d0ea5ba84f53e356a33b49c1e54519b31c12f2f834964bd9fe6"
+  },
+  "pet_skills/he.json": {
+   "contract": 1,
+   "sha256": "1af3fda48663ee0ad9a136eebed189e15b2679e3b750518cd53540d1fd72a297"
+  },
+  "quest_tasks/he.json": {
+   "contract": 1,
+   "sha256": "322d7ae01b5a90ccdd00ef15c59171690333e59a5b35199ea6709c4f37a5d058"
+  },
+  "skill_changes/he.json": {
+   "contract": 1,
+   "sha256": "c112ff928416e3be315389df16e0cd566071426648ff4cc0afce6adb17990453"
+  },
+  "skills/he.json": {
+   "contract": 1,
+   "sha256": "6cf9f293dd1a72cae8757f97e11ec69f36372235a705bcf2d49ab089ebee285e"
+  }
+ },
+ "schema": 1
+}

@@ -72,7 +72,10 @@ def parse(data, now: float | None = None) -> Status:
 
 
 def fetch(timeout: float = 8) -> Status | None:
-    """The status now; None when the site can't be reached or answers nonsense."""
+    """The status now; None when the site can't be reached or answers nonsense (or the owner switched it off)."""
+    from . import live
+    if not live.enabled("server_status"):
+        return None
     try:
         req = urllib.request.Request(URL, headers={"User-Agent": UA, "Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as r:

@@ -124,10 +124,9 @@ def note_he(ch: SkillChange, kb=None) -> str | None:
     made = translations.he(getattr(kb, "root", None), "skill_changes", ch.key, ch.note or "")
     if made:
         return made
-    try:
-        from .store import ASSETS
-        tr = json.loads((ASSETS / "skill_changes" / "he.json").read_text(encoding="utf-8")).get(ch.key) or {}
-    except (OSError, ValueError, AttributeError):
+    from . import live
+    tr = translations._load(live.asset("skill_changes/he.json")).get(ch.key) or {}
+    if not isinstance(tr, dict):
         return None
     return tr.get("he") if tr.get("en", "").strip() == (ch.note or "").strip() and tr.get("he") else None
 
@@ -216,27 +215,16 @@ def pet_skills(kb) -> list[PetSkill]:
     return sorted(out, key=lambda s: (not s.sold, s.name))
 
 
-_SKILLS_HE: dict | None = None
-
-
 def pet_skill_text(s: PetSkill, lang: str, kb=None) -> str:
     """Its description in the player's language (assets/pet_skills/he.json while its English is the page's)."""
-    global _SKILLS_HE
     if lang != "he":
         return s.text
     from . import translations
     made = translations.he(getattr(kb, "root", None), "pet_skills", s.key, s.text)
     if made:
         return made
-    if _SKILLS_HE is None:
-        import json
-        from pathlib import Path
-        try:
-            _SKILLS_HE = json.loads((Path(__file__).resolve().parent.parent / "assets" / "pet_skills" / "he.json")
-                                    .read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            _SKILLS_HE = {}
-    row = _SKILLS_HE.get(s.key) or {}
+    from . import live
+    row = translations._load(live.asset("pet_skills/he.json")).get(s.key) or {}
     return row["he"] if row.get("en") == s.text and row.get("he") else s.text
 
 

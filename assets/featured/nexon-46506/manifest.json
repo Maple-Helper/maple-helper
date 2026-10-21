@@ -1,0 +1,456 @@
+{
+ "id": "nexon-46506",
+ "news_id": "nexon-46506",
+ "publisher": "Nexon",
+ "title": {
+  "en": "Grand Launch Release Notes",
+  "he": "הודעת השחרור של ה-Grand Launch"
+ },
+ "pdf_name": {
+  "en": "MapleStory Classic World - Grand Launch Release Notes",
+  "he": "MapleStory Classic World - Grand Launch Release Notes (עברית)"
+ },
+ "source_url": "https://www.nexon.com/maplestory/news/general/46506/grand-launch-release-notes",
+ "from": "2026-10-21",
+ "until": "2026-11-18",
+ "langs": {
+  "he": {
+   "width": 748,
+   "height": 27752.45,
+   "scale": 2,
+   "tiles": [
+    {
+     "file": "he/tile00.webp",
+     "y": 0,
+     "h": 1000
+    },
+    {
+     "file": "he/tile01.webp",
+     "y": 1000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile02.webp",
+     "y": 2000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile03.webp",
+     "y": 3000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile04.webp",
+     "y": 4000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile05.webp",
+     "y": 5000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile06.webp",
+     "y": 6000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile07.webp",
+     "y": 7000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile08.webp",
+     "y": 8000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile09.webp",
+     "y": 9000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile10.webp",
+     "y": 10000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile11.webp",
+     "y": 11000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile12.webp",
+     "y": 12000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile13.webp",
+     "y": 13000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile14.webp",
+     "y": 14000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile15.webp",
+     "y": 15000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile16.webp",
+     "y": 16000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile17.webp",
+     "y": 17000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile18.webp",
+     "y": 18000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile19.webp",
+     "y": 19000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile20.webp",
+     "y": 20000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile21.webp",
+     "y": 21000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile22.webp",
+     "y": 22000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile23.webp",
+     "y": 23000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile24.webp",
+     "y": 24000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile25.webp",
+     "y": 25000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile26.webp",
+     "y": 26000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile27.webp",
+     "y": 27000,
+     "h": 752.45
+    }
+   ],
+   "anims": [
+    {
+     "file": "anim/beautyalbum.webp",
+     "rect": [
+      124,
+      7869.56,
+      500,
+      360.69
+     ]
+    },
+    {
+     "file": "anim/housing.webp",
+     "rect": [
+      116.36,
+      12465.83,
+      515.28,
+      299.73
+     ]
+    },
+    {
+     "file": "anim/kpq1.webp",
+     "rect": [
+      398,
+      13132.06,
+      233.64,
+      121.06
+     ]
+    },
+    {
+     "file": "anim/kpq2.webp",
+     "rect": [
+      116.36,
+      13132.06,
+      233.64,
+      117.34
+     ]
+    },
+    {
+     "file": "anim/up-and-up.webp",
+     "rect": [
+      123.8,
+      24188.33,
+      500.41,
+      306.28
+     ]
+    }
+   ],
+   "links": [
+    {
+     "href": "http://discord.gg/maplestory",
+     "rect": [
+      378.09,
+      620.5,
+      165.56,
+      17
+     ]
+    },
+    {
+     "href": "https://www.nexon.com/maplestory/news/general/45385/maple-story-classic-world-faq",
+     "rect": [
+      110.73,
+      13290.12,
+      281.06,
+      42.5
+     ]
+    }
+   ]
+  },
+  "en": {
+   "width": 748,
+   "height": 29220.3,
+   "scale": 2,
+   "tiles": [
+    {
+     "file": "en/tile00.webp",
+     "y": 0,
+     "h": 1000
+    },
+    {
+     "file": "en/tile01.webp",
+     "y": 1000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile02.webp",
+     "y": 2000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile03.webp",
+     "y": 3000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile04.webp",
+     "y": 4000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile05.webp",
+     "y": 5000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile06.webp",
+     "y": 6000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile07.webp",
+     "y": 7000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile08.webp",
+     "y": 8000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile09.webp",
+     "y": 9000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile10.webp",
+     "y": 10000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile11.webp",
+     "y": 11000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile12.webp",
+     "y": 12000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile13.webp",
+     "y": 13000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile14.webp",
+     "y": 14000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile15.webp",
+     "y": 15000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile16.webp",
+     "y": 16000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile17.webp",
+     "y": 17000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile18.webp",
+     "y": 18000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile19.webp",
+     "y": 19000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile20.webp",
+     "y": 20000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile21.webp",
+     "y": 21000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile22.webp",
+     "y": 22000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile23.webp",
+     "y": 23000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile24.webp",
+     "y": 24000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile25.webp",
+     "y": 25000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile26.webp",
+     "y": 26000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile27.webp",
+     "y": 27000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile28.webp",
+     "y": 28000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile29.webp",
+     "y": 29000,
+     "h": 220.3
+    }
+   ],
+   "anims": [
+    {
+     "file": "anim/beautyalbum.webp",
+     "rect": [
+      124,
+      8614.97,
+      500,
+      360.69
+     ]
+    },
+    {
+     "file": "anim/housing.webp",
+     "rect": [
+      116.36,
+      13389.73,
+      515.28,
+      299.73
+     ]
+    },
+    {
+     "file": "anim/kpq1.webp",
+     "rect": [
+      116.36,
+      14081.47,
+      233.64,
+      121.06
+     ]
+    },
+    {
+     "file": "anim/kpq2.webp",
+     "rect": [
+      398,
+      14081.47,
+      233.64,
+      117.34
+     ]
+    },
+    {
+     "file": "anim/up-and-up.webp",
+     "rect": [
+      123.8,
+      25605.17,
+      500.41,
+      306.28
+     ]
+    }
+   ],
+   "links": [
+    {
+     "href": "http://discord.gg/maplestory",
+     "rect": [
+      233.88,
+      646.84,
+      165.56,
+      17
+     ]
+    },
+    {
+     "href": "https://www.nexon.com/maplestory/news/general/45385/maple-story-classic-world-faq",
+     "rect": [
+      295.45,
+      14239.53,
+      333.03,
+      42.5
+     ]
+    }
+   ]
+  }
+ }
+}
