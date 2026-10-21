@@ -20,10 +20,8 @@ STRINGS = {
                   "en": "Answers and tools use only what the NiaMeowDB database confirms is in the game. When new content comes out and the database confirms it, it is added by itself with a database update."},
     "scope_tip_changed": {"he": "המאגר נבדק מול NiaMeowDB בכל לילה, ובפעם האחרונה ב-{checked}. רשימת התוכן שקיים במשחק לא השתנתה מאז {date}.",
                           "en": "The database is checked against NiaMeowDB every night, last on {checked}. The list of content in the game hasn't changed since {date}."},
-    "beta_tip": {"he": "גרסת בטא: ייתכנו תקלות. אפשר לדווח בהגדרות ← דיווח על תקלה.",
-                 "en": "Beta version: there may be bugs. Report them in Settings → Report a problem."},
 
-    # game servers, live from MeowDB (serverstatus.py, the dot beside BETA)
+    # game servers, live from MeowDB (serverstatus.py, the dot in the footer)
     "server_up": {"he": "שרתי המשחק: פעילים", "en": "Game servers: up"},
     "server_scheduled": {"he": "שרתי המשחק: פעילים · תחזוקה מתוכננת ב-{time}", "en": "Game servers: up · maintenance scheduled for {time}"},
     "server_maintenance": {"he": "שרתי המשחק: בתחזוקה", "en": "Game servers: in maintenance"},

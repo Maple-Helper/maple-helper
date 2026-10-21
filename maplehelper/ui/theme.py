@@ -185,8 +185,6 @@ def stylesheet(font_family: str, size: int, opacity: float = 1.0) -> str:
     #ShareName {{ font-size: {s + 8}px; font-weight: 700; color: {c['text']}; }}
     #ShareMeta {{ font-size: {s + 1}px; font-weight: 500; color: {c['muted']}; }}
     #ShareBrand {{ font-size: {s - 3}px; font-weight: 600; color: {ot}; }}
-    #BetaBadge {{ font-size: {s - 5}px; font-weight: 700; color: {accent_text()}; background: transparent;
-                  border: 1px solid rgba(255,149,51,0.6); border-radius: 5px; padding: 0 4px; min-height: 0; }}
     #ScopeNote {{ color: {c['faint']}; font-size: {s - 4}px; }}
     #Version {{ font-size: {s - 3}px; font-weight: 300; color: {c['muted']}; background: transparent; }}
     #ProfilePill {{ background: {c['fill2']}; border: 1px solid {c['stroke']}; border-radius: 12px;

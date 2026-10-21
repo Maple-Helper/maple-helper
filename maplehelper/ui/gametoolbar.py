@@ -6,14 +6,19 @@ glass the minimap reads never see — by default the app's own look, light or da
 are draggable: the buttons wrap into as many rows as the width leaves room for, the height following, and the
 width is kept in game_toolbar_width. The ⚙ beside the ✕ opens the panel with the colours of every window over
 the game and the transparency (_SettingsPanel below). Where the player left it is kept in game_toolbar_pos;
-with none saved it opens just above the drawn minimap box."""
+with none saved it opens just above the drawn minimap box.
+
+It is drawn as the chat's own title bar is (the owner, 2026-10-21: it looked like another app): the app's mark and
+name at its start, which also drag it; each button an icon of the app's icon font beside its word, plain until lit
+(a soft wash of the accent when its window shows) and the chat's button filled; then, past a hairline, the ⚙ and
+the window ✕ as every Maple Helper window has them."""
 from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QPoint, QRect, Qt, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
+from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QGuiApplication, QIcon, QPainter, QPixmap
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QMenu, QPushButton, QToolButton, QVBoxLayout, QWidget
 
 from .. import bidi
 from ..i18n import I18n
@@ -44,6 +49,10 @@ from .regionpick import from_capture
 SIDE, TOP, BOTTOM = SHADOW + 12, SHADOW + 8, SHADOW + 8    # content margins, past the glass's shadow rim
 GRIP = "⋮⋮"                                               # the drag handle's dots
 FLOW_GAP = 6                                              # between the buttons, and between the rows they wrap into
+# each button's icon, from the app's icon font (Segoe Fluent Icons): chat, NPCs, monsters, the tracker, the tools
+GLYPHS = {"tb_chat": "\ue8bd", "tb_npcs_here": "\ue716", "tb_monsters": "\uebe8", "tb_loot": "\ue9d9",
+          "tb_tools": "\ue90f"}
+GLYPH_PX = 16
 # the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
 WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
 # the Play tools button's menu: every tab of the Tools window, straight to it (the owner, 2026-10-20: all of them,
@@ -59,21 +68,30 @@ def qss(settings) -> str:
     changes)."""
     c = look_palette(settings)
     accent, on_accent = accent_of(settings)
+    wash = QColor(accent)
+    wash.setAlphaF(0.16)
+    soft = f"rgba({wash.red()},{wash.green()},{wash.blue()},0.16)"
     return f"""
 QLabel {{ color: {c['text']}; }}
 #Title {{ color: {c['text']}; font-weight: 600; }}
 #Status {{ color: {c['muted']}; font-size: 11px; font-weight: 600; padding: 0 2px; }}
 #Grip {{ color: {c['muted']}; font-size: 13px; font-weight: 600; padding: 0 2px; }}
-QPushButton {{ background: {c['fill1']}; color: {c['text']}; border: none; border-radius: 8px;
-              padding: 5px 10px; text-align: center; }}
+#BrandName {{ color: {c['text']}; font-size: 14px; font-weight: 700; padding: 0 2px; }}
+#Sep {{ background: {c['stroke']}; border: none; }}
+QPushButton {{ background: transparent; color: {c['text']}; border: none; border-radius: 10px;
+              padding: 6px 9px; text-align: center; font-weight: 600; }}
 QPushButton:hover {{ background: {c['fill2']}; }}
-QPushButton:checked, QPushButton[on="true"] {{ background: {accent}; color: {on_accent}; }}
-#Chat {{ background: {accent}; color: {on_accent}; font-weight: 600; }}
+QPushButton:checked, QPushButton[on="true"] {{ background: {soft}; color: {accent}; }}
+QPushButton:checked:hover {{ background: {soft}; }}
+#Chat {{ background: {accent}; color: {on_accent}; font-weight: 700; }}
 #Chat:hover {{ background: {accent}; color: {on_accent}; }}
-QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 6px;
+QToolButton {{ background: transparent; color: {c['muted']}; border: none; border-radius: 14px;
               padding: 2px 7px; font-size: 13px; }}
 QToolButton:hover {{ background: {c['fill2']}; color: {c['text']}; }}
-#Gear, #Close {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; padding: 4px 7px; }}
+#Gear {{ font-family: "{theme.ICON_FONT}"; font-size: 14px; min-width: 28px; min-height: 28px; padding: 0; }}
+#Close {{ font-family: "{theme.ICON_FONT}"; font-size: 12px; color: {theme.accent_text()}; min-width: 28px;
+          min-height: 28px; padding: 0; }}
+#Close:hover {{ background: {theme.ORANGE}; color: #FFFFFF; }}
 """
 
 
@@ -103,12 +121,48 @@ def _swatch_qss(colour: str, on: bool, c: dict) -> str:
             f"QPushButton:hover {{ border: 2px solid {c['text']}; }}")
 
 
-class _Grip(QLabel):
-    """The dots at the bar's end: dragging them moves it (the buttons around them still click)."""
+def glyph_icon(glyph: str, colour: str, px: int = GLYPH_PX) -> QIcon:
+    """An icon of the app's icon font in one colour, drawn at the screen's pixels (a button keeps its own word)."""
+    dpr = (QGuiApplication.primaryScreen().devicePixelRatio() if QGuiApplication.primaryScreen() else 1.0) or 1.0
+    side = round(px * dpr)
+    pm = QPixmap(side, side)
+    pm.fill(Qt.transparent)
+    p = QPainter(pm)
+    f = QFont(theme.ICON_FONT)
+    f.setPixelSize(round(px * 0.95 * dpr))
+    p.setFont(f)
+    p.setPen(QColor(colour))
+    p.drawText(pm.rect(), Qt.AlignCenter, glyph)
+    p.end()
+    pm.setDevicePixelRatio(dpr)
+    return QIcon(pm)
+
+
+class _Grip(QWidget):
+    """The bar's start: the app's mark and name, as the chat's title bar has them. Dragging it moves the bar (the
+    buttons beside it still click)."""
 
     def __init__(self):
-        super().__init__(GRIP, objectName="Grip")
+        super().__init__(objectName="Brand")
         self.setCursor(Qt.OpenHandCursor)
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(2, 0, 4, 0)
+        lay.setSpacing(6)
+        from ..store import ASSETS
+        self.logo = QLabel()
+        self.logo.setFixedSize(22, 22)
+        icon = ASSETS / "brand" / "icon-256.png"
+        if icon.exists():
+            dpr = (QGuiApplication.primaryScreen().devicePixelRatio() if QGuiApplication.primaryScreen() else 1.0)
+            side = round(22 * (dpr or 1.0))
+            pm = QPixmap(str(icon)).scaled(side, side, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pm.setDevicePixelRatio(dpr or 1.0)
+            self.logo.setPixmap(pm)
+        self.name = QLabel("Maple Helper", objectName="BrandName")
+        self.name.setLayoutDirection(Qt.LeftToRight)
+        for w in (self.logo, self.name):
+            w.setAttribute(Qt.WA_TransparentForMouseEvents)     # the press is the brand's: a drag
+            lay.addWidget(w, 0, Qt.AlignVCenter)
         self._grab = None          # (its window is self.window(), not kept)
 
     def mousePressEvent(self, e):
@@ -336,6 +390,7 @@ class GameToolbar(EdgeResize, QWidget):
         col.addLayout(self._flow)
         self._grip = _Grip()
         self._flow.addWidget(self._grip)
+        self._flow.addWidget(self._sep())
         # the chat first, lit in the accent: the app's main window, one click from the game (the owner, 2026-10-11)
         self._chat = QPushButton(objectName="Chat")
         self._chat.setCursor(Qt.PointingHandCursor)
@@ -358,6 +413,7 @@ class GameToolbar(EdgeResize, QWidget):
         self._flow.addWidget(self._tools)
         # the ⚙: the panel with the colours and the transparency; then the ✕
         # the app's own icons (its icon font, as the chat's header draws them), not the emoji-looking symbols
+        self._flow.addWidget(self._sep())
         self._gear = QToolButton(objectName="Gear", text=theme.ICON["settings"])
         self._gear.setCursor(Qt.PointingHandCursor)
         self._gear.setFocusPolicy(Qt.NoFocus)
@@ -369,6 +425,21 @@ class GameToolbar(EdgeResize, QWidget):
         self._close.clicked.connect(self._close_clicked)
         self._flow.addWidget(self._close)
         self._retext()
+
+    def _sep(self) -> QFrame:
+        """A hairline between the brand, the buttons and the window's own ⚙ / ✕."""
+        line = QFrame(objectName="Sep")
+        line.setFixedSize(1, 22)
+        return line
+
+    def _icons(self) -> None:
+        """Each button's icon in its text's colour: the accent on a lit button, the accent's own text on the chat's."""
+        c = look_palette(self._settings)
+        accent, on_accent = accent_of(self._settings)
+        for b, key in self._buttons():
+            colour = on_accent if b is self._chat else accent if b.isChecked() else c["text"]
+            b.setIcon(glyph_icon(GLYPHS[key], colour))
+            b.setIconSize(QSize(GLYPH_PX, GLYPH_PX))
 
     def paintEvent(self, e) -> None:
         _paint_glass(self, self._opacity)
@@ -473,6 +544,7 @@ class GameToolbar(EdgeResize, QWidget):
     def _window_clicked(self, key: str) -> None:
         """A window over the game on or off: the checkable button is its setting (the window follows)."""
         self._settings[key] = self._windows[key].isChecked()
+        self._icons()
         self.window_toggled.emit(key)
 
     def _close_clicked(self, _=False) -> None:
@@ -572,6 +644,7 @@ class GameToolbar(EdgeResize, QWidget):
             self._opacity = OPACITY_DEFAULT
         for key, b in self._windows.items():
             b.setChecked(bool(self._settings[key]))
+        self._icons()
         if not self._settings["game_toolbar"]:
             if self.isVisible():
                 self.hide()

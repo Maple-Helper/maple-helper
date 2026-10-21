@@ -471,3 +471,16 @@ def test_the_chat_button_comes_first_lit_and_opens_the_chat(bar):
     assert "#Chat" in w.styleSheet()
     w._chat.click()
     assert seen == [True]
+
+
+def test_the_bar_looks_like_the_app_its_mark_name_icons_and_window_buttons(bar):
+    """The owner, 2026-10-21: it looked like another app. Now the chat's title bar look: the app's mark and name at
+    its start (which drag it), an icon beside every button's word, the chat's filled, and the window ✕."""
+    w, s = bar
+    w.refresh()
+    assert w._grip.name.text() == "Maple Helper" and w._grip.logo.pixmap() is not None
+    assert all(not b.icon().isNull() for b, _ in w._buttons())
+    assert w._chat.objectName() == "Chat" and w._close.objectName() == "Close"
+    s["npc_overlay"] = True
+    w.refresh()
+    assert w._windows["npc_overlay"].isChecked()
