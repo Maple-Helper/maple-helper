@@ -84,5 +84,42 @@
   ],
   "commentary": "",
   "body_hash": "b4b54559f5210b4f"
+ },
+ "nexon-46506": {
+  "summary": "לחצו כאן כדי לקרוא את ה-release notes של ה-Grand Launch של MapleStory Classic World הגלובלי!",
+  "source_hash": "0105b757ec368b22",
+  "title": "ה-release notes של ה-Grand Launch",
+  "highlights": [
+   "21 באוקטובר 2026, 18:00 UTC (21:00 שעון ישראל)",
+   "הכניסה ל-Classic World",
+   "פרטים עיקריים: הרמה המקסימלית של דמות היא 100",
+   "The Journey Begins: איך משתתפים",
+   "The Marks We Leave Behind: איך משתתפים",
+   "To Classic Beginners: איך משתתפים",
+   "הפרסים של The Journey Begins"
+  ],
+  "commentary": "",
+  "body_hash": "bbdfb1a126ccd2d6"
+ },
+ "nexon-46362": {
+  "summary": "Beauty Essentials Pack, Mystery Fashion Crate ועוד!",
+  "source_hash": "62db74161daf6947",
+  "title": "עדכון ה-Cash Shop ל-Grand Launch",
+  "highlights": [
+   "Beauty Essentials Pack: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Mystery Fashion Crate: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - יום רביעי, 4 בנובמבר, 7:59",
+   "Beauty Album Slot Expansion Films: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "מבצעים שעודכנו",
+   "Megaphones: אפשר יהיה להשתמש ב-Megaphones רק מרמה 15 ומעלה. כל הפרטים בהודעה Changes to Megaphone Level Requirements.",
+   "מבצעים שממשיכים",
+   "Founder's Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 28 באוקטובר, 7:59",
+   "Aurora Stamp Shop Season 1: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Aurora Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Mystery Style Coupons: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 28 באוקטובר, 7:59",
+   "Signature Style Coupons: זמינים ב-Classic World: Signature Hair Coupon",
+   "10-Day Equip Covers: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר, 17:59"
+  ],
+  "commentary": "",
+  "body_hash": "517176c8b300f8d7"
  }
 }
