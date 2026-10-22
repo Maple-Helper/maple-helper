@@ -402,8 +402,8 @@ class KnowledgeBase:
         loose=True is a long Hebrew alias's spelling-tolerant form, looked up in the question's loose copies;
         a loose form two entities share, or that is another entity's exact name, is dropped (ambiguous)."""
         pairs = []
-        for key, e in self.entities.items():
-            n = _name_norm(e["name"])
+        for key in self._name_order:
+            n = _name_norm(self.entities[key]["name"])
             if len(n) >= 3:
                 pairs.append((n, key, False))
         pairs += [(a, k, False) for a, k in self.aliases.items() if len(a) >= 2]
@@ -431,9 +431,21 @@ class KnowledgeBase:
     def _first_key(self) -> dict[str, str]:
         """Normalized name -> the entity a name several entities share means (the first, as _names finds it)."""
         out: dict[str, str] = {}
-        for key, e in self.entities.items():
-            out.setdefault(_name_norm(e.get("name", "")), key)
+        for key in self._name_order:
+            out.setdefault(_name_norm(self.entities[key].get("name", "")), key)
         return out
+
+    @cached_property
+    def _name_order(self) -> list[str]:
+        """The entity keys in the order a shared name goes to the first of: the KB's, but a monster on a map before
+        a map-less copy of its name. The 2026-10-22 KB lists Ghost Stump's alt-palette copy (no map, no stats)
+        before the one on Excavation Site, and "Ghost Stump level" was answered "isn't in the game"."""
+        mapless = set()
+        for keys in self._monsters_by_name.values():
+            placed = [k for k in keys if self.all_maps(k)] if len(keys) > 1 else keys
+            if placed:
+                mapless.update(k for k in keys if k not in placed)
+        return sorted(self.entities, key=lambda k: k in mapless)
 
     def _forms(self, name: str, cat: str) -> tuple[set[str], set[str]]:
         """(spellings, bases) of a KB name, normalized and without apostrophes (_fold).
