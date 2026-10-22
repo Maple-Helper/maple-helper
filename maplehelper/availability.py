@@ -222,18 +222,39 @@ class Availability:
                 if not any(self.map_open(t) for t in to):
                     shut_map(cell, cont, street, False)
                     changed = True
+        # a map on no continent with no portal out, whose "Back to Town" is one of the area's closed maps, is the
+        # area's: "Shortcut" (Tory, the 2026-10-22 KB) sends you back to Forgotten Hollow Instance 080003300
+        returns = self._returns()
+        for key, cell in self.map_cell.items():
+            cont, street = self.map_place[cell]
+            back = self.map_cell.get(returns.get(key, ""))
+            if cont == NO_CONTINENT and not portals.get(key) and back and not self.map_open(back):
+                shut_map(cell, cont, street, False)
+                self.instances -= {cell, cell[:-len(street)].strip() if street else cell}
+
+    def _routes(self) -> list[dict]:
+        """The maps of the KB's routes.json ([] without one)."""
+        try:
+            data = json.loads((Path(self.kb.root) / "routes.json").read_text(encoding="utf-8"))
+            return [m for m in data.get("maps") or [] if isinstance(m, dict)]
+        except (OSError, ValueError, AttributeError, TypeError):
+            return []
 
     def _portals(self) -> dict[str, set[str]]:
         """Map key -> the map keys its portals lead to, from the KB's routes.json ({} without one)."""
         try:
-            data = json.loads((Path(self.kb.root) / "routes.json").read_text(encoding="utf-8"))
             out: dict[str, set[str]] = {}
-            for m in data.get("maps") or []:
+            for m in self._routes():
                 key = f"map/{m.get('id')}"
                 out[key] = {f"map/{p.get('to')}" for p in m.get("portals") or [] if p.get("to")} - {key}
             return out
-        except (OSError, ValueError, AttributeError, TypeError):
+        except (AttributeError, TypeError):
             return {}
+
+    def _returns(self) -> dict[str, str]:
+        """Map key -> the map key its "Back to Town" (respawn) leads to, from routes.json; none for a map's own."""
+        out = {f"map/{m.get('id')}": f"map/{m.get('return')}" for m in self._routes() if m.get("return")}
+        return {k: v for k, v in out.items() if k != v}
 
     @staticmethod
     def _named(name: str, text: str) -> bool:

@@ -861,18 +861,21 @@ def test_maps_whose_page_names_no_continent_are_in_the_game(real):
     """The Free Market, the KPQ stages and the 2nd-job test maps write only "Location Hidden Street"; two more pages
     write the line reversed ("Location Truth Booth / Hidden Street"), and so does Backalley Semi-Basement (off Kerning
     City, new in the 2026-10-12 KB). On no continent the KB closes, they're in the game, with their NPCs. The set is
-    pinned: a KB update that adds one gets a human look first. The 2026-10-22 KB adds Free Market rooms <12> to <20>
-    and Shortcut (Tory's map, by the Forgotten Hollow instances), all "Location Hidden Street" with no "/ Event"."""
+    pinned: a KB update that adds one gets a human look first. The 2026-10-22 KB adds Free Market rooms <12> to <20>,
+    "Location Hidden Street" with no "/ Event". Its Shortcut (Tory) writes the same, but has no portal out and its
+    "Back to Town" is Forgotten Hollow Instance 080003300: the Hollow's, closed with it (the owner, 2026-10-22)."""
     from maplehelper import availability
     o = availability.of(real)
     unplaced = sorted(k for k, c in o.map_cell.items() if o.map_place[c][0] == availability.NO_CONTINENT)
     newer = [k for k in ("map/088001000",) if real.get(k)]       # not in KBs published before 2026-10-12
-    newer += [k for k in [f"map/0800020{n}" for n in range(12, 21)] + ["map/080003400"] if real.get(k)]   # 2026-10-22
+    newer += [k for k in [f"map/0800020{n}" for n in range(12, 21)] if real.get(k)]      # 2026-10-22
     assert unplaced == sorted([f"map/080000{n}00" for n in range(7)] + [f"map/080001{n}00" for n in range(4)]
                               + [f"map/0800020{n:02}" for n in range(12)] + ["map/088000000", "map/089000000"]
                               + newer)
     for key in ("map/080002000", "map/080000000", "map/080001000", "npc/800008", "npc/800001", "npc/800003"):
         assert o.entity_open(key), key
+    if real.get("map/080003400") and o.closed_areas:                                   # 2026-10-22, until it opens
+        assert not o.entity_open("map/080003400") and not o.instance_map("Shortcut Hidden Street")
     # "Hidden Street" is a street (43 Victoria maps on it), never a continent the AI is told is closed
     assert "Hidden Street" not in o.continents
     note = o.scope_note()

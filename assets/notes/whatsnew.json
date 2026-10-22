@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.1",
+  "he": [
+   "תיקון: האפליקציה ענתה בטעות שהמפלצות של Excavation Site (למשל Ghost Stump ו-Skeledog) עוד לא במשחק. עכשיו היא עונה עליהן כרגיל.",
+   "המפה Shortcut שייכת ל-Forgotten Hollow, ולכן היא מסומנת כסגורה עד שהאזור ייפתח."
+  ],
+  "en": [
+   "Fix: Excavation Site's monsters (such as Ghost Stump and Skeledog) were wrongly answered as \"not in the game yet\". The app now answers about them as usual.",
+   "The Shortcut map belongs to Forgotten Hollow, so it shows as closed until the area opens."
+  ]
+ },
+ {
   "version": "0.20.0",
   "he": [
    "הודעת השחרור של ה-Grand Launch בתוך האפליקציה: הכתבה המלאה של Nexon, בדיוק כמו באתר שלהם, עם כל התמונות והאנימציות, בעברית ובמקור באנגלית. היא נפתחת פעם אחת לבד, ואפשר לחזור אליה מחלון החדשות.",
