@@ -223,6 +223,37 @@ def test_patch_notes_list_community_drops_and_mesos(ckb, tmp_path):
     assert "new community drop Red Potion" in recent.ai_lines(kb2, [SNAIL], today=day)[0]
 
 
+def test_a_community_drop_shown_or_hidden_is_one_line_not_a_drop_line_too(ckb, tmp_path):
+    # drops.tsv lists the community drops shown: Tortie's "Drop removed: Lion's Fang" sat beside "Community drop
+    # removed: Lion's Fang", Mummydog's "New drop: Red Calas" beside "New community drop: Red Calas"
+    import shutil
+
+    from maplehelper import tables
+    old = tmp_path / "old"
+    shutil.copytree(ckb.root, old)
+    new = ckb.root
+    monsters = json.loads((new / "community.json").read_text(encoding="utf-8"))["monsters"]
+    monsters[SNAIL]["drops"][0] = _drop("item/413", 1, 3)       # Bronze Ore now denied: hidden
+    monsters[SNAIL]["drops"].append(_drop("item/2000000", 4))   # Red Potion: a new community drop
+    _community(new, monsters)
+    assert tables.build(KnowledgeBase(old)) and tables.build(KnowledgeBase(new))
+    tsv = lambda kb: {r.split("\t")[5] for r in (kb / "drops.tsv").read_text(encoding="utf-8").splitlines()  # noqa: E731
+                      if r.startswith("Snail\t")}
+    assert "item/2000000" in tsv(new) - tsv(old) and "item/413" in tsv(old) - tsv(new)
+    row = {r["key"]: r for r in kb_release.diff_kb(old, new)["changed"]}[SNAIL]
+    assert row["community_added"] == ["Red Potion"] and row["community_removed"] == ["Bronze Ore"]
+    assert "drops_added" not in row and "drops_removed" not in row
+    # an older update recorded both: the next update's changelog keeps the community line only
+    dup = {"version": "2026.10.03.0100", "date": "2026-10-03", "counts": {"changed": 1}, "changed": [
+        {"key": SNAIL, "name": "Snail", "drops_added": ["Red Potion", "Blue Potion"], "community_added": ["Red Potion"],
+         "drops_removed": ["Bronze Ore"], "community_removed": ["Bronze Ore"]}]}
+    (new / "changelog.json").write_text(json.dumps([dup]), encoding="utf-8")
+    kb_release.record_changes(new, old, "2026.10.04.0100")
+    older = json.loads((new / "changelog.json").read_text(encoding="utf-8"))[1]["changed"][0]
+    assert older["drops_added"] == ["Blue Potion"] and "drops_removed" not in older
+    assert older["community_added"] == ["Red Potion"] and older["community_removed"] == ["Bronze Ore"]
+
+
 def test_the_first_kb_with_reports_is_no_flood_of_changes(ckb, tmp_path):
     import shutil
     old = tmp_path / "old"
