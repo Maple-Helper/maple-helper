@@ -363,11 +363,13 @@ def diff_kb(old: Path, new: Path) -> dict:
         props = [[f, pa.get(f), pb.get(f)] for f in sorted(pa.keys() | pb.keys()) if pa.get(f) != pb.get(f)]
         if k in xa and k in xb and xa[k] != xb[k]:
             props.append(["Connected maps", ", ".join(xa[k]) or None, ", ".join(xb[k]) or None])
-        oa, ob = da.get(k, {}), db.get(k, {})
-        drops_added = sorted(ob[i] for i in ob.keys() - oa.keys())
-        drops_removed = sorted(oa[i] for i in oa.keys() - ob.keys())
-        renamed = a[k].get("name") != b[k].get("name")
         sa, sb = _shown(ca.get(k)), _shown(cb.get(k))
+        # drops.tsv lists the community drops shown too: one shown or hidden is its community line, not a drop line
+        # as well (Tortie's "Drop removed: Lion's Fang" beside "Community drop removed: Lion's Fang")
+        oa, ob = da.get(k, {}), db.get(k, {})
+        drops_added = sorted(ob[i] for i in ob.keys() - oa.keys() - (sb - sa))
+        drops_removed = sorted(oa[i] for i in oa.keys() - ob.keys() - (sa - sb))
+        renamed = a[k].get("name") != b[k].get("name")
         item = lambda i: (b.get(i) or a.get(i) or {}).get("name") or i  # noqa: E731
         community_added = sorted(item(i) for i in sb - sa)
         community_removed = sorted(item(i) for i in sa - sb)
@@ -499,6 +501,21 @@ def section_changes(old: Path, new: Path) -> list[dict]:
     return out
 
 
+def _once(entry: dict) -> dict:
+    """An older update's entry with each community drop once: on its community line, not on a drop line as well (the
+    updates before diff_kb knew drops.tsv lists them recorded both, and the patch notes keep CHANGELOG_KEEP)."""
+    for r in entry.get("changed") or []:
+        if not isinstance(r, dict):
+            continue
+        for drops, community in (("drops_added", "community_added"), ("drops_removed", "community_removed")):
+            left = [d for d in r.get(drops) or [] if d not in (r.get(community) or [])]
+            if left:
+                r[drops] = left
+            else:
+                r.pop(drops, None)
+    return entry
+
+
 def record_changes(kb: Path, previous_kb: Path, version: str) -> dict | None:
     """Prepend this update's changes to kb/changelog.json (newest first). None when nothing changed."""
     d = diff_kb(previous_kb, kb)
@@ -511,7 +528,7 @@ def record_changes(kb: Path, previous_kb: Path, version: str) -> dict | None:
     except (OSError, json.JSONDecodeError):
         log = []
     entry = {"version": version, "date": time.strftime("%Y-%m-%d", time.gmtime()), **d}
-    log = [entry] + [e for e in log if e.get("version") != version]
+    log = [entry] + [_once(e) for e in log if isinstance(e, dict) and e.get("version") != version]
     path.write_text(json.dumps(log[:CHANGELOG_KEEP], ensure_ascii=False, indent=1), encoding="utf-8")
     return entry
 
