@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.2",
+  "he": [
+   "מחירי ה-Free Market מ-MesoWatch חזרו להתעדכן כל 15 דקות (מאז 21.10 הם לא הגיעו).",
+   "בארגזי ה-Cash Shop מופיע מה אפשר לקבל מהם, עם הסיכוי לכל פריט, לפי המאגר."
+  ],
+  "en": [
+   "MesoWatch's Free Market prices update every 15 minutes again (they stopped arriving on 10-21).",
+   "Cash Shop crates show what they can give, with each item's chance, from the knowledge base."
+  ]
+ },
+ {
   "version": "0.20.1",
   "he": [
    "תיקון: האפליקציה ענתה בטעות שהמפלצות של Excavation Site (למשל Ghost Stump ו-Skeledog) עוד לא במשחק. עכשיו היא עונה עליהן כרגיל.",
