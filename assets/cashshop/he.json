@@ -78,5 +78,33 @@
  "cash/5140003": {
   "en": "This special-edition coupon allows you to open an orange tree store in which you can list up to 18 items at once. Can be used in fields or the Free Market. Available for a limited time only.\nIf you are attacked or killed by a monster, the store will close.",
   "he": "הקופון במהדורה המיוחדת הזה מאפשר לכם לפתוח חנות עץ כתומה שבה אפשר להציע עד 18 פריטים בבת אחת. אפשר להשתמש בו בשדות או ב-Free Market. זמין לזמן מוגבל בלבד. אם מפלצת תתקוף או תהרוג אתכם, החנות תיסגר."
+ },
+ "cash/5070020": {
+  "en": "This megaphone allows you to shout to everyone in the channel your character is on. Only available for characters that are over Level 15.",
+  "he": "המגפון הזה מאפשר לכם לצעוק לכל מי שנמצא בערוץ שבו הדמות שלכם נמצאת. זמין רק לדמויות מעל רמה 15."
+ },
+ "cash/5070011": {
+  "en": "This megaphone allows you to shout to everyone in the world your character is on. Only available for characters that are over Level 15.",
+  "he": "המגפון הזה מאפשר לכם לצעוק לכל מי שנמצא בעולם שבו הדמות שלכם נמצאת. זמין רק לדמויות מעל רמה 15."
+ },
+ "cash/5070026": {
+  "en": "Use this megaphone to broadcast to everyone in your World about an item that may be for sale. Only available for characters that are over Level 15.",
+  "he": "השתמשו במגפון הזה כדי לשדר לכל מי שב-World שלכם על פריט שאולי מוצע למכירה. זמין רק לדמויות מעל רמה 15."
+ },
+ "cash/5222000": {
+  "en": "This box grants one random Equip item. The box contains only permanent items and can be traded to other players. \n\nIf you get something you don't want, you can sell it to other players or right-click to exchange it for Aurora Stamps.\nCollect Aurora Stamps to exchange them for special items.",
+  "he": "הקופסה הזו נותנת פריט Equip אקראי אחד. היא מכילה רק פריטים קבועים, ואפשר לסחור בה עם שחקנים אחרים.\nאם קיבלתם משהו שאתם לא רוצים, אפשר למכור אותו לשחקנים אחרים או ללחוץ עליו בקליק ימני כדי להחליף אותו ב-Aurora Stamps. אספו Aurora Stamps כדי להחליף אותם בפריטים מיוחדים."
+ },
+ "cash/5222002": {
+  "en": "This box grants one random Equip item. The box contains only permanent items and can be traded to other players. \n\nIf you get something you don't want, you can sell it to other players or right-click to exchange it for Aurora Stamps.\nCollect Aurora Stamps to exchange them for special items.",
+  "he": "הקופסה הזו נותנת פריט Equip אקראי אחד. היא מכילה רק פריטים קבועים, ואפשר לסחור בה עם שחקנים אחרים.\nאם קיבלתם משהו שאתם לא רוצים, אפשר למכור אותו לשחקנים אחרים או ללחוץ עליו בקליק ימני כדי להחליף אותו ב-Aurora Stamps. אספו Aurora Stamps כדי להחליף אותם בפריטים מיוחדים."
+ },
+ "cash/5552000": {
+  "en": "Using this coupon will unlock 1 face slot in the Beauty Album. You can have a maximum of 24 slots (currently: %d slots).\nYou must double-click and use the coupon to expand. Any unused coupons are not included in the number of currently expanded slots.",
+  "he": "שימוש בקופון הזה פותח סלוט פנים אחד ב-Beauty Album. אפשר להגיע עד 24 סלוטים לכל היותר.\nכדי להרחיב, לחצו פעמיים על הקופון והשתמשו בו. קופונים שעוד לא השתמשתם בהם לא נספרים בסלוטים שכבר הורחבו."
+ },
+ "cash/5553000": {
+  "en": "Using this coupon will unlock 1 hair slot in the Beauty Album. You can have a maximum of 24 slots (currently: %d slots).\nYou must double-click and use the coupon to expand. Any unused coupons are not included in the number of currently expanded slots.",
+  "he": "שימוש בקופון הזה פותח סלוט שיער אחד ב-Beauty Album. אפשר להגיע עד 24 סלוטים לכל היותר.\nכדי להרחיב, לחצו פעמיים על הקופון והשתמשו בו. קופונים שעוד לא השתמשתם בהם לא נספרים בסלוטים שכבר הורחבו."
  }
 }
