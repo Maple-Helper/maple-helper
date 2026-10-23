@@ -6,7 +6,8 @@ is, its NX price and how long it lasts; a click opens its details window.
 
 All of it follows the game by itself, from two sources the owner has permission for: the items and their prices from
 OSMS Data Explorer (osms.py, the game client's own Cash Shop list, checked every hour), the crate's chances from
-MesoWatch (mesowatch.py, every 15 minutes). An item the Cash Shop adds shows up, one it drops goes away."""
+MesoWatch (mesowatch.py, every 15 minutes), else from the KB (NiaMeowDB's chances on each item's page, nightly). An
+item the Cash Shop adds shows up, one it drops goes away."""
 from __future__ import annotations
 
 import threading
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QPushBu
                                QVBoxLayout, QWidget)
 
 from .. import bidi, itemdetails, mesowatch, osms, sources, translations
-from ..shopnames import fold, kb_hebrew, kb_names, same_text  # noqa: F401 - the page's names, tests read them here
+from ..shopnames import fold, kb_crates, kb_hebrew, kb_names, same_text  # noqa: F401 - the page's names, tests read them here
 from .controls import FlowLayout, Segmented
 from .widgets import ITEM_REQUESTS, fit_picture, source_tag
 
@@ -78,7 +79,7 @@ class ShopRow(QFrame):
 class CrateTile(QFrame):
     """One thing the crate can give: its picture, name and chance."""
 
-    def __init__(self, page: "ShopPage", s: mesowatch.Sales, key: str | None):
+    def __init__(self, page: "ShopPage", name: str, odds: float, key: str | None):
         super().__init__(objectName="Card")
         t = page.t
         self.key = key
@@ -94,13 +95,13 @@ class CrateTile(QFrame):
         pic.setAlignment(Qt.AlignCenter)
         page.picture(pic, key, None, 44)
         col.addWidget(pic, 0, Qt.AlignHCenter)
-        name = (page.kb.get(key) or {}).get("name") if key else None
-        lb = QLabel(bidi.ltr_name(name or s.name, t.rtl), objectName="ShopTile")
+        name = ((page.kb.get(key) or {}).get("name") if key else None) or name
+        lb = QLabel(bidi.ltr_name(name, t.rtl), objectName="ShopTile")
         lb.setAlignment(Qt.AlignCenter)
         lb.setWordWrap(True)
         lb.setFixedHeight(40)
         col.addWidget(lb)
-        odds = QLabel(bidi.plain(t("shop_chance", pct=f"{s.crate_odds:g}%"), t.rtl), objectName="ShopText")
+        odds = QLabel(bidi.plain(t("shop_chance", pct=f"{odds:g}%"), t.rtl), objectName="ShopText")
         odds.setAlignment(Qt.AlignCenter)
         col.addWidget(odds)
 
@@ -111,7 +112,7 @@ class CrateTile(QFrame):
 
 
 class ShopPage(QWidget):
-    ready = Signal(object, object)          # (OSMS's items or None, MesoWatch's snapshot or None)
+    ready = Signal(object, object, object)  # (OSMS's items or None, MesoWatch's snapshot or None, the KB's crates)
     picture_ready = Signal(object, object)  # (label, path): an OSMS picture is on disk
 
     def __init__(self, kb, t, pets: QWidget | None = None):
@@ -120,6 +121,7 @@ class ShopPage(QWidget):
         self.kb, self.t = kb, t
         self.align = (Qt.AlignRight if t.rtl else Qt.AlignLeft) | Qt.AlignAbsolute
         self.items, self.snap, self._desc, self._loaded = None, None, {}, False
+        self.crates: dict[str, list[tuple[str, float]]] = {}
         self._versions = (-1, -1)
         self.tab, self.section = "fashion", "hats"
         self._by_name = self._kb_names()
@@ -203,7 +205,7 @@ class ShopPage(QWidget):
     # ------------------------------------------------------------ data
 
     def load(self) -> None:
-        """Both lists in the background (the first of a run may download them)."""
+        """Both lists in the background (the first of a run may download them), and the KB's crates."""
         def run():
             try:
                 found = osms.items()
@@ -214,7 +216,11 @@ class ShopPage(QWidget):
             except Exception:      # noqa: BLE001 - no crate chances
                 snap = None
             try:
-                self.ready.emit(found, snap)
+                crates = kb_crates(self.kb)
+            except Exception:      # noqa: BLE001 - a KB page the parser didn't expect: MesoWatch's chances only
+                crates = {}
+            try:
+                self.ready.emit(found, snap, crates)
             except RuntimeError:
                 pass                # the window was closed meanwhile
         threading.Thread(target=run, daemon=True, name="shop").start()
@@ -224,9 +230,9 @@ class ShopPage(QWidget):
         if (osms.version(), mesowatch.version()) != self._versions:
             self.load()
 
-    def _on_ready(self, found, snap) -> None:
+    def _on_ready(self, found, snap, crates) -> None:
         self._versions = (osms.version(), mesowatch.version())
-        self.items, self.snap, self._loaded = found, snap, True
+        self.items, self.snap, self.crates, self._loaded = found, snap, crates or {}, True
         self._refill()
 
     def _kb_names(self) -> dict[str, list[str]]:
@@ -350,27 +356,41 @@ class ShopPage(QWidget):
         self._fetch_pictures()
 
     def _crate(self) -> None:
-        """What the crate can give, each with its chance (MesoWatch: Nexon's published rates)."""
+        """What the crate can give, each with its chance: MesoWatch's (Nexon's published rates), else the KB's for
+        each crate on sale (NiaMeowDB's, on each item's page). MesoWatch alone used to leave this empty whenever its
+        market couldn't be read (blocked, or older than mesowatch.STALE_SECONDS), though the KB has the same chances."""
         t = self.t
-        inside = mesowatch.crate(self.snap)
+        inside = [(s.name, s.crate_odds, self.key_of(s.name)) for s in mesowatch.crate(self.snap)]
+        groups, source = ([("", inside)] if inside else []), sources.MESOWATCH
+        if not groups:
+            source = sources.MEOWDB
+            for item in self.rows():
+                got = self.crates.get(fold(item.name))
+                if got:
+                    groups.append((item.name, [((self.kb.get(k) or {}).get("name") or k, p, k) for k, p in got]))
         head = QHBoxLayout()
         title = QLabel(bidi.plain(t("shop_crate_head"), t.rtl), objectName="ShopHead")
         title.setAlignment(self.align)
         head.addWidget(title, 1)
-        head.addWidget(source_tag(t, sources.MESOWATCH), 0, Qt.AlignVCenter)
+        head.addWidget(source_tag(t, source), 0, Qt.AlignVCenter)
         self.list.addLayout(head)
-        if not inside:
+        if not groups:
             note = QLabel(bidi.plain(t("shop_crate_none"), t.rtl), objectName="ShopText")
             note.setAlignment(self.align)
             self.list.addWidget(note)
             return
-        holder = QWidget()
-        holder.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)      # the first tile on the reading side
-        grid = QGridLayout(holder)
-        grid.setContentsMargins(0, 0, 0, 0)
-        grid.setSpacing(8)
-        for n, s in enumerate(inside):
-            grid.addWidget(CrateTile(self, s, self.key_of(s.name)), n // CRATE_COLUMNS, n % CRATE_COLUMNS)
-        for c in range(CRATE_COLUMNS):
-            grid.setColumnStretch(c, 1)
-        self.list.addWidget(holder)
+        for crate, tiles in groups:
+            if crate:                       # the KB's: each crate by name (the Cash Shop can sell a few at once)
+                name = QLabel(bidi.ltr_name(crate, t.rtl), objectName="ShopName")
+                name.setAlignment(self.align)
+                self.list.addWidget(name)
+            holder = QWidget()
+            holder.setLayoutDirection(Qt.RightToLeft if t.rtl else Qt.LeftToRight)  # the first tile on the reading side
+            grid = QGridLayout(holder)
+            grid.setContentsMargins(0, 0, 0, 0)
+            grid.setSpacing(8)
+            for n, (name, odds, key) in enumerate(tiles):
+                grid.addWidget(CrateTile(self, name, odds, key), n // CRATE_COLUMNS, n % CRATE_COLUMNS)
+            for c in range(CRATE_COLUMNS):
+                grid.setColumnStretch(c, 1)
+            self.list.addWidget(holder)

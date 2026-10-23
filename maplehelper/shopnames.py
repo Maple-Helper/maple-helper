@@ -2,6 +2,8 @@
 tools/translate_kb.py (which runs without the app's UI libraries) can use the same rules as the Shop page."""
 from __future__ import annotations
 
+import re
+
 from . import itemdetails, translations
 
 
@@ -20,9 +22,38 @@ def kb_names(kb) -> dict[str, list[str]]:
     return {n: sorted(ks, key=lambda k: not cash(k)) for n, ks in seen.items()}
 
 
+_CHANCE = re.compile(r"^(\d+(?:\.\d+)?)% chance per crate\b")
+CRATE_WHOLE = 1.0                   # a crate is whole when its chances add up to 100% give or take this (rounding)
+_crates: dict[int, tuple[object, dict[str, list[tuple[str, float]]]]] = {}
+
+
+def kb_crates(kb) -> dict[str, list[tuple[str, float]]]:
+    """What each Mystery Fashion Crate can give, from the KB's item pages (NiaMeowDB: each item's Cash Shop part
+    names its crate, then "2.5% chance per crate · about 1 in 40 · ..."): folded crate name -> [(item key, percent)],
+    likeliest first. Only a crate whose chances add up to 100%: a crate the KB knows a few items of (a new one, while
+    NiaMeowDB fills it in) is left out rather than shown as if that were all it gives. One read per KB (~0.4 s)."""
+    hit = _crates.get(id(kb))
+    if hit and hit[0] is kb:
+        return hit[1]
+    found: dict[str, list[tuple[str, float]]] = {}
+    for k, e in (getattr(kb, "entities", None) or {}).items():
+        if not k.startswith("item/") or not str(e.get("type") or "").startswith("Cash"):
+            continue
+        lines = [ln.strip() for ln in kb.page(k).splitlines()]
+        for i, ln in enumerate(lines):
+            m = _CHANCE.match(ln)
+            crate = next((x for x in reversed(lines[max(0, i - 2):i]) if x.endswith("Crate")), None)
+            if m and crate:
+                found.setdefault(fold(crate), []).append((k, float(m.group(1))))
+    whole = {c: sorted(got, key=lambda x: (-x[1], x[0])) for c, got in found.items()
+             if abs(sum(p for _, p in got) - 100) <= CRATE_WHOLE}
+    _crates.clear()
+    _crates[id(kb)] = (kb, whole)
+    return whole
+
+
 def same_text(a: str, b: str) -> bool:
     """The same words, whatever the spacing, line breaks and punctuation."""
-    import re
     norm = lambda t: re.sub(r"[^a-z0-9%]+", " ", str(t or "").lower()).strip()      # noqa: E731
     return norm(a) == norm(b)
 
