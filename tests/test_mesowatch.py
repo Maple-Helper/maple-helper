@@ -391,3 +391,28 @@ def test_the_split_market_is_kept_on_disk_and_reread_as_split(site, monkeypatch)
     snap = mesowatch.snapshot(refresh=False)
     assert snap.items[4010001].price == 375 and not snap.items[4010001].detailed
     assert json.loads(mesowatch._file().read_text(encoding="utf-8"))["etag"] == '"L1"'
+
+
+def test_requests_go_out_as_a_browser(monkeypatch):
+    """Cloudflare refuses the app's own User-Agent on meso.watch; MesoWatch allowed a browser's."""
+    sent = {}
+
+    class Reply:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def urlopen(req, timeout):
+        sent.update(req.headers)
+        return Reply()
+
+    monkeypatch.setattr(mesowatch.urllib.request, "urlopen", urlopen)
+    assert mesowatch._http(mesowatch.LIST_URL)[0] == 200
+    assert sent["User-agent"].startswith("Mozilla/5.0") and "Maple Helper" not in sent["User-agent"]

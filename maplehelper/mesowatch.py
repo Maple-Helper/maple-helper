@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from . import live, market
+from . import live
 
 SITE = "https://meso.watch/"
 INDEX_URL = SITE + "data/markets/index.json"
@@ -57,6 +57,10 @@ REFRESH_SECONDS = 15 * 60                    # a check every 15 minutes (the sit
 RETRY_SECONDS = 300                          # after a failed check
 SAME_PUBLISH_SECONDS = 60                    # the index's time and the file's own differ by a second or so
 STALE_SECONDS = 3 * 24 * 3600                # older than this, the numbers are not shown at all
+# Cloudflare refuses the app's own User-Agent on /data/ (403 since 2026-10-21); MesoWatch allowed the app to send a
+# browser's (2026-10-23)
+BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+              "Chrome/141.0.0.0 Safari/537.36")
 TREND_DAYS = 7                               # the trend is read over the last week's daily medians
 TREND_MIN_SOLD = 3                           # a day with fewer sales is too thin to measure a trend from
 SHOPS_KEPT = 8                               # as many as MesoWatch publishes per item
@@ -345,7 +349,7 @@ def _fold(name: str) -> str:
 
 def _http(url: str, etag: str = "", timeout: float = TIMEOUT) -> tuple[int, bytes, str]:
     """(status, body, etag); status 304 (with If-None-Match) means unchanged."""
-    headers = {"User-Agent": market.UA, "Accept": "application/json", "Accept-Encoding": "gzip"}
+    headers = {"User-Agent": BROWSER_UA, "Accept": "application/json", "Accept-Encoding": "gzip"}
     if etag:
         headers["If-None-Match"] = etag
     req = urllib.request.Request(url, headers=headers)

@@ -234,6 +234,77 @@ def test_the_shop_lays_out_the_games_cash_shop(app, monkeypatch, lang):
     page.deleteLater()
 
 
+def crate_page(crate, pct, until="October 28"):
+    return (f"Appearance behavior\nThis hat may cover parts of your hairstyle.\n{crate}\n3,500 NX a crate\n"
+            f"{pct:g}% chance per crate · about 1 in {round(100 / pct)} · 11 for 35,000 NX · Sold until {until} at "
+            "7:59 AM UTC\nExchange a Mystery Fashion Crate piece before you equip it to get 1 Aurora Stamp\n"
+            "Free Market\n")
+
+
+class CrateKB(FakeKB):
+    """The KB's crates as NiaMeowDB writes them on each item's page: the Founder's crate whole (its chances add up to
+    100%), the new Mystery Fashion Crate with only two items in so far."""
+
+    def __init__(self):
+        self.pages = {}
+        items = {}
+        for n, pct in enumerate([3.0] * 2 + [2.5] * 28 + [2.0] * 4 + [1.0] * 16):
+            items[f"item/{1600 + n}"] = f"Founder Hat {n}"
+            self.pages[f"item/{1600 + n}"] = crate_page("Founder's Mystery Fashion Crate", pct)
+        for n in range(2):
+            items[f"item/{4197 + n}"] = f"Buddy Overall Jeans {n}"
+            self.pages[f"item/{4197 + n}"] = crate_page("Mystery Fashion Crate", 2, "November 4")
+        items["item/1562"] = "Green Camping Hat"
+        self.pages["item/1562"] = "Cash Shop\nNot sold yet\nNot in the Cash Shop and not in the Founder's Mystery Fashion Crate.\n"
+        super().__init__(items)
+        for e in self.entities.values():
+            e["type"] = "Cash Equip / Cash Hat"
+
+    def page(self, key):
+        return self.pages.get(key, "")
+
+
+def test_the_kb_knows_what_each_whole_crate_gives():
+    from maplehelper.shopnames import kb_crates
+    crates = kb_crates(CrateKB())
+    assert list(crates) == ["founder's mystery fashion crate"]          # the new crate's 4% isn't the whole crate
+    got = crates["founder's mystery fashion crate"]
+    assert len(got) == 50 and got[0] == ("item/1600", 3.0) and got[-1][1] == 1.0
+    assert "item/1562" not in dict(got)                                  # "not in the ... Crate" is no chance
+
+
+@pytest.mark.parametrize("lang", ["en", "he"])
+def test_the_crate_shows_what_it_gives_when_mesowatch_cant_be_read(app, monkeypatch, lang):
+    """The owner (2026-10-23): "no data on the crate's contents" while every crate gives items. MesoWatch's /data/
+    files answer 403 since 2026-10-21 and its copy on disk went stale, so its crate chances were gone; the KB has the
+    same chances (NiaMeowDB), per crate."""
+    from PySide6.QtWidgets import QLabel
+
+    from maplehelper import osms
+    from maplehelper.i18n import I18n
+    from maplehelper.ui.shoppage import CrateTile, ShopPage
+    items = [osms.Item(5222000, "Mystery Fashion Crate", "Other", "", 3500, days=7),
+             osms.Item(5222001, "Founder's Mystery Fashion Crate", "Other", "", 3500, days=7)]
+    monkeypatch.setattr(osms, "items", lambda refresh=True, timeout=30: items)
+    monkeypatch.setattr(osms, "thumbnail_file", lambda item, timeout=10: None)
+    monkeypatch.setattr(mesowatch, "snapshot", lambda refresh=True, timeout=30: None)
+    t = I18n(lang)
+    page = ShopPage(CrateKB(), t, pets=None)
+    pump(app, lambda: page._loaded)
+    page.pick("special")
+    texts = [w.text() for i in range(page.list.count()) if isinstance(w := page.list.itemAt(i).widget(), QLabel)]
+    assert not any(t("shop_crate_none") in x for x in texts)
+    assert any("Founder's Mystery Fashion Crate" in x for x in texts)
+    tiles = [x for i in range(page.list.count()) if (w := page.list.itemAt(i).widget())
+             for x in w.findChildren(CrateTile)]
+    assert len(tiles) == 50 and tiles[0].key == "item/1600"
+    assert "3%" in " ".join(w.text() for w in tiles[0].findChildren(QLabel))
+    head = page.list.itemAt(0 if not page.rows() else len(page.rows())).layout()
+    assert "MeowDB" in head.itemAt(1).widget().text()                  # the chances' source, not MesoWatch
+    page.timer.stop()
+    page.deleteLater()
+
+
 def test_the_app_keeps_both_live_sources_fresh_by_itself(app, monkeypatch):
     """At start, then every 15 minutes (MesoWatch) and every hour (OSMS), with no one asking."""
     from types import SimpleNamespace
