@@ -40,12 +40,24 @@
   "he": "ה-HP מתמלא לבד עם הזמן, לא רק כשעומדים במקום. בנוסף, פריטים מחזירים יותר HP."
  },
  "skill/warrior__improved-hp-recovery#1": {
-  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 5%",
-  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 5% יותר HP"
+  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 20%",
+  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 20% יותר HP",
+  "alt": [
+   {
+    "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 5%",
+    "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 5% יותר HP"
+   }
+  ]
  },
  "skill/warrior__improved-hp-recovery#max": {
-  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 20%",
-  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 20% יותר HP"
+  "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 50%",
+  "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 50% יותר HP",
+  "alt": [
+   {
+    "en": "Regenerates HP every 10 seconds; increases HP recovery from items by 20%",
+    "he": "מחזיר HP כל 10 שניות; פריטים מחזירים 20% יותר HP"
+   }
+  ]
  },
  "skill/warrior__max-hp-increase": {
   "en": "Max HP increases.",
@@ -76,12 +88,24 @@
   "he": "מעלה לזמן מוגבל את ההגנה הפיזית שלכם."
  },
  "skill/warrior__iron-body#1": {
-  "en": "MP -15; Weapon Def. +5% for 300 sec",
-  "he": "עולה 15 MP; הגנה פיזית +5% למשך 300 שניות"
+  "en": "MP -15; Weapon Def. +20% for 300 sec",
+  "he": "עולה 15 MP; הגנה פיזית +20% למשך 300 שניות",
+  "alt": [
+   {
+    "en": "MP -15; Weapon Def. +5% for 300 sec",
+    "he": "עולה 15 MP; הגנה פיזית +5% למשך 300 שניות"
+   }
+  ]
  },
  "skill/warrior__iron-body#max": {
-  "en": "MP -15; Weapon Def. +25% for 600 sec",
-  "he": "עולה 15 MP; הגנה פיזית +25% למשך 600 שניות"
+  "en": "MP -15; Weapon Def. +40% for 600 sec",
+  "he": "עולה 15 MP; הגנה פיזית +40% למשך 600 שניות",
+  "alt": [
+   {
+    "en": "MP -15; Weapon Def. +25% for 600 sec",
+    "he": "עולה 15 MP; הגנה פיזית +25% למשך 600 שניות"
+   }
+  ]
  },
  "skill/warrior__power-strike": {
   "en": "Consumes MP to deliver a lethal blow to a single enemy with your weapon.",
@@ -694,12 +718,24 @@
   "he": "ה-MP מתמלא לבד עם הזמן מהר יותר. בנוסף, פריטים מחזירים יותר MP."
  },
  "skill/magician__improved-mp-recovery#1": {
-  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 5%",
-  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 5% יותר MP"
+  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 10%",
+  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 10% יותר MP",
+  "alt": [
+   {
+    "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 5%",
+    "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 5% יותר MP"
+   }
+  ]
  },
  "skill/magician__improved-mp-recovery#max": {
-  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 20%",
-  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 20% יותר MP"
+  "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 25%",
+  "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 25% יותר MP",
+  "alt": [
+   {
+    "en": "Regenerates 1% of Max MP every 10 seconds; increases MP recovery from items by 20%",
+    "he": "מחזיר 1% מה-Max MP כל 10 שניות; פריטים מחזירים 20% יותר MP"
+   }
+  ]
  },
  "skill/magician__max-mp-increase": {
   "en": "Max MP increases.",

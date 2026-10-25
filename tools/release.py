@@ -62,6 +62,9 @@ def record_patch_notes(version: str) -> None:
         with zipfile.ZipFile(Path(tmp) / "kb.zip") as z:
             z.extractall(prev)
         kb_release.refresh_tables(prev)     # both sides' drops by today's rules: only data changes are notes
+        dropped = kb_release.prune_renamed_aliases(KB, prev)
+        if dropped:
+            print(f"Hebrew aliases dropped for {len(dropped)} renamed entries (add new ones by hand):", ", ".join(dropped))
         entry = kb_release.record_changes(KB, prev, version)
         print("patch notes:", json.dumps(entry["counts"]) if entry else "no visible changes")
 

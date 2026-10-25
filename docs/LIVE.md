@@ -9,6 +9,7 @@ being merged to `main`, with no new version (`maplehelper/live.py`):
 | `official/facts.json` | Official game facts: they override the knowledge base, and the AI is told so |
 | `ai/system.md`, `ai/reply_rules.md`, `ai/rules.json` | The AI's instructions (system prompt, reply rules, the shorter rules) |
 | `items/he.json`, `skills/he.json`, `news/he.json`, `cashshop/he.json`, `pet_skills/he.json`, `quest_tasks/he.json`, `skill_changes/he.json` | The curated Hebrew of the KB's texts |
+| `aliases/he.json` | The app's own Hebrew names of maps, monsters and NPCs: a key here replaces the KB's names for it (new entries, renamed ones) |
 | `guides/he/*.json`, `guides/en/*.json` | The guides (and the glossary inside them) |
 | `featured/<id>/...` | Featured articles (the one-time popup with Nexon's page as pictures): a **new** article too. Make one with `tools/featured_article.py`; it shows once every tile is downloaded (~18 MB per article, once per player) |
 
