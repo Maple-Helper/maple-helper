@@ -84,20 +84,55 @@ def run(require_kb: bool = False) -> tuple[bool, list[str]]:
 
     def web_engine():
         # MesoWatch's files come through a hidden page (webfetch.py): the build must carry Qt WebEngine and its
-        # renderer process. A page with no network runs a script
-        from PySide6.QtCore import QEventLoop, QTimer
-        from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
-        profile = QWebEngineProfile()
-        page = QWebEnginePage(profile)
-        loop, got = QEventLoop(), []
-        page.loadFinished.connect(lambda ok: page.runJavaScript("6 * 7", 0, lambda v: (got.append(v), loop.quit())))
-        QTimer.singleShot(30_000, loop.quit)
-        page.setHtml("<p>selftest</p>")
-        loop.exec()
-        page.deleteLater()
-        if got != [42]:
-            raise RuntimeError(f"the hidden page ran no script (got {got!r})")
-        return "page runs scripts"
+        # renderer process. The same path as the app's, against a site on this machine (no network)
+        import http.server
+        import threading
+        import time
+
+        from PySide6.QtCore import QCoreApplication
+
+        from . import webfetch
+
+        class Site(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - http.server's name
+                body = b'{"ok": 42}'
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *a):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Site)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        base = f"http://127.0.0.1:{server.server_address[1]}"
+        webfetch.HOST_PAGE = base + "/robots.txt"
+        out: dict = {}
+
+        def ask():
+            try:
+                out["got"] = webfetch.request(base + "/data/selftest.json", timeout=90)
+            except Exception as e:     # noqa: BLE001 - reported below
+                out["error"] = e
+        try:
+            if not webfetch.install():
+                raise RuntimeError("Qt WebEngine unavailable")
+            t = threading.Thread(target=ask, daemon=True)
+            t.start()
+            end = time.monotonic() + 100
+            while t.is_alive() and time.monotonic() < end:
+                QCoreApplication.processEvents()
+                time.sleep(0.01)
+        finally:
+            server.shutdown()
+            server.server_close()
+            if webfetch._engine is not None:
+                webfetch._engine._close()
+        if out.get("got") != (200, b'{"ok": 42}', ""):
+            raise RuntimeError(f"the hidden page brought no file ({out!r})")
+        return "a page fetched a file"
     check("web engine (MesoWatch)", web_engine)
 
     def kb():
