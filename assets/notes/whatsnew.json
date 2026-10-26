@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.4",
+  "he": [
+   "מחירי ה-Free Market מ-MesoWatch מתעדכנים שוב כל 15 דקות. מאז 24.10 הם לא הגיעו, והכרטיסים הראו מכירות של לפני כמה ימים.",
+   "תיקון: חלון האפליקציה כבר לא נתקע לרגע בזמן שהמחירים מתעדכנים."
+  ],
+  "en": [
+   "MesoWatch's Free Market prices update every 15 minutes again. They stopped arriving on 10-24, and cards showed sales from days ago.",
+   "Fix: the app's window no longer freezes for a moment while prices update."
+  ]
+ },
+ {
   "version": "0.20.3",
   "he": [
    "המפות של ה-party quest של Moon Bunny (Primrose Hill, Pig Town ועוד) מסומנות כסגורות עד שהוא ייפתח ב-18.11.",
