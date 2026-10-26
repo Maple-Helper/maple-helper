@@ -749,10 +749,10 @@ STRINGS = {
     "stat_dmg_max": {"he": "נזק מקסימלי", "en": "Max damage"},
     "stat_matk": {"he": "התקפה מגית (Magic)", "en": "Magic attack (Magic)"},
     "my_stats_hint": {"he": "את שלושת המספרים רואים בחלון ה-**Stat** במשחק.\nהנזק שם הוא של **מכה רגילה**, בלי סקילים, אז גם מספרי המכות כאן הם למכות רגילות.", "en": "Find these three numbers in the game's **Stat** window.\nThe damage there is one **basic attack**, without skills, so the hit counts here are for basic attacks too."},
-    "my_stats_hint_mage": {"he": "את שני המספרים רואים בחלון ה-**Stat** במשחק.\nלקוסמים אין נזק מינימלי ומקסימלי אלא מספר **Magic** אחד. הנזק של כישוף תלוי בכישוף, אז כאן מחושב רק סיכוי הפגיעה מה-ACC.", "en": "Find these two numbers in the game's **Stat** window.\nMagicians have one **Magic** number instead of a min and max damage. A spell's damage depends on the spell, so only your hit chance (from ACC) is worked out here."},
+    "my_stats_hint_mage": {"he": "את שני המספרים רואים בחלון ה-**Stat** במשחק.\nל-Magicians אין נזק מינימלי ומקסימלי אלא מספר **Magic** אחד. הנזק של כישוף תלוי בכישוף, אז כאן מחושב רק סיכוי הפגיעה מה-ACC.", "en": "Find these two numbers in the game's **Stat** window.\nMagicians have one **Magic** number instead of a min and max damage. A spell's damage depends on the spell, so only your hit chance (from ACC) is worked out here."},
     "my_stats_read": {"he": "לקרוא מצילום מסך (פתחו קודם את חלון ה-Stat)", "en": "Read from a screenshot (open the Stat window first)"},
     "train_need_stats": {"he": "**רוצים חישוב מדויק?** מלאו למטה ACC ונזק,\nותראו כמה פעמים תפגעו ובכמה מכות תהרגו.", "en": "**Want exact numbers?** Add your ACC and damage below\nto see your hit chance and hits per kill."},
-    "train_need_stats_mage": {"he": "**רוצים חישוב מדויק?** מלאו למטה ACC,\nותראו כמה פעמים תפגעו.", "en": "**Want exact numbers?** Add your ACC below\nto see your hit chance."},
+    "train_need_stats_mage": {"he": "**רוצים חישוב מדויק?** מלאו למטה ACC,\nותראו את סיכוי הפגיעה.", "en": "**Want exact numbers?** Add your ACC below\nto see your hit chance."},
     "train_none": {"he": "אין עדיין במאגר מפלצות קרובות לרמה שלכם.", "en": "The database has no monsters near your level yet."},
     # a Magician's hits are spells: only the misses can be too many
     "train_stretch_magician": {"he": "אף מפלצת כאן לא מתאימה בדיוק למספרים שלכם (יותר מדי פספוסים), אז אלה הכי קרובות.",
