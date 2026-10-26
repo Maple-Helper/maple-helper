@@ -50,7 +50,8 @@ CONFIG = "live/config.json"
 # the format version this app reads each kind of live file in (see the module docstring); a kind not listed here
 # never comes live
 CONTRACTS = {"config": 1, "facts": 1, "ai": 1, "translations": 1, "guides": 1, "featured": 1}
-_TRANSLATION_DIRS = ("items", "news", "cashshop", "pet_skills", "quest_tasks", "skill_changes", "skills")
+_TRANSLATION_DIRS = ("items", "news", "cashshop", "pet_skills", "quest_tasks", "skill_changes", "skills",
+                     "aliases")
 
 
 def kind(rel: str) -> str | None:

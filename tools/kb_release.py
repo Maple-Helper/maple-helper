@@ -516,6 +516,29 @@ def _once(entry: dict) -> dict:
     return entry
 
 
+def prune_renamed_aliases(kb: Path, previous_kb: Path) -> list[str]:
+    """Drop the Hebrew aliases of every entity the site renamed since the previous KB: aliases.json is made once (with
+    Claude, tools/make_aliases.py) and carried forward night after night, so a renamed entity kept the names of what it
+    was. On 2026-10-25 five "Forgotten Hollow Instance" maps became Primrose Hill, Shortcut, Pig Town and Back to Town
+    and kept "פורגוטן הולו": shared by six plain names, the alias named nothing, and "how do I get to Forgotten
+    Hollow" found no map. Returns the keys whose aliases were dropped (new Hebrew names are added by hand)."""
+    path = kb / "aliases.json"
+    try:
+        aliases = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(aliases, dict):
+        return []
+    old, new = _index(previous_kb), _index(kb)
+    renamed = sorted(k for k in aliases if k in old and k in new
+                     and str(old[k].get("name") or "").strip() != str(new[k].get("name") or "").strip())
+    if renamed:
+        for k in renamed:
+            del aliases[k]
+        path.write_text(json.dumps(aliases, ensure_ascii=False, indent=1), encoding="utf-8")
+    return renamed
+
+
 def record_changes(kb: Path, previous_kb: Path, version: str) -> dict | None:
     """Prepend this update's changes to kb/changelog.json (newest first). None when nothing changed."""
     d = diff_kb(previous_kb, kb)
@@ -569,6 +592,7 @@ def pack(kb: Path, out: Path, version: str | None = None, previous_kb: Path | No
     """Stamp the version into meta.json, zip the KB (files at the zip root) and write the manifest."""
     version = version or time.strftime("%Y.%m.%d.%H%M", time.gmtime())
     if previous_kb:
+        prune_renamed_aliases(kb, previous_kb)
         record_changes(kb, previous_kb, version)
     meta_path = kb / "meta.json"
     meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}

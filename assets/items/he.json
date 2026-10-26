@@ -5234,8 +5234,14 @@
 "he": "Blue Baseball Glove הוא פריט Cash מסוג כפפות לשלב המוקדם של המשחק, שאפשר לצייד ב-MapleStory Classic."
 },
 "item/2072": {
+"en": "Hero's Gloves is an early-game cash gloves, equippable in MapleStory Classic.",
+"he": "Hero's Gloves הוא פריט Cash מסוג כפפות לשלב המוקדם של המשחק, שאפשר לצייד ב-MapleStory Classic.",
+"alt": [
+{
 "en": "White Bandage is a early-game cash gloves, equippable in MapleStory Classic.",
 "he": "White Bandage הוא פריט Cash מסוג כפפות לשלב המוקדם של המשחק, שאפשר לצייד ב-MapleStory Classic."
+}
+]
 },
 "item/2073": {
 "en": "Brown Bandage is a early-game cash gloves, equippable in MapleStory Classic.",
@@ -7406,28 +7412,58 @@
 "he": "נקניקייה עם קטשופ."
 },
 "item/2520": {
+"en": "Serpent's Coil is a high-level dagger for Warriors and Thieves, equippable at level 60 or higher in MapleStory Classic. It grants +77 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Serpent's Coil הוא פגיון לרמות גבוהות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. הוא מעניק +77 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Serpent's Coil is a high-level dagger for Warriors and Thieves, equippable at level 60 or higher in MapleStory Classic. It grants +75 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Serpent's Coil הוא פגיון לרמות גבוהות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. הוא מעניק +75 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה יותר."
+}
+]
 },
 "item/2521": {
 "en": "Kandine is a high-level dagger for Thieves, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Kandine הוא פגיון לרמות גבוהות ל-Thieves, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +88 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/2522": {
+"en": "Golden River is a high-level dagger for Warriors and Thieves, equippable at level 70 or higher in MapleStory Classic. It grants +87 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Golden River הוא פגיון לרמות גבוהות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +87 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Golden River is a high-level dagger for Warriors and Thieves, equippable at level 70 or higher in MapleStory Classic. It grants +85 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Golden River הוא פגיון לרמות גבוהות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +85 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה יותר."
+}
+]
 },
 "item/2523": {
+"en": "Beginner's Wooden Wand is an early-game wand, equippable at level 10 or higher in MapleStory Classic. It grants +17 W.ATK and +26 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Beginner's Wooden Wand הוא שרביט לתחילת המשחק, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא מעניק +17 W.ATK ו-+26 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Beginner's Wooden Wand is a early-game wand, equippable at level 10 or higher in MapleStory Classic. It grants +17 W.ATK and +26 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Beginner's Wooden Wand הוא שרביט לתחילת המשחק, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא מעניק +17 W.ATK ו-+26 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2524": {
+"en": "Evil Tale is a high-level wand for Mage, equippable at level 60 or higher in MapleStory Classic. It grants +68 W.ATK and +97 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Evil Tale הוא שרביט לרמות גבוהות ל-Mage, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. הוא מעניק +68 W.ATK ו-+97 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Evil Tale is a high-level wand for Mage, equippable at level 60 or higher in MapleStory Classic. It grants +68 W.ATK and +97 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Evil Tale הוא שרביט לרמות גבוהות ל-Mage, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. הוא מעניק +68 W.ATK ו-+97 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2525": {
+"en": "Angel Wings is a high-level wand for Mage, equippable at level 70 or higher in MapleStory Classic. It grants +78 W.ATK and +111 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Angel Wings הוא שרביט לרמות גבוהות ל-Mage, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +78 W.ATK ו-+111 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Angel Wings is a high-level wand for Mage, equippable at level 70 or higher in MapleStory Classic. It grants +78 W.ATK and +111 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Angel Wings הוא שרביט לרמות גבוהות ל-Mage, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +78 W.ATK ו-+111 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2526": {
 "en": "Thorns is a high-level staff for Mage, equippable at level 55 or higher in MapleStory Classic. It grants +65 W.ATK, +87 M.ATK, and +5 CDMG. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -7450,12 +7486,24 @@
 ]
 },
 "item/2528": {
+"en": "Sparta is a high-level two-handed sword for Warriors, equippable at level 60 or higher in MapleStory Classic. It grants +83 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Sparta היא חרב לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +83 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Sparta is a high-level two-handed sword for Warriors, equippable at level 60 or higher in MapleStory Classic. It grants +83 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Sparta היא חרב לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +83 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2529": {
+"en": "Doombringer is a high-level two-handed sword for Warriors, equippable at level 70 or higher in MapleStory Classic. It grants +93 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Doombringer היא חרב לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +93 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Doombringer is a high-level two-handed sword for Warriors, equippable at level 70 or higher in MapleStory Classic. It grants +93 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Doombringer היא חרב לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +93 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/253": {
 "en": "A huge hot dog.",
@@ -7466,8 +7514,14 @@
 "he": "The Shining הוא גרזן לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. הוא מעניק +80 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/2531": {
+"en": "Chrono is a high-level two-handed axe for Warriors, equippable at level 70 or higher in MapleStory Classic. It grants +93 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Chrono הוא גרזן לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +93 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Chrono is a high-level two-handed axe for Warriors, equippable at level 70 or higher in MapleStory Classic. It grants +93 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Chrono הוא גרזן לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +93 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2532": {
 "en": "The Blessing is a high-level two-handed blunt weapon for Warriors, equippable at level 60 or higher in MapleStory Classic. It grants +85 W.ATK. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -7478,8 +7532,14 @@
 "he": "Gigantic Sledge הוא נשק קהה לשתי ידיים לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +95 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/2534": {
+"en": "Holy Spear is a high-level spear for Warriors, equippable at level 60 or higher in MapleStory Classic. It grants +82 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Holy Spear היא חנית לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +82 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Holy Spear is a high-level spear for Warriors, equippable at level 60 or higher in MapleStory Classic. It grants +82 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Holy Spear היא חנית לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +82 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/2535": {
 "en": "Redemption is a high-level spear for Warriors, equippable at level 70 or higher in MapleStory Classic. It grants +95 W.ATK. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -7494,9 +7554,13 @@
 "he": "The Gold Dragon הוא רומח לרמות גבוהות ל-Warriors, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. הוא מעניק +95 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/2538": {
-"en": "Beginner's War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +29 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Beginner's War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +29 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Beginner's War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +29 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Beginner's War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +29 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Beginner's War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +29 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Beginner's War Bow is a early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +29 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Beginner's War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +29 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -7504,9 +7568,13 @@
 ]
 },
 "item/2539": {
-"en": "Asianic Bow is a high-level bow for Bowmen, equippable at level 60 or higher in MapleStory Classic. It grants +80 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Asianic Bow is a high-level bow for Bowmen, equippable at level 60 or higher in MapleStory Classic. It grants +80 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Asianic Bow היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +80 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Asianic Bow is a high-level bow for Bowmen, equippable at level 60 or higher in MapleStory Classic. It grants +80 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Asianic Bow היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +80 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Asianic Bow is a high-level bow for Bowmen, equippable at level 60 or higher in MapleStory Classic. It grants +80 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Asianic Bow היא קשת לרמות גבוהות ל-Bowmen, שאפשר לצייד מרמה 60 ומעלה ב-MapleStory Classic. היא מעניקה +80 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -7518,9 +7586,13 @@
 "he": "טעים ולעיס."
 },
 "item/2540": {
-"en": "Red Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +90 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Red Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +90 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Red Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +90 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Red Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +90 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Red Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +90 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Red Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +90 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Red Hinkel היא קשת לרמות גבוהות ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +90 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -7528,9 +7600,13 @@
 ]
 },
 "item/2541": {
-"en": "Blue Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CDMG, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Blue Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CDMG, and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Blue Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK, +2 CDMG ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Blue Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CDMG, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Blue Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK, +2 CDMG ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Blue Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Blue Hinkel היא קשת לרמות גבוהות ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -7538,9 +7614,13 @@
 ]
 },
 "item/2542": {
-"en": "Golden Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CRIT%, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Golden Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CRIT%, and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Golden Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK, +2 CRIT% ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Golden Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK, +2 CRIT%, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Golden Hinkel היא קשת לשלב המתקדם ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK, +2 CRIT% ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Golden Hinkel is a high-level bow for Bowmen, equippable at level 70 or higher in MapleStory Classic. It grants +88 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Golden Hinkel היא קשת לרמות גבוהות ל-Bowmen, שאפשר לצייד מרמה 70 ומעלה ב-MapleStory Classic. היא מעניקה +88 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -7732,12 +7812,24 @@
 "he": "לחצו לחיצה כפולה כדי לקבל 100,000 Leaf Points."
 },
 "item/2577": {
+"en": "Double-click to obtain the below items.",
+"he": "לחצו לחיצה כפולה כדי לקבל את הפריטים שמופיעים למטה.",
+"alt": [
+{
 "en": "Double-click to open it and receive one random Hired Merchant item.",
 "he": "לחצו לחיצה כפולה כדי לפתוח ולקבל פריט Hired Merchant אקראי אחד."
+}
+]
 },
 "item/2578": {
+"en": "Double-click to obtain the below items.",
+"he": "לחצו לחיצה כפולה כדי לקבל את הפריטים שמופיעים למטה.",
+"alt": [
+{
 "en": "Double-click to open it and receive one random atmospheric effect item.",
 "he": "לחצו לחיצה כפולה כדי לפתוח ולקבל פריט אפקט אווירה אקראי אחד."
+}
+]
 },
 "item/2579": {
 "en": "A sturdy wooden chair for Henesys residents.",
@@ -8188,8 +8280,14 @@
 "he": "קריסטל מסתורי שספוג במקור הכוח."
 },
 "item/268": {
+"en": "Can be used on suspected botters. Usable only when a suspect is hunting. Cannot be used again on the same player within 10 minutes.",
+"he": "אפשר להשתמש בו על שחקנים שחשודים בשימוש בבוט. אפשר להשתמש בו רק כשהחשוד באמצע ציד. אי אפשר להשתמש בו שוב על אותו שחקן בתוך 10 דקות.",
+"alt": [
+{
 "en": "Can be used on suspected botters. Usable only when a suspect is hunting.",
 "he": "אפשר להשתמש בו על שחקנים שחשודים בשימוש בבוט. אפשר להשתמש בו רק כשהחשוד באמצע ציד."
+}
+]
 },
 "item/2680": {
 "en": "A mysterious crystal imbued with the source of wisdom.",
@@ -8364,8 +8462,14 @@
 "he": "תרופה מיוחדת לפוביית Stirge ש-Mong from Kong הכין. אכילה שלה תרפא את פוביית ה-Stirge...?"
 },
 "item/2719": {
+"en": "A severely burned piece of magical parchment with crumbling, dark edges.",
+"he": "פיסת קלף קסום שרופה קשות, עם שוליים כהים ומתפוררים.",
+"alt": [
+{
 "en": "A severely burned piece of magical parchment with crumbling, dark edges. Deliver to Jaime the Explorer.",
 "he": "פיסת קלף קסום שרופה קשות, עם שוליים כהים ומתפוררים. מסרו אותה ל-Jaime the Explorer."
+}
+]
 },
 "item/272": {
 "en": "A highly concentrated potion made out of red herbs.",
@@ -8488,8 +8592,14 @@
 "he": "בחלון Keyboard Shortcuts, הקצו את ההבעה הזאת למקש לבחירתכם. לחצו על המקש ותראו את הדמות שלכם די אדישה לכל העניין, נראה לי."
 },
 "item/2747": {
+"en": "Mark of the Beta is a low-level hat, equippable at level 25 or higher in MapleStory Classic. It grants +1 STR, +1 DEX, +1 INT, +1 LUK, and +24 W.DEF. Comes with 7 upgrade slots.",
+"he": "Mark of the Beta הוא כובע לרמות נמוכות, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא מעניק +1 STR, +1 DEX, +1 INT, +1 LUK ו-+24 W.DEF. מגיע עם 7 סלוטים לשדרוג.",
+"alt": [
+{
 "en": "Mark of the Beta is a early-game hat, equippable in MapleStory Classic. It grants +1 STR, +1 DEX, +1 INT, +1 LUK, and +15 W.DEF. Comes with 7 upgrade slots.",
 "he": "Mark of the Beta הוא כובע לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא מעניק +1 STR, +1 DEX, +1 INT, +1 LUK ו-+15 W.DEF. מגיע עם 7 סלוטים לשדרוג."
+}
+]
 },
 "item/2748": {
 "en": "Cap of Memories is a low-level hat, equippable at level 30 or higher in MapleStory Classic. It grants +2 STR, +2 DEX, +2 INT, +2 LUK, and +20 W.DEF. Comes with 7 upgrade slots.",
@@ -8816,8 +8926,14 @@
 "he": "מחזיר אתכם ל-Perion."
 },
 "item/2820": {
+"en": "Pumpkin Basket is an early-game one-handed sword, equippable at level 10 or higher in MapleStory Classic. It grants +27 W.ATK and +3 Speed. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Pumpkin Basket היא חרב ביד אחת לתחילת המשחק, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +27 W.ATK ו-+3 Speed. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה.",
+"alt": [
+{
 "en": "Pumpkin Basket is a early-game one-handed sword, equippable in MapleStory Classic. It grants +1 STR, +1 DEX, +1 INT, +1 LUK, +24 W.ATK, and +8 Speed. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Pumpkin Basket היא חרב ביד אחת לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. היא מעניקה +1 STR, +1 DEX, +1 INT, +1 LUK, +24 W.ATK ו-+8 SPEED. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה יותר."
+}
+]
 },
 "item/2821": {
 "en": "Can be equipped over any weapon.",
@@ -8868,16 +8984,28 @@
 "he": "שיקוי עשוי מעשבים כחולים."
 },
 "item/2832": {
+"en": "This delicious candy holds a special blessing from Malady.",
+"he": "בסוכרייה הטעימה הזאת טמונה ברכה מיוחדת מ-Malady.",
+"alt": [
+{
 "en": "An enticing piece of candy straight from Malady's finest pot.",
 "he": "סוכרייה מפתה היישר מהסיר הכי משובח של Malady."
+}
+]
 },
 "item/2833": {
 "en": "This delicious candy holds a special blessing from Malady.",
 "he": "בסוכרייה הטעימה הזאת טמונה ברכה מיוחדת מ-Malady."
 },
 "item/2834": {
+"en": "An enticing piece of candy straight from Malady's finest pot.",
+"he": "סוכרייה מפתה היישר מהסיר הכי משובח של Malady.",
+"alt": [
+{
 "en": "This delicious candy holds a special blessing from Malady.",
 "he": "בסוכרייה הטעימה הזאת טמונה ברכה מיוחדת מ-Malady."
+}
+]
 },
 "item/2835": {
 "en": "A cake full of sweetness.",
@@ -8908,8 +9036,14 @@
 "he": "אני מרגיש כוח עצום!"
 },
 "item/2841": {
+"en": "Double-click to obtain the below items.",
+"he": "לחצו לחיצה כפולה כדי לקבל את הפריטים שמופיעים למטה.",
+"alt": [
+{
 "en": "Double-click to obtain the items below:",
 "he": "לחצו לחיצה כפולה כדי לקבל את הפריטים הבאים:"
+}
+]
 },
 "item/2842": {
 "en": "Double-click to obtain the item below:",
@@ -9364,8 +9498,14 @@
 "he": "שלט שמודיע לאורחים שאסור לעשן באזור. אפשר להציב אותו בבית שלכם."
 },
 "item/2944": {
+"en": "In case of emergencies involving Fire magic. Can be placed in your home.",
+"he": "למקרה חירום שקשור לקסם Fire. אפשר להציב אותו בבית שלכם.",
+"alt": [
+{
 "en": "In case of emergencies Fire magic. Can be placed in your home.",
 "he": "למקרה חירום של קסם Fire. אפשר להציב אותו בבית שלכם."
+}
+]
 },
 "item/2945": {
 "en": "A neon sign that helps guests locate the exit. Can be placed in your home.",
@@ -11456,8 +11596,14 @@
 "he": "Razor הוא פגיון לתחילת המשחק, שאפשר לצייד מרמה 5 ומעלה ב-MapleStory Classic. הוא נותן +23 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/559": {
+"en": "Fruit Knife is an early-game dagger, equippable at level 8 or higher in MapleStory Classic. It grants +23 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Fruit Knife הוא פגיון לתחילת המשחק, שאפשר לצייד מרמה 8 ומעלה ב-MapleStory Classic. הוא נותן +23 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Fruit Knife is a early-game dagger, equippable at level 8 or higher in MapleStory Classic. It grants +23 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Fruit Knife הוא פגיון לתחילת המשחק, שאפשר לצייד מרמה 8 ומעלה ב-MapleStory Classic. הוא נותן +23 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/56": {
 "en": "Improves Dexterity on capes.",
@@ -11468,20 +11614,38 @@
 "he": "Triangular Zamadar הוא פגיון לתחילת המשחק ל-Thieves, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא נותן +28 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/562": {
+"en": "Field Dagger is a low-level dagger for Warriors and Thieves, equippable at level 15 or higher in MapleStory Classic. It grants +30 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Field Dagger הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. הוא נותן +30 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Field Dagger is a low-level dagger for Warriors and Thieves, equippable at level 15 or higher in MapleStory Classic. It grants +30 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Field Dagger הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. הוא נותן +30 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/563": {
+"en": "Triple-Tipped Zamadar is a low-level dagger for Warriors and Thieves, equippable at level 17 or higher in MapleStory Classic. It grants +34 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Triple-Tipped Zamadar הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 17 ומעלה ב-MapleStory Classic. הוא נותן +34 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Triple-Tipped Zamadar is a low-level dagger for Thieves, equippable at level 17 or higher in MapleStory Classic. It grants +35 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Triple-Tipped Zamadar הוא פגיון לרמות נמוכות ל-Thieves, שאפשר לצייד מרמה 17 ומעלה ב-MapleStory Classic. הוא נותן +35 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+}
+]
 },
 "item/564": {
 "en": "Coconut Knife is a low-level dagger for Warriors and Thieves, equippable at level 20 or higher in MapleStory Classic. It grants +35 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Coconut Knife הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +35 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
 },
 "item/565": {
+"en": "Stinger is a low-level dagger for Warriors and Thieves, equippable at level 22 or higher in MapleStory Classic. It grants +39 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Stinger הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 22 ומעלה ב-MapleStory Classic. הוא נותן +39 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Stinger is a low-level dagger for Thieves, equippable at level 22 or higher in MapleStory Classic. It grants +40 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Stinger הוא פגיון לרמות נמוכות ל-Thieves, שאפשר לצייד מרמה 22 ומעלה ב-MapleStory Classic. הוא נותן +40 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+}
+]
 },
 "item/566": {
 "en": "Iron Dagger is a low-level dagger for Warriors and Thieves, equippable at level 25 or higher in MapleStory Classic. It grants +40 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
@@ -11492,8 +11656,14 @@
 "he": "Forked Dagger הוא פגיון לרמות נמוכות ל-Thieves, שאפשר לצייד מרמה 27 ומעלה ב-MapleStory Classic. הוא נותן +45 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/568": {
+"en": "Cass is a low-level dagger for Warriors and Thieves, equippable at level 30 or higher in MapleStory Classic. It grants +47 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Cass הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +47 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Cass is a low-level dagger for Warriors and Thieves, equippable at level 30 or higher in MapleStory Classic. It grants +45 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Cass הוא פגיון לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +45 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/569": {
 "en": "Reef Claw is a low-level dagger for Thieves, equippable at level 30 or higher in MapleStory Classic. It grants +48 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -11512,20 +11682,38 @@
 "he": "Gephart הוא פגיון לרמות בינוניות ל-Thieves, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +58 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/572": {
+"en": "Korean Fan is a mid-level dagger, equippable at level 40 or higher in MapleStory Classic. It grants +55 W.ATK, +1 ACC, and +1 AVOID. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Korean Fan הוא פגיון לרמות בינוניות, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +55 W.ATK, +1 ACC ו-+1 AVOID. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Korean Fan is a mid-level dagger, equippable at level 40 or higher in MapleStory Classic. It grants +55 W.ATK, +1 ACC, and +1 AVOID. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Korean Fan הוא פגיון לרמות בינוניות, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +55 W.ATK, +1 ACC ו-+1 AVOID. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/573": {
+"en": "Bazlud is a mid-level dagger for Warriors and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +62 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Bazlud הוא פגיון לרמות בינוניות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא נותן +62 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Bazlud is a mid-level dagger for Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +63 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Bazlud הוא פגיון לרמות בינוניות ל-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא נותן +63 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+}
+]
 },
 "item/574": {
 "en": "Shinkita is a mid-level dagger for Thieves, equippable at level 50 or higher in MapleStory Classic. It grants +68 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Shinkita הוא פגיון לרמות בינוניות ל-Thieves, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +68 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/575": {
+"en": "Sai is a mid-level dagger for Warriors and Thieves, equippable at level 50 or higher in MapleStory Classic. It grants +67 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Sai הוא פגיון לרמות בינוניות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +67 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Sai is a mid-level dagger for Warriors and Thieves, equippable at level 50 or higher in MapleStory Classic. It grants +65 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Sai הוא פגיון לרמות בינוניות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +65 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/576": {
 "en": "Hand Axe is a early-game one-handed axe, equippable in MapleStory Classic. It grants +17 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -11576,8 +11764,14 @@
 "he": "Blue Flowery Tube הוא נשק קהה חד-ידני לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא נותן +19 W.ATK ו-+1 ACC. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/587": {
+"en": "Wizet Secret Agent Suitcase is an early-game one-handed blunt weapon, equippable in MapleStory Classic. It grants +200 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Wizet Secret Agent Suitcase הוא נשק קהה חד-ידני לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא נותן +200 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Wizet Secret Agent Suitcase is a early-game one-handed blunt weapon, equippable in MapleStory Classic. It grants +200 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Wizet Secret Agent Suitcase הוא נשק קהה חד-ידני לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא נותן +200 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/588": {
 "en": "Steel Pipe is a early-game one-handed blunt weapon, equippable at level 10 or higher in MapleStory Classic. It grants +29 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -11696,8 +11890,14 @@
 "he": "Aluminum Baseball Bat היא חרב דו-ידנית לרמות נמוכות, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא נותנת +50 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/613": {
+"en": "Scimitar is a low-level two-handed sword for Warriors, equippable at level 30 or higher in MapleStory Classic. It grants +53 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Scimitar היא חרב דו-ידנית לרמות נמוכות ל-Warriors, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא נותנת +53 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Scimitar is a low-level two-handed sword for Warriors, equippable at level 30 or higher in MapleStory Classic. It grants +53 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Scimitar היא חרב דו-ידנית לרמות נמוכות ל-Warriors, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא נותנת +53 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/614": {
 "en": "Lionheart is a mid-level two-handed sword for Warriors, equippable at level 35 or higher in MapleStory Classic. It grants +55 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -11708,8 +11908,14 @@
 "he": "Zard היא חרב דו-ידנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא נותנת +60 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/616": {
+"en": "Lion's Fang is a mid-level two-handed sword for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +73 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Lion's Fang היא חרב דו-ידנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא נותנת +73 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Lion's Fang is a mid-level two-handed sword for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +73 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Lion's Fang היא חרב דו-ידנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא נותנת +73 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/617": {
 "en": "Metal Axe is a early-game two-handed axe for Warriors, Bowmen, and Thieves, equippable at level 10 or higher in MapleStory Classic. It grants +30 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -11720,8 +11926,14 @@
 "he": "Iron Axe הוא גרזן דו-ידני לרמות נמוכות ל-Warriors, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +35 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/619": {
+"en": "Pickaxe is a low-level two-handed axe for Warriors and Thieves, equippable at level 20 or higher in MapleStory Classic. It grants +38 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Pickaxe הוא גרזן דו-ידני לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +38 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Pickaxe is a low-level two-handed axe for Warriors and Thieves, equippable at level 20 or higher in MapleStory Classic. It grants +38 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Pickaxe הוא גרזן דו-ידני לרמות נמוכות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +38 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/62": {
 "en": "Improves Accuracy on capes.",
@@ -11744,12 +11956,24 @@
 "he": "Sabretooth הוא גרזן דו-ידני לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +60 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/624": {
+"en": "The Rising is a mid-level two-handed axe for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +73 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "The Rising הוא גרזן דו-ידני לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +73 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "The Rising is a mid-level two-handed axe for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +73 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "The Rising הוא גרזן דו-ידני לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +73 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/625": {
+"en": "Wooden Mallet is an early-game two-handed blunt weapon for Warriors, Bowmen, and Thieves, equippable at level 10 or higher in MapleStory Classic. It grants +32 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Wooden Mallet הוא נשק קהה דו-ידני לתחילת המשחק ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא נותן +32 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Wooden Mallet is a early-game two-handed blunt weapon for Warriors, Bowmen, and Thieves, equippable at level 10 or higher in MapleStory Classic. It grants +32 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Wooden Mallet הוא נשק קהה דו-ידני לתחילת המשחק ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא נותן +32 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/626": {
 "en": "Heavy Mace is a low-level two-handed blunt weapon for Warriors, equippable at level 15 or higher in MapleStory Classic. It grants +40 W.ATK. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -11764,8 +11988,14 @@
 "he": "Monkey Wrench הוא נשק קהה דו-ידני לרמות נמוכות ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +50 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/629": {
+"en": "Mithril Maul is a low-level two-handed blunt weapon for Warriors, equippable at level 30 or higher in MapleStory Classic. It grants +52 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Mithril Maul הוא נשק קהה דו-ידני לרמות נמוכות ל-Warriors, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +52 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Mithril Maul is a low-level two-handed blunt weapon for Warriors, equippable at level 30 or higher in MapleStory Classic. It grants +52 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Mithril Maul הוא נשק קהה דו-ידני לרמות נמוכות ל-Warriors, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +52 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/63": {
 "en": "Improves Dexterity on capes.",
@@ -11792,8 +12022,14 @@
 "he": "Fork on a Stick היא חנית לרמות נמוכות ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. היא נותנת +37 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/635": {
+"en": "Fish Spear is a low-level spear, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Fish Spear היא חנית לרמות נמוכות, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא נותנת +39 W.ATK ו-+1 ACC. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Fish Spear is a low-level spear, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Fish Spear היא חנית לרמות נמוכות, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא נותנת +39 W.ATK ו-+1 ACC. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/636": {
 "en": "Forked Spear is a low-level spear for Warriors, equippable at level 30 or higher in MapleStory Classic. It grants +52 W.ATK. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -11804,12 +12040,24 @@
 "he": "Nakamaki היא חנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 35 ומעלה ב-MapleStory Classic. היא נותנת +57 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/638": {
+"en": "Zeco is a mid-level spear for Warriors, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Zeco היא חנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא נותנת +59 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Zeco is a mid-level spear for Warriors, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Zeco היא חנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא נותנת +59 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/639": {
+"en": "Serpent's Tongue is a mid-level spear for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +69 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Serpent's Tongue היא חנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא נותנת +69 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Serpent's Tongue is a mid-level spear for Warriors, equippable at level 50 or higher in MapleStory Classic. It grants +69 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Serpent's Tongue היא חנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא נותנת +69 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/64": {
 "en": "Improves Intelligence on capes.",
@@ -11848,40 +12096,88 @@
 "he": "The Nine Dragons הוא רומח לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +75 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
 },
 "item/648": {
+"en": "Wooden Wand is an early-game wand, equippable at level 10 or higher in MapleStory Classic. It grants +18 W.ATK and +27 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Wooden Wand הוא שרביט לתחילת המשחק, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא נותן +18 W.ATK ו-+27 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Wooden Wand is a early-game wand, equippable at level 10 or higher in MapleStory Classic. It grants +18 W.ATK and +27 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Wooden Wand הוא שרביט לתחילת המשחק, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. הוא נותן +18 W.ATK ו-+27 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/65": {
 "en": "Improves Luck on capes.",
 "he": "משפר את ה-LUK של גלימות."
 },
 "item/650": {
+"en": "Hardwood Wand is a low-level wand, equippable at level 15 or higher in MapleStory Classic. It grants +23 W.ATK and +34 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Hardwood Wand הוא שרביט לרמות נמוכות, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. הוא נותן +23 W.ATK ו-+34 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Hardwood Wand is a low-level wand, equippable at level 15 or higher in MapleStory Classic. It grants +23 W.ATK and +34 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Hardwood Wand הוא שרביט לרמות נמוכות, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. הוא נותן +23 W.ATK ו-+34 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/651": {
+"en": "Metal Wand is a low-level wand, equippable at level 20 or higher in MapleStory Classic. It grants +21 W.ATK and +41 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Metal Wand הוא שרביט לרמות נמוכות, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +21 W.ATK ו-+41 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Metal Wand is a low-level wand, equippable at level 20 or higher in MapleStory Classic. It grants +21 W.ATK and +41 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Metal Wand הוא שרביט לרמות נמוכות, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא נותן +21 W.ATK ו-+41 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/652": {
+"en": "Ice Wand is a low-level wand for Mage, equippable at level 25 or higher in MapleStory Classic. It grants +24 W.ATK and +48 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Ice Wand הוא שרביט לרמות נמוכות ל-Mage, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +24 W.ATK ו-+48 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Ice Wand is a low-level wand for Mage, equippable at level 25 or higher in MapleStory Classic. It grants +24 W.ATK and +48 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Ice Wand הוא שרביט לרמות נמוכות ל-Mage, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +24 W.ATK ו-+48 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/653": {
+"en": "Mithril Wand is a low-level wand for Mage, equippable at level 30 or higher in MapleStory Classic. It grants +27 W.ATK and +55 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Mithril Wand הוא שרביט לרמות נמוכות ל-Mage, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +27 W.ATK ו-+55 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Mithril Wand is a low-level wand for Mage, equippable at level 30 or higher in MapleStory Classic. It grants +27 W.ATK and +55 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Mithril Wand הוא שרביט לרמות נמוכות ל-Mage, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. הוא נותן +27 W.ATK ו-+55 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/654": {
+"en": "Wizard Wand is a mid-level wand for Mage, equippable at level 35 or higher in MapleStory Classic. It grants +43 W.ATK and +62 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Wizard Wand הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 35 ומעלה ב-MapleStory Classic. הוא נותן +43 W.ATK ו-+62 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Wizard Wand is a mid-level wand for Mage, equippable at level 35 or higher in MapleStory Classic. It grants +43 W.ATK and +62 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Wizard Wand הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 35 ומעלה ב-MapleStory Classic. הוא נותן +43 W.ATK ו-+62 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/655": {
+"en": "Fairy Wand is a mid-level wand for Mage, equippable at level 40 or higher in MapleStory Classic. It grants +48 W.ATK and +69 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Fairy Wand הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +48 W.ATK ו-+69 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Fairy Wand is a mid-level wand for Mage, equippable at level 40 or higher in MapleStory Classic. It grants +48 W.ATK and +69 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Fairy Wand הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא נותן +48 W.ATK ו-+69 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/656": {
+"en": "Cromi is a mid-level wand for Mage, equippable at level 50 or higher in MapleStory Classic. It grants +58 W.ATK and +83 M.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Cromi הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +58 W.ATK ו-+83 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה.",
+"alt": [
+{
 "en": "Cromi is a mid-level wand for Mage, equippable at level 50 or higher in MapleStory Classic. It grants +58 W.ATK and +83 M.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Cromi הוא שרביט לרמות בינוניות ל-Mage, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא נותן +58 W.ATK ו-+83 M.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+}
+]
 },
 "item/657": {
 "en": "Wooden Staff is an early-game staff for Mage, equippable at level 10 or higher in MapleStory Classic. It grants +20 W.ATK, +24 M.ATK, and +1 CDMG. Comes with 7 upgrade slots. Attack speed: Slow.",
@@ -11948,9 +12244,13 @@
 ]
 },
 "item/663": {
-"en": "War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +30 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +30 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +30 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "War Bow is an early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +30 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא מעניקה +30 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "War Bow is a early-game bow for Bowmen, equippable at level 10 or higher in MapleStory Classic. It grants +30 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "War Bow היא קשת לתחילת המשחק ל-Bowmen, שאפשר לצייד מרמה 10 ומעלה ב-MapleStory Classic. היא נותנת +30 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -11958,9 +12258,13 @@
 ]
 },
 "item/665": {
-"en": "Composite Bow is a low-level bow for Bowmen, equippable at level 15 or higher in MapleStory Classic. It grants +35 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Composite Bow is a low-level bow for Bowmen, equippable at level 15 or higher in MapleStory Classic. It grants +35 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Composite Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. היא מעניקה +35 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Composite Bow is a low-level bow for Bowmen, equippable at level 15 or higher in MapleStory Classic. It grants +35 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Composite Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. היא מעניקה +35 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Composite Bow is a low-level bow for Bowmen, equippable at level 15 or higher in MapleStory Classic. It grants +35 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Composite Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. היא נותנת +35 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -11968,9 +12272,13 @@
 ]
 },
 "item/666": {
-"en": "Hunter's Bow is a low-level bow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +42 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Hunter's Bow is a low-level bow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +42 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Hunter's Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא מעניקה +42 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Hunter's Bow is a low-level bow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +42 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Hunter's Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא מעניקה +42 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Hunter's Bow is a low-level bow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +42 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Hunter's Bow היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא נותנת +42 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -11988,9 +12296,13 @@
 ]
 },
 "item/668": {
-"en": "Ryden is a low-level bow for Bowmen, equippable at level 30 or higher in MapleStory Classic. It grants +1 STR, +50 W.ATK, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Ryden is a low-level bow for Bowmen, equippable at level 30 or higher in MapleStory Classic. It grants +1 STR, +50 W.ATK, and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Ryden היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא מעניקה +1 STR, +50 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Ryden is a low-level bow for Bowmen, equippable at level 30 or higher in MapleStory Classic. It grants +1 STR, +50 W.ATK, and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Ryden היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא מעניקה +1 STR, +50 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Ryden is a low-level bow for Bowmen, equippable at level 30 or higher in MapleStory Classic. It grants +1 STR and +50 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Ryden היא קשת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא נותנת +1 STR ו-+50 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -12012,9 +12324,13 @@
 "he": "משפר את ה-STR של גלימות."
 },
 "item/670": {
-"en": "Vaulter 2000 is a mid-level bow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +60 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Vaulter 2000 is a mid-level bow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +60 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Vaulter 2000 היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא מעניקה +60 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Vaulter 2000 is a mid-level bow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +60 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Vaulter 2000 היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא מעניקה +60 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Vaulter 2000 is a mid-level bow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +60 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Vaulter 2000 היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא נותנת +60 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -12022,9 +12338,13 @@
 ]
 },
 "item/671": {
-"en": "Olympus is a mid-level bow for Bowmen, equippable at level 50 or higher in MapleStory Classic. It grants +70 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Olympus is a mid-level bow for Bowmen, equippable at level 50 or higher in MapleStory Classic. It grants +70 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Olympus היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא מעניקה +70 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Olympus is a mid-level bow for Bowmen, equippable at level 50 or higher in MapleStory Classic. It grants +70 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Olympus היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא מעניקה +70 W.ATK ו-20% KB. מגיעה עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Olympus is a mid-level bow for Bowmen, equippable at level 50 or higher in MapleStory Classic. It grants +70 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Olympus היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. היא נותנת +70 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -12052,9 +12372,13 @@
 ]
 },
 "item/674": {
-"en": "Balanche is a low-level crossbow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Balanche is a low-level crossbow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Balanche הוא קרוסבו לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא מעניק +39 W.ATK ו-30% KB. מגיע עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Balanche is a low-level crossbow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Balanche הוא קרוסבו לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. הוא מעניק +39 W.ATK ו-30% KB. מגיע עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Balanche is a low-level crossbow for Bowmen, equippable at level 20 or higher in MapleStory Classic. It grants +39 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Balanche היא קשת צולבת לרמות נמוכות ל-Bowmen, שאפשר לצייד מרמה 20 ומעלה ב-MapleStory Classic. היא נותנת +39 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -12082,9 +12406,13 @@
 ]
 },
 "item/677": {
-"en": "Heckler is a mid-level crossbow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"en": "Heckler is a mid-level crossbow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Average.",
 "he": "Heckler הוא קרוסבו לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא מעניק +59 W.ATK ו-30% KB. מגיע עם 7 סלוטי שדרוג. מהירות התקפה: רגילה.",
 "alt": [
+{
+"en": "Heckler is a mid-level crossbow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK and 30% KB. Comes with 7 upgrade slots. Attack speed: Normal.",
+"he": "Heckler הוא קרוסבו לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. הוא מעניק +59 W.ATK ו-30% KB. מגיע עם 7 סלוטי שדרוג. מהירות התקפה: רגילה."
+},
 {
 "en": "Heckler is a mid-level crossbow for Bowmen, equippable at level 40 or higher in MapleStory Classic. It grants +59 W.ATK. Comes with 7 upgrade slots. Attack speed: Normal.",
 "he": "Heckler היא קשת צולבת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 40 ומעלה ב-MapleStory Classic. היא נותנת +59 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
@@ -12168,8 +12496,14 @@
 ]
 },
 "item/688": {
+"en": "Meba is a low-level claw for Thieves, equippable at level 25 or higher in MapleStory Classic. It grants +19 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Meba הוא טופר לרמות נמוכות ל-Thieves, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +19 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד.",
+"alt": [
+{
 "en": "Meba is a low-level claw for Thieves, equippable at level 25 or higher in MapleStory Classic. It grants +19 W.ATK. Comes with 7 upgrade slots. Attack speed: Faster.",
 "he": "Meba הוא טופר לרמות נמוכות ל-Thieves, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +19 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+}
+]
 },
 "item/689": {
 "en": "Steel Guards is a low-level claw for Thieves, equippable at level 30 or higher in MapleStory Classic. It grants +22 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -13682,9 +14016,13 @@
 "he": "כן, החצאית הזאת באמת נראית סגולה. המשחק עצמו מחליף בין המראות של ה-Green Fairy Skirt וה-Purple Fairy Skirt: זו שנקראת Green נראית סגולה, וזו שנקראת Purple נראית ירוקה. תראו בדיוק את אותו הדבר במשחק, אז זו לא טעות במאגר."
 },
 "item/1641#post0": {
-"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels. This ring is not exclusive, and players can purchase it with NX in the cash shop upon release of the game.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
-"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות. הטבעת הזו לא בלעדית, ושחקנים יוכלו לקנות אותה עם NX ב-Cash Shop עם השקת המשחק.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch",
+"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
+"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch",
 "alt": [
+{
+"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels. This ring is not exclusive, and players can purchase it with NX in the cash shop upon release of the game.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
+"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות. הטבעת הזו לא בלעדית, ושחקנים יוכלו לקנות אותה עם NX ב-Cash Shop עם השקת המשחק.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch"
+},
 {
 "en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels. This ring is not exclusive, and players can purchase it with NX in the cash shop upon release of the game.",
 "he": "טוב, אפשר להשיג את זה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות. הטבעת הזאת לא בלעדית, ושחקנים יכולים לקנות אותה עם NX ב-Cash Shop כשהמשחק יוצא."
@@ -13768,9 +14106,13 @@
 "he": "עובדה לא כיפית: לנעל הזכוכית היה אחד מה-drop rates הכי גרועים מכל פריטי הקווסטים ב-Maple של Pre-BB. אנשים פארמו ימים שלמים ב-Fire Boars בלי שום הצלחה."
 },
 "item/503#post0": {
-"en": "Scroll of Secrets is the prize from the Founder's Access GM events. Talk to Paul in Lith Harbor to join one. You get the scroll for finishing the Physical Fitness Challenge, reaching the last stage of Up and Up, or being on the winning team in Coconut Harvest. You cannot join another GM event while you hold a Scroll of Secrets, or within 24 hours of your last GM event.\nGive the scroll to Chun Ji at the Kerning City Construction Site, along with some other items, for a Magic Box . Take the box to Mr. Pickall , the Master of Lock-Picking in Kerning City, to have it opened. Open for ores, scrolls, random consumables.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets · this page GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nPlayers report ores, scrolls and food from the box. See Possible Contents on the Magic Box page .",
-"he": "Scroll of Secrets הוא הפרס מאירועי ה-GM של Founder's Access. דברו עם Paul ב-Lith Harbor כדי להצטרף לאחד מהם. תקבלו את הסקרול על סיום ה-Physical Fitness Challenge, הגעה לשלב האחרון של Up and Up, או השתייכות לקבוצה המנצחת ב-Coconut Harvest. אי אפשר להצטרף לאירוע GM נוסף כל עוד Scroll of Secrets נמצא אצלכם, או בתוך 24 שעות מאירוע ה-GM האחרון שלכם.\nתנו את הסקרול ל-Chun Ji ב-Kerning City Construction Site, יחד עם כמה פריטים נוספים, ותקבלו Magic Box. קחו את הקופסה ל-Mr. Pickall, אמן פריצת המנעולים ב-Kerning City, כדי לפתוח אותה. בפתיחה מקבלים עפרות, סקרולים ומתכלים אקראיים.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets · העמוד הזה פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nשחקנים מדווחים על עפרות, סקרולים ואוכל מהקופסה. ראו \"תכולה אפשרית\" בעמוד של Magic Box.",
+"en": "Scroll of Secrets is the prize from the Founder's Access GM events. Talk to Paul in Lith Harbor to join one. You get the scroll for finishing the Physical Fitness Challenge, reaching the last stage of Up and Up, or being on the winning team in Coconut Harvest. You cannot join another GM event while you hold a Scroll of Secrets, or within 24 hours of your last GM event.\nGive the scroll to Chun Ji at the Kerning City Construction Site, along with some other items, for a Magic Box . Take the box to Mr. Pickall , the Master of Lock-Picking in Kerning City, to have it opened. Open for ores, scrolls, random consumables.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets · this page GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 5 Pig's Head\nMagic Box Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nPlayers report ores, scrolls and food from the box. See Possible Contents on the Magic Box page .",
+"he": "Scroll of Secrets הוא הפרס מאירועי ה-GM של Founder's Access. דברו עם Paul ב-Lith Harbor כדי להצטרף לאחד מהם. תקבלו את הסקרול על סיום ה-Physical Fitness Challenge, הגעה לשלב האחרון של Up and Up, או השתייכות לקבוצה המנצחת ב-Coconut Harvest. אי אפשר להצטרף לאירוע GM נוסף כל עוד Scroll of Secrets נמצא אצלכם, או בתוך 24 שעות מאירוע ה-GM האחרון שלכם.\nתנו את הסקרול ל-Chun Ji ב-Kerning City Construction Site, יחד עם כמה פריטים נוספים, ותקבלו Magic Box. קחו את הקופסה ל-Mr. Pickall, אמן פריצת המנעולים ב-Kerning City, כדי לפתוח אותה. בפתיחה מקבלים עפרות, סקרולים ומתכלים אקראיים.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets · העמוד הזה פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 5 Pig's Head\nMagic Box נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nשחקנים מדווחים על עפרות, סקרולים ואוכל מהקופסה. ראו \"תכולה אפשרית\" בעמוד של Magic Box.",
 "alt": [
+{
+"en": "Scroll of Secrets is the prize from the Founder's Access GM events. Talk to Paul in Lith Harbor to join one. You get the scroll for finishing the Physical Fitness Challenge, reaching the last stage of Up and Up, or being on the winning team in Coconut Harvest. You cannot join another GM event while you hold a Scroll of Secrets, or within 24 hours of your last GM event.\nGive the scroll to Chun Ji at the Kerning City Construction Site, along with some other items, for a Magic Box . Take the box to Mr. Pickall , the Master of Lock-Picking in Kerning City, to have it opened. Open for ores, scrolls, random consumables.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets · this page GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nPlayers report ores, scrolls and food from the box. See Possible Contents on the Magic Box page .",
+"he": "Scroll of Secrets הוא הפרס מאירועי ה-GM של Founder's Access. דברו עם Paul ב-Lith Harbor כדי להצטרף לאחד מהם. תקבלו את הסקרול על סיום ה-Physical Fitness Challenge, הגעה לשלב האחרון של Up and Up, או השתייכות לקבוצה המנצחת ב-Coconut Harvest. אי אפשר להצטרף לאירוע GM נוסף כל עוד Scroll of Secrets נמצא אצלכם, או בתוך 24 שעות מאירוע ה-GM האחרון שלכם.\nתנו את הסקרול ל-Chun Ji ב-Kerning City Construction Site, יחד עם כמה פריטים נוספים, ותקבלו Magic Box. קחו את הקופסה ל-Mr. Pickall, אמן פריצת המנעולים ב-Kerning City, כדי לפתוח אותה. בפתיחה מקבלים עפרות, סקרולים ומתכלים אקראיים.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets · העמוד הזה פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nשחקנים מדווחים על עפרות, סקרולים ואוכל מהקופסה. ראו \"תכולה אפשרית\" בעמוד של Magic Box."
+},
 {
 "en": "Previously tied to a 4th job advancement quest in pre-bb Maple. Talk to Chun Ji outside of Kerning, he needs some items, then you go to Mr Pickall in Kerning to convert it into a box, open and get a random reward. Could be scrolls, ores, consummables.",
 "he": "בעבר הייתה קשורה לקווסט של ה-4th job advancement ב-Maple של pre-bb. מדברים עם Chun Ji מחוץ ל-Kerning, הוא צריך כמה פריטים, ואז הולכים ל-Mr Pickall ב-Kerning כדי להמיר את זה לקופסה, פותחים ומקבלים פרס אקראי. יכול להיות סקרולים, עפרות, מתכלים."
@@ -13778,9 +14120,13 @@
 ]
 },
 "item/505#post0": {
-"en": "You get this from Chun Ji at the Kerning City Construction Site in exchange for a Scroll of Secrets and some other items. Mr. Pickall in Kerning City opens it for 3 Aquamarine and 5 Slime Bubble , or 10K mesos.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box · this page Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nWhat players got from it is under Possible Contents below.",
-"he": "מקבלים את זה מ-Chun Ji ב-Kerning City Construction Site תמורת Scroll of Secrets וכמה פריטים נוספים. Mr. Pickall ב-Kerning City פותח אותה תמורת 3 Aquamarine ו-5 Slime Bubble, או 10K mesos.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box · העמוד הזה נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nמה ששחקנים קיבלו ממנה מופיע תחת \"תכולה אפשרית\" למטה.",
+"en": "You get this from Chun Ji at the Kerning City Construction Site in exchange for a Scroll of Secrets and some other items. Mr. Pickall in Kerning City opens it for 3 Aquamarine and 5 Slime Bubble , or 10K mesos.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 5 Pig's Head\nMagic Box · this page Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nWhat players got from it is under Possible Contents below.",
+"he": "מקבלים את זה מ-Chun Ji ב-Kerning City Construction Site תמורת Scroll of Secrets וכמה פריטים נוספים. Mr. Pickall ב-Kerning City פותח אותה תמורת 3 Aquamarine ו-5 Slime Bubble, או 10K mesos.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 5 Pig's Head\nMagic Box · העמוד הזה נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nמה ששחקנים קיבלו ממנה מופיע תחת \"תכולה אפשרית\" למטה.",
 "alt": [
+{
+"en": "You get this from Chun Ji at the Kerning City Construction Site in exchange for a Scroll of Secrets and some other items. Mr. Pickall in Kerning City opens it for 3 Aquamarine and 5 Slime Bubble , or 10K mesos.\nTrade chain\nNPC trade · 2 steps\nScroll of Secrets GM event prize\nFinish the Physical Fitness Challenge, reach the last stage of Up and Up, or win Coconut Harvest. Join through Paul in Lith Harbor.\nChun Ji Kerning City Construction Site\nTrades the scroll for a Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box · this page Opened for a random reward\nLocked. Take it to Mr. Pickall.\nMr. Pickall Kerning City\nOpens the box for:\n3 Aquamarine + 5 Slime Bubble or 10,000 mesos\nWhat players got from it is under Possible Contents below.",
+"he": "מקבלים את זה מ-Chun Ji ב-Kerning City Construction Site תמורת Scroll of Secrets וכמה פריטים נוספים. Mr. Pickall ב-Kerning City פותח אותה תמורת 3 Aquamarine ו-5 Slime Bubble, או 10K mesos.\nשרשרת החלפות\nהחלפה עם NPC · 2 שלבים\nScroll of Secrets פרס אירוע GM\nסיימו את ה-Physical Fitness Challenge, הגיעו לשלב האחרון של Up and Up, או נצחו ב-Coconut Harvest. מצטרפים דרך Paul ב-Lith Harbor.\nChun Ji Kerning City Construction Site\nמחליף את הסקרול ב-Magic Box.\nScroll of Secrets + 3 Pig's Head\nMagic Box · העמוד הזה נפתחת לפרס אקראי\nנעולה. קחו אותה ל-Mr. Pickall.\nMr. Pickall Kerning City\nפותח את הקופסה תמורת:\n3 Aquamarine + 5 Slime Bubble או 10,000 mesos\nמה ששחקנים קיבלו ממנה מופיע תחת \"תכולה אפשרית\" למטה."
+},
 {
 "en": "You get this from exchanging a Scroll of Secrets.",
 "he": "מקבלים את זה מהחלפת Scroll of Secrets."
@@ -13932,216 +14278,510 @@
 "he": "Pet Food מחזיר 30 Fullness. עמוד נוסחאות הפטים שלנו מסביר על האכלה, רעב ו-Closeness."
 },
 "item/4622": {
+"en": "Black Checkered Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Black Checkered Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Black Checkered Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Black Checkered Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4623": {
+"en": "Pink 80s Slacks (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink 80s Slacks (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Pink 80s Slacks is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Pink 80s Slacks הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4624": {
+"en": "Moss Green Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Moss Green Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Moss Green Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Moss Green Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4626": {
+"en": "Milan Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Milan Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Milan Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Milan Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4625": {
+"en": "Ruby-Buckled Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Ruby-Buckled Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Ruby-Buckled Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Ruby-Buckled Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4627": {
+"en": "Practical Linen Trousers (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Practical Linen Trousers (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Practical Linen Trousers is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Practical Linen Trousers הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4628": {
+"en": "Ella Blue Denim (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Ella Blue Denim (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Ella Blue Denim is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Ella Blue Denim הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4629": {
+"en": "Aqua Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Aqua Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Aqua Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Aqua Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4630": {
+"en": "Rolled-Up Baggy Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rolled-Up Baggy Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Rolled-Up Baggy Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Rolled-Up Baggy Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4631": {
+"en": "Rolled-Up Skinny Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rolled-Up Skinny Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Rolled-Up Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Rolled-Up Skinny Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4632": {
+"en": "Twinkle Star Blue Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Twinkle Star Blue Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Twinkle Star Blue Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Twinkle Star Blue Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4633": {
+"en": "Baggy Glow-in-the-Dark Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Baggy Glow-in-the-Dark Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Baggy Glow-in-the-Dark Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Baggy Glow-in-the-Dark Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4635": {
+"en": "Plaid Roll-Up Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plaid Roll-Up Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Plaid Roll-Up Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Plaid Roll-Up Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4634": {
+"en": "Dark Purple Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Purple Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Dark Purple Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Dark Purple Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4636": {
 "en": "A cute pair of pants featuring an adorable bunny on the back.",
 "he": "זוג מכנסיים חמודים עם ארנב מקסים מאחור."
 },
 "item/4637": {
+"en": "Shooting Star Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Shooting Star Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Shooting Star Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Shooting Star Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4638": {
+"en": "Vintage Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Vintage Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Vintage Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4639": {
+"en": "Neon Skinny Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Neon Skinny Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Neon Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Neon Skinny Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4640": {
+"en": "Baby Pink Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Baby Pink Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Baby Pink Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Baby Pink Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4641": {
+"en": "Blue Ribbon Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue Ribbon Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Blue Ribbon Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Blue Ribbon Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4642": {
+"en": "Underpants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Underpants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Underpants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Underpants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4643": {
+"en": "Crayon Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Crayon Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Crayon Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Crayon Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4644": {
 "en": "Equip and watch the pretty hearts follow you around as you move.",
 "he": "תציידו ותראו איך לבבות יפים עוקבים אחריכם לכל מקום שאתם זזים."
 },
 "item/4646": {
+"en": "Stone Washed Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Stone Washed Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Stone Washed Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Stone Washed Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4647": {
 "en": "Tiny hearts follow you while equipped!",
 "he": "לבבות קטנטנים עוקבים אחריכם כשהפריט מצויד!"
 },
 "item/4648": {
+"en": "Tiger-Print Leggings (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Tiger-Print Leggings (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Tiger-Print Leggings is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Tiger-Print Leggings הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4649": {
+"en": "Plaid-Cuffed Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plaid-Cuffed Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Plaid-Cuffed Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Plaid-Cuffed Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4650": {
+"en": "High-Rider (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "High-Rider (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "High-Rider is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "High-Rider הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4652": {
+"en": "Pink Sprite Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Sprite Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Pink Sprite Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Pink Sprite Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4653": {
+"en": "Red Spotted Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Spotted Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Red Spotted Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Red Spotted Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4651": {
+"en": "Saruel Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Saruel Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Saruel Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Saruel Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4654": {
+"en": "Blue Spotted Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue Spotted Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Blue Spotted Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Blue Spotted Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4655": {
+"en": "Star Trainer Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Star Trainer Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Star Trainer Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Star Trainer Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4656": {
+"en": "Super Pop Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Super Pop Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Super Pop Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Super Pop Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4657": {
+"en": "Shiny Gold Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Shiny Gold Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Shiny Gold Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Shiny Gold Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4658": {
+"en": "Layered Denim Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Layered Denim Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Layered Denim Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Layered Denim Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4659": {
+"en": "Plum Sherbet Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plum Sherbet Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Plum Sherbet Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Plum Sherbet Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4660": {
+"en": "Mint Sherbet Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mint Sherbet Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Mint Sherbet Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Mint Sherbet Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4661": {
+"en": "Deep Blue Sea Knee Socks (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Deep Blue Sea Knee Socks (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Deep Blue Sea Knee Socks is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Deep Blue Sea Knee Socks הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4662": {
 "en": "Get funky!",
 "he": "תהיו פאנקיים!"
 },
 "item/4663": {
+"en": "Sky Rainbow Shorts [temp] (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Sky Rainbow Shorts [temp] (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Sky Rainbow Shorts [temp] is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Sky Rainbow Shorts [temp] הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4664": {
+"en": "Rabbit Bottom (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rabbit Bottom (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Rabbit Bottom is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Rabbit Bottom הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4665": {
+"en": "Neon Pink Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Neon Pink Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Neon Pink Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Neon Pink Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4666": {
+"en": "Vacation Denim Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vacation Denim Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Vacation Denim Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Vacation Denim Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4667": {
+"en": "Oceanic Sandblasted Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Oceanic Sandblasted Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Oceanic Sandblasted Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Oceanic Sandblasted Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4668": {
+"en": "Mosaic Purple (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mosaic Purple (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Mosaic Purple is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Mosaic Purple הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4669": {
+"en": "Chocolate Strawberry Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Chocolate Strawberry Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Chocolate Strawberry Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Chocolate Strawberry Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4670": {
+"en": "Slither Style Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Slither Style Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Slither Style Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Slither Style Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4671": {
+"en": "Checkered Tights (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Checkered Tights (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Checkered Tights is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Checkered Tights הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4672": {
+"en": "Pink Skinny Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Skinny Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Pink Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Pink Skinny Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4673": {
+"en": "Little Bunny Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Little Bunny Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Little Bunny Pants is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Little Bunny Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4674": {
+"en": "Sapphire Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Sapphire Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Sapphire Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Sapphire Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4675": {
+"en": "Hot Pink Overalls (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Hot Pink Overalls (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Hot Pink Overalls is an early-game cash bottom, equippable in MapleStory Classic.",
 "he": "Hot Pink Overalls הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4676": {
 "en": "Sporty shorts for speeding through the forest.",
@@ -14236,8 +14876,14 @@
 "he": "Western Walkers (Alt) הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4700": {
+"en": "Hero's Boots is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Hero's Boots הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Sea Queen Sandals is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Sea Queen Sandals הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4698": {
 "en": "SF Ninja Shoes is an early-game cash shoes, equippable at level 10 or higher in MapleStory Classic.",
@@ -15324,8 +15970,14 @@
 "he": "Blue Wing Bag הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4985": {
+"en": "A ring that shows the character's name in white font with a special background.",
+"he": "טבעת שמציגה את שם הדמות בגופן לבן על רקע מיוחד.",
+"alt": [
+{
 "en": "Under the character avatar, the name of the character will be featured in orange KTF basketball team background and black font.",
 "he": "מתחת לדמות, שם הדמות יוצג על רקע כתום של קבוצת הכדורסל KTF, בגופן שחור."
+}
+]
 },
 "item/4986": {
 "en": "Under the character avatar, the name of the character will be featured in a sea of clams and starfish, written in white font.",
@@ -15352,8 +16004,14 @@
 "he": "מתחת לדמות, שם הדמות יוצג בקשת על רקע תכלת, בגופן שחור."
 },
 "item/4992": {
+"en": "Under the character avatar, the name of the character will be featured with a tiger-ish cat.",
+"he": "מתחת לדמות, שם הדמות יוצג עם חתול שנראה כמו נמר.",
+"alt": [
+{
 "en": "Under the character avatar, the name of the character will be featured in coke-themed background and in white font.",
 "he": "מתחת לדמות, שם הדמות יוצג על רקע בעיצוב קוקה-קולה, בגופן לבן."
+}
+]
 },
 "item/4993": {
 "en": "Under the character avatar, the name of the character will be featured in coke-themed background and in white font.",
@@ -15644,8 +16302,14 @@
 "he": "טבעת תווית של Red Cloud. עיצוב: השחקן Kiilia מ-China MapleStory."
 },
 "item/5066": {
+"en": "When the character chats, the chat bubble comes out decorated with a special border.",
+"he": "כשהדמות כותבת בצ'אט, בועת הצ'אט מופיעה מעוטרת במסגרת מיוחדת.",
+"alt": [
+{
 "en": "Under the character avatar, the name of the character will be featured with a tiger-ish cat.",
 "he": "מתחת לדמות, שם הדמות יוצג עם חתול שנראה כמו נמר."
+}
+]
 },
 "item/5067": {
 "en": "While the character chats, the quote bubble comes out decorated in glimmering blue star background and in white font.",
@@ -16148,8 +16812,14 @@
 "he": "אפשר לצייד מעל כל נשק חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
 },
 "item/5194": {
+"en": "A pumpkin-topped cane. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
+"he": "Cane עם ראש של דלעת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A pumpkin-topped cane. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "Cane עם ראש של דלעת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5195": {
 "en": "An adorable-looking donkey that can be equipped over any weapon.",
@@ -17056,8 +17726,14 @@
 "he": "סקין נשק שאפשר להלביש מעל"
 },
 "item/5423": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5422": {
 "en": "A weapon skin that can be equipped over",
@@ -17068,8 +17744,14 @@
 "he": "סקין נשק שאפשר להלביש מעל"
 },
 "item/5424": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5425": {
 "en": "A weapon skin that can be equipped over",
@@ -17080,7 +17762,1133 @@
 "he": "סקין נשק של שרביט טבעי ומנצנץ, שאפשר להלביש מעל כל נשק."
 },
 "item/5427": {
+"en": "Can be used on suspected botters. Usable only when a suspect is hunting. Cannot be used again on the same player within 2 minutes.",
+"he": "אפשר להשתמש בו על חשודים בבוטים. אפשר להשתמש בו רק כשהחשוד באמצע ציד. אי אפשר להשתמש בו שוב על אותו שחקן בתוך 2 דקות.",
+"alt": [
+{
 "en": "Can be used on suspected botters. Usable only when a suspect is hunting.",
 "he": "אפשר להשתמש בו על חשודים בבוטים. אפשר להשתמש בו רק כשהחשוד באמצע ציד."
+}
+]
+},
+"item/277#post0": {
+"en": "Using the item turns you into a Snail for 60mins.",
+"he": "שימוש בפריט הופך אתכם ל-Snail למשך 60 דקות."
+},
+"item/2747#post0": {
+"en": "Guide on how to obtain this: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nAlso, super early players got a Mark with -9 WDEF. Stat got hotfixed later on but only for new owners.",
+"he": "מדריך איך להשיג את זה: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nבנוסף, שחקנים שהגיעו ממש מוקדם קיבלו Mark עם -9 WDEF. הסטאט תוקן בהוטפיקס מאוחר יותר, אבל רק לבעלים חדשים."
+},
+"item/3020#about0": {
+"en": "Placing it in your home brings out a level 30 Straw Training Dummy with 99,999,999 HP to practice on. Its monster page has the full stats.",
+"he": "כשמציבים אותו בבית שלכם, מופיע Straw Training Dummy ברמה 30 עם 99,999,999 HP להתאמן עליו. בעמוד המפלצת שלו יש את כל הנתונים."
+},
+"item/3209": {
+"en": "Hero's Helm is an early-game cash hat, equippable in MapleStory Classic.",
+"he": "Hero's Helm הוא פריט Cash מסוג כובע לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3870": {
+"en": "Wearing it on the human ear makes it red up to the ear.",
+"he": "כשעונדים אותו על אוזן של בן אדם, היא מאדימה עד קצה האוזן."
+},
+"item/3922": {
+"en": "Pink Sunglasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Sunglasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3923": {
+"en": "Pink Aviator Sunglasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Aviator Sunglasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3924": {
+"en": "Pop-Eye is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pop-Eye הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3925": {
+"en": "Black Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Black Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3926": {
+"en": "Redbeard's Pirate Eye Patch is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Redbeard's Pirate Eye Patch הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3927": {
+"en": "Green Shutter Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Green Shutter Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3928": {
+"en": "Gaga Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Gaga Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3929": {
+"en": "Twinkling Eyes is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Twinkling Eyes הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3931": {
+"en": "I Like Money is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "I Like Money הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3930": {
+"en": "Scouter (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Scouter (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3932": {
+"en": "State-of-the-art sunglasses, with an LED backlight.",
+"he": "משקפי שמש חדישים עם תאורה אחורית של LED."
+},
+"item/3935": {
+"en": "Pink Two-Toned Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Two-Toned Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3933": {
+"en": "3D Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "3D Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3934": {
+"en": "Yellow Two-Toned Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Yellow Two-Toned Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3936": {
+"en": "Big White Sunglasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Big White Sunglasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3937": {
+"en": "It doesn't take X-ray vision to see you're up to no good.",
+"he": "לא צריך ראיית רנטגן כדי לראות שאתם זוממים משהו."
+},
+"item/3938": {
+"en": "Glasses to wear to Maple's 6th B-Day Party. Wear all four 6th B-Day Party items to see a cool effect!",
+"he": "משקפיים ללבוש במסיבת יום ההולדת ה-6 של Maple. לבשו את כל ארבעת הפריטים של 6th B-Day Party כדי לראות אפקט מגניב!"
+},
+"item/3941": {
+"en": "Broken Up Today is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Broken Up Today הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3940": {
+"en": "Star Sunglasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Star Sunglasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3939": {
+"en": "Silky Black Eye Patch is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Silky Black Eye Patch הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3943": {
+"en": "Futuroid VR Visor is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Futuroid VR Visor הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3944": {
+"en": "Aviator Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Aviator Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3942": {
+"en": "An equipment item. Designed by the China MapleStory player Shirley.",
+"he": "פריט ציוד. עוצב על ידי Shirley, שחקנית China MapleStory."
+},
+"item/3945": {
+"en": "Black Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Black Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3946": {
+"en": "Redbeard's Pirate Eye Patch (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Redbeard's Pirate Eye Patch (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3947": {
+"en": "Black Skull Eye Patch (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Black Skull Eye Patch (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3949": {
+"en": "Big Red Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Big Red Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3948": {
+"en": "Flat Mini Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Flat Mini Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3950": {
+"en": "Alphabet Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Alphabet Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3952": {
+"en": "White Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "White Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3951": {
+"en": "Star Spectacles (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Star Spectacles (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3953": {
+"en": "Orange Shutter Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Orange Shutter Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3954": {
+"en": "Green Shutter Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Green Shutter Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3955": {
+"en": "Red Shutter Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Red Shutter Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3956": {
+"en": "Yellow Shutter Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Yellow Shutter Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3957": {
+"en": "Gaga Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Gaga Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3958": {
+"en": "Twinkling Eyes (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Twinkling Eyes (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3959": {
+"en": "Clear Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Clear Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3960": {
+"en": "Cracked Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Cracked Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3962": {
+"en": "Eye Mask (Red) (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Eye Mask (Red) (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3961": {
+"en": "Hitman Sunglasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Hitman Sunglasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3963": {
+"en": "Pink Eye Mask (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Eye Mask (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3964": {
+"en": "Blue Eye Mask (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Blue Eye Mask (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3966": {
+"en": "I Like Money (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "I Like Money (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3968": {
+"en": "3D Glasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "3D Glasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3969": {
+"en": "Yellow Two-Toned Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Yellow Two-Toned Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3970": {
+"en": "Pink Two-Toned Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Two-Toned Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3971": {
+"en": "Big White Sunglasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Big White Sunglasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3974": {
+"en": "Silky Black Eye Patch (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Silky Black Eye Patch (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3975": {
+"en": "Star Sunglasses (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Star Sunglasses (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3976": {
+"en": "Broken Up Today (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Broken Up Today (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3978": {
+"en": "Futuroid VR Visor (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Futuroid VR Visor (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/3979": {
+"en": "Aviator Shades (Alt) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Aviator Shades (Alt) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4197": {
+"en": "Buddy Overall Jeans (Blue) is an early-game cash overall, equippable in MapleStory Classic.",
+"he": "Buddy Overall Jeans (Blue) הוא פריט Cash מסוג אוברול לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4201": {
+"en": "Buddy Overall Jeans (Red) is an early-game cash overall, equippable in MapleStory Classic.",
+"he": "Buddy Overall Jeans (Red) הוא פריט Cash מסוג אוברול לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4208": {
+"en": "Hero's Armor is an early-game cash overall, equippable in MapleStory Classic.",
+"he": "Hero's Armor הוא פריט Cash מסוג אוברול לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4552": {
+"en": "Green Long Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Green Long Skirt הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4551": {
+"en": "Mercury Washed Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mercury Washed Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4554": {
+"en": "Blue Slit Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue Slit Skirt הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4556": {
+"en": "Dark Denim Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Denim Skirt הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4555": {
+"en": "Skirt with Tights is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Skirt with Tights הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4557": {
+"en": "Denim Skirt & Striped Sox is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Denim Skirt & Striped Sox הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4558": {
+"en": "Mercury Jean Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mercury Jean Skirt הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4559": {
+"en": "Golf Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Golf Skirt הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4560": {
+"en": "All-Star Blue Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "All-Star Blue Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4561": {
+"en": "White Faded Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "White Faded Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4562": {
+"en": "Pink-Lined Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink-Lined Shorts הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4563": {
+"en": "Busy Bee Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Busy Bee Shorts הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4564": {
+"en": "Jailbird Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Jailbird Shorts הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4565": {
+"en": "Military Cargo Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Military Cargo Pants הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4566": {
+"en": "Scottish Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Scottish Pants הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4567": {
+"en": "Inferno Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Inferno Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4568": {
+"en": "Vintage Black Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Black Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4569": {
+"en": "Olive Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Olive Skinny Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4570": {
+"en": "Red Wine Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Wine Skinny Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4571": {
+"en": "Vintage Sky Blue Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Sky Blue Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4572": {
+"en": "Rainbow Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rainbow Shorts הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4573": {
+"en": "Brown Chained Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Chained Pants הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4574": {
+"en": "Painted Blue Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Painted Blue Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4575": {
+"en": "Moss Green Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Moss Green Pants הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4576": {
+"en": "Rolled-Up Baggy Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rolled-Up Baggy Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4577": {
+"en": "Rolled-Up Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rolled-Up Skinny Jeans הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4579": {
+"en": "Baby Pink Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Baby Pink Pants הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4580": {
+"en": "Blue Ribbon Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue Ribbon Shorts הוא פריט Cash מסוג חלק תחתון לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4581": {
+"en": "Underpants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Underpants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4583": {
+"en": "Crayon Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Crayon Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4585": {
+"en": "Pink hearts follow you while equipped!",
+"he": "לבבות ורודים הולכים אחריכם כל עוד הפריט לבוש עליכם!"
+},
+"item/4586": {
+"en": "Stone Washed Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Stone Washed Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4584": {
+"en": "Equip and watch the pretty hearts follow you around as you move.",
+"he": "לבשו את הפריט ותראו איך הלבבות היפים הולכים אחריכם לכל מקום שאתם זזים."
+},
+"item/4587": {
+"en": "Tiny hearts follow you while equipped!",
+"he": "לבבות קטנטנים הולכים אחריכם כל עוד הפריט לבוש עליכם!"
+},
+"item/4588": {
+"en": "Tiger-Print Leggings is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Tiger-Print Leggings הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4589": {
+"en": "Plaid-Cuffed Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plaid-Cuffed Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4590": {
+"en": "High-Rider is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "High-Rider הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4591": {
+"en": "Saruel Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Saruel Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4592": {
+"en": "Pink Sprite Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Sprite Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4593": {
+"en": "Red Spotted Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Spotted Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4594": {
+"en": "Blue Spotted Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue Spotted Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4597": {
+"en": "Shiny Gold Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Shiny Gold Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4595": {
+"en": "White Jeans (Alt 2) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "White Jeans (Alt 2) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4596": {
+"en": "Star Trainer Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Star Trainer Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4598": {
+"en": "Layered Denim Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Layered Denim Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4600": {
+"en": "Mint Sherbet Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mint Sherbet Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4599": {
+"en": "Plum Sherbet Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plum Sherbet Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4603": {
+"en": "Sky Rainbow Shorts [temp] is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Sky Rainbow Shorts [temp] הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4601": {
+"en": "Deep Blue Sea Knee Socks is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Deep Blue Sea Knee Socks הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4602": {
+"en": "Get funky!",
+"he": "תכניסו קצת גרוב!"
+},
+"item/4605": {
+"en": "Neon Pink Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Neon Pink Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4606": {
+"en": "Vacation Denim Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vacation Denim Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4604": {
+"en": "Rabbit Bottom is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Rabbit Bottom הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4609": {
+"en": "Chocolate Strawberry Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Chocolate Strawberry Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4608": {
+"en": "Mosaic Purple is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Mosaic Purple הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4607": {
+"en": "Oceanic Sandblasted Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Oceanic Sandblasted Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4611": {
+"en": "Checkered Tights is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Checkered Tights הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4610": {
+"en": "Slither Style Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Slither Style Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4612": {
+"en": "Pink Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Skinny Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4613": {
+"en": "Little Bunny Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Little Bunny Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4614": {
+"en": "Sporty shorts for speeding through the forest.",
+"he": "מכנסיים קצרים ספורטיביים לדהירה מהירה ביער."
+},
+"item/4615": {
+"en": "Brown Pocket Shorts (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Pocket Shorts (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4616": {
+"en": "Jewel Chain Jeans (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Jewel Chain Jeans (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4617": {
+"en": "\"Black Tie Affair\" Dress Pants (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "\"Black Tie Affair\" Dress Pants (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4618": {
+"en": "Dark Master Sergeant Skirt for Transformation (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Master Sergeant Skirt for Transformation (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4619": {
+"en": "Red Legolia Pants for Transformation (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Legolia Pants for Transformation (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4621": {
+"en": "Pink Heart Boxers (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Heart Boxers (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/4620": {
+"en": "Dark Night Pants for Transformation (Alt) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Night Pants for Transformation (Alt) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5429": {
+"en": "Can be used on suspected botters. Usable only when a suspect is hunting. Cannot be used again on the same player within 1 hour.",
+"he": "אפשר להשתמש בו על חשודים בבוטים. אפשר להשתמש בו רק כשהחשוד באמצע ציד. אי אפשר להשתמש בו שוב על אותו שחקן בתוך 1 שעה."
+},
+"item/5428": {
+"en": "Very sour.",
+"he": "חמוץ מאוד."
+},
+"item/5430": {
+"en": "A small note belonging to someone, found tucked between the pages of the Adventurer's Journal.",
+"he": "פתק קטן ששייך למישהו, שנמצא תחוב בין דפי ה-Adventurer's Journal."
+},
+"item/5431": {
+"en": "Double-click to obtain the below items.",
+"he": "לחצו פעמיים כדי לקבל את הפריטים שלמטה."
+},
+"item/5432": {
+"en": "Double-click to obtain the below items.",
+"he": "לחצו פעמיים כדי לקבל את הפריטים שלמטה."
+},
+"item/5434": {
+"en": "Double-click to obtain the below item.",
+"he": "לחצו פעמיים כדי לקבל את הפריט שלמטה."
+},
+"item/5435": {
+"en": "Double-click to obtain the below item.",
+"he": "לחצו פעמיים כדי לקבל את הפריט שלמטה."
+},
+"item/5433": {
+"en": "Double-click to choose one avatar from a variety of options.",
+"he": "לחצו פעמיים כדי לבחור אווטאר אחד מתוך מגוון אפשרויות."
+},
+"item/5436": {
+"en": "A statue modeled after Mano. Can be placed in your house.",
+"he": "פסל בדמותו של Mano. אפשר להציב אותו בבית שלכם."
+},
+"item/5437": {
+"en": "A statue modeled after Moon Bunny. Can be placed in your house.",
+"he": "פסל בדמותו של Moon Bunny. אפשר להציב אותו בבית שלכם."
+},
+"item/5438": {
+"en": "A statue modeled after Lakelis. Can be placed in your house.",
+"he": "פסל בדמותו של Lakelis. אפשר להציב אותו בבית שלכם."
+},
+"item/5439": {
+"en": "A balloon shaped like King Slime. Can be placed in your house.",
+"he": "בלון בצורת King Slime. אפשר להציב אותו בבית שלכם."
+},
+"item/5440": {
+"en": "A balloon shaped like Mushmom. Can be placed in your house.",
+"he": "בלון בצורת Mushmom. אפשר להציב אותו בבית שלכם."
+},
+"item/5441": {
+"en": "A figure modeled after Stumpy. Can be placed in your house.",
+"he": "פסלון בדמותו של Stumpy. אפשר להציב אותו בבית שלכם."
+},
+"item/5442": {
+"en": "A figure modeled after Arcon. Can be placed in your house.",
+"he": "פסלון בדמותו של Arcon. אפשר להציב אותו בבית שלכם."
+},
+"item/5443": {
+"en": "A painting depicting Shade. Can be placed in your house.",
+"he": "ציור של Shade. אפשר להציב אותו בבית שלכם."
+},
+"item/5444": {
+"en": "A painting depicting Zombie Mushmom. Can be placed in your house.",
+"he": "ציור של Zombie Mushmom. אפשר להציב אותו בבית שלכם."
+},
+"item/5445": {
+"en": "A painting depicting Rotten Mushmom. Can be placed in your house.",
+"he": "ציור של Rotten Mushmom. אפשר להציב אותו בבית שלכם."
+},
+"item/5446": {
+"en": "A wall decoration made from Jr. Balrog's horn. Can be placed in your house.",
+"he": "קישוט קיר שעשוי מהקרן של Jr. Balrog. אפשר להציב אותו בבית שלכם."
+},
+"item/5447": {
+"en": "A wall decoration made from Crimson Balrog's helmet. Can be placed in your house.",
+"he": "קישוט קיר שעשוי מהקסדה של Crimson Balrog. אפשר להציב אותו בבית שלכם."
+},
+"item/5448": {
+"en": "An old safe for storing items. Can be placed in your home and used for storage by interacting nearby.",
+"he": "כספת ישנה לאחסון פריטים. אפשר להציב אותה בבית שלכם ולהשתמש בה לאחסון כשנמצאים לידה."
+},
+"item/5449": {
+"en": "A sturdy safe for storing items. Can be placed in your home and used for storage by interacting nearby.",
+"he": "כספת חזקה לאחסון פריטים. אפשר להציב אותה בבית שלכם ולהשתמש בה לאחסון כשנמצאים לידה."
+},
+"item/5451": {
+"en": "A wooden board that Wooden Mask wears.",
+"he": "לוח עץ ש-Wooden Mask חובש."
+},
+"item/5450": {
+"en": "A branch from Ghost Stump.",
+"he": "ענף מ-Ghost Stump."
+},
+"item/5452": {
+"en": "A slate that Stone Mask wears.",
+"he": "לוח אבן ש-Stone Mask חובש."
+},
+"item/5453": {
+"en": "A bone that fell out of Skeledog.",
+"he": "עצם שנפלה מ-Skeledog."
+},
+"item/5454": {
+"en": "A string of dirty bandage that was wrapped around Mummydog.",
+"he": "רצועת תחבושת מלוכלכת שהייתה כרוכה סביב Mummydog."
+},
+"item/5456": {
+"en": "A pelvic bone from Skeleton Officer.",
+"he": "עצם אגן של Skeleton Officer."
+},
+"item/5455": {
+"en": "A rib from Skeleton Soldier.",
+"he": "צלע של Skeleton Soldier."
+},
+"item/5457": {
+"en": "A horse skull from the horse of Skeleton Commander.",
+"he": "גולגולת סוס מהסוס של Skeleton Commander."
+},
+"item/5459": {
+"en": "A glass lamp filled with glowing mushroom spores from the Forgotten Hollow.",
+"he": "מנורת זכוכית מלאה בנבגי פטריות זוהרים מ-Forgotten Hollow."
+},
+"item/5460": {
+"en": "A heavy bundle of warm cloth, bandages, and remedies packed by Rowen the Fairy.",
+"he": "צרור כבד של בדים חמים, תחבושות ותרופות שארזה Rowen the Fairy."
+},
+"item/5458": {
+"en": "A dried up branch that has lost all moisture and looks like it will break at the slightest touch.",
+"he": "ענף מיובש שאיבד את כל הלחות שלו ונראה כאילו יישבר במגע הקל ביותר."
+},
+"item/5461": {
+"en": "An old journal kept by Elda, a cave fairy hearthkeeper. It is written in the old fairy script.",
+"he": "יומן ישן של Elda, פיית מערות ששמרה על האח. הוא כתוב בכתב הפיות העתיק."
+},
+"item/5462": {
+"en": "A small charm carved with Elda's mark. A message is written on the back in the old fairy script.",
+"he": "קמע קטן שחרוט עליו הסימן של Elda. בגב שלו כתובה הודעה בכתב הפיות העתיק."
+},
+"item/5463": {
+"en": "Elda's name-charm, wrapped in Daniel the Scholar's written copy of the message on its back.",
+"he": "קמע השם של Elda, עטוף בעותק הכתוב של Daniel the Scholar להודעה שבגב הקמע."
+},
+"item/5464": {
+"en": "A book that tells of the longest-living Snail in Maple World.",
+"he": "ספר שמספר על ה-Snail שחי הכי הרבה זמן ב-Maple World."
+},
+"item/5465": {
+"en": "This megaphone allows you to shout to everyone in the world your character is on. Only available for characters that are over Level 15.",
+"he": "המגפון הזה מאפשר לכם לצעוק לכל מי שנמצא בעולם שהדמות שלכם נמצאת בו. זמין רק לדמויות מעל רמה 15."
+},
+"item/5466": {
+"en": "This megaphone allows you to shout to everyone in the channel your character is on. Only available for characters that are over Level 15.",
+"he": "המגפון הזה מאפשר לכם לצעוק לכל מי שנמצא בערוץ שהדמות שלכם נמצאת בו. זמין רק לדמויות מעל רמה 15."
+},
+"item/5468": {
+"en": "This megaphone allows you to shout to everyone in the channel your character is on. Only available for characters that are over Level 15.",
+"he": "המגפון הזה מאפשר לכם לצעוק לכל מי שנמצא בערוץ שהדמות שלכם נמצאת בו. זמין רק לדמויות מעל רמה 15."
+},
+"item/5469": {
+"en": "Use this megaphone to broadcast to everyone in your World about two items that may be for sale. Only available for characters that are over Level 15.",
+"he": "השתמשו במגפון הזה כדי להכריז לכל מי שנמצא ב-World שלכם על שני פריטים שאולי עומדים למכירה. זמין רק לדמויות מעל רמה 15."
+},
+"item/5467": {
+"en": "Use this megaphone to broadcast to everyone in your World about an item that may be for sale. Only available for characters that are over Level 15.",
+"he": "השתמשו במגפון הזה כדי להכריז לכל מי שנמצא ב-World שלכם על פריט שאולי עומד למכירה. זמין רק לדמויות מעל רמה 15."
+},
+"item/5470": {
+"en": "Double-click and use to get a hair color mixed from 2 random colors out of 8. These items are used in the order that they are stored in your Cash tab.",
+"he": "לחצו פעמיים והשתמשו כדי לקבל צבע שיער שמשולב מ-2 צבעים אקראיים מתוך 8. הפריטים האלה משמשים לפי הסדר שבו הם מאוחסנים בלשונית Cash שלכם."
+},
+"item/5471": {
+"en": "Double-click to get an eye color mixed from 2 random colors out of 8. Caution: Applied",
+"he": "לחצו פעמיים כדי לקבל צבע עיניים שמשולב מ-2 צבעים אקראיים מתוך 8. שימו לב: מוחל"
+},
+"item/5472": {
+"en": "A collection of special outfit items. Double-click to obtain 1 item according to set probability rates.",
+"he": "אוסף של פריטי לבוש מיוחדים. לחצו פעמיים כדי לקבל פריט 1 לפי סיכויים קבועים מראש."
+},
+"item/5473": {
+"en": "Using this coupon will unlock 1 face slot in the Beauty Album. You can have a maximum of 24 slots (currently: %d slots).",
+"he": "השימוש בקופון הזה יפתח סלוט פנים 1 ב-Beauty Album. אפשר להחזיק עד 24 סלוטים לכל היותר (כרגע: %d סלוטים)."
+},
+"item/5474": {
+"en": "Using this coupon will unlock 1 hair slot in the Beauty Album. You can have a maximum of 24 slots (currently: %d slots).",
+"he": "השימוש בקופון הזה יפתח סלוט שיער 1 ב-Beauty Album. אפשר להחזיק עד 24 סלוטים לכל היותר (כרגע: %d סלוטים)."
+},
+"item/5475": {
+"en": "Using this coupon will unlock 1 skin slot in the Beauty Album. You can have a maximum of 12 slots (currently: %d slots).",
+"he": "השימוש בקופון הזה יפתח סלוט עור 1 ב-Beauty Album. אפשר להחזיק עד 12 סלוטים לכל היותר (כרגע: %d סלוטים)."
+},
+"item/5476": {
+"en": "Double-click to obtain the following items:",
+"he": "לחצו פעמיים כדי לקבל את הפריטים הבאים:"
+},
+"item/5478": {
+"en": "Old-School Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Old-School Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5477": {
+"en": "Classic Masquerade Mask is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Classic Masquerade Mask הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5479": {
+"en": "Metal Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Metal Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5482": {
+"en": "Hot Teacher Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Hot Teacher Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5480": {
+"en": "Red Head-Spinning Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Red Head-Spinning Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5481": {
+"en": "Blue Head-Spinning Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Blue Head-Spinning Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5483": {
+"en": "Politician Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Politician Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5484": {
+"en": "Bizarre Monocle is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Bizarre Monocle הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5485": {
+"en": "Scouter is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Scouter הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5486": {
+"en": "Head Bandage is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Head Bandage הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5488": {
+"en": "Red Bushido Bandana is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Red Bushido Bandana הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5487": {
+"en": "Nerdy Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Nerdy Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5489": {
+"en": "Butterfly Ball Mask is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Butterfly Ball Mask הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5490": {
+"en": "Owl Ball Mask is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Owl Ball Mask הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5492": {
+"en": "Vintage Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Vintage Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5491": {
+"en": "Green-Rimmed Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Green-Rimmed Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5493": {
+"en": "Red Half-Rim Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Red Half-Rim Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5494": {
+"en": "Future Vision Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Future Vision Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5497": {
+"en": "Black Skull Eye Patch is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Black Skull Eye Patch הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5496": {
+"en": "Round Shield Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Round Shield Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5495": {
+"en": "Futuristic Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Futuristic Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5498": {
+"en": "Flat Mini Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Flat Mini Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5499": {
+"en": "Big Red Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Big Red Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5500": {
+"en": "Alphabet Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Alphabet Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5502": {
+"en": "White Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "White Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5501": {
+"en": "Star Spectacles is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Star Spectacles הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5503": {
+"en": "Orange Shutter Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Orange Shutter Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5504": {
+"en": "Red Shutter Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Red Shutter Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5505": {
+"en": "Yellow Shutter Shades is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Yellow Shutter Shades הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5506": {
+"en": "Clear Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Clear Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5507": {
+"en": "Cracked Glasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Cracked Glasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5509": {
+"en": "Eye Mask (Red) is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Eye Mask (Red) הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5508": {
+"en": "Hitman Sunglasses is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Hitman Sunglasses הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5510": {
+"en": "Pink Eye Mask is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Pink Eye Mask הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5512": {
+"en": "Prep School Uniform Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Prep School Uniform Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5511": {
+"en": "Blue Eye Mask is an early-game cash eye accessory, equippable in MapleStory Classic.",
+"he": "Blue Eye Mask הוא פריט Cash מסוג אביזר עיניים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5513": {
+"en": "Orange Puffy Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Orange Puffy Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5515": {
+"en": "Black Wakeboard Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Black Wakeboard Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5516": {
+"en": "Cowboy Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Cowboy Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5514": {
+"en": "Tania Tartan Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Tania Tartan Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5517": {
+"en": "Golf Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Golf Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5518": {
+"en": "SF Ninja Pants is an early-game cash bottom, equippable at level 10 or higher in MapleStory Classic.",
+"he": "SF Ninja Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש מרמה 10 ומעלה ב-MapleStory Classic."
+},
+"item/5520": {
+"en": "Pink Layered Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Layered Skirt הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5521": {
+"en": "Long Khaki Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Long Khaki Skirt הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5519": {
+"en": "Orange Long Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Orange Long Skirt הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5522": {
+"en": "Pink Heart Hot Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Heart Hot Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5523": {
+"en": "Tania Tartan Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Tania Tartan Skirt הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5524": {
+"en": "Pink Frill Swim Skirt is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Frill Swim Skirt הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5525": {
+"en": "Bright Frilly Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Bright Frilly Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5526": {
+"en": "Cowgirl Pants is an early-game cash bottom, equippable at level 10 or higher in MapleStory Classic.",
+"he": "Cowgirl Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש מרמה 10 ומעלה ב-MapleStory Classic."
+},
+"item/5527": {
+"en": "Baggy Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Baggy Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5528": {
+"en": "Blue B-Ball Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Blue B-Ball Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5529": {
+"en": "Orange B-Ball Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Orange B-Ball Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5530": {
+"en": "Jeans with Chain is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Jeans with Chain הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5531": {
+"en": "Black Leather Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Black Leather Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5532": {
+"en": "Red Starrium is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Starrium הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5534": {
+"en": "Brisk is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brisk הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5535": {
+"en": "Brown Checkered Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Checkered Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5533": {
+"en": "Vintage Pocket Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Pocket Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5537": {
+"en": "Football Bottom (Away) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Football Bottom (Away) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5538": {
+"en": "Dark Rocker Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Rocker Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5536": {
+"en": "Football Pants (Home) is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Football Pants (Home) הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5541": {
+"en": "Summer Capris is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Summer Capris הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5540": {
+"en": "White-Striped Trainer Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "White-Striped Trainer Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5539": {
+"en": "Checks Point Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Checks Point Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5542": {
+"en": "Low-Rise Ripped Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Low-Rise Ripped Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5543": {
+"en": "Relaxed Fit Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Relaxed Fit Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5545": {
+"en": "Brown Pumpkin Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Pumpkin Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5546": {
+"en": "Vintage Black Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Black Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5544": {
+"en": "Olive Pumpkin Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Olive Pumpkin Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5547": {
+"en": "Light Blue Ripped Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Light Blue Ripped Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5548": {
+"en": "Brown Bubble Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Bubble Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5549": {
+"en": "Red and Black Warm-ups is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red and Black Warm-ups הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5551": {
+"en": "Jewel Chain Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Jewel Chain Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5550": {
+"en": "Brown Pocket Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Brown Pocket Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5552": {
+"en": "\"Black Tie Affair\" Dress Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "\"Black Tie Affair\" Dress Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5553": {
+"en": "Dark Master Sergeant Skirt for Transformation is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Master Sergeant Skirt for Transformation הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5554": {
+"en": "Red Legolia Pants for Transformation is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Red Legolia Pants for Transformation הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5555": {
+"en": "Dark Night Pants for Transformation is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Night Pants for Transformation הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5556": {
+"en": "Pink Heart Boxers is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink Heart Boxers הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5557": {
+"en": "Black Checkered Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Black Checkered Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5558": {
+"en": "Pink 80s Slacks is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Pink 80s Slacks הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5559": {
+"en": "Ruby-Buckled Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Ruby-Buckled Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5560": {
+"en": "Milan Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Milan Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5561": {
+"en": "Practical Linen Trousers is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Practical Linen Trousers הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5562": {
+"en": "Ella Blue Denim is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Ella Blue Denim הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5564": {
+"en": "Twinkle Star Blue Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Twinkle Star Blue Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5563": {
+"en": "Aqua Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Aqua Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5565": {
+"en": "Baggy Glow-in-the-Dark Pants is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Baggy Glow-in-the-Dark Pants הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5566": {
+"en": "Dark Purple Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Dark Purple Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5567": {
+"en": "Plaid Roll-Up Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Plaid Roll-Up Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5568": {
+"en": "A cute pair of pants featuring an adorable bunny on the back.",
+"he": "זוג מכנסיים חמודים עם ארנב מקסים מאחור."
+},
+"item/5569": {
+"en": "Shooting Star Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Shooting Star Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5570": {
+"en": "Vintage Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Vintage Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5571": {
+"en": "Neon Skinny Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Neon Skinny Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5572": {
+"en": "Super Pop Shorts is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Super Pop Shorts הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5573": {
+"en": "Sapphire Jeans is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Sapphire Jeans הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5574": {
+"en": "Hot Pink Overalls is an early-game cash bottom, equippable in MapleStory Classic.",
+"he": "Hot Pink Overalls הוא פריט Cash מסוג מכנסיים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5575": {
+"en": "Hero's Cape is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Hero's Cape הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5576": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין לנשק שאפשר ללבוש מעל כל נשק."
+},
+"item/5577": {
+"en": "Maplestory Patrol Hat is an early-game hat, equippable in MapleStory Classic.",
+"he": "Maplestory Patrol Hat הוא כובע לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5577#about0": {
+"en": "The October 22 patch added this hat. There is no known way to get it yet: we have no monster drop, shop, quest, crafting recipe or Cash Shop listing for it.",
+"he": "הפאץ' של 22 באוקטובר הוסיף את הכובע הזה. עדיין אין דרך ידועה להשיג אותו: אין לנו דרופ ממפלצת, חנות, קווסט, מתכון קרפטינג או מכירה ב-Cash Shop עבורו."
 }
 }

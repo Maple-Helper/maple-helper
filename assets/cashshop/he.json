@@ -106,5 +106,9 @@
  "cash/5553000": {
   "en": "Using this coupon will unlock 1 hair slot in the Beauty Album. You can have a maximum of 24 slots (currently: %d slots).\nYou must double-click and use the coupon to expand. Any unused coupons are not included in the number of currently expanded slots.",
   "he": "שימוש בקופון הזה פותח סלוט שיער אחד ב-Beauty Album. אפשר להגיע עד 24 סלוטים לכל היותר.\nכדי להרחיב, לחצו פעמיים על הקופון והשתמשו בו. קופונים שעוד לא השתמשתם בהם לא נספרים בסלוטים שכבר הורחבו."
+ },
+ "cash/5152100": {
+  "en": "Take this to Plastic Surgery in Town to change your eyes to a color of your choice. (One-Time Use)\nUsing this coupon will change your eye color to Black, Blue, Red, Hazel, Sapphire, Violet, or Amethyst.",
+  "he": "קחו את זה ל-Plastic Surgery בעיר כדי לשנות את צבע העיניים לצבע שתבחרו. (שימוש חד-פעמי)\nשימוש בקופון הזה ישנה את צבע העיניים שלכם ל-Black, Blue, Red, Hazel, Sapphire, Violet או Amethyst."
  }
 }

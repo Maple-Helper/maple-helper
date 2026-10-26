@@ -272,8 +272,14 @@
   "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Mr. Pickall, תושב העיר. בואו נלך לראות מה שלום Mr. Pickall."
  },
  "quest/506115": {
-  "en": "Roxy, the City Clerk, asked me to check on Chun Ji, a resident of the city. Let's go see how Chun Ji is doing.",
-  "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Chun Ji, תושב העיר. בואו נלך לראות מה שלום Chun Ji."
+  "en": "Roxy, the City Clerk, asked me to go say hi to Chun Ji, a resident of the city. Let's go greet Chun Ji.",
+  "he": "Roxy, פקידת העירייה, ביקשה ממני ללכת להגיד שלום ל-Chun Ji, תושב העיר. בואו נלך להגיד שלום ל-Chun Ji.",
+  "alt": [
+   {
+    "en": "Roxy, the City Clerk, asked me to check on Chun Ji, a resident of the city. Let's go see how Chun Ji is doing.",
+    "he": "Roxy, פקידת העירייה, ביקשה לבדוק מה שלום Chun Ji, תושב העיר. בואו נלך לראות מה שלום Chun Ji."
+   }
+  ]
  },
  "quest/506116": {
   "en": "Roxy, the City Clerk, asked me to check on Chun Ji, one of the residents. Ugh, do I really have to deal with that guy again...?",
@@ -390,5 +396,57 @@
  "quest/20300": {
   "en": "Does Dark Lord of Kerning City have even greater lessons to teach me?",
   "he": "האם ל-Dark Lord מ-Kerning City יש שיעורים גדולים עוד יותר ללמד?"
+ },
+ "quest/10127": {
+  "en": "Took Jay’s advice and visited Mrs. Ming Ming to ask about Alloy, the author of The Snail Legend. She said her grandfather’s latest letter was about Wing, the Fairy of Ellinia, and suggested I go see Wing the Fairy.",
+  "he": "לקחתי את העצה של Jay וביקרתי אצל Mrs. Ming Ming כדי לשאול על Alloy, המחבר של The Snail Legend. היא אמרה שהמכתב האחרון של סבא שלה היה על Wing, הפיה של Ellinia, והציעה שאלך לבקר את Wing the Fairy."
+ },
+ "quest/10129": {
+  "en": "Wing the Fairy in Ellinia told me that Mano has been spotted in the thicket around the beach near Lith Harbor. Time to head back to Pia in Henesys.",
+  "he": "Wing the Fairy ב-Ellinia סיפרה לי ש-Mano נראה בסבך שליד החוף הסמוך ל-Lith Harbor. הגיע הזמן לחזור ל-Pia ב-Henesys."
+ },
+ "quest/10414": {
+  "en": "During the excavation, Doctor Winston said he heard a rumor about a very old tree living in Perion. However, he had no clue on what kind of tree it was, or where exactly it was located. That's why he's asked me to visit Perion village to collect information on this particular tree. Shall I start by visiting Blackbull?",
+  "he": "במהלך החפירות, Doctor Winston אמר ששמע שמועה על עץ עתיק מאוד שחי ב-Perion. אבל לא היה לו מושג איזה סוג עץ זה או איפה בדיוק הוא נמצא. בגלל זה הוא ביקש ממני לבקר בכפר Perion ולאסוף מידע על העץ הזה. אולי כדאי להתחיל בביקור אצל Blackbull?"
+ },
+ "quest/10415": {
+  "en": "Ayan lived in Perion for a long time. Let's go ask about the rumor.",
+  "he": "Ayan גר ב-Perion הרבה זמן. בואו נלך לשאול אותו על השמועה."
+ },
+ "quest/10416": {
+  "en": "Manji has been training at Perion for a long time. Let's go and ask about the rumor.",
+  "he": "Manji מתאמן ב-Perion כבר הרבה זמן. בואו נלך לשאול אותו על השמועה."
+ },
+ "quest/10417": {
+  "en": "Let's ask elder Dances with Balrog in Perion about the rumor.",
+  "he": "בואו נשאל את הזקן Dances with Balrog ב-Perion על השמועה."
+ },
+ "quest/10418": {
+  "en": "Let's ask botanist Betty in Ellinia about the rumor.",
+  "he": "בואו נשאל את הבוטניקאית Betty ב-Ellinia על השמועה."
+ },
+ "quest/10419": {
+  "en": "Botanist Betty in Ellinia suggested that I take all the information I've gathered so far to Archaeologist Winston in East Rocky Mountain II.",
+  "he": "הבוטניקאית Betty ב-Ellinia הציעה שאקח את כל המידע שאספתי עד עכשיו לארכיאולוג Winston ב-East Rocky Mountain II."
+ },
+ "quest/10620": {
+  "en": "I must travel back up to the Magic Library and deliver the truth to Grendel the Really Old before the Sages are caught completely off guard.",
+  "he": "אני חייב לחזור למעלה ל-Magic Library ולמסור את האמת ל-Grendel the Really Old לפני שה-Sages ייתפסו לגמרי לא מוכנים."
+ },
+ "quest/506061": {
+  "en": "Arthur of Henesys Town Hall said he had some good news, and told me that I'd been granted the right to own a house in this town. To hear more details, I should go find Tommy.",
+  "he": "Arthur מ-Henesys Town Hall אמר שיש לו חדשות טובות, וסיפר לי שקיבלתי את הזכות להחזיק בית בעיר הזאת. כדי לשמוע עוד פרטים, צריך ללכת למצוא את Tommy."
+ },
+ "quest/506062": {
+  "en": "Tommy of Henesys Town Hall suggested that if I want to get a house, I should go see Bianca. I should be able to find Bianca on the east side of Henesys.",
+  "he": "Tommy מ-Henesys Town Hall הציע שאם אני רוצה בית, כדאי לי ללכת ל-Bianca. את Bianca אפשר למצוא בצד המזרחי של Henesys."
+ },
+ "quest/506163": {
+  "en": "Jack of Kerning City Civic Center gruffly told me that if I wanted a house, I should go see Scarlett. I should be able to find Scarlett in the center of Kerning City.",
+  "he": "Jack מ-Kerning City Civic Center אמר לי בגסות שאם אני רוצה בית, כדאי לי ללכת ל-Scarlett. את Scarlett אפשר למצוא במרכז Kerning City."
+ },
+ "quest/506162": {
+  "en": "Roxy of Kerning City Civic Center said in an excited voice that she had good news, and told me I'd been granted the right to own a house in this town. To hear more details, I should go find Jack.",
+  "he": "Roxy מ-Kerning City Civic Center אמרה בקול נרגש שיש לה חדשות טובות, וסיפרה לי שקיבלתי את הזכות להחזיק בית בעיר הזאת. כדי לשמוע עוד פרטים, צריך ללכת למצוא את Jack."
  }
 }

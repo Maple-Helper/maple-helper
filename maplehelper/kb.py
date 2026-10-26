@@ -94,6 +94,8 @@ ALIAS_DROP = {
 # aliases that are also Israeli first names ("אלון חבר שלי" is a friend, not Oak): a question asking for the NPC
 # ("איפה מאיה") still finds it, an AI answer and a dictated question never turn the name into the NPC
 FIRST_NAME_ALIASES = {"אלון", "מאיה", "אלכס", "רנה"}
+# the app's own Hebrew names, over aliases.json (live, see KnowledgeBase._alias_rows)
+ALIASES_ASSET = "aliases/he.json"
 # alias -> entity key, over aliases.json (keys and names as in the KB's index.json)
 ALIAS_SET = {
     "פטרייה רקובה": "monster/62",        # Rotten Mushroom (aliases.json gave this spelling to Rotten Mushmom)
@@ -283,7 +285,7 @@ class KnowledgeBase:
         alias_file = self.root / "aliases.json"
         if alias_file.exists():
             shared: dict[str, list[str]] = {}
-            for key, names in json.loads(alias_file.read_text(encoding="utf-8")).items():
+            for key, names in self._alias_rows(alias_file).items():
                 for n in names:
                     if _norm(n) not in ALIAS_DROP and key in self.entities:
                         shared.setdefault(_norm(n), [])
@@ -304,6 +306,21 @@ class KnowledgeBase:
         self._family_cats: dict[str, set[str]] = {}     # (filled by _short_forms)
         # names with ", " ": " or "[ ]" ("Tree Dungeon, Monkey Forest I") stay one block in a Hebrew answer
         bidi.set_names(e.get("name", "") for e in self.entities.values())
+
+    @staticmethod
+    def _alias_rows(alias_file: Path) -> dict[str, list[str]]:
+        """aliases.json, with the app's own Hebrew names over it (assets/aliases/he.json, live: a PR to main reaches
+        every player with no release). A key there replaces the KB's names for it: aliases.json is made once and
+        carried forward, so a new map, monster or NPC had none, and a renamed one kept the old names."""
+        rows = json.loads(alias_file.read_text(encoding="utf-8"))
+        try:
+            from . import live
+            extra = json.loads(live.asset(ALIASES_ASSET).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            extra = {}
+        if isinstance(rows, dict) and isinstance(extra, dict):
+            rows.update({k: [n for n in v if isinstance(n, str)] for k, v in extra.items() if isinstance(v, list)})
+        return rows if isinstance(rows, dict) else {}
 
     def _base_entity(self, keys: list[str]) -> str | None:
         """The one entity an alias several entities share means: the plain one ("Forgotten Hollow", not

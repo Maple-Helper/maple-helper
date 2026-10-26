@@ -1257,8 +1257,10 @@ class MapleHelperApp:
         """The live sources, kept fresh with no one asking (the owner: every piece of data updates by itself):
         MesoWatch's Free Market sales checked as the app starts and every 15 minutes (it publishes about every 12),
         OSMS's Cash Shop list at start and every hour (ohmi's terms). Both in the background; the copy on disk shows
-        meanwhile, and the open price card, details window and Shop page redraw when a newer one comes in."""
-        from . import mesowatch, osms
+        meanwhile, and the open price card, details window and Shop page redraw when a newer one comes in.
+        MesoWatch's files are read from inside a hidden page of its site (webfetch.py)."""
+        from . import mesowatch, osms, webfetch
+        webfetch.install()
         mesowatch.warm()
         osms.warm()
         self._mesowatch_timer = QTimer(interval=mesowatch.REFRESH_SECONDS * 1000, timeout=mesowatch.warm)

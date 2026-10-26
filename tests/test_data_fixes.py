@@ -846,8 +846,7 @@ def test_the_hollows_hidden_maps_on_a_shared_street_are_closed_too(real):
     o = availability.of(real)
     if "Forgotten Hollow" not in o.closed_areas:
         pytest.skip("the release guide no longer calls Forgotten Hollow closed")
-    for key in ("map/010006121", "map/010006022", "map/010006031", "map/010006000", "map/010006120",
-                "map/080003000"):
+    for key in ("map/010006121", "map/010006022", "map/010006031", "map/010006000", "map/010006120"):
         assert not o.entity_open(key), key
     for key in ("monster/700003", "monster/62", "monster/54", "monster/57", "monster/59"):
         assert not o.entity_open(key), (key, real.get(key)["name"])
@@ -885,6 +884,53 @@ def test_maps_whose_page_names_no_continent_are_in_the_game(real):
     assert "Event" not in note.split("NOT in the game", 1)[1].split("—", 1)[0]
     assert "Event maps open only during GM events" in note
     assert not o.entity_open("npc/900016")       # the event maps stay out of the tables and routes
+
+
+@needs_kb
+def test_a_scheduled_party_quests_maps_and_npcs_are_closed_until_it_opens(real):
+    """The 2026-10-25 KB renamed "Forgotten Hollow Instance 0800030x0" to Primrose Hill, Shortcut, Pig Town and Back to
+    Town: the Moon Bunny's Rice Cake party quest (Tory, Timmy, Growlie), which the release guide's timeline has as
+    "Scheduled" for November 18. Plain "Hidden Street" maps now, the Hollow rule let them in."""
+    from maplehelper import availability
+    o = availability.of(real)
+    if "Moon Bunny's Rice Cake party quest" not in dict(o.scheduled):
+        pytest.skip("the release guide no longer has the Moon Bunny's Rice Cake party quest as scheduled")
+    for key in ("map/080003000", "map/080003100", "map/080003200", "map/080003300", "map/080003400",
+                "npc/800019", "npc/800020", "npc/800021"):
+        if real.get(key):
+            assert not o.entity_open(key), (key, real.get(key)["name"])
+    assert not o.instance_map("Primrose Hill Hidden Street")
+    assert "Scheduled, not out yet: Moon Bunny's Rice Cake party quest" in o.scope_note()
+    for key in ("map/080002000", "map/080000000", "map/080001000", "npc/800008"):    # FM, KPQ, job test: still in
+        assert o.entity_open(key), key
+
+
+def test_a_scheduled_party_quest_closes_only_the_maps_its_npcs_stand_on(tmp_path):
+    from maplehelper import availability
+    guide = RELEASE + ("Release timeline\nOctober 21, 2026 Grand Launch Done ▸ Opened.\nYou are here\n"
+                       "November 18, 2026 November update Scheduled ▸ The Moon Bunny's Rice Cake party quest runs.\n")
+    routes = {"maps": [{"id": "1", "portals": [], "npcs": [{"id": "1"}], "return": "1"},
+                       {"id": "2", "portals": [], "npcs": [], "return": "1"},           # its Back to Town: the PQ's
+                       {"id": "3", "portals": [], "npcs": [{"id": "2"}], "return": "3"},
+                       {"id": "4", "portals": [{"to": "5"}], "npcs": [{"id": "1"}], "return": "4"}]}
+    pages = {"guide/maplestory-classic-worlds-release-date": guide,
+             "map/1": "Location Hidden Street\n", "map/2": "Location Hidden Street\n", "map/3": "Location Hidden Street\n",
+             "map/4": "Location Victoria Road / Victoria Island\n", "map/5": "Location Victoria Road / Victoria Island\n",
+             "npc/1": "Tory\nNo one comes close to Moon Bunny when it comes to making rice cakes.\nLocation\n"
+                      "Primrose Hill Hidden Street\nSimilar NPCs\n",
+             "npc/2": "Instructor\nPass the test.\nSimilar NPCs\nTory\n"}
+    kb = small_kb(tmp_path, [ent("guide/maplestory-classic-worlds-release-date", "Release"), ent("map/1", "Primrose Hill"),
+                             ent("map/2", "Back to Town"), ent("map/3", "Exam Room"), ent("map/4", "Henesys Park"),
+                             ent("map/5", "Henesys"), ent("npc/1", "Tory"), ent("npc/2", "Instructor")], {}, pages)
+    (tmp_path / "routes.json").write_text(json.dumps(routes), encoding="utf-8")
+    o = availability.of(kb)
+    assert o.scheduled == [("Moon Bunny's Rice Cake party quest", "November 18, 2026")]
+    assert [o.entity_open(f"map/{n}") for n in range(1, 6)] == [False, False, True, True, True]
+    # the timeline marks it done: open with the next KB
+    (tmp_path / "pages" / "guide" / "maplestory-classic-worlds-release-date.md").write_text(
+        guide.replace("Scheduled ▸", "Done ▸"), encoding="utf-8")
+    o = availability.Availability(KnowledgeBase(tmp_path))
+    assert o.scheduled == [] and all(o.entity_open(f"map/{n}") for n in range(1, 6))
 
 
 @needs_kb
@@ -985,3 +1031,22 @@ def test_scope_note_names_hidden_street_maps_the_kb_has(real):
     for name in m.group(1, 2):
         assert o.map_place.get(f"{name} Hidden Street", ("",))[0] == m.group(3) and o.map_open(f"{name} Hidden Street")
     assert m.group(3) in o.confirmed
+
+
+@needs_kb
+def test_the_apps_own_hebrew_names_reach_their_entries(real):
+    """assets/aliases/he.json (live) names what aliases.json can't: entries added after it was made (Stumpy, the
+    Excavation Site maps) and renamed ones (the party quest's maps kept "פורגוטן הולו"). Each key is in the KB, each
+    name finds its own entry, and no name is another entry's."""
+    from maplehelper import live
+    from maplehelper.kb import ALIASES_ASSET, _norm
+    rows = json.loads(live.bundled(ALIASES_ASSET).read_text(encoding="utf-8"))
+    assert live.kind(ALIASES_ASSET) == "translations"
+    for key, names in rows.items():
+        e = real.get(key)
+        assert e, key
+        for n in names:
+            hit = real.aliases.get(_norm(n))
+            assert hit and real.get(hit)["name"] == e["name"], (key, n, hit)
+    assert real.find_mentions("איפה סטאמפי") == ["monster/700007"]
+    assert real.find_mentions("איפה ויקטוריה רואד") == []         # aliases.json gave it to Yellow Mushroom House

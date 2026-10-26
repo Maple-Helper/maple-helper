@@ -45,8 +45,10 @@ _PHRASES = [
     ("Max per Stack", "מקסימום בערימה"),
     ("Upgrade Slots", "סלוטים לשדרוג"),
     ("Attack Speed Faster", "מהירות התקפה: מהירה מאוד"),
+    ("Attack Speed Very Fast", "מהירות התקפה: מהירה מאוד"),     # NiaMeowDB's words since 2026-10-25
     ("Attack Speed Fast", "מהירות התקפה: מהירה"),
     ("Attack Speed Normal", "מהירות התקפה: רגילה"),
+    ("Attack Speed Average", "מהירות התקפה: רגילה"),
     ("Attack Speed Slow", "מהירות התקפה: איטית"),
     ("Special Restrictions", "הגבלות:"),
     ("Special Restriction", "הגבלה:"),
