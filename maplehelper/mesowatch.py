@@ -73,6 +73,7 @@ CATEGORIES = ("Equips", "Weapons", "Scrolls", "Use", "Etc", "Stars", "Cash Shop"
 
 log = logging.getLogger(__name__)
 _lock = threading.Lock()                     # one check at a time; the others wait and read its result
+_load_lock = threading.Lock()                # the disk copy's first read (not held through a check)
 _snap: Snapshot | None = None
 _loaded = False                              # the disk copy was read (once per run)
 _checked = 0.0                               # monotonic time of the last check (successful or not)
@@ -365,7 +366,16 @@ def _http(url: str, etag: str = "", timeout: float = TIMEOUT) -> tuple[int, byte
         raise
 
 
-_request = _http        # every request goes through here (the tests replace it)
+def _fetch(url: str, etag: str = "", timeout: float = TIMEOUT) -> tuple[int, bytes, str]:
+    """From inside a page of the site when the app runs one (webfetch.py: since 2026-10-26 Cloudflare refuses the data
+    files to anything else), else directly."""
+    from . import webfetch
+    if webfetch.available():
+        return webfetch.request(url, etag, timeout)
+    return _http(url, etag, timeout)
+
+
+_request = _fetch       # every request goes through here (the tests replace it)
 
 
 def _home(market: str) -> str:
@@ -563,16 +573,22 @@ def snapshot(refresh: bool = True, timeout: float = TIMEOUT) -> Snapshot | None:
     global _snap, _loaded, _checked, _failed
     if not live.enabled("mesowatch"):
         return None                 # the owner's switch (live.py): no prices, no checks, until it is on again
-    with _lock:
+    with _load_lock:
         if not _loaded:
             _loaded = True
             if _snap is None:
                 _snap, _ = _read_disk()
+    if not refresh:
+        # the copy on hand, without waiting for a check under way: the UI thread asks this way, and a check's
+        # requests wait on the UI thread (webfetch.py)
+        snap = _snap
+        return None if snap is None or snap.stale else snap
+    with _lock:
         # a minute's slack: the app's 15-minute timer firing a moment early still checks (else every other tick)
         due = REFRESH_SECONDS - 60
         wait = RETRY_SECONDS if _failed else due
         fresh = _snap is not None and time.time() - _snap.fetched < due
-        if refresh and not fresh and (not _checked or time.monotonic() - _checked > wait):
+        if not fresh and (not _checked or time.monotonic() - _checked > wait):
             _checked = time.monotonic()
             try:
                 _check(timeout)

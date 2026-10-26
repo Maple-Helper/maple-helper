@@ -18,7 +18,8 @@ MODULES = [
     "PySide6.QtWidgets", "PySide6.QtNetwork", "mss", "PIL.Image", "numpy", "keyring", "sounddevice",
     "faster_whisper", "ctranslate2",
     "maplehelper.app", "maplehelper.osapi", "maplehelper.brain", "maplehelper.voice", "maplehelper.providers",
-    "maplehelper.updater", "maplehelper.inventory", "maplehelper.portrait", "maplehelper.jobs",
+    "maplehelper.updater", "maplehelper.inventory", "maplehelper.portrait", "maplehelper.jobs", "maplehelper.webfetch",
+    "PySide6.QtWebEngineCore",
     "maplehelper.ui.overlay", "maplehelper.ui.dialogs", "maplehelper.ui.toast",
 ]
 if sys.platform == "darwin":
@@ -80,6 +81,24 @@ def run(require_kb: bool = False) -> tuple[bool, list[str]]:
             raise RuntimeError(f"bundled font not loaded (got {fam!r})")
         return fam
     check("qt + fonts", qt_and_fonts)
+
+    def web_engine():
+        # MesoWatch's files come through a hidden page (webfetch.py): the build must carry Qt WebEngine and its
+        # renderer process. A page with no network runs a script
+        from PySide6.QtCore import QEventLoop, QTimer
+        from PySide6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile
+        profile = QWebEngineProfile()
+        page = QWebEnginePage(profile)
+        loop, got = QEventLoop(), []
+        page.loadFinished.connect(lambda ok: page.runJavaScript("6 * 7", 0, lambda v: (got.append(v), loop.quit())))
+        QTimer.singleShot(30_000, loop.quit)
+        page.setHtml("<p>selftest</p>")
+        loop.exec()
+        page.deleteLater()
+        if got != [42]:
+            raise RuntimeError(f"the hidden page ran no script (got {got!r})")
+        return "page runs scripts"
+    check("web engine (MesoWatch)", web_engine)
 
     def kb():
         from . import store
