@@ -449,8 +449,9 @@ def test_every_marker_in_the_kb_is_recognised(real):
                     found[k] = found.get(k, 0) + 1
                 assert ok & kinds, f"{key}: a {kind!r} label the classifier missed"
     # the KB as it is now has every family the app reads (a family that vanished would hide a broken reader)
-    # (no "exp_table": NiaMeowDB stopped calling levels 50-99 a historical reference on 2026-10-08)
-    for kind in ("history", "prices", "respawn", "drops", "community_list", "fm_reports", "official", "shop_list",
+    # (no "exp_table": NiaMeowDB stopped calling levels 50-99 a historical reference on 2026-10-08; no "respawn":
+    # the 2026-10-25 boss pages say "Respawns about every 60 minutes, but players report ..." with no build's map data)
+    for kind in ("history", "prices", "drops", "community_list", "fm_reports", "official", "shop_list",
                  "guide_data", "cash_price", "cash_shop"):
         assert found.get(kind), f"no {kind!r} label anywhere in the KB"
 
@@ -484,14 +485,12 @@ def test_no_drop_price_or_stat_without_a_source(real):
     for g in real.drop_groups([k for k in real.droppers][:200], limit=200):
         assert set(g["sources"]) == set(g["items"]) and all(g["sources"].values())
     # every boss timer's line, read here, against respawn_source (the exact parse: test_respawn_timer_source); no
-    # boss or build named, so a timer confirmed or a new build doesn't stop the nightly
-    timers = 0
+    # boss or build named, so a timer confirmed or a new build doesn't stop the nightly, and none needed: the
+    # 2026-10-25 KB has no such line (a page without one has no timer source)
     for key, e in real.entities.items():
         if e.get("category") == "monster":
             line = next((ln for ln in sources._body(real.page(key)) if FAMILIES["respawn"].search(ln)), None)
             assert sources.respawn_source(real, key) == ((line.split()[0], "unconfirmed" in line) if line else None)
-            timers += bool(line)
-    assert timers
 
 
 @needs_kb

@@ -1,5 +1,18 @@
 [
  {
+  "version": "0.20.3",
+  "he": [
+   "המפות של ה-party quest של Moon Bunny (Primrose Hill, Pig Town ועוד) מסומנות כסגורות עד שהוא ייפתח ב-18.11.",
+   "יותר שמות בעברית: אפשר לשאול על Stumpy, Shade, Excavation Site, Free Market 12 עד 20 ועוד מקומות ודמויות בעברית.",
+   "מהירות ההתקפה של נשקים מופיעה בעברית גם בשמות החדשים של המאגר."
+  ],
+  "en": [
+   "The Moon Bunny party quest's maps (Primrose Hill, Pig Town and more) show as closed until it opens on November 18.",
+   "More Hebrew names: ask in Hebrew about Stumpy, Shade, Excavation Site, Free Market 12 to 20 and more places and characters.",
+   "Weapon attack speed reads in Hebrew with the knowledge base's new grade names too."
+  ]
+ },
+ {
   "version": "0.20.2",
   "he": [
    "מחירי ה-Free Market מ-MesoWatch חזרו להתעדכן כל 15 דקות (מאז 21.10 הם לא הגיעו).",

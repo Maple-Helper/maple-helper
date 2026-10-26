@@ -234,3 +234,19 @@ def test_rejects_a_page_left_behind_by_a_removed_entity(kb_copy):
     (kb_copy / "pages" / "item" / "gone.md").write_text("old item", encoding="utf-8")
     with pytest.raises(kb_release.InvalidKB, match="pages without an entry, e.g. item/gone"):
         kb_release.validate(kb_copy)
+
+
+def test_a_renamed_entry_loses_the_aliases_of_its_old_name(tmp_path):
+    """2026-10-25: five "Forgotten Hollow Instance" maps became Primrose Hill, Shortcut... and kept "פורגוטן הולו"
+    (aliases.json is carried forward night after night); a rename drops them, the rest stay."""
+    old, new = tmp_path / "old", tmp_path / "new"
+    for kb, name in ((old, "Forgotten Hollow Instance 080003000"), (new, "Primrose Hill")):
+        kb.mkdir()
+        (kb / "index.json").write_text(json.dumps([{"key": "map/080003000", "name": name},
+                                                   {"key": "map/010006000", "name": "Forgotten Hollow"}]), encoding="utf-8")
+    (new / "aliases.json").write_text(json.dumps({"map/080003000": ["פורגוטן הולו"], "map/010006000": ["פורגוטן הולו"],
+                                                  "map/9": ["אחר"]}, ensure_ascii=False), encoding="utf-8")
+    assert kb_release.prune_renamed_aliases(new, old) == ["map/080003000"]
+    assert json.loads((new / "aliases.json").read_text(encoding="utf-8")) == {"map/010006000": ["פורגוטן הולו"],
+                                                                             "map/9": ["אחר"]}
+    assert kb_release.prune_renamed_aliases(new, old) == []        # nothing more to drop

@@ -44,6 +44,10 @@ _ITEM_STOP = re.compile(r"^(Free Market Prices|Dropped By|Needed By|Recipes|Ingr
                         + "|".join(map(re.escape, _ITEM_SOURCES)) + ")$")
 _CRAFTABLE_N = re.compile(r"^Craftable \(\d+ recipes?\)$")      # "Craftable (2 recipes)": Iron Arrows, Processed Leather
 _SHOP_PLACE = re.compile(r"^(.+?): (.+?) · (.+)$")          # "Victoria Road: Perion Department Store · Perion"
+# a "Scheduled" row of the release guide's timeline and what it brings ("November 18, 2026 November update Scheduled ▸
+# ...") and a party quest named in it ("The Moon Bunny's Rice Cake party quest", "A new Forgotten Hollow party quest")
+_SCHEDULED = re.compile(r"^((?:[A-Z][a-z]+ \d{1,2}, )?\d{4}) .*? Scheduled ▸ (.+)$", re.M)
+_PARTY_QUEST = re.compile(r"((?:[A-Z][\w']*\s)+)party quest")
 _PERCENT = re.compile(r"\(\s*[\d.]+\s*%\s*\)")
 
 
@@ -183,54 +187,93 @@ class Availability:
             for street, hits in per_street.items():
                 if sum(hits) * 2 > len(hits):
                     streets.add(street)
-        if not self.closed_areas:
-            return
         closed = " · ".join(self.closed_areas)
-
-        def shut_map(cell: str, cont: str, street: str, whole_street: bool) -> None:
-            shut = f"{cont} · {closed}"            # a continent of its own, never in self.confirmed
-            self.map_place[cell] = (shut, street)
-            name = cell[:-len(street)].strip() if street else cell
-            self.map_place_by_name[name] = (self.map_place_by_name.get(name, set()) - {cont}) | {shut}
-            if whole_street:
-                self.streets[street] = (self.streets.get(street, set()) - {cont}) | {shut}
-            else:
-                self.streets.setdefault(street, set()).add(shut)
-            self.continents.add(shut)
-
-        for cell, (cont, street) in list(self.map_place.items()):
-            name = cell[:-len(street)].strip() if street else cell
-            if street in streets:
-                shut_map(cell, cont, street, True)
-            elif any(self._named(a, name) for a in self.closed_areas):
-                shut_map(cell, cont, street, False)     # "Forgotten Hollow Instance 080003000" (Victoria Island)
-        # the area's maps on a street it shares with open maps: "Someone Else's Grave" (Rotten Mushmom), "The Valley
-        # of Death" sit on Victoria's "Hidden Street" beside Pig Park. One the area's guide names whose every
-        # connected map is closed is closed too; the guide's open entrances (The Tree Tunnel At the Forest Up North,
-        # Sleepy Dungeon V) lead to open maps and stay open. The portals are routes.json's (a page's "Connected Maps"
-        # line leaves out the street of a same-street map, so it can't be read map by map).
         portals = self._portals()
+        if self.closed_areas:
+            for cell, (_cont, street) in list(self.map_place.items()):
+                name = cell[:-len(street)].strip() if street else cell
+                if street in streets:
+                    self._shut(cell, closed, whole_street=True)
+                elif any(self._named(a, name) for a in self.closed_areas):
+                    self._shut(cell, closed)            # "Forgotten Hollow Instance 080003000" (Victoria Island)
+            # the area's maps on a street it shares with open maps: "Someone Else's Grave" (Rotten Mushmom), "The
+            # Valley of Death" sit on Victoria's "Hidden Street" beside Pig Park. One the area's guide names whose
+            # every connected map is closed is closed too; the guide's open entrances (The Tree Tunnel At the Forest
+            # Up North, Sleepy Dungeon V) lead to open maps and stay open. The portals are routes.json's (a page's
+            # "Connected Maps" line leaves out the street of a same-street map, so it can't be read map by map).
+            changed = True
+            while changed:
+                changed = False
+                for key, cell in self.map_cell.items():
+                    cont, street = self.map_place[cell]
+                    name = cell[:-len(street)].strip() if street else cell
+                    to = [self.map_cell.get(t) for t in portals.get(key, ())]
+                    if cont not in self.confirmed or name not in guide_maps or not to or None in to:
+                        continue
+                    if not any(self.map_open(t) for t in to):
+                        self._shut(cell, closed)
+                        changed = True
+        self._close_scheduled(kb, portals)
+        # a map on no continent with no portal out, whose "Back to Town" is a closed map, is that closed content's:
+        # "Back to Town" and both "Shortcut"s send you to the party quest's maps (the 2026-10-25 KB; the 2026-10-22 KB
+        # still called 080003300 "Forgotten Hollow Instance 080003300")
+        returns = self._returns()
         changed = True
         while changed:
             changed = False
             for key, cell in self.map_cell.items():
                 cont, street = self.map_place[cell]
-                name = cell[:-len(street)].strip() if street else cell
-                to = [self.map_cell.get(t) for t in portals.get(key, ())]
-                if cont not in self.confirmed or name not in guide_maps or not to or None in to:
-                    continue
-                if not any(self.map_open(t) for t in to):
-                    shut_map(cell, cont, street, False)
+                back = self.map_cell.get(returns.get(key, ""))
+                if cont == NO_CONTINENT and not portals.get(key) and back and not self.map_open(back):
+                    self._shut(cell, self.map_place[back][0].split(" · ", 1)[-1])
                     changed = True
-        # a map on no continent with no portal out, whose "Back to Town" is one of the area's closed maps, is the
-        # area's: "Shortcut" (Tory, the 2026-10-22 KB) sends you back to Forgotten Hollow Instance 080003300
-        returns = self._returns()
-        for key, cell in self.map_cell.items():
-            cont, street = self.map_place[cell]
-            back = self.map_cell.get(returns.get(key, ""))
-            if cont == NO_CONTINENT and not portals.get(key) and back and not self.map_open(back):
-                shut_map(cell, cont, street, False)
-                self.instances -= {cell, cell[:-len(street)].strip() if street else cell}
+
+    def _shut(self, cell: str, why: str, whole_street: bool = False) -> None:
+        """Close one map: its continent becomes "<continent> · <why>", a continent of its own, never confirmed."""
+        cont, street = self.map_place[cell]
+        shut = f"{cont} · {why}"
+        self.map_place[cell] = (shut, street)
+        name = cell[:-len(street)].strip() if street else cell
+        self.map_place_by_name[name] = (self.map_place_by_name.get(name, set()) - {cont}) | {shut}
+        if whole_street:
+            self.streets[street] = (self.streets.get(street, set()) - {cont}) | {shut}
+        else:
+            self.streets.setdefault(street, set()).add(shut)
+        self.continents.add(shut)
+        self.instances -= {cell, name}
+
+    def _close_scheduled(self, kb, portals: dict[str, set[str]]) -> None:
+        """A party quest the release guide's timeline still has as "Scheduled" ("November 18, 2026 November update
+        Scheduled ▸ ... The Moon Bunny's Rice Cake party quest runs for level 11 and up") is not out yet. Its maps are
+        the KB's maps on no continent with no portal out where an NPC stands whose own words name it (Tory, Timmy,
+        Growlie: "rice cakes made by Moon Bunny" on Primrose Hill, Shortcut, Pig Town). The 2026-10-25 KB renamed those
+        maps from "Forgotten Hollow Instance 0800030x0" and the Hollow rule let them in. When the timeline marks the
+        row done, they open with the next KB."""
+        self.scheduled: list[tuple[str, str]] = []           # (what, when)
+        for m in _SCHEDULED.finditer(self.guide):
+            for pq in _PARTY_QUEST.findall(m.group(2)):
+                pq = re.sub(r"^(?:The|A|An)\s+", "", pq.strip())
+                self.scheduled.append((f"{pq} party quest", m.group(1)))
+        if not self.scheduled:
+            return
+        npc_maps: dict[str, set[str]] = {}
+        for r in self._routes():
+            for n in r.get("npcs") or []:
+                if isinstance(n, dict) and n.get("id"):
+                    npc_maps.setdefault(f"npc/{n['id']}", set()).add(f"map/{r.get('id')}")
+        for what, when in self.scheduled:
+            words = [w for w in re.findall(r"[A-Za-z]+", what.removesuffix(" party quest").replace("'s", ""))
+                     if len(w) > 2]
+            for key, e in kb.entities.items():
+                if e.get("category") != "npc" or not words:
+                    continue
+                own = kb.page(key).split("Similar NPCs", 1)[0]        # its own words, not its neighbours' names
+                if not all(re.search(rf"\b{w}", own, re.I) for w in words):
+                    continue
+                for mk in npc_maps.get(key, ()):
+                    cell = self.map_cell.get(mk)
+                    if cell and self.map_place[cell][0] == NO_CONTINENT and not portals.get(mk):
+                        self._shut(cell, f"{what} (scheduled {when})")
 
     def _routes(self) -> list[dict]:
         """The maps of the KB's routes.json ([] without one)."""
@@ -469,6 +512,11 @@ class Availability:
                          "the game yet.")
         if events:
             parts.append(f"{', '.join(events)} maps open only during GM events (the release guide lists the dates).")
+        # a scheduled party quest's maps are on no continent, so the list above never names them
+        later = [f"{what} ({when})" for what, when in getattr(self, "scheduled", [])
+                 if any(c.endswith(f" · {what} (scheduled {when})") for c in self.continents)]
+        if later:
+            parts.append(f"Scheduled, not out yet: {', '.join(later)} — its maps and NPCs are not in the game yet.")
         # two map pages with a reversed Location line made "Hidden Street" a closed continent, while Pig Park is an
         # open Victoria Island map on it (audit AI-5, KB-22). The examples are the KB's own open maps there (the note
         # named "Monkey Forest", which the KB writes "Monkey Forest I", review CORE-10)

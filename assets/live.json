@@ -12,9 +12,13 @@
    "contract": 1,
    "sha256": "d4ce84ff104f4244a4a03026a8c64746de3c7e9cef15b37cd47446b02c908fe4"
   },
+  "aliases/he.json": {
+   "contract": 1,
+   "sha256": "56a018334db509c8f3915c3f8c75f01434d1ccf8374b352ec994289a9914c22d"
+  },
   "cashshop/he.json": {
    "contract": 1,
-   "sha256": "89f460e7d4d6c819168c114b21904d4940d1a39237cba8c2f052011fb182d63c"
+   "sha256": "2156e03c26261667b2dd36f6dfa855760998b5c845d3657c69d95471399b2707"
   },
   "featured/nexon-46506/anim/beautyalbum.webp": {
    "contract": 1,
@@ -530,7 +534,7 @@
   },
   "items/he.json": {
    "contract": 1,
-   "sha256": "b92b1bc2959656649de9e63d56ec05dd6d7c29353f67592aecc02f01898f8529"
+   "sha256": "652b02170ae4751e3feb60e5f98148f4e7df3319681f5b824db482280c0b9aa6"
   },
   "live/config.json": {
    "contract": 1,
@@ -550,7 +554,7 @@
   },
   "quest_tasks/he.json": {
    "contract": 1,
-   "sha256": "322d7ae01b5a90ccdd00ef15c59171690333e59a5b35199ea6709c4f37a5d058"
+   "sha256": "ff7a054ffbc71accfedf14a31fa16493e9287def3d0f01cfb03a2fda8cac869a"
   },
   "skill_changes/he.json": {
    "contract": 1,
@@ -558,7 +562,7 @@
   },
   "skills/he.json": {
    "contract": 1,
-   "sha256": "6cf9f293dd1a72cae8757f97e11ec69f36372235a705bcf2d49ab089ebee285e"
+   "sha256": "429d7fa0d8ff13eb5e8cbdd2c3f8ac8e370640d9a64695888f6f4531541d184a"
   }
  },
  "schema": 1
