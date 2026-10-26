@@ -255,7 +255,8 @@ def spots(kb, level: int, acc: int | None = None, dmg: tuple[int, int] | None = 
 
     Without stats, monsters are ranked by EXP per HP near the player's level. The stat window's damage is a
     basic attack (skills hit harder), so when no monster passes the miss/hits filters, the best of the rest
-    come back anyway, marked fits=False. A Magician's range is the staff swing, not a spell: it isn't used."""
+    come back anyway, marked fits=False. A Magician has one Magic number and no damage range, and a spell's damage
+    depends on the spell: no hit counts for a Magician (only the hit chance from ACC)."""
     from . import plan
     guide = {s.map.lower() for s in plan.spots_for(kb, level, 5)}
     if magic:
