@@ -276,6 +276,34 @@
    "contract": 1,
    "sha256": "a2bed64f7f32acb3dc90e9829d48cac82a648bbe521f65f29127b0d3695762c8"
   },
+  "featured/nexon-47298/en/tile00.webp": {
+   "contract": 1,
+   "sha256": "bd837b921e66e583fbc03522704f6f70210a9aa477c5e73417aa401149c31dbd"
+  },
+  "featured/nexon-47298/en/tile01.webp": {
+   "contract": 1,
+   "sha256": "cef0890fb5fc069d1a533092fc94271e32c0383e8d21cde30640c1b46d3c686d"
+  },
+  "featured/nexon-47298/en/tile02.webp": {
+   "contract": 1,
+   "sha256": "efe3dcf4e571bf557c0e1df0b1294ee95a605eb8a1114011bf7b5286d29d5e44"
+  },
+  "featured/nexon-47298/he/tile00.webp": {
+   "contract": 1,
+   "sha256": "9d0842ec6185d9125d8b7dd9da9ead342a8662e34b4d5f2d451989777cdae97c"
+  },
+  "featured/nexon-47298/he/tile01.webp": {
+   "contract": 1,
+   "sha256": "331838c1a97aaf6329272297644c91658a743df4d5377590d9247b2c555da6a2"
+  },
+  "featured/nexon-47298/he/tile02.webp": {
+   "contract": 1,
+   "sha256": "cbb6f127ea38678c7c5646e4c33cf56207796fd581a1bb1ae225e40a1f2cd26c"
+  },
+  "featured/nexon-47298/manifest.json": {
+   "contract": 1,
+   "sha256": "acc663db01123c0d5377da6b4191aae9170e2e92e430e983827166528d83e9f8"
+  },
   "guides/en/assassin-class-guide.json": {
    "contract": 1,
    "sha256": "002caa4418ed2c20bcc230df30934186dd886b6b1413f12cfa90ae8c5ffc4a8d"
@@ -542,7 +570,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "b54f559e54d145217db6f4bd969be4325d27c5732feaeed1aea89fd75ad97399"
+   "sha256": "de9011e1daad208867e0df8ff5a2fa47a3432321534baa0ef36bff03051b9e72"
   },
   "official/facts.json": {
    "contract": 1,

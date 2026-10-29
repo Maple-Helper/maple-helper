@@ -1,0 +1,66 @@
+{
+ "id": "nexon-47298",
+ "news_id": "nexon-47298",
+ "publisher": "Nexon",
+ "title": {
+  "en": "Classic World v1.1.0 Update",
+  "he": "עדכון Classic World v1.1.0"
+ },
+ "pdf_name": {
+  "en": "MapleStory Classic World - v1.1.0 Update (October 29, 2026)",
+  "he": "MapleStory Classic World - v1.1.0 Update (עברית)"
+ },
+ "source_url": "https://www.nexon.com/maplestory/news/maintenance/47298/completed-scheduled-maintenance-october-29-2026",
+ "from": "2026-10-29",
+ "until": "2026-11-12",
+ "langs": {
+  "he": {
+   "width": 748,
+   "height": 2247,
+   "scale": 2,
+   "tiles": [
+    {
+     "file": "he/tile00.webp",
+     "y": 0,
+     "h": 1000
+    },
+    {
+     "file": "he/tile01.webp",
+     "y": 1000,
+     "h": 1000
+    },
+    {
+     "file": "he/tile02.webp",
+     "y": 2000,
+     "h": 247
+    }
+   ],
+   "anims": [],
+   "links": []
+  },
+  "en": {
+   "width": 748,
+   "height": 2451,
+   "scale": 2,
+   "tiles": [
+    {
+     "file": "en/tile00.webp",
+     "y": 0,
+     "h": 1000
+    },
+    {
+     "file": "en/tile01.webp",
+     "y": 1000,
+     "h": 1000
+    },
+    {
+     "file": "en/tile02.webp",
+     "y": 2000,
+     "h": 451
+    }
+   ],
+   "anims": [],
+   "links": []
+  }
+ }
+}
