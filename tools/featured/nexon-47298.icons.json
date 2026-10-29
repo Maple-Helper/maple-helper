@@ -1,0 +1,58 @@
+{
+ "Copper Drake": [
+  "monster/40"
+ ],
+ "Tortie": [
+  "monster/41"
+ ],
+ "Clang": [
+  "monster/44"
+ ],
+ "Drake": [
+  "monster/45"
+ ],
+ "Arrow for Bow": [
+  "item/209"
+ ],
+ "Arrow for Crossbow": [
+  "item/213"
+ ],
+ "Archer": [
+  "class/bowman"
+ ],
+ "Wizard (Fire, Poison)": [
+  "class/f-p-wizard"
+ ],
+ "Wizard (Ice, Lightning)": [
+  "class/i-l-wizard"
+ ],
+ "Fighter, Page, Spearman": [
+  "class/fighter",
+  "class/page",
+  "class/spearman"
+ ],
+ "Spearman": [
+  "class/spearman"
+ ],
+ "Focus": [
+  "skill/bowman__focus"
+ ],
+ "Poison Breath": [
+  "skill/f-p-wizard__poison-breath"
+ ],
+ "Thunder Bolt": [
+  "skill/i-l-wizard__thunder-bolt"
+ ],
+ "Rush": [
+  "skill/fighter__rush"
+ ],
+ "Final Attack: Spear": [
+  "skill/spearman__final-attack-spear"
+ ],
+ "Final Attack: Polearm": [
+  "skill/spearman__final-attack-polearm"
+ ],
+ "Glowing Pumpkin Basket": [
+  "item/5194"
+ ]
+}
