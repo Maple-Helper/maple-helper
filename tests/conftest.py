@@ -73,7 +73,7 @@ def no_real_world():
     import shutil
     import socket
 
-    from maplehelper import market, mesowatch, osms, serverstatus
+    from maplehelper import market, mesowatch, osms, serverstatus, webfetch
     from maplehelper.providers import codex
 
     mp = pytest.MonkeyPatch()
@@ -89,6 +89,8 @@ def no_real_world():
         raise OSError("tests must not reach meso.watch")
     mp.setattr(mesowatch, "_request", offline)
     mp.setattr(osms, "_request", offline)
+    # nor a hidden browser page (webfetch.py): its own process reaches past the socket patch below
+    mp.setattr(webfetch, "install", lambda: False)
     # the chat's server-status dot (live from MeowDB): "can't reach it", without asking
     mp.setattr(serverstatus, "fetch", lambda timeout=8: None)
 

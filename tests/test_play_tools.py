@@ -325,9 +325,9 @@ def test_tools_enter_quest_undo_and_empty_states(tmp_path, monkeypatch):
     monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
     p = store.Profiles()
     c = p.add("Kiwi", "Magician", "Cleric", 30)
-    c.stats = {"acc": 70, "dmg_min": 40, "dmg_max": 15}
+    c.stats = {"acc": 70, "matk": 55}
     d = ToolsDialog(KnowledgeBase(REAL_KB), p, store.Settings(), "en", "", {}, "prices")
-    assert d._stats()[1] == (15, 40)
+    assert d._stats() == (70, None)          # a Magician has one Magic number, no damage range
     QTest.keyClicks(d.price_input, "Red Potion")
     QTest.keyClick(d.price_input, Qt.Key_Return)          # runs this tab's search, doesn't jump to "Where to train"
     assert d.stack.currentIndex() == PAGES.index("prices") and d.price_box.count() == 1
@@ -470,3 +470,53 @@ def test_the_price_card_says_keep_or_safe_to_sell_from_the_list(tmp_path, monkey
     d.__dict__.pop("price_sell")
     d._fill_prices()
     assert "price_sell" not in d.__dict__
+
+
+def test_a_magicians_stat_window_has_one_magic_number(tmp_path, monkeypatch):
+    """A Magician's Stat window shows Magic, not a min / max damage: the number is kept, read from the screenshot
+    and sent to the AI like the others."""
+    from maplehelper import store
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    p = store.Profiles()
+    p.add("Kiwi", "Magician", "Cleric", 30)
+    changed = p.apply_update({"stats": {"acc": 70, "matk": 55, "bogus": 5, "hp": -3}})
+    assert p.active.stats == {"acc": 70, "matk": 55} and changed[0][0] == "stats"
+    assert "Magic 55" in p.active.summary() and "damage" not in p.active.summary()
+    assert p.apply_update({"stats": {"matk": 55}}) == []                        # nothing new
+
+
+def _tools_dialog(tmp_path, monkeypatch, base_class, job, stats):
+    import sys
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication(sys.argv)
+    from maplehelper import grind, store
+    from maplehelper.kb import KnowledgeBase
+    from maplehelper.ui.tools import ToolsDialog
+    from conftest import FIXTURE_KB
+    monkeypatch.setattr(store.Profiles, "path", tmp_path / "profiles.json")
+    monkeypatch.setattr(store.Settings, "path", tmp_path / "settings.json")
+    monkeypatch.setattr(grind.Store, "path", tmp_path / "grind.json")
+    p = store.Profiles()
+    p.add("Kiwi", base_class, job, 30).stats = stats
+    return ToolsDialog(KnowledgeBase(FIXTURE_KB), p, store.Settings(), "en", "", {})
+
+
+def test_stat_rows_follow_the_class(tmp_path, monkeypatch):
+    """"My stats" asks a Magician for ACC and Magic, everyone else for ACC and a min / max damage (both pages)."""
+    d = _tools_dialog(tmp_path, monkeypatch, "Magician", "Cleric", {"acc": 70, "matk": 55, "dmg_min": 9, "dmg_max": 12})
+    d.show()
+    for rows, hint in d._stat_rows:
+        assert [k for k, r in rows.items() if r.isVisibleTo(d)] == ["acc", "matk"]
+        assert "Magic" in hint.text()
+    assert d._stats() == (70, None) and d._stats_complete()          # the old min / max is not used
+    d.profiles.active.stats = {"matk": 55}
+    assert not d._stats_complete()                                    # no ACC yet
+
+    d = _tools_dialog(tmp_path, monkeypatch, "Warrior", "Fighter", {"acc": 70, "dmg_min": 40, "dmg_max": 15})
+    d.show()
+    for rows, hint in d._stat_rows:
+        assert [k for k, r in rows.items() if r.isVisibleTo(d)] == ["acc", "dmg_min", "dmg_max"]
+        assert "Magic" not in hint.text()
+    assert d._stats() == (70, (15, 40)) and d._stats_complete()      # min / max swapped back
+    d.profiles.active.stats = {"acc": 70}
+    assert not d._stats_complete()                                    # a Warrior still needs the damage too

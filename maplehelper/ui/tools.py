@@ -724,15 +724,18 @@ class ToolsDialog(GlassDialog):
     def _stats_section(self) -> Section:
         t = self.t
         sec = Section(t("my_stats"), t.rtl)
-        steppers = {}
-        for key, hi in (("acc", 999), ("dmg_min", 99999), ("dmg_max", 99999)):
+        steppers, rows = {}, {}
+        for key, hi in (("acc", 999), ("dmg_min", 99999), ("dmg_max", 99999), ("matk", 99999)):
             st = Stepper(0, hi, 0)
             st.edit.setFixedWidth(64)
             st.valueChanged.connect(lambda v, k=key: self._set_stat(k, v))
-            self._row(sec, t(f"stat_{key}"), st)
+            rows[key] = self._row(sec, t(f"stat_{key}"), st)
             steppers[key] = st
+        hint = self._label(t("my_stats_hint"), "RowHint")
+        sec.add_widget(hint)
+        # a Magician has one Magic number, not a min and max: which rows show follows the character (_load_stats)
         self.__dict__.setdefault("_steppers", []).append(steppers)
-        sec.add_widget(self._label(t("my_stats_hint"), "RowHint"))
+        self.__dict__.setdefault("_stat_rows", []).append((rows, hint))
         read = WrapLink(t("my_stats_read"), t.rtl)          # a long link wraps instead of widening the window
         read.clicked.connect(self._read_screen)
         box = QWidget()
@@ -742,6 +745,9 @@ class ToolsDialog(GlassDialog):
         sec.add_widget(box)
         return sec
 
+    def _is_mage(self) -> bool:
+        return bool(self.c) and self.c.base_class == combat.MAGE
+
     def _load_stats(self):
         s = (self.c.stats if self.c else {}) or {}
         for steppers in self.__dict__.get("_steppers", []):
@@ -749,6 +755,11 @@ class ToolsDialog(GlassDialog):
                 st.blockSignals(True)
                 st.setValue(int(s.get(key) or 0))
                 st.blockSignals(False)
+        mage = self._is_mage()
+        for rows, hint in self.__dict__.get("_stat_rows", []):
+            for key, row in rows.items():
+                row.setVisible(mage if key == "matk" else not mage if key in ("dmg_min", "dmg_max") else True)
+            self._set(hint, self.t("my_stats_hint_mage" if mage else "my_stats_hint"))
 
     def _set_stat(self, key: str, value: int):
         c = self.c
@@ -762,8 +773,15 @@ class ToolsDialog(GlassDialog):
     def _stats(self):
         s = (self.c.stats if self.c else {}) or {}
         acc = s.get("acc") or None
+        if self._is_mage():
+            return acc, None        # one Magic number, no min / max (a spell's damage depends on the spell)
         # typed by hand: min above max is swapped, a max of 0 taken as the min (never a range like 200-10)
         return acc, combat.damage_range(s.get("dmg_min"), s.get("dmg_max"))
+
+    def _stats_complete(self) -> bool:
+        """Everything the numbers on the page need: ACC, and the damage range (a Magician has none to give)."""
+        acc, dmg = self._stats()
+        return bool(acc) if self._is_mage() else bool(acc and dmg)
 
     # where to train --------------------------------------------------------
 
@@ -791,12 +809,12 @@ class ToolsDialog(GlassDialog):
             self._no_character(self.train_list)
             return
         acc, dmg = self._stats()
-        magic = c.base_class == combat.MAGE
+        magic = self._is_mage()
         rows = combat.spots(self.kb, c.level, acc, dmg, magic, n=6)
         # what the list is for, not the stats again (they are in "My stats" right below: the owner's report)
         head = t("train_for_level", n=c.level)
-        if not (acc and dmg):
-            head += "\n" + t("train_need_stats")
+        if not self._stats_complete():
+            head += "\n" + t("train_need_stats_mage" if magic else "train_need_stats")
         self._set(self.train_head, head)
         # why these monsters: the levels actually shown, in a line; the rule and the stat window's note on hover
         why = ""
@@ -806,7 +824,7 @@ class ToolsDialog(GlassDialog):
             span = str(lo) if lo == hi else bidi.ltr_block(f"{lo}–{hi}", t.rtl)     # (read "27–23" in Hebrew)
             rule = t("train_why_stats" if acc and dmg and not magic else "train_why",
                      lo=max(1, c.level - combat.SPOT_BELOW), hi=c.level + combat.SPOT_ABOVE)
-            if acc and dmg:
+            if self._stats_complete():
                 rule += "\n" + t("train_mage_note" if magic else "train_basic_note")
             badge = terms._badge_uri()
             why = html.escape(bidi.plain(t("train_shown", n=len(rows), span=span), t.rtl))
@@ -940,7 +958,7 @@ class ToolsDialog(GlassDialog):
             if not self.c:
                 return None
             acc, dmg = self._stats()
-            spots = combat.spots(self.kb, self.c.level, acc, dmg, self.c.base_class == combat.MAGE, n=1)
+            spots = combat.spots(self.kb, self.c.level, acc, dmg, self._is_mage(), n=1)
             return spots[0].monster if spots else None
         # only monsters the KB confirms are in the game, like the list: a typed "Star Pixie" (Orbis) or "Ratz" (no
         # map at all) got a full hits-to-kill card as if it could be met
@@ -965,7 +983,7 @@ class ToolsDialog(GlassDialog):
             self.calc_box.addWidget(self._label(t("calc_none") if typed else t("calc_pick"), "RowHint"))
             return
         acc, dmg = self._stats()
-        magic = c.base_class == combat.MAGE
+        magic = self._is_mage()
         if not self.calc_input.text().strip():
             # why this monster when nothing was typed (the owner)
             self.calc_box.addWidget(self._label(t("calc_default", name=bidi.ltr_block(m.name, t.rtl)), "RowHint"))
@@ -981,7 +999,7 @@ class ToolsDialog(GlassDialog):
             pic.setPixmap(fit_picture(pm, 56, 56, pic))
             zoom_on_hover(pic, path)
             nums.addWidget(pic, 0, Qt.AlignVCenter)
-        # P.DEF for every class: the hits below are the stat window's basic attack, a Magician's staff swing too
+        # P.DEF: the hits below are the stat window's basic attack (a Magician gives none: one Magic number)
         for value, label, term in ((f"{m.hp:,}", "HP", "Monster HP"), (f"{m.exp:,}", "EXP", None),
                                    (str(m.avoid), "Avoid", None), (str(m.pdef), "P.DEF", "Monster P.DEF")):
             nums.addLayout(self._big(value, label, term=term))
@@ -1014,11 +1032,11 @@ class ToolsDialog(GlassDialog):
                 self._row(sec, t("calc_hit"), tag(f"{round(hit * 100)}%", "TagGood" if hit >= 0.999 else "TagWarn"),
                           hint=hint)
         if dmg:
-            # the stat window's range is a basic attack: for a Magician the staff swing, a physical hit (P.DEF)
+            # the stat window's range is a basic attack, a physical hit (P.DEF)
             hits, avg = combat.hits_to_kill(dmg[0], dmg[1], m, c.level)
             # the number inside the sentence ("3 basic hits always kill it"): a lone "1" at the far edge read as
             # unrelated, and "1.0 on average" said nothing when it's always one hit
-            hint = t("calc_hits_mage" if magic else "calc_hits_basic")
+            hint = t("calc_hits_basic")
             if avg < hits - 0.05:
                 hint = t("calc_hits_avg", n=f"{avg:.1f}") + "\n" + hint
             self._row(sec, t("calc_hits", n=hits), hint=hint)
@@ -1034,8 +1052,8 @@ class ToolsDialog(GlassDialog):
             self._row(sec, t("calc_mesos"), holder3, hint=t("calc_mesos_avg", n=f"{avg:,.0f}") if avg else "")
         else:
             self._row(sec, t("calc_mesos"), tag(self._p(t("mesos_none")), "Tag"))
-        if not (acc and dmg):
-            sec.add_widget(self._label(t("calc_need_stats"), "RowHint"))
+        if not self._stats_complete():
+            sec.add_widget(self._label(t("calc_need_stats_mage" if magic else "calc_need_stats"), "RowHint"))
         acts = [("farm_route", lambda n=m.name: self._go_route(n))] if self._mob_map(m.name) else []
         acts += [("farm_hunt", lambda n=m.name: self._go_farm_hunt(n)),
                  ("ask_short", lambda k=m.key: self.tag_requested.emit(k))]

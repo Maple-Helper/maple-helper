@@ -173,6 +173,9 @@ def test_a_click_during_a_running_check_gets_its_result(monkeypatch):
     gate, done = threading.Event(), []
     monkeypatch.setattr(updater, "local_version", lambda: "1")
     monkeypatch.setattr(updater, "fetch_kb", lambda before_swap=None: gate.wait(5) and "uptodate")
+    # no real live-content check: it reads main's assets/live.json, so a branch that edits live content made it report
+    # a change and call _live_changed, which this fake doesn't have
+    monkeypatch.setattr(app.live, "sync", lambda version: None)
     fake = SimpleNamespace(main_thread=SimpleNamespace(call=SimpleNamespace(emit=lambda fn: fn())),
                            _stop_ai_for_kb_swap=lambda: True,
                            _kb_update_done=lambda status, before, interactive: done.append((status, interactive)))

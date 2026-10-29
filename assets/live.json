@@ -10,7 +10,7 @@
   },
   "ai/system.md": {
    "contract": 1,
-   "sha256": "d4ce84ff104f4244a4a03026a8c64746de3c7e9cef15b37cd47446b02c908fe4"
+   "sha256": "2f9e4812119e46d468d2d0f5f5e49af07c4e167498ecc3c769fd136702c236de"
   },
   "aliases/he.json": {
    "contract": 1,
@@ -542,7 +542,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "0bca9a016966f7e550ac4feb0bc31b52b82e345cba11f7abb628f747e52b08f4"
+   "sha256": "b54f559e54d145217db6f4bd969be4325d27c5732feaeed1aea89fd75ad97399"
   },
   "official/facts.json": {
    "contract": 1,

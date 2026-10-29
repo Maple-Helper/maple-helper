@@ -33,17 +33,23 @@ a = Analysis(
     datas=datas,
     hiddenimports=hiddenimports,
     runtime_hooks=[str(ROOT / "packaging" / "rthook_no_av.py")],
-    excludes=["av", "hf_xet", "tkinter", "torch", "tensorflow", "matplotlib", "pytest", "PySide6.QtWebEngineCore",
+    # PySide6.QtWebEngineCore stays: MesoWatch's files are read from inside a hidden page of its site (webfetch.py)
+    excludes=["av", "hf_xet", "tkinter", "torch", "tensorflow", "matplotlib", "pytest",
               "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore", "PySide6.QtQuick", "PySide6.QtQml"],
     noarchive=False,
 )
 # drop heavy binaries the app never loads. The av* names are PyAV's FFmpeg; OpenCV (RapidOCR's cv2) ships its own
 # FFmpeg on macOS (cv2/.dylibs) and links it, so cv2's files are kept: dropping them broke the bundle's symlinks
-DROP = ("opengl32sw", "Qt6Quick", "Qt6Qml", "Qt6Pdf", "Qt6VirtualKeyboard", "Qt6OpenGL", "av.libs", "avcodec",
+# (Qt WebEngine links Qt6Quick, Qt6Qml and Qt6OpenGL: those stay)
+DROP = ("opengl32sw", "Qt6Pdf", "Qt6VirtualKeyboard", "av.libs", "avcodec",
         "avformat", "avutil", "swresample", "swscale", "avfilter", "avdevice")
 a.binaries = [b for b in a.binaries if b[0].replace("\\", "/").startswith("cv2/")
               or not any(d.lower() in b[0].lower() for d in DROP)]
-a.datas = [d for d in a.datas if not d[0].replace("\\", "/").startswith(("PySide6/translations/qtwebengine",))]
+# Qt WebEngine's own words and its developer tools are never shown (a hidden page); Chromium needs one locale file
+KEEP = ("PySide6/translations/qtwebengine_locales/en-US.pak",)
+a.datas = [d for d in a.datas if d[0].replace("\\", "/") in KEEP or not (
+    d[0].replace("\\", "/").startswith(("PySide6/translations/qtwebengine",))
+    or re.search(r"qtwebengine_devtools_resources|\.debug\.pak$", d[0]))]
 
 pyz = PYZ(a.pure)
 exe = EXE(

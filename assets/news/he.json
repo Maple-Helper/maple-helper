@@ -106,6 +106,27 @@
   "commentary": "",
   "body_hash": "97a11db1ee238e38"
  },
+ "nexon-46602": {
+  "summary": "Halloween Mystery Fashion Crate, עדכון ל-Mystery Styles ועוד!",
+  "source_hash": "b1039bbb6cdb4a3f",
+  "title": "[עודכן ב-28.10] עדכון ה-Cash Shop של Classic World: 28 באוקטובר",
+  "highlights": [
+   "Halloween Mystery Fashion Crate: לפי UTC: יום רביעי, 28 באוקטובר, 8:00 - יום רביעי, 4 בנובמבר, 7:59",
+   "עדכון Mystery Styles: לפי UTC: יום רביעי, 28 באוקטובר, 8:00 - יום רביעי, 11 בנובמבר, 7:59",
+   "מבצעים שממשיכים",
+   "Beauty Essentials Pack: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Mystery Fashion Crate: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - יום רביעי, 4 בנובמבר, 7:59",
+   "Beauty Album Slot Expansion Films: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Megaphones: זמינים ב-Classic World: Megaphone",
+   "Aurora Stamp Shop Season 1: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Aurora Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Signature Style Coupons: זמינים ב-Classic World: Signature Hair Coupon",
+   "10-Day Equip Covers: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר, 17:59",
+   "Fall Store Permit: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר, 17:59"
+  ],
+  "commentary": "",
+  "body_hash": "88bb92c310480668"
+ },
  "nexon-46730": {
   "summary": "דרישת הרמה לשימוש בכל פריטי ה-Megaphone עולה מרמה 10 לרמה 15 אחרי ה-Grand Launch, ב-21 באוקטובר 2026 ב-21:00 שעון ישראל. פריטי Megaphone שכבר יש לכם באינבנטורי לא מושפעים.",
   "source_hash": "d71ab987cae6338c",
@@ -158,5 +179,19 @@
   ],
   "commentary": "",
   "body_hash": "79212e6634492cda"
+ },
+ "nexon-47298": {
+  "summary": "תחזוקה מתוכננת ביום חמישי, 29 באוקטובר 2026, מ-14:00 שעון ישראל (5:00 PDT).",
+  "source_hash": "9c005af541b4a456",
+  "title": "תחזוקה מתוכננת - 29 באוקטובר 2026",
+  "highlights": [
+   "תחזוקה מתוכננת ביום חמישי, 29 באוקטובר 2026, מ-14:00 שעון ישראל, למשך כ-4 שעות, עד בערך 18:00.",
+   "השעות: חמישי 29 באוקטובר 2026, 14:00-18:00 שעון ישראל (5:00-9:00 PDT).",
+   "מה לא זמין: כל שרתי המשחק של MapleStory Classic World.",
+   "שינויים ועדכונים: MapleStory Classic World יתעדכן לגרסה v.1.1.0.",
+   "הרשימה המלאה של השינויים והעדכונים תפורסם כאן בסיום התחזוקה."
+  ],
+  "commentary": "",
+  "body_hash": "5a1c468faa6f293d"
  }
 }

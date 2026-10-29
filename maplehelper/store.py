@@ -270,7 +270,7 @@ class Character:
     notes: list[str] = field(default_factory=list)
     avatar: str = ""              # file in AVATAR_DIR, cropped from the latest screenshot
     exp_pct: float | None = None  # EXP bar of the current level, read from a screenshot
-    stats: dict = field(default_factory=dict)          # from the stat window: acc, dmg_min, dmg_max, hp, mp
+    stats: dict = field(default_factory=dict)          # from the stat window: acc, dmg_min, dmg_max (matk for a Magician), hp, mp
     quests_done: list[str] = field(default_factory=list)   # quest keys the player marked done
     town: str = ""                                    # citizenship town (Henesys / Kerning City), "" = not chosen
     job_shown: str = ""     # the job as the game's HUD names it ("Archer" on an Old School server for a Bowman)
@@ -308,6 +308,7 @@ class Character:
         if st:
             bits = [f"ACC {st['acc']}" if st.get("acc") else "",
                     f"damage {st['dmg_min']}-{st.get('dmg_max', st['dmg_min'])}" if st.get("dmg_min") else "",
+                    f"Magic {st['matk']}" if st.get("matk") else "",
                     f"max HP {st['hp']}" if st.get("hp") else "", f"max MP {st['mp']}" if st.get("mp") else ""]
             parts.append("Stats (stat window): " + ", ".join(b for b in bits if b))
         if self.notes:
@@ -315,7 +316,7 @@ class Character:
         return "\n".join(parts)
 
 
-STAT_KEYS = ("acc", "dmg_min", "dmg_max", "hp", "mp")
+STAT_KEYS = ("acc", "dmg_min", "dmg_max", "matk", "hp", "mp")     # matk: a Magician's single Magic number
 # active quests only ever come from what the player mentions, and a finished one is only removed when they say so:
 # the list is capped (newest kept) and only the newest few go into every prompt (it reached 200 in testing)
 MAX_ACTIVE_QUESTS = 15
