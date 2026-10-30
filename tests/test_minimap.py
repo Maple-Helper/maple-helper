@@ -347,12 +347,21 @@ def test_resolve_names(graph, text, street, expected):
 @pytest.mark.parametrize("street,expected", [
     ("Hidden Street", "010001021"),
     ("Rainbow Street", "000001003"),
-    (None, "010001021"),                        # no street: town first, the deterministic pick
 ])
 def test_resolve_street_breaks_the_tie(graph, street, expected):
-    """Two maps share 'Mushroom Garden': the street line picks, else the town-first rule."""
+    """Two maps share 'Mushroom Garden': the street line picks."""
     from maplehelper.minimap import resolve_name
     assert resolve_name(graph, "Mushroom Garden", street) == expected
+
+
+@needs_kb
+def test_resolve_with_no_street_is_the_route_planners_pick(graph):
+    """No street line: one of the two maps, the same one the route planner picks for the name (town, then ways out,
+    then id), not a pinned id: both gardens are one-exit hunting grounds, so the id decides (KB 2026-10-30)."""
+    from maplehelper.minimap import resolve_name
+    got = resolve_name(graph, "Mushroom Garden")
+    assert got in {"000001003", "010001021"}
+    assert got == graph.find_town("Mushroom Garden")
 
 
 @needs_kb
