@@ -22,7 +22,7 @@ from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QPushButton, QSizePo
 from .. import bidi, lootlog
 from ..i18n import I18n
 from . import theme
-from .glass import SHADOW
+from .glass import SHADOW, keep_over_game
 from .moneytable import CARD, MoneyTable
 from .npcoverlay import (BOTTOM, GEOM_DEBOUNCE_MS, OPACITY_DEFAULT, OPACITY_MAX, OPACITY_MIN, SIDE, TOP, _Header,
                          _flags, _paint_glass, accent_of, keep_off_minimap, look_palette, set_capturable)
@@ -104,6 +104,10 @@ class _Elided(QLabel):
 class LootOverlay(QWidget):
     closed = Signal()               # the ✕ turned the setting off: the bar's Loot log button unchecks
     full_requested = Signal()       # "Full tracker": the grind tracker's own window (ui/grindtracker.py)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        keep_over_game(self)
 
     def __init__(self, scanner, settings, kb, t: I18n | None = None):
         super().__init__(None, _flags())

@@ -25,7 +25,7 @@ from ..i18n import I18n
 from ..store import Settings
 from . import mapview, theme
 from .controls import FlowLayout
-from .glass import SHADOW, EdgeResize
+from .glass import SHADOW, EdgeResize, keep_over_game
 from .npcoverlay import (
     ACCENTS,
     GAP,
@@ -203,6 +203,10 @@ class _SettingsPanel(QWidget):
     the panel has been clicked into: it takes the keyboard only then, never on opening)."""
 
     changed = Signal()          # a choice applied: every window over the game follows (app.py wires it)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        keep_over_game(self)
 
     def __init__(self, bar):
         # not the bar's own flags: it takes the keyboard once clicked, for Esc
