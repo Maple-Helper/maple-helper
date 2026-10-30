@@ -57,6 +57,12 @@ GLYPH_PX = 16
 PAGE_GLYPHS = {"train": "", "farm": "", "quests": "", "crafting": "", "town": "",
                "build": "", "calc": "", "prices": "", "more": "", "route": "",
                "shop": ""}
+# macOS has no Segoe icon fonts (theme.load_fonts): each glyph above as a Unicode symbol the system fonts draw in one
+# colour (no emoji: those keep their own colours), else the bar's buttons were blank
+SYMBOL_GLYPHS = {"": "❝", "": "☺︎", "": "☠︎", "": "⏱︎",
+                 "": "⚒︎", "": "⚔︎", "": "☘︎", "": "⚑︎",
+                 "": "⚗︎", "": "⌂︎", "": "≡", "": "±",
+                 "": "⚖︎", "": "…", "": "⌖", "": "✦"}
 # the windows over the game the bar shows and hides: each button is its window's setting -> its i18n key
 WINDOWS = {"npc_overlay": "tb_npcs_here", "monster_overlay": "tb_monsters", "loot_overlay": "tb_loot"}
 # the Play tools button's menu: every tab of the Tools window, straight to it (the owner, 2026-10-20: all of them,
@@ -135,6 +141,8 @@ def _glyph_pixmap(glyph: str, colour: str, px: int) -> QPixmap:
     side = round(px * dpr)
     pm = QPixmap(side, side)
     pm.fill(Qt.transparent)
+    if not theme.ICON_FONT.startswith("Segoe"):
+        glyph = SYMBOL_GLYPHS.get(glyph, glyph)
     p = QPainter(pm)
     f = QFont(theme.ICON_FONT)
     f.setPixelSize(round(px * 0.95 * dpr))
