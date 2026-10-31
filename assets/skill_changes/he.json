@@ -3,9 +3,17 @@
   "en": "COT1: Drain always absorbed 15% of the damage dealt as HP. COT2: that absorb now triggers with a 12% chance. Damage and MP cost are unchanged at max level.",
   "he": "ב-COT1, Drain תמיד החזיר 15% מהנזק כ-HP. ב-COT2 ההחזרה הזו קורית רק בסיכוי של 12%. הנזק ועלות ה-MP ברמה המקסימלית לא השתנו."
  },
+ "skill/bowman__focus": {
+  "en": "Accuracy now matches Evasion at every level: +1 to +5 at Level 1, +10 to +14 at Level 10, +20 to +25 at max. Evasion, MP cost and duration are unchanged.",
+  "he": "ה-Accuracy שווה עכשיו ל-Evasion בכל רמה: מ-+1 ל-+5 ברמה 1, מ-+10 ל-+14 ברמה 10 ומ-+20 ל-+25 ברמה המקסימלית. ה-Evasion, עלות ה-MP ומשך הזמן לא השתנו."
+ },
  "skill/bowman__the-eye-of-amazon": {
   "en": "Renamed from Amazon's Judgement to The Eye of Amazon .",
   "he": "השם שונה מ-Amazon's Judgement ל-The Eye of Amazon."
+ },
+ "skill/cleric__heal": {
+  "en": "Effect area 500 x 300 px to 500 x 180 px at Levels 1 to 15, 600 x 400 px to 600 x 180 px at Levels 16 to 30. Only the height changed.",
+  "he": "אזור האפקט ירד מ-500 x 300 px ל-500 x 180 px ברמות 1 עד 15, ומ-600 x 400 px ל-600 x 180 px ברמות 16 עד 30. רק הגובה השתנה."
  },
  "skill/crusader__power-guard": {
   "en": "New to the Crusader book in COT2. In COT1 Power Guard was a Fighter (2nd job) skill.",
@@ -16,20 +24,44 @@
   "he": "חדש בספר של Dragon Knight ב-COT2. ב-COT1, Hyper Body היה סקיל של Spearman (ג'וב 2)."
  },
  "skill/f-p-wizard__poison-breath": {
-  "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
-  "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלית הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלית יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+  "en": "Basic Attack +10 at every level, 50 to 60 at Level 1 and 80 to 90 at max. Nexon also fixed Level 10, which did not deal damage properly.",
+  "he": "Basic Attack +10 בכל רמה: מ-50 ל-60 ברמה 1 ומ-80 ל-90 ברמה המקסימלית. Nexon גם תיקנו את רמה 10, שלא עשתה נזק כמו שצריך.",
+  "alt": [
+   {
+    "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
+    "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלית הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלית יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+   }
+  ]
  },
  "skill/f-p-wizard__slow": {
   "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
   "he": "חדש ב-COT2: מפלצת שנפגעת מ-Slow מאבדת גם 5 Evasion כל עוד הוא פועל. הורדת ה-Speed נשארה 30-."
  },
+ "skill/fighter__final-attack-sword": {
+  "en": "Once enabled, Final Attack stays usable for 60 sec instead of 30 sec, at every level. The tooltip already said 60 sec.",
+  "he": "אחרי שהוא מופעל, Final Attack נשאר זמין ל-60 שניות במקום 30 שניות, בכל הרמות. בתיאור הסקיל כבר היה כתוב 60 שניות."
+ },
  "skill/fighter__rush": {
-  "en": "COT1: this slot was Power Guard (Fighter, 2nd job). COT2: Power Guard moved to Crusader (3rd job) and the slot is now Rush.",
-  "he": "ב-COT1 המקום הזה היה Power Guard (של Fighter, ג'וב 2). ב-COT2, Power Guard עבר ל-Crusader (ג'וב 3), ובמקומו יש עכשיו Rush."
+  "en": "Distance at Level 10 raised from 130 to 150, as the tooltip says. It used to rise at Level 11.",
+  "he": "המרחק ברמה 10 עלה מ-130 ל-150, כמו שכתוב בתיאור הסקיל. קודם הוא עלה רק ברמה 11.",
+  "alt": [
+   {
+    "en": "COT1: this slot was Power Guard (Fighter, 2nd job). COT2: Power Guard moved to Crusader (3rd job) and the slot is now Rush.",
+    "he": "ב-COT1 המקום הזה היה Power Guard (של Fighter, ג'וב 2). ב-COT2, Power Guard עבר ל-Crusader (ג'וב 3), ובמקומו יש עכשיו Rush."
+   }
+  ]
  },
  "skill/i-l-wizard__slow": {
   "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
   "he": "חדש ב-COT2: מפלצת שנפגעת מ-Slow מאבדת גם 5 Evasion כל עוד הוא פועל. הורדת ה-Speed נשארה 30-."
+ },
+ "skill/i-l-wizard__thunder-bolt": {
+  "en": "Basic Attack +10 at every level, 40 to 50 at Level 1 and 70 to 80 at max.",
+  "he": "Basic Attack +10 בכל רמה: מ-40 ל-50 ברמה 1 ומ-70 ל-80 ברמה המקסימלית."
+ },
+ "skill/magician__improved-mp-recovery": {
+  "en": "MP recovery from items +5% to +10% at Level 1, +20% to +25% at max.",
+  "he": "ה-MP שמקבלים מפריטים עלה מ-+5% ל-+10% ברמה 1, ומ-+20% ל-+25% ברמה המקסימלית."
  },
  "skill/page__blunt-weapon-mastery": {
   "en": "COT1: Blunt Weapon Mastery gave Attack Power +20 plus a 25% chance to stun for 3 sec. COT2 reworked the secondary bonus into a 20% chance to ignore the enemy's Weapon Defense; the attack bonus and the stun are removed. The old 25% and the new 20% describe different effects, so they are not shown as a before and after. Mastery level 10 is unchanged.",
@@ -43,9 +75,25 @@
   "en": "COT1: this slot was Power Guard (Page, 2nd job). COT2: Power Guard moved to White Knight (3rd job) and the slot is now Rush.",
   "he": "ב-COT1 המקום הזה היה Power Guard (של Page, ג'וב 2). ב-COT2, Power Guard עבר ל-White Knight (ג'וב 3), ובמקומו יש עכשיו Rush."
  },
+ "skill/spearman__final-attack-spear": {
+  "en": "One use can now absorb at most 15% of your Max HP, and the tooltip says 15% instead of 25%.",
+  "he": "כל הפעלה יכולה לספוג עכשיו עד 15% מה-Max HP שלכם, ובתיאור הסקיל כתוב 15% במקום 25%."
+ },
  "skill/spearman__rush": {
   "en": "COT1: this slot was Hyper Body (Spearman, 2nd job). COT2: Hyper Body moved to Dragon Knight (3rd job) and the slot is now Rush.",
   "he": "ב-COT1 המקום הזה היה Hyper Body (של Spearman, ג'וב 2). ב-COT2, Hyper Body עבר ל-Dragon Knight (ג'וב 3), ובמקומו יש עכשיו Rush."
+ },
+ "skill/thief__dark-sight": {
+  "en": "The description now says Disorder Level 3 instead of Level 1. The actual prerequisite remains Level 3.",
+  "he": "בתיאור כתוב עכשיו Disorder ברמה 3 במקום רמה 1. הדרישה בפועל נשארה רמה 3."
+ },
+ "skill/warrior__improved-hp-recovery": {
+  "en": "HP recovery from items +5% to +20% at Level 1, +20% to +50% at max.",
+  "he": "ה-HP שמקבלים מפריטים עלה מ-+5% ל-+20% ברמה 1, ומ-+20% ל-+50% ברמה המקסימלית."
+ },
+ "skill/warrior__iron-body": {
+  "en": "Weapon Def. +5% to +20% at Level 1, +25% to +40% at max. MP cost and duration are unchanged.",
+  "he": "ה-Weapon Def. עלה מ-+5% ל-+20% ברמה 1, ומ-+25% ל-+40% ברמה המקסימלית. עלות ה-MP ומשך הזמן לא השתנו."
  },
  "skill/white-knight__power-guard": {
   "en": "New to the White Knight book in COT2. In COT1 Power Guard was a Page (2nd job) skill.",

@@ -570,7 +570,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "de9011e1daad208867e0df8ff5a2fa47a3432321534baa0ef36bff03051b9e72"
+   "sha256": "fcc1230f1121ff156eb8988e61610a5339f24f7091db13695ec24abdc2eb100a"
   },
   "official/facts.json": {
    "contract": 1,
@@ -586,7 +586,7 @@
   },
   "skill_changes/he.json": {
    "contract": 1,
-   "sha256": "c112ff928416e3be315389df16e0cd566071426648ff4cc0afce6adb17990453"
+   "sha256": "89a827a629b175383e2f0be860eae96dc0100c63f2a9d20dc5d9624e3f46c97b"
   },
   "skills/he.json": {
    "contract": 1,
