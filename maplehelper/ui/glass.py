@@ -86,12 +86,23 @@ class _DragBar(QWidget):
         self._grab = None
 
 
+def keep_over_game(w: QWidget) -> None:
+    """A stays-on-top window over the game on macOS too (osapi.float_over_fullscreen); from its showEvent."""
+    if w.windowFlags() & Qt.WindowStaysOnTopHint:
+        from .. import osapi
+        osapi.float_over_fullscreen(int(w.winId()))
+
+
 class EdgeResize:
     """Any-edge resizing for a frameless window: its shadow margin and the panel's own margin (no controls
     there) are the edges. Pressing there hands the drag to the system (startSystemResize), like a normal
     window's border. Mix in first (class W(EdgeResize, QDialog)); every handler cooperates via super()."""
 
     EDGE = 8          # how far into the panel the edge reaches, past the shadow
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        keep_over_game(self)
 
     def _edges_at(self, pos) -> Qt.Edge:
         zone = getattr(self, "SHADOW", SHADOW) + self.EDGE
@@ -247,6 +258,7 @@ class GlassDialog(QDialog):
 
     def showEvent(self, e):
         super().showEvent(e)
+        keep_over_game(self)
         # Qt focuses the first widget in the chain, the title bar's X: Space or Enter then closed the window
         QTimer.singleShot(0, self._focus_first)
 

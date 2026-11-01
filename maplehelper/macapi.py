@@ -28,6 +28,7 @@ SCREEN_COORDS_ARE_PHYSICAL = False
 
 # NSWindowCollectionBehavior: show on every Space, including another app's fullscreen Space
 _CAN_JOIN_ALL_SPACES = 1 << 0
+_MOVE_TO_ACTIVE_SPACE = 1 << 1     # Qt's tool windows have it; with _CAN_JOIN_ALL_SPACES AppKit raises
 _FULLSCREEN_AUXILIARY = 1 << 8
 _ACTIVATE_IGNORING_OTHER_APPS = 1 << 1
 
@@ -214,16 +215,28 @@ def seconds_since_self_activation() -> float:
     return time.monotonic() - _self_activated_at
 
 
+def on_every_space(behavior: int) -> int:
+    """A window's NSWindowCollectionBehavior made to show on every Space, over a fullscreen one too. Without dropping
+    move-to-active-space AppKit raised (NSInternalInconsistencyException), and the window stayed where it was."""
+    return (behavior & ~_MOVE_TO_ACTIVE_SPACE) | _CAN_JOIN_ALL_SPACES | _FULLSCREEN_AUXILIARY
+
+
 def float_over_fullscreen(win_id: int) -> None:
-    """Let a Qt window (winId = its NSView) appear on every Space, also over a fullscreen game."""
+    """Let a Qt window (winId = its NSView) appear on every Space, also over a fullscreen game, and above the game's
+    own window: Wine (the game's Mac launcher) raises a fullscreen game to the main menu's level + 2 (26), over Qt's
+    stays-on-top level (8), so the bar and the chat stayed behind it."""
     from PySide6.QtGui import QGuiApplication
     if QGuiApplication.platformName() != "cocoa":
         return      # offscreen (tests, renders): the id is no NSView, and messaging it crashed the process
     try:
         import objc
+        import Quartz
         window = objc.objc_object(c_void_p=ctypes.c_void_p(int(win_id))).window()
         if window is not None:
-            window.setCollectionBehavior_(window.collectionBehavior() | _CAN_JOIN_ALL_SPACES | _FULLSCREEN_AUXILIARY)
+            window.setCollectionBehavior_(on_every_space(window.collectionBehavior()))
+            over_game = Quartz.CGWindowLevelForKey(Quartz.kCGMainMenuWindowLevelKey) + 3
+            if window.level() < over_game:      # only up: menus and tooltips (pop-up level) stay over it
+                window.setLevel_(over_game)
     except Exception:
         pass   # cosmetic: the window still works on the game's Space when the game is windowed
 

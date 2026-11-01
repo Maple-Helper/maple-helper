@@ -167,3 +167,10 @@ def test_mac_icon_has_transparent_corners():
     w, h = img.width(), img.height()
     assert all(img.pixelColor(x, y).alpha() == 0 for x, y in ((2, 2), (w - 3, 2), (2, h - 3), (w - 3, h - 3)))
     assert img.pixelColor(w // 2, h // 2).alpha() == 255
+
+
+def test_on_every_space_drops_move_to_active_space():
+    # Qt's tool windows carry move-to-active-space; together with can-join-all-spaces AppKit raises
+    b = macapi.on_every_space(macapi._MOVE_TO_ACTIVE_SPACE)
+    assert b & macapi._CAN_JOIN_ALL_SPACES and b & macapi._FULLSCREEN_AUXILIARY
+    assert not b & macapi._MOVE_TO_ACTIVE_SPACE

@@ -21,7 +21,7 @@ from ..i18n import I18n
 from ..kb import KnowledgeBase
 from ..store import Settings
 from . import mapview, theme
-from .glass import SHADOW, EdgeResize
+from .glass import SHADOW, EdgeResize, keep_over_game
 from .location import LOCATION
 from .regionpick import from_capture
 
@@ -391,6 +391,10 @@ class GuideWindow(QWidget):
     """The way to the picked NPC, a small window of its own docked beside the list (its left, or its right where
     the screen has no room): the NPC's name with a ✕, the sentence saying where it is, the map's picture with its
     green dot and the player's blue one, and Stop guiding. It moves with the list; its height follows the picture."""
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        keep_over_game(self)
 
     def __init__(self, owner: NpcOverlay):
         super().__init__(None, _flags())
