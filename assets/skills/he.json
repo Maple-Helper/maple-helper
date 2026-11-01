@@ -576,9 +576,13 @@
   "he": "רמת Polearm Mastery: 10, מהירות +20"
  },
  "skill/spearman__final-attack-spear": {
-  "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 25% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a spear.",
-  "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 25% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם חנית.",
+  "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 15% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a spear.",
+  "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 15% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם חנית.",
   "alt": [
+   {
+    "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 25% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a spear.",
+    "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 25% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם חנית."
+   },
    {
     "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to the enemy and absorbing a portion of the damage dealt as HP. The amount absorbed per activation cannot exceed 25% of the character's Max HP or the enemy's Max HP. This skill only activates when a spear is equipped. Using the skill activates the effect, and using it again deactivates it.",
     "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב ומחזיר לכם חלק מהנזק כ-HP. מה שנספג בכל הפעלה לא יכול לעבור 25% מה-Max HP של הדמות או את ה-Max HP של האויב. עובד רק עם חנית. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
@@ -606,9 +610,13 @@
   ]
  },
  "skill/spearman__final-attack-polearm": {
-  "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 25% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a polearm.",
-  "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 25% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם Polearm.",
+  "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 15% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a polearm.",
+  "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 15% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם Polearm.",
   "alt": [
+   {
+    "en": "Using attack skills has a chance to enable the Final Attack skill for 60 sec. While enabled, the skill can be used, dealing heavy damage to a single enemy and absorbing some of the damage dealt as HP. The most one can absorb at once is 25% of the character's Max HP, and can't absorb more than the Max HP of the enemy. Only applies when equipped with a polearm.",
+    "he": "לסקילים של התקפה יש סיכוי להפעיל את הסקיל Final Attack ל-60 שניות. בזמן הזה אפשר להשתמש בו, והוא גורם נזק כבד לאויב אחד ומחזיר לכם חלק מהנזק כ-HP. בכל פעם אפשר לספוג עד 25% מה-Max HP של הדמות, ולא יותר מה-Max HP של האויב. עובד רק עם Polearm."
+   },
    {
     "en": "While the effect is active, using attack skills has a chance to activate Final Attack when there are targets within range, dealing heavy damage to the enemy and absorbing a portion of the damage dealt as HP. The amount absorbed per activation cannot exceed 25% of the character's Max HP or the enemy's Max HP. This skill only activates when a polearm is equipped. Using the skill activates the effect, and using it again deactivates it.",
     "he": "כל עוד האפקט פעיל, לסקילים של התקפה יש סיכוי להפעיל Final Attack כשיש מטרות בטווח, שגורם נזק כבד לאויב ומחזיר לכם חלק מהנזק כ-HP. מה שנספג בכל הפעלה לא יכול לעבור 25% מה-Max HP של הדמות או את ה-Max HP של האויב. עובד רק עם Polearm. שימוש בסקיל מפעיל את האפקט, ושימוש נוסף מכבה אותו."
@@ -898,12 +906,24 @@
   ]
  },
  "skill/f-p-wizard__poison-breath#1": {
-  "en": "MP -20; Basic Attack 50, Mastery level 1; 45% success rate, deals 10 Basic Attack over 5 sec",
-  "he": "עולה 20 MP; Basic Attack 50, רמת Mastery: 1; סיכוי הצלחה 45% להרעלה של 10 Basic Attack במשך 5 שניות"
+  "en": "MP -20; Basic Attack 60, Mastery level 1; 45% success rate, deals 10 Basic Attack over 5 sec",
+  "he": "עולה 20 MP; Basic Attack 60, רמת Mastery: 1; סיכוי הצלחה 45% להרעלה של 10 Basic Attack במשך 5 שניות",
+  "alt": [
+   {
+    "en": "MP -20; Basic Attack 50, Mastery level 1; 45% success rate, deals 10 Basic Attack over 5 sec",
+    "he": "עולה 20 MP; Basic Attack 50, רמת Mastery: 1; סיכוי הצלחה 45% להרעלה של 10 Basic Attack במשך 5 שניות"
+   }
+  ]
  },
  "skill/f-p-wizard__poison-breath#max": {
-  "en": "MP -40; Basic Attack 80, Mastery level 10; 75% success rate, deals 40 Basic Attack over 5 sec",
-  "he": "עולה 40 MP; Basic Attack 80, רמת Mastery: 10; סיכוי הצלחה 75% להרעלה של 40 Basic Attack במשך 5 שניות"
+  "en": "MP -40; Basic Attack 90, Mastery level 10; 75% success rate, deals 40 Basic Attack over 5 sec",
+  "he": "עולה 40 MP; Basic Attack 90, רמת Mastery: 10; סיכוי הצלחה 75% להרעלה של 40 Basic Attack במשך 5 שניות",
+  "alt": [
+   {
+    "en": "MP -40; Basic Attack 80, Mastery level 10; 75% success rate, deals 40 Basic Attack over 5 sec",
+    "he": "עולה 40 MP; Basic Attack 80, רמת Mastery: 10; סיכוי הצלחה 75% להרעלה של 40 Basic Attack במשך 5 שניות"
+   }
+  ]
  },
  "skill/i-l-wizard__mp-eater": {
   "en": "Absorbs the enemy's MP when attacking with Magic skills, but only once every 5 seconds. Cannot absorb if the enemy's MP is 0.",
@@ -982,12 +1002,24 @@
   "he": "תוקף את המפלצות מסביב בברק: נזק של אלמנט ברק. לכל המפלצות, חוץ מאלה שעמידות לברק, יש סיכוי לחטוף סטאן מהחשמל."
  },
  "skill/i-l-wizard__thunder-bolt#1": {
-  "en": "MP -20; Basic Attack 40, Mastery level 1; 10% chance to be electrocuted",
-  "he": "עולה 20 MP; Basic Attack 40, רמת Mastery: 1; סיכוי של 10% להתחשמלות"
+  "en": "MP -20; Basic Attack 50, Mastery level 1; 10% chance to be electrocuted",
+  "he": "עולה 20 MP; Basic Attack 50, רמת Mastery: 1; סיכוי של 10% להתחשמלות",
+  "alt": [
+   {
+    "en": "MP -20; Basic Attack 40, Mastery level 1; 10% chance to be electrocuted",
+    "he": "עולה 20 MP; Basic Attack 40, רמת Mastery: 1; סיכוי של 10% להתחשמלות"
+   }
+  ]
  },
  "skill/i-l-wizard__thunder-bolt#max": {
-  "en": "MP -40; Basic Attack 70, Mastery level 10; 25% chance to be electrocuted",
-  "he": "עולה 40 MP; Basic Attack 70, רמת Mastery: 10; סיכוי של 25% להתחשמלות"
+  "en": "MP -40; Basic Attack 80, Mastery level 10; 25% chance to be electrocuted",
+  "he": "עולה 40 MP; Basic Attack 80, רמת Mastery: 10; סיכוי של 25% להתחשמלות",
+  "alt": [
+   {
+    "en": "MP -40; Basic Attack 70, Mastery level 10; 25% chance to be electrocuted",
+    "he": "עולה 40 MP; Basic Attack 70, רמת Mastery: 10; סיכוי של 25% להתחשמלות"
+   }
+  ]
  },
  "skill/cleric__mp-eater": {
   "en": "Absorbs the enemy's MP when attacking with Magic skills, but only once every 5 seconds. Cannot absorb if the enemy's MP is 0.",
@@ -1150,12 +1182,24 @@
   "he": "מתרכזים ומעלים לזמן מוגבל את ה-ACC ואת ה-Avoid."
  },
  "skill/bowman__focus#1": {
-  "en": "MP -8; Accuracy +1, Evasion +5 for 70 sec",
-  "he": "עולה 8 MP; ACC +1, Avoid +5 למשך 70 שניות"
+  "en": "MP -8; Accuracy +5, Evasion +5 for 70 sec",
+  "he": "עולה 8 MP; ACC +5, Avoid +5 למשך 70 שניות",
+  "alt": [
+   {
+    "en": "MP -8; Accuracy +1, Evasion +5 for 70 sec",
+    "he": "עולה 8 MP; ACC +1, Avoid +5 למשך 70 שניות"
+   }
+  ]
  },
  "skill/bowman__focus#max": {
-  "en": "MP -16; Accuracy +20, Evasion +25 for 300 sec",
-  "he": "עולה 16 MP; ACC +20, Avoid +25 למשך 300 שניות"
+  "en": "MP -16; Accuracy +25, Evasion +25 for 300 sec",
+  "he": "עולה 16 MP; ACC +25, Avoid +25 למשך 300 שניות",
+  "alt": [
+   {
+    "en": "MP -16; Accuracy +20, Evasion +25 for 300 sec",
+    "he": "עולה 16 MP; ACC +20, Avoid +25 למשך 300 שניות"
+   }
+  ]
  },
  "skill/bowman__arrow-blow": {
   "en": "Fires an arrow with power at a single enemy within 350 range in front. Deals more damage than usual.",

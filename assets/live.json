@@ -562,7 +562,7 @@
   },
   "items/he.json": {
    "contract": 1,
-   "sha256": "652b02170ae4751e3feb60e5f98148f4e7df3319681f5b824db482280c0b9aa6"
+   "sha256": "6710c5c36326a58a4c4f0648a0bbb18bd0b5e16c2be3414de025d4a50de741b6"
   },
   "live/config.json": {
    "contract": 1,
@@ -570,7 +570,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "de9011e1daad208867e0df8ff5a2fa47a3432321534baa0ef36bff03051b9e72"
+   "sha256": "fcc1230f1121ff156eb8988e61610a5339f24f7091db13695ec24abdc2eb100a"
   },
   "official/facts.json": {
    "contract": 1,
@@ -586,11 +586,11 @@
   },
   "skill_changes/he.json": {
    "contract": 1,
-   "sha256": "c112ff928416e3be315389df16e0cd566071426648ff4cc0afce6adb17990453"
+   "sha256": "89a827a629b175383e2f0be860eae96dc0100c63f2a9d20dc5d9624e3f46c97b"
   },
   "skills/he.json": {
    "contract": 1,
-   "sha256": "429d7fa0d8ff13eb5e8cbdd2c3f8ac8e370640d9a64695888f6f4531541d184a"
+   "sha256": "52c6b43d4c27ae4ff4ffae47fb34b15fdb53ca44ed2466425632430f3d320efa"
   }
  },
  "schema": 1

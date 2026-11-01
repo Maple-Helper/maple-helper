@@ -192,7 +192,7 @@ Rewards
 War Bow x 1
 Description
 01 Hunt snails for Arturo.
-Questline · Step 2 of 3
+Questline · Quest 2 of 3
 """),
     "skill/bowman__double-shot": ("Double Shot", "Character Skill",
                                   {"Max Level": 20, "Job": "Bowman", "Job Rank": "1st Job", "Target Cap": 2,
