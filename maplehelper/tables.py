@@ -33,7 +33,7 @@ from . import availability, crafting, market, quests, sources
 
 log = logging.getLogger("maplehelper")
 
-TABLES_VERSION = 3          # bump when a builder changes what it writes (the schema itself is hashed in too)
+TABLES_VERSION = 4          # bump when a builder changes what it writes (the schema itself is hashed in too)
 MARK_FILE = "drops.ingame"  # the name the first table's mark had: an older app's mark reads as stale here
 DROPS_MARK = ("drops.tsv lists only monsters the KB confirms are in the game (availability.py), with a source column\n"
               "and the players' votes on community drops\n"
@@ -962,7 +962,8 @@ def _open_quests(ctx):
 
 
 def _quest(ctx, key: str, q) -> dict:
-    step = next((m for ln in ctx.lines(key) if (m := re.match(r"^Questline · Step (\d+) of (\d+)", ln))), None)
+    # the site said "Step 2 of 3" until 2026-11-01, "Quest 2 of 3" since
+    step = next((m for ln in ctx.lines(key) if (m := re.match(r"^Questline · (?:Step|Quest) (\d+) of (\d+)", ln))), None)
     given = [*q.rewards, *(r for rs in q.class_rewards.values() for r in rs),
              *(r for rs in q.random_rewards.values() for r in rs), *(r for rs in q.gender_rewards.values() for r in rs)]
     return {"quest": q.name, "key": key, "level": q.opens_at(), "area": q.area, "npc": q.npc,
