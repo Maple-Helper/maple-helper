@@ -1,5 +1,20 @@
 [
  {
+  "version": "0.20.5",
+  "he": [
+   "בכלי המשחק, Magicians מזינים Magic attack במקום נזק מינימלי ומקסימלי, וחישובי הנזק והאימון מתאימים להם.",
+   "הקווסטים של החלפת הג'וב מופיעים שוב לפי הסדר שבו עושים אותם.",
+   "ב-Mac: הכפתורים בסרגל שמעל המשחק מציגים סמלים במקום ריבועים ריקים.",
+   "ב-Mac: החלונות של האפליקציה נשארים מעל המשחק גם כשהוא במסך מלא."
+  ],
+  "en": [
+   "In the play tools, Magicians enter their Magic attack instead of a min/max damage, and damage and training math fits them.",
+   "Job advancement quests are listed in the order you do them again.",
+   "On Mac: the buttons on the bar over the game show symbols instead of empty boxes.",
+   "On Mac: the app's windows stay over the game when it's fullscreen too."
+  ]
+ },
+ {
   "version": "0.20.4",
   "he": [
    "מחירי ה-Free Market מ-MesoWatch מתעדכנים שוב כל 15 דקות. מאז 24.10 הם לא הגיעו, והכרטיסים הראו מכירות של לפני כמה ימים.",
