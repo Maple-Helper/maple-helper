@@ -562,7 +562,7 @@
   },
   "items/he.json": {
    "contract": 1,
-   "sha256": "652b02170ae4751e3feb60e5f98148f4e7df3319681f5b824db482280c0b9aa6"
+   "sha256": "6710c5c36326a58a4c4f0648a0bbb18bd0b5e16c2be3414de025d4a50de741b6"
   },
   "live/config.json": {
    "contract": 1,
@@ -590,7 +590,7 @@
   },
   "skills/he.json": {
    "contract": 1,
-   "sha256": "429d7fa0d8ff13eb5e8cbdd2c3f8ac8e370640d9a64695888f6f4531541d184a"
+   "sha256": "52c6b43d4c27ae4ff4ffae47fb34b15fdb53ca44ed2466425632430f3d320efa"
   }
  },
  "schema": 1

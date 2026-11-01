@@ -14016,9 +14016,13 @@
 "he": "כן, החצאית הזאת באמת נראית סגולה. המשחק עצמו מחליף בין המראות של ה-Green Fairy Skirt וה-Purple Fairy Skirt: זו שנקראת Green נראית סגולה, וזו שנקראת Purple נראית ירוקה. תראו בדיוק את אותו הדבר במשחק, אז זו לא טעות במאגר."
 },
 "item/1641#post0": {
-"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
-"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch",
+"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Sent to your Mailbox during To Classic Beginners, October 21 to November 18",
+"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נשלח לתיבת ה-Mailbox במסגרת To Classic Beginners, מ-21 באוקטובר עד 18 בנובמבר",
 "alt": [
+{
+"en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
+"he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch"
+},
 {
 "en": "Well, you can obtain this as a COT1 and COT2 reward for reaching certain levels. This ring is not exclusive, and players can purchase it with NX in the cash shop upon release of the game.\nClosed-test event reward\nClaimable from October 21\nFor accounts that completed [Event] A Strange and Familiar Wood and [Event] Beyond the Unknown in the closed tests · Claimed at Grand Launch",
 "he": "ובכן, אפשר להשיג אותה כפרס ב-COT1 וב-COT2 על הגעה לרמות מסוימות. הטבעת הזו לא בלעדית, ושחקנים יוכלו לקנות אותה עם NX ב-Cash Shop עם השקת המשחק.\nפרס אירוע מהטסטים הסגורים\nאפשר לקבל החל מ-21 באוקטובר\nלחשבונות שסיימו את [Event] A Strange and Familiar Wood ואת [Event] Beyond the Unknown בטסטים הסגורים · נאסף ב-Grand Launch"
@@ -17776,8 +17780,14 @@
 "he": "שימוש בפריט הופך אתכם ל-Snail למשך 60 דקות."
 },
 "item/2747#post0": {
+"en": "Guide on how to obtain this: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nAlso, super early players got a Mark with -9 WDEF. Stat got hotfixed later on for all playeres.",
+"he": "מדריך איך להשיג את זה: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nבנוסף, שחקנים מוקדמים מאוד קיבלו Mark עם -9 WDEF. הנתון תוקן מאוחר יותר לכל השחקנים.",
+"alt": [
+{
 "en": "Guide on how to obtain this: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nAlso, super early players got a Mark with -9 WDEF. Stat got hotfixed later on but only for new owners.",
 "he": "מדריך איך להשיג את זה: https://meowdb.com/msclassic/guides/mark-of-the-beta-event-guide\nבנוסף, שחקנים שהגיעו ממש מוקדם קיבלו Mark עם -9 WDEF. הסטאט תוקן בהוטפיקס מאוחר יותר, אבל רק לבעלים חדשים."
+}
+]
 },
 "item/3020#about0": {
 "en": "Placing it in your home brings out a level 30 Straw Training Dummy with 99,999,999 HP to practice on. Its monster page has the full stats.",
@@ -18890,5 +18900,9 @@
 "item/5577#about0": {
 "en": "The October 22 patch added this hat. There is no known way to get it yet: we have no monster drop, shop, quest, crafting recipe or Cash Shop listing for it.",
 "he": "הפאץ' של 22 באוקטובר הוסיף את הכובע הזה. עדיין אין דרך ידועה להשיג אותו: אין לנו דרופ ממפלצת, חנות, קווסט, מתכון קרפטינג או מכירה ב-Cash Shop עבורו."
+},
+"item/3132#post0": {
+"en": "From: Oct 21, 11:00 AM PDT to Nov 18, 3:59 PM PST",
+"he": "מ-21 באוקטובר, 11:00 AM PDT, עד 18 בנובמבר, 3:59 PM PST"
 }
 }
