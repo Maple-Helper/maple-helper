@@ -4,6 +4,7 @@ The rules one by one on tiny knowledge bases, then the whole set of player quest
 against the real one: found, an answer needs no tool call (3-14 s); missed, the AI searches for 20 s - 4 min."""
 import json
 import re
+import time
 from pathlib import Path
 
 import pytest
@@ -194,6 +195,22 @@ def test_player_questions_name_what_they_say(real):
     assert r["recall"] >= RECALL_FLOOR, r["misses"]
     assert r["wrong"] == {}               # no name a question doesn't say, in the questions and the negatives
     assert r["ms"] < 25                   # a few ms a question once the indexes are built
+
+
+def test_the_time_a_question_takes_leaves_out_building_the_indexes(monkeypatch, tmp_path):
+    """The bound is for a question once the indexes are built: a first call's one-off build counted in the mean
+    put a Windows runner at 25.6 ms for the bound of 25 on 2026-11-04."""
+    class SlowFirstCall:
+        built = False
+
+        def find_mentions(self, text, cap):
+            if not self.built:
+                time.sleep(0.5)
+                self.built = True
+            return []
+
+    monkeypatch.setattr(mention_recall, "SENTENCES", tmp_path / "none.txt")
+    assert mention_recall.measure(SlowFirstCall(), cases=[("hi", [])], negatives=[])["ms"] < 100
 
 
 @needs_kb
