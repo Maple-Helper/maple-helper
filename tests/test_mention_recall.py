@@ -213,6 +213,22 @@ def test_the_time_a_question_takes_leaves_out_building_the_indexes(monkeypatch, 
     assert mention_recall.measure(SlowFirstCall(), cases=[("hi", [])], negatives=[])["ms"] < 100
 
 
+def test_the_time_a_question_takes_is_its_fastest_pass(monkeypatch, tmp_path):
+    """A runner whose other test workers take its cores for one pass put the mean at 25.8 ms for the bound of 25 on
+    2026-11-05, and the same code passed 6 hours later: a pass slowed by the machine is not the cost of a question."""
+    class OneSlowPass:
+        calls = 0
+
+        def find_mentions(self, text, cap):
+            self.calls += 1
+            if self.calls <= 2:          # the warm-up and the first timed pass
+                time.sleep(0.5)
+            return []
+
+    monkeypatch.setattr(mention_recall, "SENTENCES", tmp_path / "none.txt")
+    assert mention_recall.measure(OneSlowPass(), cases=[("hi", [])], negatives=[])["ms"] < 100
+
+
 @needs_kb
 def test_the_measurement_set_is_valid(real):
     every = {e["name"] for e in real.entities.values()}
