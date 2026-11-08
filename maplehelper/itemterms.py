@@ -50,6 +50,11 @@ _PHRASES = [
     ("Attack Speed Normal", "מהירות התקפה: רגילה"),
     ("Attack Speed Average", "מהירות התקפה: רגילה"),
     ("Attack Speed Slow", "מהירות התקפה: איטית"),
+    # Cash items' trade line, NiaMeowDB's words since 2026-11-08 (the long one first)
+    ("One bought from another player cannot be resold. This item also cannot be traded when it expires in under "
+     "25 hours.", "אם קניתם אותו משחקן אחר, אי אפשר למכור אותו שוב. בנוסף, אי אפשר לסחור בו כשנשארו לו פחות מ-25 "
+     "שעות עד שהוא פג."),
+    ("One bought from another player cannot be resold.", "אם קניתם אותו משחקן אחר, אי אפשר למכור אותו שוב."),
     ("Special Restrictions", "הגבלות:"),
     ("Special Restriction", "הגבלה:"),
     ("Time-limited", "מוגבל בזמן"),

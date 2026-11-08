@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.6",
+  "he": [
+   "רשימות הדרופים של המפלצות מציגות שוב גם את רשימת הייחוס של MSEA. מאז 8.11 היא לא הופיעה בכלל.",
+   "פריטי Cash מציגים בעברית את השורה על מכירה חוזרת של פריט שנקנה משחקן אחר."
+  ],
+  "en": [
+   "Monster drop lists show the MSEA reference list again. Since 11-08 it was missing.",
+   "Cash items show in Hebrew the line about reselling one bought from another player."
+  ]
+ },
+ {
   "version": "0.20.5",
   "he": [
    "בכלי המשחק, Magicians מזינים Magic attack במקום נזק מינימלי ומקסימלי, וחישובי הנזק והאימון מתאימים להם.",

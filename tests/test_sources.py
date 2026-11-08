@@ -208,6 +208,19 @@ def test_drops_split_by_list(tiny):
     assert "MSEA reference list" in digest.split("\n")[1] and "Snail Shell [item/13]" in digest.split("\n")[1]
 
 
+def test_drops_read_the_msea_list_further_down_the_page(tmp_path):
+    # NiaMeowDB's layout since 2026-11-08: "Associated Quests" right after the drops heading, the MSEA list below
+    # the stats (every monster's MSEA drops were lost, Orange Mushroom's Hunter's Bow among them)
+    moved = ("Drops (MS Classic)\nCommunity sourced\nAssociated Quests\nMai's Final Training Defeat Snail x 1\n"
+             "HP\n8\nCombat Details\nSprite size\n63 x 58 px\n"
+             "MSEA reference drops\nRead-only · 2 items\nSnail Shell\nMonster Drop\nRed Potion\nPotion\n"
+             "OSMLIB Reference Drop Rates\nChange history\nupdated in COT2 ▾ Stat | COT1 | COT2 | Change\n")
+    kb = make_kb(tmp_path, [("monster/1", "Snail", {"Level": 1}, moved),
+                            ("item/11", "Red Potion", {"_type": "Use / Potion"}, ""),
+                            ("item/13", "Snail Shell", {"_type": "Etc / Monster Drop"}, "")])
+    assert kb.drop_lists("monster/1") == {sources.COMMUNITY: [], sources.MSEA: ["item/13", "item/11"]}
+
+
 def test_drop_table_has_a_source_column(tiny):
     tiny.ensure_drop_table()
     rows = (tiny.root / "drops.tsv").read_text(encoding="utf-8").splitlines()
