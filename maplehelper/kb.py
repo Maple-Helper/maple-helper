@@ -928,16 +928,26 @@ class KnowledgeBase:
         # (the site's script loads the community list into the page, so the scraped page text rarely has it)
         out: dict[str, list[str]] = {sources.COMMUNITY: [d["item"] for d in self.community_drops(key)],
                                      sources.MSEA: []}
-        i = body.find("Drops (MS Classic)")
-        if i >= 0:
+        def upto(start: int) -> int:
             end = len(body)
             for marker in ("Associated Quests", "Map Locations", "Respawn Timer", "Change history"):
-                j = body.find(marker, i)
+                j = body.find(marker, start)
                 if 0 < j < end:
                     end = j
-            block = body[i:end]
-            m = re.search(r"^MSEA reference drops\s*$", block, re.M | re.I)
+            return end
+
+        msea_head = re.compile(r"^MSEA reference drops\s*$", re.M | re.I)
+        i = body.find("Drops (MS Classic)")
+        if i >= 0:
+            block = body[i:upto(i)]
+            m = msea_head.search(block)
             parts = {sources.COMMUNITY: block[:m.start()] if m else block, sources.MSEA: block[m.end():] if m else ""}
+            if not m:
+                # since 2026-11-08 the page puts the MSEA list further down, after the monster's stats and
+                # combat details, so it is no longer inside the drops block
+                m = msea_head.search(body, i)
+                if m:
+                    parts[sources.MSEA] = body[m.end():upto(m.end())]
             name = self.get(key)["name"]
             for src, text in parts.items():
                 lines = text.split("\n")
