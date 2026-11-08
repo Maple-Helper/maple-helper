@@ -149,6 +149,27 @@
   "commentary": "",
   "body_hash": "fd4619bb2ba6996f"
  },
+ "nexon-47031": {
+  "summary": "עדכון ל-Mystery Fashion Crate!",
+  "source_hash": "37c86bb9ddfcd3d7",
+  "title": "עדכון ה-Cash Shop של Classic World: 4 בנובמבר",
+  "highlights": [
+   "עדכון Mystery Fashion Crate: לפי UTC: יום רביעי, 4 בנובמבר, 8:00 - יום רביעי, 18 בנובמבר (תחילת התחזוקה)",
+   "מבצעים שממשיכים",
+   "עדכון Mystery Styles: לפי UTC: יום רביעי, 28 באוקטובר, 8:00 - יום רביעי, 11 בנובמבר, 7:59",
+   "Beauty Essentials Pack: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Beauty Album Slot Expansion Films: לפי UTC: יום רביעי, 21 באוקטובר (תחילת ה-Grand Launch) - בלי תאריך סיום",
+   "Megaphones: זמינים ב-Classic World: Megaphone",
+   "Aurora Stamp Shop Season 1: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Aurora Mystery Fashion Crate: לפי UTC: יום שלישי, 6 באוקטובר 2026 (סיום התחזוקה) - יום רביעי, 13 בינואר 2027, 7:59",
+   "Signature Style Coupons: זמינים ב-Classic World: Signature Hair Coupon",
+   "10-Day Equip Covers: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר (תחילת התחזוקה)",
+   "Fall Store Permit: לפי UTC: יום שלישי, 6 באוקטובר (סיום התחזוקה) - יום רביעי, 18 בנובמבר (תחילת התחזוקה)",
+   "Monthly Essentials: זמינים ב-Classic World: Monthly Essentials"
+  ],
+  "commentary": "",
+  "body_hash": "4d444baf41a896e9"
+ },
  "nexon-47098": {
   "summary": "התחזוקה הסתיימה, ו-Nexon האריכה ב-2 שעות את פריטי ה-Cash Shop שבאינבנטורי שלכם.",
   "source_hash": "8e957fb3bff8608d",
@@ -203,5 +224,22 @@
   ],
   "commentary": "",
   "body_hash": "4845357ac7b0d3d7"
+ },
+ "nexon-47580": {
+  "summary": "התחזוקה הסתיימה, ופריטי ה-Cash Shop שבתיק שלכם הוארכו ב-2 שעות.",
+  "source_hash": "80d6fd264f6be352",
+  "title": "[הסתיימה] תחזוקה לא מתוכננת - 4 בנובמבר 2026",
+  "highlights": [
+   "[עודכן ב-4/11 ב-4:54 PM PDT] התחזוקה הסתיימה, ופריטי ה-Cash Shop שבתיק שלכם הוארכו ב-2 שעות. הפעילו מחדש את ה-Nexon Launcher או את Steam כדי לקבל את עדכון הקליינט האחרון.",
+   "תחזוקה לא מתוכננת ביום רביעי, 4 בנובמבר 2026, מ-3:00 PM PST (6:00 PM EST / 12:00 AM CET ב-5 בנובמבר / 10:00 AM AEDT ב-5 בנובמבר), כלומר מ-01:00 שעון ישראל ב-5 בנובמבר. התחזוקה צפויה להימשך כשעתיים, עד בערך 5:00 PM PST (8:00 PM EST / 2:00 AM CET ב-5 בנובמבר / 12:00 PM AEDT ב-5 בנובמבר), כלומר 03:00 שעון ישראל.",
+   "שעות: רביעי, 4 בנובמבר 2026; PST (UTC -8): 3:00 PM - 5:00 PM; EST (UTC -5): 6:00 PM - 8:00 PM; CET (UTC +1): 12:00 AM - 2:00 AM ב-5 בנובמבר; AEDT (UTC +11): 10:00 AM - 12:00 PM ב-5 בנובמבר. בשעון ישראל: 01:00-03:00 בלילה שבין רביעי לחמישי (5 בנובמבר).",
+   "לא זמינים: כל שרתי המשחק של MapleStory Classic World.",
+   "שינויים ועדכונים: שיפורים במערכות לזיהוי בוטים ולמניעתם.",
+   "אחרי רכישת NX ראשונה, אי אפשר יותר להשתמש ב-Megaphones בזמן הגבלת המסחר של 96 שעות על פריטי Cash.",
+   "זה חל על Megaphone, Super Megaphone, Item Megaphone ו-Double Item Megaphone.",
+   "ההגבלה חלה על כל הדמויות בחשבון באותו עולם, ומוסרת כשהגבלת המסחר מסתיימת."
+  ],
+  "commentary": "",
+  "body_hash": "681a9d1bffe0703c"
  }
 }
