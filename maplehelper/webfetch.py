@@ -20,12 +20,17 @@ import json
 import logging
 import threading
 import urllib.error
+import urllib.parse
 
 from PySide6.QtCore import QCoreApplication, QObject, QThread, QTimer, QUrl, Signal
 
 log = logging.getLogger(__name__)
 
 HOST_PAGE = "https://meso.watch/robots.txt"
+# NiaDB (meowdb.com) since 2026-11-10 answers only browsers too, for every fan tool alike; NiaDB can't lift that for one
+# project and told the owner to get around it: the server-status dot asks from a page of that site the same way
+MEOWDB_PAGE = "https://meowdb.com/robots.txt"
+MEOWDB_IDLE_SECONDS = 15 * 60
 IDLE_SECONDS = 120
 POLL_MS = 100
 
@@ -50,6 +55,7 @@ _TAKE = """(() => {
 })()"""
 
 _engine: _Engine | None = None
+_meow: _Engine | None = None      # its own page on meowdb.com (meowdb.py)
 _ids = itertools.count(1)
 
 
@@ -73,9 +79,10 @@ class _Engine(QObject):
     """The hidden page, on the UI thread. A request is a signal (queued from the asking thread)."""
     asked = Signal(object)
 
-    def __init__(self):
+    def __init__(self, host_page: str | None = None, idle: int | None = None):
         super().__init__()
         from PySide6.QtWebEngineCore import QWebEngineProfile, QWebEngineSettings
+        self.host_page = host_page or HOST_PAGE        # (read here: the tests point HOST_PAGE at a local site)
         self._profile = QWebEngineProfile(self)     # off the record: nothing of it is kept on disk
         settings = self._profile.settings()
         for attr in (QWebEngineSettings.AutoLoadIconsForPage, QWebEngineSettings.AutoLoadImages,
@@ -85,7 +92,7 @@ class _Engine(QObject):
         self._ready = False
         self._waiting: list[_Job] = []              # asked while the page was opening
         self._busy = 0
-        self._idle = QTimer(self, singleShot=True, interval=IDLE_SECONDS * 1000, timeout=self._close)
+        self._idle = QTimer(self, singleShot=True, interval=(idle or IDLE_SECONDS) * 1000, timeout=self._close)
         self.asked.connect(self._take)
         QCoreApplication.instance().aboutToQuit.connect(self._close)
 
@@ -99,13 +106,13 @@ class _Engine(QObject):
             from PySide6.QtWebEngineCore import QWebEnginePage
             self._page = QWebEnginePage(self._profile, self)
             self._page.loadFinished.connect(self._opened)
-            self._page.load(QUrl(HOST_PAGE))
+            self._page.load(QUrl(self.host_page))
 
     def _opened(self, ok: bool) -> None:
         waiting, self._waiting = self._waiting, []
         if not ok:
             for job in waiting:
-                job.fail("could not open " + HOST_PAGE)
+                job.fail("could not open " + self.host_page)
             self._close()
             return
         self._ready = True
@@ -162,25 +169,34 @@ class _Engine(QObject):
 
 def install() -> bool:
     """Starts the engine (on the UI thread, once the QApplication exists); False when this build has no Qt WebEngine."""
-    global _engine
+    global _engine, _meow
     if _engine is None:
         try:
             _engine = _Engine()
+            # open across the dot's 5-minute checks: one request a check, not the page and the file a second apart
+            _meow = _Engine(MEOWDB_PAGE, MEOWDB_IDLE_SECONDS)
         except Exception:          # noqa: BLE001 - no WebEngine in this build: MesoWatch is asked directly
             log.warning("Qt WebEngine unavailable: MesoWatch is asked directly", exc_info=True)
             return False
     return True
 
 
-def available() -> bool:
-    return _engine is not None and QThread.currentThread() is not _engine.thread()
+def _for(url: str) -> _Engine | None:
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    return _meow if host == "meowdb.com" or host.endswith(".meowdb.com") else _engine
+
+
+def available(url: str = "") -> bool:
+    """The engine for `url`'s site (meso.watch's when none is given) is up, and this isn't the UI thread."""
+    eng = _for(url) if url else _engine
+    return eng is not None and QThread.currentThread() is not eng.thread()
 
 
 def request(url: str, etag: str = "", timeout: float = 30) -> tuple[int, bytes, str]:
     """(status, body, etag) as mesowatch._http answers: 304 when unchanged; an error status raises HTTPError, no
     answer an OSError. Blocking: call it off the UI thread (available())."""
     job = _Job(url, etag)
-    _engine.asked.emit(job)
+    _for(url).asked.emit(job)
     if not job.done.wait(timeout):
         job.done.set()                 # the page stops asking for it
         raise TimeoutError(f"no answer from {url} in {timeout:g} s")
