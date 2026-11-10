@@ -22,12 +22,13 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import live, market
+from . import live
 
 SITE = "https://osmsdataexplorer.com/"
 CREDIT = "OSMS Data Explorer by ohmi"
 BASE = "https://raw.githubusercontent.com/ohmi69/osms_datamine_dashboard/main/data/current/"
 CASH_URL = BASE + "cash_shop.json"
+UA = "Maple Helper (https://github.com/Maple-Helper/maple-helper)"
 REFRESH_SECONDS = 3600            # at most once an hour (the terms ohmi agreed to)
 RETRY_SECONDS = 300
 TIMEOUT = 30
@@ -87,7 +88,7 @@ def parse(data: dict) -> list[Item] | None:
 
 
 def _http(url: str, etag: str = "", timeout: float = TIMEOUT) -> tuple[int, bytes, str]:
-    headers = {"User-Agent": market.UA, "Accept-Encoding": "gzip"}
+    headers = {"User-Agent": UA, "Accept-Encoding": "gzip"}
     if etag:
         headers["If-None-Match"] = etag
     try:

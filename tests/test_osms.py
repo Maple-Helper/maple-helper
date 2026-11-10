@@ -143,3 +143,28 @@ def test_the_games_words_win_over_the_kbs_in_hebrew(monkeypatch, tmp_path):
     import translate_kb
     assert translate_kb.cash_jobs(KB(), tmp_path) == [{"kind": "cash_desc", "key": "cash/5999999", "en": "Brand new."}]
     translations._cache.clear()
+
+
+def test_the_real_request_names_the_app(monkeypatch):
+    """The other tests replace _request, so a broken header (market.UA was removed on 2026-11-10) went unseen and
+    every Cash Shop fetch crashed."""
+    sent = {}
+
+    class Reply:
+        status, headers = 200, {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def urlopen(req, timeout=0):
+        sent.update(req.headers)
+        return Reply()
+    monkeypatch.setattr(osms.urllib.request, "urlopen", urlopen)
+    assert osms._http(osms.CASH_URL)[0] == 200
+    assert "Maple Helper" in sent["User-agent"]
