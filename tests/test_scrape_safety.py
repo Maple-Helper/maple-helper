@@ -223,6 +223,36 @@ def test_a_403_or_429_stops_every_later_meowdb_request(gate, monkeypatch, code):
     assert str(code) in scrape_meowdb.blocked()
 
 
+def test_browser_mode_asks_from_the_page_at_the_same_pace_and_stops_the_same(gate, monkeypatch):
+    """--browser (browser_fetch.py, since the site answers only browsers): meowdb.com goes through the page, at the
+    same 10 s pace, and its 403 still stops everything; other hosts still go direct."""
+    import urllib.error
+
+    import browser_fetch
+    clock, _ = gate
+    asked, direct = [], []
+
+    def page(url, timeout=60):
+        asked.append((url, clock[0]))
+        clock[0] += 1
+        if url.endswith("/refused"):
+            raise urllib.error.HTTPError(url, 403, "no", None, None)
+        return b"<html>ok</html>"
+    monkeypatch.setattr(browser_fetch, "active", lambda: True)
+    monkeypatch.setattr(browser_fetch, "get", page)
+    monkeypatch.setattr(scrape_meowdb.urllib.request, "urlopen",
+                        lambda req, timeout=30: direct.append(req.full_url) or _Answer())
+    assert scrape_meowdb.fetch("https://meowdb.com/a") == "<html>ok</html>"
+    assert scrape_meowdb.fetch("https://meowdb.com/b", binary=True) == b"<html>ok</html>"
+    assert scrape_meowdb.fetch("https://www.nexon.com/n") == "ok"
+    assert asked[1][1] - asked[0][1] >= scrape_meowdb.DELAY_SECONDS + 1 and direct == ["https://www.nexon.com/n"]
+    with pytest.raises(scrape_meowdb.Blocked):
+        scrape_meowdb.fetch("https://meowdb.com/refused")
+    with pytest.raises(scrape_meowdb.Blocked):
+        scrape_meowdb.fetch("https://meowdb.com/c")
+    assert len(asked) == 3
+
+
 def test_a_blocked_night_keeps_the_kb_and_still_brings_the_news(tmp_path, monkeypatch):
     import json
 

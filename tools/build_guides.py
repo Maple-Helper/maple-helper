@@ -520,6 +520,8 @@ def main(argv: list[str]) -> None:
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:])
+    import browser_fetch        # meowdb.com answers only browsers: ask from inside a page of it
+    if browser_fetch.run(lambda: main(sys.argv[1:])):
+        sys.exit(1)
     import live_manifest        # the guides come live (docs/LIVE.md): their list follows them
     live_manifest.write()
