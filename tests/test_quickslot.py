@@ -70,6 +70,45 @@ def test_the_panel_is_found_in_the_game_picture_at_its_size(size, kb):
         assert all(got[n] == v for n, v in {"Lemon": 501, "Orange": 13, "Meat": 431}.items() if n in got)
 
 
+def _widened(panel: np.ndarray, cols: bool) -> np.ndarray:
+    """The panel widened by the player: its 4 x 2 slots twice, side by side (cols) or one above the other."""
+    grid = quickslot.locate(np.pad(panel, ((40, 40), (40, 40), (0, 0)), constant_values=128), (50, 80))
+    if cols:
+        x0, x1 = grid.xs[0] - 40, grid.xs[-1] - 40
+        return np.concatenate([panel[:, :x0], panel[:, x0:x1], panel[:, x0:x1], panel[:, x1:]], axis=1)
+    y0, y1 = grid.ys[0] - 40, grid.ys[-1] - 40
+    return np.concatenate([panel[:y0], panel[y0:y1], panel[y0:y1], panel[y1:]], axis=0)
+
+
+@pytest.mark.parametrize("cols", [True, False])
+def test_a_widened_panel_is_read_to_its_last_slot(cols, kb):
+    """A player who bound more keys widened the panel: the potions in the slots past the game's own 4 x 2 (on the
+    left, seen live: MP potions there were never counted) are read too."""
+    panel = _widened(np.asarray(Image.open(FIX / "q0001.png").convert("RGB")), cols)
+    w, h = 2562, 1440
+    img = Image.new("RGB", (w, h), (150, 110, 70))
+    img.paste(Image.fromarray(np.ascontiguousarray(panel)), (round(w * 0.79) - panel.shape[1],
+                                                             round(h * 0.90) - panel.shape[0]))
+    rd = quickslot.Reader(kb).read(np.asarray(img), (0, 0, w, h))
+    grid = quickslot.find(np.asarray(img), (0, 0, w, h))
+    assert (grid.cols, grid.rows) == ((8, 2) if cols else (4, 4))
+    got = sorted((i, kb.get(key)["name"], n) for i, (key, n) in rd.potions.items())
+    if cols:
+        assert got == [(1, "Lemon", 501), (2, "Orange", 13), (3, "Blue Potion", 0), (5, "Lemon", 501),
+                       (6, "Orange", 13), (7, "Blue Potion", 0), (9, "Meat", 431), (11, "Red Potion", 0),
+                       (13, "Meat", 431), (15, "Red Potion", 0)]
+    else:
+        assert got == [(1, "Lemon", 501), (2, "Orange", 13), (3, "Blue Potion", 0), (5, "Meat", 431),
+                       (7, "Red Potion", 0), (9, "Lemon", 501), (10, "Orange", 13), (11, "Blue Potion", 0),
+                       (13, "Meat", 431), (15, "Red Potion", 0)]
+
+
+def test_the_game_s_own_panel_is_not_widened(kb):
+    rgb, play = _frame(np.asarray(Image.open(FIX / "q0001.png").convert("RGB")), (2562, 1440))
+    grid = quickslot.find(rgb, play)
+    assert (grid.cols, grid.rows) == (4, 2)
+
+
 def test_no_panel_no_read(kb):
     rgb = np.full((1440, 2562, 3), (150, 110, 70), np.uint8)
     assert quickslot.Reader(kb).read(rgb, (0, 0, 2562, 1440)) is None
