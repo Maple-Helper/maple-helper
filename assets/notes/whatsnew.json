@@ -2,12 +2,12 @@
  {
   "version": "0.20.7",
   "he": [
-   "נקודת סטטוס השרתים בצ'אט עובדת שוב. מאז 10.11 היא הייתה אפורה כי NiaDB (MeowDB) חסמו כלים אוטומטיים.",
-   "הקרדיט בכרטיסים נקרא עכשיו NiaDB, ולחיצה עליו פותחת את העמוד של הפריט באתר שלהם."
+   "נקודת סטטוס השרתים בצ'אט מציגה שוב את מצב השרתים.",
+   "שיפורים ותיקונים בעדכון המידע של האפליקציה."
   ],
   "en": [
-   "The server-status dot in the chat works again. Since 11-10 it was grey because NiaDB (MeowDB) blocked automated tools.",
-   "Cards now credit NiaDB, and clicking the credit opens the item's page on their site."
+   "The server-status dot in the chat shows the servers' state again.",
+   "Improvements and fixes to how the app's data is updated."
   ]
  },
  {
