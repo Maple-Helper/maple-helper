@@ -2,7 +2,7 @@
  "files": {
   "ai/reply_rules.md": {
    "contract": 1,
-   "sha256": "847861a9847ee26c4d6abae6678a6d3d6dbe9437428f0a03189ca09633a00aaa"
+   "sha256": "0dbd7563fb71bc2210806179c35cfafa01de6e137f13334c5ba637a09b3a9093"
   },
   "ai/rules.json": {
    "contract": 1,
@@ -10,7 +10,7 @@
   },
   "ai/system.md": {
    "contract": 1,
-   "sha256": "2f9e4812119e46d468d2d0f5f5e49af07c4e167498ecc3c769fd136702c236de"
+   "sha256": "07a40f5858182be4b5b76ad851c24c05e426d026dae5126942f9b44ccfe3fd53"
   },
   "aliases/he.json": {
    "contract": 1,

@@ -300,7 +300,7 @@ def test_the_crate_shows_what_it_gives_when_mesowatch_cant_be_read(app, monkeypa
     assert len(tiles) == 50 and tiles[0].key == "item/1600"
     assert "3%" in " ".join(w.text() for w in tiles[0].findChildren(QLabel))
     head = page.list.itemAt(0 if not page.rows() else len(page.rows())).layout()
-    assert "MeowDB" in head.itemAt(1).widget().text()                  # the chances' source, not MesoWatch
+    assert "NiaDB" in head.itemAt(1).widget().text()                  # the chances' source, not MesoWatch
     page.timer.stop()
     page.deleteLater()
 

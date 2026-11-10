@@ -140,7 +140,7 @@ def test_a_launch_table_flips_the_tag_by_itself():
 
 def test_labels_and_tooltips_in_both_languages():
     assert [sources.tag(en, s) for s in (sources.MSEA, sources.COMMUNITY, sources.OFFICIAL, sources.MEOWDB, "COT2")] \
-        == ["MSEA", "Community", "Official · Nexon", "MeowDB", "COT2"]
+        == ["MSEA", "Community", "Official · Nexon", "NiaDB", "COT2"]
     assert [sources.tag(he, s) for s in (sources.COMMUNITY, sources.OFFICIAL)] == ["קהילה", "רשמי · Nexon"]
     assert sources.tip(he, "COT2") == "נתונים מהטסט הסגור השני (COT2), לא מאושרים להשקה."
     assert sources.tip(en, "COT1").startswith("Data from the first closed test (COT1)")

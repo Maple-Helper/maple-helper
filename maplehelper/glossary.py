@@ -87,8 +87,8 @@ APP = {
               "Grinding: killing monsters over and over for EXP. Past level 30 most levels come this way."),
     "kPQ": ("ה-Party Quest של Kerning City: נפתח ברמה 21, לקבוצה של ארבעה שחקנים. דרך נפוצה לעלות רמות בהתחלה.",
             "The Kerning City Party Quest: opens at level 21, for a party of four. A staple way to level early on."),
-    "Training Advisor": ("כלי של NiaMeowDB שממליץ על מפות גריינד לפי הדמות והבילד.",
-                         "NiaMeowDB's tool that recommends training maps for your character and build."),
+    "Training Advisor": ("כלי של NiaDB שממליץ על מפות גריינד לפי הדמות והבילד.",
+                         "NiaDB's tool that recommends training maps for your character and build."),
 }
 
 

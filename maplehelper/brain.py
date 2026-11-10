@@ -106,7 +106,7 @@ class Answer:
     avatar_box: list | None = None
     drop_groups: list = field(default_factory=list)
     grind: dict = field(default_factory=dict)       # a grind tracker read: map, monster, mesos, potions (grind.py)
-    # where an instant answer's data comes from (sources.py: "COT2", "MSEA", "community", "MeowDB", ...): chips
+    # where an instant answer's data comes from (sources.py: "COT2", "MSEA", "community", "NiaDB", ...): chips
     # beside its badge
     sources: list = field(default_factory=list)
     error: str | None = None
@@ -168,7 +168,7 @@ def _page(kb: KnowledgeBase, key: str, limit: int) -> str:
 
 
 def _site_context(kb: KnowledgeBase, question: str, character: Character | None, shown: list[str]) -> list[str]:
-    """What NiaMeowDB's list pages add (sitedata.py): the build changes of the skills in the context (and of the
+    """What NiaDB's list pages add (sitedata.py): the build changes of the skills in the context (and of the
     player's job line when the question is about skills or a build), the pets when one is named or pets are asked
     about, and the community tier list when the question compares jobs."""
     out = []
@@ -697,10 +697,10 @@ class Brain:
         El Nath, or offers a 3rd job, while the KB says they aren't out."""
         from . import availability
         try:
-            # MeowDB's guide and the app's reading of the map pages, never "(official)": only the official facts
+            # NiaDB's guide and the app's reading of the map pages, never "(official)": only the official facts
             # below are (the owner's rule; audit AI-16)
-            return ("\n\nGame scope (from the knowledge base's release guide on MeowDB and its map pages, the only "
-                    "source of truth on what is out; cite it as \"(MeowDB)\", never \"(official)\"): "
+            return ("\n\nGame scope (from the knowledge base's release guide on NiaDB and its map pages, the only "
+                    "source of truth on what is out; cite it as \"(NiaDB)\", never \"(official)\"): "
                     + availability.of(self.kb).scope_note())
         except Exception:      # noqa: BLE001 - a KB without the release guide: no scope line rather than no answer
             return ""

@@ -130,7 +130,7 @@ def _nexon(i: dict) -> dict:
 
 
 def cover(kb, i: dict) -> Path | None:
-    """The item's cover picture (a card's thumbnail): Nexon's thumbnail of the article (an older KB's: NiaMeowDB's)."""
+    """The item's cover picture (a card's thumbnail): Nexon's thumbnail of the article (an older KB's: NiaDB's)."""
     return _file(kb, i.get("image"))
 
 
@@ -219,8 +219,8 @@ def ai_lines(kb, limit: int = 6, today: date | None = None) -> list[str]:
     pool.sort(key=lambda i: (str(i["date"]), str(i["id"])), reverse=True)
     out = []
     for i in pool:
-        # (an item without a publisher is an older KB's, from NiaMeowDB's news section)
-        who = ("official, " if i.get("official") else "community, ") + (i.get("publisher") or "NiaMeowDB")
+        # (an item without a publisher is an older KB's, from NiaDB's news section)
+        who = ("official, " if i.get("official") else "community, ") + (i.get("publisher") or "NiaDB")
         out.append(f"News {i['date']} ({who}): {i['title']}. {i.get('summary') or ''}".strip())
     if out:
         out.insert(0, "MapleStory Classic news, Nexon's official announcements (announcements, not the game's data: "

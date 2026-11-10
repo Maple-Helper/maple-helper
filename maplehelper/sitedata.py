@@ -1,11 +1,11 @@
-"""NiaMeowDB's list pages, as the knowledge base keeps them beside index.json (tools/meowdb_sections.py):
+"""NiaDB's list pages, as the knowledge base keeps them beside index.json (tools/meowdb_sections.py):
 
 - skill_changes.json: the skills that changed between two builds ("COT1" -> "COT2"), field by field at max level;
 - pets.json: every pet's lifespan, hunger rate, commands to Lv 30 and whether the Cash Shop sells it now;
 - tiers.json: the class tier list, a benchmark of community level-70 builds (community opinion, tagged so);
 - safe_to_sell.json: the Safe to Sell? list, every item a current quest or crafting recipe needs.
 
-Nothing here names a build: the labels come from the file, so when MeowDB compares COT2 with Launch the chips
+Nothing here names a build: the labels come from the file, so when NiaDB compares COT2 with Launch the chips
 read "Changed in Launch" by themselves. A 3rd-job skill stays out while availability.py says 3rd job isn't out.
 """
 from __future__ import annotations
@@ -119,7 +119,7 @@ def change_text(t, ch: SkillChange, sep: str = " · ") -> str:
 
 def note_he(ch: SkillChange, kb=None) -> str | None:
     """The site's note in Hebrew (assets/skill_changes/he.json), only while it was made from this very English: a
-    note NiaMeowDB rewrites shows in English until it is translated again."""
+    note NiaDB rewrites shows in English until it is translated again."""
     from . import translations
     made = translations.he(getattr(kb, "root", None), "skill_changes", ch.key, ch.note or "")
     if made:
@@ -301,13 +301,13 @@ def ai_pet_lines(kb, keys=None) -> list[str]:
     # here that would outlive the page
     page = kb.page("formula/pets") if kb.get("formula/pets") else ""
     expect = re.search(r"Lifespans? at launch[^.\n]*\.", page, re.I)
-    note = f" (closed-test value; NiaMeowDB: {expect.group(0).strip()})" if expect else " (closed-test value)"
+    note = f" (closed-test value; NiaDB: {expect.group(0).strip()})" if expect else " (closed-test value)"
     for p in pets(kb):
         if want is not None and p.key not in want:
             continue
         life = p.lifespan + (note if "lifespan" in p.closed_test else "")
         out.append(f"Pet {p.name} [{p.key}]: lifespan {life}; hunger rate {p.hunger}; Lv {p.level} in about "
-                   f"{p.commands_text.lstrip('~')} commands; {p.availability} (NiaMeowDB pets page)")
+                   f"{p.commands_text.lstrip('~')} commands; {p.availability} (NiaDB pets page)")
     return out
 
 
@@ -365,7 +365,7 @@ def ai_tier_lines(kb, rows: list[TierRow] | None = None) -> list[str]:
     if not rows:
         return []
     who = f" by {data['builds_by']}" if data.get("builds_by") else ""
-    head = (f"Community tier list (NiaMeowDB's benchmark of community level-{data.get('level') or '?'} builds{who}, "
+    head = (f"Community tier list (NiaDB's benchmark of community level-{data.get('level') or '?'} builds{who}, "
             "a 0-defense target; community opinion, not official, say so when citing it; S/A/B = upper/middle/lower "
             "third of each column):")
     lines = [head]
@@ -390,7 +390,7 @@ class SellNeeds:
 
 @dataclass(frozen=True)
 class SellList:
-    generated: str                               # the day NiaMeowDB made the list ("2026-10-10")
+    generated: str                               # the day NiaDB made the list ("2026-10-10")
     needs: dict                                  # item key -> SellNeeds
 
 

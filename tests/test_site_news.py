@@ -721,8 +721,8 @@ def test_a_nexon_item_links_its_article_once_and_an_older_kbs_item_both():
     for build in (lambda i: NewsCard(t, i), lambda i: page(t, i)):
         w, w_old = build(mine), build(older)
         links = [b.text() for b in w.findChildren(QPushButton)]
-        assert not any("MeowDB" in x for x in links) and any("Nexon" in x for x in links), links
-        assert any("MeowDB" in b.text() for b in w_old.findChildren(QPushButton))
+        assert not any("NiaDB" in x for x in links) and any("Nexon" in x for x in links), links
+        assert any("NiaDB" in b.text() for b in w_old.findChildren(QPushButton))
     tip = I18n("en")("news_official_tip", who="Nexon")
     assert "NiaMeowDB" not in tip and "NiaMeowDB" not in I18n("he")("news_official_tip", who="Nexon")
 

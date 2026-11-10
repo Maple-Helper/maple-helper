@@ -1,6 +1,6 @@
 """Where each piece of game data comes from, read from the knowledge base's own labels.
 
-NiaMeowDB says on its pages what kind of data each block is, and the app passes that on to the player:
+NiaDB says on its pages what kind of data each block is, and the app passes that on to the player:
 - a "Change history" block, "updated in COT2 ▾ Stat | COT1 | COT2 | Change": the page's values are that build's
   (the second closed test), with what changed since the build before;
 - "COT2 prices" under a shop's price: the price is that build's;
@@ -9,9 +9,9 @@ NiaMeowDB says on its pages what kind of data each block is, and the app passes 
   in Classic themselves (the Free Market reports too);
 - "Source: Nexon report", and the release guide built from Nexon's own posts: official statements;
 - the EXP guide's "Levels 50 to 99 reproduce a historical reference table".
-Nothing here names a build: the labels are read from the pages, so when MeowDB moves an item from "COT2" to
+Nothing here names a build: the labels are read from the pages, so when NiaDB moves an item from "COT2" to
 launch values ("updated in Launch ▾ Stat | COT2 | Launch | Change", "Launch prices") its tag follows by itself.
-Data the KB doesn't label is MeowDB's own (MEOWDB).
+Data the KB doesn't label is NiaDB's own (MEOWDB).
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ BUILD_NAMES = {
     "Live": {"he": "המשחק החי", "en": "Live"},
 }
 
-# "updated in COT2 ▾ Stat | COT1 | COT2 | Change", and since the game's launch values (NiaMeowDB, 2026-10-11)
+# "updated in COT2 ▾ Stat | COT1 | COT2 | Change", and since the game's launch values (NiaDB, 2026-10-11)
 # "updated at launch ▾ Test 2 ACC 78 to 79, ..." with its table on the next line ("Stat | COT2 | Launch | Change")
 _HISTORY = re.compile(r"^updated (?:in|at) (?P<label>.+?) ▾ ?(?P<rest>.*)$")
 _TABLE = re.compile(r"^Stat \| (?P<old>.+?) \| (?P<new>.+?) \| Change\s*$")
@@ -58,7 +58,7 @@ _GUIDE_DATA = re.compile(r"\buse current (?P<label>[A-Z0-9]\S*(?: [A-Z]\S*)*) da
 _SOURCE_LINE = re.compile(r"^Source ?: (?P<who>.+)$")
 _CLOSED_PRICE = re.compile(r"^Closed-test price\b(?P<rest>.*)$")
 _EXP_REFERENCE = re.compile(r"Levels (\d+) to (\d+) reproduce a historical reference")
-# the Free Market's player price reports on an item page; NiaMeowDB renamed the section on 2026-10-04 ("Community price
+# the Free Market's player price reports on an item page; NiaDB renamed the section on 2026-10-04 ("Community price
 # check" became "Free Market / Player reported ... Saw it in a shop? Add a price"), and the nightly test stopped the KB
 # (and on 2026-10-11 "Saw it in a shop, or sold one? Add a shop price · Add a sold price", on 2026-10-17
 # "Add a price: Seen in a shop · Sold for")
@@ -156,7 +156,7 @@ def test_build(source: str) -> bool:
 
 
 def source_of(kb, key: str) -> str:
-    """The one source a card's values carry: the page's build, else MeowDB's own."""
+    """The one source a card's values carry: the page's build, else NiaDB's own."""
     s = stat_source(kb, key)
     return s.source if s else MEOWDB
 
@@ -216,7 +216,7 @@ def guide_source(kb, key: str) -> str | None:
 
 
 def exp_source(kb, level: int) -> str:
-    """The EXP table's level `level`: confirmed in the current game (MeowDB's own) or the historical reference
+    """The EXP table's level `level`: confirmed in the current game (NiaDB's own) or the historical reference
     table, as the EXP guide's confidence boundary says."""
     text = kb.page(EXP_GUIDE) if kb.get(EXP_GUIDE) else ""
     for lo, hi in _EXP_REFERENCE.findall(text):
@@ -291,12 +291,12 @@ def markers(kb, key: str) -> list[Marker]:
                 if re.search(r"community|tester|Discord|Reported", who, re.I):
                     out.append(Marker("shop_list", COMMUNITY, ln))
                 if not out or out[-1].line != ln:
-                    # anything else names MeowDB's own tools ("builds from the meowdb.com Character Builder")
+                    # anything else names NiaDB's own tools ("builds from the meowdb.com Character Builder")
                     out.append(Marker("source", MEOWDB, ln))
         elif (m := _PARTY_EXP.match(ln)):
             out.append(Marker("party_exp", m.group("label"), ln))
         elif "from closed-beta play" in ln:
-            out.append(Marker("mob_rate", MEOWDB, ln))       # MeowDB's own reading of the tests
+            out.append(Marker("mob_rate", MEOWDB, ln))       # NiaDB's own reading of the tests
         elif (m := _CLOSED_PRICE.match(ln)):
             out.append(Marker("cash_price", _label_in(m.group("rest"), labels()) or "closed test", ln))
         elif ln.endswith(" only") and (build := _label_in(ln, labels())) and ln.endswith(f"{build} only"):
@@ -374,9 +374,9 @@ def stamp_tip(t, source: str, stamp: Stamp | None = None, limit: int = 6) -> str
 # ---------------------------------------------------------------- for the AI (English)
 
 AI_NAMES = {MSEA: "MSEA reference (old MapleSEA, not confirmed for Classic)",
-            COMMUNITY: "community (player-reported on MeowDB)",
+            COMMUNITY: "community (player-reported on NiaDB)",
             OFFICIAL: "official (Nexon)",
-            MEOWDB: "MeowDB (no build label)",
+            MEOWDB: "NiaDB (no build label)",
             REFERENCE: "historical reference table (an estimate until verified)",
             CLOSED_TEST: "closed-test value (not confirmed for launch)",
             MESOWATCH: "MesoWatch (community: Free Market sales read from public streams)",
@@ -395,7 +395,7 @@ def page_note(kb, key: str) -> str:
         ch = "; ".join(f"{c.stat} {c.old} -> {c.new}" for c in stamp.changes[:6]) if test_build(stamp.source) else ""
         bits.append(f"stats are {stamp.source} values" + (f" (changed from {stamp.before}: {ch})" if ch else ""))
     elif key.partition("/")[0] in ("monster", "item", "skill"):
-        bits.append("stats: MeowDB (no build label)")
+        bits.append("stats: NiaDB (no build label)")
     seen = set()
     for m in markers(kb, key):
         what = {"prices": f"shop prices are {m.source} prices",
@@ -406,9 +406,9 @@ def page_note(kb, key: str) -> str:
                 "guide_data": f"numbers are {m.source} data",
                 "cash_price": f"Cash Shop price from the {m.source} test",
                 "cash_shop": f"Cash Shop listing: {m.source} only",
-                "source": "numbers from MeowDB's own tools",
+                "source": "numbers from NiaDB's own tools",
                 "party_exp": f"party EXP bonus from {m.source}",
-                "mob_rate": "mob rate is MeowDB's reading of the closed tests",
+                "mob_rate": "mob rate is NiaDB's reading of the closed tests",
                 "exp_table": "levels 50+ are a historical reference table"}.get(m.kind)
         if what and what not in seen:
             seen.add(what)

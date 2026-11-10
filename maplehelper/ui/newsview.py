@@ -5,7 +5,7 @@ Titles stay as published (English, one left-to-right block in a Hebrew line); th
 is a translation of its current text, else the English one under a Hebrew note that says so.
 
 Pictures (news.cover / header / pictures / entities, from the KB's img/news): a card has the article's cover as a
-thumbnail (Nexon's; an older KB's items have NiaMeowDB's); an article has its picture under the title, the pictures
+thumbnail (Nexon's; an older KB's items have NiaDB's); an article has its picture under the title, the pictures
 of what it names from Nexon's announcement, and the KB's own pictures of the items and monsters it names. A picture
 that is missing or can't be read is left out, and the page is as it was without pictures.
 """
@@ -219,9 +219,9 @@ def chip(text: str, rtl: bool, tip: str = "", name: str = "SourceTag") -> QLabel
 
 
 def source_chip(t, i: dict) -> QLabel:
-    """"Official · Nexon" for the game's operator; an older KB's analysis and press items "Community · NiaMeowDB"
+    """"Official · Nexon" for the game's operator; an older KB's analysis and press items "Community · NiaDB"
     (as sources.py tags data: official vs community)."""
-    who = i.get("publisher") or "NiaMeowDB"
+    who = i.get("publisher") or "NiaDB"
     if i.get("official"):
         return chip(t("news_official", who=who), t.rtl, t("news_official_tip", who=who))
     return chip(t("news_community", who=who), t.rtl, t("news_community_tip"))
@@ -346,7 +346,7 @@ class NewsCard(QFrame):
         if on_open:
             read = QPushButton(bidi.plain(t("news_read_full"), rtl), objectName="Link")
             read.clicked.connect(lambda _=False, item=i: on_open(item))
-        elif i.get("url") and i.get("url") != src:          # an older KB's item, summed up on MeowDB
+        elif i.get("url") and i.get("url") != src:          # an older KB's item, summed up on NiaDB
             read = QPushButton(bidi.plain(t("news_read_meowdb"), rtl), objectName="Link")
             read.clicked.connect(lambda _=False, u=i.get("url"): open_url(u))
         if read:
@@ -398,7 +398,7 @@ def news_page(t, kb, unread_ids=(), on_open=None) -> QWidget:
 
 def article(t, i: dict, kb=None) -> QWidget:
     """A news item in full, like a guide: chips, title, date, its picture, the summary, every highlight (and an older
-    KB's NiaMeowDB note), the pictures of what it names, and the link to the article. Hebrew where it is translated;
+    KB's NiaDB note), the pictures of what it names, and the link to the article. Hebrew where it is translated;
     English text reads left to right."""
     rtl = t.rtl
     page = QWidget()
@@ -444,7 +444,7 @@ def article(t, i: dict, kb=None) -> QWidget:
         _pictured(t, i, kb, lay)
     links = QHBoxLayout()
     links.setSpacing(16)
-    # the source's link needs its publisher's name; an older KB's MeowDB link doesn't (an item without one lost both).
+    # the source's link needs its publisher's name; an older KB's NiaDB link doesn't (an item without one lost both).
     # Nexon's items are their own source: one link
     for label, url, ok in ((t("news_read_meowdb"), i.get("url") or "", i.get("url") != i.get("source_url")),
                            (t("news_read_source", who=i.get("publisher") or ""), i.get("source_url") or "",
