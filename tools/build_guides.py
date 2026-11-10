@@ -23,8 +23,6 @@ import html
 import json
 import re
 import sys
-import time
-import urllib.request
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -32,7 +30,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 OUT = ROOT / "assets" / "guides"
 SITE = "https://meowdb.com"
-UA = "Mozilla/5.0 (Maple Helper guide builder; https://github.com/Maple-Helper/maple-helper)"
 MAX_W = 360          # wide pictures are scaled down to the reader's width
 ICON_MAX = 40        # an image this small inside text is an inline icon
 
@@ -165,17 +162,13 @@ class Images:
 
 
 def fetch(url: str, binary: bool = False):
-    for attempt in range(3):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = r.read()
-            time.sleep(0.3)
-            return data if binary else data.decode("utf-8", errors="replace")
-        except Exception:
-            if attempt == 2:
-                raise
-            time.sleep(2 * (attempt + 1))
+    """The KB scraper's fetch (one meowdb.com request every 10 seconds, its User-Agent, a full stop on a 403/429:
+    the site's tool rules), raising where it would answer None: a guide with a missing piece isn't written."""
+    import scrape_meowdb
+    data = scrape_meowdb.fetch(url, binary)
+    if data is None:
+        raise OSError(f"no answer from {url}")
+    return data
 
 
 class Converter:

@@ -1,6 +1,7 @@
-"""Download what players report on NiaMeowDB for each monster: its drops (with votes) and its mesos.
+"""Download what players report on NiaDB (meowdb.com) for each monster: its drops (with votes) and its mesos.
 
-Used with permission from the NiaMeowDB team. MeowDB's monster pages load these two lists in the browser, so the
+Used with permission from the NiaDB team, at the site's pace (scrape_meowdb.fetch: one request every 10 seconds;
+~70 minutes for the 206 monsters' 412 requests). MeowDB's monster pages load these two lists in the browser, so the
 page scrape (scrape_meowdb.py) never sees them; they come from the site's public JSON instead:
     /msclassic/api/drops?monsterId=<id>          {"drops": [{"itemId", "itemName", "upvotes", "downvotes", ...}]}
     /msclassic/api/mesos-reports?monsterId=<id>  {"reports": [...], "summary": {"count", "medianMin", ...}}
@@ -19,7 +20,7 @@ fails tools/kb_release.validate_community, keeps the previous file (a monster th
 keeps its previous entry too).
 
 Usage:
-    python tools/scrape_community.py            # every monster of data/kb/index.json (~6 min)
+    python tools/scrape_community.py            # every monster of data/kb/index.json (~70 min)
     python tools/scrape_community.py --limit 5  # quick test
     python tools/scrape_meowdb.py --community   # the same, as the nightly job runs it
 """
@@ -32,7 +33,7 @@ import time
 from pathlib import Path
 
 import kb_release
-from scrape_meowdb import BASE, DELAY_SECONDS, KB, fetch
+from scrape_meowdb import BASE, KB, Blocked, fetch
 
 FILE = kb_release.COMMUNITY
 DROPS_API = f"{BASE}/msclassic/api/drops?monsterId={{id}}"
@@ -113,7 +114,6 @@ def parse_mesos(payload) -> dict | None:
 
 def get_json(url: str):
     text = fetch(url)
-    time.sleep(DELAY_SECONDS)
     if text is None:
         return None
     try:
@@ -164,7 +164,7 @@ def scrape(kb: Path = KB, limit: int | None = None, get=None, log=print) -> dict
     if not limit and len(out) < len(previous) * MIN_KEPT:
         raise kb_release.InvalidKB(f"community: only {len(out)} monsters with reports, down from {len(previous)}; "
                                    "previous file kept")
-    data = {"source": "NiaMeowDB community reports (meowdb.com)", "fetched": today, "monsters": out}
+    data = {"source": "NiaDB community reports (meowdb.com)", "fetched": today, "monsters": out}
     kb_release.validate_community(data, {e["key"] for e in index if "key" in e})
     changed = kb_release.community_changes(previous, out)
     tmp = path.with_suffix(".json.tmp")
@@ -196,6 +196,9 @@ def main(argv: list[str] | None = None) -> int:
         stats = scrape(a.kb, a.limit)
     except kb_release.InvalidKB as err:
         print(f"::warning::Community drops not updated: {err}")
+        return 1
+    except Blocked as err:      # the site's rules: stop; the previous file stays (it is written whole or not at all)
+        print(f"::warning::Community drops not updated: meowdb.com answered {err}")
         return 1
     bump_last_run(a.kb, stats["changed"])
     print("Community:", json.dumps(stats))

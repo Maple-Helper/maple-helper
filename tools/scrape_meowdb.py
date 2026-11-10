@@ -1,8 +1,11 @@
 """Download the MapleStory Classic knowledge base from NiaMeowDB (meowdb.com).
 
-Used with permission from the NiaMeowDB team. Polite by design: three workers,
-each pausing 1 s between requests, the site's Retry-After honored, and resume
-support so a re-run only fetches what is missing.
+Used with permission from the NiaDB team, under the site's tool rules (meowdb.com/reuse#tool-rules): one request
+every 10 seconds, one at a time, never in parallel; a User-Agent with our name and a way to reach us; the same
+address for the same question (no cache-busting); and a full stop on a 403 or 429. Every request to meowdb.com goes
+through fetch() below, which enforces all of it. On 2026-11-10 the site blocked us for three parallel workers at a
+second apart: at 10 s a request, the 7,161 pages take ~20 hours, so a night refreshes the changed pages plus a slice
+of the oldest ones (--rolling), never the whole site at once.
 
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
@@ -15,8 +18,9 @@ Output (under data/kb/):
 Usage:
     python tools/scrape_meowdb.py            # full run (resumes)
     python tools/scrape_meowdb.py --limit 5  # quick test, 5 pages per category
-    python tools/scrape_meowdb.py --refresh  # re-download everything
+    python tools/scrape_meowdb.py --refresh  # re-download everything (~20 hours at the site's pace)
     python tools/scrape_meowdb.py --changed  # nightly: only pages changed on meowdb, plus new ones
+    python tools/scrape_meowdb.py --changed --rolling 400  # ...plus the 400 pages fetched longest ago
     python tools/scrape_meowdb.py --community  # players' drop and mesos reports -> community.json (scrape_community.py)
     python tools/scrape_meowdb.py --routes   # only routes.json, the map connections (every run refreshes it too)
 """
@@ -33,17 +37,19 @@ import time
 import urllib.error
 import urllib.request
 import threading
-from concurrent.futures import ThreadPoolExecutor
+import urllib.parse
 from pathlib import Path
 
 BASE = "https://meowdb.com"
 SITEMAP = f"{BASE}/msclassic/sitemap.xml"
-USER_AGENT = "MapleHelper-KB/0.1 (MapleStory Classic companion app; used with NiaMeowDB permission)"
-DELAY_SECONDS = 1.0
-WORKERS = 3
+USER_AGENT = "MapleHelper-KB/1.0 (+https://github.com/Maple-Helper/maple-helper; contact: https://github.com/Maple-Helper/maple-helper/issues)"
+# the site's tool rules: one request every 10 seconds, one at a time. Measured from the end of one answer to the
+# start of the next request, so a slow answer never shortens the gap
+DELAY_SECONDS = 10.0
+SOURCE = "NiaDB (meowdb.com)"
 # how a page is turned into text: bump it with every change to main_text/scrape_one's output, so the patch notes
 # don't call every re-parsed page "updated" (the SITE_TOOLS change did: 186 monsters "updated", nothing new)
-PARSER_VERSION = 4
+PARSER_VERSION = 5        # 5: the credit reads NiaDB, the site's own name for itself
 
 # sitemap path prefix -> (category name, path depth that marks an entity page)
 CATEGORIES = {
@@ -66,9 +72,36 @@ ROOT = Path(__file__).resolve().parent.parent
 KB = ROOT / "data" / "kb"
 
 
+class Blocked(RuntimeError):
+    """meowdb.com answered 403 or 429: the tool rules say stop, so no further request goes out this run."""
+
+
+_gate = threading.Lock()        # held over a request: one at a time, whichever thread asks
+_last = [0.0]                   # when the last meowdb.com answer ended (time.monotonic)
+_blocked: list[str] = []        # the first 403/429, once one came
+
+
+def is_meowdb(url: str) -> bool:
+    host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    return host == "meowdb.com" or host.endswith(".meowdb.com")
+
+
 def fetch(url: str, binary: bool = False, retries: int = 3):
+    """GET a page: its text (bytes when binary), None for a 404 or after `retries` hiccups. A meowdb.com request
+    waits its turn (DELAY_SECONDS after the last answer, one at a time); a 403 or 429 from it raises Blocked and
+    every later meowdb.com fetch raises it at once, without a request. Other hosts (Nexon's news) keep their own
+    pace and are never blocked by meowdb's answer."""
+    meow = is_meowdb(url)
     for attempt in range(retries):
+        if meow:
+            _gate.acquire()
         try:
+            if meow:
+                if _blocked:
+                    raise Blocked(_blocked[0])
+                wait = _last[0] + DELAY_SECONDS - time.monotonic()
+                if wait > 0:
+                    time.sleep(wait)
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = r.read()
@@ -76,23 +109,27 @@ def fetch(url: str, binary: bool = False, retries: int = 3):
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None
+            if meow and e.code in (403, 429):
+                _blocked.append(f"{e.code} from {url}")
+                raise Blocked(_blocked[0]) from None
             if e.code == 429 or e.code >= 500:
-                time.sleep(retry_after(e) or 10 * (attempt + 1))
+                time.sleep(10 * (attempt + 1))
                 continue
             raise
         except (http.client.HTTPException, OSError):
             # a dropped connection, a reset or a cut-off answer is a hiccup like a timeout: urllib wraps only the
             # request's errors in URLError, so one RemoteDisconnected used to abort the whole night
             time.sleep(5 * (attempt + 1))
+        finally:
+            if meow:
+                _last[0] = time.monotonic()
+                _gate.release()
     return None
 
 
-def retry_after(e: urllib.error.HTTPError) -> int | None:
-    """The wait the site asked for (seconds, at most 2 minutes); None when it didn't say."""
-    try:
-        return min(120, max(1, int((e.headers or {}).get("Retry-After") or "")))
-    except (TypeError, ValueError):
-        return None
+def blocked() -> str | None:
+    """Why meowdb.com fetches stopped this run (its first 403/429), None while they go on."""
+    return _blocked[0] if _blocked else None
 
 
 LASTMOD: dict[str, str] = {}
@@ -251,7 +288,6 @@ def props_of(entity: dict) -> dict:
 
 def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str | None = None) -> dict | None:
     page = fetch(url)
-    time.sleep(DELAY_SECONDS)
     if not page:
         return None
     lds = json_ld(page)
@@ -269,7 +305,6 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str
         # picture was fetched for, and back the next night: ~3,800 pages "updated" twice a week for nothing)
         for img_url in image_candidates(entity, category, slug, name):
             data = fetch(img_url, binary=True)
-            time.sleep(DELAY_SECONDS / 2)
             if data and save_image(data, img_path, GUIDE_IMG_W if category == "guide" else None):
                 break
     had_picture = img_path.exists()
@@ -278,7 +313,7 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str
     if img_path.exists():
         img_file = f"img/{category}/{slug}.png"
     front = {"name": name, "category": category, "url": url, "image": img_file, "props": props,
-             "type": entity.get("category"), "source": "NiaMeowDB (meowdb.com)"}
+             "type": entity.get("category"), "source": SOURCE}
     md = "---\n" + json.dumps(front, ensure_ascii=False, indent=1) + "\n---\n\n# " + name + "\n\n"
     if entity.get("description"):
         md += html.unescape(entity["description"]) + "\n\n"
@@ -289,7 +324,8 @@ def scrape_one(category: str, slug: str, url: str, refresh: bool, prev_hash: str
         get_picture()       # a refresh renews the picture of a page that changed, not all ~3,800 every Sunday
     return {"key": f"{category}/{slug}", "id": slug, "name": name, "category": category, "url": url,
             "image": img_file, "props": props, "type": entity.get("category"),
-            "lastmod": LASTMOD.get(url, ""), "hash": digest, "parser": PARSER_VERSION}
+            "lastmod": LASTMOD.get(url, ""), "hash": digest, "parser": PARSER_VERSION,
+            "fetched": time.strftime("%Y-%m-%d", time.gmtime())}
 
 
 def write_index(path: Path, entries: list[dict]) -> None:
@@ -298,8 +334,11 @@ def write_index(path: Path, entries: list[dict]) -> None:
     path.write_text("[\n" + ",\n".join(json.dumps(e, ensure_ascii=False) for e in entries) + "\n]\n", encoding="utf-8")
 
 
-def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None:
-    urls = entity_urls()
+def scrape(limit: int | None, refresh: bool, changed_only: bool = False, rolling: int = 0) -> None:
+    """Fetch the pages (all of them, the changed ones, or the changed ones plus the `rolling` fetched longest ago),
+    then the list pages, the map connections and Nexon's news. A 403/429 from meowdb.com stops every meowdb.com
+    request (fetch raises Blocked): what was fetched before it is kept, the news (nexon.com) still come, and
+    last_run.json says "blocked" so the workflow skips the other meowdb.com steps."""
     index_path = KB / "index.json"
     # the copy we have: what a change is measured against, also on a refresh (which counted all 4,161 pages
     # "changed" and published a new 21 MB KB every Sunday), and what a failed fetch keeps
@@ -307,8 +346,55 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
     if index_path.exists():
         prev = {e["key"]: e for e in json.loads(index_path.read_text(encoding="utf-8"))}
     index: dict[str, dict] = {} if refresh else dict(prev)
+    changes = [0]
+    jobs: list[tuple] = []
+    try:
+        urls = entity_urls()
+        jobs = plan_jobs(urls, index, limit, refresh, changed_only, rolling)
+        fetch_pages(jobs, prev, index, changes, refresh)
+        if refresh and not limit:
+            changes[0] += drop_removed(prev, index)
+        elif not limit:
+            changes[0] += drop_unlisted(urls, index)
+        # the list pages (skill changes, pets, tier list): one at a time after the entity pages, counted as changes
+        # so a night that only moves a pet's lifespan still publishes
+        import meowdb_sections
+        changes[0] += meowdb_sections.scrape(KB, fetch, 0)
+        changes[0] += scrape_routes()      # one file a night: the map connections the app routes with
+    except Blocked as err:
+        print(f"::warning::meowdb.com answered {err}: its tool rules say stop, so no more requests to it this run. "
+              "What was fetched before it is kept.", flush=True)
+    write_index(index_path, list(index.values()))
 
-    jobs = []
+    if not limit:
+        # the news too (Nexon's own, from nexon.com: tools/scrape_news.py), also on a night meowdb.com refused us; a
+        # new item counts as a change, so it gets published.
+        # Its pictures come once each (a new item's cover, a Nexon article's named pictures), kept on later nights
+        import scrape_news
+        try:
+            changes[0] += scrape_news.update(KB, fetch, lambda url: fetch(url, binary=True))
+        except Blocked as err:      # a news picture hosted on meowdb.com
+            print(f"::warning::news: meowdb.com answered {err}", flush=True)
+    if not blocked():
+        meta_path = KB / "meta.json"
+        meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
+        meta.update({"source": SOURCE, "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                     "count": len(index)})
+        meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
+    run = {"checked": len(jobs), "changed": changes[0]}
+    if blocked():
+        run["blocked"] = blocked()
+    (KB / "last_run.json").write_text(json.dumps(run), encoding="utf-8")
+    print(f"Done. {len(index)} entities, {len(jobs)} checked, {changes[0]} changed."
+          + (f" Stopped: meowdb.com answered {blocked()}." if blocked() else ""))
+
+
+def plan_jobs(urls: dict[str, list[str]], index: dict[str, dict], limit: int | None, refresh: bool,
+              changed_only: bool, rolling: int = 0) -> list[tuple]:
+    """(category, slug, key, url) of each page to fetch: what is new, what changed (changed_only), and the
+    `rolling` pages we fetched longest ago (never-dated ones first), so the whole site is re-read over a few weeks
+    at the site's pace instead of in one ~20-hour night."""
+    jobs, rest = [], []
     for prefix, locs in urls.items():
         category = CATEGORIES[prefix][0]
         (KB / "pages" / category).mkdir(parents=True, exist_ok=True)
@@ -317,67 +403,62 @@ def scrape(limit: int | None, refresh: bool, changed_only: bool = False) -> None
             slug = slug_of(url)
             key = f"{category}/{slug}"
             have = (KB / "pages" / category / f"{slug}.md").exists() and key in index
+            job = (category, slug, key, url)
             if have and not refresh:
-                if not changed_only:
+                if not changed_only or index[key].get("lastmod", "") >= LASTMOD.get(url, ""):
+                    rest.append(job)        # unchanged since our copy
                     continue
-                if index[key].get("lastmod", "") >= LASTMOD.get(url, ""):
-                    continue       # unchanged since our copy
-            jobs.append((category, slug, key, url))
+            jobs.append(job)
+    if rolling:
+        rest.sort(key=lambda j: (index[j[2]].get("fetched") or "", j[2]))
+        jobs += rest[:rolling]
+    return jobs
 
-    lock = threading.Lock()
-    counter = [0]
-    total = len(jobs)
 
-    changes = [0]
+def fetch_pages(jobs: list[tuple], prev: dict[str, dict], index: dict[str, dict], changes: list[int],
+                refresh: bool = False) -> None:
+    """Fetch each job's page in turn (one at a time: the site's rule) into `index`. A Blocked raised by fetch goes
+    up to scrape(); what was fetched before it is in `index` already."""
+    index_path = KB / "index.json"
+    for n, (category, slug, key, url) in enumerate(jobs, 1):
+        old = prev.get(key) or {}
+        entry = scrape_one(category, slug, url, refresh, old.get("hash"))
+        if entry:
+            # a page re-read by a newer parser isn't a change to the game (kb_release's diff says the same)
+            if not old or (old.get("hash") != entry["hash"] and old.get("parser", 1) == entry.get("parser", 1)):
+                changes[0] += 1
+            index[key] = entry
+            print(f"[{n}/{len(jobs)}] {category}: {entry['name']}", flush=True)
+        else:
+            # still in the sitemap, so a site hiccup (5xx, a timeout): keep our copy, or the patch notes say
+            # "removed" tonight and "added" tomorrow
+            if key in prev:
+                index[key] = prev[key]
+            print(f"[{n}/{len(jobs)}] skip (not fetched) {url}", flush=True)
+        if n % 25 == 0:
+            write_index(index_path, list(index.values()))
 
-    def work(job):
-        category, slug, key, url = job
-        entry = scrape_one(category, slug, url, refresh, prev.get(key, {}).get("hash"))
-        with lock:
-            counter[0] += 1
-            if entry:
-                if prev.get(key, {}).get("hash") != entry["hash"]:
-                    changes[0] += 1
-                index[key] = entry
-                print(f"[{counter[0]}/{total}] {category}: {entry['name']}", flush=True)
-            else:
-                # still in the sitemap, so a site hiccup (5xx, 429, a timeout): keep our copy, or the patch notes
-                # say "removed" tonight and "added" tomorrow
-                if key in prev:
-                    index[key] = prev[key]
-                print(f"[{counter[0]}/{total}] skip (not fetched) {url}", flush=True)
-            if counter[0] % 25 == 0:
-                write_index(index_path, list(index.values()))
 
-    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        list(pool.map(work, jobs))
+# a sitemap listing fewer of our pages than this is taken as half-served, and removes nothing
+MIN_LISTED = 0.95
 
-    write_index(index_path, list(index.values()))
-    if refresh and not limit:
-        changes[0] += drop_removed(prev, index)
-    # the list pages (skill changes, pets, tier list): one at a time after the entity pages, counted as changes
-    # so a night that only moves a pet's lifespan still publishes
-    import meowdb_sections
-    changes[0] += meowdb_sections.scrape(KB, fetch, DELAY_SECONDS)
 
-    if not limit:
-        # the news too (Nexon's own, from nexon.com: tools/scrape_news.py); a new item counts as a change, so it gets
-        # published.
-        # Its pictures come once each (a new item's cover, a Nexon article's named pictures), kept on later nights
-        import scrape_news
-        changes[0] += scrape_news.update(KB, fetch, lambda url: fetch(url, binary=True))
-    meta_path = KB / "meta.json"
-    meta = json.loads(meta_path.read_text(encoding="utf-8")) if meta_path.exists() else {}
-    meta.update({"source": "NiaMeowDB (meowdb.com)", "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                 "count": len(index)})
-    meta_path.write_text(json.dumps(meta, indent=1), encoding="utf-8")
-    changes[0] += scrape_routes()      # one file a night: the map connections the app routes with
-    (KB / "last_run.json").write_text(json.dumps({"checked": len(jobs), "changed": changes[0]}), encoding="utf-8")
-    print(f"Done. {len(index)} entities, {len(jobs)} checked, {changes[0]} changed.")
+def drop_unlisted(urls: dict[str, list[str]], index: dict[str, dict]) -> int:
+    """Without a full refresh (which no night runs any more): what the sitemap no longer lists is gone from the site,
+    so drop_removed it, when the sitemap looks whole."""
+    listed = {f"{CATEGORIES[prefix][0]}/{slug_of(u)}" for prefix, locs in urls.items() for u in locs}
+    gone = index.keys() - listed
+    if len(index) - len(gone) < len(index) * MIN_LISTED:
+        print(f"::warning::the sitemap lists {len(listed)} pages, we have {len(index)}: nothing removed this run")
+        return 0
+    prev = dict(index)
+    for key in gone:
+        del index[key]
+    return drop_removed(prev, index)
 
 
 def drop_removed(prev: dict[str, dict], index: dict[str, dict]) -> int:
-    """After a full refresh: delete the page and picture of every entity the sitemap no longer lists, so the AI's
+    """After a full refresh or drop_unlisted: delete the page and picture of every entity the sitemap no longer lists, so the AI's
     grep can't find what the site removed. Failed fetches were kept above, so only real removals are left."""
     gone = prev.keys() - index.keys()
     for key in gone:
@@ -393,28 +474,26 @@ def fill_images() -> None:
     """Fetch pictures for entities that have none (NPC portraits, map minimaps). Resumable."""
     index_path = KB / "index.json"
     index = json.loads(index_path.read_text(encoding="utf-8"))
-    todo = [e for e in index if not e.get("image") and e["category"] in ("npc", "map")]
-    lock = threading.Lock()
-    done = [0]
-
-    def work(e):
-        cat, _, slug = e["key"].partition("/")
-        (KB / "img" / cat).mkdir(parents=True, exist_ok=True)
-        path = KB / "img" / cat / f"{slug}.png"
-        for url in image_candidates({}, cat, slug, e["name"]):
-            data = fetch(url, binary=True)
-            time.sleep(DELAY_SECONDS / 2)
-            if data and save_image(data, path):
-                e["image"] = f"img/{cat}/{slug}.png"
-                break
-        with lock:
-            done[0] += 1
-            if done[0] % 50 == 0:
-                print(f"[{done[0]}/{len(todo)}]", flush=True)
+    # an entity looked for once already is left alone ("no_image"): the 23 the site has no picture for cost ~90
+    # requests a night for nothing, 15 minutes at the site's pace. scrape_one tries again when its page is re-read
+    todo = [e for e in index if not e.get("image") and e["category"] in ("npc", "map") and not e.get("no_image")]
+    try:
+        for n, e in enumerate(todo, 1):
+            cat, _, slug = e["key"].partition("/")
+            (KB / "img" / cat).mkdir(parents=True, exist_ok=True)
+            path = KB / "img" / cat / f"{slug}.png"
+            for url in image_candidates({}, cat, slug, e["name"]):
+                data = fetch(url, binary=True)
+                if data and save_image(data, path):
+                    e["image"] = f"img/{cat}/{slug}.png"
+                    break
+            else:
+                e["no_image"] = True
+            if n % 50 == 0:
+                print(f"[{n}/{len(todo)}]", flush=True)
                 write_index(index_path, index)
-
-    with ThreadPoolExecutor(max_workers=WORKERS) as pool:
-        list(pool.map(work, todo))
+    except Blocked as err:
+        print(f"::warning::meowdb.com answered {err}: no more pictures this run", flush=True)
     write_index(index_path, index)
     got = sum(1 for e in todo if e.get("image"))
     print(f"pictures added: {got}/{len(todo)}")
@@ -471,7 +550,7 @@ def routes_data(maps: list[dict], taxi: list[str], scenes: dict[str, list] | Non
             row["scene"] = scenes[mid]
         out.append(row)
     out.sort(key=lambda m: m["id"])
-    return {"source": "NiaMeowDB (meowdb.com) map data, as its Pathfinder reads it", "taxi": taxi, "maps": out}
+    return {"source": "NiaDB (meowdb.com) map data, as its Pathfinder reads it", "taxi": taxi, "maps": out}
 
 
 # A map with no minimap (a shop, the hospital) has its whole room as its picture: the site's full render, framed by
@@ -490,15 +569,18 @@ def scene_frame(terrain: dict | None) -> list | None:
     return [right - left, bottom - top, -left, -top] if right > left and bottom > top else None
 
 
-def scene_frames(maps: list[dict]) -> dict[str, list]:
-    """The room frame of every map with NPCs and no minimap (about 40), one terrain file each."""
+def scene_frames(maps: list[dict], known: dict[str, list] | None = None) -> dict[str, list]:
+    """The room frame of every map with NPCs and no minimap (about 40), one terrain file each; a map whose frame we
+    have (`known`, from the routes.json we have) keeps it without a request (41 requests, 7 minutes a night)."""
     out = {}
     for m in maps:
         mid = str(m.get("id") or "")
         if not _MAP_ID.match(mid) or m.get("hasMinimapImage") or not m.get("npcs"):
             continue
+        if (known or {}).get(mid):
+            out[mid] = known[mid]
+            continue
         raw = fetch(MAP_TERRAIN.format(id=mid))
-        time.sleep(DELAY_SECONDS)
         try:
             frame = scene_frame(json.loads(raw)) if raw else None
         except json.JSONDecodeError:
@@ -511,12 +593,10 @@ def scene_frames(maps: list[dict]) -> dict[str, list]:
 def taxi_towns(map_ids: set[str]) -> list[str] | None:
     """The towns the Pathfinder's taxi option links, read from its page script; None when it can't be read."""
     page = fetch(PATHFINDER)
-    time.sleep(DELAY_SECONDS)
     chunk = re.search(r'src="(/_next/static/chunks/app/msclassic/[^"]*pathfinder/page-[^"]+\.js)"', page or "")
     if not chunk:
         return None
     js = fetch(BASE + chunk.group(1))
-    time.sleep(DELAY_SECONDS)
     lists = [json.loads(s) for s in _ID_LIST.findall(js or "")]
     lists = [ids for ids in lists if len(ids) >= 2 and set(ids) <= map_ids]
     return lists[0] if len(lists) == 1 else None
@@ -532,7 +612,6 @@ def write_routes(path: Path, data: dict) -> None:
 def scrape_routes() -> int:
     """Refresh routes.json; 1 when it changed. A failed download keeps the copy we have."""
     raw = fetch(MAPS_DATA)
-    time.sleep(DELAY_SECONDS)
     try:
         maps = json.loads(raw) if raw else None
     except json.JSONDecodeError:
@@ -550,7 +629,8 @@ def scrape_routes() -> int:
     if taxi is None:
         taxi = [t for t in old.get("taxi") or [] if t in ids]
         print("routes: taxi towns not read from the Pathfinder, keeping", taxi)
-    data = routes_data(maps, taxi, scene_frames(maps))
+    known = {m["id"]: m["scene"] for m in old.get("maps") or [] if isinstance(m, dict) and m.get("scene")}
+    data = routes_data(maps, taxi, scene_frames(maps, known))
     if data == old:
         return 0
     write_routes(path, data)
@@ -578,6 +658,7 @@ if __name__ == "__main__":
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--refresh", action="store_true", help="re-download every page")
     ap.add_argument("--changed", action="store_true", help="only pages whose sitemap lastmod is newer, plus new pages")
+    ap.add_argument("--rolling", type=int, default=0, help="also re-read this many pages, the ones fetched longest ago")
     ap.add_argument("--stamp", action="store_true", help="record sitemap lastmod and content hash for the current copy")
     ap.add_argument("--images", action="store_true", help="fetch missing NPC portraits and map minimaps")
     ap.add_argument("--community", action="store_true", help="players' drop and mesos reports (community.json)")
@@ -588,10 +669,13 @@ if __name__ == "__main__":
         import scrape_community    # (its own module: the monster pages load these lists in the browser)
         sys.exit(scrape_community.main(["--limit", str(args.limit)] if args.limit else []))
     if args.routes:
-        scrape_routes()
+        try:
+            scrape_routes()
+        except Blocked as err:
+            sys.exit(f"meowdb.com answered {err}")
     elif args.stamp:
         stamp()
     elif args.images:
         fill_images()
     else:
-        scrape(args.limit, args.refresh, args.changed)
+        scrape(args.limit, args.refresh, args.changed, args.rolling)

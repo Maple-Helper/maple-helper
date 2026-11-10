@@ -1,11 +1,11 @@
-"""NiaMeowDB's list pages that aren't entity pages: the COT skill changes, the pets, the class tier list and the
+"""NiaDB's list pages that aren't entity pages: the COT skill changes, the pets, the class tier list and the
 Safe to Sell? list.
 
 Each is read into one JSON file next to index.json (data/kb/skill_changes.json, pets.json, tiers.json,
 safe_to_sell.json) that maplehelper/sitedata.py reads: the first three from their server-rendered page, the last
 from the JSON file its page loads (/_data/safe-to-sell.json; the page itself only says "Loading the list...").
-Run by tools/scrape_meowdb.py after the entity pages, every night: one request per page, one at a time, a second
-apart.
+Run by tools/scrape_meowdb.py after the entity pages, every night: one request per page, through its fetch (one at a
+time, 10 seconds apart: the site's tool rules).
 
 The Training Advisor is not here: its page holds no recommendations. The browser works them out itself (a damage
 simulation of the guide builds in /_data/training-quick-start.json against every map), and the community's votes

@@ -1,18 +1,20 @@
 name: Update knowledge base
 
-# Nightly: fetch only the NiaMeowDB pages that changed (sitemap lastmod) plus new pages.
-# Sundays: full refresh, to catch edits the sitemap doesn't date.
+# Nightly: fetch the NiaDB pages that changed (sitemap lastmod), new pages, and the 400 fetched longest ago (the
+# whole site over ~18 nights, for edits the sitemap doesn't date). The site's tool rules (meowdb.com/reuse#tool-rules)
+# allow one request every 10 seconds, one at a time, and a stop on a 403/429; tools/scrape_meowdb.py's fetch enforces
+# them, so there is no full refresh in one night any more (7,161 pages would take ~20 hours).
 # Publishes kb.zip + kb-manifest.json to the latest release only when content actually changed and the full
 # test suite passes against the new KB (tools/nightly_gate.py: a few data tests the site's edits changed don't block,
 # they go to a "kb-drift" issue); every installed Maple Helper picks it up on its next start.
 on:
   schedule:
     # off the hour: GitHub queues runs at :00 behind everyone else's (01:00 runs started 5-6 hours late)
-    - cron: "23 0 * * *"         # 00:23 UTC = 03:23 Israel in summer, 02:23 in winter (still the same UTC day, for the Sunday check)
+    - cron: "23 0 * * *"         # 00:23 UTC = 03:23 Israel in summer, 02:23 in winter
   workflow_dispatch:
     inputs:
       full:
-        description: "Full refresh (re-download every page)"
+        description: "Re-read 1,200 more pages tonight (~3.5 hours at the site's pace) instead of the usual 400"
         type: boolean
         default: false
       translate_all:
@@ -31,7 +33,8 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-24.04      # pinned: ubuntu-latest moves to 26 from Oct 19, 2026; move once the nightly is tried there
-    timeout-minutes: 180
+    # ~70 minutes of rolling pages and ~70 of community reports at 10 s a request, plus translation
+    timeout-minutes: 330
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
@@ -51,7 +54,16 @@ jobs:
       - name: Find the latest release
         id: rel
         run: |
-          if gh release view --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+          # a routine starts the night by hand at 00:30 UTC (GitHub queues the cron for hours); the late cron run
+          # then finds tonight's run done and asks meowdb.com nothing: one night's requests a day, not two
+          since=$(date -u -d '-20 hours' +%Y-%m-%dT%H:%M:%SZ)
+          others=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow kb-update.yml --event workflow_dispatch \
+            --created ">$since" --json databaseId,conclusion \
+            -q "[.[] | select(.databaseId != ${{ github.run_id }} and .conclusion != \"cancelled\")] | length")
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${others:-0}" -gt 0 ]; then
+            echo "Tonight's run was started by hand already - nothing to do."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          elif gh release view --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "No release yet - nothing to update."
@@ -66,21 +78,28 @@ jobs:
           unzip -q /tmp/kb.zip -d data/kb
           cp data/kb/index.json /tmp/prev-index.json
 
-      - name: Fetch changes from NiaMeowDB
+      # a 403/429 from meowdb.com stops every request to it (the site's rules): the KB we have stays, Nexon's news
+      # still come, and the steps below that ask meowdb.com are skipped tonight
+      - name: Fetch changes from NiaDB
+        id: fetch
         if: steps.rel.outputs.exists == 'true'
         run: |
-          if [ "${{ inputs.full }}" = "true" ] || [ "$(date -u +%u)" = "7" ]; then
-            python tools/scrape_meowdb.py --refresh
-          else
-            python tools/scrape_meowdb.py --changed
-          fi
+          if [ "${{ inputs.full }}" = "true" ]; then rolling=1200; else rolling=400; fi
+          python tools/scrape_meowdb.py --changed --rolling "$rolling"
           cat data/kb/last_run.json
+          blocked=$(python -c 'import json; print(json.load(open("data/kb/last_run.json")).get("blocked") or "")')
+          if [ -n "$blocked" ]; then
+            echo "blocked=true" >> "$GITHUB_OUTPUT"
+            echo "::warning::meowdb.com refused us ($blocked): nothing more asked of it tonight; the published KB stays"
+            echo "### meowdb.com refused tonight's requests: $blocked" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       # the drops and mesos players report per monster (community.json): MeowDB's monster pages load them in the
-      # browser, so the page scrape above never sees them. Every night, all monsters (~6 min); their changes add to
-      # last_run.json's "changed". If the site doesn't answer, the published copy stays (a warning, not a failure).
+      # browser, so the page scrape above never sees them. Every night, all monsters (~70 min at the site's pace);
+      # their changes add to last_run.json's "changed". If the site doesn't answer, the published copy stays (a
+      # warning, not a failure).
       - name: Fetch players' drop and mesos reports
-        if: steps.rel.outputs.exists == 'true'
+        if: steps.rel.outputs.exists == 'true' && steps.fetch.outputs.blocked != 'true'
         run: |
           python tools/scrape_meowdb.py --community || echo "::warning::community reports not updated tonight"
           cat data/kb/last_run.json
@@ -88,7 +107,7 @@ jobs:
       # pictures the pages above didn't bring (an NPC's portrait, a map's minimap): only the ones still missing, so
       # most nights this is a quick check. If the site doesn't answer, the night still publishes (a warning).
       - name: Fill missing pictures
-        if: steps.rel.outputs.exists == 'true'
+        if: steps.rel.outputs.exists == 'true' && steps.fetch.outputs.blocked != 'true'
         run: |
           python tools/scrape_meowdb.py --images || echo "::warning::pictures not filled tonight"
 
