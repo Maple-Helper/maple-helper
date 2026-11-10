@@ -3,10 +3,12 @@
   "version": "0.20.7",
   "he": [
    "נקודת סטטוס השרתים בצ'אט מציגה שוב את מצב השרתים.",
+   "שיקויים ב-Quick slots מורחבים נספרים עכשיו, גם מחוץ ל-4 x 2 הרגילים של המשחק.",
    "שיפורים ותיקונים בעדכון המידע של האפליקציה."
   ],
   "en": [
    "The server-status dot in the chat shows the servers' state again.",
+   "Potions in a widened quick slot panel are counted now, not only in the game's usual 4 x 2.",
    "Improvements and fixes to how the app's data is updated."
   ]
  },
