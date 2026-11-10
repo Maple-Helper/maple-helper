@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.7",
+  "he": [
+   "נקודת סטטוס השרתים בצ'אט עובדת שוב. מאז 10.11 היא הייתה אפורה כי NiaDB (MeowDB) חסמו כלים אוטומטיים.",
+   "הקרדיט בכרטיסים נקרא עכשיו NiaDB, ולחיצה עליו פותחת את העמוד של הפריט באתר שלהם."
+  ],
+  "en": [
+   "The server-status dot in the chat works again. Since 11-10 it was grey because NiaDB (MeowDB) blocked automated tools.",
+   "Cards now credit NiaDB, and clicking the credit opens the item's page on their site."
+  ]
+ },
+ {
   "version": "0.20.6",
   "he": [
    "רשימות הדרופים של המפלצות מציגות שוב גם את רשימת הייחוס של MSEA. מאז 8.11 היא לא הופיעה בכלל.",
