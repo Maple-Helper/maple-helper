@@ -5,7 +5,9 @@ every 10 seconds, one at a time, never in parallel; a User-Agent with our name a
 address for the same question (no cache-busting); and a full stop on a 403 or 429. Every request to meowdb.com goes
 through fetch() below, which enforces all of it. On 2026-11-10 the site blocked us for three parallel workers at a
 second apart: at 10 s a request, the 7,161 pages take ~20 hours, so a night refreshes the changed pages plus a slice
-of the oldest ones (--rolling), never the whole site at once.
+of the oldest ones (--rolling), never the whole site at once. Since then the site answers only browsers, for every
+fan tool alike; NiaDB can't lift that for one project and told the owner to get around it, so the nightly asks from
+inside a page of the site (--browser, browser_fetch.py), as the app does for MesoWatch.
 
 Output (under data/kb/):
     pages/<category>/<slug>.md   one markdown file per entity (front matter + text)
@@ -23,6 +25,8 @@ Usage:
     python tools/scrape_meowdb.py --changed --rolling 400  # ...plus the 400 pages fetched longest ago
     python tools/scrape_meowdb.py --community  # players' drop and mesos reports -> community.json (scrape_community.py)
     python tools/scrape_meowdb.py --routes   # only routes.json, the map connections (every run refreshes it too)
+    python tools/scrape_meowdb.py --browser ...  # any of the above, asking from inside a page of the site
+                                             # (browser_fetch.py: since 2026-11-10 the site refuses non-browsers)
 """
 from __future__ import annotations
 
@@ -39,6 +43,8 @@ import urllib.request
 import threading
 import urllib.parse
 from pathlib import Path
+
+import browser_fetch
 
 BASE = "https://meowdb.com"
 SITEMAP = f"{BASE}/msclassic/sitemap.xml"
@@ -102,10 +108,13 @@ def fetch(url: str, binary: bool = False, retries: int = 3):
                 wait = _last[0] + DELAY_SECONDS - time.monotonic()
                 if wait > 0:
                     time.sleep(wait)
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(req, timeout=30) as r:
-                data = r.read()
-                return data if binary else data.decode("utf-8", errors="replace")
+            if meow and browser_fetch.active():
+                data = browser_fetch.get(url)       # --browser: from inside a page of the site (browser_fetch.py)
+            else:
+                req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    data = r.read()
+            return data if binary else data.decode("utf-8", errors="replace")
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 return None
@@ -653,21 +662,10 @@ def stamp() -> None:
     print(f"stamped {len(index)} entities")
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--refresh", action="store_true", help="re-download every page")
-    ap.add_argument("--changed", action="store_true", help="only pages whose sitemap lastmod is newer, plus new pages")
-    ap.add_argument("--rolling", type=int, default=0, help="also re-read this many pages, the ones fetched longest ago")
-    ap.add_argument("--stamp", action="store_true", help="record sitemap lastmod and content hash for the current copy")
-    ap.add_argument("--images", action="store_true", help="fetch missing NPC portraits and map minimaps")
-    ap.add_argument("--community", action="store_true", help="players' drop and mesos reports (community.json)")
-    ap.add_argument("--routes", action="store_true", help="only refresh routes.json (map connections)")
-    args = ap.parse_args()
-    sys.stdout.reconfigure(encoding="utf-8")
+def main(args) -> int:
     if args.community:
         import scrape_community    # (its own module: the monster pages load these lists in the browser)
-        sys.exit(scrape_community.main(["--limit", str(args.limit)] if args.limit else []))
+        return scrape_community.main(["--limit", str(args.limit)] if args.limit else [])
     if args.routes:
         try:
             scrape_routes()
@@ -679,3 +677,20 @@ if __name__ == "__main__":
         fill_images()
     else:
         scrape(args.limit, args.refresh, args.changed, args.rolling)
+    return 0
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--refresh", action="store_true", help="re-download every page")
+    ap.add_argument("--changed", action="store_true", help="only pages whose sitemap lastmod is newer, plus new pages")
+    ap.add_argument("--rolling", type=int, default=0, help="also re-read this many pages, the ones fetched longest ago")
+    ap.add_argument("--stamp", action="store_true", help="record sitemap lastmod and content hash for the current copy")
+    ap.add_argument("--images", action="store_true", help="fetch missing NPC portraits and map minimaps")
+    ap.add_argument("--community", action="store_true", help="players' drop and mesos reports (community.json)")
+    ap.add_argument("--routes", action="store_true", help="only refresh routes.json (map connections)")
+    ap.add_argument("--browser", action="store_true", help="ask meowdb.com from inside a page of it (browser_fetch.py)")
+    args = ap.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.exit(browser_fetch.run(lambda: main(args)) if args.browser else main(args))
