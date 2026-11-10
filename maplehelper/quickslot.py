@@ -5,7 +5,9 @@ The quick slots are a panel of 4 x 2 light slots in a dark frame, above the bott
 "Hm", "Pup" / "Ctrl", "Del", "End", "Pdn"). A slot holding an item shows its picture and, at its bottom left, the
 count of that item in the inventory ("501", "0" when it ran out). The game's interface scales with its window, so the
 panel is found by its shape: five dark vertical lines and three dark horizontal ones, evenly spaced (`find`), searched
-in the bottom right of the game's picture, then each line is placed to the pixel. Measured live at 2562x1440 (the
+in the bottom right of the game's picture, then each line is placed to the pixel. A player can widen the panel with
+more slots (more keys bound): the grid then goes on past those 4 x 2, a column or row at a time, as long as the lines
+do (`_grow`). Measured live at 2562x1440 (the
 panel at x 0.69-0.79, y 0.82-0.90 of the picture, a slot ~63 px apart, icons drawn ~1.6x their KB pictures).
 
 A slot's item is the KB potion whose picture, scaled and laid on the slot's own light background, fits it best
@@ -42,26 +44,36 @@ BG_LIGHT = 238.0                    # a slot's light background on a panel drawn
 FIT_MAX = 39.0                      # a best fit worse than this names no potion
 FIT_MARGIN = 2.7                    # ... and it must beat a potion with another picture by this much
 SURE_MARGIN = 4.0                   # a slot named by this much keeps its name while its picture's shape stays
+GROW_MAX = 16                       # a widened panel: at most this many columns (and rows) in all
 
 
 @dataclass(frozen=True)
 class Grid:
-    """The panel: its vertical lines' x and horizontal lines' y in the picture's pixels (5 and 3, left / top first)."""
+    """The panel: its vertical lines' x and horizontal lines' y in the picture's pixels (5 and 3 on the game's own
+    panel, more on a widened one; left / top first)."""
     xs: tuple[int, ...]
     ys: tuple[int, ...]
 
     def slots(self) -> list[tuple[int, int, int, int]]:
         """Each slot's inside (x0, y0, x1, y1), left to right, top row first."""
         out = []
-        for j in range(2):
-            for i in range(4):
+        for j in range(self.rows):
+            for i in range(self.cols):
                 t = max(2, round((self.xs[i + 1] - self.xs[i]) * 0.07))    # the line and the slot's shaded rim
                 out.append((self.xs[i] + t, self.ys[j] + t, self.xs[i + 1] - t + 1, self.ys[j + 1] - t + 1))
         return out
 
     @property
+    def cols(self) -> int:
+        return len(self.xs) - 1
+
+    @property
+    def rows(self) -> int:
+        return len(self.ys) - 1
+
+    @property
     def pitch(self) -> float:
-        return (self.xs[-1] - self.xs[0]) / 4
+        return (self.xs[-1] - self.xs[0]) / self.cols
 
     def box(self) -> tuple[int, int, int, int]:
         return self.xs[0], self.ys[0], self.xs[-1] + 1, self.ys[-1] + 1
@@ -129,7 +141,8 @@ def find(rgb: np.ndarray, play: tuple[int, int, int, int] | None = None) -> Grid
     area = rgb[y0:y1, x0:x1]
     if area.size == 0:
         return None
-    return locate(area, (int(h * PITCH[0]), int(h * PITCH[1]) + 2), (x0, y0))
+    grid = locate(area, (int(h * PITCH[0]), int(h * PITCH[1]) + 2), (x0, y0))
+    return _grow(rgb, grid, play) if grid else None
 
 
 def locate(area: np.ndarray, pitch: tuple[int, int], at: tuple[int, int] = (0, 0)) -> Grid | None:
@@ -154,6 +167,68 @@ def locate(area: np.ndarray, pitch: tuple[int, int], at: tuple[int, int] = (0, 0
     if steps.min() < 0.8 * steps.mean() or steps.max() > 1.2 * steps.mean():
         return None
     return Grid(xs, ys)
+
+
+def _grow(rgb: np.ndarray, grid: Grid, play: tuple[int, int, int, int]) -> Grid:
+    """The whole panel when the player widened it: the 4 x 2 grid `locate` found goes on a column (left or right) or a
+    row (up or down) at a time while there is one more dark line a pitch further, the panel's lines run on to it, and
+    the new slots' middles are mostly not dark. On the game's own panel nothing is added."""
+    px, py, pw, ph = play
+    dark = rgb[py:py + ph, px:px + pw].max(axis=2) <= DARK
+    xs, ys = [x - px for x in grid.xs], [y - py for y in grid.ys]
+    p = round(grid.pitch)
+    reach, m = max(3, p // 6), max(1, round(p * 0.25))
+
+    def cells_ok(x0: int, x1: int, y0: int, y1: int) -> bool:
+        if x0 < 0 or y0 < 0 or x1 >= dark.shape[1] or y1 >= dark.shape[0]:
+            return False
+        inner = dark[y0 + m:y1 - m, x0 + m:x1 - m]
+        return inner.size > 0 and float(inner.mean()) <= INNER_MAX
+
+    def line_x(guess: int) -> int | None:
+        lo = max(0, guess - reach)
+        col = dark[ys[0]:ys[-1] + 1, lo:guess + reach + 1].mean(axis=0)
+        if not len(col) or col.max() < LINES_MIN:
+            return None
+        return lo + _place(col, guess - lo, reach)
+
+    def line_y(guess: int) -> int | None:
+        lo = max(0, guess - reach)
+        row = dark[lo:guess + reach + 1, xs[0]:xs[-1] + 1].mean(axis=1)
+        if not len(row) or row.max() < LINES_MIN:
+            return None
+        return lo + _place(row, guess - lo, reach)
+
+    def runs_x(a: int, b: int) -> bool:         # the horizontal lines go on from a to b (a pixel or two off), on average
+        return float(np.mean([max(float(dark[yy, a:b + 1].mean()) for yy in range(max(0, y - 2), y + 3))
+                              for y in ys])) >= LINES_MIN
+
+    def runs_y(a: int, b: int) -> bool:
+        return float(np.mean([max(float(dark[a:b + 1, xx].mean()) for xx in range(max(0, x - 2), x + 3))
+                              for x in xs])) >= LINES_MIN
+
+    grew = True
+    while grew:
+        grew = False
+        if len(xs) <= GROW_MAX:
+            for side in (0, -1):
+                x = line_x(xs[side] - p if side == 0 else xs[side] + p)
+                if x is None or not 0.8 * p <= abs(x - xs[side]) <= 1.2 * p:
+                    continue
+                a, b = sorted((x, xs[side]))
+                if runs_x(a, b) and cells_ok(a, b, ys[0], ys[-1]):
+                    xs.insert(0, x) if side == 0 else xs.append(x)
+                    grew = True
+        if len(ys) <= GROW_MAX:
+            for side in (0, -1):
+                y = line_y(ys[side] - p if side == 0 else ys[side] + p)
+                if y is None or not 0.8 * p <= abs(y - ys[side]) <= 1.2 * p:
+                    continue
+                a, b = sorted((y, ys[side]))
+                if runs_y(a, b) and cells_ok(xs[0], xs[-1], a, b):
+                    ys.insert(0, y) if side == 0 else ys.append(y)
+                    grew = True
+    return Grid(tuple(px + x for x in xs), tuple(py + y for y in ys))
 
 
 # ---------------------------------------------------------------- which potion
@@ -303,7 +378,7 @@ def _lum(c: np.ndarray) -> np.ndarray:
 def _count_area(rgb: np.ndarray, grid: Grid, i: int) -> np.ndarray:
     """The slot's bottom left, where the count stands, as brightness at DIGIT_PITCH (the rows end at the slot's
     bottom line)."""
-    a, b = i % 4, i // 4
+    a, b = i % grid.cols, i // grid.cols
     k = DIGIT_PITCH / grid.pitch
     x0, y1 = grid.xs[a], grid.ys[b + 1]
     c = rgb[max(0, y1 - int(30 / k)):y1 + 1, x0:x0 + int(60 / k)]
