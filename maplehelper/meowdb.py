@@ -3,7 +3,8 @@ one request every GAP_SECONDS, one at a time, never in parallel; a User-Agent wi
 same address for the same question (no cache-busting); and a full stop on a 403 or 429.
 
 The knowledge base never comes from here (players get it from GitHub Releases, updater.py); this is only what has to
-be live, the chat's server-status dot (serverstatus.py) and the Free Market lookups (market.py). After a 403 or 429
+be live, the chat's server-status dot (serverstatus.py) and the Free Market lookups (market.py). Since 2026-11-10 the
+site answers only browsers, so with Qt WebEngine they ask from a page of the site (webfetch.py). After a 403 or 429
 nothing more is sent to the site until the app restarts: every caller then gets None, its "can't reach it" answer.
 """
 from __future__ import annotations
@@ -40,6 +41,9 @@ def get_json(url: str, timeout: float = 8):
         if wait > 0:
             time.sleep(wait)
         try:
+            from . import webfetch
+            if webfetch.available(url):         # from a page of the site: it answers only browsers (webfetch.py)
+                return json.loads(webfetch.request(url, timeout=timeout)[1].decode("utf-8"))
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 return json.loads(r.read().decode("utf-8"))
