@@ -102,7 +102,7 @@ jobs:
             python -c "import json,os;p='dist-kb/kb-manifest.json';m=json.load(open(p));m['url']='https://github.com/'+os.environ['GITHUB_REPOSITORY']+'/releases/latest/download/kb.zip';json.dump(m,open(p,'w'))"
             echo "Carrying forward KB $(python -c 'import json; print(json.load(open("kb-in/kb-manifest.json"))["version"])')"
           else
-            # first release ever: build the KB (NiaMeowDB, used with permission; polite single-site scrape)
+            # first release ever: build the KB (NiaDB, used with permission; at its tool rules' pace, ~20 hours)
             echo "No published knowledge base yet: scraping NiaMeowDB"
             python tools/scrape_meowdb.py
             python tools/kb_release.py validate data/kb --min-entities 500

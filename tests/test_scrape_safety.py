@@ -154,12 +154,120 @@ def test_a_dropped_connection_is_retried_not_fatal(monkeypatch):
     assert scrape_meowdb.fetch("https://meowdb.com/x", retries=4) is None and len(calls) == 4
 
 
-def test_a_429_waits_as_long_as_the_site_asks():
+@pytest.fixture
+def gate(monkeypatch):
+    """scrape_meowdb.fetch with a fresh gate and a fake clock: `waits` collects every pause it takes."""
+    clock, waits = [1000.0], []
+    monkeypatch.setattr(scrape_meowdb, "_last", [0.0])
+    monkeypatch.setattr(scrape_meowdb, "_blocked", [])
+    monkeypatch.setattr(scrape_meowdb.time, "monotonic", lambda: clock[0])
+
+    def sleep(s):
+        waits.append(s)
+        clock[0] += s
+    monkeypatch.setattr(scrape_meowdb.time, "sleep", sleep)
+    return clock, waits
+
+
+class _Answer:
+    def __init__(self, body=b"ok"):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def read(self):
+        return self.body
+
+
+def test_meowdb_requests_are_ten_seconds_apart_other_hosts_are_not(gate, monkeypatch):
+    clock, waits = gate
+    sent = []
+
+    def answer(req, timeout=30):
+        sent.append((req.full_url, clock[0], req.get_header("User-agent")))
+        clock[0] += 2                       # the answer takes two seconds
+        return _Answer()
+    monkeypatch.setattr(scrape_meowdb.urllib.request, "urlopen", answer)
+    for url in ("https://meowdb.com/a", "https://meowdb.com/b", "https://www.nexon.com/n", "https://meowdb.com/c"):
+        assert scrape_meowdb.fetch(url) == "ok"
+    meow = [t for u, t, _ in sent if "meowdb" in u]
+    # the site's tool rules: one request every 10 seconds, counted from the end of the last answer
+    assert all(b - a >= scrape_meowdb.DELAY_SECONDS + 2 for a, b in zip(meow, meow[1:]))
+    assert scrape_meowdb.DELAY_SECONDS >= 10
+    assert sent[2][1] == sent[1][1] + 2     # Nexon's news never waits for meowdb's turn
+    # ...and our name and a way to reach us in the User-Agent
+    assert all("MapleHelper" in ua and "github.com/Maple-Helper" in ua for _, _, ua in sent)
+
+
+@pytest.mark.parametrize("code", [403, 429])
+def test_a_403_or_429_stops_every_later_meowdb_request(gate, monkeypatch, code):
     import urllib.error
-    e = urllib.error.HTTPError("u", 429, "slow down", {"Retry-After": "45"}, None)
-    assert scrape_meowdb.retry_after(e) == 45
-    assert scrape_meowdb.retry_after(urllib.error.HTTPError("u", 429, "", {"Retry-After": "9999"}, None)) == 120
-    assert scrape_meowdb.retry_after(urllib.error.HTTPError("u", 503, "", {}, None)) is None
+    sent = []
+
+    def answer(req, timeout=30):
+        sent.append(req.full_url)
+        if "meowdb" in req.full_url:
+            raise urllib.error.HTTPError(req.full_url, code, "no", {}, None)
+        return _Answer()
+    monkeypatch.setattr(scrape_meowdb.urllib.request, "urlopen", answer)
+    with pytest.raises(scrape_meowdb.Blocked):
+        scrape_meowdb.fetch("https://meowdb.com/a")
+    with pytest.raises(scrape_meowdb.Blocked):
+        scrape_meowdb.fetch("https://meowdb.com/b")
+    assert sent == ["https://meowdb.com/a"]          # no retry, and nothing more is sent
+    assert scrape_meowdb.fetch("https://www.nexon.com/n") == "ok"
+    assert str(code) in scrape_meowdb.blocked()
+
+
+def test_a_blocked_night_keeps_the_kb_and_still_brings_the_news(tmp_path, monkeypatch):
+    import json
+
+    import meowdb_sections
+    import scrape_news
+    _seed(tmp_path, ["monster/1"])
+    monkeypatch.setattr(scrape_meowdb, "KB", tmp_path)
+    monkeypatch.setattr(scrape_meowdb, "_blocked", [])
+
+    def refused():
+        scrape_meowdb._blocked.append("403 from https://meowdb.com/msclassic/sitemap.xml")
+        raise scrape_meowdb.Blocked(scrape_meowdb._blocked[0])
+    monkeypatch.setattr(scrape_meowdb, "entity_urls", refused)
+    monkeypatch.setattr(meowdb_sections, "scrape", lambda kb, fetch, delay: pytest.fail("asked meowdb again"))
+    monkeypatch.setattr(scrape_meowdb, "scrape_routes", lambda: pytest.fail("asked meowdb again"))
+    monkeypatch.setattr(scrape_news, "update", lambda kb, fetch, fetch_bytes=None: 1)
+    scrape_meowdb.scrape(None, refresh=False, changed_only=True, rolling=400)
+    run = json.loads((tmp_path / "last_run.json").read_text(encoding="utf-8"))
+    assert run["changed"] == 1 and "403" in run["blocked"]
+    assert [e["key"] for e in json.loads((tmp_path / "index.json").read_text(encoding="utf-8"))] == ["monster/1"]
+
+
+def test_a_rolling_night_rereads_the_pages_fetched_longest_ago(tmp_path, monkeypatch):
+    monkeypatch.setattr(scrape_meowdb, "KB", tmp_path)
+    keys = ["item/1", "item/2", "item/3", "item/4"]
+    _seed(tmp_path, keys)
+    url = {k: f"{scrape_meowdb.BASE}/msclassic/item-db/{k[5:]}" for k in keys}
+    monkeypatch.setattr(scrape_meowdb, "LASTMOD", {u: "2026-10-06" for u in url.values()})
+    index = {k: {"key": k, "lastmod": "2026-10-06", "fetched": d}
+             for k, d in zip(keys, ["2026-11-09", "", "2026-11-01", "2026-11-05"])}
+    jobs = scrape_meowdb.plan_jobs({"item-db": list(url.values())}, index, None, False, True, rolling=2)
+    assert [j[2] for j in jobs] == ["item/2", "item/3"]
+    assert scrape_meowdb.plan_jobs({"item-db": list(url.values())}, index, None, False, True) == []
+
+
+def test_a_page_the_sitemap_dropped_leaves_the_kb_without_a_full_refresh(tmp_path, monkeypatch):
+    monkeypatch.setattr(scrape_meowdb, "KB", tmp_path)
+    keys = [f"item/{n}" for n in range(1, 41)]
+    _seed(tmp_path, keys)
+    index = {k: {"key": k} for k in keys}
+    listed = [f"{scrape_meowdb.BASE}/msclassic/item-db/{n}" for n in range(1, 40)]
+    assert scrape_meowdb.drop_unlisted({"item-db": listed}, index) == 1
+    assert "item/40" not in index and not (tmp_path / "pages" / "item" / "40.md").exists()
+    # a half-served sitemap removes nothing
+    assert scrape_meowdb.drop_unlisted({"item-db": listed[:10]}, index) == 0 and len(index) == 39
 
 
 def test_make_aliases_cleans_shared_aliases_even_with_nothing_to_ask(tmp_path, monkeypatch):
