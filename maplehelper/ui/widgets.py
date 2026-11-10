@@ -25,6 +25,20 @@ def _label(text: str = "", name: str | None = None, rich: bool = False, wrap: bo
     return lb
 
 
+def credit_label(url: str | None) -> QLabel:
+    """The card's credit, "NiaDB (meowdb.com)": a link to the entity's own page there when it has one, as the
+    site's reuse rules ask (meowdb.com/reuse: credit NiaDB with a link to the page used, not only the home page)."""
+    if not url or not url.startswith("https://"):
+        return _label("NiaDB (meowdb.com)", "CardCredit", wrap=False)
+    from html import escape
+    lb = _label(f'<a href="{escape(url, quote=True)}">NiaDB</a> (meowdb.com)', "CardCredit", rich=True, wrap=False)
+    lb.setTextInteractionFlags(Qt.LinksAccessibleByMouse)
+    lb.setOpenExternalLinks(False)
+    lb.linkActivated.connect(open_url)
+    lb.setToolTip(url)
+    return lb
+
+
 def on_solid_background(pm: QPixmap, radius: float) -> QPixmap:
     """A grabbed card drawn over the chat's own solid color: the card itself is see-through glass, and
     pasted into Discord or WhatsApp it would be light text on nothing (unreadable in dark mode)."""
@@ -1031,7 +1045,7 @@ def load_lazy_picture(card, size: int, trim: bool = False) -> None:
 
 
 class EntityCard(Selectable, QFrame):
-    """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaMeowDB page."""
+    """Image + official English name + key stats + credit; tap to ask about it, ↗ opens its NiaDB page."""
 
     def __init__(self, kb: KnowledgeBase, key: str, lang: str, details: bool = True, lazy: bool = False):
         """lazy: the picture waits for load_picture() (a window of a hundred cards shows first, PERF-04)."""
@@ -1115,7 +1129,7 @@ class EntityCard(Selectable, QFrame):
             self.mesos_label.setToolTip(tip_html(mesos_tip(t, mesos), he))
             col.addWidget(self.mesos_label)
         # the credit line is the card's source line: where the stat line's numbers come from (the page's build,
-        # "COT2", else MeowDB's own) and, for an entity a KB update changed this week, "Updated", at its start
+        # "COT2", else NiaDB's own) and, for an entity a KB update changed this week, "Updated", at its start
         from .. import sources
         chips = []
         if stats:
@@ -1140,7 +1154,7 @@ class EntityCard(Selectable, QFrame):
         updated = updated_tag(t, kb, key)
         if updated:
             chips.append(updated)
-        credit = _label("NiaMeowDB (meowdb.com)", "CardCredit", wrap=False)
+        credit = credit_label(self.url)
         line = QWidget()
         credit_row = chip_row(chips)
         line.setLayout(credit_row)
@@ -1156,8 +1170,8 @@ class EntityCard(Selectable, QFrame):
         if self.url:
             link = QToolButton(objectName="Icon", text=theme.ICON["open"])
             link.setCursor(Qt.PointingHandCursor)
-            link.setToolTip("NiaMeowDB")
-            link.setAccessibleName("NiaMeowDB")
+            link.setToolTip("NiaDB")
+            link.setAccessibleName("NiaDB")
             link.clicked.connect(lambda: open_url(self.url))
             bl.addWidget(link)
         if key.startswith("item/"):
@@ -1800,7 +1814,7 @@ class TileGrid(QFrame):
         for i, k in enumerate(keys):
             grid.addWidget(EntityTile(kb, k, t, kb.community_vote(monster, k) if monster else None), i // 2, i % 2)
         outer.addLayout(grid)
-        credit = QLabel("NiaMeowDB (meowdb.com)", objectName="CardCredit")
+        credit = QLabel("NiaDB (meowdb.com)", objectName="CardCredit")
         # the title's chip says where the list is from (community, MSEA); the tiles' stat lines carry their own
         # build ("COT2"), beside the credit as on a card: under a "Community" title they read as players' numbers
         from .. import sources

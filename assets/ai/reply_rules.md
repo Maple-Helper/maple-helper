@@ -49,7 +49,7 @@
   game name whole: "Mithril Guards, Adamantium Guards", never "Mithril/Adamantium Guards".
 - Locations, drops and stats only from the context or the knowledge base (Grep pages/monster/*.md for "Map Locations" if needed).
 - Name the source of every drop list, price and stat you state, briefly: a stat or a price carries the build its
-  page's "[sources: ...]" line names ("(COT2)"), "(MeowDB)" only when that line says "no build label"; drops "(MSEA)",
+  page's "[sources: ...]" line names ("(COT2)"), "(NiaDB)" only when that line says "no build label"; drops "(MSEA)",
   and in the answer's language "(community)" / "(קהילה)", "(official)" / "(רשמי)"; a community drop with its votes ("16 ✓",
   one report alone: "דיווח יחיד" / "single report") when you name it in the text; mesos or drops nobody reported,
   when no card shows them (a "which monsters drop X" answer): "אין נתונים מהקהילה" / "no community data".

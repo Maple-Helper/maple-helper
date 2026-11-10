@@ -1,11 +1,11 @@
-"""Game server status, live from NiaMeowDB's server-status page (meowdb.com/msclassic/server-status).
+"""Game server status, live from NiaDB's server-status page (meowdb.com/msclassic/server-status).
 
 This one is NOT knowledge-base data: the KB is rebuilt once a night, and a maintenance starts and ends within hours,
 so a nightly copy would always be stale. The chat asks the same public endpoint the site's page reads, lightly (the
 header dot, ui/serverdot.py: every few minutes while the chat is open, backing off when the site can't be reached,
 never while it is closed).
 
-The endpoint answers {"verdict", "notice", "foundersAt", "grandAt", ...}: the verdict is NiaMeowDB's reading of
+The endpoint answers {"verdict", "notice", "foundersAt", "grandAt", ...}: the verdict is NiaDB's reading of
 Nexon's maintenance notices and players' "can't log in" reports:
     prelaunch  the game isn't open yet            checking  not decided yet
     up         servers up                         scheduled up, a maintenance is scheduled
@@ -13,14 +13,13 @@ Nexon's maintenance notices and players' "can't log in" reports:
 """
 from __future__ import annotations
 
-import json
 import time
-import urllib.request
 from dataclasses import dataclass
+
+from . import meowdb
 
 URL = "https://meowdb.com/msclassic/api/server-status"
 PAGE = "https://meowdb.com/msclassic/server-status"
-UA = "Maple Helper (https://github.com/Maple-Helper/maple-helper)"
 
 # the dot's state per verdict: green (up), orange (maintenance or players report trouble), grey (unknown / not open)
 STATES = {"up": "up", "scheduled": "up", "maintenance": "maintenance", "rising": "issues",
@@ -76,12 +75,7 @@ def fetch(timeout: float = 8) -> Status | None:
     from . import live
     if not live.enabled("server_status"):
         return None
-    try:
-        req = urllib.request.Request(URL, headers={"User-Agent": UA, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = json.loads(r.read().decode("utf-8"))
-    except Exception:          # noqa: BLE001 - offline, DNS, a timeout, an HTML error page: all "don't know"
-        return None
+    data = meowdb.get_json(URL, timeout)      # the site's tool rules: its pace, its stop on a 403/429
     return parse(data) if isinstance(data, dict) else None
 
 

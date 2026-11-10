@@ -340,7 +340,7 @@ def test_a_news_item_without_a_publisher_keeps_its_meowdb_link(qapp):
             "url": "https://meowdb.com/msclassic/news/x", "source_url": "https://example.com/x", "publisher": ""}
     page = article(t, item)
     links = [b.text() for b in page.findChildren(QPushButton) if b.objectName() == "Link"]
-    assert any("MeowDB" in x for x in links) and len(links) == 1          # the source link needs its publisher
+    assert any("NiaDB" in x for x in links) and len(links) == 1          # the source link needs its publisher
 
 
 # --- DLG-6: a section's links start on the leading side in Hebrew ---------------------------------------------------

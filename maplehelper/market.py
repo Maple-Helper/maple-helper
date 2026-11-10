@@ -1,27 +1,24 @@
 """Prices: what an NPC pays and charges (the KB's item pages) and what players ask on the Free Market
-(NiaMeowDB's player-reported listings, the same public endpoint its Free Market page reads).
+(NiaDB's player-reported listings, the same public endpoint its Free Market page reads).
 
-item_market() reads more of NiaMeowDB's Free Market section for one item, through the endpoints its item pages call
+item_market() reads more of NiaDB's Free Market section for one item, through the endpoints its item pages call
 (meowdb.com/msclassic/item-db/<id>): the usual price over the last 14 days and how many price checks and finished
 trades it comes from, the cheapest offer for sale and the best buy offer, the price trend (daily medians over 30
 days) and the newest listings. Live community data, not the KB: cached CACHE_SECONDS, at most CACHE_ITEMS items."""
 from __future__ import annotations
 
-import json
 import re
 import statistics
 import threading
 import time
 import urllib.parse
-import urllib.request
 from dataclasses import dataclass, field
 
-from . import sources
+from . import meowdb, sources
 
 FM_URL = "https://meowdb.com/msclassic/api/market-listings/browse"
 API = "https://meowdb.com/msclassic/api"
 FM_PAGE = "https://meowdb.com/msclassic/free-market"
-UA = "Maple Helper (https://github.com/Maple-Helper/maple-helper)"
 CACHE_SECONDS = 600
 CACHE_ITEMS = 40            # items remembered at once (the oldest lookup goes first)
 TREND_DAYS = 30             # the price-history window the trend is read over (the site offers 14, 30, 90)
@@ -50,7 +47,7 @@ class NpcPrices:
         return tuple(shop[:2]) in self.labels
 
     def source(self, shop: tuple) -> str:
-        """The source tag of a shop's price: its build label, else MeowDB's own (sources.py)."""
+        """The source tag of a shop's price: its build label, else NiaDB's own (sources.py)."""
         return self.labels.get(tuple(shop[:2])) or sources.MEOWDB
 
 
@@ -140,11 +137,8 @@ def free_market(name: str, timeout: float = 10) -> Market | None:
     if hit and time.time() - hit[0] < CACHE_SECONDS:
         return hit[1]
     url = FM_URL + "?" + urllib.parse.urlencode({"q": name, "sort": "price_low"})
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = json.loads(r.read().decode("utf-8"))
-    except Exception:
+    data = meowdb.get_json(url, timeout)
+    if data is None:
         return None
     rows = data.get("rows") if isinstance(data, dict) else None
     out = summarize(rows if isinstance(rows, list) else [], name)
@@ -266,18 +260,13 @@ def parse_item_market(summary, history, listed) -> ItemMarket:
 
 
 def _get(url: str, timeout: float):
-    try:
-        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            data = json.loads(r.read().decode("utf-8"))
-        return data if isinstance(data, dict) else None
-    except Exception:          # noqa: BLE001 - offline, a timeout, an error page: that part is unknown
-        return None
+    data = meowdb.get_json(url, timeout)      # the site's tool rules: its pace, its stop on a 403/429
+    return data if isinstance(data, dict) else None
 
 
 def item_market(item_id: int, timeout: float = 8) -> ItemMarket | None:
     """One item's Free Market (clean condition, as its page opens). None when the site can't be reached; cached
-    CACHE_SECONDS. Its three requests go one after another, never in parallel (up to 3 x timeout); a failed
+    CACHE_SECONDS. Its three requests go one after another, never in parallel, at the site's pace (meowdb.py); a failed
     summary stops it, the history and listings are each asked for anyway.
     (The tests stub this entry point out; _lookup is the work.)"""
     return _lookup(item_id, timeout)
@@ -304,5 +293,5 @@ def _lookup(item_id: int, timeout: float = 8) -> ItemMarket | None:
 
 
 def item_page(item_id: int) -> str:
-    """The item's NiaMeowDB page, at its Free Market section."""
+    """The item's NiaDB page, at its Free Market section."""
     return f"https://meowdb.com/msclassic/item-db/{item_id}#free-market"
