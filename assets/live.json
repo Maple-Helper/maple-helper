@@ -562,7 +562,7 @@
   },
   "items/he.json": {
    "contract": 1,
-   "sha256": "6891ab1bdc09be3b7c4ad973460a485699e0ca0b046826408061759391fcbee8"
+   "sha256": "8061f8be1f2539cf26c88939ab770dd147f2e02175c80989ced85d2275bf39c1"
   },
   "live/config.json": {
    "contract": 1,
@@ -570,7 +570,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "f17f5dd0a8d2f3c43395d80d36757c98f4a636c739cb1602504c0243ab012229"
+   "sha256": "5074e634694fcbba63b089aca6a4cb3171157c8594ed0b338aff39b945ba4bfb"
   },
   "official/facts.json": {
    "contract": 1,
