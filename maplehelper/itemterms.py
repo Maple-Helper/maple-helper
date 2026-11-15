@@ -73,6 +73,7 @@ _PHRASES = [
     ("Lifespan", "תוחלת חיים"),
     ("Recharge Cost", "עלות מילוי"),
     ("mesos / unit", "mesos ליחידה"),
+    ("per star", "לכל כוכב"),          # a throwing star's sell-back, NiaMeowDB's words since 2026-11-15
     ("Attack Power", "כוח התקפה"),
     ("Footing No sliding on ice", "אחיזה: לא מחליקים על קרח"),
     ("Fits over Any weapon", "מתאים מעל כל נשק"),

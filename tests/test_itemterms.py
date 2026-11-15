@@ -22,6 +22,8 @@ def test_stat_lines_read_in_hebrew_and_keep_stats_numbers_and_jobs():
     assert he("Lifespan 5 hours") == "תוחלת חיים 5 שעות" and he("Lifespan 1 hour") == "תוחלת חיים 1 שעה"
     assert he("Lifespan Until November 19, 2026") == "תוחלת חיים עד 19.11.2026"
     assert he("Fits over Any weapon") == "מתאים מעל כל נשק"
+    # a throwing star sells back for a base price plus a price for each star left in it (November 2026)
+    assert he("NPC Sell-back 500 mesos + 1 per star") == "מחיר מכירה ל-NPC 500 mesos + 1 לכל כוכב"
     # the attack speed grades NiaMeowDB renamed on 2026-10-25 ("Faster" -> "Very Fast", "Normal" -> "Average")
     assert he("Attack Speed Very Fast (3)") == he("Attack Speed Faster (3)") == "מהירות התקפה: מהירה מאוד (3)"
     assert he("Attack Speed Average (6)") == he("Attack Speed Normal (6)") == "מהירות התקפה: רגילה (6)"
