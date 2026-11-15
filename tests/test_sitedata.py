@@ -161,6 +161,19 @@ def test_nightly_scrape_writes_once_and_keeps_a_good_file(tmp_path):
     assert (tmp_path / ms.PETS).read_text(encoding="utf-8") == before
 
 
+def test_a_page_that_read_too_few_rows_is_described_in_the_log(tmp_path, capsys):
+    """The tier list read 0 rows for nights in a row (2026-11): the log says what the page now looks like, since only
+    the nightly fetches it."""
+    page = ('<h1>Tier list</h1><div data-src="/_data/tier-list.json"></div><table><tbody>'
+            '<tr><td>Fighter</td><td>A</td></tr></tbody></table>')
+    pages = {"skill-changes": "", "pets": "", "tier-list": page, "safe-to-sell.json": ""}
+    ms.scrape(tmp_path, lambda url: pages[url.rsplit("/", 1)[1]], delay=0)
+    log = capsys.readouterr().out
+    assert "tier-list: 0 rows read" in log
+    assert "<table> x1" in log and "/_data/tier-list.json" in log and "<tr><td>Fighter</td><td>A</td></tr>" in log
+    assert ms.layout(None) == "no page"
+
+
 # ------------------------------------------------------------------ the KB gate and the patch notes
 
 def test_gate_checks_the_list_pages(site_kb):
