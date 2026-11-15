@@ -240,11 +240,25 @@ def parse_safe_to_sell(text: str) -> dict:
 
 # ---------------------------------------------------------------- the nightly run
 
+def layout(page: str | None) -> str:
+    """A short description of a page that read too few rows, for the nightly's log: the parser can't be fixed
+    without seeing the page's new layout, and the nightly is the only one that fetches it (2026-11: the tier list
+    read 0 rows for nights in a row and nobody could look)."""
+    if not page:
+        return "no page"
+    tags = ", ".join(f"<{t}> x{len(re.findall(rf'<{t}\b', page))}" for t in ("h1", "table", "thead", "tbody", "tr", "td"))
+    data = sorted(set(re.findall(r"/_data/[\w./-]+", page)))[:5]
+    body = re.search(r"<tbody\b.*?</tbody>", page, re.S)
+    row = re.search(r"<tr\b.*?</tr>", body.group(0) if body else page, re.S)
+    sample = re.sub(r"\s+", " ", row.group(0) if row else _text(page)[:300])[:600]
+    return f"{len(page)} chars; {tags}; data files {data or 'none'}; first row: {sample}"
+
+
+
 PAGES = ((SKILL_CHANGES, "skill-changes", parse_skill_changes, "skills"),
          (PETS, "pets", parse_pets, "pets"),
          (TIERS, "tier-list", parse_tiers, "rows"),
          (SAFE_TO_SELL, SAFE_TO_SELL_URL, parse_safe_to_sell, "rows"))
-
 
 def rows_of(name: str, data: dict) -> list:
     return next((data.get(field) or [] for n, _, _, field in PAGES if n == name), [])
@@ -267,6 +281,7 @@ def scrape(kb: Path, fetch, delay: float = 1.0) -> int:
         if len(rows_of(name, data)) < max(MIN_ROWS[name], int(before * MIN_KEPT)):
             print(f"::warning::{path}: {len(rows_of(name, data))} rows read (last time {before}), the previous {name}"
                   " stays", flush=True)
+            print(f"{path}: {layout(page)}", flush=True)
             continue
         text = json.dumps(data, ensure_ascii=False, indent=1) + "\n"
         old = target.read_text(encoding="utf-8") if target.exists() else ""
