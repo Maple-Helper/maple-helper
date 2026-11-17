@@ -92,6 +92,13 @@ def test_an_item_with_no_notes_has_none():
     assert d.stats == ["REQ LEV 10"] and not d.about and not d.posts and not d.description
 
 
+def test_the_sites_watch_button_is_not_a_stat_line():
+    """NiaDB renamed "Add to watchlist" to "Watch" (November 2026): 400 item pages fetched before the scraper dropped
+    it keep the line under the header, and the item window showed "Watch" as an untranslated stat (kb-drift #201)."""
+    page = "# Bow Attack Scroll: Chaos\nUse · Scroll · No. 0037\nWatch\nW.ATK +5\nTradeable\n"
+    assert itemdetails.details(_KB(page), "item/37").stats == ["W.ATK +5"]
+
+
 def test_opens_right_of_the_chat_or_left_when_there_is_no_room():
     chat = QRect(400, 60, 624, 664)
     at = itemview.beside(chat, SIZE, [SCREEN])
