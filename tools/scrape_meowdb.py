@@ -55,7 +55,7 @@ DELAY_SECONDS = 10.0
 SOURCE = "NiaDB (meowdb.com)"
 # how a page is turned into text: bump it with every change to main_text/scrape_one's output, so the patch notes
 # don't call every re-parsed page "updated" (the SITE_TOOLS change did: 186 monsters "updated", nothing new)
-PARSER_VERSION = 5        # 5: the credit reads NiaDB, the site's own name for itself
+PARSER_VERSION = 6        # 6: the site's "Watch" button is not page text
 
 # sitemap path prefix -> (category name, path depth that marks an entity page)
 CATEGORIES = {
@@ -181,7 +181,8 @@ def json_ld(page: str) -> list[dict]:
 SITE_TOOLS = re.compile(r"Check your build against |Your damage on it How hard it hits you|Scroll Simulator for "
                         r"|Ad blocked\? |Buy us a coffee|Upvote what you've seen|Items players have personally seen drop")
 # the site's own controls and placeholders, whole lines ("Next →" on 3,917 pages, "Log in to sell or buy" on 2,577)
-SITE_LINES = {"Loading...", "Loading…", "Calculate", "Add to watchlist", "Next →", "🐾", "Log in to sell or buy",
+# ("Add to watchlist" is "Watch" since November 2026, on its own line under an item's header)
+SITE_LINES = {"Loading...", "Loading…", "Calculate", "Add to watchlist", "Watch", "Next →", "🐾", "Log in to sell or buy",
               "Loading leaderboard...", "Loading drops", "Loading community builds...", "Loading community guides...",
               "Loading watch count...", "Loading watch count…"}
 # ...and at the end of a value line: "Mesos per kill Loading...", "Base 1 Calculate", "no rolls yet Log in to submit"

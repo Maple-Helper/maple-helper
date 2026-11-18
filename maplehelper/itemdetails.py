@@ -23,6 +23,8 @@ _STATS_END = ("Male", "Female", "Tradeable", "Untradeable", "Weapon Details", "W
 # the site's own note among the stats, in sentences ("The Selective 5-slot Coupon bought with NX can be traded once
 # before use. Buying that copy ...", pages/item/1536.md, October 2026): a stat line is never two sentences
 _PROSE = re.compile(r"[a-z]\. [A-Z].*\.$")
+# the site's watchlist button, kept as a line by pages fetched before the scraper dropped it (400 items, November 2026)
+_SITE_BUTTONS = {"Watch", "Add to watchlist"}
 
 
 @dataclass
@@ -51,7 +53,7 @@ def details(kb, key: str) -> Details:
         for ln in lines[at + 1:at + 30]:
             if not ln or ln.startswith(_STATS_END):
                 break
-            if not _PROSE.search(ln):
+            if not _PROSE.search(ln) and ln not in _SITE_BUTTONS:
                 out.stats.append(ln)
         out.trade = next((ln for ln in lines[at + 1:at + 40] if ln in ("Tradeable", "Untradeable")), "")
     title = next((n for n, ln in enumerate(lines) if ln.startswith("# ")), None)

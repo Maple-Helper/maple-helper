@@ -70,6 +70,16 @@ def test_an_items_watchlist_button_and_its_watch_count_are_not_page_text():
     assert scrape_meowdb.main_text(page, "Henesys Hunting Ground I").split("\n") == ["Add to watchlist Find path here"]
 
 
+def test_the_sites_watch_button_is_not_page_text():
+    """"Add to watchlist" is "Watch" since November 2026, its own line under an item's header: the item window showed
+    it as a stat (kb-drift #201). A name that starts with the word stays."""
+    page = """<html><body><div>Explore the database</div><div>Items / Bow Attack Scroll: Chaos</div>
+<div>Use · Scroll · No. 0037</div><div><button>Watch</button></div><div>W.ATK +5</div>
+<div>Watch Out for Icy Path I</div></body></html>"""
+    assert scrape_meowdb.main_text(page, "Bow Attack Scroll: Chaos").split("\n") == [
+        "Use · Scroll · No. 0037", "W.ATK +5", "Watch Out for Icy Path I"]
+
+
 # ---------------------------------------------------------------- a night's scrape, simulated
 
 def _night(tmp_path, monkeypatch, site: dict[str, str | None], refresh: bool):
