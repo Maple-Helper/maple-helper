@@ -139,7 +139,10 @@ def fingerprint(root: Path) -> str:
 
 
 def mark_text(root: Path) -> str:
-    return DROPS_MARK + f"tables {TABLES_VERSION} schema {schema_hash()} inputs {fingerprint(root)}\n"
+    # what the official facts open ahead of the KB (availability.open_now): a fact that comes live rebuilds them
+    opened = availability.open_now()
+    extra = f" open {' | '.join(opened)}" if opened else ""
+    return DROPS_MARK + f"tables {TABLES_VERSION} schema {schema_hash()} inputs {fingerprint(root)}{extra}\n"
 
 
 def _stats(root: Path) -> tuple:

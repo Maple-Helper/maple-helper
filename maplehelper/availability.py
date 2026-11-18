@@ -19,6 +19,8 @@ import json
 import re
 from pathlib import Path
 
+from . import live, official
+
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
 
 _SECTION_END = re.compile(r"^(Level cap|Changes since|Preparing for launch|Not at launch|Confirmed content)\s*$", re.M)
@@ -86,6 +88,10 @@ class Availability:
         # when the KB last checked what is out: the release guide's own date ("2026-09-29T00:00:00.000Z")
         self.verified = str((kb.get(RELEASE_GUIDE) or {}).get("lastmod") or "")[:10]
         self._memo: dict[tuple[str, str], object] = {}       # (what, key) -> answer: pages are read once
+        # what the owner's official facts say is out now (assets/official/facts.json "open_now"), ahead of the KB:
+        # an area the guide still calls closed, a party quest its timeline still has as "Scheduled"
+        self.open_now = open_now()
+        self.generation = live.generation()
         # the guide's own body, not its FAQ/table of contents at the top (which repeats the headings)
         body = guide[guide.rfind("Confirmed content"):] if "Confirmed content" in guide else guide
         self.confirmed_text = _section(body, "Confirmed content")
@@ -169,7 +175,7 @@ class Availability:
             # Launch" (the guide's 2026-10-18 wording) opened it while it was still shut
             mentions = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])[^\n]*\b(closed|not open|not included|"
                                  r"later date|not part)\b", self.not_at_launch_text, re.I)
-            if not mentions:
+            if not mentions or _listed(name, self.open_now):
                 continue
             self.closed_areas.append(name)
             listed = {name}
@@ -253,7 +259,8 @@ class Availability:
         for m in _SCHEDULED.finditer(self.guide):
             for pq in _PARTY_QUEST.findall(m.group(2)):
                 pq = re.sub(r"^(?:The|A|An)\s+", "", pq.strip())
-                self.scheduled.append((f"{pq} party quest", m.group(1)))
+                if not _listed(f"{pq} party quest", self.open_now):
+                    self.scheduled.append((f"{pq} party quest", m.group(1)))
         if not self.scheduled:
             return
         npc_maps: dict[str, set[str]] = {}
@@ -537,10 +544,25 @@ class Availability:
         return " ".join(parts)
 
 
+def open_now() -> tuple[str, ...]:
+    """Areas and party quests an official fact says are out now ("Forgotten Hollow", "Moon Bunny's Rice Cake party
+    quest"), whatever the KB's guide still says. Sorted: the tables' mark carries it."""
+    got = official.value("open_now")
+    return tuple(sorted({str(x).strip() for x in got if str(x).strip()})) if isinstance(got, list) else ()
+
+
+def _listed(name: str, names) -> bool:
+    """`name` is one of `names`, ignoring case, apostrophes and a leading article ("The Moon Bunny's ...")."""
+    def norm(t: str) -> str:
+        return re.sub(r"^(?:the|a|an)\s+", "", re.sub("['\u2019](?:s\\b)?", "", t.lower())).strip()
+    return norm(name) in {norm(n) for n in names}
+
+
 def of(kb) -> Availability:
-    """The availability for this knowledge base, worked out once per KB object (a KB update loads a new one)."""
+    """The availability for this knowledge base, worked out once per KB object (a KB update loads a new one) and
+    again when the official facts come live with another "open_now"."""
     a = getattr(kb, "_availability", None)
-    if a is None or a.kb is not kb:
+    if a is None or a.kb is not kb or (a.generation != live.generation() and a.open_now != open_now()):
         a = Availability(kb)
         try:
             kb._availability = a

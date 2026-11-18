@@ -1050,3 +1050,47 @@ def test_the_apps_own_hebrew_names_reach_their_entries(real):
             assert hit and real.get(hit)["name"] == e["name"], (key, n, hit)
     assert real.find_mentions("איפה סטאמפי") == ["monster/700007"]
     assert real.find_mentions("איפה ויקטוריה רואד") == []         # aliases.json gave it to Yellow Mushroom House
+
+
+def test_an_official_fact_opens_an_area_the_guide_still_calls_closed(tmp_path, monkeypatch):
+    """The November 18, 2026 update: the owner's fact ("open_now") opens Forgotten Hollow and the Moon Bunny's Rice
+    Cake party quest the morning the patch is out, before the KB's guide stops calling them closed and scheduled.
+    A scheduled row the fact doesn't name (the Hollow's own party quest, December 9) stays scheduled."""
+    from maplehelper import availability
+    guide = ("Confirmed content\nClassic maps on Victoria Island.\nNot at launch\nForgotten Hollow opens November 18. "
+             "It stays closed at Grand Launch on October 21.\n"
+             "November 18, 2026 November update Scheduled ▸ Forgotten Hollow opens. The Moon Bunny's Rice Cake party "
+             "quest runs for level 11 and up.\n"
+             "December 9, 2026 December update Scheduled ▸ A new Forgotten Hollow party quest from level 41.\n")
+    pages = {"guide/maplestory-classic-worlds-release-date": "---\n{}\n---\n\n# Release\n\n" + guide,
+             "map/1": "# Forgotten Hollow\nLocation Shallow Passage / Victoria Island\n",
+             "map/2": "# Henesys\nLocation Victoria Road / Victoria Island\n"}
+    ents = [ent("guide/maplestory-classic-worlds-release-date", "Release"), ent("map/1", "Forgotten Hollow"),
+            ent("map/2", "Henesys")]
+    monkeypatch.setattr(availability, "open_now", lambda: ("Forgotten Hollow", "Moon Bunny's Rice Cake party quest"))
+    a = availability.of(small_kb(tmp_path, ents, {}, pages))
+    assert a.closed_areas == [] and a.place_open("Forgotten Hollow")
+    assert [w for w, _ in a.scheduled] == ["Forgotten Hollow party quest"]
+
+
+def test_the_official_open_now_fact_reads_as_names():
+    from maplehelper import availability, official
+    fact = next(f for f in official.facts() if f.get("open_now"))
+    assert "Forgotten Hollow" in fact["open_now"]
+    assert availability._listed("The Moon Bunny's Rice Cake party quest", ["Moon Bunny Rice Cake party quest"])
+    assert not availability._listed("Forgotten Hollow party quest", ["Forgotten Hollow"])
+
+
+def test_a_monster_on_a_map_the_site_marks_closed_keeps_its_map_row():
+    """Before November 18, 2026 every Forgotten Hollow monster's "Map Locations" row was split in two: the cell and
+    the site's "Temporarily inaccessible until November 18" on one line, the numbers on the next. The rows read as
+    none, so the Hollow's eleven monsters were in no table even once the Hollow was open."""
+    from maplehelper import combat
+    page = ("Map Locations ( 2 )\nFind nearest map\nMap | Count ↓ | Share ↓ | Types ↓ | Mob Rate | Respawn\n"
+            "Forgotten Entrance III Shallow Passage Temporarily inaccessible until November 18\n"
+            "| 19 | 19 / 44 43 % | 3 | 0.7 x | ~7.5s\n"
+            "Pig Park Hidden Street | 5 | 5 / 20 25 % | 3 | 0.6 x | ~7.5s\nDrops (MS Classic)\nHP | 1,377 | x\n")
+    rows = combat._map_rows(page)
+    assert [(r[0], r[1]) for r in rows] == [("Forgotten Entrance III Shallow Passage", "19"),
+                                            ("Pig Park Hidden Street", "5")]
+    assert combat.respawn_seconds(rows[0][-1]) == 7.5
