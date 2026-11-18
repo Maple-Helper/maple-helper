@@ -19,6 +19,13 @@
       "added": "2026-10-21",
       "en": "Grand Launch (Oct 21, 2026, Nexon's release notes) added a new area to Perion: Excavation Site. Some of the monsters there: Ghost Stump, Wooden Mask, Rocky Mask, Skeledog, Mummydog, Skeleton Soldier, Officer Skeleton, Commander Skeleton. Their levels, stats, drops and the area's maps are not in the knowledge base yet: say so rather than guess.",
       "he": "ה-Grand Launch (21 באוקטובר 2026, לפי הודעת השחרור של Nexon) הוסיף אזור חדש ל-Perion: Excavation Site. חלק מהמפלצות שם: Ghost Stump, Wooden Mask, Rocky Mask, Skeledog, Mummydog, Skeleton Soldier, Officer Skeleton, Commander Skeleton. הרמות, הנתונים, הדרופים והמפות של האזור עוד לא במאגר: אומרים את זה ולא מנחשים."
+    },
+    {
+      "id": "november-update",
+      "added": "2026-11-18",
+      "en": "The November 18, 2026 update (v.2.0, Nexon's patch notes) is out: Forgotten Hollow is open (a new Lv 39-60 area off Ellinia and Sleepy Dungeon, with the field boss Rotten Mushmom), the Moon Bunny's Rice Cake party quest runs for Thanksgiving, and the new world Zenith is open. A knowledge-base page that still calls Forgotten Hollow closed or 'Temporarily inaccessible until November 18' is out of date.",
+      "he": "עדכון 18 בנובמבר 2026 (v.2.0, לפי ה-Patch Notes של Nexon) יצא: Forgotten Hollow פתוח (אזור חדש לרמות 39-60 ליד Ellinia ו-Sleepy Dungeon, עם בוס השדה Rotten Mushmom), ה-party quest של Moon Bunny's Rice Cake פועל לכבוד חג ההודיה, והעולם החדש Zenith פתוח. דף במאגר שעדיין אומר ש-Forgotten Hollow סגור או 'Temporarily inaccessible until November 18' לא מעודכן.",
+      "open_now": ["Forgotten Hollow", "Moon Bunny's Rice Cake party quest"]
     }
   ]
 }

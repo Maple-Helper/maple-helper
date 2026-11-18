@@ -1230,9 +1230,10 @@ class KnowledgeBase:
         i = body.find("Map Locations")
         if i < 0:
             return []
+        from .combat import map_table_lines
         maps = []
         # table rows: "Map Region | Count | Share | Types | Mob Rate | Respawn"
-        for line in body[i:].split("\n")[2:2 + n * 3]:
+        for line in map_table_lines(body[i:])[:n * 3]:
             if " | " not in line:
                 break  # end of the table: the "Change history" table below it has numeric rows too ("HP | 7,560 | ...")
             cols = [c.strip() for c in line.split(" | ")]

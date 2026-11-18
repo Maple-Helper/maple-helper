@@ -162,3 +162,14 @@ def isolated_store(tmp_path, monkeypatch):
     monkeypatch.setattr(lootdb, "PATH", tmp_path / "loot.sqlite")
     (tmp_path / "history").mkdir()
     return store
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _kb_alone():
+    """What is in the game comes from the KB alone in tests: an official fact that opens an area ahead of the KB
+    (assets/official/facts.json "open_now") would change every availability test each time the owner adds one.
+    The tests of that fact set it themselves (test_data_fixes.py)."""
+    from maplehelper import availability
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(availability, "open_now", lambda: ())
+        yield

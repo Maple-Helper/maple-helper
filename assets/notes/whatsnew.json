@@ -1,5 +1,16 @@
 [
  {
+  "version": "0.20.8",
+  "he": [
+   "עדכון נובמבר: Forgotten Hollow פתוח באפליקציה. 11 המפלצות החדשות, כולל הבוס Rotten Mushmom, המפות, הקווסטים והדרופים מופיעים בחיפוש, בכלי האימון ובצ'אט.",
+   "ה-party quest של Moon Bunny's Rice Cake לכבוד חג ההודיה מופיע גם הוא."
+  ],
+  "en": [
+   "November update: Forgotten Hollow is open in the app. Its 11 new monsters, the Rotten Mushmom boss included, its maps, quests and drops show in search, the training tools and the chat.",
+   "The Moon Bunny's Rice Cake party quest for Thanksgiving shows too."
+  ]
+ },
+ {
   "version": "0.20.7",
   "he": [
    "נקודת סטטוס השרתים בצ'אט מציגה שוב את מצב השרתים.",

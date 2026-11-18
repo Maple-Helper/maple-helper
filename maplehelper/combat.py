@@ -104,13 +104,30 @@ def respawn_seconds(text: str) -> float | None:
     return sum(float(n) * {"h": 3600, "m": 60, "s": 1}[u] for n, u in parts)
 
 
+_CLOSED_TAG = re.compile(r"\s+Temporarily inaccessible\b.*$")
+
+
+def map_table_lines(table: str) -> list[str]:
+    """A "Map Locations" table's lines from its heading on, past the heading's two lines. A map the site marks closed
+    has its cell on a line of its own and the numbers on the next: "Primeval Forest I Shallow Passage Temporarily
+    inaccessible until November 18" / "| 5 | 5 / 20 25 % | 3 | ..." (every Forgotten Hollow monster before the
+    November 18, 2026 update). They're joined into one row, the cell without the site's note."""
+    out: list[str] = []
+    for line in table.split("\n")[2:]:
+        if line.startswith("| ") and out and " | " not in out[-1] and out[-1].strip():
+            out[-1] = f"{_CLOSED_TAG.sub('', out[-1]).strip()} {line}"
+        else:
+            out.append(line)
+    return out
+
+
 def _map_rows(page: str) -> list[list[str]]:
     """The "Map Locations" table: "Map | Count | Share | Types | Mob Rate | Respawn" rows."""
     i = page.find("Map Locations")
     if i < 0:
         return []
     rows = []
-    for line in page[i:].split("\n")[2:]:
+    for line in map_table_lines(page[i:]):
         if " | " not in line:
             break
         cols = [c.strip() for c in line.split(" | ")]
