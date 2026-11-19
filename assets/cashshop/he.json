@@ -110,5 +110,13 @@
  "cash/5152100": {
   "en": "Take this to Plastic Surgery in Town to change your eyes to a color of your choice. (One-Time Use)\nUsing this coupon will change your eye color to Black, Blue, Red, Hazel, Sapphire, Violet, or Amethyst.",
   "he": "קחו את זה ל-Plastic Surgery בעיר כדי לשנות את צבע העיניים לצבע שתבחרו. (שימוש חד-פעמי)\nשימוש בקופון הזה ישנה את צבע העיניים שלכם ל-Black, Blue, Red, Hazel, Sapphire, Violet או Amethyst."
+ },
+ "cash/5222003": {
+  "en": "This box grants one random Equip item. The box contains only permanent items and can be traded to other players. \n\nIf you get something you don't want, you can sell it to other players or right-click to exchange it for Aurora Stamps.",
+  "he": "הקופסה הזו נותנת פריט Equip אקראי אחד. היא מכילה רק פריטים קבועים, ואפשר לסחור בה עם שחקנים אחרים.\nאם קיבלתם משהו שאתם לא רוצים, אפשר למכור אותו לשחקנים אחרים או ללחוץ עליו בקליק ימני כדי להחליף אותו ב-Aurora Stamps."
+ },
+ "cash/5140006": {
+  "en": "Allows you to open a regular store in which you can list up to 12 items at once. Can be used in fields or the Free Market.\nIf you are attacked or killed by a monster, the store will close.",
+  "he": "מאפשר לכם לפתוח חנות רגילה שבה אפשר להציע עד 12 פריטים בבת אחת. אפשר להשתמש בו בשדות או ב-Free Market. אם מפלצת תתקוף או תהרוג אתכם, החנות תיסגר."
  }
 }
