@@ -50,7 +50,11 @@ def test_every_line_the_real_kb_has_reads_in_hebrew():
         d = itemdetails.details(kb, k)
         for ln in d.stats:
             he = itemterms.stat_line(ln, "he")
-            left = [w for w in re.findall(r"[A-Za-z][A-Za-z.%]*", he) if w not in allowed and not w.startswith(jobs)]
+            # "Shared with Elixir, ..., Roasted Turkey and Gravy": the items it shares a cooldown with, by their names
+            names = set(re.findall(r"[A-Za-z][A-Za-z.%]*", ln[len("Shared with"):])) if ln.startswith("Shared with") \
+                else set()
+            left = [w for w in re.findall(r"[A-Za-z][A-Za-z.%]*", he)
+                    if w not in allowed and w not in names - {"and"} and not w.startswith(jobs)]
             assert not left, (k, ln, he)
         assert not re.search(r"[A-Za-z]", itemterms.kind(d.kind, "he").replace("Cash", "").replace("EXP", "")
                              .replace("mesos", "")), (k, d.kind)

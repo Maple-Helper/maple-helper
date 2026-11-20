@@ -868,6 +868,9 @@ def test_maps_whose_page_names_no_continent_are_in_the_game(real):
     unplaced = sorted(k for k, c in o.map_cell.items() if o.map_place[c][0] == availability.NO_CONTINENT)
     newer = [k for k in ("map/088001000",) if real.get(k)]       # not in KBs published before 2026-10-12
     newer += [k for k in [f"map/0800020{n}" for n in range(12, 21)] if real.get(k)]      # 2026-10-22
+    newer += [k for k in ("map/099999999",) if real.get(k)]      # White Room ("Location White Room / Hidden Street"), 2026-11-19
+    if "Forgotten Hollow" not in o.closed_areas:      # the Hollow's instances, Shortcut and Back to Town: open with it
+        newer += [f"map/080003{n}00" for n in range(5) if real.get(f"map/080003{n}00")]
     assert unplaced == sorted([f"map/080000{n}00" for n in range(7)] + [f"map/080001{n}00" for n in range(4)]
                               + [f"map/0800020{n:02}" for n in range(12)] + ["map/088000000", "map/089000000"]
                               + newer)

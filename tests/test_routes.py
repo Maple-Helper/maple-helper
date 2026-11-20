@@ -272,7 +272,8 @@ def test_a_maps_way_in_is_where_niameowdb_draws_leads_back_here(real):
         pytest.skip("Lith Harbor isn't in the game by this knowledge base")
     (way, *_) = g.entrances(store)
     assert way.frm == harbor and way.to == store and way.kind == "portal"
-    assert way.spot == pytest.approx((0.812, 0.802), abs=0.001)
+    from test_mapview import store_door
+    assert way.spot == pytest.approx(store_door(kb), abs=0.001)
     for mid in list(g.maps)[:80]:
         legs = g.entrances(mid)
         assert all(leg.to == mid and leg.frm != mid and leg.spot and g.minimap(leg.frm) for leg in legs)

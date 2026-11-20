@@ -92,8 +92,10 @@ class Availability:
         # an area the guide still calls closed, a party quest its timeline still has as "Scheduled"
         self.open_now = open_now()
         self.generation = live.generation()
-        # the guide's own body, not its FAQ/table of contents at the top (which repeats the headings)
-        body = guide[guide.rfind("Confirmed content"):] if "Confirmed content" in guide else guide
+        # the guide's own body, not its FAQ/table of contents at the top (which repeats the headings) nor the
+        # numbered contents list at the bottom ("4 Confirmed content"): the last line that is the heading alone
+        heads = list(re.finditer(r"^Confirmed content\s*$", guide, re.M))
+        body = guide[heads[-1].start():] if heads else guide
         self.confirmed_text = _section(body, "Confirmed content")
         self.not_at_launch_text = _section(body, "Not at launch")
         # every map's continent and street, from its own page
@@ -175,7 +177,11 @@ class Availability:
             # Launch" (the guide's 2026-10-18 wording) opened it while it was still shut
             mentions = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-])[^\n]*\b(closed|not open|not included|"
                                  r"later date|not part)\b", self.not_at_launch_text, re.I)
-            if not mentions or _listed(name, self.open_now):
+            # "Forgotten Hollow opened November 18. It was closed at Grand Launch" (the guide's 2026-11-19 wording):
+            # past tense, it is out now; "opens November 18" (future) still leaves it closed
+            opened = re.search(rf"(?<![\w-]){re.escape(name)}(?![\w-]) (opened|is open|is now open|has opened)\b",
+                               self.not_at_launch_text, re.I)
+            if not mentions or opened or _listed(name, self.open_now):
                 continue
             self.closed_areas.append(name)
             listed = {name}
