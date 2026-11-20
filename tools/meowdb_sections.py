@@ -166,39 +166,48 @@ def parse_tiers(page: str) -> dict:
     m = re.search(r"<h1[^>]*>.*?</h1>\s*<p[^>]*>(.*?)</p>", page, re.S)
     intro = _text(m.group(1)) if m else ""
     lv = re.search(r"\bat level (\d+)", intro) or re.search(r"Level (\d+) ·", _text(page[:20000]))
-    table = re.search(r"<table\b.*?</table>", page, re.S)
     columns, rows = [], []
-    if table:
-        head = re.search(r"<thead\b.*?</thead>", table.group(0), re.S)
-        ths = re.findall(r"<th\b[^>]*>(.*?)</th>", head.group(0) if head else "", re.S)
-        columns = [_text(th).replace("↓", "").replace("↑", "").strip() for th in ths][1:]
-        body = re.search(r"<tbody\b.*?</tbody>", table.group(0), re.S)
-        last = None
-        for tr in re.findall(r"<tr\b[^>]*>(.*?)</tr>", body.group(0) if body else "", re.S):
-            tds = re.findall(r"<td\b[^>]*>(.*?)</td>", tr, re.S)
-            if len(tds) != len(columns) + 1:
-                continue
-            divs = re.findall(r"<div class=\"(?:font-medium|text-maple-faint)[^\"]*\">(.*?)</div>", tds[0], re.S)
-            if len(divs) < 2:
-                continue
-            first, second = _text(divs[0]), _text(divs[1])
-            cells = {}
-            for col, td in zip(columns, tds[1:]):
-                grade = re.search(r'aria-label="([A-Z])\b[^"]*grade"', td)
-                value = _text(re.sub(r"<span[^>]*aria-label=\"[^\"]*grade\"[^>]*>.*?</span>", "", td, flags=re.S))
-                cells[col] = {"value": value, "grade": grade.group(1) if grade else ""}
-            if all(c["value"] in ("N/A", "") for c in cells.values()):
-                continue
-            if "↳" in tds[0] and last:
-                rows.append({**{k: last[k] for k in ("key", "name", "line")}, "variant": first, "gear": second,
-                             "cells": cells})
-            else:
-                last = {"key": _class_key(first), "name": first, "line": second, "variant": "", "gear": "",
-                        "cells": cells}
-                rows.append(last)
+    # the class comparison is the table whose rows read: since 2026-11-19 an ACC table (Rank, Class, ACC, hit chance
+    # per boss) comes first on the page, and reading only the first table gave 0 rows
+    for table in re.findall(r"<table\b.*?</table>", page, re.S):
+        got = _tier_table(table)
+        if len(got[1]) > len(rows):
+            columns, rows = got
     credit = re.search(r"(\w+) created the (\d+) Realistic level \d+ builds", _text(page))
     return {"source": f"{BASE}/tier-list", "level": int(lv.group(1)) if lv else None, "columns": columns,
             "rows": rows, "builds_by": credit.group(1) if credit else ""}
+
+
+def _tier_table(table: str) -> tuple[list, list]:
+    """(columns, rows) of one table on the tier list page: no rows for a table that isn't the class comparison."""
+    head = re.search(r"<thead\b.*?</thead>", table, re.S)
+    ths = re.findall(r"<th\b[^>]*>(.*?)</th>", head.group(0) if head else "", re.S)
+    columns = [_text(th).replace("↓", "").replace("↑", "").strip() for th in ths][1:]
+    body = re.search(r"<tbody\b.*?</tbody>", table, re.S)
+    rows, last = [], None
+    for tr in re.findall(r"<tr\b[^>]*>(.*?)</tr>", body.group(0) if body else "", re.S):
+        tds = re.findall(r"<td\b[^>]*>(.*?)</td>", tr, re.S)
+        if len(tds) != len(columns) + 1:
+            continue
+        divs = re.findall(r"<div class=\"(?:font-medium|text-maple-faint)[^\"]*\">(.*?)</div>", tds[0], re.S)
+        if len(divs) < 2:
+            continue
+        first, second = _text(divs[0]), _text(divs[1])
+        cells = {}
+        for col, td in zip(columns, tds[1:]):
+            grade = re.search(r'aria-label="([A-Z])\b[^"]*grade"', td)
+            value = _text(re.sub(r"<span[^>]*aria-label=\"[^\"]*grade\"[^>]*>.*?</span>", "", td, flags=re.S))
+            cells[col] = {"value": value, "grade": grade.group(1) if grade else ""}
+        if all(c["value"] in ("N/A", "") for c in cells.values()):
+            continue
+        if "↳" in tds[0] and last:
+            rows.append({**{k: last[k] for k in ("key", "name", "line")}, "variant": first, "gear": second,
+                         "cells": cells})
+        else:
+            last = {"key": _class_key(first), "name": first, "line": second, "variant": "", "gear": "",
+                    "cells": cells}
+            rows.append(last)
+    return columns, rows
 
 
 # ---------------------------------------------------------------- safe to sell

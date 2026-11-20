@@ -123,6 +123,18 @@ def test_tier_list_page(parsed):
     assert {r["key"] for r in base} >= {"class/f-p-wizard", "class/i-l-wizard", "class/crossbowman"}
 
 
+def test_tier_list_page_with_the_acc_table_first(parsed):
+    """Since 2026-11-19 the page opens with an ACC table (Rank, Class, ACC, hit chance per boss), and the class
+    comparison is the second table: reading the first one gave 0 rows for nights in a row."""
+    acc = ('<table><thead><tr><th>Rank</th><th>Class</th><th>ACC</th><th>Jr. Balrog Lv. 80</th></tr></thead><tbody>'
+           '<tr><td>1</td><td><div><a class="font-medium text-maple-accent" href="/msclassic/character-builder/x">'
+           'Crossbowman</a><div class="text-maple-faint">Bowman</div></div></td><td>161</td><td>34.8%</td></tr>'
+           '</tbody></table>')
+    page_ = page("tier-list")
+    at = page_.index("<table")
+    assert ms.parse_tiers(page_[:at] + acc + page_[at:]) == parsed[ms.TIERS]
+
+
 def test_safe_to_sell_list(parsed):
     d = parsed[ms.SAFE_TO_SELL]
     assert d["generated"] == "2026-10-10" and len(d["rows"]) == 60
