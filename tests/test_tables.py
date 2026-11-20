@@ -610,9 +610,13 @@ def test_real_tables_cover_the_pages(real):
 def test_real_tables_audit_fixes(real):
     """Launch audit (KB-1, 3, 4, 9, 10, 11, 15, 16, 17, 28, 29): each one a row the tables had wrong."""
     kb, t = real
-    # the Hollow's boss and hidden maps are out; the Free Market, a KPQ stage, the crafting stations are in
-    assert not [r for r in t["monsters"] if r["monster"] in ("Rotten Mushmom", "Rotten Mushroom", "Rafflesia")]
-    assert not [r for r in t["maps"] if r["map"] in ("Someone Else's Grave", "Forgotten Hollow", "Primeval Forest I")]
+    from maplehelper import availability
+    hollow_shut = "Forgotten Hollow" in availability.of(kb).closed_areas
+    # the Hollow's boss and hidden maps are out while the guide keeps it closed (in since the 2026-11-19 KB says it
+    # opened); the Free Market, a KPQ stage, the crafting stations are in
+    hollow = [r for r in t["monsters"] if r["monster"] in ("Rotten Mushmom", "Rotten Mushroom", "Rafflesia")]
+    hollow += [r for r in t["maps"] if r["map"] in ("Someone Else's Grave", "Forgotten Hollow", "Primeval Forest I")]
+    assert not hollow if hollow_shut else len(hollow) == 6
     assert one(t["maps"], map="Free Market Entrance")["street"] == "Hidden Street"
     assert one(t["maps"], map="1st Accompaniment <1st Stage>")
     assert one(t["npcs"], npc="Anvil")["map"] == "Perion" and one(t["npcs"], npc="Doofus")
@@ -632,8 +636,9 @@ def test_real_tables_audit_fixes(real):
     assert twins == [("item/1003", "Male"), ("item/1013", "Female")]
     assert kb.droppers.get("item/1013")
     assert min(r["exp_rank"] for r in t["maps"] if r["exp_rank"]) == 1
-    assert not [r for r in t["scrolls"] if "Forgotten Hollow" in (r.get("seller") or "")]
-    assert not [r for r in t["shops"] if "Forgotten Hollow" in r["place"]]
+    if hollow_shut:
+        assert not [r for r in t["scrolls"] if "Forgotten Hollow" in (r.get("seller") or "")]
+        assert not [r for r in t["shops"] if "Forgotten Hollow" in r["place"]]
 
 
 def test_the_background_build_warms_the_first_questions_caches(tiny):

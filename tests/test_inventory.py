@@ -182,7 +182,7 @@ def test_a_scroll_is_one_of_its_look_alikes_on_the_real_kb():
     assert slot.index == 4 and slot.status == "ambiguous"
     names = {kb.get(k)["name"] for k, _ in slot.matches}
     assert "Gloves Attack Scroll: Lesser" in names and len(names) >= 20
-    assert all(n.endswith(": Lesser") for n in names)
+    assert all(n.endswith((": Lesser", ": Lesser (Alt)")) for n in names)      # "(Alt)": the 2026-11-19 KB's twins
     # the ones in the game first: the AI's list of 8 showed scrolls no one can hold
     from maplehelper import availability
     open_ = [availability.of(kb).item_open(k) for k, _ in slot.matches]

@@ -81,7 +81,20 @@ def test_an_npc_is_where_it_stands_and_one_in_a_shop_is_behind_the_shops_door(re
     assert spot.map == "010000000" and spot.npc and spot.says == "npc_where_says"
     (spot,) = mapview.locations(real, mina)
     assert (spot.map, spot.npc, spot.inside) == ("010000000", False, "Lith Harbor Department Store")
-    assert spot.at == pytest.approx((0.812, 0.802), abs=0.001)
+    assert spot.at == pytest.approx(store_door(real), abs=0.001)
+
+
+def store_door(kb) -> tuple[float, float]:
+    """Where Lith Harbor's minimap has the Department Store's door, by routes.json's own frame of that minimap:
+    (81.2%, 80.2%) until the 2026-11-19 KB widened the frame (76.8%), always in its right-hand bottom part."""
+    import json
+    harbor = next(m for m in json.loads((kb.root / "routes.json").read_text(encoding="utf-8"))["maps"]
+                  if m["id"] == "010000000")
+    w, h, dx, dy = harbor["minimap"]
+    door = next(p for p in harbor["portals"] if p["to"] == "010000002")
+    at = ((door["x"] + dx) / w, (door["y"] + dy) / h)
+    assert 0.7 < at[0] < 0.9 and 0.7 < at[1] < 0.9
+    return at
 
 
 @needs_kb

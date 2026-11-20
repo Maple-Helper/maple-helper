@@ -43,6 +43,10 @@ BG_LIGHT = 238.0                    # a slot's light background on a panel drawn
 # next picture by 2.9 at least; a skill, the attack key and a box no potion has came closest at 36.4 but by 2.4 at most
 FIT_MAX = 39.0                      # a best fit worse than this names no potion
 FIT_MARGIN = 2.7                    # ... and it must beat a potion with another picture by this much
+# a picture that fits the slot little better than an empty slot (mostly white: a cake, the Moon Bunny's Rice Cake)
+# sees nothing there: on the 2026-11-19 KB the rice cake came within 2 of the Meat in a slot and hid it. Real
+# potions beat their empty-slot fit by 19 at least, a skill's best by 9 at most
+EVIDENCE_MIN = 5.0                  # a picture names a slot only when it fits it this much better than an empty slot
 SURE_MARGIN = 4.0                   # a slot named by this much keeps its name while its picture's shape stays
 GROW_MAX = 16                       # a widened panel: at most this many columns (and rows) in all
 
@@ -239,10 +243,14 @@ class _Picture:
     rgb: np.ndarray             # float32 h x w x 3
     alpha: np.ndarray           # float32 h x w, 0-1
     group: int                  # potions drawn with the very same picture share a group (no picture can tell them apart)
+    blank: float = float("inf")     # how well it fits an empty slot (_fit at its KB size)
 
 
 _pictures_lock = threading.Lock()
 _pictures: dict[str, list[_Picture]] = {}
+
+
+_BLANK = np.full((48, 48, 3), BG_LIGHT, np.float32)        # an empty slot at the KB pictures' size
 
 
 def _potion_pictures(kb) -> list[_Picture]:
@@ -266,7 +274,9 @@ def _potion_pictures(kb) -> list[_Picture]:
             a = np.asarray(im, np.float32)
             sig = a.astype(np.uint8).tobytes()
             group = seen.setdefault(sig, len(seen))
-            out.append(_Picture(k, a[..., :3], a[..., 3] / 255.0, group))
+            pic = _Picture(k, a[..., :3], a[..., 3] / 255.0, group)
+            pic.blank = min(_fit(_BLANK, pic, f) for f in SCALES)
+            out.append(pic)
         _pictures[root] = out
         return out
 
@@ -331,6 +341,7 @@ def identify(slot: np.ndarray, kb, pitch: float, gain: float = 1.0) -> tuple[str
     pics = _potion_pictures(kb)
     base = pitch / NATIVE_PITCH
     scored = sorted(((min(_fit(s, pic, base * f, gain) for f in SCALES), pic) for pic in pics), key=lambda r: r[0])
+    scored = [(d, pic) for d, pic in scored if pic.blank - d >= EVIDENCE_MIN]
     if not scored:
         return None, 0.0
     d, best = scored[0]

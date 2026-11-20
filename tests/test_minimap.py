@@ -197,8 +197,12 @@ def test_a_map_off_the_routes_is_still_named(graph):
     """A map the KB says is not in the game is never on a route, but the player standing on it is still read
     there: the reader names every map the KB has (it said nothing and kept the last map, live)."""
     from maplehelper.minimap import resolve_name
-    off = next(mid for mid, m in graph.known.items() if mid not in graph.maps and m.name == "Forgotten Hollow")
-    assert resolve_name(graph, "Forgotten Hollow", "Shallow Passage") == off
+    # Forgotten Hollow while the guide kept it closed; Orbis Park since the 2026-11-19 KB says the Hollow opened
+    off = [(mid, m.name, m.street) for mid, m in graph.known.items()
+           if mid not in graph.maps and m.name in ("Forgotten Hollow", "Orbis Park")]
+    assert off
+    for mid, name, street in off:
+        assert resolve_name(graph, name, street) == mid
 
 
 @needs_kb
