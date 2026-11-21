@@ -16030,8 +16030,14 @@
 "he": "Red Ribbon Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4714": {
+"en": "Lucia Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Lucia Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Cygnus Sandals is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Cygnus Sandals הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4715": {
 "en": "Pinky Pretty Gomushin is an early-game cash shoes, equippable in MapleStory Classic.",
@@ -16270,12 +16276,24 @@
 "he": "Black High Tops הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4774": {
+"en": "Dark Musician Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Dark Musician Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Green Ankle Boots for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Green Ankle Boots for Transformation הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4775": {
+"en": "Chained Princess Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Chained Princess Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Red Silky Boots for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Red Silky Boots for Transformation הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4777": {
 "en": "Black Voyson Shoes for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
@@ -19992,5 +20010,417 @@
 "item/923#about1": {
 "en": "Bandits use Pan Lid for now until this item becomes obtainable.",
 "he": "בינתיים Bandits משתמשים ב-Pan Lid, עד שאפשר יהיה להשיג את הפריט הזה."
+},
+"item/5578": {
+"en": "Antennae modeled after the cave fairies, blushing pink like a flower bud about to bloom.",
+"he": "אנטנות בהשראת פיות המערות, ורודות ומסמיקות כמו ניצן פרח שעומד לפרוח."
+},
+"item/5579": {
+"en": "Antennae modeled after the cave fairies, shimmering silver like moonlight.",
+"he": "אנטנות בהשראת פיות המערות, מנצנצות בכסף כמו אור ירח."
+},
+"item/5580": {
+"en": "Antennae modeled after the cave fairies, curling up like a fresh green sprout.",
+"he": "אנטנות בהשראת פיות המערות, מסתלסלות כמו נבט ירוק ורענן."
+},
+"item/5581": {
+"en": "Antennae modeled after the cave fairies, soft and green like the moss of Forgotten Hollow.",
+"he": "אנטנות בהשראת פיות המערות, רכות וירוקות כמו הטחב של Forgotten Hollow."
+},
+"item/5582": {
+"en": "Moon Bunny Hat (Alt) is a low-level hat, equippable at level 15 or higher in MapleStory Classic. It grants +22 M.DEF and +15 MP. Comes with 7 upgrade slots.",
+"he": "Moon Bunny Hat (Alt) הוא כובע לרמות נמוכות, שאפשר לצייד מרמה 15 ומעלה ב-MapleStory Classic. הוא מעניק +22 M.DEF ו-+15 MP. מגיע עם 7 סלוטים לשדרוג."
+},
+"item/5583": {
+"en": "Firefly Earrings is a mid-level earring, equippable at level 45 or higher in MapleStory Classic. It grants +35 M.DEF, +1 AVOID, +5 MP, and +2 CDMG. Comes with 5 upgrade slots.",
+"he": "Firefly Earrings הוא עגיל לרמות בינוניות, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא מעניק +35 M.DEF, +1 AVOID, +5 MP ו-+2 CDMG. מגיע עם 5 סלוטים לשדרוג."
+},
+"item/5584": {
+"en": "Bamboo Sword is a mid-level one-handed sword for Warriors and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +60 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Bamboo Sword היא חרב ביד אחת לרמות בינוניות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. היא מעניקה +60 W.ATK ו-+1 ACC. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5585": {
+"en": "Newspaper Sword is a low-level one-handed sword, equippable at level 30 or higher in MapleStory Classic. It grants +47 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Newspaper Sword היא חרב ביד אחת לרמות נמוכות, שאפשר לצייד מרמה 30 ומעלה ב-MapleStory Classic. היא מעניקה +47 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5586": {
+"en": "Beige Umbrella is a mid-level one-handed sword, equippable at level 45 or higher in MapleStory Classic. It grants +59 W.ATK and +61 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Beige Umbrella היא חרב ביד אחת לרמות בינוניות, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. היא מעניקה +59 W.ATK ו-+61 M.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5587": {
+"en": "Green Umbrella is a high-level one-handed sword, equippable at level 55 or higher in MapleStory Classic. It grants +69 W.ATK and +75 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Green Umbrella היא חרב ביד אחת לרמות גבוהות, שאפשר לצייד מרמה 55 ומעלה ב-MapleStory Classic. היא מעניקה +69 W.ATK ו-+75 M.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5588": {
+"en": "Light Purple Umbrella is a high-level one-handed sword, equippable at level 65 or higher in MapleStory Classic. It grants +79 W.ATK and +89 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Light Purple Umbrella היא חרב ביד אחת לרמות גבוהות, שאפשר לצייד מרמה 65 ומעלה ב-MapleStory Classic. היא מעניקה +79 W.ATK ו-+89 M.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5589": {
+"en": "Red Umbrella is a high-level one-handed sword, equippable at level 75 or higher in MapleStory Classic. It grants +89 W.ATK and +103 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Red Umbrella היא חרב ביד אחת לרמות גבוהות, שאפשר לצייד מרמה 75 ומעלה ב-MapleStory Classic. היא מעניקה +89 W.ATK ו-+103 M.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5590": {
+"en": "Black Umbrella is an endgame one-handed sword, equippable at level 85 or higher in MapleStory Classic. It grants +99 W.ATK and +117 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Black Umbrella היא חרב ביד אחת לשלב הסופי של המשחק, שאפשר לצייד מרמה 85 ומעלה ב-MapleStory Classic. היא מעניקה +99 W.ATK ו-+117 M.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5591": {
+"en": "Green Paint Brush is a mid-level one-handed axe for Warriors and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +62 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Green Paint Brush הוא גרזן ביד אחת לרמות בינוניות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא מעניק +62 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5592": {
+"en": "Black Paint Brush is a high-level one-handed axe for Warriors and Thieves, equippable at level 55 or higher in MapleStory Classic. It grants +72 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Black Paint Brush הוא גרזן ביד אחת לרמות גבוהות ל-Warriors ול-Thieves, שאפשר לצייד מרמה 55 ומעלה ב-MapleStory Classic. הוא מעניק +72 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5593": {
+"en": "Frying Pan is a high-level one-handed blunt weapon, equippable at level 55 or higher in MapleStory Classic. It grants +71 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Frying Pan הוא נשק קהה ביד אחת לרמות גבוהות, שאפשר לצייד מרמה 55 ומעלה ב-MapleStory Classic. הוא מעניק +71 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5594": {
+"en": "Plastic Bottle is a mid-level dagger, equippable at level 50 or higher in MapleStory Classic. It grants +65 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Very Fast.",
+"he": "Plastic Bottle הוא פגיון לרמות בינוניות, שאפשר לצייד מרמה 50 ומעלה ב-MapleStory Classic. הוא מעניק +65 W.ATK ו-+1 ACC. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה מאוד."
+},
+"item/5595": {
+"en": "Honorbound is a high-level dagger, equippable at level 55 or higher in MapleStory Classic. It grants +70 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Honorbound הוא פגיון לרמות גבוהות, שאפשר לצייד מרמה 55 ומעלה ב-MapleStory Classic. הוא מעניק +70 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5596": {
+"en": "Sworn Brother Dagger is a high-level dagger, equippable at level 55 or higher in MapleStory Classic. It grants +73 W.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Sworn Brother Dagger הוא פגיון לרמות גבוהות, שאפשר לצייד מרמה 55 ומעלה ב-MapleStory Classic. הוא מעניק +73 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+},
+"item/5597": {
+"en": "Blade of Harmony is a mid-level two-handed sword for Warriors, equippable at level 45 or higher in MapleStory Classic. It grants +68 W.ATK. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Blade of Harmony היא חרב דו-ידנית לרמות בינוניות ל-Warriors, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. היא מעניקה +68 W.ATK. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+},
+"item/5598": {
+"en": "Bamboo Spear is a mid-level spear, equippable at level 45 or higher in MapleStory Classic. It grants +64 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Bamboo Spear היא חנית לרמות בינוניות, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. היא מעניקה +64 W.ATK ו-+1 ACC. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+},
+"item/5599": {
+"en": "Yellow Mop is a mid-level polearm for Warriors, Bowmen, and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +67 W.ATK and +1 AVOID. Comes with 7 upgrade slots. Attack speed: Slow.",
+"he": "Yellow Mop הוא רומח לרמות בינוניות ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא מעניק +67 W.ATK ו-+1 AVOID. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
+},
+"item/5600": {
+"en": "White Mop is a mid-level polearm for Warriors, Bowmen, and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +67 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Slow.",
+"he": "White Mop הוא רומח לרמות בינוניות ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא מעניק +67 W.ATK ו-+1 ACC. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
+},
+"item/5601": {
+"en": "Indigo Mop is a mid-level polearm for Warriors, Bowmen, and Thieves, equippable at level 45 or higher in MapleStory Classic. It grants +67 W.ATK and +20 MP. Comes with 7 upgrade slots. Attack speed: Slow.",
+"he": "Indigo Mop הוא רומח לרמות בינוניות ל-Warriors, ל-Bowmen ול-Thieves, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא מעניק +67 W.ATK ו-+20 MP. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: איטית."
+},
+"item/5602": {
+"en": "Magical Destruction Bow is a mid-level bow for Bowmen, equippable at level 45 or higher in MapleStory Classic. It grants +65 W.ATK and 20% KB. Comes with 7 upgrade slots. Attack speed: Average.",
+"he": "Magical Destruction Bow היא קשת לרמות בינוניות ל-Bowmen, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. היא מעניקה +65 W.ATK ו-20% KB. מגיעה עם 7 סלוטים לשדרוג. מהירות התקפה: רגילה."
+},
+"item/5603": {
+"en": "A potion Sylka made by combining Forgotten Hollow water and herbs. Tastes like warm sunshine.",
+"he": "שיקוי ש-Sylka הכינה ממים של Forgotten Hollow ומעשבים. הטעם שלו כמו שמש חמימה."
+},
+"item/5604": {
+"en": "A potion Sylka brewed from potent Forgotten Hollow herbs. She claims it's ideal for daring adventurers, but it looks and tastes odd...",
+"he": "שיקוי ש-Sylka רקחה מעשבים חזקים של Forgotten Hollow. היא טוענת שהוא מושלם להרפתקנים נועזים, אבל המראה והטעם שלו קצת מוזרים..."
+},
+"item/5605": {
+"en": "A legendary potion.",
+"he": "שיקוי אגדי."
+},
+"item/5606": {
+"en": "Moon Bunny made this rice cake with much care. Handle carefully.",
+"he": "Moon Bunny הכין את עוגת האורז הזו בהרבה אכפתיות. טפלו בה בזהירות."
+},
+"item/5607": {
+"en": "A sweet, tasty rice cake.",
+"he": "עוגת אורז מתוקה וטעימה."
+},
+"item/5608": {
+"en": "A sweet, tasty rice cake.",
+"he": "עוגת אורז מתוקה וטעימה."
+},
+"item/5609": {
+"en": "A piping hot, delicious pie right from Grandma Benson's oven. Eat up!",
+"he": "פאי חם ומהביל וטעים, ישר מהתנור של Grandma Benson. בתיאבון!"
+},
+"item/5610": {
+"en": "A well-roasted turkey enough to feed the whole family.",
+"he": "תרנגול הודו צלוי היטב, מספיק כדי להאכיל את כל המשפחה."
+},
+"item/5611": {
+"en": "The only thing better than a gravy boat is a gravy train.",
+"he": "הדבר היחיד שיותר טוב מקערת רוטב הוא רכבת של רוטב."
+},
+"item/5612": {
+"en": "A huge roasted turkey leg. It's so big that it seems like it would take all day to finish eating.",
+"he": "שוק הודו צלויה ענקית. היא כל כך גדולה שנראה שייקח יום שלם לגמור לאכול אותה."
+},
+"item/5613": {
+"en": "This delicious cranberry sauce complements almost any meal!",
+"he": "רוטב החמוציות הטעים הזה מתאים כמעט לכל ארוחה!"
+},
+"item/5614": {
+"en": "Improves Crit. Damage on earrings.",
+"he": "משפר את הנזק הקריטי של עגילים."
+},
+"item/5615": {
+"en": "Improves Evasion on earrings.",
+"he": "משפר את ההתחמקות של עגילים."
+},
+"item/5616": {
+"en": "Improves Defense on topwear.",
+"he": "משפר את ההגנה בחולצות."
+},
+"item/5617": {
+"en": "Improves Strength on overalls.",
+"he": "משפר את ה-STR של אוברולים."
+},
+"item/5618": {
+"en": "Improves Dexterity on overalls.",
+"he": "משפר את ה-DEX של אוברולים."
+},
+"item/5619": {
+"en": "Improves Intelligence on overalls.",
+"he": "משפר את ה-INT של אוברולים."
+},
+"item/5620": {
+"en": "Improves Luck on overalls.",
+"he": "משפר את ה-LUK של אוברולים."
+},
+"item/5621": {
+"en": "Improves Defense on bottomwear.",
+"he": "משפר את ההגנה של מכנסיים."
+},
+"item/5622": {
+"en": "Improves Weapon Attack on gloves.",
+"he": "משפר את ה-W.ATK של כפפות."
+},
+"item/5623": {
+"en": "Improves Magic Attack on gloves.",
+"he": "משפר את ה-M.ATK של כפפות."
+},
+"item/5624": {
+"en": "Use to summon Turkey. Strange noises can be heard from inside...",
+"he": "השתמשו בו כדי לזמן Turkey. שומעים מבפנים רעשים מוזרים..."
+},
+"item/5625": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5626": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5627": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5628": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5629": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5630": {
+"en": "If you think your level's too low, don't bother opening it.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+},
+"item/5631": {
+"en": "Double-click to receive Turkey x1.",
+"he": "לחצו לחיצה כפולה כדי לקבל Turkey x1."
+},
+"item/5632": {
+"en": "Double-click to receive Baby Turkey Carriage x1.",
+"he": "לחצו לחיצה כפולה כדי לקבל Baby Turkey Carriage x1."
+},
+"item/5633": {
+"en": "Double-click to receive Roasted Relaxer x1.",
+"he": "לחצו לחיצה כפולה כדי לקבל Roasted Relaxer x1."
+},
+"item/5634": {
+"en": "A basket filled with bread freshly baked by the fairies. Can be placed in your house.",
+"he": "סל מלא בלחם שהפיות אפו הרגע. אפשר להציב אותו בבית שלכם."
+},
+"item/5635": {
+"en": "A flowerpot planted with glowing mushrooms gathered by the fairies. Can be placed in your house.",
+"he": "עציץ שנשתלו בו פטריות זוהרות שהפיות אספו. אפשר להציב אותו בבית שלכם."
+},
+"item/5636": {
+"en": "A dresser crafted from wood gathered in a deep cave. Can be placed in your house.",
+"he": "שידה עשויה מעץ שנאסף במערה עמוקה. אפשר להציב אותה בבית שלכם."
+},
+"item/5637": {
+"en": "A bed crafted from wood and leaves gathered in a deep cave. Can be placed in your house. Interact with it nearby to lie down.",
+"he": "מיטה עשויה מעץ ומעלים שנאספו במערה עמוקה. אפשר להציב אותה בבית שלכם. אינטראקציה לידה משכיבה אתכם עליה."
+},
+"item/5638": {
+"en": "A lantern lit by fireflies gathered in a deep cave. Can be placed in your house. Interact with it nearby to turn it on or off.",
+"he": "פנס שמאירות בו גחליליות שנאספו במערה עמוקה. אפשר להציב אותו בבית שלכם. אינטראקציה לידו מדליקה או מכבה אותו."
+},
+"item/5639": {
+"en": "A bronze statue made in Zelya's likeness. Can be placed in your house.",
+"he": "פסל ארד בדמות Zelya. אפשר להציב אותו בבית שלכם."
+},
+"item/5640": {
+"en": "A golden statue made in Zelya's likeness. Can be placed in your house.",
+"he": "פסל זהב בדמות Zelya. אפשר להציב אותו בבית שלכם."
+},
+"item/5641": {
+"en": "A platinum statue made in Zelya's likeness. Can be placed in your house.",
+"he": "פסל פלטינה בדמות Zelya. אפשר להציב אותו בבית שלכם."
+},
+"item/5642": {
+"en": "A small tree with glowing spores clustered like fluff. Can be placed in your home.",
+"he": "עץ קטן עם נבגים זוהרים שמצטופפים עליו כמו מוך. אפשר להציב אותו בבית שלכם."
+},
+"item/5643": {
+"en": "A glowing mushroom that grew wild in the forest. Can be placed in your home.",
+"he": "פטרייה זוהרת שגדלה בטבע ביער. אפשר להציב אותה בבית שלכם."
+},
+"item/5644": {
+"en": "Plate-shaped mushrooms that grew wild on the forest floor. Can be placed in your home.",
+"he": "פטריות בצורת צלחת שגדלו בטבע על קרקעית היער. אפשר להציב אותן בבית שלכם."
+},
+"item/5645": {
+"en": "A short vine that grew wild in the forest. Can be placed in your home.",
+"he": "גפן קצרה שגדלה בטבע ביער. אפשר להציב אותה בבית שלכם."
+},
+"item/5646": {
+"en": "A long vine that grew wild in the forest. Can be placed in your home.",
+"he": "גפן ארוכה שגדלה בטבע ביער. אפשר להציב אותה בבית שלכם."
+},
+"item/5647": {
+"en": "A wall decoration woven from leaves by the fairies. Can be placed in your home.",
+"he": "קישוט קיר שהפיות קלעו מעלים. אפשר להציב אותו בבית שלכם."
+},
+"item/5648": {
+"en": "A set of cooking tools that fairies keep hanging on their kitchen walls. Can be placed in your home.",
+"he": "סט כלי בישול שהפיות תולות על קירות המטבח שלהן. אפשר להציב אותו בבית שלכם."
+},
+"item/5649": {
+"en": "A wooden shelf overgrown with moss. Fairies keep a favorite book, a potion, and a glowing orb on it. Can be placed in your home.",
+"he": "מדף עץ שמכוסה בטחב. הפיות שומרות עליו ספר אהוב, שיקוי וכדור זוהר. אפשר להציב אותו בבית שלכם."
+},
+"item/5650": {
+"en": "A stack of books, scrolls, and a quill that fairies once read from. Can be placed in your home.",
+"he": "ערימה של ספרים, מגילות ונוצת כתיבה שהפיות קראו בהם פעם. אפשר להציב אותה בבית שלכם."
+},
+"item/5651": {
+"en": "Ceiling lights made by fairies from glowing spores. Can be placed in your home and turned on or off by interacting nearby.",
+"he": "מנורות תקרה שהפיות הכינו מנבגים זוהרים. אפשר להציב אותן בבית שלכם ולהדליק או לכבות אותן באינטראקציה לידן."
+},
+"item/5652": {
+"en": "A crystal ball fairies once used to foretell the future. Can be placed in your home and turned on or off by interacting nearby.",
+"he": "כדור בדולח שהפיות השתמשו בו פעם כדי לחזות את העתיד. אפשר להציב אותו בבית שלכם ולהדליק או לכבות אותו באינטראקציה לידו."
+},
+"item/5653": {
+"en": "A tapestry woven stitch by stitch by the fairies. Can be placed in your home.",
+"he": "שטיח קיר שהפיות ארגו תפר אחרי תפר. אפשר להציב אותו בבית שלכם."
+},
+"item/5654": {
+"en": "A lamp filled with glowing mushroom spores, made in the Forgotten Hollow. Can be placed in your home and turned on or off by interacting nearby.",
+"he": "מנורה מלאה בנבגי פטריות זוהרים, שנעשתה ב-Forgotten Hollow. אפשר להציב אותה בבית שלכם ולהדליק או לכבות אותה באינטראקציה לידה."
+},
+"item/5655": {
+"en": "A lantern like the ones lit for the Lantern Rite. Can be placed in your home and turned on or off by interacting nearby.",
+"he": "פנס כמו אלה שמדליקים ב-Lantern Rite. אפשר להציב אותו בבית שלכם ולהדליק או לכבות אותו באינטראקציה לידו."
+},
+"item/5656": {
+"en": "A golden-brown roast turkey served on a festive platter. The centerpiece of any Thanksgiving feast. Can be placed in your home.",
+"he": "תרנגול הודו צלוי ושחום שמוגש על מגש חגיגי. גולת הכותרת של כל סעודת חג ההודיה. אפשר להציב אותו בבית שלכם."
+},
+"item/5657": {
+"en": "A wreath woven from crimson and amber autumn leaves. Hang it up to welcome the harvest season. Can be placed in your home.",
+"he": "זר שנקלע מעלי סתיו בצבעי ארגמן וענבר. תלו אותו כדי לקבל את פני עונת הקציר. אפשר להציב אותו בבית שלכם."
+},
+"item/5658": {
+"en": "A long wooden table set for a bountiful Thanksgiving dinner. There's always room for one more guest. Can be placed in your home.",
+"he": "שולחן עץ ארוך שערוך לארוחת חג הודיה עשירה. תמיד יש מקום לעוד אורח אחד. אפשר להציב אותו בבית שלכם."
+},
+"item/5659": {
+"en": "A neatly bundled bale of golden hay, fresh from the autumn fields. Perfect for a rustic farmhouse touch. Can be placed in your home.",
+"he": "חבילת חציר זהובה וקשורה היטב, ישר משדות הסתיו. מושלמת למראה כפרי של בית חווה. אפשר להציב אותה בבית שלכם."
+},
+"item/5660": {
+"en": "A wooden wagon piled high with plump pumpkins from this year's harvest. A sure sign that autumn has arrived. Can be placed in your home.",
+"he": "עגלת עץ עמוסה עד למעלה בדלעות שמנמנות מהקציר של השנה. סימן בטוח שהסתיו הגיע. אפשר להציב אותה בבית שלכם."
+},
+"item/5661": {
+"en": "A seed to grow a primrose. Tory in Henesys Park can exchange these for rewards.",
+"he": "זרע לגידול רקפת. אפשר להחליף אותם אצל Tory ב-Henesys Park בפרסים."
+},
+"item/5662": {
+"en": "A mysterious dust that gives off a soft glow. It might light the way to Zelya's home.",
+"he": "אבקה מסתורית שזוהרת באור רך. אולי היא תאיר את הדרך לבית של Zelya."
+},
+"item/5663": {
+"en": "A torn page from Alston's ledger. It lists deals, dates, and a few names written very small.",
+"he": "דף קרוע מפנקס החשבונות של Alston. רשומים בו עסקאות, תאריכים וכמה שמות בכתב קטן מאוד."
+},
+"item/5664": {
+"en": "A mushroom cap the rot never reached. Brewed in hot water, it can slow the rot.",
+"he": "כובע של פטרייה שהריקבון אף פעם לא הגיע אליו. אם מבשלים אותו במים חמים, הוא יכול להאט את הריקבון."
+},
+"item/5665": {
+"en": "Three ward scrolls and a pair of tongs taken from Myen's workbench. Whitney never sold them.",
+"he": "שלושה סקרולי הגנה וזוג מלקחיים שנלקחו משולחן העבודה של Myen. Whitney אף פעם לא מכרה אותם."
+},
+"item/5666": {
+"en": "You can change your character's name for free when you take this to Captain Al.",
+"he": "אם תביאו את זה ל-Captain Al, תוכלו לשנות את שם הדמות שלכם בחינם."
+},
+"item/5667": {
+"en": "An ingredient needed to make pumpkin cake.",
+"he": "מרכיב שצריך כדי להכין עוגת דלעת."
+},
+"item/5668": {
+"en": "Flour for making perfect pies.",
+"he": "קמח להכנת פאי מושלם."
+},
+"item/5669": {
+"en": "A large, empty milk bottle.",
+"he": "בקבוק חלב גדול וריק."
+},
+"item/5670": {
+"en": "A bright red leaf that drifts down all over Maple World. They say the whole world is named after the tree these fall from.",
+"he": "עלה אדום בוהק שנושר בכל רחבי Maple World. אומרים שכל העולם נקרא על שם העץ שממנו הם נושרים."
+},
+"item/5671": {
+"en": "A glowing ward Myen made for Glimmer's door. It keeps the rot out.",
+"he": "קמע הגנה זוהר ש-Myen הכין לדלת של Glimmer. הוא מרחיק את הריקבון."
+},
+"item/5672": {
+"en": "Lucia Cape is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Lucia Cape הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5673": {
+"en": "Cat Lolita Cape is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Cat Lolita Cape הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5674": {
+"en": "Dark Musician Scarf is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Dark Musician Scarf הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5675": {
+"en": "Chained Princess Chain is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Chained Princess Chain הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5676": {
+"en": "Moon and Sun Cape is an early-game cash cape, equippable in MapleStory Classic.",
+"he": "Moon and Sun Cape הוא פריט Cash מסוג גלימה לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+},
+"item/5677": {
+"en": "A small carriage built especially for well-behaved baby turkeys.  Can only be equipped by Turkey.",
+"he": "עגלה קטנה שנבנתה במיוחד בשביל תרנגולי הודו קטנים ומנומסים. רק Turkey יכול ללבוש אותה."
+},
+"item/5678": {
+"en": "A snail that is really hard to figure out. The pet's skills will disappear once its magic runs out.",
+"he": "חילזון שממש קשה להבין אותו. הסקילים של חיית המחמד ייעלמו ברגע שהקסם שלה ייגמר."
+},
+"item/5679": {
+"en": "Allows you to open a regular store in which you can list up to 12 items at once. Can be used in fields or the Free Market.",
+"he": "מאפשר לכם לפתוח חנות רגילה שבה אפשר להציע עד 12 פריטים בבת אחת. אפשר להשתמש בו בשדות או ב-Free Market."
+},
+"item/5680": {
+"en": "This box grants one random Equip item. The box contains only permanent items and can be traded to other players.",
+"he": "הקופסה הזו נותנת פריט Equip אקראי אחד. הקופסה מכילה רק פריטים קבועים ואפשר לסחור בה עם שחקנים אחרים."
 }
 }

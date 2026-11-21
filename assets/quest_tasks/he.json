@@ -448,5 +448,49 @@
  "quest/506162": {
   "en": "Roxy of Kerning City Civic Center said in an excited voice that she had good news, and told me I'd been granted the right to own a house in this town. To hear more details, I should go find Jack.",
   "he": "Roxy מ-Kerning City Civic Center אמרה בקול נרגש שיש לה חדשות טובות, וסיפרה לי שקיבלתי את הזכות להחזיק בית בעיר הזאת. כדי לשמוע עוד פרטים, צריך ללכת למצוא את Jack."
+ },
+ "quest/10513": {
+  "en": "Hotel Receptionist hung a chime of Stirge wings by the door. It rings all night, even though there is no wind in Sleepywood. I need to ask Sabitrama about it.",
+  "he": "ליד הדלת של Hotel Receptionist נתלה פעמון רוח עשוי מכנפי Stirge. הוא מצלצל כל הלילה, למרות שאין רוח ב-Sleepywood. צריך לשאול את Sabitrama על זה."
+ },
+ "quest/10515": {
+  "en": "Sabitrama thinks the hunger under Sleepywood is the same darkness Manji felt long ago. I need to take his warning to Manji in Perion.",
+  "he": "Sabitrama חושב שהרעב שמתחת ל-Sleepywood הוא אותה חשכה ש-Manji הרגיש לפני זמן רב. צריך להביא את האזהרה שלו ל-Manji ב-Perion."
+ },
+ "quest/10627": {
+  "en": "Someone has been stealing Myen's ward scrolls. A man named Alston buys fairy-made goods. He keeps to a hidden rooftop above the internet cafe in Kerning City.",
+  "he": "מישהו גונב את סקרולי ההגנה של Myen. אדם בשם Alston קונה סחורה שהפיות מכינות. הוא מסתובב על גג נסתר מעל האינטרנט קפה ב-Kerning City."
+ },
+ "quest/10629": {
+  "en": "Alston's best supplier is a young thief named Whitney. She hides on a hidden rooftop above the Hair Salon in Kerning City.",
+  "he": "הספקית הכי טובה של Alston היא גנבת צעירה בשם Whitney. היא מסתתרת על גג נסתר מעל המספרה ב-Kerning City."
+ },
+ "quest/10630": {
+  "en": "Whitney's partner Perry is sick. His skin is turning purple, and there's no one to treat him. It looks like the rot from the Hollow. I should ask Daniel the Scholar in Precipice of Darkness.",
+  "he": "Perry, השותף של Whitney, חולה. העור שלו נהיה סגול, ואין מי שיטפל בו. זה נראה כמו הריקבון מה-Hollow. כדאי לשאול את Daniel the Scholar ב-Precipice of Darkness."
+ },
+ "quest/10632": {
+  "en": "Whitney overheard the Dark Lord's men planning a raid on the Hollow. I should confront the Dark Lord in the Thieves' Hideout.",
+  "he": "Whitney שמעה במקרה את האנשים של Dark Lord מתכננים פשיטה על ה-Hollow. צריך להתעמת עם Dark Lord ב-Thieves' Hideout."
+ },
+ "quest/10633": {
+  "en": "Alston told the Dark Lord about the Hollow. The Dark Lord will call off the raid if the fairies agree to trade, but he needs someone to speak for the guild. I should give Alston the offer on a hidden rooftop above the internet cafe in Kerning City.",
+  "he": "Alston סיפר ל-Dark Lord על ה-Hollow. Dark Lord יבטל את הפשיטה אם הפיות יסכימו לסחור, אבל הוא צריך מישהו שידבר בשם הגילדה. צריך להעביר את ההצעה ל-Alston על גג נסתר מעל האינטרנט קפה ב-Kerning City."
+ },
+ "quest/500012": {
+  "en": "Go and hear what she has to say.",
+  "he": "לכו לשמוע מה יש לה להגיד."
+ },
+ "quest/500013": {
+  "en": "Collect Pumpkin Piece, Pie Flour and Milk Jug dropped by monsters Lv. 10 and above, then bring them to Grandma Benson in Henesys and Kerning City to exchange them for gifts.",
+  "he": "אספו Pumpkin Piece, Pie Flour ו-Milk Jug שמפילות מפלצות מרמה 10 ומעלה, והביאו אותם ל-Grandma Benson ב-Henesys וב-Kerning City כדי להחליף אותם במתנות."
+ },
+ "quest/500014": {
+  "en": "The turkeys Grandma Benson meant to cook have escaped and are hiding as Turkey Egg. Use a Turkey Egg dropped by monsters Lv. 10 and above to hatch a Turkey and keep whatever it drops!",
+  "he": "תרנגולי ההודו ש-Grandma Benson התכוונה לבשל ברחו, והם מתחבאים בתור Turkey Egg. השתמשו ב-Turkey Egg שמפילות מפלצות מרמה 10 ומעלה כדי לבקוע Turkey, ותשאירו לעצמכם את כל מה שהוא מפיל!"
+ },
+ "quest/500015": {
+  "en": "Go and hear what Tory has to say.",
+  "he": "לכו לשמוע מה יש ל-Tory להגיד."
  }
 }
