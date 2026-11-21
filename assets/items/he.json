@@ -16030,8 +16030,14 @@
 "he": "Red Ribbon Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4714": {
+"en": "Lucia Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Lucia Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Cygnus Sandals is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Cygnus Sandals הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4715": {
 "en": "Pinky Pretty Gomushin is an early-game cash shoes, equippable in MapleStory Classic.",
@@ -16270,12 +16276,24 @@
 "he": "Black High Tops הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/4774": {
+"en": "Dark Musician Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Dark Musician Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Green Ankle Boots for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Green Ankle Boots for Transformation הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4775": {
+"en": "Chained Princess Shoes is an early-game cash shoes, equippable in MapleStory Classic.",
+"he": "Chained Princess Shoes הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Red Silky Boots for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
 "he": "Red Silky Boots for Transformation הוא פריט Cash מסוג נעליים לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/4777": {
 "en": "Black Voyson Shoes for Transformation is an early-game cash shoes, equippable in MapleStory Classic.",
