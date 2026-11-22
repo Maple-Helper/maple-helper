@@ -17738,36 +17738,78 @@
 "he": "Black Bean One-Handed Blunt Weapon הוא פריט Cash מסוג נשק לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/5150": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5149": {
 "en": "Aran Polearm Maha is an early-game cash weapon, equippable in MapleStory Classic.",
 "he": "Aran Polearm Maha הוא פריט Cash מסוג נשק לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
 },
 "item/5151": {
+"en": "A miniature snowman accessory that goes over an equipped claw.",
+"he": "אקססורי של איש שלג מיניאטורי שמולבש מעל Claw.",
+"alt": [
+{
 "en": "A miniature snowman accessory that goes over an equipped claw or Psy-limiter.",
 "he": "אקססורי של איש שלג מיניאטורי שמולבש מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5152": {
+"en": "Can be equipped over any weapon except wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, and claw.",
+"he": "ניתן להלבשה מעל כל נשק, חוץ משרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת ו-Claw.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מ-Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5153": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5154": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5155": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5156": {
+"en": "Can be equipped over a claw.",
+"he": "ניתן להלבשה מעל Claw.",
+"alt": [
+{
 "en": "Can be equipped over a claw..",
 "he": "ניתן להלבשה מעל Claw.."
+}
+]
 },
 "item/5158": {
 "en": "Can be equipped over a two-handed sword, axe, or blunt weapon.",
@@ -17782,24 +17824,54 @@
 "he": "ניתן להלבשה מעל חרב, גרזן או נשק קהה דו-ידניים."
 },
 "item/5160": {
+"en": "A humongous glove that goes over an equipped claw.",
+"he": "כפפה ענקית שמולבשת מעל Claw.",
+"alt": [
+{
 "en": "A humongous glove that goes over an equipped claw or Psy-limiter.",
 "he": "כפפה ענקית שמולבשת מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5161": {
+"en": "A cactus. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, or dagger.",
+"he": "קקטוס. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "A cactus. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, ritual fan, or bladecaster.",
 "he": "קקטוס. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5162": {
+"en": "Can be equipped over a bow.",
+"he": "ניתן להלבשה מעל קשת.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except one-handed sword, one-handed axe, one-handed blunt, dagger, cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5164": {
+"en": "This tightly-clenched fist emits a blue aura. A weapon skin that can be equipped over a claw.",
+"he": "האגרוף הקפוץ הזה פולט הילה כחולה. סקין נשק שניתן להלביש מעל Claw.",
+"alt": [
+{
 "en": "This tightly-clenched fist emits a blue aura. A weapon skin that can be equipped over a Claw or Psy-limiter.",
 "he": "האגרוף הקפוץ הזה פולט הילה כחולה. סקין נשק שניתן להלביש מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5163": {
+"en": "A tightly-clenched fist with a red aura that goes over an equipped claw.",
+"he": "אגרוף קפוץ עם הילה אדומה שמולבש מעל Claw.",
+"alt": [
+{
 "en": "A tightly-clenched fist with a red aura that goes over an equipped claw or Psy-limiter.",
 "he": "אגרוף קפוץ עם הילה אדומה שמולבש מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5165": {
 "en": "Can be equipped over a two-handed sword, axe, or blunt weapon.",
@@ -17818,80 +17890,176 @@
 "he": "Tote Bag שניתן להלביש מעל כל נשק."
 },
 "item/5169": {
+"en": "Can be equipped over any weapon except wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, or claw.",
+"he": "ניתן להלבשה מעל כל נשק, חוץ משרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מ-Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5170": {
+"en": "Can be equipped over any weapon except wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
+"he": "ניתן להלבשה מעל כל נשק, חוץ משרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מ-Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5171": {
+"en": "Can be equipped over any weapon except wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
+"he": "ניתן להלבשה מעל כל נשק, חוץ משרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מ-Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5172": {
+"en": "A sporty band that goes over an equipped claw.",
+"he": "רצועת ספורט שמולבשת מעל Claw.",
+"alt": [
+{
 "en": "A sporty band that goes over an equipped claw or Psy-limiter.",
 "he": "רצועת ספורט שמולבשת מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5173": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5174": {
 "en": "A Laser Sword that can be equipped over any weapon.",
 "he": "Laser Sword שניתן להלביש מעל כל נשק."
 },
 "item/5175": {
+"en": "Can be equipped over a crossbow.",
+"he": "ניתן להלבשה מעל קשת צולבת.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except one-handed sword, one-handed axe, one-handed blunt, dagger, cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, Soul Shooter, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, Soul Shooter ו-Scepter."
+}
+]
 },
 "item/5177": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Chain Sword, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Chain Sword, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5176": {
+"en": "Can be equipped over a crossbow.",
+"he": "ניתן להלבשה מעל קשת צולבת.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except one-handed sword, one-handed axe, one-handed blunt, dagger, cane, wand, staff, two-handed sword, two-handed axe, two-handed blunt, spear, polearm, bow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "ניתן להלבשה מעל כל נשק, חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, קשת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5178": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5179": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5180": {
+"en": "A fancy, flashy fan. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, or staff.",
+"he": "מניפה מפוארת ומנצנצת. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "A fancy, flashy fan. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, ritual fan, or bladecaster.",
 "he": "מניפה מפוארת ומנצנצת. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5181": {
+"en": "A blazing sapphire saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, or staff.",
+"he": "חרב בסגנון סייבר בגוון ספיר בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט או מטה.",
+"alt": [
+{
 "en": "A blazing sapphire saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, staff, ritual fan, or bladecaster.",
 "he": "חרב בסגנון סייבר בגוון ספיר בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט, מטה, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5182": {
+"en": "A blazing emerald saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, or staff.",
+"he": "חרב בסגנון סייבר בגוון אזמרגד בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט או מטה.",
+"alt": [
+{
 "en": "A blazing emerald saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, staff, ritual fan, or bladecaster.",
 "he": "חרב בסגנון סייבר בגוון אזמרגד בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט, מטה, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5183": {
+"en": "A blazing amethyst saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, or staff.",
+"he": "חרב בסגנון סייבר בגוון אמטיסט בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט או מטה.",
+"alt": [
+{
 "en": "A blazing amethyst saber-style sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, wand, staff, ritual fan, or bladecaster.",
 "he": "חרב בסגנון סייבר בגוון אמטיסט בוהק. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, שרביט, מטה, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5184": {
 "en": "Can be equipped over a bow.",
 "he": "ניתן להלבשה מעל קשת."
 },
 "item/5185": {
+"en": "A foam hand used to cheer for your favorite team that can be equipped over any weapon.",
+"he": "יד ספוג לעידוד הקבוצה האהובה עליכם, שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A foam hand used to cheer for your favorite team. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "יד ספוג לעידוד הקבוצה האהובה עליכם. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, רומח, שרביט, מטה, קשת, קשת צולבת, Claw, arm cannon, ancient bow, Ritual Fan, bladecaster או Whispershot."
+}
+]
 },
 "item/5186": {
 "en": "A Toy Pinwheel that can be equipped over any weapon.",
 "he": "Toy Pinwheel שניתן להלביש מעל כל נשק."
 },
 "item/5187": {
+"en": "A cute froggy glove that goes over an equipped claw.",
+"he": "כפפת צפרדע חמודה שמולבשת מעל Claw.",
+"alt": [
+{
 "en": "A cute froggy glove that goes over an equipped claw or Psy-limiter.",
 "he": "כפפת צפרדע חמודה שמולבשת מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5188": {
 "en": "A chicken that can be equipped over any weapon.",
@@ -17902,20 +18070,44 @@
 "he": "עיפרון שניתן להלביש מעל כל נשק."
 },
 "item/5190": {
+"en": "A backscratcher. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, or claw.",
+"he": "מגרד גב. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה או Claw.",
+"alt": [
+{
 "en": "A backscratcher. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, claw, psy-limiter, ritual fan, or bladecaster.",
 "he": "מגרד גב. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Claw, Psy-limiter, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5191": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Cane, Shining Rod, Psy-limiter, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Cane, Shining Rod, Psy-limiter, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5192": {
+"en": "A feather scimitar. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, or staff.",
+"he": "סימיטר נוצה. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "A feather scimitar. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, ritual fan, or bladecaster.",
 "he": "סימיטר נוצה. סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Ritual Fan או bladecaster."
+}
+]
 },
 "item/5193": {
+"en": "Can be equipped over any weapon except one-handed sword, one-handed axe, one-handed blunt, dagger, cane, wand, staff, bow, crossbow, or claw.",
+"he": "אפשר לצייד מעל כל נשק חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "Can be equipped over any weapon except one-handed sword, one-handed axe, one-handed blunt, dagger, cane, wand, staff, bow, crossbow, claw, knuckle, gun, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords, and Scepter.",
 "he": "אפשר לצייד מעל כל נשק חוץ מחרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Dual Bowgun, Hand Cannon, Long Swords, Heavy Swords ו-Scepter."
+}
+]
 },
 "item/5194": {
 "en": "A pumpkin-topped cane. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
@@ -17932,56 +18124,128 @@
 "he": "חמור חמוד להפליא שאפשר לצייד מעל כל נשק."
 },
 "item/5196": {
+"en": "A Mad Cow weapon skin that can be equipped over a claw.",
+"he": "סקין נשק Mad Cow שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A Mad Cow weapon skin that can be equipped over Claw.",
 "he": "סקין נשק Mad Cow שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5197": {
+"en": "A Frog Glove weapon skin that can be equipped over a claw.",
+"he": "סקין נשק Frog Glove שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A Frog Glove weapon skin that can be equipped over Claw.",
 "he": "סקין נשק Frog Glove שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5198": {
+"en": "A pizza pan. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, or claw.",
+"he": "מחבת פיצה. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה או Claw.",
+"alt": [
+{
 "en": "A pizza pan. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, claw, psy-limiter, ritual fan, or bladecaster.",
 "he": "מחבת פיצה. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Claw, Psy-limiter, Ritual Fan או Bladecaster."
+}
+]
 },
 "item/5199": {
+"en": "This weapon skin can be equipped over any One-Handed Sword or Two-Handed Sword.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת או חרב דו-ידנית.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, Two-Handed Sword, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, חרב דו-ידנית, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5200": {
+"en": "A durable violin weapon skin that can be equipped overa crossbow.",
+"he": "סקין נשק של כינור עמיד שאפשר לצייד מעל קשת צולבת.",
+"alt": [
+{
 "en": "A durable violin weapon skin that can be equipped over Crossbows.",
 "he": "סקין נשק של כינור עמיד שאפשר לצייד מעל קשתות צולבות."
+}
+]
 },
 "item/5201": {
+"en": "Now you see it, now you don't. A weapon skin that can be equipped over a claw to make it transparent while still benefiting from all of its stats.",
+"he": "עכשיו רואים אותו, עכשיו לא. סקין נשק שאפשר לצייד מעל Claw כדי להפוך אותו לשקוף, ועדיין ליהנות מכל הסטטים שלו.",
+"alt": [
+{
 "en": "Now you see it, now you don't. A weapon skin that can be equipped over a Claw or Psy-limiter to make it transparent while still benefiting from all of its stats.",
 "he": "עכשיו רואים אותו, עכשיו לא. סקין נשק שאפשר לצייד מעל Claw או Psy-limiter כדי להפוך אותו לשקוף, ועדיין ליהנות מכל הסטטים שלו."
+}
+]
 },
 "item/5202": {
+"en": "A Maplemas bell. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
+"he": "פעמון Maplemas. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A Maplemas bell. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "פעמון Maplemas. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5203": {
+"en": "A Meso Gunner weapon skin that can be equipped over a crossbow.",
+"he": "סקין נשק Meso Gunner שאפשר לצייד מעל קשת צולבת.",
+"alt": [
+{
 "en": "A Meso Gunner weapon skin that can be equipped over Crossbow.",
 "he": "סקין נשק Meso Gunner שאפשר לצייד מעל קשת צולבת."
+}
+]
 },
 "item/5204": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5205": {
 "en": "Can be equipped over a bow.",
 "he": "ניתן להלבשה מעל קשת."
 },
 "item/5206": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Two-Handed Sword, Two-Handed Axe, or Two-Handed Blunt Weapon.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני או נשק קהה דו-ידני.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5207": {
+"en": "This weapon skin can be equipped over any wand or staff.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5208": {
+"en": "A pot full of hot, melting chocolate. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, or claw.",
+"he": "סיר מלא בשוקולד חם ונמס. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה או Claw.",
+"alt": [
+{
 "en": "A pot full of hot, melting chocolate. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, claw, psy-limiter, ritual fan, or bladecaster.",
 "he": "סיר מלא בשוקולד חם ונמס. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Claw, Psy-limiter, Ritual Fan או Bladecaster."
+}
+]
 },
 "item/5209": {
 "en": "Can be equipped over a two-handed sword, axe, or blunt weapon.",
@@ -17992,8 +18256,14 @@
 "he": "סוכרייה על מקל ענקית שאפשר לצייד מעל כל נשק."
 },
 "item/5211": {
+"en": "Sun Wu Kong's greatest weapon, the Celestial Wand. This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, or Claw.",
+"he": "הנשק הגדול ביותר של Sun Wu Kong, ה-Celestial Wand. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "Sun Wu Kong's greatest weapon, the Celestial Wand. This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, Claw, Arm Cannon, Chain, Lucent Gauntlet, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster, or Whispershot.",
 "he": "הנשק הגדול ביותר של Sun Wu Kong, ה-Celestial Wand. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Chain, Lucent Gauntlet, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5212": {
 "en": "A long, green leaf used by Wonky the Fairy. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
@@ -18020,20 +18290,38 @@
 "he": "סקין נשק White Seal Pillow רך וחמוד שאפשר לצייד מעל כל נשק."
 },
 "item/5218": {
+"en": "Can be equipped over a two-handed sword, axe, blunt weapon, spear or polearm.",
+"he": "אפשר לצייד מעל חרב, גרזן או נשק קהה דו-ידניים, חנית או Polearm.",
+"alt": [
+{
 "en": "Can be equipped over a two-handed sword, axe, blunt weapon, spear or pole arm.",
 "he": "אפשר לצייד מעל חרב, גרזן או נשק קהה דו-ידניים, חנית או Polearm."
+}
+]
 },
 "item/5220": {
 "en": "A cute Kitty weapon skin that can be equipped over any weapon.",
 "he": "סקין נשק Kitty חמוד שאפשר לצייד מעל כל נשק."
 },
 "item/5219": {
+"en": "A forked pole. This weapon skin that can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, or Claw.",
+"he": "מוט מפוצל בקצהו. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A forked pole. This weapon skin that can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, Claw, Arm Cannon, Chain, Lucent Gauntlet, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster, or Whispershot.",
 "he": "מוט מפוצל בקצהו. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Chain, Lucent Gauntlet, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5221": {
+"en": "An adorable pink heart candy cane. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, or staff.",
+"he": "מקל סוכר חמוד בצורת לב ורוד. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "An adorable pink heart candy cane. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, wand, staff, ritual fan, or bladecaster.",
 "he": "מקל סוכר חמוד בצורת לב ורוד. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Ritual Fan או Bladecaster."
+}
+]
 },
 "item/5222": {
 "en": "A Blue Shiner that can be equipped over a bow.",
@@ -18060,60 +18348,144 @@
 "he": "אפשר לצייד מעל Claw."
 },
 "item/5228": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5229": {
+"en": "Lay the smackdown on foes with this hard-hitting fist! Smack talk not included! Can be equipped over a claw.",
+"he": "תנו לאויבים מכות עם האגרוף החזק הזה! עקיצות מילוליות לא כלולות! אפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "Lay the smackdown on foes with this hard-hitting fist! Smack talk not included! Can be equipped over a claw or Psy-limiter.",
 "he": "תנו לאויבים מכות עם האגרוף החזק הזה! עקיצות מילוליות לא כלולות! אפשר לצייד מעל Claw או Psy-limiter."
+}
+]
 },
 "item/5230": {
+"en": "A gold serpentine staff weapon skin that can be equipped over a wand or staff.",
+"he": "סקין נשק של מטה נחש מוזהב שאפשר לצייד מעל שרביט או מטה.",
+"alt": [
+{
 "en": "A gold serpentine staff weapon skin that can be equipped over a Wand or Staff.",
 "he": "סקין נשק של מטה נחש מוזהב שאפשר לצייד מעל שרביט או מטה."
+}
+]
 },
 "item/5231": {
+"en": "A Vengeance Claw weapon skin that can be equipped over a claw.",
+"he": "סקין נשק Vengeance Claw שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A Vengeance Claw weapon skin that can be equipped over Claw.",
 "he": "סקין נשק Vengeance Claw שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5232": {
+"en": "An ice flower. This weapon skin can be equipped over a one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
+"he": "פרח קרח. את סקין הנשק הזה אפשר לצייד מעל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "An ice flower. This weapon skin can be equipped over a one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "פרח קרח. את סקין הנשק הזה אפשר לצייד מעל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5233": {
+"en": "Can be equipped over a one-handed blunt weapon.",
+"he": "אפשר לצייד מעל נשק קהה ביד אחת.",
+"alt": [
+{
 "en": "Can be equipped over one-handed blunt weapon.",
 "he": "אפשר לצייד מעל נשק קהה ביד אחת."
+}
+]
 },
 "item/5234": {
+"en": "A Hook Hand weapon skin that can be equipped over a claw.",
+"he": "סקין נשק Hook Hand שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A Hook Hand weapon skin that can be equipped over Claw.",
 "he": "סקין נשק Hook Hand שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5235": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5236": {
+"en": "An adorable puppy. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
+"he": "גור כלבים חמוד. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "An adorable puppy. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "גור כלבים חמוד. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5237": {
+"en": "A magical wand. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, or claw.",
+"he": "שרביט קסום. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A magical wand. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "שרביט קסום. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5238": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5239": {
+"en": "A broken sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, or dagger.",
+"he": "חרב שבורה. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "A broken sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, ritual fan, or bladecaster.",
 "he": "חרב שבורה. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Ritual Fan או Bladecaster."
+}
+]
 },
 "item/5240": {
+"en": "A Bionic Claw that goes over an equipped claw.",
+"he": "Bionic Claw שמתלבש מעל Claw מצויד.",
+"alt": [
+{
 "en": "A Bionic Claw that goes over an equipped claw or Psy-limiter.",
 "he": "Bionic Claw שמתלבש מעל Claw או Psy-limiter מצוידים."
+}
+]
 },
 "item/5241": {
+"en": "Can be equipped over a wand or staff.",
+"he": "אפשר לצייד מעל שרביט או מטה.",
+"alt": [
+{
 "en": "Can be equipped over a wand, staff, or scepter.",
 "he": "אפשר לצייד מעל שרביט, מטה או Scepter."
+}
+]
 },
 "item/5242": {
 "en": "Can be equipped over a two-handed axe.",
@@ -18124,12 +18496,24 @@
 "he": "סקין נשק Moon Baton שאפשר לצייד מעל חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית או Polearm."
 },
 "item/5245": {
+"en": "A mercury sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "חרב כספית. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A mercury sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "חרב כספית. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5244": {
+"en": "A replica of the legendary Tania sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "העתק של חרב Tania האגדית. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A replica of the legendary Tania sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, katana, ritual fan, bladecaster, or Whispershot.",
 "he": "העתק של חרב Tania האגדית. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Katana, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5246": {
 "en": "A staff that glows with a sinister light. Can be equipped over a two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, or a staff.",
@@ -18140,28 +18524,58 @@
 "he": "סקין נשק Flame Tongue שאפשר לצייד מעל חרב דו-ידנית, גרזן דו-ידני או נשק קהה דו-ידני."
 },
 "item/5248": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5249": {
+"en": "A blazing sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "חרב בוערת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A blazing sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "חרב בוערת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5251": {
 "en": "Can be equipped over any two-handed sword, two-handed axe, two-handed blunt, staff, spear, or polearm.",
 "he": "אפשר לצייד מעל כל חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, מטה, חנית או Polearm."
 },
 "item/5250": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5252": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, or Wand.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון או שרביט.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5253": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5254": {
 "en": "Can be equipped over a knuckle.",
@@ -18172,124 +18586,286 @@
 "he": "את הנשק הזה, שדומה מאוד לטופר של נמר, אפשר להלביש מעל Knuckle מצויד."
 },
 "item/5256": {
+"en": "A Dogged Out weapon skin that can be equipped over a claw.",
+"he": "סקין נשק Dogged Out שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A Dogged Out weapon skin that can be equipped over Claw.",
 "he": "סקין נשק Dogged Out שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5257": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5258": {
 "en": "Can be equipped over a two-handed sword, two-handed axe, two-handed blunt, spear, or polearm.",
 "he": "אפשר לצייד מעל חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית או Polearm."
 },
 "item/5259": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Wand, or Staff.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5260": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5261": {
 "en": "Can be equipped over a two-handed sword, two-handed axe, two-handed blunt weapon, spear, or polearm.",
 "he": "אפשר לצייד מעל חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית או Polearm."
 },
 "item/5262": {
+"en": "Can be equipped over a gun.",
+"he": "אפשר לצייד מעל אקדח.",
+"alt": [
+{
 "en": "Can be equipped over Guns.",
 "he": "אפשר לצייד מעל אקדחים."
+}
+]
 },
 "item/5263": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5264": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5265": {
+"en": "Can only be equipped over knuckles.",
+"he": "אפשר לצייד רק מעל Knuckles.",
+"alt": [
+{
 "en": "Can only be equipped over Knuckles.",
 "he": "אפשר לצייד רק מעל Knuckles."
+}
+]
 },
 "item/5267": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5266": {
+"en": "A Party Popper weapon skin that can be equipped over a bow or crossbow.",
+"he": "סקין נשק Party Popper שאפשר לצייד מעל קשת או קשת צולבת.",
+"alt": [
+{
 "en": "A Party Popper weapon skin that can be equipped over Bow or Crossbow.",
 "he": "סקין נשק Party Popper שאפשר לצייד מעל קשת או קשת צולבת."
+}
+]
 },
 "item/5268": {
+"en": "A blazing sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "חרב בוערת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "A blazing sword. This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "חרב בוערת. את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5269": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5270": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, or Staff.",
+"he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט או מטה.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "סקין הנשק הזה ניתן להלבשה מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5271": {
 "en": "Can be equipped over a gun.",
 "he": "אפשר לצייד מעל אקדח."
 },
 "item/5272": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5273": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5274": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5275": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5276": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5277": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5278": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5279": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5280": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5281": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5283": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw. The color changes every day. (Mon: Red, Tues: Orange, Wed: Green, Thurs: Blue, Fri: Purple, Sat: Black, Sun: White)",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw. הצבע משתנה כל יום. (שני: אדום, שלישי: כתום, רביעי: ירוק, חמישי: כחול, שישי: סגול, שבת: שחור, ראשון: לבן)",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot. The color changes every day. (Mon: Red, Tues: Orange, Wed: Green, Thurs: Blue, Fri: Purple, Sat: Black, Sun: White)",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot. הצבע משתנה כל יום. (שני: אדום, שלישי: כתום, רביעי: ירוק, חמישי: כחול, שישי: סגול, שבת: שחור, ראשון: לבן)"
+}
+]
 },
 "item/5282": {
+"en": "Can only be equipped over a knuckle-type weapon.",
+"he": "אפשר לצייד רק מעל נשק מסוג Knuckle.",
+"alt": [
+{
 "en": "Can only be equipped over a Knuckle-type weapon.",
 "he": "אפשר לצייד רק מעל נשק מסוג Knuckle."
+}
+]
 },
 "item/5284": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, or Dagger.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, שרביט, מטה, Katana, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5285": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5286": {
 "en": "Can be equipped over a polearm.",
@@ -18300,68 +18876,158 @@
 "he": "אפשר לצייד מעל Polearm."
 },
 "item/5289": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5290": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5288": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, or Dagger.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Cane, Memorial Staff, Ritual Fan, Spirit Walker Fan, or Katana.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Cane, Memorial Staff, Ritual Fan, Spirit Walker Fan או Katana."
+}
+]
 },
 "item/5291": {
+"en": "This weapon skin can be equipped over any One-Handed Sword.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5292": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5293": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5295": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5294": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5296": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5298": {
 "en": "A Heartbreak Sword weapon skin that can be equipped over Wand, Staff, Two-handed Sword, Two-handed Axe, Two-handed Blunt Weapon, or Polearm.",
 "he": "סקין נשק Heartbreak Sword שאפשר לצייד מעל שרביט, מטה, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני או Polearm."
 },
 "item/5297": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5299": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5300": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5301": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, or Dagger.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5302": {
+"en": "A pair of Knockout Boxing Gloves weapon skin that can be equipped over a Claw.",
+"he": "זוג Knockout Boxing Gloves: סקין נשק שאפשר לצייד מעל Claw.",
+"alt": [
+{
 "en": "A pair of Knockout Boxing Gloves weapon skin that can be equipped over Claw.",
 "he": "זוג Knockout Boxing Gloves: סקין נשק שאפשר לצייד מעל Claw."
+}
+]
 },
 "item/5304": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5303": {
 "en": "Can only be equipped over a Wand-type weapon.",
@@ -18384,48 +19050,114 @@
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Claw, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
 },
 "item/5309": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5310": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5311": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5312": {
+"en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Knuckle, אקדח, Arm Cannon, Ancient Bow, Ritual Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5313": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5314": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow or Claw.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת או Claw.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Two-Handed Sword, Two-Handed Axe, Two-Handed Blunt Weapon, Spear, Polearm, Wand, Staff, Bow, Crossbow, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster, or Whispershot.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, חרב דו-ידנית, גרזן דו-ידני, נשק קהה דו-ידני, חנית, Polearm, שרביט, מטה, קשת, קשת צולבת, Claw, Arm Cannon, Ancient Bow, Ritual Fan, Spirit Walker Fan, Bladecaster או Whispershot."
+}
+]
 },
 "item/5315": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5316": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5317": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5318": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5319": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5320": {
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
@@ -18436,40 +19168,88 @@
 "he": "אפשר לצייד מעל Claw."
 },
 "item/5324": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5323": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5322": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5325": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5327": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5326": {
 "en": "Can be equipped over a bow or crossbow.",
 "he": "אפשר להלביש אותו מעל bow או crossbow."
 },
 "item/5328": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5329": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5330": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5331": {
 "en": "This weapon skin can be equipped over any one-handed sword, one-handed axe, one-handed blunt weapon, dagger, two-handed sword, two-handed axe, two-handed blunt weapon, spear, polearm, wand, staff, bow, crossbow, claw, knuckle, gun, arm cannon, ancient bow, ritual fan, bladecaster, or Whispershot.",
@@ -18488,132 +19268,318 @@
 "he": "סקין נשק שאפשר להלביש מעל"
 },
 "item/5335": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5336": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5337": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5339": {
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, Cane, Shining Rod, Psy-limiter, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר להלביש מעל כל One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Wand, Staff, Katana, Ritual Fan, Spirit Walker Fan, Cane, Shining Rod, Psy-limiter או Memorial Staff."
 },
 "item/5338": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5340": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5341": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5342": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5343": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5345": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5344": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5346": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5347": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5348": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5349": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5351": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5350": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5352": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5353": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5354": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5355": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5356": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5357": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5358": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5359": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5360": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5361": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, or Dagger.",
+"he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת או פגיון.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Dagger, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר לצייד מעל כל חרב ביד אחת, גרזן ביד אחת, נשק קהה ביד אחת, פגיון, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5362": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5363": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5364": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5365": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5366": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5367": {
 "en": "This weapon skin resembles Orchid's treasured bunny doll, given to her by her brother, Lotus, and can be equipped over any weapon.",
@@ -18628,148 +19594,352 @@
 "he": "אפשר להלביש אותו רק מעל Hand Cannons."
 },
 "item/5370": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5371": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5372": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5373": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5374": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5375": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5376": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5377": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5378": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5379": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5380": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5381": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5382": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5383": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5384": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5386": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5385": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, or One-Handed Blunt Weapon.",
+"he": "את סקין הנשק הזה אפשר להלביש מעל כל One-Handed Sword, One-Handed Axe או One-Handed Blunt Weapon.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Katana, Ritual Fan, Spirit Walker Fan, or Memorial Staff.",
 "he": "את סקין הנשק הזה אפשר להלביש מעל כל One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Katana, Ritual Fan, Spirit Walker Fan או Memorial Staff."
+}
+]
 },
 "item/5387": {
+"en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, pr One-Handed Blunt Weapon.",
+"he": "את סקין הנשק הזה אפשר להלביש מעל כל One-Handed Sword, One-Handed Axe או One-Handed Blunt Weapon.",
+"alt": [
+{
 "en": "This weapon skin can be equipped over any One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Ritual Fan, Spirit Walker Fan, Desperado, Chain Sword, Memorial Staff, or Katana.",
 "he": "את סקין הנשק הזה אפשר להלביש מעל כל One-Handed Sword, One-Handed Axe, One-Handed Blunt Weapon, Ritual Fan, Spirit Walker Fan, Desperado, Chain Sword, Memorial Staff או Katana."
+}
+]
 },
 "item/5389": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5388": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5390": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5392": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5391": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5393": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5394": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5395": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5396": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5397": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5398": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5399": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5401": {
 "en": "A weapon skin that can be equipped over any weapon. Designed by the China MapleStory player Xiaoshu.",
 "he": "סקין נשק שאפשר להלביש מעל כל נשק. עוצב על ידי Xiaoshu, שחקן China MapleStory."
 },
 "item/5400": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5402": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5403": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5404": {
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
 },
 "item/5405": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5407": {
 "en": "It's Hilla's favored weapon for putting an end to everything it encounters. This weapon skin can be equipped over any weapon.",
@@ -18784,40 +19954,88 @@
 "he": "לעולם אל תישארו בלי החברים שלכם מהים. את סקין הנשק הזה אפשר להלביש מעל כל נשק."
 },
 "item/5409": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5410": {
 "en": "This Seal Wave Snuggler weapon skin calls to mind beautiful sea waves and can be equipped over any weapon.",
 "he": "סקין הנשק Seal Wave Snuggler מזכיר גלי ים יפים, ואפשר להלביש אותו מעל כל נשק."
 },
 "item/5411": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5413": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5412": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5414": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5417": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5415": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5416": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5418": {
 "en": "A weapon skin that can be equipped over",
