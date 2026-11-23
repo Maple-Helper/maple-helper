@@ -12840,8 +12840,14 @@
 "he": "Wooden Club הוא נשק קהה חד-ידני לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא נותן +19 W.ATK. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
 },
 "item/586": {
+"en": "Blue Flowery Tube is a mid-level one-handed blunt weapon, equippable at level 35 or higher in MapleStory Classic. It grants +51 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Blue Flowery Tube הוא נשק קהה חד-ידני לרמות בינוניות, שאפשר לצייד מרמה 35 ומעלה ב-MapleStory Classic. הוא נותן +51 W.ATK ו-+1 ACC. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה.",
+"alt": [
+{
 "en": "Blue Flowery Tube is a early-game one-handed blunt weapon, equippable in MapleStory Classic. It grants +19 W.ATK and +1 ACC. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Blue Flowery Tube הוא נשק קהה חד-ידני לתחילת המשחק, שאפשר לצייד ב-MapleStory Classic. הוא נותן +19 W.ATK ו-+1 ACC. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+}
+]
 },
 "item/587": {
 "en": "Wizet Secret Agent Suitcase is an early-game one-handed blunt weapon, equippable in MapleStory Classic. It grants +200 W.ATK. Comes with 7 upgrade slots. Attack speed: Very Fast.",
@@ -12914,8 +12920,14 @@
 "he": "משפר את ה-STR של גלימות."
 },
 "item/600": {
+"en": "Red Flowery Tube is a mid-level one-handed blunt weapon, equippable at level 45 or higher in MapleStory Classic. It grants +61 W.ATK and +45 HP. Comes with 7 upgrade slots. Attack speed: Fast.",
+"he": "Red Flowery Tube הוא נשק קהה חד-ידני לרמות בינוניות, שאפשר לצייד מרמה 45 ומעלה ב-MapleStory Classic. הוא נותן +61 W.ATK ו-+45 HP. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה.",
+"alt": [
+{
 "en": "Red Flowery Tube is a low-level one-handed blunt weapon, equippable at level 25 or higher in MapleStory Classic. It grants +41 W.ATK and +30 HP. Comes with 7 upgrade slots. Attack speed: Fast.",
 "he": "Red Flowery Tube הוא נשק קהה חד-ידני לרמות נמוכות, שאפשר לצייד מרמה 25 ומעלה ב-MapleStory Classic. הוא נותן +41 W.ATK ו-+30 HP. מגיע עם 7 סלוטים לשדרוג. מהירות התקפה: מהירה."
+}
+]
 },
 "item/601": {
 "en": "Lollipop is a low-level one-handed blunt weapon, equippable at level 30 or higher in MapleStory Classic. It grants +29 W.ATK and +15 M.ATK. Comes with 7 upgrade slots. Attack speed: Fast.",
@@ -20038,16 +20050,34 @@
 ]
 },
 "item/5418": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5420": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5419": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5423": {
 "en": "A weapon skin that can be equipped over any weapon.",
@@ -20060,12 +20090,24 @@
 ]
 },
 "item/5422": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5421": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5424": {
 "en": "A weapon skin that can be equipped over any weapon.",
@@ -20078,8 +20120,14 @@
 ]
 },
 "item/5425": {
+"en": "A weapon skin that can be equipped over any weapon.",
+"he": "סקין נשק שאפשר להלביש מעל כל נשק.",
+"alt": [
+{
 "en": "A weapon skin that can be equipped over",
 "he": "סקין נשק שאפשר להלביש מעל"
+}
+]
 },
 "item/5426": {
 "en": "It's a shimmering natural scepter weapon skin that can be equipped over any weapon.",
@@ -21214,8 +21262,14 @@
 "he": "סקין לנשק שאפשר ללבוש מעל כל נשק."
 },
 "item/5577": {
+"en": "MapleStory Patrol Hat is an early-game hat, equippable in MapleStory Classic.",
+"he": "MapleStory Patrol Hat הוא כובע לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic.",
+"alt": [
+{
 "en": "Maplestory Patrol Hat is an early-game hat, equippable in MapleStory Classic.",
 "he": "Maplestory Patrol Hat הוא כובע לשלב המוקדם של המשחק, שאפשר ללבוש ב-MapleStory Classic."
+}
+]
 },
 "item/5577#about0": {
 "en": "The October 22 patch added this hat. There is no known way to get it yet: we have no monster drop, shop, quest, crafting recipe or Cash Shop listing for it.",
@@ -21640,5 +21694,9 @@
 "item/5680": {
 "en": "This box grants one random Equip item. The box contains only permanent items and can be traded to other players.",
 "he": "הקופסה הזו נותנת פריט Equip אקראי אחד. הקופסה מכילה רק פריטים קבועים ואפשר לסחור בה עם שחקנים אחרים."
+},
+"item/616#about0": {
+"en": "Added in the November 18 update (v.2.0).",
+"he": "נוסף בעדכון של 18 בנובמבר (v.2.0)."
 }
 }
