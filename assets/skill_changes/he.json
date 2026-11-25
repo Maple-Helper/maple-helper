@@ -24,12 +24,16 @@
   "he": "חדש בספר של Dragon Knight ב-COT2. ב-COT1, Hyper Body היה סקיל של Spearman (ג'וב 2)."
  },
  "skill/f-p-wizard__poison-breath": {
-  "en": "Basic Attack +10 at every level, 50 to 60 at Level 1 and 80 to 90 at max. Nexon also fixed Level 10, which did not deal damage properly.",
-  "he": "Basic Attack +10 בכל רמה: מ-50 ל-60 ברמה 1 ומ-80 ל-90 ברמה המקסימלית. Nexon גם תיקנו את רמה 10, שלא עשתה נזק כמו שצריך.",
+  "en": "Poison loses less damage on monsters 1 to 9 levels above you: about 11% more at 4 or 5 levels above, and 3% to 5% more at 1 or 9 levels above. From 10 levels above, nothing changed.",
+  "he": "ההרעלה מאבדת פחות נזק על מפלצות שנמצאות 1 עד 9 רמות מעליכם: בערך 11% יותר נזק כשהן 4 או 5 רמות מעליכם, ו-3% עד 5% יותר כשהן 1 או 9 רמות מעליכם. מ-10 רמות מעליכם ומעלה לא השתנה כלום.",
   "alt": [
    {
     "en": "COT1: the droplet dealt damage itself, so at max level the skill listed Basic Attack 40 for the droplet plus 35 for its explosion. COT2: the droplet only triggers, and the damage, Mastery, poison chance and poison damage all sit on the explosion, which hits up to 4 enemies. Max level now shows a single Basic Attack 80, with poison at 40 over 5 sec where COT1 had 30 over 8 sec.",
     "he": "ב-COT1 הטיפה עצמה עשתה נזק, ולכן ברמה המקסימלית הסקיל הראה Basic Attack 40 לטיפה ועוד 35 לפיצוץ. ב-COT2 הטיפה רק מפעילה את הפיצוץ, וכל הנזק, ה-Mastery, הסיכוי להרעלה ונזק ההרעלה עברו לפיצוץ, שפוגע בעד 4 מפלצות. ברמה המקסימלית יש עכשיו Basic Attack 80 אחד, והרעלה של 40 במשך 5 שניות, במקום 30 במשך 8 שניות ב-COT1."
+   },
+   {
+    "en": "Basic Attack +10 at every level, 50 to 60 at Level 1 and 80 to 90 at max. Nexon also fixed Level 10, which did not deal damage properly.",
+    "he": "Basic Attack +10 בכל רמה: מ-50 ל-60 ברמה 1 ומ-80 ל-90 ברמה המקסימלית. Nexon גם תיקנו את רמה 10, שלא עשתה נזק כמו שצריך."
    }
   ]
  },
@@ -37,17 +41,25 @@
   "en": "New in COT2: enemies hit by Slow also lose 5 Evasion for the duration. The Speed reduction stays at -30.",
   "he": "חדש ב-COT2: מפלצת שנפגעת מ-Slow מאבדת גם 5 Evasion כל עוד הוא פועל. הורדת ה-Speed נשארה 30-."
  },
+ "skill/fighter__axe-mastery": {
+  "en": "Bleed loses less damage on monsters 1 to 9 levels above you: about 11% more at 4 or 5 levels above, and 3% to 5% more at 1 or 9 levels above. From 10 levels above, nothing changed.",
+  "he": "ה-Bleed מאבד פחות נזק על מפלצות שנמצאות 1 עד 9 רמות מעליכם: בערך 11% יותר נזק כשהן 4 או 5 רמות מעליכם, ו-3% עד 5% יותר כשהן 1 או 9 רמות מעליכם. מ-10 רמות מעליכם ומעלה לא השתנה כלום."
+ },
  "skill/fighter__final-attack-sword": {
   "en": "Once enabled, Final Attack stays usable for 60 sec instead of 30 sec, at every level. The tooltip already said 60 sec.",
   "he": "אחרי שהוא מופעל, Final Attack נשאר זמין ל-60 שניות במקום 30 שניות, בכל הרמות. בתיאור הסקיל כבר היה כתוב 60 שניות."
  },
  "skill/fighter__rush": {
-  "en": "Distance at Level 10 raised from 130 to 150, as the tooltip says. It used to rise at Level 11.",
-  "he": "המרחק ברמה 10 עלה מ-130 ל-150, כמו שכתוב בתיאור הסקיל. קודם הוא עלה רק ברמה 11.",
+  "en": "Rush now pulls monsters at once instead of waiting for the server, so they are less likely to snap back into you, and lag or high ping no longer stops the pull. Distance, damage and the boss rule are unchanged.",
+  "he": "Rush מושך עכשיו מפלצות מיד במקום לחכות לשרת, כך שפחות סביר שהן יקפצו חזרה אליכם, ולאג או פינג גבוה כבר לא עוצרים את המשיכה. המרחק, הנזק והכלל לגבי בוסים לא השתנו.",
   "alt": [
    {
     "en": "COT1: this slot was Power Guard (Fighter, 2nd job). COT2: Power Guard moved to Crusader (3rd job) and the slot is now Rush.",
     "he": "ב-COT1 המקום הזה היה Power Guard (של Fighter, ג'וב 2). ב-COT2, Power Guard עבר ל-Crusader (ג'וב 3), ובמקומו יש עכשיו Rush."
+   },
+   {
+    "en": "Distance at Level 10 raised from 130 to 150, as the tooltip says. It used to rise at Level 11.",
+    "he": "המרחק ברמה 10 עלה מ-130 ל-150, כמו שכתוב בתיאור הסקיל. קודם הוא עלה רק ברמה 11."
    }
   ]
  },
@@ -94,6 +106,10 @@
  "skill/warrior__iron-body": {
   "en": "Weapon Def. +5% to +20% at Level 1, +25% to +40% at max. MP cost and duration are unchanged.",
   "he": "ה-Weapon Def. עלה מ-+5% ל-+20% ברמה 1, ומ-+25% ל-+40% ברמה המקסימלית. עלות ה-MP ומשך הזמן לא השתנו."
+ },
+ "skill/warrior__power-strike": {
+  "en": "The knockback now lands at once instead of waiting for the server, so a monster is less likely to walk into you, and lag or high ping no longer stops it from being knocked back. Damage, knockback chance and distance are unchanged.",
+  "he": "ההדיפה קורית עכשיו מיד במקום לחכות לשרת, כך שפחות סביר שמפלצת תיכנס בכם, ולאג או פינג גבוה כבר לא מונעים ממנה להיהדף. הנזק, הסיכוי להדיפה והמרחק לא השתנו."
  },
  "skill/white-knight__power-guard": {
   "en": "New to the White Knight book in COT2. In COT1 Power Guard was a Page (2nd job) skill.",
