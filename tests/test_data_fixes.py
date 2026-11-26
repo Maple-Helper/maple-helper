@@ -12,9 +12,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from maplehelper import combat, crafting, glossary, jobs, plan, quests, quick
+from maplehelper import combat, crafting, glossary, jobs, plan, quests, quick, sources
 from maplehelper.i18n import I18n
-from maplehelper.kb import ALIAS_DROP, KnowledgeBase, _norm
+from maplehelper.kb import ALIAS_DROP, KnowledgeBase, _norm, drop_row_name
 
 ROOT = Path(__file__).resolve().parent.parent
 REAL_KB = ROOT / "data" / "kb"
@@ -754,7 +754,9 @@ def test_real_shared_and_dropped_aliases(real):
 @needs_kb
 def test_real_drops_of_duplicate_named_items(real):
     """Iron Hog's "Blue Moon / Lv 50" is the Lv 50 top (item/1088), not the Lv 40 earring of the same name: on every
-    monster page, a drop line whose name several items share is the item of the level written under it."""
+    monster page, a drop line whose name several items share is the item of the level written under it. The
+    2026-11-26 layout writes no level ("Blue Moon MSEA"): there it is the one item whose own "Dropped By" list
+    names the monster."""
     shared = {}
     for k, e in real.entities.items():
         if e["category"] == "item":
@@ -766,10 +768,17 @@ def test_real_drops_of_duplicate_named_items(real):
         lines = real.page(k).split("\n")
         lv = {lines[i].strip(): int(m.group(1)) for i in range(len(lines) - 1)
               if len(shared.get(lines[i].strip(), [])) > 1 and (m := re.match(r"Lv (\d+)\b", lines[i + 1]))}
+        rows = [drop_row_name(ln) for ln in lines if drop_row_name(ln) != ln.strip()]
         for item in real.monster_drops(k):
-            if real.get(item)["name"] in lv:
+            name = real.get(item)["name"]
+            if name in lv:
                 checked += 1
-                assert real.get(item)["props"].get("Level Requirement") == lv[real.get(item)["name"]], (k, item)
+                assert real.get(item)["props"].get("Level Requirement") == lv[name], (k, item)
+            elif (len(shared.get(name, [])) > 1 and rows.count(name) == 1
+                  and item in real.drop_lists(k)[sources.MSEA]
+                  and len(by := [i for i in shared[name] if real._dropped_by(i, e["name"])]) == 1):
+                checked += 1
+                assert item == by[0], (k, item)
     assert checked                                     # the KB still has such drops, so the rule is exercised
 
 
