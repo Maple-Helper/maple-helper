@@ -136,6 +136,16 @@ _VARIANT = re.compile(r"\s*\(.*?\)|\s+Instance \d+$")
 PREFIX_FROM = 4        # Hebrew letters a name needs before a glued prefix counts ("לאן" is not ל + "אן")
 _PREFIX = "[בלמהושכ]{1,2}"
 DROPS_MARK = tables.DROPS_MARK
+# a drop row since 2026-11-26: the name, then the source's rate and odds and/or an "MSEA" tag ("Subi Throwing Stars
+# OSMLib 3% MSEA About 1 in 33.33", "Sunrise Dew MSEA"); the list's first row starts with its "44 not seen in Classic
+# yet" count
+_DROP_ROW_TAIL = re.compile(r"(?: [A-Za-z]+ [\d.]+%(?: MSEA)? About 1 in [\d,.]+| MSEA)$")
+_DROP_ROW_HEAD = re.compile(r"^\d+ not seen in Classic yet ")
+
+
+def drop_row_name(line: str) -> str:
+    """The item name of one line of a monster's drop list, in the old layout (the name alone) or the new one."""
+    return _DROP_ROW_TAIL.sub("", _DROP_ROW_HEAD.sub("", line.strip()))
 NAMES_TABLE = "names.tsv"     # key, category, name, type: one line per entity, for the AI to grep (tables.py)
 REWARDS_TABLE = "rewards.tsv"  # quest -> item rewards, one line per reward (tables.py)
 COMMUNITY_FILE = "community.json"     # players' drop and mesos reports per monster (tools/scrape_community.py)
@@ -936,7 +946,8 @@ class KnowledgeBase:
                     end = j
             return end
 
-        msea_head = re.compile(r"^MSEA reference drops\s*$", re.M | re.I)
+        # "MSEA reference drops" became "Reference drops" on 2026-11-26 (MSEA_HEAD)
+        msea_head = re.compile(sources.MSEA_HEAD.pattern, re.M | re.I)
         i = body.find("Drops (MS Classic)")
         if i >= 0:
             block = body[i:upto(i)]
@@ -953,7 +964,7 @@ class KnowledgeBase:
                 lines = text.split("\n")
                 again: dict[str, int] = {}       # a name the list repeats: its next item of that name
                 for n, line in enumerate(lines):
-                    item = line.strip().lower()
+                    item = drop_row_name(line).lower()
                     k = self._drop_item(item, lines[n + 1].strip() if n + 1 < len(lines) else "", name,
                                         again.get(item, 0))
                     again[item] = again.get(item, 0) + 1

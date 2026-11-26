@@ -13,7 +13,7 @@ import pytest
 
 from maplehelper import bidi, brain, market, quick, recent, sources
 from maplehelper.i18n import I18n
-from maplehelper.kb import KnowledgeBase
+from maplehelper.kb import KnowledgeBase, drop_row_name
 
 ROOT = Path(__file__).resolve().parent.parent
 REAL_KB = ROOT / "data" / "kb"
@@ -219,6 +219,21 @@ def test_drops_read_the_msea_list_further_down_the_page(tmp_path):
                             ("item/11", "Red Potion", {"_type": "Use / Potion"}, ""),
                             ("item/13", "Snail Shell", {"_type": "Etc / Monster Drop"}, "")])
     assert kb.drop_lists("monster/1") == {sources.COMMUNITY: [], sources.MSEA: ["item/13", "item/11"]}
+
+
+def test_drops_read_the_reference_list_one_row_per_drop(tmp_path):
+    # the layout since 2026-11-26: "Reference drops", each drop one row with OSMLib's rate and/or an MSEA tag, the
+    # first row after the list's "not seen in Classic yet" count (every monster's MSEA drops were lost again)
+    rows = ("Drops (MS Classic)\nCommunity sourced\nReference drops\n"
+            "2 not seen in Classic yet Snail Shell OSMLib 60% About 1 in 1.67\n"
+            "Red Potion OSMLib 50% MSEA About 1 in 2\nBlue Moon MSEA\nSource: OSMLib\nAccuracy to Hit\n")
+    kb = make_kb(tmp_path, [("monster/1", "Snail", {"Level": 1}, rows),
+                            ("item/11", "Red Potion", {"_type": "Use / Potion"}, ""),
+                            ("item/13", "Snail Shell", {"_type": "Etc / Monster Drop"}, ""),
+                            ("item/14", "Blue Moon", {"_type": "Equip / Top"}, "")])
+    assert kb.drop_lists("monster/1") == {sources.COMMUNITY: [], sources.MSEA: ["item/13", "item/11", "item/14"]}
+    assert drop_row_name("Black Hunter OSMLib 0.007% About 1 in 14,285.71") == "Black Hunter"
+    assert drop_row_name("Snail Shell") == "Snail Shell"        # the old layout's name alone
 
 
 def test_drop_table_has_a_source_column(tiny):
@@ -429,7 +444,7 @@ FAMILIES = {
     "history": re.compile(r"^updated (?:in|at) .+ ▾"),
     "prices": re.compile(r"^\S+ prices(?: .*[+→])?$"),
     "respawn": re.compile(r"^\S+ map data stores "),
-    "drops": re.compile(r"^MSEA reference drops$", re.I),
+    "drops": re.compile(r"^(?:MSEA )?reference drops$", re.I),
     "community_list": re.compile(r"^Community sourced"),
     "fm_reports": re.compile(r"^(Community price check|Player reported|Saw it in a shop[?] Add a price"
                              r"|Add a price: Seen in a shop · Sold for)$"),

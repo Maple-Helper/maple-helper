@@ -3,6 +3,7 @@ pages, staleness and rebuilds, whole-or-nothing writes, a bad page or table neve
 KB's tables (data/kb, built in memory: nothing is written into it)."""
 import json
 import os
+import re
 import shutil
 from pathlib import Path
 
@@ -623,10 +624,13 @@ def test_real_tables_audit_fixes(real):
     # "Success rate :100%" and "Success rate:10%" are read like "Success rate: 60%"
     assert one(t["scrolls"], scroll="Cape DEX Scroll: Lesser")["success"] == 100
     assert one(t["scrolls"], scroll="Spear Attack Scroll: Greater")["success"] == 10
-    # Henesys armor is sold by Henesys' Sam, once; a shop table's own spelling finds its item
+    # Henesys armor is sold by Henesys' Sam, once; a shop table's own spelling finds its item (an item the site has
+    # no page for yet, under any spelling, has none to find: Nyroth's Mystery Deco Box, 2026-11-26)
     assert not [r for r in t["shops"] if r["npc_key"] == kb.npc_key("Sam") and "Henesys" in r["place"]]
     pairs = [(r["npc_key"], r["item_key"]) for r in t["shops"]]
-    assert len(pairs) == len(set(pairs)) and all(r["item_key"] for r in t["shops"])
+    spelled = {re.sub(r"\W", "", e["name"].lower()) for e in kb.entities.values() if e["category"] == "item"}
+    assert len(pairs) == len(set(pairs))
+    assert not [r["item"] for r in t["shops"] if not r["item_key"] and re.sub(r"\W", "", r["item"].lower()) in spelled]
     # "Craftable (2 recipes)": the craftable arrows are in the game
     assert [r for r in t["consumables"] if r["item"] == "Iron Arrows for Crossbows"]
     # one row per boss (the map-less copy goes), the twins told apart, the best map in the game is rank 1
