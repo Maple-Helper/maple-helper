@@ -65,7 +65,10 @@ _EXP_REFERENCE = re.compile(r"Levels (\d+) to (\d+) reproduce a historical refer
 FM_REPORTS = ("Community price check", "Player reported", "Saw it in a shop? Add a price",
               "Saw it in a shop, or sold one? Add a shop price · Add a sold price",
               "Add a price: Seen in a shop · Sold for")
-_MSEA_DROPS = re.compile(r"^MSEA reference drops$", re.I)
+# the reference drop list's heading: "MSEA reference drops", "Reference drops" since 2026-11-26 (its rows now say
+# which reference each drop comes from: OSMLib's rate, an MSEA tag)
+MSEA_HEAD = re.compile(r"^(?:MSEA )?reference drops\s*$", re.I)
+_MSEA_DROPS = MSEA_HEAD
 EXP_GUIDE = "guide/exp-table-level-1-to-100"
 RELEASE_GUIDE = "guide/maplestory-classic-worlds-release-date"
 
