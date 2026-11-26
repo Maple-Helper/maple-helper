@@ -1,5 +1,18 @@
 [
  {
+  "version": "0.20.9",
+  "he": [
+   "רשימות הדרופים של המפלצות מוצגות שוב במלואן. מאז 26.11 מקור הנתונים מציג אותן במבנה חדש, והאפליקציה קוראת אותו עכשיו.",
+   "תיקון בספירת השיקויים ב-Quick slots: פריט בהיר כמו Moon Bunny's Rice Cake כבר לא מסתיר שיקוי אחר.",
+   "שמות ותיאורים חדשים בעברית: עדכון נובמבר, Forgotten Hollow, חנות ה-Cash ועוד."
+  ],
+  "en": [
+   "Monster drop lists show in full again. Since November 26 the data source lays them out differently, and the app reads the new layout.",
+   "Quick slot potion counting: a pale item such as Moon Bunny's Rice Cake no longer hides another potion.",
+   "New Hebrew names and texts: the November update, Forgotten Hollow, the Cash Shop and more."
+  ]
+ },
+ {
   "version": "0.20.8",
   "he": [
    "עדכון נובמבר: Forgotten Hollow פתוח באפליקציה. 11 המפלצות החדשות, כולל הבוס Rotten Mushmom, המפות, הקווסטים והדרופים מופיעים בחיפוש, בכלי האימון ובצ'אט.",
