@@ -14,7 +14,7 @@
   },
   "aliases/he.json": {
    "contract": 1,
-   "sha256": "ccd8303bf4b25387046611da5fd5aa905fc63c75c663055d33c51fdd31f8eb42"
+   "sha256": "983ab2df8fc6079f966601d9289eb6289b2542e466abd3b8c4f6b3edd360b3b5"
   },
   "cashshop/he.json": {
    "contract": 1,
@@ -562,7 +562,7 @@
   },
   "items/he.json": {
    "contract": 1,
-   "sha256": "6a887636aadae43680a95fc8d5b4eb3682f2220e49cc9c41e3cd712faad92842"
+   "sha256": "10a3bebbec29b5dcb6b3110d24c0903f5f67fe7f8e87859d1ed5b3b75651960b"
   },
   "live/config.json": {
    "contract": 1,
@@ -570,7 +570,7 @@
   },
   "news/he.json": {
    "contract": 1,
-   "sha256": "d2f2516f47e2cb36c8963ab1dc636f9aa4f91a329509f2853b017e70b4c13b13"
+   "sha256": "30f8e64734050a407693c6cddbe515a70defe5d45154d088549d9b018e13261d"
   },
   "official/facts.json": {
    "contract": 1,
@@ -586,7 +586,7 @@
   },
   "skill_changes/he.json": {
    "contract": 1,
-   "sha256": "89a827a629b175383e2f0be860eae96dc0100c63f2a9d20dc5d9624e3f46c97b"
+   "sha256": "b5b68b94af56f7722bde16e2b0375aaf8dd39e1c48f4c9b746b752a0d06cc96f"
   },
   "skills/he.json": {
    "contract": 1,

@@ -21472,28 +21472,64 @@
 "he": "השתמשו בו כדי לזמן Turkey. שומעים מבפנים רעשים מוזרים..."
 },
 "item/5625": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5626": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5627": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5628": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5629": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5630": {
+"en": "If you think your level's too low, don't bother opening it. The summoned monster will disappear after 5 minutes.",
+"he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה. המפלצת שתזומן תיעלם אחרי 5 דקות.",
+"alt": [
+{
 "en": "If you think your level's too low, don't bother opening it.",
 "he": "אם אתם חושבים שהרמה שלכם נמוכה מדי, אל תטרחו לפתוח את זה."
+}
+]
 },
 "item/5631": {
 "en": "Double-click to receive Turkey x1.",
@@ -21698,5 +21734,53 @@
 "item/616#about0": {
 "en": "Added in the November 18 update (v.2.0).",
 "he": "נוסף בעדכון של 18 בנובמבר (v.2.0)."
+},
+"item/5606#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5607#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5608#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5609#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5610#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5611#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5612#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5613#about0": {
+"en": "Expires on January 6, 2027 at 12:00 AM UTC.",
+"he": "התוקף פג ב-6 בינואר 2027 ב-00:00 UTC."
+},
+"item/5625#about0": {
+"en": "The Companion's Magic Box from KPQ gives this sack again since the November 24 update, at a lower chance than before.",
+"he": "ה-Companion's Magic Box מ-KPQ נותן שוב את השק הזה מאז העדכון של 24 בנובמבר, בסיכוי נמוך יותר מבעבר."
+},
+"item/5625#about1": {
+"en": "Found in: Companion's Magic Box player reported",
+"he": "נמצא בתוך: Companion's Magic Box לפי דיווח של שחקנים"
+},
+"item/5626#about0": {
+"en": "The Companion's Magic Box from KPQ gives this sack again since the November 24 update, at a lower chance than before.",
+"he": "ה-Companion's Magic Box מ-KPQ נותן שוב את השק הזה מאז העדכון של 24 בנובמבר, בסיכוי נמוך יותר מבעבר."
+},
+"item/5626#about1": {
+"en": "Found in: Companion's Magic Box player reported",
+"he": "נמצא בתוך: Companion's Magic Box לפי דיווח של שחקנים"
 }
 }
