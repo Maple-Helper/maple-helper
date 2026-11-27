@@ -14,7 +14,7 @@
   },
   "aliases/he.json": {
    "contract": 1,
-   "sha256": "d6e3e0f669805255a8ba17dd7577f8c01db8b06627f8abf8c49114d412e03600"
+   "sha256": "f4482db1e98f305c7cb3b927f434c35860b7ff12127af7003d9042497906a994"
   },
   "cashshop/he.json": {
    "contract": 1,
@@ -582,7 +582,7 @@
   },
   "quest_tasks/he.json": {
    "contract": 1,
-   "sha256": "a1d20c7e2d8fd3e7aa7db9dafe6e24a2bec3afd68618e4c1f99d343ccaa13e57"
+   "sha256": "2ebcf98b5ab7c647e057e7bd2a276e7f0820361d398e8b5d39761a19e68f875a"
   },
   "skill_changes/he.json": {
    "contract": 1,
