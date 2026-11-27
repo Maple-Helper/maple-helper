@@ -907,14 +907,14 @@
     "quest",
     "scroll"
    ],
-   "why": "Quest Rewards sections with 'Earring ... Scroll' items: Proof of Companionship (Kerning City) and Regained Vitality (Citizenship) are in game; The Road Back Home (Forgotten Hollow), A Report from Corporal Easy and Alcaster and the Dark Crystal (El Nath) are not (availability.quest_open).",
+   "why": "Quest Rewards sections with 'Earring ... Scroll' items: Proof of Companionship (Kerning City) and Regained Vitality (Citizenship) are in game; A Step Toward Home (Forgotten Hollow), A Report from Corporal Easy and Alcaster and the Dark Crystal (El Nath) are not (availability.quest_open).",
    "checks": {
     "must_list": [
      "Proof of Companionship",
      "Regained Vitality"
     ],
     "must_not_list": [
-     "The Road Back Home",
+     "A Step Toward Home",
      "A Report from Corporal Easy",
      "Alcaster and the Dark Crystal"
     ]
