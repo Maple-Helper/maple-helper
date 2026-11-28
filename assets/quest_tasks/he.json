@@ -68,16 +68,28 @@
   "he": "Pia ביקשה גם להחזיר את ה-Red Cape ש-Rina ב-Henesys שאלה, כדי לתת גם אותו לחברה שלה. היא תיתן משהו נחמד אם נביא לה אותו."
  },
  "quest/10608": {
-  "en": "Grendel the Really Old asked me to speak with Arwen the Fairy in Ellinia. While he is human, the fairies are native to the forest and can naturally sense the distress of the ancient woods.",
-  "he": "Grendel the Really Old ביקש לדבר עם Arwen the Fairy ב-Ellinia. הוא בן אדם, אבל הפיות הן ילידות היער ומרגישות באופן טבעי במצוקה של היער העתיק."
+  "en": "Grendel the Really Old asked me to speak with Arwen the Fairy in Ellinia. He is human, but the fairies are native to the forest and can sense the distress of the ancient woods.",
+  "he": "Grendel the Really Old ביקש לדבר עם Arwen the Fairy ב-Ellinia. הוא בן אדם, אבל הפיות הן ילידות היער ומרגישות במצוקה של היער העתיק.",
+  "alt": [
+   {
+    "en": "Grendel the Really Old asked me to speak with Arwen the Fairy in Ellinia. While he is human, the fairies are native to the forest and can naturally sense the distress of the ancient woods.",
+    "he": "Grendel the Really Old ביקש לדבר עם Arwen the Fairy ב-Ellinia. הוא בן אדם, אבל הפיות הן ילידות היער ומרגישות באופן טבעי במצוקה של היער העתיק."
+   }
+  ]
  },
  "quest/10610": {
   "en": "I must speak with Grendel the Really Old. I need to tell him that Arwen the Fairy tracked the dark resonance directly to The Tree Tunnel At the Forest Up North.",
   "he": "צריך לדבר עם Grendel the Really Old ולספר לו ש-Arwen the Fairy עקבה אחרי התהודה האפלה ישירות עד The Tree Tunnel At the Forest Up North."
  },
  "quest/10611": {
-  "en": "I must travel to The Tree Tunnel At the Forest Up North, find the newly opened abyss, and descend into the Forgotten Hollow to see what remains of the fairy homeland.",
-  "he": "צריך להגיע ל-The Tree Tunnel At the Forest Up North, למצוא את התהום שנפתחה ולרדת אל Forgotten Hollow כדי לראות מה נשאר ממולדת הפיות."
+  "en": "I must find the newly opened abyss at the bottom of The Tree Tunnel At the Forest Up North, or take the other path down at the bottom right of Sleepy Dungeon V, and descend into the Forgotten Hollow to see what remains of the fairy homeland.",
+  "he": "צריך למצוא את התהום שנפתחה בתחתית The Tree Tunnel At the Forest Up North, או לקחת את הדרך השנייה למטה בפינה הימנית התחתונה של Sleepy Dungeon V, ולרדת אל Forgotten Hollow כדי לראות מה נשאר ממולדת הפיות.",
+  "alt": [
+   {
+    "en": "I must travel to The Tree Tunnel At the Forest Up North, find the newly opened abyss, and descend into the Forgotten Hollow to see what remains of the fairy homeland.",
+    "he": "צריך להגיע ל-The Tree Tunnel At the Forest Up North, למצוא את התהום שנפתחה ולרדת אל Forgotten Hollow כדי לראות מה נשאר ממולדת הפיות."
+   }
+  ]
  },
  "quest/80000": {
   "en": "After easily passing the test Trainer Bartos of Henesys gave me, I got a hold of the Water of Life and Life Scroll and got them to Mar the Fairy. With her magical power and the items I got her, she turned the doll back into a living pet. I can hang out with him for a while longer now... Sweet...",

@@ -582,11 +582,11 @@
   },
   "quest_tasks/he.json": {
    "contract": 1,
-   "sha256": "a1d20c7e2d8fd3e7aa7db9dafe6e24a2bec3afd68618e4c1f99d343ccaa13e57"
+   "sha256": "7ed479ebd6a8e9664374840fed4fb3ba35434dbfd87321e938af6afc950b3714"
   },
   "skill_changes/he.json": {
    "contract": 1,
-   "sha256": "b5b68b94af56f7722bde16e2b0375aaf8dd39e1c48f4c9b746b752a0d06cc96f"
+   "sha256": "e8b65c7879fb91b1d4f515b2e09446a60a80fb93514ccc9fd020ff976f38a11c"
   },
   "skills/he.json": {
    "contract": 1,
