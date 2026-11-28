@@ -114,5 +114,9 @@
  "skill/white-knight__power-guard": {
   "en": "New to the White Knight book in COT2. In COT1 Power Guard was a Page (2nd job) skill.",
   "he": "חדש בספר של White Knight ב-COT2. ב-COT1, Power Guard היה סקיל של Page (ג'וב 2)."
+ },
+ "skill/bandit__steal": {
+  "en": "Fixed a bug where a Steal that missed still made the monster drop mesos and items, stole an item and gave the buff.",
+  "he": "תוקן באג שבו Steal שהחטיא עדיין גרם למפלצת להפיל mesos ופריטים, גנב פריט ונתן את הבאף."
  }
 }
